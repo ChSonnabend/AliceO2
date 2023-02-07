@@ -69,6 +69,10 @@ if(OpenMP_CXX_FOUND)
   target_link_libraries(${mergertargetName} PRIVATE OpenMP::OpenMP_CXX)
 endif()
 
+o2_add_executable(mc-labels
+                  COMPONENT_NAME tpc
+                  SOURCES src/readMCtoTree.cxx
+                  PUBLIC_LINK_LIBRARIES O2::TPCWorkflow O2::SimulationDataFormat)
 
 o2_add_executable(reco-workflow
                   COMPONENT_NAME tpc
