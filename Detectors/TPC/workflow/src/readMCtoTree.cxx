@@ -93,6 +93,8 @@ void readMCtruth::run(ProcessingContext& pc)
         std::cout << "Filling branch " << (fmt::format("mc_labels_sector_{:d}", ib)).c_str() << "\n";
       }
       int nd = digits[ib]->size();
+      int val = 0;
+      mcTree->Branch(fmt::format("mc_labels_sector_{:d}", ib).c_str(), &val, fmt::format("mc_labels_sector_{:d}/I", ib).c_str());
       for (int idig = 0; idig < nd; idig++) {
         const auto& digit = (*digits[ib])[idig];
         o2::MCCompLabel lab;
@@ -102,13 +104,13 @@ void readMCtruth::run(ProcessingContext& pc)
         if (verbose > 1) {
           std::cout << "Digit " << digit << " from " << lab << "; is noise: " << (lab.isNoise() ? "TRUE" : "FALSE") << "; is valid: " << (lab.isValid() ? "TRUE" : "FALSE") << "\n";
         }
-        mcTree->Branch(fmt::format("mc_labels_sector_{:d}", ib).c_str(), (lab.isValid() ? 1 : 0), "valid/I");
+        val = (lab.isValid() ? 1 : 0);
+        mcTree->Fill();
       }
       if (verbose > 0) {
         std::cout << "Filled branch " << (fmt::format("mc_labels_sector_{:d}", ib)).c_str() << "\n";
       }
     }
-    mcTree->Fill();
   }
   outputFile.Write();
   outputFile.Close();
@@ -116,37 +118,6 @@ void readMCtruth::run(ProcessingContext& pc)
   pc.services().get<ControlService>().endOfStream();
   pc.services().get<ControlService>().readyToQuit(QuitRequest::Me);
 }
-
-// void readMCtruth::run(ProcessingContext& pc){
-//
-//     // Reading...
-//     TFile fin(infile.c_str(), "OPEN");
-//     LOG(info) << "Opened infile...";
-//     auto treein = (TTree*)fin.Get("o2sim");
-//     LOG(info) << "Read the tree...";
-//     dataformats::IOMCTruthContainerView* io = nullptr;
-//     std::string digitMCBranchName = fmt::format("TPCDigitMCTruth_{:d}", sectorsRead).c_str();
-//     auto cont = o2::dataformats::MCLabelIOHelper::loadFromTTree(treein, digitMCBranchName.c_str(), 0);
-//     LOG(info) <<  "Reading branch: " + digitMCBranchName;
-//
-//     // Writing...
-//     TFile fout(outfile.c_str(), sectorsRead==0 ? "RECREATE" : "UPDATE");
-//     LOG(info) << "Writing to outfile...";
-//     TTree treeout("o2sim", "o2sim");
-//     auto br = treeout.Branch(digitMCBranchName.c_str(), &io, 32000, 2);
-//     LOG(info) << "Writing labels";
-//     treeout.Fill();
-//     treeout.Write();
-//     fout.Close();
-//     LOG(info) << "Done!";
-//
-//     sectorsRead++;
-//
-//     if (sectorsRead >= 36) {
-//         pc.services().get<ControlService>().endOfStream();
-//         pc.services().get<ControlService>().readyToQuit(QuitRequest::Me);
-//     }
-// }
 
 #include "Framework/runDataProcessing.h"
 
