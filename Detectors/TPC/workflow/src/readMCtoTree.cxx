@@ -43,32 +43,31 @@ void readMCtruth::run(ProcessingContext& pc)
   int nBranches = 0;
   bool mcPresent = false, perSector = false;
 
-  if (digitTree->GetBranch("TPPCDigit")) {
-    LOG(info) << "Joint digit branch is found";
-    nBranches = 1;
-    digitTree->SetBranchAddress("TPCDigit", &digits[0]);
-    if (digitTree->GetBranch("TPCDigitMCTruth")) {
-      mcPresent = true;
-      digitTree->SetBranchAddress("TPCDigitMCTruth", &plabels[0]);
-    }
-  } else {
-    nBranches = 36;
-    perSector = true;
-    for (int i = 0; i < 36; i++) {
-      std::string digBName = fmt::format("TPCDigit_{:d}", i).c_str();
-      if (digitTree->GetBranch(digBName.c_str())) {
-        digitTree->SetBranchAddress(digBName.c_str(), &digits[i]);
-        std::string digMCBName = fmt::format("TPCDigitMCTruth_{:d}", i).c_str();
-        if (digitTree->GetBranch(digMCBName.c_str())) {
-          mcPresent = true;
-          digitTree->SetBranchAddress(digMCBName.c_str(), &plabels[i]);
-        }
+  nBranches = 36;
+  perSector = true;
+  for (int i = 0; i < 36; i++) {
+    std::string digBName = fmt::format("TPCDigit_{:d}", i).c_str();
+    if (digitTree->GetBranch(digBName.c_str())) {
+      digitTree->SetBranchAddress(digBName.c_str(), &digits[i]);
+      std::string digMCBName = fmt::format("TPCDigitMCTruth_{:d}", i).c_str();
+      if (digitTree->GetBranch(digMCBName.c_str())) {
+        mcPresent = true;
+        digitTree->SetBranchAddress(digMCBName.c_str(), &plabels[i]);
       }
     }
   }
 
   TFile outputFile(outfile.c_str(), "RECREATE");
   TTree* mcTree = new TTree("mcLabels", "MC tree");
+
+  Int_t sector;
+  Int_t row;
+  Int_t pad;
+  Int_t validity;
+  mcTree->Branch("sector", &sector);
+  mcTree->Branch("row", &row);
+  mcTree->Branch("pad", &pad);
+  mcTree->Branch("isValid", &validity);
 
   o2::dataformats::ConstMCTruthContainer<o2::MCCompLabel> labels[36];
 
@@ -93,8 +92,7 @@ void readMCtruth::run(ProcessingContext& pc)
         std::cout << "Filling branch " << (fmt::format("mc_labels_sector_{:d}", ib)).c_str() << "\n";
       }
       int nd = digits[ib]->size();
-      int val = 0;
-      mcTree->Branch(fmt::format("mc_labels_sector_{:d}", ib).c_str(), &val, fmt::format("mc_labels_sector_{:d}/I", ib).c_str());
+
       for (int idig = 0; idig < nd; idig++) {
         const auto& digit = (*digits[ib])[idig];
         o2::MCCompLabel lab;
@@ -104,7 +102,10 @@ void readMCtruth::run(ProcessingContext& pc)
         if (verbose > 1) {
           std::cout << "Digit " << digit << " from " << lab << "; is noise: " << (lab.isNoise() ? "TRUE" : "FALSE") << "; is valid: " << (lab.isValid() ? "TRUE" : "FALSE") << "\n";
         }
-        val = (lab.isValid() ? 1 : 0);
+        sector = ib;
+        row = digit.getRow();
+        pad = digit.getPad();
+        validity = (lab.isValid() ? 1 : 0);
         mcTree->Fill();
       }
       if (verbose > 0) {
@@ -112,7 +113,8 @@ void readMCtruth::run(ProcessingContext& pc)
       }
     }
   }
-  outputFile.Write();
+  mcTree->Write();
+  delete mcTree;
   outputFile.Close();
 
   pc.services().get<ControlService>().endOfStream();
