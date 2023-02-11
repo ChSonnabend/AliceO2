@@ -40,13 +40,12 @@ class readMCtruth : public Task
   std::string inFileDigits = "tpcdigits.root";
   std::string inFileNative = "tpc-cluster-native.root";
   std::string inFileTracks = "tpctracks.root";
-  
 };
 
 void readMCtruth::init(InitContext& ic)
 {
   verbose = ic.options().get<int>("verbose");
-  mode = ic.options().get<std::string>("mode");
+
   inFileDigits = ic.options().get<std::string>("infile-digits");
   inFileNative = ic.options().get<std::string>("infile-native");
   inFileTracks = ic.options().get<std::string>("infile-tracks");
@@ -134,8 +133,6 @@ void readMCtruth::run(ProcessingContext& pc)
     mcTree->Write();
     delete mcTree;
     outputFile.Close();
-
-    fileWriteMode = "UPDATE";
 
     if (verbose > 0) {
       std::cout << "TPC digit reader done!\n";
