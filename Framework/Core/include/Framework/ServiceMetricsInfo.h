@@ -9,19 +9,21 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file GPUCommonConstants.h
-/// \author David Rohr
+#ifndef O2_FRAMEWORK_SERVICEMETRICSINFO_H_
+#define O2_FRAMEWORK_SERVICEMETRICSINFO_H_
 
-#ifndef GPUCOMMONCONSTANTS_H
-#define GPUCOMMONCONSTANTS_H
+#include "Framework/DeviceMetricsInfo.h"
+#include "Framework/DeviceSpec.h"
+#include "Framework/DeviceInfo.h"
+#include <vector>
 
-#include "GPUCommonDef.h"
-
-#if !defined(__OPENCL__) || defined(__OPENCLCPP__)
-namespace GPUCA_NAMESPACE::gpu::gpu_common_constants
+namespace o2::framework
 {
-static CONSTEXPR const float kCLight = 0.000299792458f;
-}
-#endif
-
-#endif
+struct ServiceMetricsInfo {
+  std::vector<DeviceMetricsInfo>& deviceMetricsInfos;
+  std::vector<DeviceSpec>& deviceSpecs;
+  std::vector<DeviceInfo>& deviceInfos;
+  DeviceMetricsInfo& driverMetricsInfo;
+};
+} // namespace o2::framework
+#endif // O2_FRAMEWORK_SERVICEMETRICSINFO_H_

@@ -9,19 +9,9 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file GPUCommonConstants.h
-/// \author David Rohr
+/// \file TrackTuneParams.h
+/// \brief Configurable params for tracks ad hoc tuning
+/// \author ruben.shahoyan@cern.ch
 
-#ifndef GPUCOMMONCONSTANTS_H
-#define GPUCOMMONCONSTANTS_H
-
-#include "GPUCommonDef.h"
-
-#if !defined(__OPENCL__) || defined(__OPENCLCPP__)
-namespace GPUCA_NAMESPACE::gpu::gpu_common_constants
-{
-static CONSTEXPR const float kCLight = 0.000299792458f;
-}
-#endif
-
-#endif
+#include "DataFormatsGlobalTracking/TrackTuneParams.h"
+O2ParamImpl(o2::globaltracking::TrackTuneParams);

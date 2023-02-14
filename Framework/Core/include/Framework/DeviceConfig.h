@@ -8,20 +8,17 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
+#ifndef O2_FRAMEWORK_DEVICECONFIG_H_
+#define O2_FRAMEWORK_DEVICECONFIG_H_
 
-/// \file GPUCommonConstants.h
-/// \author David Rohr
+#define BOOST_BIND_GLOBAL_PLACEHOLDERS
+#include <boost/program_options/variables_map.hpp>
 
-#ifndef GPUCOMMONCONSTANTS_H
-#define GPUCOMMONCONSTANTS_H
-
-#include "GPUCommonDef.h"
-
-#if !defined(__OPENCL__) || defined(__OPENCLCPP__)
-namespace GPUCA_NAMESPACE::gpu::gpu_common_constants
+namespace o2::framework
 {
-static CONSTEXPR const float kCLight = 0.000299792458f;
-}
-#endif
+struct DeviceConfig {
+  boost::program_options::variables_map options;
+};
+} // namespace o2::framework
 
-#endif
+#endif // O2_FRAMEWORK_DEVICECONFIG_H_
