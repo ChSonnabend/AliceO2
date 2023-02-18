@@ -9,13 +9,8 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file DigitSamplerSpec.h
-/// \brief Definition of a data processor to read and send digits
-///
-/// \author Philippe Pillot, Subatech
-
-#ifndef O2_MCH_DIGITSAMPLERSPEC_H_
-#define O2_MCH_DIGITSAMPLERSPEC_H_
+#ifndef O2_MCHIO_DIGIT_WRITER_SPEC_H_
+#define O2_MCHIO_DIGIT_WRITER_SPEC_H_
 
 #include "Framework/DataProcessorSpec.h"
 
@@ -23,10 +18,16 @@ namespace o2
 {
 namespace mch
 {
+o2::framework::DataProcessorSpec getMCHDigitWriterSpec(bool mctruth);
 
-o2::framework::DataProcessorSpec getDigitSamplerSpec(const char* specName = "mch-digit-sampler");
+o2::framework::DataProcessorSpec getDigitWriterSpec(
+  bool useMC,
+  std::string_view specName = "mch-digit-writer",
+  std::string_view outfile = "mchdigits.root",
+  std::string_view inputDigitDataDescription = "DIGITS",
+  std::string_view inputDigitRofDataDescription = "DIGITROFS");
 
 } // end namespace mch
 } // end namespace o2
 
-#endif // O2_MCH_DIGITSAMPLERSPEC_H_
+#endif

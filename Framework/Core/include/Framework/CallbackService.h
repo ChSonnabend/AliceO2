@@ -54,7 +54,7 @@ class CallbackService
     ///
     /// return AlgorithmSpec::InitCallback{[=](InitContext& ic) {
     ///    auto& callbacks = ic.services().get<CallbackService>();
-    ///    callbacks.set(CallbackService::Id::RegionInfoCallback, [](fair::mq::RegionInfo const& info) {
+    ///    callbacks.set<CallbackService::Id::RegionInfoCallback>([](fair::mq::RegionInfo const& info) {
     ///    ... do GPU init ...
     ///    });
     ///  }
@@ -117,6 +117,20 @@ class CallbackService
                                      RegistryPair<Id, Id::DeviceStateChanged, DeviceStateChangedCallback>, //
                                      RegistryPair<Id, Id::ExitRequested, ExitRequestedCallback>            //
                                      >;                                                                    //
+
+  // Typesafe API to register callbacks
+  template <Id id, typename U>
+  void set(U&& callback)
+  {
+    mCallbacks.set(id, std::forward<U>(callback));
+  }
+
+  // Typesafe API to invoke callbacks
+  template <Id id, typename... TArgs>
+  auto call(TArgs&&... args)
+  {
+    mCallbacks(id, std::forward<TArgs>(args)...);
+  }
 
   // set callback for specified processing step
   template <typename U>

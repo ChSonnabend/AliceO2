@@ -9,22 +9,23 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file   MCHWorkflow/DigitReaderSpec.h
-/// \brief  Data processor specs for MCH digits reader device
-/// \author Michael Winn <Michael.Winn at cern.ch>
-/// \date   17 April 2021
+/// @file   TrackWriterSpec.h
 
-#ifndef O2_MCH_DIGITREADERSPEC_H
-#define O2_MCH_DIGITREADERSPEC_H
+#ifndef O2_ITS3_TRACKWRITER
+#define O2_ITS3_TRACKWRITER
 
 #include "Framework/DataProcessorSpec.h"
 
 namespace o2
 {
-namespace mch
+namespace its3
 {
-framework::DataProcessorSpec getDigitReaderSpec(bool useMC, const char* specName = "mch-sim-digit-reader");
-}
+
+/// create a processor spec
+/// write ITS tracks to ROOT file
+o2::framework::DataProcessorSpec getTrackWriterSpec(bool useMC);
+
+} // namespace its3
 } // namespace o2
 
-#endif
+#endif /* O2_ITS_TRACKWRITER */
