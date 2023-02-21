@@ -156,12 +156,12 @@ void readMCtruth::run(ProcessingContext& pc)
     TFile outputFile("mclabels_native.root", "RECREATE");
     TTree* mcTree = new TTree("mcLabelsNative", "MC tree");
 
-    Int_t sector, row, pad, time, nclusters, nevent;
-    Float_t sigmapad, sigmatime, qmax, qtot;
+    Int_t sector, row, nclusters, nevent;
+    Float_t pad, ctime, sigmapad, sigmatime, qmax, qtot;
     mcTree->Branch("native_sector", &sector);
     mcTree->Branch("native_row", &row);
     mcTree->Branch("native_pad", &pad);
-    mcTree->Branch("native_time", &time);
+    mcTree->Branch("native_time", &ctime);
     mcTree->Branch("native_sigmapad", &sigmapad);
     mcTree->Branch("native_sigmatime", &sigmatime);
     mcTree->Branch("native_event", &nevent);
@@ -178,14 +178,14 @@ void readMCtruth::run(ProcessingContext& pc)
       for (int isector = 0; isector < o2::tpc::constants::MAXSECTOR; ++isector) {
         for (int irow = 0; irow < o2::tpc::constants::MAXGLOBALPADROW; ++irow) {
           const int nClusters = clusterIndex.nClusters[isector][irow];
-          sector = isector-1; row = irow-1; nclusters=nClusters;
+          sector = isector; row = irow; nclusters=nClusters;
           if (!nClusters) {
             continue;
           }
           for (int icl = 0; icl < nClusters; ++icl) {
             const auto& cl = *(clusterIndex.clusters[isector][irow] + icl);
             clusters.processCluster(cl, Sector(isector), irow);
-            time = cl.getTime(); pad = cl.getPad(); qmax = cl.getQmax(); qtot = cl.getQtot(); sigmapad = cl.getSigmaPad(); sigmatime = cl.getSigmaTime();
+            ctime = cl.getTime(); pad = cl.getPad(); qmax = cl.getQmax(); qtot = cl.getQtot(); sigmapad = cl.getSigmaPad(); sigmatime = cl.getSigmaTime();
             mcTree->Fill();
             ++iClusters;
           }
