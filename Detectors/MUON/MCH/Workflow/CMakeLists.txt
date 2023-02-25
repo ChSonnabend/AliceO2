@@ -15,8 +15,6 @@ o2_add_library(MCHWorkflow
                SOURCES
                    src/ClusterFinderOriginalSpec.cxx
                    src/ClusterFinderGEMSpec.cxx
-                   src/ClusterReaderSpec.cxx
-                   src/ClusterWriterSpec.cxx
                    src/DataDecoderSpec.cxx
                    src/ErrorReaderSpec.cxx
                    src/ErrorWriterSpec.cxx
@@ -85,30 +83,6 @@ o2_add_executable(
         SOURCES src/preclusters-to-clusters-GEM-workflow.cxx src/ClusterFinderGEMSpec.cxx
         COMPONENT_NAME mch
         PUBLIC_LINK_LIBRARIES O2::MCHClusteringGEM O2::MCHMappingImpl3)
-
-o2_add_executable(
-        clusters-sink-workflow
-        SOURCES src/clusters-sink-workflow.cxx
-        COMPONENT_NAME mch
-        PUBLIC_LINK_LIBRARIES O2::Framework O2::DataFormatsMCH O2::MCHBase O2::MCHMappingImpl3)
-
-o2_add_executable(
-        clusters-sampler-workflow
-        SOURCES src/clusters-sampler-workflow.cxx
-        COMPONENT_NAME mch
-        PUBLIC_LINK_LIBRARIES O2::Framework O2::DataFormatsMCH O2::MCHBase)
-
-o2_add_executable(
-        clusters-writer-workflow
-        SOURCES src/clusters-writer-workflow.cxx
-        COMPONENT_NAME mch
-        PUBLIC_LINK_LIBRARIES O2::MCHWorkflow)
-
-o2_add_executable(
-        clusters-reader-workflow
-        SOURCES src/clusters-reader-workflow.cxx
-        COMPONENT_NAME mch
-        PUBLIC_LINK_LIBRARIES O2::MCHWorkflow)
 
 o2_add_executable(
         vertex-sampler-workflow
@@ -187,6 +161,7 @@ o2_add_executable(
             O2::MCHTriggering
             O2::MCHTracking
             O2::MCHWorkflow
+            O2::MCHIO
             O2::SimulationDataFormat
             O2::Steer
         TARGETVARNAME mch-reco-workflow)
