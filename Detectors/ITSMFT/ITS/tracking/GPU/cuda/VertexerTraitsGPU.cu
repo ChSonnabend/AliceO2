@@ -607,14 +607,16 @@ void VertexerTraitsGPU::computeTracklets()
     return;
   }
   std::vector<std::thread> threads(mTimeFrameGPU->getNChunks());
-  size_t offset{0};
-  do {
-    for (size_t chunkId{0}; chunkId < mTimeFrameGPU->getNChunks() && offset < mTimeFrameGPU->mNrof - 1; ++chunkId) {
-      mTimeFrameGPU->getVerticesInChunks()[chunkId].clear();
-      mTimeFrameGPU->getNVerticesInChunks()[chunkId].clear();
-      mTimeFrameGPU->getLabelsInChunks()[chunkId].clear();
-      auto rofs = mTimeFrameGPU->loadChunkData<gpu::Task::Vertexer>(chunkId, offset);
-      auto doVertexReconstruction = [&, chunkId, offset, rofs]() -> void {
+  for (int chunkId{0}; chunkId < mTimeFrameGPU->getNChunks(); ++chunkId) {
+    int rofPerChunk{mTimeFrameGPU->mNrof / (int)mTimeFrameGPU->getNChunks()};
+    mTimeFrameGPU->getVerticesInChunks()[chunkId].clear();
+    mTimeFrameGPU->getNVerticesInChunks()[chunkId].clear();
+    mTimeFrameGPU->getLabelsInChunks()[chunkId].clear();
+    auto doVertexReconstruction = [&, chunkId, rofPerChunk]() -> void {
+      auto offset = chunkId * rofPerChunk;
+      auto maxROF = offset + rofPerChunk;
+      while (offset < maxROF) {
+        auto rofs = mTimeFrameGPU->loadChunkData<gpu::Task::Vertexer>(chunkId, offset, maxROF);
         RANGE("chunk_gpu_processing", 1);
         gpu::trackleterKernelMultipleRof<TrackletMode::Layer0Layer1><<<rofs, 1024, 0, mTimeFrameGPU->getStream(chunkId).get()>>>(
           mTimeFrameGPU->getChunk(chunkId).getDeviceClusters(0),         // const Cluster* clustersNextLayer,    // 0 2
@@ -706,23 +708,19 @@ void VertexerTraitsGPU::computeTracklets()
         exclusiveFoundLinesHost[nClusters] = exclusiveFoundLinesHost[nClusters - 1] + lastFoundLines;
 
         std::vector<Line> lines(exclusiveFoundLinesHost[nClusters]);
-        // LOGP(info, "rof: {} found {} lines", exclusiveFoundLinesHost[nClusters]);
 
         checkGPUError(cudaMemcpyAsync(lines.data(), mTimeFrameGPU->getChunk(chunkId).getDeviceLines(), sizeof(Line) * lines.size(), cudaMemcpyDeviceToHost, mTimeFrameGPU->getStream(chunkId).get()));
         checkGPUError(cudaStreamSynchronize(mTimeFrameGPU->getStream(chunkId).get()));
 
         // Compute vertices
-        int counter{0};
         std::vector<ClusterLines> clusterLines;
         std::vector<bool> usedLines;
-        for (int iRof{0}; iRof < rofs; ++iRof) {
-          auto rof = offset + iRof;
+        for (int rofId{0}; rofId < rofs; ++rofId) {
+          auto rof = offset + rofId;
           auto clustersL1offsetRof = mTimeFrameGPU->getROframeClusters(1)[rof] - mTimeFrameGPU->getROframeClusters(1)[offset]; // starting cluster offset for this ROF
           auto nClustersL1Rof = mTimeFrameGPU->getROframeClusters(1)[rof + 1] - mTimeFrameGPU->getROframeClusters(1)[rof];     // number of clusters for this ROF
           auto linesOffsetRof = exclusiveFoundLinesHost[clustersL1offsetRof];                                                  // starting line offset for this ROF
           auto nLinesRof = exclusiveFoundLinesHost[clustersL1offsetRof + nClustersL1Rof] - linesOffsetRof;
-          counter += nLinesRof;
-
           gsl::span<const o2::its::Line> linesInRof(lines.data() + linesOffsetRof, static_cast<gsl::span<o2::its::Line>::size_type>(nLinesRof));
 
           usedLines.resize(linesInRof.size(), false);
@@ -739,30 +737,27 @@ void VertexerTraitsGPU::computeTracklets()
                                mTimeFrameGPU->hasMCinformation() ? mTimeFrameGPU : nullptr,
                                mTimeFrameGPU->hasMCinformation() ? &mTimeFrameGPU->getLabelsInChunks()[chunkId] : nullptr);
         }
-      };
-
-      // Do work
-      threads[chunkId] = std::thread(doVertexReconstruction);
-      offset += rofs;
-    }
-    for (auto& thread : threads) {
-      if (thread.joinable()) { // in case not all partitions were fed with data
-        thread.join();
+        offset += rofs;
       }
-    }
-    for (int chunkId{0}; chunkId < mTimeFrameGPU->getNChunks(); ++chunkId) {
-      int start{0};
-      for (int iRof{0}; iRof < mTimeFrameGPU->getNVerticesInChunks()[chunkId].size(); ++iRof) {
-        gsl::span<const Vertex> rofVerts{mTimeFrameGPU->getVerticesInChunks()[chunkId].data() + start, static_cast<gsl::span<Vertex>::size_type>(mTimeFrameGPU->getNVerticesInChunks()[chunkId][iRof])};
-        mTimeFrameGPU->addPrimaryVertices(rofVerts);
-        if (mTimeFrameGPU->hasMCinformation()) {
-          mTimeFrameGPU->getVerticesLabels().emplace_back();
-          // TODO: add MC labels
-        }
-        start += mTimeFrameGPU->getNVerticesInChunks()[chunkId][iRof];
+    };
+    // Do work
+    threads[chunkId] = std::thread(doVertexReconstruction);
+  }
+  for (auto& thread : threads) {
+    thread.join();
+  }
+  for (int chunkId{0}; chunkId < mTimeFrameGPU->getNChunks(); ++chunkId) {
+    int start{0};
+    for (int rofId{0}; rofId < mTimeFrameGPU->getNVerticesInChunks()[chunkId].size(); ++rofId) {
+      gsl::span<const Vertex> rofVerts{mTimeFrameGPU->getVerticesInChunks()[chunkId].data() + start, static_cast<gsl::span<Vertex>::size_type>(mTimeFrameGPU->getNVerticesInChunks()[chunkId][rofId])};
+      mTimeFrameGPU->addPrimaryVertices(rofVerts);
+      if (mTimeFrameGPU->hasMCinformation()) {
+        mTimeFrameGPU->getVerticesLabels().emplace_back();
+        // TODO: add MC labels
       }
+      start += mTimeFrameGPU->getNVerticesInChunks()[chunkId][rofId];
     }
-  } while (offset < mTimeFrameGPU->mNrof - 1); // offset is referring to the ROF id
+  }
   mTimeFrameGPU->wipe(3);
 }
 

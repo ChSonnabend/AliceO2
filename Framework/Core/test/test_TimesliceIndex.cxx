@@ -12,7 +12,6 @@
 #include <catch_amalgamated.hpp>
 #include "Framework/TimesliceIndex.h"
 #include "Framework/VariableContextHelpers.h"
-#include <iostream>
 
 TEST_CASE("TestBasics")
 {
@@ -118,7 +117,7 @@ TEST_CASE("TestOldestPossibleTimeslice")
     auto oldest = index.setOldestPossibleInput({9}, {0});
     for (size_t i = 0; i < 3; ++i) {
       bool invalidated = index.validateSlot(TimesliceSlot{i}, oldest.timeslice);
-      std::cout << "Slot " << i << " valid: " << invalidated << std::endl;
+      INFO("Slot " << i << " valid: " << invalidated);
     }
     index.updateOldestPossibleOutput();
     REQUIRE(slot.index == 1);

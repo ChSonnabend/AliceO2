@@ -17,7 +17,6 @@
 #include <boost/program_options.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
-#include <iostream>
 
 namespace bpo = boost::program_options;
 using namespace o2::framework;
@@ -84,6 +83,9 @@ TEST_CASE("TestConfigParamStore")
   store.preload();
   store.activate();
 
+  std::stringstream ss;
+  boost::property_tree::json_parser::write_json(ss, store.store());
+  INFO(ss.str());
   REQUIRE(store.store().get<float>("aFloat") == 1.0);
   REQUIRE(store.store().get<double>("aDouble") == 2.0);
   REQUIRE(store.store().get<int>("anInt") == 10);
@@ -103,9 +105,9 @@ TEST_CASE("TestConfigParamStore")
   REQUIRE(pt.get<int>("x") == 1);
   REQUIRE(pt.get<float>("y") == 2.f);
   //
-  boost::property_tree::json_parser::write_json(std::cout, store.store());
-  boost::property_tree::json_parser::write_json(std::cout, store.provenanceTree());
-  std::cout << store.provenanceTree().get_value("aFloat");
+  std::stringstream ss2;
+  boost::property_tree::json_parser::write_json(ss2, store.provenanceTree());
+  INFO(ss2.str());
   REQUIRE(store.provenance("aFloat") == "fairmq");
   REQUIRE(store.provenance("aDouble") == "fairmq");
   REQUIRE(store.provenance("anInt") == "fairmq");

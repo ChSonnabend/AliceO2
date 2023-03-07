@@ -343,6 +343,7 @@ void VertexerTraits::computeVertices()
   std::vector<int> noClustersVec(mTimeFrame->getNrof(), 0);
   for (int rofId{0}; rofId < mTimeFrame->getNrof(); ++rofId) {
     const int numTracklets{static_cast<int>(mTimeFrame->getLines(rofId).size())};
+
     std::vector<bool> usedTracklets(numTracklets, false);
     for (int line1{0}; line1 < numTracklets; ++line1) {
       if (usedTracklets[line1]) {
