@@ -1,8 +1,12 @@
+#include "Headers/DataHeader.h"
+
 #include "DataFormatsTPC/WorkflowHelper.h"
 #include "DataFormatsTPC/ClusterNativeHelper.h"
 #include "DataFormatsTPC/ClusterNative.h"
 #include "DataFormatsTPC/ClusterGroupAttribute.h"
 #include "DataFormatsTPC/Constants.h"
+#include "DataFormatsTPC/TrackTPC.h"
+#include "DataFormatsGlobalTracking/TrackTuneParams.h"
 
 #include "SimulationDataFormat/MCCompLabel.h"
 #include "SimulationDataFormat/ConstMCTruthContainer.h"
@@ -45,7 +49,7 @@ class readMCtruth : public Task
 void readMCtruth::init(InitContext& ic)
 {
   verbose = ic.options().get<int>("verbose");
-
+  mode = ic.options().get<std::string>("mode");
   inFileDigits = ic.options().get<std::string>("infile-digits");
   inFileNative = ic.options().get<std::string>("infile-native");
   inFileTracks = ic.options().get<std::string>("infile-tracks");
@@ -170,7 +174,9 @@ void readMCtruth::run(ProcessingContext& pc)
     mcTree->Branch("native_qtot", &qtot);
 
     for (int i = 0; i < tpcClusterReader.getTreeSize(); ++i) {
-      std::cout << "Event " << i << "\n";
+      if(verbose>0){
+        std::cout << "Event " << i << "\n";
+      }
       nevent = i;
       tpcClusterReader.read(i);
       tpcClusterReader.fillIndex(clusterIndex, clusterBuffer, clusterMCBuffer);
@@ -178,14 +184,21 @@ void readMCtruth::run(ProcessingContext& pc)
       for (int isector = 0; isector < o2::tpc::constants::MAXSECTOR; ++isector) {
         for (int irow = 0; irow < o2::tpc::constants::MAXGLOBALPADROW; ++irow) {
           const int nClusters = clusterIndex.nClusters[isector][irow];
-          sector = isector; row = irow; nclusters=nClusters;
+          sector = isector;
+          row = irow;
+          nclusters = nClusters;
           if (!nClusters) {
             continue;
           }
           for (int icl = 0; icl < nClusters; ++icl) {
             const auto& cl = *(clusterIndex.clusters[isector][irow] + icl);
             clusters.processCluster(cl, Sector(isector), irow);
-            ctime = cl.getTime(); pad = cl.getPad(); qmax = cl.getQmax(); qtot = cl.getQtot(); sigmapad = cl.getSigmaPad(); sigmatime = cl.getSigmaTime();
+            ctime = cl.getTime();
+            pad = cl.getPad();
+            qmax = cl.getQmax();
+            qtot = cl.getQtot();
+            sigmapad = cl.getSigmaPad();
+            sigmatime = cl.getSigmaTime();
             mcTree->Fill();
             ++iClusters;
           }
@@ -200,45 +213,133 @@ void readMCtruth::run(ProcessingContext& pc)
     if (verbose > 0) {
       std::cout << "TPC native reader done!\n";
     }
-
   };
 
   if (mode.find(std::string("tracks")) != std::string::npos) {
-    std::cout << "The 'tracks' functionality is not implemented yet..."
-              << "\n";
 
-    // // /data.local1/csonnab/MyO2/O2/Detectors/TPC/workflow/readers/src/ClusterReaderSpec.cxx
-    // static RootTreeReader::SpecialPublishHook hook{[](std::string_view name, ProcessingContext& context, o2::framework::Output const& output, char* data) -> bool {
-    // if (TString(name.data()).Contains("TPCDigitMCTruth") || TString(name.data()).Contains("TPCClusterHwMCTruth") || TString(name.data()).Contains("TPCClusterNativeMCTruth")) {
-    //   auto storedlabels = reinterpret_cast<o2::dataformats::IOMCTruthContainerView const*>(data);
-    //   o2::dataformats::ConstMCTruthContainer<o2::MCCompLabel> flatlabels;
-    //   storedlabels->copyandflatten(flatlabels);
-    //   //LOG(info) << "PUBLISHING CONST LABELS " << flatlabels.getNElements();
-    //   context.outputs().snapshot(output, flatlabels);
-    //   return true;
-    // }
-    // return false;
-// 
+    auto inputFile = TFile::Open(inFileTracks.c_str());
+    auto tracksTree = (TTree*)inputFile->Get("tpcrec");
+    if (tracksTree == nullptr) {
+      std::cout << "Error getting tree\n";
+      return;
+    }
+    std::vector<TrackTPC>* tpcTracks = nullptr;
+    tracksTree->SetBranchAddress("TPCTracks", &tpcTracks);
+
+    std::vector<o2::tpc::TrackTPC>* mTracks = nullptr;
+    tracksTree->SetBranchAddress("TPCTracks", &mTracks);
+
+    std::vector<o2::tpc::TPCClRefElem>* mClusRefTracks = nullptr;
+    tracksTree->SetBranchAddress("ClusRefs", &mClusRefTracks);
+
+    std::vector<o2::MCCompLabel>* mMCTruthTracks = nullptr;
+    tracksTree->SetBranchAddress("TPCTracksMCTruth", &mMCTruthTracks);
+
+    std::vector<o2::tpc::TrackTPC> mTracksOut;
+    std::vector<o2::tpc::TPCClRefElem> mClusRefTracksOut;
+    std::vector<o2::MCCompLabel> mMCTruthTracksOut;
+    mTracksOut.swap(*mTracks);
+    mClusRefTracksOut.swap(*mClusRefTracks);
+    mMCTruthTracksOut.swap(*mMCTruthTracks);
+
+    // Accumulating the cluster references and tracks
+    for (int iev = 0; iev < tracksTree->GetEntries(); iev++) {
+      tracksTree->GetEntry(tracksTree->GetReadEntry() + 1 + iev);
+      uint32_t shift = mClusRefTracks->size();
+
+      auto clBegin = mClusRefTracks->begin();
+      auto clEnd = mClusRefTracks->end();
+      std::copy(clBegin, clEnd, std::back_inserter(mClusRefTracksOut));
+
+      auto trBegin = mTracks->begin();
+      auto trEnd = mTracks->end();
+      if (shift) {
+        for (auto tr = trBegin; tr != trEnd; tr++) {
+          tr->shiftFirstClusterRef(shift);
+        }
+      }
+      std::copy(trBegin, trEnd, std::back_inserter(mTracksOut));
+      std::copy(mMCTruthTracks->begin(), mMCTruthTracks->end(), std::back_inserter(mMCTruthTracksOut));
+    }
+
+    if(verbose > 0){
+      std::cout << "Found " << mTracksOut.size() << " tracks! Processing...\n";
+    }
+
+    tracksTree->GetEntry(tracksTree->GetReadEntry() + 1);
+    using TrackTunePar = o2::globaltracking::TrackTuneParams;
+    const auto& trackTune = TrackTunePar::Instance();
+
+    if (trackTune.sourceLevelTPC &&
+        (trackTune.useTPCInnerCorr || trackTune.useTPCOuterCorr ||
+         trackTune.tpcCovInnerType != TrackTunePar::AddCovType::Disable || trackTune.tpcCovOuterType != TrackTunePar::AddCovType::Disable)) {
+      for (auto trc : *mTracks) {
+        if (trackTune.useTPCInnerCorr) {
+          trc.updateParams(trackTune.tpcParInner);
+        }
+        if (trackTune.tpcCovInnerType != TrackTunePar::AddCovType::Disable) {
+          trc.updateCov(trackTune.tpcCovInner, trackTune.tpcCovInnerType);
+        }
+        if (trackTune.useTPCOuterCorr) {
+          trc.getParamOut().updateParams(trackTune.tpcParOuter);
+        }
+        if (trackTune.tpcCovOuterType != TrackTunePar::AddCovType::Disable) {
+          trc.getParamOut().updateCov(trackTune.tpcCovOuter, trackTune.tpcCovOuterType);
+        }
+      }
+    }
+
+    TFile outputFile("mclabels_tracks.root", "RECREATE");
+    TTree* mcTree = new TTree("mcLabelsTracks", "MC tree");
+
+    uint8_t sectorIndex, rowIndex;
+    uint32_t clusterIndex, trackCount = 0;
+    // std::array<bool, maxRows> clMap{}, shMap{};
+
+    mcTree->Branch("tracks_sector", &sectorIndex);
+    mcTree->Branch("tracks_row", &rowIndex);
+    mcTree->Branch("tracks_clusterIdx", &clusterIndex);
+    mcTree->Branch("tracks_count", &trackCount);
+
+    for (auto track : mTracksOut) {
+      for (int i = 0; i < track.getNClusterReferences(); i++) {
+        o2::tpc::TrackTPC::getClusterReference(mClusRefTracksOut, i, sectorIndex, rowIndex, clusterIndex, track.getClusterRef());
+        mcTree->Fill();
+      }
+      trackCount++;
+    }
+
+    mcTree->Write();
+    delete mcTree;
+    outputFile.Close();
+
+    if (verbose > 0) {
+      std::cout << "TPC tracks reader done!\n";
+    }
+
+    // std::cout << "The 'tracks' functionality is not implemented yet..."
+    //           << "\n";
+    //
     // // /data.local1/csonnab/MyO2/O2/Detectors/TPC/qc/macro/runPID.C
     // auto file = TFile::Open(inputFileName.data());
     // std::vector<TrackTPC>* tpcTracks = nullptr;
     // tree->SetBranchAddress("TPCTracks", &tpcTracks);
-// 
+    //
     // // /data.local1/csonnab/MyO2/O2/Detectors/StrangenessTracking/macros/XiTrackingStudy.C
     // auto treeTPC = (TTree*)fTPC->Get("tpcrec");
     // std::vector<o2::MCCompLabel>* labTPCvec = nullptr;
     // treeTPC->SetBranchAddress("TPCTracksMCTruth", &labTPCvec);
-// 
+    //
     // for(int frame = 0; frame < treeTPC->GetEntriesFast(); frame++){
     //   treeTPC->GetEvent(frame)
     // }
-// 
+    //
     // // /data.local1/csonnab/MyO2/O2/Detectors/AOD/src/StandaloneAODProducer.cxx
     // auto tpctracks = fetchTracks<o2::tpc::TrackTPC>(inFileTracks, "tpcrec", "TPCTracks");
     // LOG(info) << "FOUND " << tpctracks->size() << " TPC tracks";
-// 
+    //
     // track = &((*tpctracks)[trackindex.getIndex()]);
-// 
+    //
     // std::array<float, 3> pxpypz;
     //       track->getPxPyPzGlo(pxpypz);
     //       trackCursor(0, index, 0 /* CORRECT THIS */, track->getX(), track->getAlpha(), track->getY(), track->getZ(), track->getSnp(), track->getTgl(),
