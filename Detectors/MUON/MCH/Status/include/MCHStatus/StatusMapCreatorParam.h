@@ -9,30 +9,27 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file EventFinderParam.h
-/// \brief Configurable parameters to group MCH digits based on MID information
-/// \author Philippe Pillot, Subatech
-
-#ifndef O2_MCH_EVENTFINDERPARAM_H_
-#define O2_MCH_EVENTFINDERPARAM_H_
+#ifndef O2_MCH_CONDITIONS_STATUSMAP_CREATOR_PARAM_H_
+#define O2_MCH_CONDITIONS_STATUSMAP_CREATOR_PARAM_H_
 
 #include "CommonUtils/ConfigurableParam.h"
 #include "CommonUtils/ConfigurableParamHelper.h"
 
-namespace o2
-{
-namespace mch
+namespace o2::mch
 {
 
-/// Configurable parameters to group MCH digits based on MID information
-struct EventFinderParam : public o2::conf::ConfigurableParamHelper<EventFinderParam> {
+/**
+ * @class StatusMapCreatorParam
+ * @brief Configurable parameters for the statusmap creator
+ */
+struct StatusMapCreatorParam : public o2::conf::ConfigurableParamHelper<StatusMapCreatorParam> {
 
-  int triggerRange[2] = {-12, 13}; ///< BC range [min, max[ of the trigger window around the MID IR
+  bool useBadChannels = false; ///< reject bad channels (obtained during pedestal calibration runs)
+  bool useRejectList = false;  ///< use extra (relative to bad channels above) rejection list
 
-  O2ParamDef(EventFinderParam, "MCHTriggering");
+  O2ParamDef(StatusMapCreatorParam, "MCHStatusMap");
 };
 
-} // namespace mch
-} // namespace o2
+} // namespace o2::mch
 
-#endif // O2_MCH_EVENTFINDERPARAM_H_
+#endif
