@@ -223,8 +223,6 @@ void readMCtruth::run(ProcessingContext& pc)
       std::cout << "Error getting tree\n";
       return;
     }
-    std::vector<TrackTPC>* tpcTracks = nullptr;
-    tracksTree->SetBranchAddress("TPCTracks", &tpcTracks);
 
     std::vector<o2::tpc::TrackTPC>* mTracks = nullptr;
     tracksTree->SetBranchAddress("TPCTracks", &mTracks);
@@ -292,17 +290,32 @@ void readMCtruth::run(ProcessingContext& pc)
     TFile outputFile("mclabels_tracks.root", "RECREATE");
     TTree* mcTree = new TTree("mcLabelsTracks", "MC tree");
 
-    uint8_t sectorIndex, rowIndex;
+    uint8_t sectorIndex, rowIndex, side, state;
     uint32_t clusterIndex, trackCount = 0;
     // std::array<bool, maxRows> clMap{}, shMap{};
 
     mcTree->Branch("tracks_sector", &sectorIndex);
     mcTree->Branch("tracks_row", &rowIndex);
     mcTree->Branch("tracks_clusterIdx", &clusterIndex);
+    mcTree->Branch("tracks_side", &side); // A = 0, C=1, both=2
     mcTree->Branch("tracks_count", &trackCount);
+    mcTree->Branch("tracks_state", &state);
 
     for (auto track : mTracksOut) {
       for (int i = 0; i < track.getNClusterReferences(); i++) {
+        if(track.hasASideClustersOnly()){
+          side=0;
+        }
+        else if(track.hasCSideClustersOnly()){
+          side=1;
+        }
+        else if(track.hasBothSidesClusters()){
+          side=2;
+        }
+        else{
+          side=3;
+        }
+        if()
         o2::tpc::TrackTPC::getClusterReference(mClusRefTracksOut, i, sectorIndex, rowIndex, clusterIndex, track.getClusterRef());
         mcTree->Fill();
       }
