@@ -1,4 +1,4 @@
-#include "Headers/DataHeader.h"
+#include "DetectorsRaw/HBFUtils.h"
 
 #include "DataFormatsTPC/WorkflowHelper.h"
 #include "DataFormatsTPC/ClusterNativeHelper.h"
@@ -20,6 +20,10 @@
 #include "Framework/ConfigParamRegistry.h"
 #include "Framework/ControlService.h"
 
+#include "Headers/DataHeader.h"
+
+#include "Steer/MCKinematicsReader.h"
+
 #include "TPCWorkflow/ProcessingHelpers.h"
 #include "TPCQC/Clusters.h"
 #include "TPCBase/Painter.h"
@@ -29,6 +33,7 @@
 #include "TTree.h"
 
 using namespace o2;
+using namespace GPUCA_NAMESPACE::gpu;
 using namespace o2::tpc;
 using namespace o2::framework;
 
@@ -44,6 +49,7 @@ class readMCtruth : public Task
   std::string inFileDigits = "tpcdigits.root";
   std::string inFileNative = "tpc-cluster-native.root";
   std::string inFileTracks = "tpctracks.root";
+  std::string inFileKinematics = "collisioncontext.root";
 };
 
 void readMCtruth::init(InitContext& ic)
@@ -53,10 +59,13 @@ void readMCtruth::init(InitContext& ic)
   inFileDigits = ic.options().get<std::string>("infile-digits");
   inFileNative = ic.options().get<std::string>("infile-native");
   inFileTracks = ic.options().get<std::string>("infile-tracks");
+  inFileKinematics = ic.options().get<std::string>("infile-kinematics");
 }
 
 void readMCtruth::run(ProcessingContext& pc)
 {
+
+  // Digits --> Raw information about sector, row, pad, time, charge
   if (mode.find(std::string("digits")) != std::string::npos) {
     TFile* digitFile = TFile::Open(inFileDigits.c_str());
     TTree* digitTree = (TTree*)digitFile->Get("o2sim");
@@ -143,6 +152,8 @@ void readMCtruth::run(ProcessingContext& pc)
     }
   }
 
+
+  // Native clusters --> Found cluster centers from the clusterizer
   if (mode.find(std::string("native")) != std::string::npos) {
 
     // From O2/Detectors/TPC/qc/macro/runClusters.C
@@ -215,6 +226,8 @@ void readMCtruth::run(ProcessingContext& pc)
     }
   };
 
+
+  // Tracks --> Reconstructed tracks from the native clusters
   if (mode.find(std::string("tracks")) != std::string::npos) {
 
     auto inputFile = TFile::Open(inFileTracks.c_str());
@@ -298,8 +311,8 @@ void readMCtruth::run(ProcessingContext& pc)
     mcTree->Branch("tracks_row", &rowIndex);
     mcTree->Branch("tracks_clusterIdx", &clusterIndex);
     mcTree->Branch("tracks_side", &side); // A = 0, C=1, both=2
-    mcTree->Branch("tracks_count", &trackCount);
-    mcTree->Branch("tracks_state", &state);
+    mcTree->Branch("tracks_count", &trackCount); // Index to keep track in file
+    mcTree->Branch("tracks_state", &state); // State of the particle: 0 = valid, 1 = something is wrong
 
     for (auto track : mTracksOut) {
       for (int i = 0; i < track.getNClusterReferences(); i++) {
@@ -315,7 +328,14 @@ void readMCtruth::run(ProcessingContext& pc)
         else{
           side=3;
         }
-        if()
+
+        if(track.isValid()){
+          state=0;
+        }
+        else{
+          state=1;
+        }
+
         o2::tpc::TrackTPC::getClusterReference(mClusRefTracksOut, i, sectorIndex, rowIndex, clusterIndex, track.getClusterRef());
         mcTree->Fill();
       }
@@ -329,35 +349,88 @@ void readMCtruth::run(ProcessingContext& pc)
     if (verbose > 0) {
       std::cout << "TPC tracks reader done!\n";
     }
-
-    // std::cout << "The 'tracks' functionality is not implemented yet..."
-    //           << "\n";
-    //
-    // // /data.local1/csonnab/MyO2/O2/Detectors/TPC/qc/macro/runPID.C
-    // auto file = TFile::Open(inputFileName.data());
-    // std::vector<TrackTPC>* tpcTracks = nullptr;
-    // tree->SetBranchAddress("TPCTracks", &tpcTracks);
-    //
-    // // /data.local1/csonnab/MyO2/O2/Detectors/StrangenessTracking/macros/XiTrackingStudy.C
-    // auto treeTPC = (TTree*)fTPC->Get("tpcrec");
-    // std::vector<o2::MCCompLabel>* labTPCvec = nullptr;
-    // treeTPC->SetBranchAddress("TPCTracksMCTruth", &labTPCvec);
-    //
-    // for(int frame = 0; frame < treeTPC->GetEntriesFast(); frame++){
-    //   treeTPC->GetEvent(frame)
-    // }
-    //
-    // // /data.local1/csonnab/MyO2/O2/Detectors/AOD/src/StandaloneAODProducer.cxx
-    // auto tpctracks = fetchTracks<o2::tpc::TrackTPC>(inFileTracks, "tpcrec", "TPCTracks");
-    // LOG(info) << "FOUND " << tpctracks->size() << " TPC tracks";
-    //
-    // track = &((*tpctracks)[trackindex.getIndex()]);
-    //
-    // std::array<float, 3> pxpypz;
-    //       track->getPxPyPzGlo(pxpypz);
-    //       trackCursor(0, index, 0 /* CORRECT THIS */, track->getX(), track->getAlpha(), track->getY(), track->getZ(), track->getSnp(), track->getTgl(),
-    //                   track->getPt() /*CHECK!!*/);
   };
+
+
+  // Kinematics --> Raw information about the tracks including MC
+  if (mode.find(std::string("kinematics")) != std::string::npos) {
+
+    // std::vector<mcInfo_t> mMCInfos;
+    // std::vector<GPUTPCMCInfoCol> mMCInfosCol;
+
+    o2::steer::MCKinematicsReader mcReader(inFileKinematics.c_str());
+    int nSimEvents = mcReader.getNEvents(0);
+    // mMCInfos.resize(nSimEvents);
+    std::vector<int> refId;
+
+    auto dc = o2::steer::DigitizationContext::loadFromFile(inFileKinematics.c_str());
+    auto evrec = dc->getEventRecords();
+
+    TFile outputFile("mclabels_kinematics.root", "RECREATE");
+    TTree* mcTree = new TTree("mcLabelsKinematics", "MC tree");
+
+    float_t xpos, ypos, zpos, px, py, pz;
+    int32_t idx;
+
+    mcTree->Branch("kinematics_x", &xpos);
+    mcTree->Branch("kinematics_y", &ypos);
+    mcTree->Branch("kinematics_z", &zpos);
+    mcTree->Branch("kinematics_px", &px);
+    mcTree->Branch("kinematics_py", &py);
+    mcTree->Branch("kinematics_pz", &pz);
+    mcTree->Branch("kinematics_idx", &idx);
+
+    // mMCInfosCol.resize(nSimEvents);
+    for (int i = 0; i < nSimEvents; i++) {
+      auto ir = evrec[i];
+      auto ir0 = o2::raw::HBFUtils::Instance().getFirstIRofTF(ir);
+      float timebin = (float)ir.differenceInBC(ir0) / o2::tpc::constants::LHCBCPERTIMEBIN;
+
+      const std::vector<o2::MCTrack>& tracks = mcReader.getTracks(0, i);
+      const std::vector<o2::TrackReference>& trackRefs = mcReader.getTrackRefsByEvent(0, i);
+
+      refId.resize(tracks.size());
+      std::fill(refId.begin(), refId.end(), -1);
+      for (unsigned int j = 0; j < trackRefs.size(); j++) {
+        if (trackRefs[j].getDetectorId() == o2::detectors::DetID::TPC) {
+          int trkId = trackRefs[j].getTrackID();
+          if (refId[trkId] == -1) {
+            refId[trkId] = j;
+          }
+        }
+      }
+
+      // mMCInfosCol[i].first = mMCInfos.size();
+      // mMCInfosCol[i].num = tracks.size();
+      // mMCInfos.resize(mMCInfos.size() + tracks.size());
+      for (unsigned int j = 0; j < tracks.size(); j++) {
+        if (refId[j] >= 0) {
+          const auto& trkRef = trackRefs[refId[j]];
+          xpos = trkRef.X();
+          ypos = trkRef.Y();
+          zpos = trkRef.Z();
+          px = trkRef.Px();
+          py = trkRef.Py();
+          pz = trkRef.Pz();
+          // info.genRadius = std::sqrt(trk.GetStartVertexCoordinatesX() * trk.GetStartVertexCoordinatesX() + trk.GetStartVertexCoordinatesY() * trk.GetStartVertexCoordinatesY() + trk.GetStartVertexCoordinatesZ() * trk.GetStartVertexCoordinatesZ());
+        } else {
+          xpos = ypos = zpos = px = py = pz = 0;
+          // info.genRadius = 0;
+        }
+        mcTree->Fill();
+      }
+    }
+
+    mcTree->Write();
+    delete mcTree;
+    outputFile.Close();
+
+    if (verbose > 0) {
+      std::cout << "TPC kinematics reader done!\n";
+    }
+
+  };
+
 
   pc.services().get<ControlService>().endOfStream();
   pc.services().get<ControlService>().readyToQuit(QuitRequest::Me);
@@ -377,10 +450,11 @@ DataProcessorSpec readMonteCarloLabels()
     adaptFromTask<readMCtruth>(),
     Options{
       {"verbose", VariantType::Int, 0, {"Verbosity level"}},
-      {"mode", VariantType::String, "digits,native,tracks", {"Mode for running over tracks-file or digits-file: digits, native and/or tracks."}},
+      {"mode", VariantType::String, "digits,native,tracks,kinematics", {"Mode for running over tracks-file or digits-file: digits, native, tracks and/or kinematics."}},
       {"infile-digits", VariantType::String, "tpcdigits.root", {"Input file name (digits)"}},
       {"infile-native", VariantType::String, "tpc-native-clusters.root", {"Input file name (native)"}},
-      {"infile-tracks", VariantType::String, "tpctracks.root", {"Input file name (tracks)"}}}};
+      {"infile-tracks", VariantType::String, "tpctracks.root", {"Input file name (tracks)"}},
+      {"infile-kinematics", VariantType::String, "collisioncontext.root", {"Input file name (kinematics)"}}}};
 }
 
 WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
