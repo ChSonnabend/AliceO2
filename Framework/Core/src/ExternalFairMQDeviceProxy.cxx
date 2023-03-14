@@ -419,6 +419,7 @@ DataProcessorSpec specifyExternalFairMQDeviceProxy(char const* name,
   spec.outputs = outputs;
   static std::vector<std::string> channels;
   static std::vector<int> numberOfEoS(channels.size(), 0);
+  static std::vector<int> eosPeersCount(channels.size(), 0);
   // The Init method will register a new "Out of band" channel and
   // attach an OnData to it which is responsible for converting incoming
   // messages into DPL messages.
@@ -439,6 +440,7 @@ DataProcessorSpec specifyExternalFairMQDeviceProxy(char const* name,
       auto& deviceState = services.get<DeviceState>();
       channels.clear();
       numberOfEoS.clear();
+      eosPeersCount.clear();
       for (auto& [channelName, _] : services.get<RawDeviceService>().device()->fChannels) {
         // Out of band channels must start with the proxy name, at least for now
         if (strncmp(channelName.c_str(), deviceName.c_str(), deviceName.size()) == 0) {
@@ -458,6 +460,7 @@ DataProcessorSpec specifyExternalFairMQDeviceProxy(char const* name,
         });
       }
       numberOfEoS.resize(channels.size(), 0);
+      eosPeersCount.resize(channels.size(), 0);
     };
 
     auto drainMessages = [](ServiceRegistryRef registry, int state) {
@@ -500,7 +503,7 @@ DataProcessorSpec specifyExternalFairMQDeviceProxy(char const* name,
       ctx.services().get<CallbackService>().set<CallbackService::Id::DeviceStateChanged>(drainMessages);
     }
 
-    static auto countEoS = [](fair::mq::Parts& inputs) -> int {
+    static auto countEoS = [](fair::mq::Parts& inputs, bool& newRun) -> int {
       int count = 0;
       for (int msgidx = 0; msgidx < inputs.Size() / 2; ++msgidx) {
         // Skip when we have nullptr for the header.
@@ -511,6 +514,14 @@ DataProcessorSpec specifyExternalFairMQDeviceProxy(char const* name,
         auto const sih = o2::header::get<SourceInfoHeader*>(inputs.At(msgidx * 2)->GetData());
         if (sih != nullptr && sih->state == InputChannelState::Completed) {
           count++;
+        }
+        static size_t currentRunNumber = -1;
+        const auto dh = o2::header::get<DataHeader*>(inputs.At(msgidx * 2)->GetData());
+        if (dh) {
+          if (currentRunNumber != -1 && dh->runNumber != currentRunNumber) {
+            newRun = true;
+          }
+          currentRunNumber = dh->runNumber;
         }
       }
       return count;
@@ -532,20 +543,27 @@ DataProcessorSpec specifyExternalFairMQDeviceProxy(char const* name,
         return {""};
       };
 
-      bool everyEoS = true;
       std::string const& channel = channels[ci];
       // we buffer the condition since the converter will forward messages by move
-      numberOfEoS[ci] += countEoS(inputs);
+      bool newRun = false;
+      int nEos = countEoS(inputs, newRun);
+      numberOfEoS[ci] += nEos;
+      if (newRun) {
+        std::fill(numberOfEoS.begin(), numberOfEoS.end(), 0);
+        std::fill(eosPeersCount.begin(), eosPeersCount.end(), 0);
+      }
+      if (numberOfEoS[ci]) {
+        eosPeersCount[ci] = std::max<int>(eosPeersCount[ci], device->GetNumberOfConnectedPeers(channel));
+      }
       converter(timingInfo, *device, inputs, channelRetriever);
 
       // If we have enough EoS messages, we can stop the device
       // Notice that this has a number of failure modes:
-      // * If a connection sends the EoS and then closes.
+      // * If a connection sends the EoS and then closes before the GetNumberOfConnectedPeers command above.
       // * If a connection sends two EoS.
       // * If a connection sends an end of stream closes and another one opens.
-      if (numberOfEoS[ci] < device->GetNumberOfConnectedPeers(channel)) {
-        everyEoS = false;
-      }
+      // Finally, if we didn't receive an EoS this time, out counting of the connected peers is off, so the best thing we can do is delay the EoS reporting
+      bool everyEoS = numberOfEoS[ci] >= eosPeersCount[ci] && nEos;
 
       if (everyEoS) {
         // Mark all input channels as closed
@@ -553,6 +571,7 @@ DataProcessorSpec specifyExternalFairMQDeviceProxy(char const* name,
           info.state = InputChannelState::Completed;
         }
         std::fill(numberOfEoS.begin(), numberOfEoS.end(), 0);
+        std::fill(eosPeersCount.begin(), eosPeersCount.end(), 0);
         control->endOfStream();
       }
     };
