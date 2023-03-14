@@ -153,43 +153,44 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
                                    signalArray[i]);
           
           /// OWN IMPLEMENTATION
-          int label_counter = 0, label_index = 0;
-          bool track_found = false;
-          for(auto lab : mclabel){
-            track_found = (label.compare(lab)==1) && (std::abs(sampaProcessing.getTimeBinFromTime(time) - max_time[label_counter])<2);
+          if(signalArray[i]!=0){
+            int label_counter = 0, label_index = 0;
+            bool track_found = false;
+            for(auto lab : mclabel){
+              track_found = (label.compare(lab)==1) && (std::abs(sampaProcessing.getTimeBinFromTime(time) - max_time[label_counter])<2);
+              if(track_found){
+                label_index = label_counter;
+                break;
+              }
+              else{
+                label_counter++;
+              }
+            }
             if(track_found){
-              label_index = label_counter;
-              break;
+              if(signalArray[i]>max_q[label_index]){
+                max_q[label_index] = signalArray[i];
+                max_time[label_index] =  sampaProcessing.getTimeBinFromTime(time);
+                max_pad[label_index] = digiPadPos.getPadPos().getPad();
+              }
+
+              /// On-the-fly center of gravity calculation
+              cog_time[label_index] = (cog_time[label_index]*cog_q[label_index] + sampaProcessing.getTimeBinFromTime(time)*signalArray[i])/(cog_q[label_index] + signalArray[i]);
+              cog_pad[label_index] = (cog_pad[label_index]*cog_q[label_index] + digiPadPos.getPadPos().getPad()*signalArray[i])/(cog_q[label_index] + signalArray[i]);
+              cog_q[label_index] += signalArray[i];
             }
             else{
-              label_counter++;
+              sector.push_back(int(digiPadPos.getCRU()/10));
+              row.push_back(digiPadPos.getPadPos().getRow());
+              max_time.push_back(sampaProcessing.getTimeBinFromTime(time));
+              max_pad.push_back(digiPadPos.getPadPos().getPad());
+              max_q.push_back(signalArray[i]);
+              cog_time.push_back(sampaProcessing.getTimeBinFromTime(time));
+              cog_pad.push_back(digiPadPos.getPadPos().getPad());
+              cog_q.push_back(signalArray[i]);
+              mclabel.push_back(label);
+              elem_counter++;
             }
           }
-          if(track_found){
-            if(signalArray[i]>max_q[label_index]){
-              max_q[label_index] = signalArray[i];
-              max_time[label_index] =  sampaProcessing.getTimeBinFromTime(time);
-              max_pad[label_index] = digiPadPos.getPadPos().getPad();
-            }
-
-            /// On-the-fly center of gravity calculation
-            cog_time[label_index] = (cog_time[label_index]*cog_q[label_index] + sampaProcessing.getTimeBinFromTime(time)*signalArray[i])/(cog_q[label_index] + signalArray[i]);
-            cog_pad[label_index] = (cog_pad[label_index]*cog_q[label_index] + digiPadPos.getPadPos().getPad()*signalArray[i])/(cog_q[label_index] + signalArray[i]);
-            cog_q[label_index] += signalArray[i];
-          }
-          else{
-            sector.push_back(int(digiPadPos.getCRU()/10));
-            row.push_back(digiPadPos.getPadPos().getRow());
-            max_time.push_back(sampaProcessing.getTimeBinFromTime(time));
-            max_pad.push_back(digiPadPos.getPadPos().getPad());
-            max_q.push_back(signalArray[i]);
-            cog_time.push_back(sampaProcessing.getTimeBinFromTime(time));
-            cog_pad.push_back(digiPadPos.getPadPos().getPad());
-            cog_q.push_back(signalArray[i]);
-            mclabel.push_back(label);
-            elem_counter++;
-          }
-
           
         }
         /// TODO: add ion backflow to space-charge density
