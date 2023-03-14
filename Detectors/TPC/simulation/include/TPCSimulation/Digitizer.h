@@ -138,6 +138,12 @@ class Digitizer
   float mTDriftOffset = 0;           ///< drift time additive offset in \mus
   bool mIsContinuous;                ///< Switch for continuous readout
   bool mUseSCDistortions = false; ///< Flag to switch on the use of space-charge distortions
+
+  /// Only needs maxima; cog; qtot | mclabels
+  int64_t elem_counter = 0;
+  std::vector<float> sector, row, max_time, max_pad, max_q, cog_time, cog_pad, cog_q;
+  std::vector<MCCompLabel> mclabel;
+
   ClassDefNV(Digitizer, 1);
 };
 } // namespace tpc

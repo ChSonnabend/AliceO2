@@ -30,6 +30,9 @@
 
 #include <fairlogger/Logger.h>
 
+#include "TFile.h"
+#include "TTree.h"
+
 ClassImp(o2::tpc::Digitizer);
 
 using namespace o2::tpc;
@@ -148,6 +151,46 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
           const float time = absoluteTime + i * eleParam.ZbinWidth;
           mDigitContainer.addDigit(label, digiPadPos.getCRU(), sampaProcessing.getTimeBinFromTime(time), globalPad,
                                    signalArray[i]);
+          
+          /// OWN IMPLEMENTATION
+          int label_counter = 0, label_index = 0;
+          bool track_found = false;
+          for(auto lab : mclabel){
+            track_found = (label.compare(lab)==1) && (std::abs(sampaProcessing.getTimeBinFromTime(time) - max_time[label_counter])<2);
+            if(track_found){
+              label_index = label_counter;
+              break;
+            }
+            else{
+              label_counter++;
+            }
+          }
+          if(track_found){
+            if(signalArray[i]>max_q[label_index]){
+              max_q[label_index] = signalArray[i];
+              max_time[label_index] =  sampaProcessing.getTimeBinFromTime(time);
+              max_pad[label_index] = digiPadPos.getPadPos().getPad();
+            }
+
+            /// On-the-fly center of gravity calculation
+            cog_time[label_index] = (cog_time[label_index]*cog_q[label_index] + sampaProcessing.getTimeBinFromTime(time)*signalArray[i])/(cog_q[label_index] + signalArray[i]);
+            cog_pad[label_index] = (cog_pad[label_index]*cog_q[label_index] + digiPadPos.getPadPos().getPad()*signalArray[i])/(cog_q[label_index] + signalArray[i]);
+            cog_q[label_index] += signalArray[i];
+          }
+          else{
+            sector.push_back(int(digiPadPos.getCRU()/10));
+            row.push_back(digiPadPos.getPadPos().getRow());
+            max_time.push_back(sampaProcessing.getTimeBinFromTime(time));
+            max_pad.push_back(digiPadPos.getPadPos().getPad());
+            max_q.push_back(signalArray[i]);
+            cog_time.push_back(sampaProcessing.getTimeBinFromTime(time));
+            cog_pad.push_back(digiPadPos.getPadPos().getPad());
+            cog_q.push_back(signalArray[i]);
+            mclabel.push_back(label);
+            elem_counter++;
+          }
+
+          
         }
         /// TODO: add ion backflow to space-charge density
       }
@@ -170,6 +213,37 @@ void Digitizer::flush(std::vector<o2::tpc::Digit>& digits,
       mSpaceCharge->flushStreamer();
     }
   }
+
+  /// OWN IMPLEMENTATION
+  TFile outputFile("mclabels_digits_raw.root", "RECREATE");
+  TTree* mcTree = new TTree("mcLabelsDigits", "MC tree");
+
+  float sec, r, cp, ct, cq, mp, mt, mq;
+
+  mcTree->Branch("cluster_sector", &sec);
+  mcTree->Branch("cluster_row", &r);
+  mcTree->Branch("cluster_cog_pad", &cp);
+  mcTree->Branch("cluster_cog_time", &ct);
+  mcTree->Branch("cluster_cog_q", &cq);
+  mcTree->Branch("cluster_max_pad", &mp);
+  mcTree->Branch("cluster_max_time", &mt);
+  mcTree->Branch("cluster_max_q", &mq);
+
+  for(int i = 0; i<elem_counter; i++){
+    sec = sector[i];
+    r = row[i];
+    cp = cog_pad[i];
+    ct = cog_time[i];
+    cq = cog_q[i];
+    mp = max_pad[i];
+    mt = max_time[i];
+    mq = max_q[i];
+    mcTree->Fill();
+  }
+
+  mcTree->Write();
+  delete mcTree;
+  outputFile.Close();
 }
 
 void Digitizer::setUseSCDistortions(SC::SCDistortionType distortionType, const TH3* hisInitialSCDensity)
