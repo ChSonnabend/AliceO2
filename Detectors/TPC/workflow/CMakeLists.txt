@@ -74,6 +74,11 @@ o2_add_executable(mc-labels
                   SOURCES src/readMCtoTree.cxx
                   PUBLIC_LINK_LIBRARIES O2::TPCWorkflow O2::SimulationDataFormat O2::TPCQC O2::DataFormatsTPC O2::TPCBase)
 
+o2_add_executable(onnx-inference
+                  COMPONENT_NAME tpc
+                  SOURCES src/RunOnnxInference.cxx
+                  PUBLIC_LINK_LIBRARIES O2::Framework O2::TPCWorkflow O2::ML)
+
 o2_add_executable(reco-workflow
                   COMPONENT_NAME tpc
                   SOURCES src/tpc-reco-workflow.cxx
