@@ -47,7 +47,7 @@ void OnnxInference::run(ProcessingContext& pc)
   auto stop_network_eval = std::chrono::high_resolution_clock::now();
 
   if (verbose > 0) {
-    std::cout << "Network eval duration: " << std::chrono::duration<float, std::ratio<1, 1000000000>>(stop_network_eval - start_network_eval).count() / 2;
+    std::cout << "Network eval duration: " << std::chrono::duration<float, std::ratio<1, 1000000000>>(stop_network_eval - start_network_eval).count() / 2 << std::endl;
     std::cout << "dummy output: " << output_network[0] << ", " << output_network[1] << ", " << output_network[2] << ", " << output_network[3] << std::endl;
   }
   pc.services().get<ControlService>().endOfStream();
