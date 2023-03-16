@@ -128,18 +128,19 @@ class Digitizer
   void setVDrift(float v) { mVDrift = v; }
   void setTDriftOffset(float t) { mTDriftOffset = t; }
 
-  std::vector<float> getSector(){ return sector; }
-  std::vector<float> getRow(){ return row; }
-  std::vector<float> getMaxTime(){ return max_time; }
-  std::vector<float> getMaxPad(){ return max_pad; }
+  std::vector<int> getSector(){ return sector; }
+  std::vector<int> getRow(){ return row; }
+  std::vector<int> getMaxTime(){ return max_time; }
+  std::vector<int> getMaxPad(){ return max_pad; }
   std::vector<float> getMaxQ(){ return max_q; }
   std::vector<float> getCogTime(){ return cog_time; }
   std::vector<float> getCogPad(){ return cog_pad; }
   std::vector<float> getCogQ(){ return cog_q; }
+  std::vector<int> getPointCounter(){ return point_counter; }
   int64_t getElemCounter(){ return elem_counter; }
   void clearElements(){
-    sector.clear(); row.clear(); max_time.clear(); max_pad.clear(); max_q.clear();
-    cog_time.clear(); cog_pad.clear(); cog_q.clear(); mclabel.clear(); elem_counter = 0;
+    sector.clear(); row.clear(); max_time.clear(); max_pad.clear(); max_q.clear(); cog_time.clear();
+    point_counter.clear(); cog_pad.clear(); cog_q.clear(); mclabel.clear(); elem_counter = 0;
   }
 
 
@@ -156,7 +157,8 @@ class Digitizer
 
   /// OWN IMPLEMENTATION
   int64_t elem_counter = 0;
-  std::vector<float> sector, row, max_time, max_pad, max_q, cog_time, cog_pad, cog_q;
+  std::vector<int> sector, row, max_time, max_pad, point_counter;
+  std::vector<float> max_q, cog_time, cog_pad, cog_q;
   std::vector<MCCompLabel> mclabel;
 
   ClassDefNV(Digitizer, 1);

@@ -31,6 +31,7 @@
 
 #include "TFile.h"
 #include "TTree.h"
+#include "TKey.h"
 
 using namespace o2;
 using namespace GPUCA_NAMESPACE::gpu;
@@ -45,11 +46,12 @@ class readMCtruth : public Task
 
  private:
   int verbose = 0;
-  std::string mode = "digits,native,tracks";
+  std::string mode = "digits,native,tracks,digitizer";
   std::string inFileDigits = "tpcdigits.root";
   std::string inFileNative = "tpc-cluster-native.root";
   std::string inFileTracks = "tpctracks.root";
   std::string inFileKinematics = "collisioncontext.root";
+  std::string inFileDigitizer = "mclabels_digitizer.root";
 };
 
 void readMCtruth::init(InitContext& ic)
@@ -60,6 +62,7 @@ void readMCtruth::init(InitContext& ic)
   inFileNative = ic.options().get<std::string>("infile-native");
   inFileTracks = ic.options().get<std::string>("infile-tracks");
   inFileKinematics = ic.options().get<std::string>("infile-kinematics");
+  inFileDigitizer = ic.options().get<std::string>("infile-digitizer");
 }
 
 void readMCtruth::run(ProcessingContext& pc)
@@ -104,7 +107,7 @@ void readMCtruth::run(ProcessingContext& pc)
 
     for (int iEvent = 0; iEvent < digitTree->GetEntriesFast(); ++iEvent) {
       if (verbose > 0) {
-        std::cout << "Processing event: " << iEvent;
+        LOG(info) << "Processing event: " << iEvent;
       }
       digitTree->GetEntry(iEvent);
       for (int ib = 0; ib < nBranches; ib++) {
@@ -120,7 +123,7 @@ void readMCtruth::run(ProcessingContext& pc)
           continue;
         }
         if (verbose > 0) {
-          std::cout << "Filling digits for sector " << ib << "\n";
+          LOG(info) << "Filling digits for sector " << ib;
         }
         int nd = digits[ib]->size();
 
@@ -138,9 +141,6 @@ void readMCtruth::run(ProcessingContext& pc)
           validity = (lab.isValid() ? 1 : 0);
           mcTree->Fill();
         }
-        if (verbose > 0) {
-          std::cout << "Filled digits for sector " << ib << "\n";
-        }
       }
     }
     mcTree->Write();
@@ -148,7 +148,7 @@ void readMCtruth::run(ProcessingContext& pc)
     outputFile.Close();
 
     if (verbose > 0) {
-      std::cout << "TPC digit reader done!\n";
+      LOG(info) << "TPC digit reader done!";
     }
   }
 
@@ -186,7 +186,7 @@ void readMCtruth::run(ProcessingContext& pc)
 
     for (int i = 0; i < tpcClusterReader.getTreeSize(); ++i) {
       if(verbose>0){
-        std::cout << "Event " << i << "\n";
+        LOG(info) << "Event " << i;
       }
       nevent = i;
       tpcClusterReader.read(i);
@@ -222,7 +222,7 @@ void readMCtruth::run(ProcessingContext& pc)
     outputFile.Close();
 
     if (verbose > 0) {
-      std::cout << "TPC native reader done!\n";
+      LOG(info) << "TPC native reader done!";
     }
   };
 
@@ -233,7 +233,7 @@ void readMCtruth::run(ProcessingContext& pc)
     auto inputFile = TFile::Open(inFileTracks.c_str());
     auto tracksTree = (TTree*)inputFile->Get("tpcrec");
     if (tracksTree == nullptr) {
-      std::cout << "Error getting tree\n";
+      LOG(error) << "Error getting tree!";
       return;
     }
 
@@ -274,7 +274,7 @@ void readMCtruth::run(ProcessingContext& pc)
     }
 
     if(verbose > 0){
-      std::cout << "Found " << mTracksOut.size() << " tracks! Processing...\n";
+      LOG(info) << "Found " << mTracksOut.size() << " tracks! Processing...";
     }
 
     tracksTree->GetEntry(tracksTree->GetReadEntry() + 1);
@@ -347,7 +347,7 @@ void readMCtruth::run(ProcessingContext& pc)
     outputFile.Close();
 
     if (verbose > 0) {
-      std::cout << "TPC tracks reader done!\n";
+      LOG(info) << "TPC tracks reader done!";
     }
   };
 
@@ -426,10 +426,66 @@ void readMCtruth::run(ProcessingContext& pc)
     outputFile.Close();
 
     if (verbose > 0) {
-      std::cout << "TPC kinematics reader done!\n";
+      LOG(info) << "TPC kinematics reader done!";
     }
 
   };
+
+  // Digitizer -> Cluster-information based on MC labels, see O2/Detectors/TPC/simulation/src/Digitizer.cxx, O2/Steer/DigitizerWorkflow/src/TPCDigitizerSpec.cxx
+  if (mode.find(std::string("digitizer")) != std::string::npos) {
+
+    auto inputFile = TFile::Open(inFileDigitizer.c_str());
+
+    TFile outputFile("mclabels_digits_raw.root", "RECREATE");
+    TTree* mcTree = new TTree("mcLabelsDigitizer", "MC tree");
+
+    // int sec, row, maxp, maxt;
+    float sec, row, maxp, maxt, cogp, cogt, cogq, maxq;
+
+    mcTree->Branch("digitizer_sector", &sec);
+    mcTree->Branch("digitizer_row", &row);
+    mcTree->Branch("digitizer_cogpad", &cogp);
+    mcTree->Branch("digitizer_cogtime", &cogt);
+    mcTree->Branch("digitizer_cogq", &cogq);
+    mcTree->Branch("digitizer_maxpad", &maxp);
+    mcTree->Branch("digitizer_maxtime", &maxt);
+    mcTree->Branch("digitizer_maxq", &maxq);
+
+    int current_sector = 0;
+    for(auto&& keyAsObj : *(inputFile->GetListOfKeys())){
+
+      auto key = (TKey*) keyAsObj;
+      if(verbose>0){
+        LOG(info) << "Processing sector " << current_sector << " (" << key->GetName() << ") ...";
+      }
+
+      auto digitizerSector = (TTree*)inputFile->Get(key->GetName());
+      digitizerSector->SetBranchAddress("cluster_sector", &sec);
+      digitizerSector->SetBranchAddress("cluster_row", &row);
+      digitizerSector->SetBranchAddress("cluster_cog_pad", &cogp);
+      digitizerSector->SetBranchAddress("cluster_cog_time", &cogt);
+      digitizerSector->SetBranchAddress("cluster_cog_q", &cogq);
+      digitizerSector->SetBranchAddress("cluster_max_pad", &maxp);
+      digitizerSector->SetBranchAddress("cluster_max_time", &maxt);
+      digitizerSector->SetBranchAddress("cluster_max_q", &maxq);
+      
+      for(int i=0; i<digitizerSector->GetEntries(); i++){
+        digitizerSector->GetEntry(i);
+        mcTree->Write();
+      }
+      current_sector++;
+    }
+
+    inputFile->Close();
+    mcTree->Write();
+    delete mcTree;
+    outputFile.Close();
+    
+    if (verbose > 0) {
+      LOG(info) << "TPC digitizer reader done!";
+    }
+
+  }
 
 
   pc.services().get<ControlService>().endOfStream();
@@ -450,11 +506,12 @@ DataProcessorSpec readMonteCarloLabels()
     adaptFromTask<readMCtruth>(),
     Options{
       {"verbose", VariantType::Int, 0, {"Verbosity level"}},
-      {"mode", VariantType::String, "digits,native,tracks,kinematics", {"Mode for running over tracks-file or digits-file: digits, native, tracks and/or kinematics."}},
+      {"mode", VariantType::String, "digits,native,tracks,digitizer", {"Mode for running over tracks-file or digits-file: digits, native, tracks, kinematics and/or digitizer."}},
       {"infile-digits", VariantType::String, "tpcdigits.root", {"Input file name (digits)"}},
       {"infile-native", VariantType::String, "tpc-native-clusters.root", {"Input file name (native)"}},
       {"infile-tracks", VariantType::String, "tpctracks.root", {"Input file name (tracks)"}},
-      {"infile-kinematics", VariantType::String, "collisioncontext.root", {"Input file name (kinematics)"}}}};
+      {"infile-kinematics", VariantType::String, "collisioncontext.root", {"Input file name (kinematics)"}},
+      {"infile-digitizer", VariantType::String, "mclabels_digitizer.root", {"Input file name (digitizer)"}}}};
 }
 
 WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)

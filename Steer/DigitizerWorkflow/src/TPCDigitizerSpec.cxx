@@ -195,8 +195,8 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
       std::filesystem::remove(tmp.str());
     }
 
-    if (std::filesystem::exists("mclabels_digits_raw.root")) {
-      std::filesystem::remove("mclabels_digits_raw.root");
+    if (std::filesystem::exists("mclabels_digitizer.root")) {
+      std::filesystem::remove("mclabels_digitizer.root");
     }
   }
 
@@ -455,6 +455,7 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         LOG(debug) << "TPC: Found " << hitsLeft.size() << " hit groups left and " << hitsRight.size() << " hit groups right in collision " << collID << " eventID " << part.entryID;
 
         mDigitizer.process(hitsLeft, eventID, sourceID);
+
         tmp_sector_vec = mDigitizer.getSector();
         tmp_row_vec = mDigitizer.getRow();
         tmp_max_time = mDigitizer.getMaxTime();
@@ -463,6 +464,8 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         tmp_cog_time = mDigitizer.getCogTime();
         tmp_cog_pad = mDigitizer.getCogPad();
         tmp_cog_q = mDigitizer.getCogQ();
+        tmp_point_counter = mDigitizer.getPointCounter();
+
         sector_vec.insert(sector_vec.end(), tmp_sector_vec.begin(), tmp_sector_vec.end());
         row_vec.insert(row_vec.end(), tmp_row_vec.begin(), tmp_row_vec.end());
         max_time.insert(max_time.end(), tmp_max_time.begin(), tmp_max_time.end());
@@ -471,11 +474,13 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         cog_time.insert(cog_time.end(), tmp_cog_time.begin(), tmp_cog_time.end());
         cog_pad.insert(cog_pad.end(), tmp_cog_pad.begin(), tmp_cog_pad.end());
         cog_q.insert(cog_q.end(), tmp_cog_q.begin(), tmp_cog_q.end());
+        point_counter.insert(point_counter.end(), tmp_point_counter.begin(), tmp_point_counter.end());
         elem_counter += mDigitizer.getElemCounter();
         mDigitizer.clearElements();
 
 
         mDigitizer.process(hitsRight, eventID, sourceID);
+
         tmp_sector_vec = mDigitizer.getSector();
         tmp_row_vec = mDigitizer.getRow();
         tmp_max_time = mDigitizer.getMaxTime();
@@ -484,6 +489,8 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         tmp_cog_time = mDigitizer.getCogTime();
         tmp_cog_pad = mDigitizer.getCogPad();
         tmp_cog_q = mDigitizer.getCogQ();
+        tmp_point_counter = mDigitizer.getPointCounter();
+
         sector_vec.insert(sector_vec.end(), tmp_sector_vec.begin(), tmp_sector_vec.end());
         row_vec.insert(row_vec.end(), tmp_row_vec.begin(), tmp_row_vec.end());
         max_time.insert(max_time.end(), tmp_max_time.begin(), tmp_max_time.end());
@@ -492,6 +499,7 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         cog_time.insert(cog_time.end(), tmp_cog_time.begin(), tmp_cog_time.end());
         cog_pad.insert(cog_pad.end(), tmp_cog_pad.begin(), tmp_cog_pad.end());
         cog_q.insert(cog_q.end(), tmp_cog_q.begin(), tmp_cog_q.end());
+        point_counter.insert(point_counter.end(), tmp_point_counter.begin(), tmp_point_counter.end());
         elem_counter += mDigitizer.getElemCounter();
         mDigitizer.clearElements();
 
@@ -526,10 +534,11 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
 
     std::stringstream tmp;
     tmp << "sector_" << mSector;
-    TFile outputFile("mclabels_digits_raw.root", "UPDATE");
+    TFile outputFile("mclabels_digitizer.root", "UPDATE");
     TTree* mcTree = new TTree(tmp.str().c_str(), "MC tree");
 
-    float sec, r, cp, ct, cq, mp, mt, mq;
+    int sec, r, mp, mt;
+    float cp, ct, cq, mq, p;
 
     mcTree->Branch("cluster_sector", &sec);
     mcTree->Branch("cluster_row", &r);
@@ -539,17 +548,21 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
     mcTree->Branch("cluster_max_pad", &mp);
     mcTree->Branch("cluster_max_time", &mt);
     mcTree->Branch("cluster_max_q", &mq);
+    mcTree->Branch("cluster_points", &p);
 
     for(int i = 0; i<elem_counter; i++){
-      sec = sector_vec[i];
-      r = row_vec[i];
-      cp = cog_pad[i];
-      ct = cog_time[i];
-      cq = cog_q[i];
-      mp = max_pad[i];
-      mt = max_time[i];
-      mq = max_q[i];
-      mcTree->Fill();
+      if(point_counter[i]>1){
+        sec = sector_vec[i];
+        r = row_vec[i];
+        cp = cog_pad[i];
+        ct = cog_time[i];
+        cq = cog_q[i];
+        mp = max_pad[i];
+        mt = max_time[i];
+        mq = max_q[i];
+        p = point_counter[i];
+        mcTree->Fill();
+      }
     }
 
     mcTree->Write();
@@ -581,8 +594,10 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
 
   /// OWN IMPLEMENTATION
   int64_t elem_counter = 0;
-  std::vector<float> tmp_sector_vec, tmp_row_vec, tmp_max_time, tmp_max_pad, tmp_max_q, tmp_cog_time, tmp_cog_pad, tmp_cog_q;
-  std::vector<float> sector_vec, row_vec, max_time, max_pad, max_q, cog_time, cog_pad, cog_q;
+  std::vector<int> tmp_sector_vec, tmp_row_vec, tmp_max_time, tmp_max_pad, tmp_point_counter;
+  std::vector<float> tmp_max_q, tmp_cog_time, tmp_cog_pad, tmp_cog_q;
+  std::vector<int> sector_vec, row_vec, max_time, max_pad, point_counter;
+  std::vector<float> max_q, cog_time, cog_pad, cog_q;
 };
 
 o2::framework::DataProcessorSpec getTPCDigitizerSpec(int channel, bool writeGRP, bool mctruth, bool internalwriter)

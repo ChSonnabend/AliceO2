@@ -153,11 +153,11 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
                                    signalArray[i]);
           
           /// OWN IMPLEMENTATION
-          if(signalArray[i]!=0){
+          if(signalArray[i]!=0 && !std::isnan(signalArray[i])){
             int label_counter = 0;
             bool track_found = false;
             for(auto lab : mclabel){
-              track_found = (label.compare(lab)==1) && (std::abs(sampaProcessing.getTimeBinFromTime(time) - max_time[label_counter])<=3)  && (std::abs(digiPadPos.getPadPos().getPad() - max_pad[label_counter])<=3);
+              track_found = (label.compare(lab)==1) && (std::abs((int)sampaProcessing.getTimeBinFromTime(time) - cog_time[label_counter])<=3)  && (std::abs(digiPadPos.getGlobalPadPos().getPad() - cog_pad[label_counter])<=3);
               if(track_found){
                 break;
               }
@@ -169,23 +169,27 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
               if(signalArray[i]>max_q[label_counter]){
                 max_q[label_counter] = signalArray[i];
                 max_time[label_counter] =  sampaProcessing.getTimeBinFromTime(time);
-                max_pad[label_counter] = digiPadPos.getPadPos().getPad();
+                max_pad[label_counter] = digiPadPos.getGlobalPadPos().getPad();
               }
 
               /// On-the-fly center-of-gravity calculation
               cog_time[label_counter] = (cog_time[label_counter]*cog_q[label_counter] + sampaProcessing.getTimeBinFromTime(time)*signalArray[i])/(cog_q[label_counter] + signalArray[i]);
-              cog_pad[label_counter] = (cog_pad[label_counter]*cog_q[label_counter] + digiPadPos.getPadPos().getPad()*signalArray[i])/(cog_q[label_counter] + signalArray[i]);
+              cog_pad[label_counter] = (cog_pad[label_counter]*cog_q[label_counter] + digiPadPos.getGlobalPadPos().getPad()*signalArray[i])/(cog_q[label_counter] + signalArray[i]);
               cog_q[label_counter] += signalArray[i];
+
+              /// Point counter
+              point_counter[label_counter] += 1;
             }
             else{
               sector.push_back(int(digiPadPos.getCRU()/10));
-              row.push_back(digiPadPos.getPadPos().getRow());
+              row.push_back(digiPadPos.getGlobalPadPos().getRow());
               max_time.push_back(sampaProcessing.getTimeBinFromTime(time));
-              max_pad.push_back(digiPadPos.getPadPos().getPad());
+              max_pad.push_back(digiPadPos.getGlobalPadPos().getPad());
               max_q.push_back(signalArray[i]);
               cog_time.push_back(sampaProcessing.getTimeBinFromTime(time));
-              cog_pad.push_back(digiPadPos.getPadPos().getPad());
+              cog_pad.push_back(digiPadPos.getGlobalPadPos().getPad());
               cog_q.push_back(signalArray[i]);
+              point_counter.push_back(1);
               mclabel.push_back(label);
               elem_counter++;
             }
