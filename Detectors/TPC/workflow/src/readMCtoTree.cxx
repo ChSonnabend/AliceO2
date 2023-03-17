@@ -62,7 +62,6 @@ void readMCtruth::init(InitContext& ic)
   inFileNative = ic.options().get<std::string>("infile-native");
   inFileTracks = ic.options().get<std::string>("infile-tracks");
   inFileKinematics = ic.options().get<std::string>("infile-kinematics");
-  inFileDigitizer = ic.options().get<std::string>("infile-digitizer");
 }
 
 void readMCtruth::run(ProcessingContext& pc)
@@ -434,13 +433,57 @@ void readMCtruth::run(ProcessingContext& pc)
   // Digitizer -> Cluster-information based on MC labels, see O2/Detectors/TPC/simulation/src/Digitizer.cxx, O2/Steer/DigitizerWorkflow/src/TPCDigitizerSpec.cxx
   if (mode.find(std::string("digitizer")) != std::string::npos) {
 
-    auto inputFile = TFile::Open(inFileDigitizer.c_str());
+    int sec, row, maxp, maxt;
+    float cogp, cogt, cogq, maxq;
+    long elements = 0;
 
-    TFile outputFile("mclabels_digits_raw.root", "RECREATE");
+    std::vector<int> sectors, rows, maxps, maxts;
+    std::vector<float> cogps, cogts, cogqs, maxqs;
+
+    for(int i = 0; i<36; i++){
+      if(verbose>0){
+        LOG(info) << "Processing sector " << i << " ...";
+      }
+      std::stringstream tmp_file;
+      tmp_file << "mclabels_digitizer_" << i << ".root";
+      auto inputFile = TFile::Open(tmp_file.str().c_str());
+      std::stringstream tmp_sec;
+      tmp_sec << "sector_" << i;
+      auto digitizerSector = (TTree*)inputFile->Get(tmp_sec.str().c_str());
+
+      digitizerSector->SetBranchAddress("cluster_sector", &sec);
+      digitizerSector->SetBranchAddress("cluster_row", &row);
+      digitizerSector->SetBranchAddress("cluster_cog_pad", &cogp);
+      digitizerSector->SetBranchAddress("cluster_cog_time", &cogt);
+      digitizerSector->SetBranchAddress("cluster_cog_q", &cogq);
+      digitizerSector->SetBranchAddress("cluster_max_pad", &maxp);
+      digitizerSector->SetBranchAddress("cluster_max_time", &maxt);
+      digitizerSector->SetBranchAddress("cluster_max_q", &maxq);
+
+      for(int j=0; j<digitizerSector->GetEntries(); j++){
+        try{
+          digitizerSector->GetEntry(j);
+          sectors.push_back(sec);
+          rows.push_back(row);
+          maxps.push_back(maxp);
+          maxts.push_back(maxt);
+          cogps.push_back(cogp);
+          cogts.push_back(cogt);
+          cogqs.push_back(cogq);
+          maxqs.push_back(maxq);
+          elements++;
+        }
+        catch(...){
+          LOG(info) << "Problem occured in sector " << i;
+        }
+      }
+
+      inputFile->Close();
+
+    }
+
+    TFile* outputFile = new TFile("mclabels_digits_raw.root", "RECREATE");
     TTree* mcTree = new TTree("mcLabelsDigitizer", "MC tree");
-
-    // int sec, row, maxp, maxt;
-    float sec, row, maxp, maxt, cogp, cogt, cogq, maxq;
 
     mcTree->Branch("digitizer_sector", &sec);
     mcTree->Branch("digitizer_row", &row);
@@ -451,39 +494,67 @@ void readMCtruth::run(ProcessingContext& pc)
     mcTree->Branch("digitizer_maxtime", &maxt);
     mcTree->Branch("digitizer_maxq", &maxq);
 
-    int current_sector = 0;
-    for(auto&& keyAsObj : *(inputFile->GetListOfKeys())){
-
-      auto key = (TKey*) keyAsObj;
-      if(verbose>0){
-        LOG(info) << "Processing sector " << current_sector << " (" << key->GetName() << ") ...";
-      }
-
-      auto digitizerSector = (TTree*)inputFile->Get(key->GetName());
-      digitizerSector->SetBranchAddress("cluster_sector", &sec);
-      digitizerSector->SetBranchAddress("cluster_row", &row);
-      digitizerSector->SetBranchAddress("cluster_cog_pad", &cogp);
-      digitizerSector->SetBranchAddress("cluster_cog_time", &cogt);
-      digitizerSector->SetBranchAddress("cluster_cog_q", &cogq);
-      digitizerSector->SetBranchAddress("cluster_max_pad", &maxp);
-      digitizerSector->SetBranchAddress("cluster_max_time", &maxt);
-      digitizerSector->SetBranchAddress("cluster_max_q", &maxq);
-      
-      for(int i=0; i<digitizerSector->GetEntries(); i++){
-        digitizerSector->GetEntry(i);
-        mcTree->Write();
-      }
-      current_sector++;
+    for(int i = 0; i<elements; i++){
+      sec = sectors[i];
+      row = rows[i];
+      maxp = maxps[i];
+      maxt = maxts[i];
+      cogp = cogps[i];
+      cogt = cogts[i];
+      cogq = cogqs[i];
+      maxq = maxqs[i];
+      mcTree->Fill();
     }
-
-    inputFile->Close();
+    
     mcTree->Write();
     delete mcTree;
-    outputFile.Close();
+    outputFile->Close();
     
     if (verbose > 0) {
       LOG(info) << "TPC digitizer reader done!";
     }
+
+    // int sec, row, maxp, maxt;
+    // float cogp, cogt, cogq, maxq;
+
+    // mcTree->Branch("digitizer_sector", &sec);
+    // mcTree->Branch("digitizer_row", &row);
+    // mcTree->Branch("digitizer_cogpad", &cogp);
+    // mcTree->Branch("digitizer_cogtime", &cogt);
+    // mcTree->Branch("digitizer_cogq", &cogq);
+    // mcTree->Branch("digitizer_maxpad", &maxp);
+    // mcTree->Branch("digitizer_maxtime", &maxt);
+    // mcTree->Branch("digitizer_maxq", &maxq);
+
+    // int current_sector = 0;
+    // for(auto&& keyAsObj : *(inputFile->GetListOfKeys())){
+
+    //   auto key = (TKey*) keyAsObj;
+    //   if(verbose>0){
+    //     LOG(info) << "Processing " << key->GetName() << " ...";
+    //   }
+
+    //   auto digitizerSector = (TTree*)inputFile->Get(key->GetName());
+    //   digitizerSector->SetBranchAddress("cluster_sector", &sec);
+    //   digitizerSector->SetBranchAddress("cluster_row", &row);
+    //   digitizerSector->SetBranchAddress("cluster_cog_pad", &cogp);
+    //   digitizerSector->SetBranchAddress("cluster_cog_time", &cogt);
+    //   digitizerSector->SetBranchAddress("cluster_cog_q", &cogq);
+    //   digitizerSector->SetBranchAddress("cluster_max_pad", &maxp);
+    //   digitizerSector->SetBranchAddress("cluster_max_time", &maxt);
+    //   digitizerSector->SetBranchAddress("cluster_max_q", &maxq);
+    //   
+    //   for(int i=0; i<digitizerSector->GetEntries(); i++){
+    //     try{
+    //       digitizerSector->GetEntry(i);
+    //       mcTree->Write();
+    //     }
+    //     catch(...){
+    //       LOG(info) << "Problem occured in " << key->GetName();
+    //     }
+    //   }
+    //   current_sector++;
+    // }
 
   }
 
@@ -510,8 +581,7 @@ DataProcessorSpec readMonteCarloLabels()
       {"infile-digits", VariantType::String, "tpcdigits.root", {"Input file name (digits)"}},
       {"infile-native", VariantType::String, "tpc-native-clusters.root", {"Input file name (native)"}},
       {"infile-tracks", VariantType::String, "tpctracks.root", {"Input file name (tracks)"}},
-      {"infile-kinematics", VariantType::String, "collisioncontext.root", {"Input file name (kinematics)"}},
-      {"infile-digitizer", VariantType::String, "mclabels_digitizer.root", {"Input file name (digitizer)"}}}};
+      {"infile-kinematics", VariantType::String, "collisioncontext.root", {"Input file name (kinematics)"}}}};
 }
 
 WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)

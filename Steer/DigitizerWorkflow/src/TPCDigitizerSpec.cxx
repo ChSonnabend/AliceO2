@@ -534,11 +534,13 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
 
     std::stringstream tmp;
     tmp << "sector_" << mSector;
-    TFile outputFile("mclabels_digitizer.root", "UPDATE");
+    std::stringstream fileName;
+    fileName << "mclabels_digitizer_" << mSector << ".root";
+    TFile outputFile(fileName.str().c_str(), "RECREATE");
     TTree* mcTree = new TTree(tmp.str().c_str(), "MC tree");
 
-    int sec, r, mp, mt;
-    float cp, ct, cq, mq, p;
+    int sec=0, r=0, mp=0, mt=0;
+    float cp=0, ct=0, cq=-1, mq=0, p=0;
 
     mcTree->Branch("cluster_sector", &sec);
     mcTree->Branch("cluster_row", &r);
