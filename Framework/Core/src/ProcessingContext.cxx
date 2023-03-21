@@ -8,25 +8,20 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
+#include "Framework/ProcessingContext.h"
+#include "Framework/DeviceState.h"
 
-/// \file   MIDWorkflow/EfficiencySpec.h
-/// \brief  Device that computes the MID chamber efficiency
-/// \author Livia Terlizzi <Livia.Terlizzi at cern.ch>
-/// \date   20 September 2022
-
-#ifndef O2_MID_EFFICIENCYSPEC_H
-#define O2_MID_EFFICIENCYSPEC_H
-
-#include "Framework/DataProcessorSpec.h"
-
-namespace o2
-{
-namespace mid
+namespace o2::framework
 {
 
-framework::DataProcessorSpec getEfficiencySpec();
+TransitionHandlingState ProcessingContext::transitionState() const
+{
+  return mServices.get<DeviceState>().transitionHandling;
+}
 
-} // namespace mid
-} // namespace o2
+StreamingState ProcessingContext::streamingState() const
+{
+  return mServices.get<DeviceState>().streaming;
+}
 
-#endif // O2_MID_EfficiencySpec_H
+} // namespace o2::framework

@@ -27,9 +27,11 @@
 #include <string>
 #endif // !GPUCA_GPUCODE
 
-#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB)
-#include "TPCSpaceCharge/SpaceCharge.h"
-#endif
+namespace o2::tpc
+{
+template <class T>
+class SpaceCharge;
+}
 
 namespace GPUCA_NAMESPACE
 {
@@ -40,15 +42,16 @@ namespace gpu
 struct TPCSlowSpaceChargeCorrection {
 
 #if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB)
-  /// getting the corrections for global coordinates
-  void getCorrections(const float gx, const float gy, const float gz, const int slice, float& gdxC, float& gdyC, float& gdzC) const
-  {
-    const o2::tpc::Side side = (slice < o2::tpc::SECTORSPERSIDE) ? o2::tpc::Side::A : o2::tpc::Side::C;
-    mCorr.getCorrections(gx, gy, gz, side, gdxC, gdyC, gdzC);
-  }
+  /// destructor
+  ~TPCSlowSpaceChargeCorrection();
 
-  o2::tpc::SpaceCharge<float> mCorr; ///< reference space charge corrections
+  /// getting the corrections for global coordinates
+  void getCorrections(const float gx, const float gy, const float gz, const int slice, float& gdxC, float& gdyC, float& gdzC) const;
+
+  o2::tpc::SpaceCharge<float>* mCorr{nullptr}; ///< reference space charge corrections
 #else
+  ~TPCSlowSpaceChargeCorrection() CON_DEFAULT;
+
   /// setting dummy corrections for GPU
   GPUd() void getCorrections(const float gx, const float gy, const float gz, const int slice, float& gdxC, float& gdyC, float& gdzC) const
   {
@@ -59,7 +62,7 @@ struct TPCSlowSpaceChargeCorrection {
 #endif
 
 #ifndef GPUCA_ALIROOT_LIB
-  ClassDefNV(TPCSlowSpaceChargeCorrection, 1);
+  ClassDefNV(TPCSlowSpaceChargeCorrection, 2);
 #endif
 };
 
@@ -265,14 +268,7 @@ class TPCFastTransform : public FlatObject
   static TPCFastTransform* loadFromFile(std::string inpFName = "", std::string name = "");
 
   /// setting the reference corrections
-  /// \tparam DataTIn data type of the corrections on the root file (float or double)
-  template <typename DataTIn = double>
-  void setSlowTPCSCCorrection(TFile& inpf)
-  {
-    mCorrectionSlow = new TPCSlowSpaceChargeCorrection;
-    mCorrectionSlow->mCorr.setGlobalCorrectionsFromFile<DataTIn>(inpf, o2::tpc::Side::A);
-    mCorrectionSlow->mCorr.setGlobalCorrectionsFromFile<DataTIn>(inpf, o2::tpc::Side::C);
-  }
+  void setSlowTPCSCCorrection(TFile& inpf);
 
   /// \return returns the space charge object which is used for the slow correction
   const auto& getCorrectionSlow() const { return *mCorrectionSlow; }
@@ -473,7 +469,7 @@ GPUdi() void TPCFastTransform::TransformInternal(int slice, int row, float& u, f
       }
     }
 
-    if (o2::utils::DebugStreamer::checkStream(o2::utils::StreamFlags::streamFastTransform)) {
+    GPUCA_DEBUG_STREAMER_CHECK(if (o2::utils::DebugStreamer::checkStream(o2::utils::StreamFlags::streamFastTransform)) {
       float ly, lz;
       getGeometry().convUVtoLocal(slice, u, v, ly, lz);
 
@@ -518,7 +514,7 @@ GPUdi() void TPCFastTransform::TransformInternal(int slice, int row, float& u, f
                                                                                          << "YZtoNominalY=" << YZtoNominalY
                                                                                          << "YZtoNominalZ=" << YZtoNominalZ
                                                                                          << "\n";
-    }
+    })
 
     x += dx;
     u += du;
@@ -730,8 +726,7 @@ GPUdi() void TPCFastTransform::InverseTransformYZtoX(int slice, int row, float y
     x = (x - xr) * scale + xr;
   }
 
-  using Streamer = o2::utils::DebugStreamer;
-  if (Streamer::checkStream(o2::utils::StreamFlags::streamFastTransform)) {
+  GPUCA_DEBUG_STREAMER_CHECK(if (o2::utils::DebugStreamer::checkStream(o2::utils::StreamFlags::streamFastTransform)) {
     o2::utils::DebugStreamer::instance()->getStreamer("debug_fasttransform", "UPDATE") << o2::utils::DebugStreamer::instance()->getUniqueTreeName("tree_InverseTransformYZtoX").data()
                                                                                        << "slice=" << slice
                                                                                        << "row=" << row
@@ -742,7 +737,7 @@ GPUdi() void TPCFastTransform::InverseTransformYZtoX(int slice, int row, float y
                                                                                        << "v=" << v
                                                                                        << "u=" << u
                                                                                        << "\n";
-  }
+  })
 }
 
 GPUdi() void TPCFastTransform::InverseTransformYZtoNominalYZ(int slice, int row, float y, float z, float& ny, float& nz, const TPCFastTransform* ref, float scale) const
@@ -759,8 +754,7 @@ GPUdi() void TPCFastTransform::InverseTransformYZtoNominalYZ(int slice, int row,
   }
   getGeometry().convUVtoLocal(slice, un, vn, ny, nz);
 
-  using Streamer = o2::utils::DebugStreamer;
-  if (Streamer::checkStream(o2::utils::StreamFlags::streamFastTransform)) {
+  GPUCA_DEBUG_STREAMER_CHECK(if (o2::utils::DebugStreamer::checkStream(o2::utils::StreamFlags::streamFastTransform)) {
     o2::utils::DebugStreamer::instance()->getStreamer("debug_fasttransform", "UPDATE") << o2::utils::DebugStreamer::instance()->getUniqueTreeName("tree_InverseTransformYZtoNominalYZ").data()
                                                                                        << "slice=" << slice
                                                                                        << "row=" << row
@@ -774,7 +768,7 @@ GPUdi() void TPCFastTransform::InverseTransformYZtoNominalYZ(int slice, int row,
                                                                                        << "un=" << un
                                                                                        << "vn=" << vn
                                                                                        << "\n";
-  }
+  })
 }
 
 } // namespace gpu
