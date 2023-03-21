@@ -169,8 +169,6 @@ class Digitizer
   std::vector<int> window_size = {16,6}; // time-window, pad-window
 
   std::vector<MCCompLabel> mclabel;
-
-  bool mUseSCDistortions = false;    ///< Flag to switch on the use of space-charge distortions
   ClassDefNV(Digitizer, 1);
 };
 } // namespace tpc
