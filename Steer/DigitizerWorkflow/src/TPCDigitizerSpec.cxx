@@ -443,6 +443,8 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
 
       // for each collision, loop over the constituents event and source IDs
       // (background signal merging is basically taking place here)
+
+      window_size = mDigitizer.getWindowSize();
       for (auto& part : eventParts[collID]) {
         const int eventID = part.entryID;
         const int sourceID = part.sourceID;
@@ -539,8 +541,8 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
     TFile outputFile(fileName.str().c_str(), "RECREATE");
     TTree* mcTree = new TTree(tmp.str().c_str(), "MC tree");
 
-    int sec=0, r=0, mp=0, mt=0;
-    float cp=0, ct=0, cq=-1, mq=0, p=0;
+    int sec=0, r=0, mp=0, mt=0, idx=0, p=0;
+    float cp=0, ct=0, cq=-1, mq=0;
 
     mcTree->Branch("cluster_sector", &sec);
     mcTree->Branch("cluster_row", &r);
@@ -559,11 +561,17 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         cp = cog_pad[i];
         ct = cog_time[i];
         cq = cog_q[i];
-        mp = max_pad[i];
-        mt = max_time[i];
-        mq = max_q[i];
+        for(auto elem : max_q[i]){
+          if(elem > mq){
+            mp = max_pad[i][idx];
+            mt = max_time[i][idx];
+            mq = elem;
+          }
+          idx++;
+        }
         p = point_counter[i];
         mcTree->Fill();
+        mp = 0; mt = 0; mq = 0; idx = 0;
       }
     }
 
@@ -596,10 +604,17 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
 
   /// OWN IMPLEMENTATION
   int64_t elem_counter = 0;
-  std::vector<int> tmp_sector_vec, tmp_row_vec, tmp_max_time, tmp_max_pad, tmp_point_counter;
-  std::vector<float> tmp_max_q, tmp_cog_time, tmp_cog_pad, tmp_cog_q;
-  std::vector<int> sector_vec, row_vec, max_time, max_pad, point_counter;
-  std::vector<float> max_q, cog_time, cog_pad, cog_q;
+  std::vector<int> tmp_sector_vec, tmp_row_vec, tmp_point_counter;
+  std::vector<std::vector<int>>  tmp_max_time, tmp_max_pad;
+  std::vector<float> tmp_cog_time, tmp_cog_pad, tmp_cog_q;
+  std::vector<std::vector<float>> tmp_max_q;
+
+  std::vector<int> sector_vec, row_vec, point_counter;
+  std::vector<float> cog_time, cog_pad, cog_q;
+  std::vector<std::vector<int>>  max_time, max_pad;
+  std::vector<std::vector<float>> max_q;
+
+  std::vector<int> window_size;
 };
 
 o2::framework::DataProcessorSpec getTPCDigitizerSpec(int channel, bool writeGRP, bool mctruth, bool internalwriter)

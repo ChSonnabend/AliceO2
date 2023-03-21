@@ -433,11 +433,11 @@ void readMCtruth::run(ProcessingContext& pc)
   // Digitizer -> Cluster-information based on MC labels, see O2/Detectors/TPC/simulation/src/Digitizer.cxx, O2/Steer/DigitizerWorkflow/src/TPCDigitizerSpec.cxx
   if (mode.find(std::string("digitizer")) != std::string::npos) {
 
-    int sec, row, maxp, maxt;
+    int sec, row, maxp, maxt, pcount;
     float cogp, cogt, cogq, maxq;
     long elements = 0;
 
-    std::vector<int> sectors, rows, maxps, maxts;
+    std::vector<int> sectors, rows, maxps, maxts, point_count;
     std::vector<float> cogps, cogts, cogqs, maxqs;
 
     for(int i = 0; i<36; i++){
@@ -459,6 +459,7 @@ void readMCtruth::run(ProcessingContext& pc)
       digitizerSector->SetBranchAddress("cluster_max_pad", &maxp);
       digitizerSector->SetBranchAddress("cluster_max_time", &maxt);
       digitizerSector->SetBranchAddress("cluster_max_q", &maxq);
+      digitizerSector->SetBranchAddress("cluster_points", &pcount);
 
       for(int j=0; j<digitizerSector->GetEntries(); j++){
         try{
@@ -471,6 +472,7 @@ void readMCtruth::run(ProcessingContext& pc)
           cogts.push_back(cogt);
           cogqs.push_back(cogq);
           maxqs.push_back(maxq);
+          point_count.push_back(pcount);
           elements++;
         }
         catch(...){
@@ -495,15 +497,17 @@ void readMCtruth::run(ProcessingContext& pc)
     mcTree->Branch("digitizer_maxq", &maxq);
 
     for(int i = 0; i<elements; i++){
-      sec = sectors[i];
-      row = rows[i];
-      maxp = maxps[i];
-      maxt = maxts[i];
-      cogp = cogps[i];
-      cogt = cogts[i];
-      cogq = cogqs[i];
-      maxq = maxqs[i];
-      mcTree->Fill();
+      if(maxqs[i]>=2.5){
+        sec = sectors[i];
+        row = rows[i];
+        maxp = maxps[i];
+        maxt = maxts[i];
+        cogp = cogps[i];
+        cogt = cogts[i];
+        cogq = cogqs[i];
+        maxq = maxqs[i];
+        mcTree->Fill();
+      }
     }
     
     mcTree->Write();

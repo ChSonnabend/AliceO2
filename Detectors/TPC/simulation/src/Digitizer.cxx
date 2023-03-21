@@ -147,17 +147,24 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
         const float ADCsignal = sampaProcessing.getADCvalue(static_cast<float>(nElectronsGEM));
         const MCCompLabel label(MCTrackID, eventID, sourceID, false);
         sampaProcessing.getShapedSignal(ADCsignal, absoluteTime, signalArray);
+
+        float currentSignal = 0;
+        int currentPadPos = 0, currentTimeBin = 0, currentRow = 0, currentSector = 0, label_counter = 0, max_idx = 0;
+        bool track_found = false, max_idx_found = false;
+
         for (float i = 0; i < nShapedPoints; ++i) {
           const float time = absoluteTime + i * eleParam.ZbinWidth;
           mDigitContainer.addDigit(label, digiPadPos.getCRU(), sampaProcessing.getTimeBinFromTime(time), globalPad,
                                    signalArray[i]);
           
           /// OWN IMPLEMENTATION
-          if(signalArray[i]!=0 && !std::isnan(signalArray[i])){
-            int label_counter = 0;
-            bool track_found = false;
+          if((float)signalArray[i]>0 && !std::isnan((float)signalArray[i])){
+
+            currentSignal = (float)(signalArray[i]); currentPadPos = (int)(digiPadPos.getGlobalPadPos().getPad()); currentTimeBin = (int)(sampaProcessing.getTimeBinFromTime(time)); currentRow = (int)(digiPadPos.getGlobalPadPos().getRow()); currentSector = (int)(digiPadPos.getCRU().sector());
+            label_counter = 0; track_found = false; max_idx = 0; max_idx_found = false;
+
             for(auto lab : mclabel){
-              track_found = (label.compare(lab)==1) && (std::abs((int)sampaProcessing.getTimeBinFromTime(time) - cog_time[label_counter])<=3)  && (std::abs(digiPadPos.getGlobalPadPos().getPad() - cog_pad[label_counter])<=3);
+              track_found = (label.compare(lab)==1) && (row[label_counter]==currentRow) && (std::abs(currentTimeBin - cog_time[label_counter])<=(window_size[0]/2))  && (std::abs(currentPadPos - cog_pad[label_counter])<=(window_size[1]/2));
               if(track_found){
                 break;
               }
@@ -166,29 +173,54 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
               }
             }
             if(track_found){
-              if(signalArray[i]>max_q[label_counter]){
-                max_q[label_counter] = signalArray[i];
-                max_time[label_counter] =  sampaProcessing.getTimeBinFromTime(time);
-                max_pad[label_counter] = digiPadPos.getGlobalPadPos().getPad();
+
+              // if(currentSignal>max_q[label_counter]){
+              //   max_q[label_counter] = currentSignal;
+              //   max_time[label_counter] =  currentTimeBin;
+              //   max_pad[label_counter] = currentPadPos;
+              // }
+
+              for(auto elem : max_q[label_counter]){
+                if((max_time[label_counter][max_idx] == currentTimeBin) && (max_pad[label_counter][max_idx] == currentPadPos)){
+                  max_q[label_counter][max_idx] += currentSignal;
+                  max_idx_found = true;
+                  max_idx = 0;
+                  break;
+                }
+                else{
+                  max_idx++;
+                }
+              }
+              
+              if(!max_idx_found){
+                max_time[label_counter].push_back(currentTimeBin);
+                max_pad[label_counter].push_back(currentPadPos);
+                max_q[label_counter].push_back(currentSignal);
               }
 
               /// On-the-fly center-of-gravity calculation
-              cog_time[label_counter] = (cog_time[label_counter]*cog_q[label_counter] + sampaProcessing.getTimeBinFromTime(time)*signalArray[i])/(cog_q[label_counter] + signalArray[i]);
-              cog_pad[label_counter] = (cog_pad[label_counter]*cog_q[label_counter] + digiPadPos.getGlobalPadPos().getPad()*signalArray[i])/(cog_q[label_counter] + signalArray[i]);
-              cog_q[label_counter] += signalArray[i];
+              cog_time[label_counter] = (cog_time[label_counter]*cog_q[label_counter] + currentTimeBin*currentSignal)/(cog_q[label_counter] + currentSignal);
+              cog_pad[label_counter] = (cog_pad[label_counter]*cog_q[label_counter] + currentPadPos*currentSignal)/(cog_q[label_counter] + currentSignal);
+              cog_q[label_counter] += currentSignal;
 
               /// Point counter
               point_counter[label_counter] += 1;
+
+              // if(currentSector==2 && currentRow==6){
+              //   LOG(info) << "Current point: (pad) " << currentPadPos << ", (time) " << currentTimeBin << ", (charge) " << currentSignal;
+              //   LOG(info) << "New Max: (pad) " << max_pad[label_counter] << ", (time) " << max_time[label_counter] << ", (charge) " << max_q[label_counter];
+              //   LOG(info) << "New CoG: (pad) " << cog_pad[label_counter] << ", (time) " << cog_time[label_counter] << ", (charge) " << cog_q[label_counter];
+              // }
             }
             else{
-              sector.push_back(int(digiPadPos.getCRU()/10));
-              row.push_back(digiPadPos.getGlobalPadPos().getRow());
-              max_time.push_back(sampaProcessing.getTimeBinFromTime(time));
-              max_pad.push_back(digiPadPos.getGlobalPadPos().getPad());
-              max_q.push_back(signalArray[i]);
-              cog_time.push_back(sampaProcessing.getTimeBinFromTime(time));
-              cog_pad.push_back(digiPadPos.getGlobalPadPos().getPad());
-              cog_q.push_back(signalArray[i]);
+              sector.push_back(currentSector);
+              row.push_back(currentRow);
+              max_time.push_back(std::vector<int>{currentTimeBin});
+              max_pad.push_back(std::vector<int>{currentPadPos});
+              max_q.push_back(std::vector<float>{currentSignal});
+              cog_time.push_back(currentTimeBin);
+              cog_pad.push_back(currentPadPos);
+              cog_q.push_back(currentSignal);
               point_counter.push_back(1);
               mclabel.push_back(label);
               elem_counter++;

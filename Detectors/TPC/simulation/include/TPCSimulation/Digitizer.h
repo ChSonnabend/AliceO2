@@ -130,13 +130,14 @@ class Digitizer
 
   std::vector<int> getSector(){ return sector; }
   std::vector<int> getRow(){ return row; }
-  std::vector<int> getMaxTime(){ return max_time; }
-  std::vector<int> getMaxPad(){ return max_pad; }
-  std::vector<float> getMaxQ(){ return max_q; }
+  std::vector<std::vector<int>> getMaxTime(){ return max_time; }
+  std::vector<std::vector<int>> getMaxPad(){ return max_pad; }
+  std::vector<std::vector<float>> getMaxQ(){ return max_q; }
   std::vector<float> getCogTime(){ return cog_time; }
   std::vector<float> getCogPad(){ return cog_pad; }
   std::vector<float> getCogQ(){ return cog_q; }
   std::vector<int> getPointCounter(){ return point_counter; }
+  std::vector<int> getWindowSize(){ return window_size; }
   int64_t getElemCounter(){ return elem_counter; }
   void clearElements(){
     sector.clear(); row.clear(); max_time.clear(); max_pad.clear(); max_q.clear(); cog_time.clear();
@@ -157,8 +158,13 @@ class Digitizer
 
   /// OWN IMPLEMENTATION
   int64_t elem_counter = 0;
-  std::vector<int> sector, row, max_time, max_pad, point_counter;
-  std::vector<float> max_q, cog_time, cog_pad, cog_q;
+  std::vector<int> sector, row, point_counter;
+  std::vector<float> cog_time, cog_pad, cog_q;
+
+  std::vector<std::vector<int>> max_time, max_pad;
+  std::vector<std::vector<float>> max_q;
+  std::vector<int> window_size = {16,6}; // time-window, pad-window
+
   std::vector<MCCompLabel> mclabel;
 
   ClassDefNV(Digitizer, 1);
