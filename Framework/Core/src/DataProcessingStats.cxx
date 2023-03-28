@@ -30,23 +30,6 @@ DataProcessingStats::DataProcessingStats(std::function<void(int64_t& base, int64
   getRealtimeBase(realTimeBase, initialTimeOffset);
 }
 
-std::function<void(int64_t&, int64_t&)> DataProcessingStatsHelpers::defaultRealtimeBaseConfigurator(uint64_t startTimeOffset, uv_loop_t* loop)
-{
-  return [startTimeOffset, loop](int64_t& base, int64_t& offset) {
-    uv_update_time(loop);
-    base = startTimeOffset + uv_now(loop);
-    offset = uv_hrtime();
-  };
-}
-
-// Implement getTimestampConfigurator based on getRealtimeBaseConfigurator
-std::function<int64_t(int64_t, int64_t)> DataProcessingStatsHelpers::defaultCPUTimeConfigurator()
-{
-  return [](int64_t base, int64_t offset) -> int64_t {
-    return base + (uv_hrtime() - offset) / 1000000;
-  };
-}
-
 void DataProcessingStats::updateStats(CommandSpec cmd)
 {
   if (metricSpecs[cmd.id].name.empty()) {
@@ -210,7 +193,7 @@ void DataProcessingStats::processCommandQueue()
   insertedCmds.store(0, std::memory_order_relaxed);
 }
 
-void DataProcessingStats::flushChangedMetrics(std::function<void(std::string const&, int64_t, int64_t)> const& callback)
+void DataProcessingStats::flushChangedMetrics(std::function<void(DataProcessingStats::MetricSpec const&, int64_t, int64_t)> const& callback)
 {
   publishingInvokedTotal++;
   bool publish = false;
@@ -218,6 +201,9 @@ void DataProcessingStats::flushChangedMetrics(std::function<void(std::string con
   for (size_t mi = 0; mi < updated.size(); ++mi) {
     auto& update = updateInfos[mi];
     auto& spec = metricSpecs[mi];
+    if (spec.name.empty()) {
+      continue;
+    }
     if (currentTimestamp - update.timestamp > spec.maxRefreshLatency) {
       updated[mi] = true;
       update.timestamp = currentTimestamp;
@@ -229,7 +215,10 @@ void DataProcessingStats::flushChangedMetrics(std::function<void(std::string con
       continue;
     }
     publish = true;
-    callback(spec.name.data(), update.timestamp, metrics[mi]);
+    if (spec.kind == Kind::Unknown) {
+      LOGP(fatal, "Metric {} has unknown kind", spec.name);
+    }
+    callback(spec, update.timestamp, metrics[mi]);
     publishedMetricsLapse++;
     update.lastPublished = currentTimestamp;
     updated[mi] = false;
@@ -247,6 +236,9 @@ void DataProcessingStats::flushChangedMetrics(std::function<void(std::string con
 
 void DataProcessingStats::registerMetric(MetricSpec const& spec)
 {
+  if (spec.name.size() == 0) {
+    throw runtime_error("Metric name cannot be empty.");
+  }
   if (spec.metricId >= metricSpecs.size()) {
     throw runtime_error_f("Metric id %d is out of range. Max is %d", spec.metricId, metricSpecs.size());
   }

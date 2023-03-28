@@ -209,7 +209,7 @@ void GPURecoWorkflowSpec::init(InitContext& ic)
     if (mSpecConfig.outputSharedClusterMap) {
       mConfig->configProcessing.outputSharedClusterMap = true;
     }
-    mConfig->configProcessing.createO2Output = mSpecConfig.outputTracks ? 2 : 0; // Skip GPU-formatted output if QA is not requested
+    mConfig->configProcessing.createO2Output = mSpecConfig.outputTracks ? 2 : 0; // Disable O2 TPC track format output if no track output requested
 
     if (mConfParam->transformationFile.size() || mConfParam->transformationSCFile.size()) {
       LOG(fatal) << "Deprecated configurable param options GPU_global.transformationFile or transformationSCFile used\n"
@@ -934,7 +934,6 @@ Outputs GPURecoWorkflowSpec::outputs()
     for (auto const& sector : mTPCSectors) {
       mClusterOutputIds.emplace_back(sector);
     }
-    outputSpecs.emplace_back(gDataOriginTPC, "CLUSTERNATIVE", mSpecConfig.sendClustersPerSector ? 0 : NSectors, Lifetime::Timeframe);
     if (mSpecConfig.sendClustersPerSector) {
       outputSpecs.emplace_back(gDataOriginTPC, "CLUSTERNATIVETMP", NSectors, Lifetime::Timeframe); // Dummy buffer the TPC tracker writes the inital linear clusters to
       for (const auto sector : mTPCSectors) {

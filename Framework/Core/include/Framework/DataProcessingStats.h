@@ -46,7 +46,8 @@ enum struct ProcessingStatsId : short {
   TOTAL_BYTES_OUT,
   LAST_MIN_LATENCY,
   LAST_MAX_LATENCY,
-  INPUT_RATE_MB_S,
+  TOTAL_RATE_IN_MB_S,
+  TOTAL_RATE_OUT_MB_S,
   PROCESSING_RATE_HZ,
   MALFORMED_INPUTS,
   DROPPED_COMPUTATIONS,
@@ -54,13 +55,6 @@ enum struct ProcessingStatsId : short {
   RELAYED_MESSAGES,
   AVAILABLE_MANAGED_SHM_BASE = 512,
   RELAYER_METRIC_BASE = 1024,
-};
-
-struct DataProcessingStatsHelpers {
-  /// Return a function which can be used to retrieve the base timestamp and the
-  /// associated fast offset for the realtime clock.
-  static std::function<void(int64_t& base, int64_t& offset)> defaultRealtimeBaseConfigurator(uint64_t offset, uv_loop_t* loop);
-  static std::function<int64_t(int64_t base, int64_t offset)> defaultCPUTimeConfigurator();
 };
 
 /// Helper struct to hold statistics about the data processing happening.
@@ -82,6 +76,21 @@ struct DataProcessingStats {
     Sub,               /// Subtract the value from the current value
     Max,               /// Set the value to the maximum of the current value and the specified value
     Min                /// Set the value to the minimum of the current value and the specified value
+  };
+
+  // Kind of the metric. This is used to know how to interpret the value
+  enum struct Kind : char {
+    Int,
+    UInt64,
+    Double,
+    Unknown
+  };
+
+  // The scope for a given metric. DPL is used for the DPL Monitoring GUI,
+  // Online is used for the online monitoring.
+  enum struct Scope : char {
+    DPL,
+    Online
   };
 
   // This is what the user passes. Notice that there is no
@@ -120,6 +129,10 @@ struct DataProcessingStats {
     // Name of the metric
     std::string name = "";
     int metricId = -1;
+    /// The kind of the metric
+    Kind kind = Kind::Int;
+    /// The scope of the metric
+    Scope scope = Scope::DPL;
     /// The default value for the metric
     int64_t defaultValue = 0;
     /// How many milliseconds must have passed since the last publishing
@@ -140,7 +153,7 @@ struct DataProcessingStats {
   /// It is meant to be called periodically by a single thread.
   void processCommandQueue();
 
-  void flushChangedMetrics(std::function<void(std::string const&, int64_t, int64_t)> const& callback);
+  void flushChangedMetrics(std::function<void(MetricSpec const&, int64_t, int64_t)> const& callback);
 
   std::atomic<size_t> statesSize;
 

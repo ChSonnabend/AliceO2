@@ -43,6 +43,14 @@ class TPCVDriftTglCalibSpec : public Task
 
   void run(ProcessingContext& pc) final
   {
+    const auto& tinfo = pc.services().get<o2::framework::TimingInfo>();
+    if (tinfo.globalRunNumberChanged) { // new run is starting
+      mRunStopRequested = false;
+      mCalibrator->reset();
+    }
+    if (mRunStopRequested) {
+      return;
+    }
     o2::base::GRPGeomHelper::instance().checkUpdates(pc);
     auto data = pc.inputs().get<gsl::span<o2::dataformats::Triplet<float, float, float>>>("input");
     o2::base::TFIDInfoHelper::fillTFIDInfo(pc, mCalibrator->getCurrentTFInfo());
@@ -50,14 +58,23 @@ class TPCVDriftTglCalibSpec : public Task
       LOG(info) << "Processing TF " << mCalibrator->getCurrentTFInfo().tfCounter << " with " << data.size() - 2 << " tracks"; // 1st entry is for VDrift, 2nd for the offset
     }
     mCalibrator->process(data);
+    if (pc.transitionState() == TransitionHandlingState::Requested) {
+      LOG(info) << "Run stop requested, finalizing";
+      mRunStopRequested = true;
+      mCalibrator->checkSlotsToFinalize(o2::calibration::INFINITE_TF);
+    }
     sendOutput(pc.outputs());
   }
 
   void endOfStream(EndOfStreamContext& ec) final
   {
+    if (mRunStopRequested) {
+      return;
+    }
     LOG(info) << "Finalizing calibration";
     mCalibrator->checkSlotsToFinalize(o2::calibration::INFINITE_TF);
     sendOutput(ec.outputs());
+    mRunStopRequested = true;
   }
 
   void finaliseCCDB(o2::framework::ConcreteDataMatcher& matcher, void* obj) final
@@ -69,6 +86,7 @@ class TPCVDriftTglCalibSpec : public Task
   void sendOutput(DataAllocator& output);
   std::unique_ptr<o2::tpc::TPCVDriftTglCalibration> mCalibrator;
   std::shared_ptr<o2::base::GRPGeomRequest> mCCDBRequest;
+  bool mRunStopRequested = false; // flag that run was stopped (ant the last output is sent)
 };
 
 //_____________________________________________________________
