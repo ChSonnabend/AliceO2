@@ -9,25 +9,25 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file DCAFitterN.cxx
-/// \brief Defintions for N-prongs secondary vertex fit
-/// \author ruben.shahoyan@cern.ch
+/// \file StrangenessTrackingWriterSpec.h
+/// \brief
+///
 
-#include "DetectorsVertexing/DCAFitterN.h"
+#ifndef O2_STRANGENESSTRACKINGWRITER
+#define O2_STRANGENESSTRACKINGWRITER
+
+#include "Framework/DataProcessorSpec.h"
 
 namespace o2
 {
-namespace vertexing
+namespace strangeness_tracking
 {
 
-void __dummy_instance__()
-{
-  DCAFitter2 ft2;
-  DCAFitter3 ft3;
-  o2::track::TrackParCov tr;
-  ft2.process(tr, tr);
-  ft3.process(tr, tr, tr);
-}
+/// create a processor spec
+/// write ITS tracks to ROOT file
+o2::framework::DataProcessorSpec getStrangenessTrackingWriterSpec(bool useMC);
 
-} // namespace vertexing
+} // namespace strangeness_tracking
 } // namespace o2
+
+#endif /* O2_STRANGENESSTRACKINGWRITER */

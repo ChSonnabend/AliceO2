@@ -9,25 +9,13 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file StrangenessTrackingWriterSpec.h
-/// \brief
-///
+#ifdef __CLING__
 
-#ifndef O2_STRANGENESSTRACKINGWRITER
-#define O2_STRANGENESSTRACKINGWRITER
+#pragma link off all globals;
+#pragma link off all classes;
+#pragma link off all functions;
 
-#include "Framework/DataProcessorSpec.h"
+#pragma link C++ namespace o2::mch::eval;
+#pragma link C++ class o2::mch::eval::ExtendedTrack + ;
 
-namespace o2
-{
-namespace strangeness_tracking
-{
-
-/// create a processor spec
-/// write ITS tracks to ROOT file
-o2::framework::DataProcessorSpec getStrangenessTrackingWriterSpec();
-
-} // namespace strangeness_tracking
-} // namespace o2
-
-#endif /* O2_STRANGENESSTRACKINGWRITER */
+#endif

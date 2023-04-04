@@ -33,7 +33,6 @@ enum struct ProcessingStatsId : short {
   LAST_PROCESSED_SIZE,
   TOTAL_PROCESSED_SIZE,
   TOTAL_SIGUSR1,
-  PROCESSING_RATE_MB_S,
   CONSUMED_TIMEFRAMES,
   AVAILABLE_MANAGED_SHM,
   LAST_SLOW_METRIC_SENT_TIMESTAMP,
@@ -63,7 +62,7 @@ struct DataProcessingStats {
                       std::function<int64_t(int64_t base, int64_t offset)> getTimestamp);
 
   constexpr static ServiceKind service_kind = ServiceKind::Global;
-  constexpr static short MAX_METRICS = 1 << 14;
+  constexpr static unsigned short MAX_METRICS = 1 << 15;
   constexpr static short MAX_CMDS = 64;
 
   enum struct Op : char {
@@ -83,7 +82,10 @@ struct DataProcessingStats {
     Int,
     UInt64,
     Double,
-    Unknown
+    Rate, /// A rate metric is sent out as a float and reset to 0 after each update
+          /// Use the InstantaneousRate operation to update it. Most likely you also
+          /// want that the minPublishInterval is as large as the maxRefreshLatency.
+    Unknown,
   };
 
   // The scope for a given metric. DPL is used for the DPL Monitoring GUI,
@@ -97,7 +99,7 @@ struct DataProcessingStats {
   // need to specify the timestamp, because we calculate it for them
   // using the delta between the last update and the current time.
   struct CommandSpec {
-    short id = 0;
+    unsigned short id = 0;
     Op op = Op::Nop;
     int64_t value = 0;
   };
@@ -107,7 +109,7 @@ struct DataProcessingStats {
   // global stats either when the buffer is full (after MAX_CMDS commands)
   // or when the queue is flushed explicitly via the processQueue() method.
   struct Command {
-    short id = 0;          // StatsId of the metric to update
+    unsigned short id = 0; // StatsId of the metric to update
     int64_t value = 0;     // Value to update the metric with
     int64_t timestamp = 0; // Timestamp of the update
     Op op = Op::Nop;       // Operation to perform to do the update
@@ -163,6 +165,8 @@ struct DataProcessingStats {
   std::array<std::string, MAX_METRICS> metricsNames;
   std::array<UpdateInfo, MAX_METRICS> updateInfos;
   std::array<MetricSpec, MAX_METRICS> metricSpecs;
+  std::array<int64_t, MAX_METRICS> lastPublishedMetrics;
+  std::vector<int> availableMetrics;
   // How many commands have been committed to the queue.
   std::atomic<int> insertedCmds = 0;
   // The insertion point for the next command.
