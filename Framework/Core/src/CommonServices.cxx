@@ -159,6 +159,12 @@ o2::framework::ServiceSpec CommonServices::streamContextSpec()
     .kind = ServiceKind::Stream};
 }
 
+o2::framework::DeploymentMode o2::framework::CommonServices::getDeploymentMode()
+{
+  static DeploymentMode retVal = getenv("DDS_SESSION_ID") != nullptr ? DeploymentMode::OnlineDDS : (getenv("OCC_CONTROL_PORT") != nullptr ? DeploymentMode::OnlineECS : (getenv("ALIEN_JOB_ID") != nullptr ? DeploymentMode::Grid : (getenv("ALICE_O2_FST") ? DeploymentMode::FST : (DeploymentMode::Local))));
+  return retVal;
+}
+
 o2::framework::ServiceSpec CommonServices::datatakingContextSpec()
 {
   return ServiceSpec{
@@ -181,15 +187,7 @@ o2::framework::ServiceSpec CommonServices::datatakingContextSpec()
     .start = [](ServiceRegistryRef services, void* service) {
       auto& context = services.get<DataTakingContext>();
 
-      if (getenv("DDS_SESSION_ID") != nullptr) {
-        context.deploymentMode = DeploymentMode::OnlineDDS;
-      } else if (getenv("OCC_CONTROL_PORT") != nullptr) {
-        context.deploymentMode = DeploymentMode::OnlineECS;
-      } else if (getenv("ALIEN_JOB_ID") != nullptr) {
-        context.deploymentMode = DeploymentMode::Grid;
-      } else {
-        context.deploymentMode = DeploymentMode::Local;
-      }
+      context.deploymentMode = getDeploymentMode();
 
       auto extRunNumber = services.get<RawDeviceService>().device()->fConfig->GetProperty<std::string>("runNumber", "unspecified");
       if (extRunNumber != "unspecified" || context.runNumber == "0") {
@@ -606,7 +604,7 @@ auto sendRelayerMetrics(ServiceRegistryRef registry, DataProcessingStats& stats)
       } catch (...) {
       }
     }
-    stats.updateStats({static_cast<short>(static_cast<short>(ProcessingStatsId::AVAILABLE_MANAGED_SHM_BASE) + runningWorkflow.shmSegmentId), DataProcessingStats::Op::SetIfPositive, freeMemory});
+    stats.updateStats({static_cast<unsigned short>(static_cast<int>(ProcessingStatsId::AVAILABLE_MANAGED_SHM_BASE) + runningWorkflow.shmSegmentId), DataProcessingStats::Op::SetIfPositive, freeMemory});
   }
 
   ZoneScopedN("send metrics");
@@ -623,8 +621,8 @@ auto sendRelayerMetrics(ServiceRegistryRef registry, DataProcessingStats& stats)
   stats.updateStats({static_cast<short>(ProcessingStatsId::TOTAL_BYTES_IN), DataProcessingStats::Op::Set, totalBytesIn});
   stats.updateStats({static_cast<short>(ProcessingStatsId::TOTAL_BYTES_OUT), DataProcessingStats::Op::Set, totalBytesOut});
 
-  stats.updateStats({static_cast<short>(ProcessingStatsId::TOTAL_RATE_IN_MB_S), DataProcessingStats::Op::CumulativeRate, totalBytesIn});
-  stats.updateStats({static_cast<short>(ProcessingStatsId::TOTAL_RATE_OUT_MB_S), DataProcessingStats::Op::CumulativeRate, totalBytesOut});
+  stats.updateStats({static_cast<short>(ProcessingStatsId::TOTAL_RATE_IN_MB_S), DataProcessingStats::Op::InstantaneousRate, totalBytesIn});
+  stats.updateStats({static_cast<short>(ProcessingStatsId::TOTAL_RATE_OUT_MB_S), DataProcessingStats::Op::InstantaneousRate, totalBytesOut});
 };
 
 /// This will flush metrics only once every second.
@@ -645,7 +643,7 @@ auto flushMetrics(ServiceRegistryRef registry, DataProcessingStats& stats) -> vo
         LOG(debug) << "Value for " << spec.name << " is negative, setting to 0";
         value = 0;
       }
-      metric.addValue((uint64_t)value, spec.name);
+      metric.addValue((uint64_t)value, "value");
     } else {
       if (value > (int64_t)std::numeric_limits<int>::max()) {
         LOG(warning) << "Value for " << spec.name << " is too large, setting to INT_MAX";
@@ -653,9 +651,9 @@ auto flushMetrics(ServiceRegistryRef registry, DataProcessingStats& stats) -> vo
       }
       if (value < (int64_t)std::numeric_limits<int>::min()) {
         value = (int64_t)std::numeric_limits<int>::min();
-        LOG(warning) << "Value for " << spec.name << " is too large, setting to INT_MIN";
+        LOG(warning) << "Value for " << spec.name << " is too small, setting to INT_MIN";
       }
-      metric.addValue((int)value, spec.name);
+      metric.addValue((int)value, "value");
     }
     if (spec.scope == DataProcessingStats::Scope::DPL) {
       metric.addTag(o2::monitoring::tags::Key::Subsystem, o2::monitoring::tags::Value::DPL);
@@ -730,13 +728,6 @@ o2::framework::ServiceSpec CommonServices::dataProcessingStats()
                    .metricId = (int)ProcessingStatsId::TOTAL_SIGUSR1,
                    .kind = Kind::UInt64,
                    .minPublishInterval = quickUpdateInterval},
-        MetricSpec{.name = "processing_rate_mb_s",
-                   .metricId = (int)ProcessingStatsId::PROCESSING_RATE_MB_S,
-                   .kind = Kind::UInt64,
-                   .scope = Scope::Online,
-                   .minPublishInterval = quickUpdateInterval,
-                   .maxRefreshLatency = onlineRefreshLatency,
-                   .sendInitialValue = true},
         MetricSpec{.name = "min_input_latency_ms",
                    .metricId = (int)ProcessingStatsId::LAST_MIN_LATENCY,
                    .kind = Kind::UInt64,
@@ -748,21 +739,21 @@ o2::framework::ServiceSpec CommonServices::dataProcessingStats()
                    .minPublishInterval = quickUpdateInterval},
         MetricSpec{.name = "total_rate_in_mb_s",
                    .metricId = (int)ProcessingStatsId::TOTAL_RATE_IN_MB_S,
-                   .kind = Kind::UInt64,
+                   .kind = Kind::Rate,
                    .scope = Scope::Online,
                    .minPublishInterval = quickUpdateInterval,
                    .maxRefreshLatency = onlineRefreshLatency,
                    .sendInitialValue = true},
         MetricSpec{.name = "total_rate_out_mb_s",
                    .metricId = (int)ProcessingStatsId::TOTAL_RATE_OUT_MB_S,
-                   .kind = Kind::UInt64,
+                   .kind = Kind::Rate,
                    .scope = Scope::Online,
                    .minPublishInterval = quickUpdateInterval,
                    .maxRefreshLatency = onlineRefreshLatency,
                    .sendInitialValue = true},
         MetricSpec{.name = "processing_rate_hz",
                    .metricId = (int)ProcessingStatsId::PROCESSING_RATE_HZ,
-                   .kind = Kind::UInt64,
+                   .kind = Kind::Rate,
                    .scope = Scope::Online,
                    .minPublishInterval = quickUpdateInterval,
                    .maxRefreshLatency = onlineRefreshLatency,
@@ -942,7 +933,8 @@ std::vector<ServiceSpec> CommonServices::defaultServices(int numThreads)
 
   std::string loadableServicesStr;
   // Do not load InfoLogger by default if we are not at P2.
-  if (getenv("DDS_SESSION_ID") != nullptr || getenv("OCC_CONTROL_PORT") != nullptr) {
+  DeploymentMode deploymentMode = getDeploymentMode();
+  if (deploymentMode == DeploymentMode::OnlineDDS || deploymentMode == DeploymentMode::OnlineECS) {
     loadableServicesStr += "O2FrameworkDataTakingSupport:InfoLoggerContext,O2FrameworkDataTakingSupport:InfoLogger";
   }
   // Load plugins depending on the environment

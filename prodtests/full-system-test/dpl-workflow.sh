@@ -150,7 +150,7 @@ PVERTEXING_CONFIG_KEY+="${ITSMFT_STROBES};"
 
 has_processing_step ENTROPY_ENCODER && has_detector_ctf TPC && GPU_OUTPUT+=",compressed-clusters-ctf"
 
-if workflow_has_parameter QC && has_detector_qc TPC; then
+if [[ $SYNCMODE == 1 ]] && workflow_has_parameter QC && has_detector_qc TPC; then
   GPU_OUTPUT+=",qa"
   [[ -z $TPC_TRACKING_QC_RUN_FRACTION ]] && TPC_TRACKING_QC_RUN_FRACTION=1
   GPU_CONFIG_KEY+="GPU_QA.clusterRejectionHistograms=1;GPU_proc.qcRunFraction=$TPC_TRACKING_QC_RUN_FRACTION;"
@@ -190,14 +190,16 @@ if [[ $GPUTYPE != "CPU" && $NUMAGPUIDS != 0 ]] && [[ -z $ROCR_VISIBLE_DEVICES ||
 fi
 
 if [[ $GPUTYPE == "HIP" ]]; then
-  if [[ -z $ROCR_VISIBLE_DEVICES ]]; then
-    GPU_FIRST_ID=0
-  else
-    GPU_FIRST_ID=$(echo ${ROCR_VISIBLE_DEVICES//,/ } | awk '{print $1}')
-  fi
   GPU_CONFIG_KEY+="GPU_proc.deviceNum=0;"
-  export TIMESLICEOFFSET=$(($GPU_FIRST_ID + ($NUMAGPUIDS != 0 ? ($NGPUS * $NUMAID) : 0)))
-  GPU_CONFIG+=" --environment \"ROCR_VISIBLE_DEVICES={timeslice${TIMESLICEOFFSET}}\""
+  if [[ $NGPUS != 1 || $NUMAID != 0 ]]; then
+    if [[ -z $ROCR_VISIBLE_DEVICES ]]; then
+      GPU_FIRST_ID=0
+    else
+      GPU_FIRST_ID=$(echo ${ROCR_VISIBLE_DEVICES//,/ } | awk '{print $1}')
+    fi
+    TIMESLICEOFFSET=$(($GPU_FIRST_ID + ($NUMAGPUIDS != 0 ? ($NGPUS * $NUMAID) : 0)))
+    GPU_CONFIG+=" --environment \"ROCR_VISIBLE_DEVICES={timeslice${TIMESLICEOFFSET}}\""
+  fi
   [[ "0$EPN_NODE_MI100" != "01" ]] && export HSA_NO_SCRATCH_RECLAIM=1
   #export HSA_TOOLS_LIB=/opt/rocm/lib/librocm-debug-agent.so.2
 else
@@ -296,7 +298,12 @@ if [[ ! -z $INPUT_DETECTOR_LIST ]]; then
     [[ ! -z $INPUT_FILE_LIST ]] && TFName=$INPUT_FILE_LIST
     if [[ -z $TFName && $WORKFLOWMODE != "print" ]]; then echo "No raw file given!"; exit 1; fi
     if [[ $NTIMEFRAMES == -1 ]]; then NTIMEFRAMES_CMD= ; else NTIMEFRAMES_CMD="--max-tf $NTIMEFRAMES"; fi
-    add_W o2-raw-tf-reader-workflow "--delay $TFDELAY --loop $TFLOOP $NTIMEFRAMES_CMD --input-data ${TFName} ${INPUT_FILE_COPY_CMD+--copy-cmd} ${INPUT_FILE_COPY_CMD} --onlyDet $INPUT_DETECTOR_LIST ${TIMEFRAME_SHM_LIMIT+--timeframes-shm-limit} $TIMEFRAME_SHM_LIMIT"
+    if [[ -z $WORKFLOW_DETECTORS_FLP_PROCESSING || $WORKFLOW_DETECTORS_FLP_PROCESSING == "NONE" ]]; then
+      TFRAWOPT="--raw-only-det all"
+    else
+      TFRAWOPT="--non-raw-only-det $WORKFLOW_DETECTORS_FLP_PROCESSING"
+    fi
+    add_W o2-raw-tf-reader-workflow "--delay $TFDELAY $TFRAWOPT --loop $TFLOOP $NTIMEFRAMES_CMD --input-data ${TFName} ${INPUT_FILE_COPY_CMD+--copy-cmd} ${INPUT_FILE_COPY_CMD} --onlyDet $INPUT_DETECTOR_LIST ${TIMEFRAME_SHM_LIMIT+--timeframes-shm-limit} $TIMEFRAME_SHM_LIMIT"
   elif [[ $EXTINPUT == 1 ]]; then
     PROXY_CHANNEL="name=readout-proxy,type=pull,method=connect,address=ipc://${UDS_PREFIX}${INRAWCHANNAME},transport=shmem,rateLogging=$EPNSYNCMODE"
     PROXY_INSPEC="dd:FLP/DISTSUBTIMEFRAME/0"
