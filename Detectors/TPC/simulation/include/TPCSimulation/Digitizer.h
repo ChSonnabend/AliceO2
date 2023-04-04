@@ -166,7 +166,7 @@ class Digitizer
 
   std::vector<std::vector<int>> max_time, max_pad;
   std::vector<std::vector<float>> max_q;
-  std::vector<int> window_size = {16,6}; // time-window, pad-window
+  std::vector<int> window_size = {20,8}; // time-window, pad-window
 
   std::vector<MCCompLabel> mclabel;
   ClassDefNV(Digitizer, 1);

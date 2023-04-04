@@ -78,6 +78,18 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
   /// obtain max drift_time + hitTime which can be processed
   float maxEleTime = (int(mDigitContainer.size()) - nShapedPoints) * eleParam.ZbinWidth;
 
+  sector.clear();
+  row.clear();
+  max_time.clear();
+  max_pad.clear();
+  max_q.clear();
+  cog_time.clear();
+  cog_pad.clear();
+  cog_q.clear();
+  point_counter.clear();
+  mclabel.clear();
+  elem_counter = 0;
+
   for (auto& hitGroup : hits) {
     const int MCTrackID = hitGroup.GetTrackID();
     for (size_t hitindex = 0; hitindex < hitGroup.getSize(); ++hitindex) {
@@ -195,7 +207,7 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
                   max_idx++;
                 }
               }
-              
+
               if(!max_idx_found){
                 max_time[label_counter].push_back(currentTimeBin);
                 max_pad[label_counter].push_back(currentPadPos);

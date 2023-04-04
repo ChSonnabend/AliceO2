@@ -46,7 +46,7 @@ class readMCtruth : public Task
 
  private:
   int verbose = 0;
-  std::string mode = "digits,native,tracks,digitizer";
+  std::string mode = "digits,native,tracks,ideal_clusterizer";
   std::string inFileDigits = "tpcdigits.root";
   std::string inFileNative = "tpc-cluster-native.root";
   std::string inFileTracks = "tpctracks.root";
@@ -431,7 +431,7 @@ void readMCtruth::run(ProcessingContext& pc)
   };
 
   // Digitizer -> Cluster-information based on MC labels, see O2/Detectors/TPC/simulation/src/Digitizer.cxx, O2/Steer/DigitizerWorkflow/src/TPCDigitizerSpec.cxx
-  if (mode.find(std::string("digitizer")) != std::string::npos) {
+  if (mode.find(std::string("ideal_clusterizer")) != std::string::npos) {
 
     int sec, row, maxp, maxt, pcount;
     float cogp, cogt, cogq, maxq;
@@ -441,8 +441,9 @@ void readMCtruth::run(ProcessingContext& pc)
     std::vector<float> cogps, cogts, cogqs, maxqs;
 
     for(int i = 0; i<36; i++){
+
       if(verbose>0){
-        LOG(info) << "Processing sector " << i << " ...";
+        LOG(info) << "Processing ideal clusterizer, sector " << i << " ...";
       }
       std::stringstream tmp_file;
       tmp_file << "mclabels_digitizer_" << i << ".root";
@@ -484,17 +485,17 @@ void readMCtruth::run(ProcessingContext& pc)
 
     }
 
-    TFile* outputFile = new TFile("mclabels_digits_raw.root", "RECREATE");
-    TTree* mcTree = new TTree("mcLabelsDigitizer", "MC tree");
+    TFile* outputFileIdeal = new TFile("mclabels_ideal_clusters.root", "RECREATE");
+    TTree* mcTreeIdeal = new TTree("mcLabelsDigitizer", "MC tree");
 
-    mcTree->Branch("digitizer_sector", &sec);
-    mcTree->Branch("digitizer_row", &row);
-    mcTree->Branch("digitizer_cogpad", &cogp);
-    mcTree->Branch("digitizer_cogtime", &cogt);
-    mcTree->Branch("digitizer_cogq", &cogq);
-    mcTree->Branch("digitizer_maxpad", &maxp);
-    mcTree->Branch("digitizer_maxtime", &maxt);
-    mcTree->Branch("digitizer_maxq", &maxq);
+    mcTreeIdeal->Branch("digitizer_sector", &sec);
+    mcTreeIdeal->Branch("digitizer_row", &row);
+    mcTreeIdeal->Branch("digitizer_cogpad", &cogp);
+    mcTreeIdeal->Branch("digitizer_cogtime", &cogt);
+    mcTreeIdeal->Branch("digitizer_cogq", &cogq);
+    mcTreeIdeal->Branch("digitizer_maxpad", &maxp);
+    mcTreeIdeal->Branch("digitizer_maxtime", &maxt);
+    mcTreeIdeal->Branch("digitizer_maxq", &maxq);
 
     for(int i = 0; i<elements; i++){
       if(maxqs[i]>=2.5){
@@ -506,62 +507,81 @@ void readMCtruth::run(ProcessingContext& pc)
         cogt = cogts[i];
         cogq = cogqs[i];
         maxq = maxqs[i];
-        mcTree->Fill();
+        mcTreeIdeal->Fill();
       }
     }
     
-    mcTree->Write();
-    delete mcTree;
-    outputFile->Close();
-    
+    mcTreeIdeal->Write();
+    delete mcTreeIdeal;
+    outputFileIdeal->Close();
+    delete outputFileIdeal;
+
     if (verbose > 0) {
-      LOG(info) << "TPC digitizer reader done!";
+      LOG(info) << "TPC ideal clusterizer reader done!";
     }
 
-    // int sec, row, maxp, maxt;
-    // float cogp, cogt, cogq, maxq;
+    sectors.clear(); rows.clear(); maxps.clear(); maxts.clear(); elements=0;
+    
 
-    // mcTree->Branch("digitizer_sector", &sec);
-    // mcTree->Branch("digitizer_row", &row);
-    // mcTree->Branch("digitizer_cogpad", &cogp);
-    // mcTree->Branch("digitizer_cogtime", &cogt);
-    // mcTree->Branch("digitizer_cogq", &cogq);
-    // mcTree->Branch("digitizer_maxpad", &maxp);
-    // mcTree->Branch("digitizer_maxtime", &maxt);
-    // mcTree->Branch("digitizer_maxq", &maxq);
+    for(int i = 0; i<36; i++){
+      if(verbose>0){
+        LOG(info) << "Processing clusterizer maxima, sector " << i << " ...";
+      }
+      std::stringstream tmp_file;
+      tmp_file << "mclabels_clusterizer_sector_" << i << ".root";
+      auto inputFile = TFile::Open(tmp_file.str().c_str());
+      std::stringstream tmp_sec;
+      auto digitizerSector = (TTree*)inputFile->Get("mcLabelsClusterizer");
 
-    // int current_sector = 0;
-    // for(auto&& keyAsObj : *(inputFile->GetListOfKeys())){
+      digitizerSector->SetBranchAddress("clusterizer_sector", &sec);
+      digitizerSector->SetBranchAddress("clusterizer_row", &row);
+      digitizerSector->SetBranchAddress("clusterizer_pad", &maxp);
+      digitizerSector->SetBranchAddress("clusterizer_time", &maxt);
 
-    //   auto key = (TKey*) keyAsObj;
-    //   if(verbose>0){
-    //     LOG(info) << "Processing " << key->GetName() << " ...";
-    //   }
+      for(int j=0; j<digitizerSector->GetEntries(); j++){
+        try{
+          digitizerSector->GetEntry(j);
+          sectors.push_back(sec);
+          rows.push_back(row);
+          maxps.push_back(maxp);
+          maxts.push_back(maxt);
+          elements++;
+        }
+        catch(...){
+          LOG(info) << "Problem occured in sector " << i;
+        }
+      }
 
-    //   auto digitizerSector = (TTree*)inputFile->Get(key->GetName());
-    //   digitizerSector->SetBranchAddress("cluster_sector", &sec);
-    //   digitizerSector->SetBranchAddress("cluster_row", &row);
-    //   digitizerSector->SetBranchAddress("cluster_cog_pad", &cogp);
-    //   digitizerSector->SetBranchAddress("cluster_cog_time", &cogt);
-    //   digitizerSector->SetBranchAddress("cluster_cog_q", &cogq);
-    //   digitizerSector->SetBranchAddress("cluster_max_pad", &maxp);
-    //   digitizerSector->SetBranchAddress("cluster_max_time", &maxt);
-    //   digitizerSector->SetBranchAddress("cluster_max_q", &maxq);
-    //   
-    //   for(int i=0; i<digitizerSector->GetEntries(); i++){
-    //     try{
-    //       digitizerSector->GetEntry(i);
-    //       mcTree->Write();
-    //     }
-    //     catch(...){
-    //       LOG(info) << "Problem occured in " << key->GetName();
-    //     }
-    //   }
-    //   current_sector++;
-    // }
+      inputFile->Close();
 
+    }
+
+    TFile* outputFileMax = new TFile("mclabels_clusterizer_max.root", "RECREATE");
+    TTree* mcTreeMax = new TTree("mcLabelsClusterizer", "MC tree");
+
+    mcTreeMax->Branch("clusterizer_sector", &sec);
+    mcTreeMax->Branch("clusterizer_row", &row);
+    mcTreeMax->Branch("clusterizer_maxpad", &maxp);
+    mcTreeMax->Branch("clusterizer_maxtime", &maxt);
+
+    for(int i = 0; i<elements; i++){
+      sec = sectors[i];
+      row = rows[i];
+      maxp = maxps[i];
+      maxt = maxts[i];
+      mcTreeMax->Fill();
+    }
+    
+    mcTreeMax->Write();
+    delete mcTreeMax;
+    outputFileMax->Close();
+    delete outputFileMax;
+
+
+    if (verbose > 0) {
+      LOG(info) << "TPC cluster_max reader done!";
+    }
   }
-
 
   pc.services().get<ControlService>().endOfStream();
   pc.services().get<ControlService>().readyToQuit(QuitRequest::Me);
@@ -581,7 +601,7 @@ DataProcessorSpec readMonteCarloLabels()
     adaptFromTask<readMCtruth>(),
     Options{
       {"verbose", VariantType::Int, 0, {"Verbosity level"}},
-      {"mode", VariantType::String, "digits,native,tracks,digitizer", {"Mode for running over tracks-file or digits-file: digits, native, tracks, kinematics and/or digitizer."}},
+      {"mode", VariantType::String, "digits,native,ideal_clusterizer", {"Mode for running over tracks-file or digits-file: digits, native, tracks, kinematics and/or digitizer."}},
       {"infile-digits", VariantType::String, "tpcdigits.root", {"Input file name (digits)"}},
       {"infile-native", VariantType::String, "tpc-native-clusters.root", {"Input file name (native)"}},
       {"infile-tracks", VariantType::String, "tpctracks.root", {"Input file name (tracks)"}},

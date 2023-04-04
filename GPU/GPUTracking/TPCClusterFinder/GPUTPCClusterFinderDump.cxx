@@ -16,6 +16,10 @@
 #include "GPUReconstruction.h"
 #include "Array2D.h"
 #include "DataFormatsTPC/Digit.h"
+#include "clusterFinderDefs.h"
+
+#include "TFile.h"
+#include "TTree.h"
 
 using namespace GPUCA_NAMESPACE::gpu;
 using namespace GPUCA_NAMESPACE::gpu::tpccf;
@@ -78,6 +82,35 @@ void GPUTPCClusterFinder::DumpPeaksCompacted(std::ostream& out)
   for (size_t i = 0; i < mPmemory->counters.nPeaks; i++) {
     out << mPpeakPositions[i].time() << ", " << (int)mPpeakPositions[i].pad() << ", " << (int)mPpeakPositions[i].row() << "\n";
   }
+}
+
+void GPUTPCClusterFinder::DumpToFile(){
+
+  std::cout << "Dumping cluster-maxima for sector " << mISlice << "\n";
+
+  std::stringstream fileName;
+  fileName << "mclabels_clusterizer_sector_" << mISlice << ".root";
+  TFile* outputFile = new TFile(fileName.str().c_str(), "RECREATE");
+  TTree* mcTree = new TTree("mcLabelsClusterizer", "MC tree");
+
+  int s=0, r=0, p=0, t=0;
+  mcTree->Branch("clusterizer_sector", &s);
+  mcTree->Branch("clusterizer_row", &r);
+  mcTree->Branch("clusterizer_pad", &p);
+  mcTree->Branch("clusterizer_time", &t);
+
+  for (size_t i = 0; i < mPmemory->counters.nClusters; i++) {
+    s=mISlice;
+    r=(int)mPpeakPositions[i].row();
+    p=(int)mPpeakPositions[i].pad();
+    t=mPpeakPositions[i].globalTime();
+    mcTree->Fill();
+  }
+
+  mcTree->Write();
+  delete mcTree;
+  outputFile->Close();
+  delete outputFile;
 }
 
 void GPUTPCClusterFinder::DumpSuppressedPeaks(std::ostream& out)
