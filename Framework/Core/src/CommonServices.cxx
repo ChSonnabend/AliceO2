@@ -585,6 +585,8 @@ namespace
 {
 auto sendRelayerMetrics(ServiceRegistryRef registry, DataProcessingStats& stats) -> void
 {
+  // Update the timer to make sure we have  the correct time when sending out the stats.
+  uv_update_time(registry.get<DeviceState>().loop);
   // Derive the amount of shared memory used
   auto& runningWorkflow = registry.get<RunningWorkflowInfo const>();
   using namespace fair::mq::shmem;
@@ -604,7 +606,7 @@ auto sendRelayerMetrics(ServiceRegistryRef registry, DataProcessingStats& stats)
       } catch (...) {
       }
     }
-    stats.updateStats({static_cast<unsigned short>(static_cast<int>(ProcessingStatsId::AVAILABLE_MANAGED_SHM_BASE) + runningWorkflow.shmSegmentId), DataProcessingStats::Op::SetIfPositive, freeMemory});
+    stats.updateStats({static_cast<unsigned short>(static_cast<int>(ProcessingStatsId::AVAILABLE_MANAGED_SHM_BASE) + (runningWorkflow.shmSegmentId % 512)), DataProcessingStats::Op::SetIfPositive, freeMemory});
   }
 
   ZoneScopedN("send metrics");
@@ -618,11 +620,11 @@ auto sendRelayerMetrics(ServiceRegistryRef registry, DataProcessingStats& stats)
     totalBytesOut += channel.second[0].GetBytesTx();
   }
 
-  stats.updateStats({static_cast<short>(ProcessingStatsId::TOTAL_BYTES_IN), DataProcessingStats::Op::Set, totalBytesIn});
-  stats.updateStats({static_cast<short>(ProcessingStatsId::TOTAL_BYTES_OUT), DataProcessingStats::Op::Set, totalBytesOut});
+  stats.updateStats({static_cast<short>(ProcessingStatsId::TOTAL_BYTES_IN), DataProcessingStats::Op::Set, totalBytesIn / 1000000});
+  stats.updateStats({static_cast<short>(ProcessingStatsId::TOTAL_BYTES_OUT), DataProcessingStats::Op::Set, totalBytesOut / 1000000});
 
-  stats.updateStats({static_cast<short>(ProcessingStatsId::TOTAL_RATE_IN_MB_S), DataProcessingStats::Op::InstantaneousRate, totalBytesIn});
-  stats.updateStats({static_cast<short>(ProcessingStatsId::TOTAL_RATE_OUT_MB_S), DataProcessingStats::Op::InstantaneousRate, totalBytesOut});
+  stats.updateStats({static_cast<short>(ProcessingStatsId::TOTAL_RATE_IN_MB_S), DataProcessingStats::Op::InstantaneousRate, totalBytesIn / 1000000});
+  stats.updateStats({static_cast<short>(ProcessingStatsId::TOTAL_RATE_OUT_MB_S), DataProcessingStats::Op::InstantaneousRate, totalBytesOut / 1000000});
 };
 
 /// This will flush metrics only once every second.
@@ -676,7 +678,7 @@ o2::framework::ServiceSpec CommonServices::dataProcessingStats()
       uv_update_time(state.loop);
       uint64_t offset = now.tv_sec * 1000 - uv_now(state.loop);
       auto* stats = new DataProcessingStats(TimingHelpers::defaultRealtimeBaseConfigurator(offset, state.loop),
-                                            TimingHelpers::defaultCPUTimeConfigurator());
+                                            TimingHelpers::defaultCPUTimeConfigurator(state.loop));
       auto& runningWorkflow = services.get<RunningWorkflowInfo const>();
 
       // It makes no sense to update the stats more often than every 5s
@@ -780,7 +782,7 @@ o2::framework::ServiceSpec CommonServices::dataProcessingStats()
                    .maxRefreshLatency = onlineRefreshLatency,
                    .sendInitialValue = true},
         MetricSpec{.name = fmt::format("available_managed_shm_{}", runningWorkflow.shmSegmentId),
-                   .metricId = (int)ProcessingStatsId::AVAILABLE_MANAGED_SHM_BASE + runningWorkflow.shmSegmentId,
+                   .metricId = (int)ProcessingStatsId::AVAILABLE_MANAGED_SHM_BASE + (runningWorkflow.shmSegmentId % 512),
                    .kind = Kind::UInt64,
                    .scope = Scope::Online,
                    .minPublishInterval = 500,

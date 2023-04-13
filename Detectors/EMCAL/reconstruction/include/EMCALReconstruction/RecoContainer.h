@@ -29,11 +29,19 @@ namespace o2::emcal
 {
 /// \struct RecCellInfo
 /// \brief Container class for cell information for merging
+///
+/// In case the energy is in the overlap region between the
+/// two digitizers 2 channels exist for the same cell. In this
+/// case the low gain cells are used above a certain threshold.
+/// In certain error cases the information from the other digitizer
+/// might be missing. Such cases must be fitered out, however this
+/// can be done only after all cells are processed. The overlap information
+/// needs to be propagated for the filtering but is not part of the
+/// final cell object
 struct RecCellInfo {
   o2::emcal::Cell mCellData; ///< Cell information
   bool mIsLGnoHG;            ///< Cell has only LG digits
   bool mHGOutOfRange;        ///< Cell has only HG digits which are out of range
-  int mFecID;                ///< FEC ID of the channel (for monitoring)
   int mDDLID;                ///< DDL of the channel (for monitoring)
   int mHWAddressLG;          ///< HW address of LG (for monitoring)
   int mHWAddressHG;          ///< HW address of HG (for monitoring)
@@ -93,16 +101,15 @@ class EventContainer
   /// \param time Cell time
   /// \param celltype Cell type (high gain or low gain)
   /// \param hwaddress Hardware address
-  /// \param fecID ID of the frontend card
   /// \param ddlID ID of the DDL
   /// \param doMergeHGLG If true merge with existing HG/LG cell
   ///
   /// In case of merge mode the priory is given to the HG digitizer (better resolution).
   /// As long as the energy is not in the saturation region (approx 16 GeV) the HG is selected,
   /// otherwise the LG digit is used.
-  void setCell(int tower, double energy, double time, ChannelType_t celltype, int hwaddress, int fecID, int ddlID, bool doMergeHGLG)
+  void setCell(int tower, double energy, double time, ChannelType_t celltype, int hwaddress, int ddlID, bool doMergeHGLG)
   {
-    setCellCommon(tower, energy, time, celltype, false, hwaddress, fecID, ddlID, doMergeHGLG);
+    setCellCommon(tower, energy, time, celltype, false, hwaddress, ddlID, doMergeHGLG);
   }
 
   /// \brief Add LEDMON information to the event container
@@ -111,16 +118,15 @@ class EventContainer
   /// \param time LEDMON time
   /// \param celltype LEDMON type (high gain or low gain)
   /// \param hwaddress Hardware address
-  /// \param fecID ID of the frontend card
   /// \param ddlID ID of the DDL
   /// \param doMergeHGLG If true merge with existing HG/LG LEDMON
   ///
   /// In case of merge mode the priory is given to the HG digitizer (better resolution).
   /// As long as the energy is not in the saturation region (approx 16 GeV) the HG is selected,
   /// otherwise the LG digit is used.
-  void setLEDMONCell(int tower, double energy, double time, ChannelType_t celltype, int hwaddress, int fecID, int ddlID, bool doMergeHGLG)
+  void setLEDMONCell(int tower, double energy, double time, ChannelType_t celltype, int hwaddress, int ddlID, bool doMergeHGLG)
   {
-    setCellCommon(tower, energy, time, celltype, true, hwaddress, fecID, ddlID, doMergeHGLG);
+    setCellCommon(tower, energy, time, celltype, true, hwaddress, ddlID, doMergeHGLG);
   }
 
   /// \brief Sort Cells / LEDMONs in container according to tower / module ID
@@ -134,17 +140,16 @@ class EventContainer
   /// \param time Time
   /// \param celltype Digitizer type (high gain or low gain)
   /// \param hwaddress Hardware address
-  /// \param fecID ID of the frontend card
   /// \param ddlID ID of the DDL
   /// \param doMergeHGLG Switch for merge mode
-  void setCellCommon(int tower, double energy, double time, ChannelType_t celltype, bool isLEDmon, int hwaddress, int fecID, int ddlID, bool doMergeHGLG);
+  void setCellCommon(int tower, double energy, double time, ChannelType_t celltype, bool isLEDmon, int hwaddress, int ddlID, bool doMergeHGLG);
 
   /// \brief Check whether the energy is in the saturation limit
   /// \return True if the energy is in the saturation region, false otherwise
   bool isCellSaturated(double energy) const;
 
   o2::InteractionRecord mInteractionRecord;
-  uint64_t mTriggerBits;             ///< Trigger bits of the event
+  uint64_t mTriggerBits = 0;         ///< Trigger bits of the event
   std::vector<RecCellInfo> mCells;   ///< Container of cells in event
   std::vector<RecCellInfo> mLEDMons; ///< Container of LEDMONs in event
 };

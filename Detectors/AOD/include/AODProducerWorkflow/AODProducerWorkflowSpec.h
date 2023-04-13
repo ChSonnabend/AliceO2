@@ -231,7 +231,7 @@ class AODProducerWorkflowDPL : public Task
 
   int mNThreads = 1;
   bool mUseMC = true;
-  bool mEnableSV = true;             // enable secondary vertices
+  bool mEnableSV = true; // enable secondary vertices
   bool mFieldON = false;
   const float cSpeed = 0.029979246f; // speed of light in TOF units
 
@@ -274,8 +274,8 @@ class AODProducerWorkflowDPL : public Task
 
   // zdc helper maps to avoid a number of "if" statements
   // when filling ZDC table
-  map<string, float> mZDCEnergyMap; // mapping detector name to a corresponding energy
-  map<string, float> mZDCTDCMap;    // mapping TDC channel to a corresponding TDC value
+  std::array<float, o2::zdc::NChannels> mZDCEnergyMap; // mapping detector id to a corresponding energy
+  std::array<float, o2::zdc::NTDCChannels> mZDCTDCMap; // mapping TDC channel id to a corresponding TDC value
 
   std::vector<uint16_t> mITSTPCTRDTriggers; // mapping from TRD tracks ID to corresponding trigger (for tracks time extraction)
   std::vector<uint16_t> mTPCTRDTriggers;    // mapping from TRD tracks ID to corresponding trigger (for tracks time extraction)
@@ -548,6 +548,9 @@ class CellHelper
 
   static int16_t getCellNumber(const o2::phos::Cell& cell)
   {
+    if (cell.getTRU()) {
+      return cell.getTRUId();
+    }
     return cell.getAbsId();
   }
   // If this cell - trigger one?
