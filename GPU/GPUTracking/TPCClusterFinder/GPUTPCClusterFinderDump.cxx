@@ -21,6 +21,8 @@
 #include "TFile.h"
 #include "TTree.h"
 
+#include <vector>
+
 using namespace GPUCA_NAMESPACE::gpu;
 using namespace GPUCA_NAMESPACE::gpu::tpccf;
 
@@ -84,6 +86,14 @@ void GPUTPCClusterFinder::DumpPeaksCompacted(std::ostream& out)
   }
 }
 
+void GPUTPCClusterFinder::pushBackMax(const CfFragment& f){
+  for (unsigned int i = 0; i < mPmemory->counters.nPeaks; i++) {
+    std::vector<int> max{(int)mISlice, (int)mPpeakPositions[i].row(), (int)mPpeakPositions[i].pad(), (int)f.toGlobal(mPpeakPositions[i].time())};
+    maxima.push_back(max);
+  }
+  totalPeaks+=mPmemory->counters.nPeaks;
+}
+
 void GPUTPCClusterFinder::DumpToFile(){
 
   std::cout << "Dumping cluster-maxima for sector " << mISlice << "\n";
@@ -99,11 +109,12 @@ void GPUTPCClusterFinder::DumpToFile(){
   mcTree->Branch("clusterizer_pad", &p);
   mcTree->Branch("clusterizer_time", &t);
 
-  for (size_t i = 0; i < mPmemory->counters.nClusters; i++) {
-    s=mISlice;
-    r=(int)mPpeakPositions[i].row();
-    p=(int)mPpeakPositions[i].pad();
-    t=mPpeakPositions[i].globalTime();
+  unsigned long current_counter = 0;
+  for (size_t i = 0; i < totalPeaks; i++) {
+    s=maxima[i][0];
+    r=maxima[i][1];
+    p=maxima[i][2];
+    t=maxima[i][3];
     mcTree->Fill();
   }
 

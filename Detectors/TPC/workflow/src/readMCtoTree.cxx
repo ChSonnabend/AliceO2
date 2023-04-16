@@ -583,6 +583,32 @@ void readMCtruth::run(ProcessingContext& pc)
     }
   }
 
+  // Digitizer -> Cluster-information based on MC labels, see O2/Detectors/TPC/simulation/src/Digitizer.cxx, O2/Steer/DigitizerWorkflow/src/TPCDigitizerSpec.cxx
+  // if (mode.find(std::string("training_data")) != std::string::npos) {
+// 
+  //   TFile* digitFile = TFile::Open(inFileDigits.c_str());
+  //   TTree* digitTree = (TTree*)digitFile->Get("o2sim");
+// 
+  //   float full_data[4][36][152][155][3000] = 0;
+// 
+  //   std::vector<std::string> labels = {"mCRU", "mRow", "mPad", "mTimeStamp", "mCharge"};
+// 
+  //   for(int i = 0; i<36; i++){
+  //     int* cru, row, pad, time;
+  //     float* charge;
+  //     std::string leafPath = fmt::format("TPCDigit_{:d}", i).c_str();
+  //     digitTree->SetBranchAddress(digBName.c_str() + "/" + labels[0].c_str(), &cru);
+  //     digitTree->SetBranchAddress(digBName.c_str() + "/" + labels[1].c_str(), &row);
+  //     digitTree->SetBranchAddress(digBName.c_str() + "/" + labels[2].c_str(), &pad);
+  //     digitTree->SetBranchAddress(digBName.c_str() + "/" + labels[3].c_str(), &time);
+  //     digitTree->SetBranchAddress(digBName.c_str() + "/" + labels[4].c_str(), &charge);
+// 
+  //     for(int elem = 0; elem < cru->size(); elem++){
+  //       full_data[0][int(cru[elem]%10)][row[elem]][pad[elem]][time[elem]] = charge
+  //     }
+  //   }
+  // }
+
   pc.services().get<ControlService>().endOfStream();
   pc.services().get<ControlService>().readyToQuit(QuitRequest::Me);
 }
