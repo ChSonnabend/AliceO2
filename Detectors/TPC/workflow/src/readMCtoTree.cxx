@@ -583,31 +583,167 @@ void readMCtruth::run(ProcessingContext& pc)
     }
   }
 
-  // Digitizer -> Cluster-information based on MC labels, see O2/Detectors/TPC/simulation/src/Digitizer.cxx, O2/Steer/DigitizerWorkflow/src/TPCDigitizerSpec.cxx
-  // if (mode.find(std::string("training_data")) != std::string::npos) {
-// 
-  //   TFile* digitFile = TFile::Open(inFileDigits.c_str());
-  //   TTree* digitTree = (TTree*)digitFile->Get("o2sim");
-// 
-  //   float full_data[4][36][152][155][3000] = 0;
-// 
-  //   std::vector<std::string> labels = {"mCRU", "mRow", "mPad", "mTimeStamp", "mCharge"};
-// 
-  //   for(int i = 0; i<36; i++){
-  //     int* cru, row, pad, time;
-  //     float* charge;
-  //     std::string leafPath = fmt::format("TPCDigit_{:d}", i).c_str();
-  //     digitTree->SetBranchAddress(digBName.c_str() + "/" + labels[0].c_str(), &cru);
-  //     digitTree->SetBranchAddress(digBName.c_str() + "/" + labels[1].c_str(), &row);
-  //     digitTree->SetBranchAddress(digBName.c_str() + "/" + labels[2].c_str(), &pad);
-  //     digitTree->SetBranchAddress(digBName.c_str() + "/" + labels[3].c_str(), &time);
-  //     digitTree->SetBranchAddress(digBName.c_str() + "/" + labels[4].c_str(), &charge);
-// 
-  //     for(int elem = 0; elem < cru->size(); elem++){
-  //       full_data[0][int(cru[elem]%10)][row[elem]][pad[elem]][time[elem]] = charge
-  //     }
-  //   }
-  // }
+  // Creator for training_data
+  if (mode.find(std::string("training_data")) != std::string::npos) {
+
+    TFile* digitFile = TFile::Open(inFileDigits.c_str());
+    TTree* digitTree = (TTree*)digitFile->Get("o2sim");
+
+    float full_data[2][36][152][155][8000];
+
+    std::vector<std::string> labels = {"mCRU", "mRow", "mPad", "mTimeStamp", "mCharge"};
+
+    for(int i = 0; i<36; i++){
+      int sec, row, pad, time;
+      float charge;
+      std::string leafPath = fmt::format("TPCDigit_{:d}/", i);
+      digitTree->SetBranchAddress((leafPath + labels[0]).c_str(), &sec); // sec is actually saved as the CRU
+      digitTree->SetBranchAddress((leafPath + labels[1]).c_str(), &row);
+      digitTree->SetBranchAddress((leafPath + labels[2]).c_str(), &pad);
+      digitTree->SetBranchAddress((leafPath + labels[3]).c_str(), &time);
+      digitTree->SetBranchAddress((leafPath + labels[4]).c_str(), &charge);
+
+      for(int elem = 0; elem < digitTree->GetEntriesFast(); elem++){
+        digitTree->GetEntry(elem);
+        full_data[0][int(sec/10)][row][pad+6][time+6] = charge;
+      }
+    }
+    digitFile->Close();
+
+
+
+    int sec, row, maxp, maxt, pcount, index_1=0;
+    float cogp, cogt, cogq, maxq;
+    long elements = 0;
+
+    std::vector<int> sectors, rows, maxps, maxts, point_count;
+    std::vector<float> cogps, cogts, cogqs, maxqs;
+
+    for(int i = 0; i<36; i++){
+
+      if(verbose>0){
+        LOG(info) << "Processing ideal clusterizer, sector " << i << " ...";
+      }
+      std::stringstream tmp_file;
+      tmp_file << "mclabels_digitizer_" << i << ".root";
+      auto inputFile = TFile::Open(tmp_file.str().c_str());
+      std::stringstream tmp_sec;
+      tmp_sec << "sector_" << i;
+      auto digitizerSector = (TTree*)inputFile->Get(tmp_sec.str().c_str());
+
+      digitizerSector->SetBranchAddress("cluster_sector", &sec);
+      digitizerSector->SetBranchAddress("cluster_row", &row);
+      digitizerSector->SetBranchAddress("cluster_cog_pad", &cogp);
+      digitizerSector->SetBranchAddress("cluster_cog_time", &cogt);
+      digitizerSector->SetBranchAddress("cluster_cog_q", &cogq);
+      digitizerSector->SetBranchAddress("cluster_max_pad", &maxp);
+      digitizerSector->SetBranchAddress("cluster_max_time", &maxt);
+      digitizerSector->SetBranchAddress("cluster_max_q", &maxq);
+      digitizerSector->SetBranchAddress("cluster_points", &pcount);
+
+      for(int j=0; j<digitizerSector->GetEntries(); j++){
+        digitizerSector->GetEntry(j);
+        sectors.push_back(sec);
+        rows.push_back(row);
+        maxps.push_back(maxp);
+        maxts.push_back(maxt);
+        cogps.push_back(cogp);
+        cogts.push_back(cogt);
+        cogqs.push_back(cogq);
+        maxqs.push_back(maxq);
+        point_count.push_back(pcount);
+        index_1++;
+
+        full_data[1][sec][row][maxp+6][maxt+6] = index_1;
+      }
+      inputFile->Close();
+    }
+
+
+    /// Create output grid of 11x11x(number of maxima)
+
+    unsigned long countermax = 0;
+    std::vector<std::vector<int>> grid_max;
+    std::vector<std::vector<float>> output_grid;
+    for(int i = 0; i<36; i++){
+      int sec, row, pad, time;
+      if(verbose>0){
+        LOG(info) << "Processing clusterizer maxima, sector " << i << " ...";
+      }
+      std::stringstream tmp_file;
+      tmp_file << "mclabels_clusterizer_sector_" << i << ".root";
+      auto inputFile = TFile::Open(tmp_file.str().c_str());
+      std::stringstream tmp_sec;
+      auto clustermaxSector = (TTree*)inputFile->Get("mcLabelsClusterizer");
+
+      clustermaxSector->SetBranchAddress("clusterizer_sector", &sec);
+      clustermaxSector->SetBranchAddress("clusterizer_row", &row);
+      clustermaxSector->SetBranchAddress("clusterizer_pad", &pad);
+      clustermaxSector->SetBranchAddress("clusterizer_time", &time);
+
+      for(int j=0; j<clustermaxSector->GetEntries(); j++){
+        clustermaxSector->GetEntry(j);
+        grid_max.push_back(std::vector<int>{sec,row,pad,time});
+        output_grid.push_back(std::vector<float>(121,0));
+        for(int g1=-5; g1<6; g1++){
+          for(int g2=-5; g2<6; g2++){
+            output_grid[j][11*g1 + g2] = full_data[0][sec][row][pad+g1+6][time+g2+6];
+          }
+        }
+        countermax++;
+      }
+      inputFile->Close();
+    }
+
+
+    TFile* outputFileTr = new TFile("training_data.root", "RECREATE");
+    TTree* mcTreeTr = new TTree("training_data", "MC tree");
+
+    std::vector<float> grid;
+
+    mcTreeTr->Branch("training_sector", &sec);
+    mcTreeTr->Branch("training_row", &row);
+    mcTreeTr->Branch("training_cog_pad", &cogp);
+    mcTreeTr->Branch("training_cog_time", &cogt);
+    mcTreeTr->Branch("training_cog_q", &cogq);
+    mcTreeTr->Branch("training_max_pad", &maxp);
+    mcTreeTr->Branch("training_max_time", &maxt);
+    mcTreeTr->Branch("training_max_q", &maxq);
+    for(int i = 0; i<121; i++){
+      std::stringstream tmp_branch;
+      tmp_branch << "grid_pad_" << int(i/11) << "_time_" << int(i%11) << ".root";
+      mcTreeTr->Branch(tmp_branch.str().c_str(), &(grid[i]));
+    }
+
+    int idx_1 = 0;
+    for(int i = 0; i<countermax; i++){
+      for(int j = 0; j<121; j++){
+        grid[i] = output_grid[j][i];
+      }
+      idx_1 = full_data[1][grid_max[i][0]][grid_max[i][1]][grid_max[i][2]+6][grid_max[i][3]+6];
+      if(idx_1!=0){
+        sec = sectors[idx_1];
+        row = rows[idx_1];
+        maxp = maxps[idx_1];
+        maxt = maxts[idx_1];
+        cogp = cogps[idx_1];
+        cogt = cogts[idx_1];
+        cogq = cogqs[idx_1];
+        maxq = maxqs[idx_1];
+      }
+      else{
+        sec = -1;
+        row = -1;
+        maxp = -1;
+        maxt = -1;
+        cogp = -1;
+        cogt = -1;
+        cogq = -1;
+        maxq = -1;
+      }
+      mcTreeTr->Fill();
+    }
+  }
 
   pc.services().get<ControlService>().endOfStream();
   pc.services().get<ControlService>().readyToQuit(QuitRequest::Me);
