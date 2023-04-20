@@ -9,17 +9,21 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-#ifdef __CLING__
+#ifndef O2_DUMP_TRACKS_H
+#define O2_DUMP_TRACKS_H
 
-#pragma link off all globals;
-#pragma link off all classes;
-#pragma link off all functions;
+#include "ReconstructionDataFormats/GlobalTrackID.h"
+#include "Framework/Task.h"
+#include "Framework/DataProcessorSpec.h"
+#include "ReconstructionDataFormats/Track.h"
+#include "MathUtils/detail/Bracket.h"
+#include "DataFormatsTPC/ClusterNative.h"
 
-#pragma link C++ class o2::its3::SegmentationSuperAlpide + ;
-#pragma link C++ class o2::its3::MisalignmentParameter + ;
-#pragma link C++ class o2::its3::SuperAlpideParams + ;
-#pragma link C++ class o2::its3::DescriptorInnerBarrelITS3Param + ;
-#pragma link C++ class o2::conf::ConfigurableParamHelper < o2::its3::SuperAlpideParams> + ;
-#pragma link C++ class o2::conf::ConfigurableParamHelper < o2::its3::DescriptorInnerBarrelITS3Param> + ;
+namespace o2::trackstudy
+{
+/// create a processor spec
+o2::framework::DataProcessorSpec getDumpTracksSpec(o2::dataformats::GlobalTrackID::mask_t srcTracks, o2::dataformats::GlobalTrackID::mask_t srcClus, bool useMC);
+
+} // namespace o2::trackstudy
 
 #endif

@@ -9,15 +9,14 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-#ifdef __CLING__
+#define BOOST_TEST_MODULE Test TPC QC
+#define BOOST_TEST_MAIN
+#define BOOST_TEST_DYN_LINK
+#include <boost/test/unit_test.hpp>
+#include "TPCQC/IDCsVsSACs.h"
+#include <cmath>
 
-#pragma link off all globals;
-#pragma link off all classes;
-#pragma link off all functions;
-
-#pragma link C++ class o2::its3::ITS3Layer + ;
-#pragma link C++ class o2::its3::ITS3Services + ;
-#pragma link C++ class o2::its3::DescriptorInnerBarrelITS3 + ;
-#pragma link C++ class o2::its3::Digitizer + ;
-
-#endif
+BOOST_AUTO_TEST_CASE(ReadWriteROOTFile)
+{
+  o2::tpc::qc::IDCsVsSACs idcVssacs;
+}
