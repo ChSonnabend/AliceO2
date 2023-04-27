@@ -24,8 +24,8 @@ fi
 #Some additional settings used in this workflow
 : ${CTF_DICT:="ctf_dictionary.root"}  # Local dictionary file name if its creation is request
 : ${RECO_NUM_NODES_WORKFLOW:="230"}   # Number of EPNs running this workflow in parallel, to increase multiplicities if necessary, by default assume we are 1 out of 250 servers
-: ${CTF_MINSIZE:="2000000000"}        # accumulate CTFs until file size reached
-: ${CTF_MAX_PER_FILE:="10000"}        # but no more than given number of CTFs per file
+: ${CTF_MINSIZE:="10000000000"}        # accumulate CTFs until file size reached
+: ${CTF_MAX_PER_FILE:="40000"}        # but no more than given number of CTFs per file
 
 workflow_has_parameter CTF && export SAVECTF=1
 workflow_has_parameter GPU && { export GPUTYPE=HIP; export NGPUS=4; }
@@ -177,7 +177,7 @@ fi
 [[ -z $DISABLE_ROOT_OUTPUT ]] || needs_root_output o2-gpu-reco-workflow && GPU_OUTPUT+=",send-clusters-per-sector"
 
 has_detector_flp_processing CPV && CPV_INPUT=digits
-! has_detector_flp_processing TOF && TOF_CONFIG+=" --orbits-per-tf ${NHBPERTF:-32} --ignore-dist-stf --local-cmp"
+! has_detector_flp_processing TOF && TOF_CONFIG+=" --local-cmp"
 
 if [[ $EPNSYNCMODE == 1 ]]; then
   EVE_CONFIG+=" --eve-dds-collection-index 0"
@@ -198,14 +198,14 @@ if [[ ! -z ${EVE_NTH_EVENT:-} ]]; then
   EVE_CONFIG+=" --only-nth-event=$EVE_NTH_EVENT"
 fi
 
-if [[ $GPUTYPE != "CPU" && $NUMAGPUIDS != 0 ]] && [[ -z ${ROCR_VISIBLE_DEVICES:=} || $ROCR_VISIBLE_DEVICES = "0,1,2,3,4,5,6,7" || $ROCR_VISIBLE_DEVICES = "0,1,2,3" || $ROCR_VISIBLE_DEVICES = "4,5,6,7" ]]; then
+if [[ $GPUTYPE != "CPU" && $NUMAGPUIDS != 0 ]] && [[ -z ${ROCR_VISIBLE_DEVICES:-} || ${ROCR_VISIBLE_DEVICES:-} = "0,1,2,3,4,5,6,7" || ${ROCR_VISIBLE_DEVICES:-} = "0,1,2,3" || ${ROCR_VISIBLE_DEVICES:-} = "4,5,6,7" ]]; then
   GPU_CONFIG_KEY+="GPU_global.registerSelectedSegmentIds=$NUMAID;"
 fi
 
 if [[ $GPUTYPE == "HIP" ]]; then
   GPU_CONFIG_KEY+="GPU_proc.deviceNum=0;"
   if [[ $NGPUS != 1 || $NUMAID != 0 ]]; then
-    if [[ -z $ROCR_VISIBLE_DEVICES ]]; then
+    if [[ -z ${ROCR_VISIBLE_DEVICES:-} ]]; then
       GPU_FIRST_ID=0
     else
       GPU_FIRST_ID=$(echo ${ROCR_VISIBLE_DEVICES//,/ } | awk '{print $1}')
