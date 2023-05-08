@@ -32,7 +32,7 @@ class PadBadChannelMap
     DEAD_CHANNEL = 3
   };
 
-  class ChannelIndexException : public std::exception
+  class ChannelIndexException final : public std::exception
   {
    public:
     ChannelIndexException(std::size_t layer, std::size_t channel) : mLayer(layer), mChannel(channel)
@@ -72,7 +72,7 @@ class PadBadChannelMap
  private:
   void init();
   std::size_t getChannelIndex(std::size_t layer, std::size_t channel) const;
-  std::array<MaskType_t, constants::PADS_NLAYERS * constants::PADLAYER_MODULE_NCHANNELS> mChannelStatus;
+  std::array<uint8_t, constants::PADS_NLAYERS * constants::PADLAYER_MODULE_NCHANNELS> mChannelStatus;
 
   ClassDefNV(PadBadChannelMap, 1)
 };

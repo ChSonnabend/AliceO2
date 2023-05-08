@@ -48,6 +48,7 @@
 #include "Framework/TableBuilder.h"
 #include "Framework/TableTreeHelpers.h"
 #include "Framework/CCDBParamSpec.h"
+#include "Framework/AnalysisManagers.h"
 #include "FDDBase/Constants.h"
 #include "FT0Base/Geometry.h"
 #include "FV0Base/Geometry.h"
@@ -83,6 +84,7 @@
 #include "TString.h"
 #include "TObjString.h"
 #include <map>
+#include <numeric>
 #include <unordered_map>
 #include <set>
 #include <string>
@@ -312,8 +314,7 @@ template <typename TracksCursorType, typename TracksCovCursorType>
 void AODProducerWorkflowDPL::addToTracksTable(TracksCursorType& tracksCursor, TracksCovCursorType& tracksCovCursor,
                                               const o2::track::TrackParCov& track, int collisionID, aod::track::TrackTypeEnum type)
 {
-  tracksCursor(0,
-               collisionID,
+  tracksCursor(collisionID,
                type,
                truncateFloatFraction(track.getX(), mTrackX),
                truncateFloatFraction(track.getAlpha(), mTrackAlpha),
@@ -433,6 +434,7 @@ void AODProducerWorkflowDPL::fillTrackTablesPerCollision(int collisionID,
     }
     int start = trackRef.getFirstEntryOfSource(src);
     int end = start + trackRef.getEntriesOfSource(src);
+    tracksCursor.reserve(end - start + tracksCursor.lastIndex());
     for (int ti = start; ti < end; ti++) {
       auto& trackIndex = GIndices[ti];
       if (GIndex::includesSource(src, mInputSources)) {
@@ -473,21 +475,20 @@ void AODProducerWorkflowDPL::fillTrackTablesPerCollision(int collisionID,
       }
     }
   }
+  if (collisionID < 0) {
+    return;
+  }
   /// Add strangeness tracks to the table
   auto sTracks = data.getStrangeTracks();
-  for (auto& collStrTrk : mCollisionStrTrk) {
-    if (collStrTrk.first < collisionID) {
-      continue;
-    }
-    if (collStrTrk.first > collisionID) {
-      break;
-    }
+  for (int iS{mVertexStrLUT[collisionID]}; iS < mVertexStrLUT[collisionID + 1]; ++iS) {
+    auto& collStrTrk = mCollisionStrTrk[iS];
     auto& sTrk = sTracks[collStrTrk.second];
     TrackExtraInfo extraInfo;
     extraInfo.itsChi2NCl = sTrk.mTopoChi2; // TODO: this is the total chi2 of adding the ITS clusters, the topology chi2 meaning might change in the future
     addToTracksTable(tracksCursor, tracksCovCursor, sTrk.mMother, collisionID, aod::track::StrangeTrack);
     addToTracksExtraTable(tracksExtraCursor, extraInfo);
-    mStrTrkIndices[collStrTrk.second] = mTableTrID++;
+    mStrTrkIndices[collStrTrk.second] = mTableTrID;
+    mTableTrID++;
   }
 }
 
@@ -1007,7 +1008,8 @@ void AODProducerWorkflowDPL::fillMCTrackLabelsTable(const MCTrackLabelCursorType
                                                     const MCFwdTrackLabelCursorType& mcFwdTrackLabelCursor,
                                                     const o2::dataformats::VtxTrackRef& trackRef,
                                                     const gsl::span<const GIndex>& primVerGIs,
-                                                    const o2::globaltracking::RecoContainer& data)
+                                                    const o2::globaltracking::RecoContainer& data,
+                                                    int vertexId)
 {
   // labelMask (temporary) usage:
   //   bit 13 -- ITS/TPC or TPC/TOF labels are not equal
@@ -1110,6 +1112,17 @@ void AODProducerWorkflowDPL::fillMCTrackLabelsTable(const MCTrackLabelCursorType
         }
       }
     }
+  }
+
+  // filling the tables with the strangeness tracking labels
+  auto sTrackLabels = data.getStrangeTracksMCLabels();
+  for (int iS{mVertexStrLUT[vertexId]}; iS < mVertexStrLUT[vertexId + 1]; ++iS) {
+    auto& collStrTrk = mCollisionStrTrk[iS];
+    auto& label = sTrackLabels[collStrTrk.second];
+    MCLabels labelHolder;
+    labelHolder.labelID = label.isValid() ? (*mToStore[label.getSourceID()][label.getEventID()])[label.getTrackID()] : -1;
+    labelHolder.labelMask = (label.isFake() << 15) | (label.isNoise() << 14);
+    mcTrackLabelCursor(0, labelHolder.labelID, labelHolder.labelMask);
   }
 }
 
@@ -1217,6 +1230,8 @@ void AODProducerWorkflowDPL::prepareStrangenessTracking(const o2::globaltracking
   int sTrkID = 0;
   mCollisionStrTrk.clear();
   mCollisionStrTrk.reserve(recoData.getStrangeTracks().size());
+  mVertexStrLUT.clear();
+  mVertexStrLUT.resize(recoData.getPrimaryVertices().size() + 1, 0);
   for (auto& sTrk : recoData.getStrangeTracks()) {
     auto ITSIndex = GIndex{sTrk.mITSRef, GIndex::ITS};
     int vtxId{0};
@@ -1227,10 +1242,10 @@ void AODProducerWorkflowDPL::prepareStrangenessTracking(const o2::globaltracking
     } else {
       vtxId = decays3Body[sTrk.mDecayRef].getVertexID();
     }
-    auto itemV = mVtxToTableCollID.find(vtxId);
-    int collisionId = itemV != mVtxToTableCollID.end() ? itemV->second : -1;
-    mCollisionStrTrk.emplace_back(collisionId, sTrkID++);
+    mCollisionStrTrk.emplace_back(vtxId, sTrkID++);
+    mVertexStrLUT[vtxId]++;
   }
+  std::exclusive_scan(mVertexStrLUT.begin(), mVertexStrLUT.end(), mVertexStrLUT.begin(), 0);
 
   // sort by collision ID
   std::sort(mCollisionStrTrk.begin(), mCollisionStrTrk.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
@@ -1586,7 +1601,10 @@ void AODProducerWorkflowDPL::run(ProcessingContext& pc)
   auto& mcParticlesBuilder = pc.outputs().make<TableBuilder>(Output{"AOD", "MCPARTICLE_001"});
   auto& mcTrackLabelBuilder = pc.outputs().make<TableBuilder>(Output{"AOD", "MCTRACKLABEL"});
   auto& mftTracksBuilder = pc.outputs().make<TableBuilder>(Output{"AOD", "MFTTRACK"});
-  auto& tracksBuilder = pc.outputs().make<TableBuilder>(Output{"AOD", "TRACK_IU"});
+  Produces<o2::aod::StoredTracksIU> tracksCursor;
+  tracksCursor.resetCursor(pc.outputs().make<TableBuilder>(tracksCursor.ref()));
+  tracksCursor.setLabel(o2::aod::MetadataTrait<o2::aod::StoredTracksIU>::metadata::tableLabel());
+
   auto& tracksCovBuilder = pc.outputs().make<TableBuilder>(Output{"AOD", "TRACKCOV_IU"});
   auto& tracksExtraBuilder = pc.outputs().make<TableBuilder>(Output{"AOD", "TRACKEXTRA"});
   auto& ambigTracksBuilder = pc.outputs().make<TableBuilder>(Output{"AOD", "AMBIGUOUSTRACK"});
@@ -1619,7 +1637,6 @@ void AODProducerWorkflowDPL::run(ProcessingContext& pc)
   auto mcTrackLabelCursor = mcTrackLabelBuilder.cursor<o2::aod::McTrackLabels>();
   auto mftTracksCursor = mftTracksBuilder.cursor<o2::aod::StoredMFTTracks>();
   auto tracksCovCursor = tracksCovBuilder.cursor<o2::aod::StoredTracksCov>();
-  auto tracksCursor = tracksBuilder.cursor<o2::aod::StoredTracksIU>();
   auto tracksExtraCursor = tracksExtraBuilder.cursor<o2::aod::StoredTracksExtra>();
   auto ambigTracksCursor = ambigTracksBuilder.cursor<o2::aod::AmbiguousTracks>();
   auto ambigMFTTracksCursor = ambigMFTTracksBuilder.cursor<o2::aod::AmbiguousMFTTracks>();
@@ -2023,14 +2040,7 @@ void AODProducerWorkflowDPL::run(ProcessingContext& pc)
     fillMCTrackLabelsTable(mcTrackLabelCursor, mcMFTTrackLabelCursor, mcFwdTrackLabelCursor, primVer2TRefs.back(), primVerGIs, recoData);
     for (int iref = 0; iref < primVer2TRefs.size() - 1; iref++) {
       auto& trackRef = primVer2TRefs[iref];
-      fillMCTrackLabelsTable(mcTrackLabelCursor, mcMFTTrackLabelCursor, mcFwdTrackLabelCursor, trackRef, primVerGIs, recoData);
-    }
-
-    for (auto& label : recoData.getStrangeTracksMCLabels()) {
-      MCLabels labelHolder;
-      labelHolder.labelID = label.isValid() ? (*mToStore[label.getSourceID()][label.getEventID()])[label.getTrackID()] : -1;
-      labelHolder.labelMask = (label.isFake() << 15) | (label.isNoise() << 14);
-      mcTrackLabelCursor(0, labelHolder.labelID, labelHolder.labelMask);
+      fillMCTrackLabelsTable(mcTrackLabelCursor, mcMFTTrackLabelCursor, mcFwdTrackLabelCursor, trackRef, primVerGIs, recoData, iref);
     }
   }
   clearMCKeepStore(mToStore);
@@ -2586,7 +2596,7 @@ DataProcessorSpec getAODProducerWorkflowSpec(GID::mask_t src, bool enableSV, boo
   outputs.emplace_back(OutputLabel{"O2mcparticle_001"}, "AOD", "MCPARTICLE_001", 0, Lifetime::Timeframe);
   outputs.emplace_back(OutputLabel{"O2mctracklabel"}, "AOD", "MCTRACKLABEL", 0, Lifetime::Timeframe);
   outputs.emplace_back(OutputLabel{"O2mfttrack"}, "AOD", "MFTTRACK", 0, Lifetime::Timeframe);
-  outputs.emplace_back(OutputLabel{"O2track_iu"}, "AOD", "TRACK_IU", 0, Lifetime::Timeframe);
+  outputs.emplace_back(OutputLabel{"Tracks_IU"}, "AOD", "TRACK_IU", 0, Lifetime::Timeframe);
   outputs.emplace_back(OutputLabel{"O2trackcov_iu"}, "AOD", "TRACKCOV_IU", 0, Lifetime::Timeframe);
   outputs.emplace_back(OutputLabel{"O2trackextra"}, "AOD", "TRACKEXTRA", 0, Lifetime::Timeframe);
   outputs.emplace_back(OutputLabel{"O2trackedcascade"}, "AOD", "TRACKEDCASCADE", 0, Lifetime::Timeframe);
