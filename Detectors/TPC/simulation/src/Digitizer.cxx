@@ -180,7 +180,10 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
             label_counter = 0; track_found = false; max_idx = 0; max_idx_found = false;
 
             for(auto lab : mclabel){
-              track_found = (label.compare(lab)==1) && (row[label_counter]==currentRow) && (std::abs(currentTimeBin - cog_time[label_counter])<=(window_size[0]/2))  && (std::abs(currentPadPos - cog_pad[label_counter])<=(window_size[1]/2));
+              track_found = ((label.compare(lab)==1) &&
+                             (row[label_counter]==currentRow) && 
+                             (std::abs(currentTimeBin - cog_time[label_counter])<=(window_size[0]/2)) && 
+                             (std::abs(currentPadPos - cog_pad[label_counter])<=(window_size[1]/2)));
               if(track_found){
                 break;
               }
