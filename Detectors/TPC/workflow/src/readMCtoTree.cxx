@@ -433,11 +433,11 @@ void readMCtruth::run(ProcessingContext& pc)
   // Digitizer -> Cluster-information based on MC labels, see O2/Detectors/TPC/simulation/src/Digitizer.cxx, O2/Steer/DigitizerWorkflow/src/TPCDigitizerSpec.cxx
   if (mode.find(std::string("ideal_clusterizer")) != std::string::npos) {
 
-    int sec, row, maxp, maxt, pcount;
+    int sec, row, maxp, maxt, pcount, lab;
     float cogp, cogt, cogq, maxq;
     long elements = 0;
 
-    std::vector<int> sectors, rows, maxps, maxts, point_count;
+    std::vector<int> sectors, rows, maxps, maxts, point_count, mclabels;
     std::vector<float> cogps, cogts, cogqs, maxqs;
 
     for(int i = 0; i<36; i++){
@@ -498,17 +498,15 @@ void readMCtruth::run(ProcessingContext& pc)
     mcTreeIdeal->Branch("digitizer_maxq", &maxq);
 
     for(int i = 0; i<elements; i++){
-      if(maxqs[i]>=2.5){
-        sec = sectors[i];
-        row = rows[i];
-        maxp = maxps[i];
-        maxt = maxts[i];
-        cogp = cogps[i];
-        cogt = cogts[i];
-        cogq = cogqs[i];
-        maxq = maxqs[i];
-        mcTreeIdeal->Fill();
-      }
+      sec = sectors[i];
+      row = rows[i];
+      maxp = maxps[i];
+      maxt = maxts[i];
+      cogp = cogps[i];
+      cogt = cogts[i];
+      cogq = cogqs[i];
+      maxq = maxqs[i];
+      mcTreeIdeal->Fill();
     }
     
     mcTreeIdeal->Write();
@@ -521,8 +519,81 @@ void readMCtruth::run(ProcessingContext& pc)
     }
 
     sectors.clear(); rows.clear(); maxps.clear(); maxts.clear(); elements=0;
+
+
+    // Full digits with mclabels
+    for(int i = 0; i<36; i++){
+
+      if(verbose>0){
+        LOG(info) << "Processing ideal clusters, no selection and CoG, sector " << i << " ...";
+      }
+      std::stringstream tmp_file;
+      tmp_file << "mclabels_ideal_full_" << i << ".root";
+      auto inputFile = TFile::Open(tmp_file.str().c_str());
+      std::stringstream tmp_sec;
+      tmp_sec << "sector_" << i;
+      auto digitsMcIdeal = (TTree*)inputFile->Get(tmp_sec.str().c_str());
+
+      digitsMcIdeal->SetBranchAddress("cluster_sector", &sec);
+      digitsMcIdeal->SetBranchAddress("cluster_row", &row);
+      digitsMcIdeal->SetBranchAddress("cluster_pad", &maxp);
+      digitsMcIdeal->SetBranchAddress("cluster_time", &maxt);
+      digitsMcIdeal->SetBranchAddress("cluster_label", &lab);
+      digitsMcIdeal->SetBranchAddress("cluster_q", &maxq);
+
+      for(int j=0; j<digitsMcIdeal->GetEntries(); j++){
+        try{
+          digitsMcIdeal->GetEntry(j);
+          sectors.push_back(sec);
+          rows.push_back(row);
+          maxps.push_back(maxp);
+          maxts.push_back(maxt);
+          maxqs.push_back(maxq);
+          mclabels.push_back(lab);
+          elements++;
+        }
+        catch(...){
+          LOG(info) << "Problem occured in sector " << i;
+        }
+      }
+
+      inputFile->Close();
+
+    }
+
+    TFile* outputFileIdealFull = new TFile("mclabels_ideal_digits.root", "RECREATE");
+    TTree* mcTreeIdealFull = new TTree("mcLabelsDigitizer", "MC tree");
+
+    mcTreeIdealFull->SetBranchAddress("mcfull_sector", &sec);
+    mcTreeIdealFull->SetBranchAddress("mcfull_row", &row);
+    mcTreeIdealFull->SetBranchAddress("mcfull_pad", &maxp);
+    mcTreeIdealFull->SetBranchAddress("mcfull_time", &maxt);
+    mcTreeIdealFull->SetBranchAddress("mcfull_q", &maxq);
+    mcTreeIdealFull->SetBranchAddress("mcfull_label", &lab);
+
+    for(int i = 0; i<elements; i++){
+      sec = sectors[i];
+      row = rows[i];
+      maxp = maxps[i];
+      maxt = maxts[i];
+      maxq = maxqs[i];
+      lab = mclabels[i];
+      mcTreeIdealFull->Fill();
+    }
+    
+    mcTreeIdealFull->Write();
+    delete mcTreeIdealFull;
+    outputFileIdealFull->Close();
+    delete outputFileIdealFull;
+
+    if (verbose > 0) {
+      LOG(info) << "TPC full ideal mc digits reader done!";
+    }
+
+    sectors.clear(); rows.clear(); maxps.clear(); maxts.clear(); elements=0;
     
 
+    // Cluster maxima found by the clusterizer
     for(int i = 0; i<36; i++){
       if(verbose>0){
         LOG(info) << "Processing clusterizer maxima, sector " << i << " ...";

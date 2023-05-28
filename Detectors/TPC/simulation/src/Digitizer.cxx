@@ -242,6 +242,7 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
               cog_q.push_back(currentSignal);
               point_counter.push_back(1);
               mclabel.push_back(label);
+              mclabel_int.push_back(label_counter);
               elem_counter++;
             }
           }

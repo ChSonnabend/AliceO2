@@ -140,6 +140,7 @@ class Digitizer
   std::vector<float> getCogPad(){ return cog_pad; }
   std::vector<float> getCogQ(){ return cog_q; }
   std::vector<int> getPointCounter(){ return point_counter; }
+  std::vector<int> getMcLabels(){ return mclabel_int; }
   std::vector<int> getWindowSize(){ return window_size; }
   int64_t getElemCounter(){ return elem_counter; }
   void clearElements(){
@@ -169,6 +170,7 @@ class Digitizer
   std::vector<int> window_size = {8, 6}; // time-window, pad-window
 
   std::vector<MCCompLabel> mclabel;
+  std::vector<int> mclabel_int;
   ClassDefNV(Digitizer, 1);
 };
 } // namespace tpc
