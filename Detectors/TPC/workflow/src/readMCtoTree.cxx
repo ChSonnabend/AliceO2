@@ -94,13 +94,11 @@ void readMCtruth::run(ProcessingContext& pc)
     TFile outputFile("mclabels_digits.root", "RECREATE");
     TTree* mcTree = new TTree("mcLabelsDigits", "MC tree");
 
-    Int_t sector, row, pad, qed, validity, fakehit;
+    Int_t sector, row, pad, time;
     mcTree->Branch("digits_sector", &sector);
     mcTree->Branch("digits_row", &row);
     mcTree->Branch("digits_pad", &pad);
-    mcTree->Branch("digits_isQED", &qed);
-    mcTree->Branch("digits_isValid", &validity);
-    mcTree->Branch("digits_isFake", &fakehit);
+    mcTree->Branch("digits_time", &time);
 
     o2::dataformats::ConstMCTruthContainer<o2::MCCompLabel> labels[36];
 
@@ -135,9 +133,7 @@ void readMCtruth::run(ProcessingContext& pc)
           sector = ib;
           row = digit.getRow();
           pad = digit.getPad();
-          qed = (lab.isQED() ? 1 : 0);
-          fakehit = (lab.isFake() ? 1 : 0);
-          validity = (lab.isValid() ? 1 : 0);
+          time = digit.getTimeStamp();
           mcTree->Fill();
         }
       }
@@ -477,7 +473,7 @@ void readMCtruth::run(ProcessingContext& pc)
           elements++;
         }
         catch(...){
-          LOG(info) << "Problem occured in sector " << i;
+          LOG(info) << "(Digitizer) Problem occured in sector " << i;
         }
       }
 
@@ -522,75 +518,75 @@ void readMCtruth::run(ProcessingContext& pc)
 
 
     // Full digits with mclabels
-    for(int i = 0; i<36; i++){
-
-      if(verbose>0){
-        LOG(info) << "Processing ideal clusters, no selection and CoG, sector " << i << " ...";
-      }
-      std::stringstream tmp_file;
-      tmp_file << "mclabels_ideal_full_" << i << ".root";
-      auto inputFile = TFile::Open(tmp_file.str().c_str());
-      std::stringstream tmp_sec;
-      tmp_sec << "sector_" << i;
-      auto digitsMcIdeal = (TTree*)inputFile->Get(tmp_sec.str().c_str());
-
-      digitsMcIdeal->SetBranchAddress("cluster_sector", &sec);
-      digitsMcIdeal->SetBranchAddress("cluster_row", &row);
-      digitsMcIdeal->SetBranchAddress("cluster_pad", &maxp);
-      digitsMcIdeal->SetBranchAddress("cluster_time", &maxt);
-      digitsMcIdeal->SetBranchAddress("cluster_label", &lab);
-      digitsMcIdeal->SetBranchAddress("cluster_q", &maxq);
-
-      for(int j=0; j<digitsMcIdeal->GetEntries(); j++){
-        try{
-          digitsMcIdeal->GetEntry(j);
-          sectors.push_back(sec);
-          rows.push_back(row);
-          maxps.push_back(maxp);
-          maxts.push_back(maxt);
-          maxqs.push_back(maxq);
-          mclabels.push_back(lab);
-          elements++;
-        }
-        catch(...){
-          LOG(info) << "Problem occured in sector " << i;
-        }
-      }
-
-      inputFile->Close();
-
-    }
-
-    TFile* outputFileIdealFull = new TFile("mclabels_ideal_digits.root", "RECREATE");
-    TTree* mcTreeIdealFull = new TTree("mcLabelsDigitizer", "MC tree");
-
-    mcTreeIdealFull->SetBranchAddress("mcfull_sector", &sec);
-    mcTreeIdealFull->SetBranchAddress("mcfull_row", &row);
-    mcTreeIdealFull->SetBranchAddress("mcfull_pad", &maxp);
-    mcTreeIdealFull->SetBranchAddress("mcfull_time", &maxt);
-    mcTreeIdealFull->SetBranchAddress("mcfull_q", &maxq);
-    mcTreeIdealFull->SetBranchAddress("mcfull_label", &lab);
-
-    for(int i = 0; i<elements; i++){
-      sec = sectors[i];
-      row = rows[i];
-      maxp = maxps[i];
-      maxt = maxts[i];
-      maxq = maxqs[i];
-      lab = mclabels[i];
-      mcTreeIdealFull->Fill();
-    }
-    
-    mcTreeIdealFull->Write();
-    delete mcTreeIdealFull;
-    outputFileIdealFull->Close();
-    delete outputFileIdealFull;
-
-    if (verbose > 0) {
-      LOG(info) << "TPC full ideal mc digits reader done!";
-    }
-
-    sectors.clear(); rows.clear(); maxps.clear(); maxts.clear(); elements=0;
+    // for(int i = 0; i<36; i++){
+// 
+    //   if(verbose>0){
+    //     LOG(info) << "Processing ideal clusters, no selection and CoG, sector " << i << " ...";
+    //   }
+    //   std::stringstream tmp_file;
+    //   tmp_file << "mclabels_ideal_full_" << i << ".root";
+    //   auto inputFile = TFile::Open(tmp_file.str().c_str());
+    //   std::stringstream tmp_sec;
+    //   tmp_sec << "sector_" << i;
+    //   auto digitsMcIdeal = (TTree*)inputFile->Get(tmp_sec.str().c_str());
+// 
+    //   digitsMcIdeal->SetBranchAddress("cluster_sector", &sec);
+    //   digitsMcIdeal->SetBranchAddress("cluster_row", &row);
+    //   digitsMcIdeal->SetBranchAddress("cluster_pad", &maxp);
+    //   digitsMcIdeal->SetBranchAddress("cluster_time", &maxt);
+    //   digitsMcIdeal->SetBranchAddress("cluster_label", &lab);
+    //   digitsMcIdeal->SetBranchAddress("cluster_q", &maxq);
+// 
+    //   for(int j=0; j<digitsMcIdeal->GetEntries(); j++){
+    //     try{
+    //       digitsMcIdeal->GetEntry(j);
+    //       sectors.push_back(sec);
+    //       rows.push_back(row);
+    //       maxps.push_back(maxp);
+    //       maxts.push_back(maxt);
+    //       maxqs.push_back(maxq);
+    //       mclabels.push_back(lab);
+    //       elements++;
+    //     }
+    //     catch(...){
+    //       LOG(info) << "(Ideal full) Problem occured in sector " << i;
+    //     }
+    //   }
+// 
+    //   inputFile->Close();
+// 
+    // }
+// 
+    // TFile* outputFileIdealFull = new TFile("mclabels_ideal_digits.root", "RECREATE");
+    // TTree* mcTreeIdealFull = new TTree("mcLabelsDigitizer", "MC tree");
+// 
+    // mcTreeIdealFull->SetBranchAddress("mcfull_sector", &sec);
+    // mcTreeIdealFull->SetBranchAddress("mcfull_row", &row);
+    // mcTreeIdealFull->SetBranchAddress("mcfull_pad", &maxp);
+    // mcTreeIdealFull->SetBranchAddress("mcfull_time", &maxt);
+    // mcTreeIdealFull->SetBranchAddress("mcfull_q", &maxq);
+    // mcTreeIdealFull->SetBranchAddress("mcfull_label", &lab);
+// 
+    // for(int i = 0; i<elements; i++){
+    //   sec = sectors[i];
+    //   row = rows[i];
+    //   maxp = maxps[i];
+    //   maxt = maxts[i];
+    //   maxq = maxqs[i];
+    //   lab = mclabels[i];
+    //   mcTreeIdealFull->Fill();
+    // }
+    // 
+    // mcTreeIdealFull->Write();
+    // delete mcTreeIdealFull;
+    // outputFileIdealFull->Close();
+    // delete outputFileIdealFull;
+// 
+    // if (verbose > 0) {
+    //   LOG(info) << "TPC full ideal mc digits reader done!";
+    // }
+// 
+    // sectors.clear(); rows.clear(); maxps.clear(); maxts.clear(); elements=0;
     
 
     // Cluster maxima found by the clusterizer
@@ -619,7 +615,7 @@ void readMCtruth::run(ProcessingContext& pc)
           elements++;
         }
         catch(...){
-          LOG(info) << "Problem occured in sector " << i;
+          LOG(info) << "(Clustermax) Problem occured in sector " << i;
         }
       }
 
