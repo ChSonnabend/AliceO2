@@ -126,7 +126,7 @@ void qaIdeal::read_digits(int sector)
   std::string branch_name = fmt::format("TPCDigit_{:d}", sector).c_str();
   digitTree->SetBranchAddress(branch_name.c_str(), &digits);
 
-  int counter = 0;
+  long counter = 0;
   digitTree->GetEntry(0);
   if (verbose >= 1)
     LOG(info) << "Trying to read " << digits->size() << " digits";
@@ -325,7 +325,8 @@ void qaIdeal::overwrite_map2d(){
     }
   }
 
-  for(int max = 0; max < maxima_digits.size(); max++){
+
+  for(unsigned int max = 0; max < maxima_digits.size(); max++){
     map2d[1][digit_map[maxima_digits[max]][2]+global_shift[1]][digit_map[maxima_digits[max]][0]][digit_map[maxima_digits[max]][1]+global_shift[0]] = max;
   }
 
@@ -362,8 +363,9 @@ int qaIdeal::test_neighbour(std::array<int, 3> index, std::array<int, 2> nn, int
 void qaIdeal::run(ProcessingContext& pc)
 {
 
-  std::array<int, 16> assignments_ideal, assignments_digit;
-  int number_of_ideal_max=0, number_of_digit_max=0;
+  std::array<unsigned long, 16> assignments_ideal, assignments_digit;
+  unsigned long number_of_ideal_max=0, number_of_digit_max=0;
+  unsigned long clones=0;
 
   // int current_max_dig_counter=0, current_max_id_counter=0;
   for (int loop_sectors = 0; loop_sectors < 36; loop_sectors++) {
@@ -378,11 +380,11 @@ void qaIdeal::run(ProcessingContext& pc)
 
     // effCloneFake(0, loop_chunks*chunk_size);
     // Assignment at d=1
-    LOG(info) << "Maxima found in digits (before): " << maxima_digits.size() << "; Maxima found in ideal clustres (before): " << ideal_max_map.size();
+    LOG(info) << "Maxima found in digits (before): " << maxima_digits.size() << "; Maxima found in ideal clusters (before): " << ideal_max_map.size();
 
     std::vector<int> assigned_ideal(ideal_max_map.size(),0), clone_order(ideal_max_map.size(),0);
     std::vector<std::array<int, 25>> assignments_dig_to_id(ideal_max_map.size());
-    std::vector<int> assigned_digit(maxima_digits.size(),0), is_assigned_digit(maxima_digits.size(),0);
+    std::vector<int> assigned_digit(maxima_digits.size(),0);
     std::vector<std::array<int, 25>> assignments_id_to_dig(maxima_digits.size());
     int current_neighbour;
 
@@ -397,41 +399,57 @@ void qaIdeal::run(ProcessingContext& pc)
       if (verbose >= 2) LOG(info) << "Layer " << layer;
 
       // Level-2 loop: Goes through the elements of the adjacency matrix at distance d, n times to assign neighbours iteratively
-      for(int loop_neighbours = 0; loop_neighbours < adj_mat[layer].size(); loop_neighbours++){
+      for(int nn = 0; nn < adj_mat[layer].size(); nn++){
 
-        // Level-3 loop: Goes through neighbourhood defined in layer
-        for(int nn = 0; nn < adj_mat[layer].size(); nn++){
-
-          // Level-4 loop: Goes through all digit maxima and checks neighbourhood for potential ideal maxima
-          for(int locdigit = 0; locdigit < maxima_digits.size(); locdigit++){
-            current_neighbour = test_neighbour(digit_map[maxima_digits[locdigit]], adj_mat[layer][nn], 0);
-            assignments_id_to_dig[locdigit][layer_count + nn] = ((current_neighbour!=-1 && assigned_digit[locdigit]==0) ? current_neighbour : -1);
+        // Level-3 loop: Goes through all digit maxima and checks neighbourhood for potential ideal maxima
+        for(int locdigit = 0; locdigit < maxima_digits.size(); locdigit++){
+          current_neighbour = test_neighbour(digit_map[maxima_digits[locdigit]], adj_mat[layer][nn], 0);
+          if (verbose >= 5) LOG(info) << "current_neighbour: " << current_neighbour;
+          if (verbose >= 5) LOG(info) << "Maximum digit " << maxima_digits[locdigit];
+          if (verbose >= 5) LOG(info) << "Digit max index: " << digit_map[maxima_digits[locdigit]][0] << " " << digit_map[maxima_digits[locdigit]][1] << " " << digit_map[maxima_digits[locdigit]][2];
+          if(current_neighbour>=-1 && current_neighbour<=20000000){
+            assignments_id_to_dig[locdigit][layer_count + nn] = ((current_neighbour!=-1 && assigned_digit[locdigit]==0) ? (assigned_ideal[current_neighbour]==0 ? current_neighbour : -1) : -1);
           }
-          if (verbose >= 4) LOG(info) << "Done with assignment for digit maxima layer " << layer;
-
-          // Level-4 loop: Goes through all ideal maxima and checks neighbourhood for potential digit maxima
-          for (int locideal = 0; locideal < ideal_max_map.size(); locideal++) {
-            current_neighbour = test_neighbour(ideal_max_map[locideal], adj_mat[layer][nn], 1);
-            assignments_dig_to_id[locideal][layer_count + nn] = ((current_neighbour!=-1 && assigned_ideal[locideal]==0) ? current_neighbour : -1); // + current_max_dig_counter;
+          else{
+            LOG(warning) << "Current neighbour: " << current_neighbour;
+            LOG(warning) << "Ideal max index: " << digit_map[maxima_digits[locdigit]][0] << " " << digit_map[maxima_digits[locdigit]][1] << " " << digit_map[maxima_digits[locdigit]][2];
           }
-          if (verbose >= 4) LOG(info) << "Done with assignment for ideal maxima layer " << layer;
-
         }
+        if (verbose >= 4) LOG(info) << "Done with assignment for digit maxima layer " << layer;
+
+        // Level-3 loop: Goes through all ideal maxima and checks neighbourhood for potential digit maxima
+        for (int locideal = 0; locideal < ideal_max_map.size(); locideal++) {
+          current_neighbour = test_neighbour(ideal_max_map[locideal], adj_mat[layer][nn], 1);
+          if (verbose >= 5) LOG(info) << "current_neighbour: " << current_neighbour;
+          if (verbose >= 5) LOG(info) << "Maximum ideal " << locideal;
+          if (verbose >= 5) LOG(info) << "Ideal max index: " << ideal_max_map[locideal][0] << " " << ideal_max_map[locideal][1] << " " << ideal_max_map[locideal][2];
+          if(current_neighbour>=-1 && current_neighbour<=20000000){
+            assignments_dig_to_id[locideal][layer_count + nn] = ((current_neighbour!=-1 && assigned_ideal[locideal]==0) ? (assigned_digit[current_neighbour]==0 ? current_neighbour : -1) : -1);
+          }
+          else{
+            LOG(warning) << "Current neighbour: " << current_neighbour;
+            LOG(warning) << "Ideal max index: " << ideal_max_map[locideal][0] << " " << ideal_max_map[locideal][1] << " " << ideal_max_map[locideal][2];
+          }
+        }
+        if (verbose >= 4) LOG(info) << "Done with assignment for ideal maxima layer " << layer;
+
       }
 
-      if (verbose >= 2) LOG(info) << "Done with assignment for layer " << layer;
-
       // Level-2 loop: Checks all digit maxima and how many ideal maxima neighbours have been found in the current layer
-      for (int locdigit = 0; locdigit < maxima_digits.size(); locdigit++) {
-        for(int counter_max=layer_count; counter_max <  layer_count+adj_mat[layer].size(); counter_max++){
-          if(assignments_id_to_dig[locdigit][counter_max] >= 0){
-            is_assigned_digit[locdigit]+=1;
+      if(layer>=2){
+        for (int locdigit = 0; locdigit < maxima_digits.size(); locdigit++) {
+          assigned_digit[locdigit] = 0;
+          for(int counter_max=layer_count; counter_max <  layer_count+adj_mat[layer].size(); counter_max++){
+            if(assignments_id_to_dig[locdigit][counter_max] >= 0){
+              assigned_digit[locdigit]+=1;
+            }
           }
         }
       }
 
       // Level-2 loop: Checks all ideal maxima and how many digit maxima neighbours have been found in the current layer
       for (int locideal = 0; locideal < ideal_max_map.size(); locideal++) {
+        assigned_ideal[locideal]=0;
         for(int counter_max=layer_count; counter_max <  layer_count+adj_mat[layer].size(); counter_max++){
           if(assignments_dig_to_id[locideal][counter_max] >= 0){
             assigned_ideal[locideal]+=1;
@@ -440,58 +458,72 @@ void qaIdeal::run(ProcessingContext& pc)
       }
 
       // Assign all possible digit maxima once you are above a certain distance away from the current maximum (here: At layer with distance greater than sqrt(2))
-      if(layer>=2){
-        for (int locdigit = 0; locdigit < maxima_digits.size(); locdigit++) {
-          for(int counter_max=layer_count; counter_max <  layer_count+adj_mat[layer].size(); counter_max++){
-            if(assignments_id_to_dig[locdigit][counter_max] >= 0){
-              assigned_digit[locdigit]+=1;
-            }
-          }
-          assigned_digit[locdigit] += is_assigned_digit[locdigit];
-        }
-      }
 
       if (verbose >= 2) LOG(info) << "Removed maxima for layer " << layer;
 
       layer_count+=adj_mat[layer].size();
+
+      if(verbose >= 3) LOG(info) << "Layer count is now " << layer_count;
+
+      clear_memory();
     }
 
-  // Checks the number of assignments that have been made with the above loops
+    // Checks the number of assignments that have been made with the above loops
     for(int ass_id=0; ass_id<assignments_dig_to_id.size(); ass_id++){
       int count_elements = 0;
       for(auto elem : assignments_dig_to_id[ass_id]){
         if(elem>=0) count_elements++;
       }
-      if(assigned_ideal[ass_id] != count_elements) LOG(fatal) << "NUMBER OF ASSIGNMENTS NOT EQUAL!! assigned_ideal[ass_id] = " << assigned_ideal[ass_id] << " while count_elements = " << count_elements;
-      for(int num_ass = 0; num_ass<16; num_ass++){
-        if(count_elements==num_ass) assignments_ideal[num_ass]++;
-      }
+      assignments_ideal[count_elements]++;
     }
     for(int ass_dig=0; ass_dig<assignments_id_to_dig.size(); ass_dig++){
       int count_elements = 0;
       for(auto elem : assignments_id_to_dig[ass_dig]){
         if(elem>=0) count_elements++;
       }
-      if(assigned_digit[ass_dig] != count_elements) LOG(fatal) << "NUMBER OF ASSIGNMENTS NOT EQUAL!! assigned_digit[ass_dig] = " << assigned_digit[ass_dig] << " while count_elements = " << count_elements;
-      for(int num_ass = 0; num_ass<16; num_ass++){
-        if(assignments_id_to_dig[ass_dig].size()==num_ass) assignments_digit[num_ass]++;
-      }
+      assignments_digit[count_elements]++;
     }
 
+    if (verbose >= 3) LOG(info) << "Done checking the number of assignments";
+
     // Clone-rate
-    for(int locideal=0; locideal<assigned_ideal.size(); locideal++){
-      if(assigned_ideal[locideal]>1){
-        for(auto elem : assignments_dig_to_id[locideal]){
-          if(assigned_digit[elem]==1) clone_order[locideal]++;
+    for(int locideal=0; locideal<assignments_dig_to_id.size(); locideal++){
+      for(auto elem_id : assignments_dig_to_id[locideal]){
+        if(elem_id>=0){
+          int count_elements=0;
+          for(auto elem_dig : assignments_id_to_dig[elem_id]){
+            if(elem_dig>=0) count_elements++;
+          }
+          if(count_elements==1) clone_order[locideal]++;
         }
       }
     }
+    for(int locideal=0; locideal<assignments_dig_to_id.size(); locideal++){
+      if(clone_order[locideal]>1){
+        clones++;
+      }
+    }
 
-    // LOG(info) << "Fake rate (# unassigned digits): " << number_of_digit_max[0];
-    // LOG(info) << "Unassigned ideal hits: " << number_of_digit_max[0];
+    if (verbose >= 3) LOG(info) << "Done with determining the clone rate";
   }
 
-  clear_memory();
+  LOG(info) << "------- RESULTS -------";
+  LOG(info) << "Number of digit maxima: " << number_of_digit_max;
+  LOG(info) << "Number of ideal maxima: " << number_of_ideal_max;
+
+  unsigned long efficiency = 0;
+  for(int ass = 0; ass<16; ass++){
+    LOG(info) << "Number of assigned digit maxima (#assignments " << ass << "): " << assignments_digit[ass];
+    LOG(info) << "Number of assigned ideal maxima (#assignments " << ass << "): " << assignments_ideal[ass];
+    if(ass > 0){
+      efficiency+=assignments_ideal[ass];
+    }
+  }
+
+  LOG(info) << "Number of assigned (ideal -> digit) clusters: " << efficiency << " (" << efficiency*100/number_of_ideal_max << "% of ideal maxima)";
+  LOG(info) << "Number of clones (clone-order >= 2 for ideal cluster): " << clones << " (" << clones*100/number_of_ideal_max << "% of ideal maxima)" ;
+  LOG(info) << "Number of fakes (number of digit hits that can't be assigned to any ideal hit): " << assignments_digit[0] << " (" << assignments_digit[0]*100/number_of_digit_max << "% of digit maxima)" ;
+
 
   pc.services().get<ControlService>().endOfStream();
   pc.services().get<ControlService>().readyToQuit(QuitRequest::Me);
