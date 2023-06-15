@@ -9,15 +9,11 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-// Antonio's code
-
 #ifndef O2_IMPACT_PARAMETER_STUDY_H
 #define O2_IMPACT_PARAMETER_STUDY_H
 
 #include "ReconstructionDataFormats/GlobalTrackID.h"
-#include "Framework/Task.h"
 #include "Framework/DataProcessorSpec.h"
-#include "ReconstructionDataFormats/Track.h"
 
 namespace o2
 {
