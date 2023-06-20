@@ -590,7 +590,16 @@ static auto forwardInputs = [](ServiceRegistryRef registry, TimesliceSlot slot, 
     auto channel = proxy.getForwardChannel(ChannelIndex{fi});
     LOG(debug) << "Forwarding to " << channel->GetName() << " " << fi;
     // in DPL we are using subchannel 0 only
-    channel->Send(forwardedParts[fi]);
+    auto& parts = forwardedParts[fi];
+    int timeout = 30000;
+    auto res = channel->Send(parts, timeout);
+    if (res == (size_t)fair::mq::TransferCode::timeout) {
+      LOGP(warning, "Timed out sending after {}s. Downstream backpressure detected on {}.", timeout / 1000, channel->GetName());
+      channel->Send(parts);
+      LOGP(info, "Downstream backpressure on {} recovered.", channel->GetName());
+    } else if (res == (size_t)fair::mq::TransferCode::error) {
+      LOGP(fatal, "Error while sending on channel {}", channel->GetName());
+    }
   }
 
   auto& asyncQueue = registry.get<AsyncQueue>();
@@ -991,22 +1000,34 @@ void DataProcessingDevice::fillContext(DataProcessorContext& context, DeviceCont
   /// We must make sure there is no optional
   /// if we want to optimize the forwarding
   context.canForwardEarly = (spec.forwards.empty() == false) && mProcessingPolicies.earlyForward != EarlyForwardPolicy::NEVER;
+  bool onlyConditions = true;
+  bool overriddenEarlyForward = false;
   for (auto& forwarded : spec.forwards) {
+    if (forwarded.matcher.lifetime != Lifetime::Condition) {
+      onlyConditions = false;
+    }
     if (strncmp(DataSpecUtils::asConcreteOrigin(forwarded.matcher).str, "AOD", 3) == 0) {
       context.canForwardEarly = false;
+      overriddenEarlyForward = true;
       LOG(detail) << "Cannot forward early because of AOD input: " << DataSpecUtils::describe(forwarded.matcher);
       break;
     }
     if (DataSpecUtils::partialMatch(forwarded.matcher, o2::header::DataDescription{"RAWDATA"}) && mProcessingPolicies.earlyForward == EarlyForwardPolicy::NORAW) {
       context.canForwardEarly = false;
+      overriddenEarlyForward = true;
       LOG(detail) << "Cannot forward early because of RAWDATA input: " << DataSpecUtils::describe(forwarded.matcher);
       break;
     }
     if (forwarded.matcher.lifetime == Lifetime::Optional) {
       context.canForwardEarly = false;
+      overriddenEarlyForward = true;
       LOG(detail) << "Cannot forward early because of Optional input: " << DataSpecUtils::describe(forwarded.matcher);
       break;
     }
+  }
+  if (!overriddenEarlyForward && onlyConditions) {
+    context.canForwardEarly = true;
+    LOG(detail) << "Enabling early forwarding because only conditions to be forwarded";
   }
 }
 
@@ -1954,6 +1975,8 @@ bool DataProcessingDevice::tryDispatchComputation(ServiceRegistryRef ref, std::v
     timingInfo.runNumber = relayer.getRunNumberForSlot(i);
     timingInfo.creation = relayer.getCreationTimeForSlot(i);
     timingInfo.globalRunNumberChanged = !TimingInfo::timesliceIsTimer(timeslice.value) && dataProcessorContext.lastRunNumberProcessed != timingInfo.runNumber;
+    // A switch to runNumber=0 should not appear and thus does not set globalRunNumberChanged, unless it is seen in the first processed timeslice
+    timingInfo.globalRunNumberChanged &= (dataProcessorContext.lastRunNumberProcessed == -1 || timingInfo.runNumber != 0);
     // We report wether or not this timing info refers to a new Run.
     if (timingInfo.globalRunNumberChanged) {
       dataProcessorContext.lastRunNumberProcessed = timingInfo.runNumber;
