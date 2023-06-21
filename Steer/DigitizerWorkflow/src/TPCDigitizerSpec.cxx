@@ -467,6 +467,8 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         tmp_cog_pad = mDigitizer.getCogPad();
         tmp_cog_q = mDigitizer.getCogQ();
         tmp_mc_label = mDigitizer.getMcLabels();
+        tmp_mc_noise = mDigitizer.getIsNoise();
+        tmp_mc_fake = mDigitizer.getIsFake();
         tmp_point_counter = mDigitizer.getPointCounter();
 
         sector_vec.insert(sector_vec.end(), tmp_sector_vec.begin(), tmp_sector_vec.end());
@@ -478,6 +480,8 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         cog_pad.insert(cog_pad.end(), tmp_cog_pad.begin(), tmp_cog_pad.end());
         cog_q.insert(cog_q.end(), tmp_cog_q.begin(), tmp_cog_q.end());
         mclabel.insert(mclabel.end(), tmp_mc_label.begin(), tmp_mc_label.end());
+        mc_noise.insert(mc_noise.end(), tmp_mc_noise.begin(), tmp_mc_noise.end());
+        mc_fake.insert(mc_fake.end(), tmp_mc_fake.begin(), tmp_mc_fake.end());
         point_counter.insert(point_counter.end(), tmp_point_counter.begin(), tmp_point_counter.end());
         elem_counter += mDigitizer.getElemCounter();
         mDigitizer.clearElements();
@@ -494,6 +498,8 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         tmp_cog_pad = mDigitizer.getCogPad();
         tmp_cog_q = mDigitizer.getCogQ();
         tmp_mc_label = mDigitizer.getMcLabels();
+        tmp_mc_noise = mDigitizer.getIsNoise();
+        tmp_mc_fake = mDigitizer.getIsFake();
         tmp_point_counter = mDigitizer.getPointCounter();
 
         sector_vec.insert(sector_vec.end(), tmp_sector_vec.begin(), tmp_sector_vec.end());
@@ -505,6 +511,8 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         cog_pad.insert(cog_pad.end(), tmp_cog_pad.begin(), tmp_cog_pad.end());
         cog_q.insert(cog_q.end(), tmp_cog_q.begin(), tmp_cog_q.end());
         mclabel.insert(mclabel.end(), tmp_mc_label.begin(), tmp_mc_label.end());
+        mc_noise.insert(mc_noise.end(), tmp_mc_noise.begin(), tmp_mc_noise.end());
+        mc_fake.insert(mc_fake.end(), tmp_mc_fake.begin(), tmp_mc_fake.end());
         point_counter.insert(point_counter.end(), tmp_point_counter.begin(), tmp_point_counter.end());
         elem_counter += mDigitizer.getElemCounter();
         mDigitizer.clearElements();
@@ -545,7 +553,7 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
     TFile outputFile(fileName.str().c_str(), "RECREATE");
     TTree* mcTree = new TTree(tmp.str().c_str(), "MC tree");
 
-    int sec=0, r=0, mp=0, mt=0, idx=0, p=0, lab=0;;
+    int sec=0, r=0, mp=0, mt=0, idx=0, p=0, lab=0, mcn=0, mcf=0;
     float cp=0, ct=0, cq=-1, mq=0;
 
     mcTree->Branch("cluster_sector", &sec);
@@ -556,6 +564,8 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
     mcTree->Branch("cluster_max_pad", &mp);
     mcTree->Branch("cluster_max_time", &mt);
     mcTree->Branch("cluster_max_q", &mq);
+    mcTree->Branch("cluster_mc_noise", &mcn);
+    mcTree->Branch("cluster_mc_fake", &mcf);
     mcTree->Branch("cluster_points", &p);
 
     for(int i = 0; i<elem_counter; i++){
@@ -564,6 +574,8 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
       cp = cog_pad[i];
       ct = cog_time[i];
       cq = cog_q[i];
+      mcn = mc_noise[i];
+      mcf = mc_fake[i];
       for(auto elem : max_q[i]){
         if(elem > mq){
           mp = max_pad[i][idx];
@@ -581,7 +593,7 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
       }
       p = point_counter[i];
       mcTree->Fill();
-      mp = 0; mt = 0; mq = 0; idx = 0;
+      mp = 0; mt = 0; mq = 0; mcn=0; mcf=0; idx = 0;
     }
 
     mcTree->Write();
@@ -595,19 +607,23 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
     TFile outputFile2(fileName2.str().c_str(), "RECREATE");
     TTree* mcTree2 = new TTree(tmp2.str().c_str(), "MC tree");
 
-    sec=0, r=0, mp=0, mt=0, idx=0;  mq=0;
+    sec=0, r=0, mp=0, mt=0, idx=0; mcn=0; mcf=0; mq=0;
 
     mcTree2->Branch("cluster_sector", &sec);
     mcTree2->Branch("cluster_row", &r);
     mcTree2->Branch("cluster_pad", &mp);
     mcTree2->Branch("cluster_time", &mt);
     mcTree2->Branch("cluster_q", &mq);
+    mcTree2->Branch("cluster_mc_noise", &mcn);
+    mcTree2->Branch("cluster_mc_fake", &mcf);
     mcTree2->Branch("cluster_label", &lab);
 
     for(int i = 0; i<elem_counter; i++){
       sec = sector_vec[i];
       r = row_vec[i];
       lab = mclabel[i];
+      mcn = mc_noise[i];
+      mcf = mc_fake[i];
       for(auto elem : max_q[i]){
         mp = max_pad[i][idx];
         mt = max_time[i][idx];
@@ -616,7 +632,7 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
 
         mcTree2->Fill();
       }
-      mp = 0; mt = 0; mq = 0; idx = 0; lab = 0;
+      mp = 0; mt = 0; mq = 0; idx = 0; mcn=0; mcf=0; lab = 0;
     }
 
     mcTree2->Write();
@@ -648,12 +664,12 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
 
   /// OWN IMPLEMENTATION
   int64_t elem_counter = 0;
-  std::vector<int> tmp_sector_vec, tmp_row_vec, tmp_point_counter, tmp_mc_label;
+  std::vector<int> tmp_sector_vec, tmp_row_vec, tmp_point_counter, tmp_mc_label, tmp_mc_noise, tmp_mc_fake;
   std::vector<std::vector<int>>  tmp_max_time, tmp_max_pad;
   std::vector<float> tmp_cog_time, tmp_cog_pad, tmp_cog_q;
   std::vector<std::vector<float>> tmp_max_q;
 
-  std::vector<int> sector_vec, row_vec, point_counter, mclabel;
+  std::vector<int> sector_vec, row_vec, point_counter, mclabel, mc_noise, mc_fake;
   std::vector<float> cog_time, cog_pad, cog_q;
   std::vector<std::vector<int>>  max_time, max_pad;
   std::vector<std::vector<float>> max_q;

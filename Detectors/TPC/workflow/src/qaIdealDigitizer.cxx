@@ -34,6 +34,7 @@
 #include "TFile.h"
 #include "TTree.h"
 #include "TKey.h"
+#include "TSystem.h"
 
 using namespace o2;
 using namespace GPUCA_NAMESPACE::gpu;
@@ -47,10 +48,10 @@ class qaIdeal : public Task
   void read_digits(int);
   void read_ideal(int);
   void init_map2d(int);
-  void fill_map2d(int);
+  void fill_map2d(int, int);
   void clear_memory();
   void find_maxima();
-  void overwrite_map2d();
+  void overwrite_map2d(int);
   int test_neighbour(std::array<int, 3>, std::array<int, 2>, int);
   // void effCloneFake(int, int);
   void run(ProcessingContext&) final;
@@ -237,27 +238,50 @@ void qaIdeal::init_map2d(int maxtime){
 
 
 // ---------------------------------
-void qaIdeal::fill_map2d(int fillmode = 0)
+void qaIdeal::fill_map2d(int fillmode = 0, int use_max_cog = 0)
 {
 
-  // Storing the indices
-  if (fillmode == 0) {
-    for (unsigned int ind = 0; ind < digit_map.size(); ind++) {
-      map2d[1][digit_map[ind][2] + global_shift[1]][digit_map[ind][0]][digit_map[ind][1] + global_shift[0]] = ind;
+  if(use_max_cog==0){
+    // Storing the indices
+    if (fillmode == 0) {
+      for (unsigned int ind = 0; ind < digit_map.size(); ind++) {
+        map2d[1][digit_map[ind][2] + global_shift[1]][digit_map[ind][0]][digit_map[ind][1] + global_shift[0]] = ind;
+      }
+    } else if (fillmode == 1) {
+      for (unsigned int ind = 0; ind < ideal_max_map.size(); ind++) {
+        map2d[0][ideal_max_map[ind][2] + global_shift[1]][ideal_max_map[ind][0]][ideal_max_map[ind][1] + global_shift[0]] = ind;
+      }
+    } else if (fillmode == -1) {
+      for (unsigned int ind = 0; ind < digit_map.size(); ind++) {
+        map2d[1][digit_map[ind][2] + global_shift[1]][digit_map[ind][0]][digit_map[ind][1] + global_shift[0]] = ind;
+      }
+      for (unsigned int ind = 0; ind < ideal_max_map.size(); ind++) {
+        map2d[0][ideal_max_map[ind][2] + global_shift[1]][ideal_max_map[ind][0]][ideal_max_map[ind][1] + global_shift[0]] = ind;
+      }
+    } else {
+      LOG(info) << "Fillmode unknown! No fill performed!";
     }
-  } else if (fillmode == 1) {
-    for (unsigned int ind = 0; ind < ideal_max_map.size(); ind++) {
-      map2d[0][ideal_max_map[ind][2] + global_shift[1]][ideal_max_map[ind][0]][ideal_max_map[ind][1] + global_shift[0]] = ind;
+  }
+  else if(use_max_cog==1){
+    // Storing the indices
+    if (fillmode == 0) {
+      for (unsigned int ind = 0; ind < digit_map.size(); ind++) {
+        map2d[1][digit_map[ind][2] + global_shift[1]][digit_map[ind][0]][digit_map[ind][1] + global_shift[0]] = ind;
+      }
+    } else if (fillmode == 1) {
+      for (unsigned int ind = 0; ind < ideal_cog_map.size(); ind++) {
+        map2d[0][round(ideal_cog_map[ind][2]) + global_shift[1]][round(ideal_cog_map[ind][0])][round(ideal_cog_map[ind][1]) + global_shift[0]] = ind;
+      }
+    } else if (fillmode == -1) {
+      for (unsigned int ind = 0; ind < digit_map.size(); ind++) {
+        map2d[1][digit_map[ind][2] + global_shift[1]][digit_map[ind][0]][digit_map[ind][1] + global_shift[0]] = ind;
+      }
+      for (unsigned int ind = 0; ind < ideal_cog_map.size(); ind++) {
+        map2d[0][round(ideal_cog_map[ind][2]) + global_shift[1]][round(ideal_cog_map[ind][0])][round(ideal_cog_map[ind][1]) + global_shift[0]] = ind;
+      }
+    } else {
+      LOG(info) << "Fillmode unknown! No fill performed!";
     }
-  } else if (fillmode == -1) {
-    for (unsigned int ind = 0; ind < digit_map.size(); ind++) {
-      map2d[1][digit_map[ind][2] + global_shift[1]][digit_map[ind][0]][digit_map[ind][1] + global_shift[0]] = ind;
-    }
-    for (unsigned int ind = 0; ind < ideal_max_map.size(); ind++) {
-      map2d[0][ideal_max_map[ind][2] + global_shift[1]][ideal_max_map[ind][0]][ideal_max_map[ind][1] + global_shift[0]] = ind;
-    }
-  } else {
-    LOG(info) << "Fillmode unknown! No fill performed!";
   }
 }
 
@@ -276,46 +300,49 @@ void qaIdeal::find_maxima()
     if(verbose >= 3) LOG(info) << "Finding maxima in row " << row;
     for (int pad = 0; pad < 170; pad++) {
       for (int time = 0; time < max_time; time++) {
-        if(map2d[1][time + global_shift[1]][row][pad + global_shift[0]]!=-1){
+        if(map2d[1][time + global_shift[1]][row][pad + global_shift[0]]!=-1 && map2d[1][time + global_shift[1]][row][pad + global_shift[0]]<20000000){
+
           current_charge = digit_q[map2d[1][time + global_shift[1]][row][pad + global_shift[0]]];
-          
-          if(map2d[1][time + global_shift[1]][row][pad + global_shift[0] + 1]!=-1){
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1]][row][pad + global_shift[0] + 1]]);
-          }
+          if(current_charge>=3){
+            
+            if(map2d[1][time + global_shift[1]][row][pad + global_shift[0] + 1]!=-1){
+              is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1]][row][pad + global_shift[0] + 1]]);
+            }
 
-          if(map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0]]!=-1 && is_max){
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0]]]);
-          }
+            if(map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0]]!=-1 && is_max){
+              is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0]]]);
+            }
 
-          if(map2d[1][time + global_shift[1]][row][pad + global_shift[0] - 1]!=-1 && is_max){
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1]][row][pad + global_shift[0] - 1]]);
-          }
-          
-          if(map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0]]!=-1 && is_max){
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0]]]);
-          }
+            if(map2d[1][time + global_shift[1]][row][pad + global_shift[0] - 1]!=-1 && is_max){
+              is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1]][row][pad + global_shift[0] - 1]]);
+            }
+            
+            if(map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0]]!=-1 && is_max){
+              is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0]]]);
+            }
 
-          if(map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0] + 1]!=-1 && is_max){
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0] + 1]]);
-          }
+            if(map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0] + 1]!=-1 && is_max){
+              is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0] + 1]]);
+            }
 
-          if(map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0] + 1]!=-1 && is_max){
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0] + 1]]);
-          }
+            if(map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0] + 1]!=-1 && is_max){
+              is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0] + 1]]);
+            }
 
-          if(map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0] - 1]!=-1 && is_max){
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0] - 1]]);
+            if(map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0] - 1]!=-1 && is_max){
+              is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0] - 1]]);
+            }
+            
+            if(map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0] - 1]!=-1 && is_max){
+              is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0] - 1]]);
+            }
+            
+            if(is_max){
+              maxima_digits.push_back(map2d[1][time + global_shift[1]][row][pad + global_shift[0]]);
+            }
           }
-          
-          if(map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0] - 1]!=-1 && is_max){
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0] - 1]]);
-          }
-          
-          if(is_max){
-            maxima_digits.push_back(map2d[1][time + global_shift[1]][row][pad + global_shift[0]]);
-          }
+          is_max=true;
         }
-        is_max=true;
       }
     }
     if(verbose >= 3) LOG(info) << "Found " << maxima_digits.size() << " maxima in row " << row;
@@ -325,19 +352,34 @@ void qaIdeal::find_maxima()
     LOG(info) << "Found " << maxima_digits.size() << " maxima. Done!";
 }
 
-void qaIdeal::overwrite_map2d(){
+void qaIdeal::overwrite_map2d(int mode = 0){
 
-  for (int row = 0; row < 152; row++) {
-    for (int pad = 0; pad < 170; pad++) {
-      for (int time = 0; time < (max_time + 2*global_shift[1]); time++) {
-        map2d[1][time][row][pad]=-1;
+  if(mode==0){
+    for (int row = 0; row < 152; row++) {
+      for (int pad = 0; pad < 170; pad++) {
+        for (int time = 0; time < (max_time + 2*global_shift[1]); time++) {
+          map2d[1][time][row][pad]=-1;
+        }
       }
     }
+    for(unsigned int max = 0; max < maxima_digits.size(); max++){
+      map2d[1][digit_map[maxima_digits[max]][2]+global_shift[1]][digit_map[maxima_digits[max]][0]][digit_map[maxima_digits[max]][1]+global_shift[0]] = max;
+    }
   }
-
-
-  for(unsigned int max = 0; max < maxima_digits.size(); max++){
-    map2d[1][digit_map[maxima_digits[max]][2]+global_shift[1]][digit_map[maxima_digits[max]][0]][digit_map[maxima_digits[max]][1]+global_shift[0]] = max;
+  else if(mode==1){
+    for (int row = 0; row < 152; row++) {
+      for (int pad = 0; pad < 170; pad++) {
+        for (int time = 0; time < (max_time + 2*global_shift[1]); time++) {
+          map2d[0][time][row][pad]=-1;
+        }
+      }
+    }
+    for(unsigned int dig = 0; dig < digit_q.size(); dig++){
+      map2d[0][digit_map[dig][2]+global_shift[1]][digit_map[dig][0]][digit_map[dig][1]+global_shift[0]] = dig;
+    }
+  }
+  else{
+    LOG(fatal) << "Mode unknown!!!";
   }
 
 }
@@ -372,9 +414,9 @@ void qaIdeal::run(ProcessingContext& pc)
     read_digits(loop_sectors);
     read_ideal(loop_sectors);
     init_map2d(max_time);
-    fill_map2d(-1);
+    fill_map2d(-1, 1);
     find_maxima();
-    overwrite_map2d();
+    overwrite_map2d(0);
 
     // effCloneFake(0, loop_chunks*chunk_size);
     // Assignment at d=1
@@ -426,15 +468,18 @@ void qaIdeal::run(ProcessingContext& pc)
           }
           else{
             assignments_id_to_dig[locdigit][layer_count + nn] = -1;
-            LOG(warning) << "Current neighbour: " << current_neighbour;
-            LOG(warning) << "Ideal max index: " << digit_map[maxima_digits[locdigit]][0] << " " << digit_map[maxima_digits[locdigit]][1] << " " << digit_map[maxima_digits[locdigit]][2];
+            LOG(warning) << "Current neighbour: " << current_neighbour << "; Ideal max index: " << digit_map[maxima_digits[locdigit]][0] << " " << digit_map[maxima_digits[locdigit]][1] << " " << digit_map[maxima_digits[locdigit]][2];
           }
         }
         if (verbose >= 4) LOG(info) << "Done with assignment for digit maxima layer " << layer;
 
         // Level-3 loop: Goes through all ideal maxima and checks neighbourhood for potential digit maxima
+        std::array<int,3> rounded_cog;
         for (unsigned int locideal = 0; locideal < ideal_max_map.size(); locideal++) {
-          current_neighbour = test_neighbour(ideal_max_map[locideal], adj_mat[layer][nn], 1);
+          for(int i = 0; i<3; i++){
+            rounded_cog[i] = round(ideal_cog_map[locideal][i]);
+          }
+          current_neighbour = test_neighbour(rounded_cog, adj_mat[layer][nn], 1);
           // if (verbose >= 5) LOG(info) << "current_neighbour: " << current_neighbour;
           // if (verbose >= 5) LOG(info) << "Maximum ideal " << locideal;
           // if (verbose >= 5) LOG(info) << "Ideal max index: " << ideal_max_map[locideal][0] << " " << ideal_max_map[locideal][1] << " " << ideal_max_map[locideal][2];
@@ -443,8 +488,7 @@ void qaIdeal::run(ProcessingContext& pc)
           }
           else{
             assignments_dig_to_id[locideal][layer_count + nn] = -1;
-            LOG(warning) << "Current neighbour: " << current_neighbour;
-            LOG(warning) << "Ideal max index: " << ideal_max_map[locideal][0] << " " << ideal_max_map[locideal][1] << " " << ideal_max_map[locideal][2];
+            LOG(warning) << "Current neighbour: " << current_neighbour << "; Ideal max index: " << ideal_cog_map[locideal][0] << " " << ideal_cog_map[locideal][1] << " " << ideal_cog_map[locideal][2];
           }
         }
         if (verbose >= 4) LOG(info) << "Done with assignment for ideal maxima layer " << layer;
@@ -552,6 +596,8 @@ void qaIdeal::run(ProcessingContext& pc)
 
     if (mode.find(std::string("training_data")) != std::string::npos) {
 
+      overwrite_map2d(1);
+
       if (verbose >= 3) LOG(info) << "Creating training data...";
 
       // creating training data for the neural network
@@ -573,18 +619,29 @@ void qaIdeal::run(ProcessingContext& pc)
           float q_max = digit_q[maxima_digits[map2d[1][digit_map[maxima_digits[max_point]][2] + global_shift[1]][digit_map[maxima_digits[max_point]][0]][digit_map[maxima_digits[max_point]][1] + global_shift[0]]]];
           for (int time = 0; time < mat_size_time; time++) {
             for (int pad = 0; pad < mat_size_pad; pad++) {
-              int elem = map2d[1][digit_map[maxima_digits[max_point]][2]+time][digit_map[maxima_digits[max_point]][0]][digit_map[maxima_digits[max_point]][1] + pad];
-              if(elem>-1){
-                tr_data_X[max_point][time][pad] = digit_q[maxima_digits[elem]] / q_max;
+              int elem = map2d[0][digit_map[maxima_digits[max_point]][2] + time][digit_map[maxima_digits[max_point]][0]][digit_map[maxima_digits[max_point]][1] + pad];
+              elem==-1 ? tr_data_X[max_point][time][pad] = 0 : tr_data_X[max_point][time][pad] = digit_q[elem] / q_max;
+            }
+          }
+          int check_assignment = 0;
+          int index_assignment = -1;
+          float distance_assignment = 100000.f, current_distance = 0;
+          for(int i = 0; i<assignments_id_to_dig[max_point].size(); i++){
+            if(assignments_id_to_dig[max_point][i] >= 0 && assignments_id_to_dig[max_point][i]<20000000){
+              check_assignment++;
+              current_distance = std::pow((digit_map[maxima_digits[max_point]][2] - ideal_cog_map[assignments_id_to_dig[max_point][i]][2]),2) + std::pow((digit_map[maxima_digits[max_point]][1] - ideal_cog_map[assignments_id_to_dig[max_point][i]][1]), 2);
+              if(current_distance < distance_assignment){
+                distance_assignment = current_distance;
+                index_assignment = assignments_id_to_dig[max_point][i];
               }
             }
           }
-          int ideal_index = map2d[0][digit_map[maxima_digits[max_point]][2] + global_shift[1]][digit_map[maxima_digits[max_point]][0]][digit_map[maxima_digits[max_point]][1] + global_shift[0]];
-          tr_data_Y_class[max_point] = (ideal_index > -1 && ideal_index < 20000000) ? 1 : 0;
-          if(tr_data_Y_class[max_point] == 1){
-            tr_data_Y_reg[0][max_point] = digit_map[maxima_digits[max_point]][2] - ideal_cog_map[ideal_index][2];
-            tr_data_Y_reg[1][max_point] = digit_map[maxima_digits[max_point]][1] - ideal_cog_map[ideal_index][1];
-            tr_data_Y_reg[2][max_point] = ideal_cog_q[ideal_index] / q_max;
+
+          tr_data_Y_class[max_point] = check_assignment;
+          if(check_assignment>0){
+            tr_data_Y_reg[0][max_point] = digit_map[maxima_digits[max_point]][2] - ideal_cog_map[index_assignment][2];
+            tr_data_Y_reg[1][max_point] = digit_map[maxima_digits[max_point]][1] - ideal_cog_map[index_assignment][1];
+            tr_data_Y_reg[2][max_point] = ideal_cog_q[index_assignment] / q_max;
           }
         }
         else{
@@ -608,9 +665,13 @@ void qaIdeal::run(ProcessingContext& pc)
         }
       }
 
-      int class_val = 0;
+      int class_val = 0, idx_sector = 0, idx_row = 0, idx_pad = 0, idx_time = 0;
       float trY_time = 0, trY_pad = 0, trY_q = 0;
       tr_data->Branch("out_class", &class_val);
+      tr_data->Branch("out_idx_sector", &idx_sector);
+      tr_data->Branch("out_idx_row", &idx_row);
+      tr_data->Branch("out_idx_pad", &idx_pad);
+      tr_data->Branch("out_idx_time", &idx_time);
       tr_data->Branch("out_reg_time", &trY_time);
       tr_data->Branch("out_reg_pad", &trY_pad);
       tr_data->Branch("out_reg_qMaxOverqTot", &trY_q);
@@ -622,6 +683,10 @@ void qaIdeal::run(ProcessingContext& pc)
         trY_time = tr_data_Y_reg[0][element];
         trY_pad = tr_data_Y_reg[1][element];
         trY_q = tr_data_Y_reg[2][element];
+        idx_sector = loop_sectors;
+        idx_row = digit_map[maxima_digits[element]][0];
+        idx_pad = digit_map[maxima_digits[element]][1];
+        idx_time = digit_map[maxima_digits[element]][2];
         tr_data->Fill();
       }
       tr_data->Write();
@@ -649,6 +714,10 @@ void qaIdeal::run(ProcessingContext& pc)
   LOG(info) << "Clones (Float, fractional clone-order): " << fractional_clones << " (" << (float)fractional_clones*100/(float)number_of_digit_max << "% of digit maxima)" ;
   LOG(info) << "Fakes (number of digit hits that can't be assigned to any ideal hit): " << assignments_digit[0] << " (" << (float)assignments_digit[0]*100/(float)number_of_digit_max << "% of digit maxima)" ;
 
+  if (mode.find(std::string("training_data")) != std::string::npos) {
+    LOG(info) << "\nMerging training data...";
+    gSystem->Exec("hadd -k -f ./training_data.root ./training_data_*.root");
+  }
 
   pc.services().get<ControlService>().endOfStream();
   pc.services().get<ControlService>().readyToQuit(QuitRequest::Me);

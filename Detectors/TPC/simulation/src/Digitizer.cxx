@@ -87,6 +87,8 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
   cog_pad.clear();
   cog_q.clear();
   point_counter.clear();
+  mclabel_isNoise.clear();
+  mclabel_isFake.clear();
   mclabel.clear();
   elem_counter = 0;
 
@@ -242,6 +244,8 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
               cog_q.push_back(currentSignal);
               point_counter.push_back(1);
               mclabel.push_back(label);
+              mclabel_isNoise.push_back(label.isNoise());
+              mclabel_isFake.push_back(label.isFake());
               mclabel_int.push_back(label_counter);
               elem_counter++;
             }

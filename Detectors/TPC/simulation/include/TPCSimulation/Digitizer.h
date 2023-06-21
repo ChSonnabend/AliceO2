@@ -141,11 +141,13 @@ class Digitizer
   std::vector<float> getCogQ(){ return cog_q; }
   std::vector<int> getPointCounter(){ return point_counter; }
   std::vector<int> getMcLabels(){ return mclabel_int; }
+  std::vector<int> getIsNoise(){ return mclabel_isNoise; }
+  std::vector<int> getIsFake(){ return mclabel_isFake; }
   std::vector<int> getWindowSize(){ return window_size; }
   int64_t getElemCounter(){ return elem_counter; }
   void clearElements(){
     sector.clear(); row.clear(); max_time.clear(); max_pad.clear(); max_q.clear(); cog_time.clear();
-    point_counter.clear(); cog_pad.clear(); cog_q.clear(); mclabel.clear(); elem_counter = 0;
+    point_counter.clear(); cog_pad.clear(); cog_q.clear(); mclabel.clear(); mclabel_isNoise.clear(); mclabel_isFake.clear(); elem_counter = 0;
   }
 
 
@@ -167,10 +169,10 @@ class Digitizer
 
   std::vector<std::vector<int>> max_time, max_pad;
   std::vector<std::vector<float>> max_q;
-  std::vector<int> window_size = {16, 10}; // time-window, pad-window
+  std::vector<int> window_size = {30, 10}; // time-window, pad-window
 
   std::vector<MCCompLabel> mclabel;
-  std::vector<int> mclabel_int;
+  std::vector<int> mclabel_isNoise, mclabel_isFake, mclabel_int;
   ClassDefNV(Digitizer, 1);
 };
 } // namespace tpc
