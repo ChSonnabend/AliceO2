@@ -41,6 +41,8 @@
 #include <unordered_map>
 #include <filesystem>
 #include <atomic>
+#include "Framework/SourceInfoHeader.h"
+#include "Headers/Stack.h"
 
 #include "SimPublishChannelHelper.h"
 #include <CommonUtils/FileSystemUtils.h>
@@ -89,6 +91,24 @@ void remove_tmp_files()
 
 void cleanup()
 {
+  auto& conf = o2::conf::SimConfig::Instance();
+  if (conf.forwardKine()) {
+    auto factory = fair::mq::TransportFactory::CreateTransportFactory("zeromq");
+    auto forwardchannel = fair::mq::Channel{"kineforward", "pair", factory};
+    auto address = std::string{"ipc:///tmp/o2sim-hitmerger-kineforward-"} + std::to_string(getpid());
+    forwardchannel.Bind(address.c_str());
+    forwardchannel.Validate();
+    fair::mq::Parts parts;
+    fair::mq::MessagePtr payload(forwardchannel.NewMessage());
+    o2::framework::SourceInfoHeader sih;
+    sih.state = o2::framework::InputChannelState::Completed;
+    auto channelAlloc = o2::pmr::getTransportAllocator(forwardchannel.Transport());
+    auto header = o2::pmr::getMessage(o2::header::Stack{channelAlloc, sih});
+    parts.AddPart(std::move(header));
+    parts.AddPart(std::move(payload));
+    forwardchannel.Send(parts);
+    LOGP(info, "SENDING END-OF-STREAM TO PROXY AT {}", address.c_str());
+  }
   remove_tmp_files();
   o2::utils::ShmManager::Instance().release();
 
@@ -199,12 +219,14 @@ void launchControlThread()
   auto lambda = [controladdress, internalcontroladdress]() {
     auto factory = fair::mq::TransportFactory::CreateTransportFactory("zeromq");
 
-    auto internalchannel = fair::mq::Channel{"o2sim-control", "pub", factory};
+    // used for internal distribution of control commands
+    auto internalchannel = fair::mq::Channel{"o2sim-internal", "pub", factory};
     internalchannel.Bind(internalcontroladdress);
     internalchannel.Validate();
     std::unique_ptr<fair::mq::Message> message(internalchannel.NewMessage());
 
-    auto outsidechannel = fair::mq::Channel{"o2sim-outside-exchange", "rep", factory};
+    // the channel with which outside entities can control this simulator
+    auto outsidechannel = fair::mq::Channel{"o2sim-control", "rep", factory};
     outsidechannel.Bind(controladdress);
     outsidechannel.Validate();
     std::unique_ptr<fair::mq::Message> request(outsidechannel.NewMessage());
@@ -216,7 +238,7 @@ void launchControlThread()
       outsidechannel.Validate();
       if (outsidechannel.Receive(request) > 0) {
         std::string command(reinterpret_cast<char const*>(request->GetData()), request->GetSize());
-        LOG(info) << "Control message: " << command;
+        LOG(info) << "Control message: " << command << " received ";
         int code = -1;
         if (isBusy()) {
           code = 1; // code = 1 --> busy
@@ -710,6 +732,7 @@ int main(int argc, char* argv[])
           killpg(p, SIGTERM); // <--- makes sure to shutdown "unknown" child pids via the group property
         }
         LOG(error) << "SHUTTING DOWN DUE TO SIGNALED EXIT IN COMPONENT " << cpid;
+        o2::simpubsub::publishMessage(externalpublishchannel, o2::simpubsub::simStatusString("O2SIM", "STATE", "FAILURE"));
         errored = true;
       }
     }
