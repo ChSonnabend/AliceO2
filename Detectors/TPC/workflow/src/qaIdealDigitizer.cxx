@@ -566,10 +566,10 @@ void qaIdeal::run(ProcessingContext& pc)
     // Clone-rate
     for (unsigned int locideal = 0; locideal < assignments_dig_to_id.size(); locideal++) {
       for (auto elem_id : assignments_dig_to_id[locideal]) {
-        if (elem_id >= 0) {
+        if (elem_id >= 0 && elem_id < 20000000) {
           int count_elements_clone = 0;
           for (auto elem_dig : assignments_id_to_dig[elem_id]) {
-            if (elem_dig >= 0)
+            if (elem_dig >= 0 && elem_dig < 20000000)
               count_elements_clone+=1;
           }
           if (count_elements_clone == 1)
@@ -587,13 +587,13 @@ void qaIdeal::run(ProcessingContext& pc)
     for (unsigned int locideal = 0; locideal < assignments_dig_to_id.size(); locideal++) {
       int count_links = 0;
       for (auto elem_id : assignments_dig_to_id[locideal]) {
-        if (elem_id >= 0) {
+        if (elem_id >= 0 && elem_id < 20000000) {
           count_links+=1;
         }
       }
       if (count_links > 1) {
         for (auto elem_id : assignments_dig_to_id[locideal]) {
-          if (elem_id >= 0) {
+          if (elem_id >= 0 && elem_id < 20000000) {
             fractional_clones_vector[elem_id] += 1.f / (float)count_links;
           }
         }
@@ -662,7 +662,6 @@ void qaIdeal::run(ProcessingContext& pc)
             // Checks all ideal maxima assigned to one digit maximum by calculating mutual distance
             current_idx_id = assignments_id_to_dig[max_point][i];
             if (current_idx_id >= 0 && current_idx_id < 20000000) {
-              check_assignment++;
               if (assigned_ideal[current_idx_id] == 0) {
                 current_distance_dig_to_id = std::pow((digit_map[loop_sectors][maxima_digits[max_point]][2] - ideal_cog_map[loop_sectors][current_idx_id][2]), 2) + std::pow((digit_map[loop_sectors][maxima_digits[max_point]][1] - ideal_cog_map[loop_sectors][current_idx_id][1]), 2);
                 // if the distance is less than the previous one check if update should be made
@@ -684,6 +683,7 @@ void qaIdeal::run(ProcessingContext& pc)
                     }
                   }
                   if (is_min_dist) {
+                    check_assignment++;
                     distance_assignment = current_distance_dig_to_id;
                     index_assignment = current_idx_id;
                     // Adding an assignment in order to avoid duplication
@@ -695,11 +695,14 @@ void qaIdeal::run(ProcessingContext& pc)
             }
           }
 
+          tr_data_Y_class[max_point] = check_assignment;
           if (check_assignment > 0 && is_min_dist) {
-            tr_data_Y_class[max_point] = check_assignment;
             tr_data_Y_reg[0][max_point] = digit_map[loop_sectors][maxima_digits[max_point]][2] - ideal_cog_map[loop_sectors][index_assignment][2];
             tr_data_Y_reg[1][max_point] = digit_map[loop_sectors][maxima_digits[max_point]][1] - ideal_cog_map[loop_sectors][index_assignment][1];
             tr_data_Y_reg[2][max_point] = ideal_cog_q[loop_sectors][index_assignment] / q_max;
+            // if(std::abs(digit_map[loop_sectors][maxima_digits[max_point]][2] - ideal_cog_map[loop_sectors][index_assignment][2]) > 3 || std::abs(digit_map[loop_sectors][maxima_digits[max_point]][1] - ideal_cog_map[loop_sectors][index_assignment][1]) > 3){
+            //   LOG(info) << "#Maxima: " << maxima_digits.size() << ", Index (point) " << max_point << " & (max) " << maxima_digits[max_point] << " & (ideal) " << index_assignment << ", ideal_cog_map[loop_sectors].size(): " <<  ideal_cog_map[loop_sectors].size() << ", index_assignment: " << index_assignment;
+            // }
           } else {
             tr_data_Y_reg[0][max_point] = -1.f;
             tr_data_Y_reg[1][max_point] = -1.f;
