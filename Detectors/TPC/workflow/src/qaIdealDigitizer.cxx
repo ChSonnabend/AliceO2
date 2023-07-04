@@ -74,7 +74,7 @@ class qaIdeal : public Task
   std::array<std::vector<std::array<float, 3>>, 36> ideal_cog_map;
   std::array<std::vector<float>, 36> ideal_max_q, ideal_cog_q, digit_q;
 
-  std::vector<std::vector<std::array<int, 2>>> adj_mat = {{{0, 0}}, {{1, 0}, {0, 1}, {-1, 0}, {0, -1}}, {{1, 1}, {-1, 1}, {-1, -1}, {1, -1}}, {{2, 1}, {1, 2}, {-1, 2}, {-2, 1}, {-2, -1}, {-1, -2}, {1, -2}, {2, -1}}, {{2, 2}, {-2, 2}, {-2, -2}, {2, -2}}};
+  std::vector<std::vector<std::array<int, 2>>> adj_mat = {{{0, 0}}, {{1, 0}, {0, 1}, {-1, 0}, {0, -1}}, {{1, 1}, {-1, 1}, {-1, -1}, {1, -1}}, {{2,0}, {0,-2}, {-2,0}, {0,2}}, {{2, 1}, {1, 2}, {-1, 2}, {-2, 1}, {-2, -1}, {-1, -2}, {1, -2}, {2, -1}}, {{2, 2}, {-2, 2}, {-2, -2}, {2, -2}}};
 };
 
 // ---------------------------------
@@ -500,7 +500,7 @@ void qaIdeal::run(ProcessingContext& pc)
           assigned_digit[locdigit] = 0;
           for (int counter_max = 0; counter_max < 25; counter_max++) {
             if (assignments_id_to_dig[locdigit][counter_max] >= 0 && assignments_id_to_dig[locdigit][counter_max] < 20000000) {
-              assigned_digit[locdigit]+=1;
+              assigned_digit[locdigit] += 1;
             }
           }
         }
@@ -511,7 +511,7 @@ void qaIdeal::run(ProcessingContext& pc)
         assigned_ideal[locideal] = 0;
         for (int counter_max = 0; counter_max < 25; counter_max++) {
           if (assignments_dig_to_id[locideal][counter_max] >= 0 && assignments_dig_to_id[locideal][counter_max] < 20000000) {
-            assigned_ideal[locideal]+=1;
+            assigned_ideal[locideal] += 1;
           }
         }
       }
@@ -534,30 +534,30 @@ void qaIdeal::run(ProcessingContext& pc)
       count_elements_findable = 0;
       for (auto elem : assignments_dig_to_id[ass_id]) {
         if (elem >= 0 && elem < 20000000) {
-          count_elements_id+=1;
+          count_elements_id += 1;
           if (ideal_cog_q[loop_sectors][ass_id] >= 5 && ideal_max_q[loop_sectors][ass_id] >= 3) {
-            count_elements_findable+=1;
+            count_elements_findable += 1;
           }
         }
       }
       // if (verbose >= 5 && (ass_id%10000)==0) LOG(info) << "Count elements: " << count_elements_id << " ass_id: " << ass_id << " assignments_ideal: " << assignments_ideal[count_elements_id];
-      assignments_ideal[count_elements_id]+=1;
-      assignments_ideal_findable[count_elements_findable]+=1;
+      assignments_ideal[count_elements_id] += 1;
+      assignments_ideal_findable[count_elements_findable] += 1;
     }
     for (unsigned int ass_dig = 0; ass_dig < maxima_digits.size(); ass_dig++) {
       count_elements_dig = 0;
       count_elements_findable = 0;
       for (auto elem : assignments_id_to_dig[ass_dig]) {
         if (elem >= 0 && elem < 20000000) {
-          count_elements_dig+=1;
+          count_elements_dig += 1;
           if (ideal_cog_q[loop_sectors][elem] >= 5 && ideal_max_q[loop_sectors][elem] >= 3) {
-            count_elements_findable+=1;
+            count_elements_findable += 1;
           }
         }
       }
       // if (verbose >= 5 && (ass_dig%10000)==0) LOG(info) << "Count elements: " << count_elements_dig << " ass_dig: " << ass_dig << " assignments_digit: " << assignments_digit[count_elements_dig];
-      assignments_digit[count_elements_dig]+=1;
-      assignments_digit_findable[count_elements_findable]+=1;
+      assignments_digit[count_elements_dig] += 1;
+      assignments_digit_findable[count_elements_findable] += 1;
     }
 
     if (verbose >= 3)
@@ -570,16 +570,16 @@ void qaIdeal::run(ProcessingContext& pc)
           int count_elements_clone = 0;
           for (auto elem_dig : assignments_id_to_dig[elem_id]) {
             if (elem_dig >= 0 && elem_dig < 20000000)
-              count_elements_clone+=1;
+              count_elements_clone += 1;
           }
           if (count_elements_clone == 1)
-            clone_order[elem_id]+=1;
+            clone_order[elem_id] += 1;
         }
       }
     }
     for (unsigned int locdigit = 0; locdigit < maxima_digits.size(); locdigit++) {
       if (clone_order[locdigit] > 1) {
-        clones+=1;
+        clones += 1;
       }
     }
 
@@ -588,7 +588,7 @@ void qaIdeal::run(ProcessingContext& pc)
       int count_links = 0;
       for (auto elem_id : assignments_dig_to_id[locideal]) {
         if (elem_id >= 0 && elem_id < 20000000) {
-          count_links+=1;
+          count_links += 1;
         }
       }
       if (count_links > 1) {
