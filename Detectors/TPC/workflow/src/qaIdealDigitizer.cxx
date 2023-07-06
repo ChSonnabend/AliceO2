@@ -671,10 +671,12 @@ void qaIdeal::run(ProcessingContext& pc)
                     if (current_idx_dig >= 0 && current_idx_dig < 20000000) {
                       if (assigned_digit[current_idx_dig] == 0) {
                         // calculate mutual distance from current ideal CoG to all assigned digit maxima. Update if and only if distance is minimal. Else do not assign.
-                        current_distance_id_to_dig = std::pow((digit_map[loop_sectors][maxima_digits[current_idx_dig]][2] - ideal_cog_map[loop_sectors][current_idx_id][2]), 2) + std::pow((digit_map[loop_sectors][maxima_digits[current_idx_dig]][1] - ideal_cog_map[loop_sectors][current_idx_id][1]), 2);
-                        if (current_distance_id_to_dig < current_distance_dig_to_id) {
-                          is_min_dist = false;
-                          break;
+                        if(ideal_cog_q[loop_sectors][current_idx_id]>=5 && ideal_max_q[loop_sectors][current_idx_id]>=3){
+                          current_distance_id_to_dig = std::pow((digit_map[loop_sectors][maxima_digits[current_idx_dig]][2] - ideal_cog_map[loop_sectors][current_idx_id][2]), 2) + std::pow((digit_map[loop_sectors][maxima_digits[current_idx_dig]][1] - ideal_cog_map[loop_sectors][current_idx_id][1]), 2);
+                          if (current_distance_id_to_dig < current_distance_dig_to_id) {
+                            is_min_dist = false;
+                            break;
+                          }
                         }
                         ////
                         // Potential improvement: Weight the distance calculation by the qTot/qMax such that they are not too far apart
@@ -774,6 +776,8 @@ void qaIdeal::run(ProcessingContext& pc)
       efficiency_normal += assignments_ideal[ass];
     }
   }
+
+  assignments_ideal_findable[0] -= (number_of_ideal_max - number_of_ideal_max_findable);
   for (int ass = 0; ass < 10; ass++) {
     LOG(info) << "Number of finable assigned digit maxima (#assignments " << ass << "): " << assignments_digit_findable[ass];
     LOG(info) << "Number of finable assigned ideal maxima (#assignments " << ass << "): " << assignments_ideal_findable[ass] << "\n";
@@ -789,7 +793,7 @@ void qaIdeal::run(ProcessingContext& pc)
   LOG(info) << "Fakes (number of digit hits that can't be assigned to any ideal hit): " << assignments_digit[0] << " (" << (float)assignments_digit[0] * 100 / (float)number_of_digit_max << "% of digit maxima)";
 
   if (mode.find(std::string("training_data")) != std::string::npos) {
-    LOG(info) << "\nMerging training data...";
+    LOG(info) << "------- Merging training data -------";
     gSystem->Exec("hadd -k -f ./training_data.root ./training_data_*.root");
   }
 
