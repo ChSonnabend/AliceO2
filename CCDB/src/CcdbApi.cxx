@@ -174,6 +174,11 @@ void CcdbApi::init(std::string const& host)
        mInSnapshotMode ? "(snapshot readonly mode)" : snapshotReport.c_str());
 }
 
+void CcdbApi::runDownloaderLoop(bool noWait)
+{
+  mDownloader->runLoop(noWait);
+}
+
 // A helper function used in a few places. Updates a ROOT file with meta/header information.
 void CcdbApi::updateMetaInformationInLocalFile(std::string const& filename, std::map<std::string, std::string> const* headers, CCDBQuery const* querysummary)
 {
@@ -311,15 +316,11 @@ int CcdbApi::storeAsBinaryFile(const char* buffer, size_t size, const std::strin
   checkMetadataKeys(metadata);
 
   if (curl != nullptr) {
-    struct curl_httppost* formpost = nullptr;
-    struct curl_httppost* lastptr = nullptr;
-    curl_formadd(&formpost,
-                 &lastptr,
-                 CURLFORM_COPYNAME, "send",
-                 CURLFORM_BUFFER, filename.c_str(),
-                 CURLFORM_BUFFERPTR, buffer, //.Buffer(),
-                 CURLFORM_BUFFERLENGTH, size,
-                 CURLFORM_END);
+    auto mime = curl_mime_init(curl);
+    auto field = curl_mime_addpart(mime);
+    curl_mime_name(field, "send");
+    curl_mime_filedata(field, filename.c_str());
+    curl_mime_data(field, buffer, size);
 
     struct curl_slist* headerlist = nullptr;
     static const char buf[] = "Expect:";
@@ -327,8 +328,8 @@ int CcdbApi::storeAsBinaryFile(const char* buffer, size_t size, const std::strin
 
     curlSetSSLOptions(curl);
 
+    curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerlist);
-    curl_easy_setopt(curl, CURLOPT_HTTPPOST, formpost);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, mUniqueAgentID.c_str());
 
@@ -352,10 +353,10 @@ int CcdbApi::storeAsBinaryFile(const char* buffer, size_t size, const std::strin
     /* always cleanup */
     curl_easy_cleanup(curl);
 
-    /* then cleanup the formpost chain */
-    curl_formfree(formpost);
     /* free slist */
     curl_slist_free_all(headerlist);
+    /* free mime */
+    curl_mime_free(mime);
   } else {
     LOGP(alarm, "curl initialization failure");
     returnValue = -2;
@@ -1796,7 +1797,11 @@ CURLcode CcdbApi::CURL_perform(CURL* handle) const
   if (mIsCCDBDownloaderEnabled) {
     return mDownloader->perform(handle);
   }
-  return curl_easy_perform(handle);
+  CURLcode result;
+  for (int i = 1; i <= mCurlRetries && (result = curl_easy_perform(handle)) != CURLE_OK; i++) {
+    usleep(mCurlDelayRetries * i);
+  }
+  return result;
 }
 
 } // namespace o2
