@@ -45,6 +45,7 @@ class qaIdeal : public Task
 {
  public:
   void init(InitContext&) final;
+  bool checkIdx(int);
   void read_digits();
   void read_ideal();
   void init_map2d(int);
@@ -87,6 +88,11 @@ void qaIdeal::init(InitContext& ic)
 
   if (verbose >= 1)
     LOG(info) << "Initialized QA macro!";
+}
+
+// ---------------------------------
+bool qaIdeal::checkIdx(int idx){
+  return ((idx > -1) && (idx < 20000000));
 }
 
 // ---------------------------------
@@ -294,46 +300,43 @@ void qaIdeal::find_maxima(int sector)
       LOG(info) << "Finding maxima in row " << row;
     for (int pad = 0; pad < 170; pad++) {
       for (int time = 0; time < max_time[sector]; time++) {
-        if (map2d[1][time + global_shift[1]][row][pad + global_shift[0]] != -1 && map2d[1][time + global_shift[1]][row][pad + global_shift[0]] < 20000000) {
+        if (checkIdx(map2d[1][time + global_shift[1]][row][pad + global_shift[0]])) {
 
           current_charge = digit_q[sector][map2d[1][time + global_shift[1]][row][pad + global_shift[0]]];
-          if (current_charge >= 3) {
+          if (map2d[1][time + global_shift[1]][row][pad + global_shift[0] + 1] != -1) {
+            is_max = (current_charge >= digit_q[sector][map2d[1][time + global_shift[1]][row][pad + global_shift[0] + 1]]);
+          }
 
-            if (map2d[1][time + global_shift[1]][row][pad + global_shift[0] + 1] != -1) {
-              is_max = (current_charge >= digit_q[sector][map2d[1][time + global_shift[1]][row][pad + global_shift[0] + 1]]);
-            }
+          if (map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0]] != -1 && is_max) {
+            is_max = (current_charge >= digit_q[sector][map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0]]]);
+          }
 
-            if (map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0]] != -1 && is_max) {
-              is_max = (current_charge >= digit_q[sector][map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0]]]);
-            }
+          if (map2d[1][time + global_shift[1]][row][pad + global_shift[0] - 1] != -1 && is_max) {
+            is_max = (current_charge >= digit_q[sector][map2d[1][time + global_shift[1]][row][pad + global_shift[0] - 1]]);
+          }
 
-            if (map2d[1][time + global_shift[1]][row][pad + global_shift[0] - 1] != -1 && is_max) {
-              is_max = (current_charge >= digit_q[sector][map2d[1][time + global_shift[1]][row][pad + global_shift[0] - 1]]);
-            }
+          if (map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0]] != -1 && is_max) {
+            is_max = (current_charge >= digit_q[sector][map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0]]]);
+          }
 
-            if (map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0]] != -1 && is_max) {
-              is_max = (current_charge >= digit_q[sector][map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0]]]);
-            }
+          if (map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0] + 1] != -1 && is_max) {
+            is_max = (current_charge >= digit_q[sector][map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0] + 1]]);
+          }
 
-            if (map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0] + 1] != -1 && is_max) {
-              is_max = (current_charge >= digit_q[sector][map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0] + 1]]);
-            }
+          if (map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0] + 1] != -1 && is_max) {
+            is_max = (current_charge >= digit_q[sector][map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0] + 1]]);
+          }
 
-            if (map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0] + 1] != -1 && is_max) {
-              is_max = (current_charge >= digit_q[sector][map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0] + 1]]);
-            }
+          if (map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0] - 1] != -1 && is_max) {
+            is_max = (current_charge >= digit_q[sector][map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0] - 1]]);
+          }
 
-            if (map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0] - 1] != -1 && is_max) {
-              is_max = (current_charge >= digit_q[sector][map2d[1][time + global_shift[1] + 1][row][pad + global_shift[0] - 1]]);
-            }
+          if (map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0] - 1] != -1 && is_max) {
+            is_max = (current_charge >= digit_q[sector][map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0] - 1]]);
+          }
 
-            if (map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0] - 1] != -1 && is_max) {
-              is_max = (current_charge >= digit_q[sector][map2d[1][time + global_shift[1] - 1][row][pad + global_shift[0] - 1]]);
-            }
-
-            if (is_max) {
-              maxima_digits.push_back(map2d[1][time + global_shift[1]][row][pad + global_shift[0]]);
-            }
+          if (is_max) {
+            maxima_digits.push_back(map2d[1][time + global_shift[1]][row][pad + global_shift[0]]);
           }
           is_max = true;
         }
@@ -499,7 +502,7 @@ void qaIdeal::run(ProcessingContext& pc)
         for (unsigned int locdigit = 0; locdigit < maxima_digits.size(); locdigit++) {
           assigned_digit[locdigit] = 0;
           for (int counter_max = 0; counter_max < 25; counter_max++) {
-            if (assignments_id_to_dig[locdigit][counter_max] >= 0 && assignments_id_to_dig[locdigit][counter_max] < 20000000) {
+            if (checkIdx(assignments_id_to_dig[locdigit][counter_max])) {
               assigned_digit[locdigit] += 1;
             }
           }
@@ -510,7 +513,7 @@ void qaIdeal::run(ProcessingContext& pc)
       for (unsigned int locideal = 0; locideal < ideal_max_map[loop_sectors].size(); locideal++) {
         assigned_ideal[locideal] = 0;
         for (int counter_max = 0; counter_max < 25; counter_max++) {
-          if (assignments_dig_to_id[locideal][counter_max] >= 0 && assignments_dig_to_id[locideal][counter_max] < 20000000) {
+          if (checkIdx(assignments_dig_to_id[locideal][counter_max])) {
             assigned_ideal[locideal] += 1;
           }
         }
@@ -533,7 +536,7 @@ void qaIdeal::run(ProcessingContext& pc)
       count_elements_id = 0;
       count_elements_findable = 0;
       for (auto elem : assignments_dig_to_id[ass_id]) {
-        if (elem >= 0 && elem < 20000000) {
+        if (checkIdx(elem)) {
           count_elements_id += 1;
           if (ideal_cog_q[loop_sectors][ass_id] >= 5 && ideal_max_q[loop_sectors][ass_id] >= 3) {
             count_elements_findable += 1;
@@ -548,7 +551,7 @@ void qaIdeal::run(ProcessingContext& pc)
       count_elements_dig = 0;
       count_elements_findable = 0;
       for (auto elem : assignments_id_to_dig[ass_dig]) {
-        if (elem >= 0 && elem < 20000000) {
+        if (checkIdx(elem)) {
           count_elements_dig += 1;
           if (ideal_cog_q[loop_sectors][elem] >= 5 && ideal_max_q[loop_sectors][elem] >= 3) {
             count_elements_findable += 1;
@@ -566,10 +569,10 @@ void qaIdeal::run(ProcessingContext& pc)
     // Clone-rate
     for (unsigned int locideal = 0; locideal < assignments_dig_to_id.size(); locideal++) {
       for (auto elem_id : assignments_dig_to_id[locideal]) {
-        if (elem_id >= 0 && elem_id < 20000000) {
+        if (checkIdx(elem_id)) {
           int count_elements_clone = 0;
           for (auto elem_dig : assignments_id_to_dig[elem_id]) {
-            if (elem_dig >= 0 && elem_dig < 20000000)
+            if (checkIdx(elem_dig))
               count_elements_clone += 1;
           }
           if (count_elements_clone == 1)
@@ -587,13 +590,13 @@ void qaIdeal::run(ProcessingContext& pc)
     for (unsigned int locideal = 0; locideal < assignments_dig_to_id.size(); locideal++) {
       int count_links = 0;
       for (auto elem_id : assignments_dig_to_id[locideal]) {
-        if (elem_id >= 0 && elem_id < 20000000) {
+        if (checkIdx(elem_id)) {
           count_links += 1;
         }
       }
       if (count_links > 1) {
         for (auto elem_id : assignments_dig_to_id[locideal]) {
-          if (elem_id >= 0 && elem_id < 20000000) {
+          if (checkIdx(elem_id)) {
             fractional_clones_vector[elem_id] += 1.f / (float)count_links;
           }
         }
@@ -645,7 +648,7 @@ void qaIdeal::run(ProcessingContext& pc)
 
       for (int max_point = 0; max_point < data_size; max_point++) {
         map_dig_idx = map2d[1][digit_map[loop_sectors][maxima_digits[max_point]][2] + global_shift[1]][digit_map[loop_sectors][maxima_digits[max_point]][0]][digit_map[loop_sectors][maxima_digits[max_point]][1] + global_shift[0]];
-        if (map_dig_idx > -1 && map_dig_idx < 20000000) {
+        if (checkIdx(map_dig_idx)) {
           // if (verbose >= 5) LOG(info) << "Current elem at index [" <<digit_map[loop_sectors][maxima_digits[max_point]][2] << " " << digit_map[loop_sectors][maxima_digits[max_point]][0] << " " << digit_map[loop_sectors][maxima_digits[max_point]][1] << "] has value " << map_dig_idx;
           float q_max = digit_q[loop_sectors][maxima_digits[map_dig_idx]];
           for (int time = 0; time < mat_size_time; time++) {
@@ -661,22 +664,24 @@ void qaIdeal::run(ProcessingContext& pc)
           for (int i = 0; i < 25; i++) {
             // Checks all ideal maxima assigned to one digit maximum by calculating mutual distance
             current_idx_id = assignments_id_to_dig[max_point][i];
-            if (current_idx_id >= 0 && current_idx_id < 20000000) {
-              if (assigned_ideal[current_idx_id] == 0) {
+            if (checkIdx(current_idx_id)) {
+              if((ideal_cog_q[loop_sectors][current_idx_id]<5 && ideal_max_q[loop_sectors][current_idx_id]<3) || (assigned_ideal[current_idx_id] != 0)){
+                is_min_dist = false;
+                break;
+              }
+              else {
                 current_distance_dig_to_id = std::pow((digit_map[loop_sectors][maxima_digits[max_point]][2] - ideal_cog_map[loop_sectors][current_idx_id][2]), 2) + std::pow((digit_map[loop_sectors][maxima_digits[max_point]][1] - ideal_cog_map[loop_sectors][current_idx_id][1]), 2);
                 // if the distance is less than the previous one check if update should be made
                 if (current_distance_dig_to_id < distance_assignment) {
                   for (int j = 0; j < 25; j++) {
                     current_idx_dig = assignments_dig_to_id[current_idx_id][j];
-                    if (current_idx_dig >= 0 && current_idx_dig < 20000000) {
+                    if (checkIdx(current_idx_dig)) {
                       if (assigned_digit[current_idx_dig] == 0) {
                         // calculate mutual distance from current ideal CoG to all assigned digit maxima. Update if and only if distance is minimal. Else do not assign.
-                        if(ideal_cog_q[loop_sectors][current_idx_id]>=5 && ideal_max_q[loop_sectors][current_idx_id]>=3){
-                          current_distance_id_to_dig = std::pow((digit_map[loop_sectors][maxima_digits[current_idx_dig]][2] - ideal_cog_map[loop_sectors][current_idx_id][2]), 2) + std::pow((digit_map[loop_sectors][maxima_digits[current_idx_dig]][1] - ideal_cog_map[loop_sectors][current_idx_id][1]), 2);
-                          if (current_distance_id_to_dig < current_distance_dig_to_id) {
-                            is_min_dist = false;
-                            break;
-                          }
+                        current_distance_id_to_dig = std::pow((digit_map[loop_sectors][maxima_digits[current_idx_dig]][2] - ideal_cog_map[loop_sectors][current_idx_id][2]), 2) + std::pow((digit_map[loop_sectors][maxima_digits[current_idx_dig]][1] - ideal_cog_map[loop_sectors][current_idx_id][1]), 2);
+                        if (current_distance_id_to_dig < current_distance_dig_to_id) {
+                          is_min_dist = false;
+                          break;
                         }
                         ////
                         // Potential improvement: Weight the distance calculation by the qTot/qMax such that they are not too far apart
@@ -684,7 +689,7 @@ void qaIdeal::run(ProcessingContext& pc)
                       }
                     }
                   }
-                  if (is_min_dist) {
+                  if (is_min_dist && std::pow((digit_map[loop_sectors][maxima_digits[max_point]][2] - ideal_max_map[loop_sectors][current_idx_id][2]), 2) + std::pow((digit_map[loop_sectors][maxima_digits[max_point]][1] - ideal_max_map[loop_sectors][current_idx_id][1]), 2) <= 5) {
                     check_assignment++;
                     distance_assignment = current_distance_dig_to_id;
                     index_assignment = current_idx_id;

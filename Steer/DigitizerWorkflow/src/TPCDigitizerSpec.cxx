@@ -592,7 +592,9 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         idx++;
       }
       p = point_counter[i];
-      mcTree->Fill();
+      if(mq > 3 && cq > 5){
+        mcTree->Fill();
+      }
       mp = 0; mt = 0; mq = 0; mcn=0; mcf=0; idx = 0;
     }
 
