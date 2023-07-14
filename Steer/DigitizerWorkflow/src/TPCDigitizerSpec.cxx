@@ -554,13 +554,15 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
     TTree* mcTree = new TTree(tmp.str().c_str(), "MC tree");
 
     int sec=0, r=0, mp=0, mt=0, idx=0, p=0, lab=0, mcn=0, mcf=0;
-    float cp=0, ct=0, cq=-1, mq=0;
+    float sp=0, st=0, cp=0, ct=0, cq=-1, mq=0;
 
     mcTree->Branch("cluster_sector", &sec);
     mcTree->Branch("cluster_row", &r);
     mcTree->Branch("cluster_cog_pad", &cp);
     mcTree->Branch("cluster_cog_time", &ct);
     mcTree->Branch("cluster_cog_q", &cq);
+    mcTree->Branch("cluster_sigma_pad", &sp);
+    mcTree->Branch("cluster_sigma_time", &st);
     mcTree->Branch("cluster_max_pad", &mp);
     mcTree->Branch("cluster_max_time", &mt);
     mcTree->Branch("cluster_max_q", &mq);
@@ -577,6 +579,8 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
       mcn = mc_noise[i];
       mcf = mc_fake[i];
       for(auto elem : max_q[i]){
+        sp += std::pow(max_pad[i][idx] - cog_pad[i], 2);
+        st += std::pow(max_time[i][idx] - cog_time[i], 2);
         if(elem > mq){
           mp = max_pad[i][idx];
           mt = max_time[i][idx];
@@ -595,7 +599,7 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
       if(mq > 3 && cq > 5){
         mcTree->Fill();
       }
-      mp = 0; mt = 0; mq = 0; mcn=0; mcf=0; idx = 0;
+      sp = 0, st = 0, mp = 0; mt = 0; mq = 0; mcn=0; mcf=0; idx = 0;
     }
 
     mcTree->Write();

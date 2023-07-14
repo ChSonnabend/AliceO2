@@ -704,8 +704,8 @@ void qaIdeal::run(ProcessingContext& pc)
 
           tr_data_Y_class[max_point] = check_assignment;
           if (check_assignment > 0 && is_min_dist) {
-            tr_data_Y_reg[0][max_point] = digit_map[loop_sectors][maxima_digits[max_point]][2] - ideal_cog_map[loop_sectors][index_assignment][2];
-            tr_data_Y_reg[1][max_point] = digit_map[loop_sectors][maxima_digits[max_point]][1] - ideal_cog_map[loop_sectors][index_assignment][1];
+            tr_data_Y_reg[0][max_point] = ideal_cog_map[loop_sectors][index_assignment][2] - digit_map[loop_sectors][maxima_digits[max_point]][2]; // time
+            tr_data_Y_reg[1][max_point] = ideal_cog_map[loop_sectors][index_assignment][1] - digit_map[loop_sectors][maxima_digits[max_point]][1]; // pad
             tr_data_Y_reg[2][max_point] = ideal_cog_q[loop_sectors][index_assignment] / q_max;
             // if(std::abs(digit_map[loop_sectors][maxima_digits[max_point]][2] - ideal_cog_map[loop_sectors][index_assignment][2]) > 3 || std::abs(digit_map[loop_sectors][maxima_digits[max_point]][1] - ideal_cog_map[loop_sectors][index_assignment][1]) > 3){
             //   LOG(info) << "#Maxima: " << maxima_digits.size() << ", Index (point) " << max_point << " & (max) " << maxima_digits[max_point] << " & (ideal) " << index_assignment << ", ideal_cog_map[loop_sectors].size(): " <<  ideal_cog_map[loop_sectors].size() << ", index_assignment: " << index_assignment;
@@ -732,7 +732,7 @@ void qaIdeal::run(ProcessingContext& pc)
         for (int pad = 0; pad < mat_size_pad; pad++) {
           std::stringstream branch_name;
           branch_name << "in_time_" << time << "_pad_" << pad;
-          tr_data->Branch(branch_name.str().c_str(), &atomic_unit[time][pad]);
+          tr_data->Branch(branch_name.str().c_str(), &atomic_unit[mat_size_pad - pad - 1][time]); // Switching pad and time here makes the transformatio in python easier
         }
       }
 
@@ -743,8 +743,8 @@ void qaIdeal::run(ProcessingContext& pc)
       tr_data->Branch("out_idx_row", &idx_row);
       tr_data->Branch("out_idx_pad", &idx_pad);
       tr_data->Branch("out_idx_time", &idx_time);
-      tr_data->Branch("out_reg_time", &trY_time);
       tr_data->Branch("out_reg_pad", &trY_pad);
+      tr_data->Branch("out_reg_time", &trY_time);
       tr_data->Branch("out_reg_qTotOverqMax", &trY_q);
 
       // Filling elements
