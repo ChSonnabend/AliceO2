@@ -430,11 +430,11 @@ void readMCtruth::run(ProcessingContext& pc)
   if (mode.find(std::string("ideal_clusterizer")) != std::string::npos) {
 
     int sec, row, maxp, maxt, pcount, lab;
-    float cogp, cogt, cogq, maxq;
+    float cogp, cogt, sigmap, sigmat, cogq, maxq;
     long elements = 0;
 
     std::vector<int> sectors, rows, maxps, maxts, point_count, mclabels;
-    std::vector<float> cogps, cogts, cogqs, maxqs;
+    std::vector<float> cogps, cogts, sigmaps, sigmats, cogqs, maxqs;
 
     for(int i = 0; i<36; i++){
 
@@ -453,6 +453,8 @@ void readMCtruth::run(ProcessingContext& pc)
       digitizerSector->SetBranchAddress("cluster_cog_pad", &cogp);
       digitizerSector->SetBranchAddress("cluster_cog_time", &cogt);
       digitizerSector->SetBranchAddress("cluster_cog_q", &cogq);
+      digitizerSector->SetBranchAddress("cluster_sigma_pad", &sigmap);
+      digitizerSector->SetBranchAddress("cluster_sigma_time", &sigmat);
       digitizerSector->SetBranchAddress("cluster_max_pad", &maxp);
       digitizerSector->SetBranchAddress("cluster_max_time", &maxt);
       digitizerSector->SetBranchAddress("cluster_max_q", &maxq);
@@ -465,6 +467,8 @@ void readMCtruth::run(ProcessingContext& pc)
           rows.push_back(row);
           maxps.push_back(maxp);
           maxts.push_back(maxt);
+          sigmaps.push_back(sigmap);
+          sigmats.push_back(sigmat);
           cogps.push_back(cogp);
           cogts.push_back(cogt);
           cogqs.push_back(cogq);
@@ -489,6 +493,8 @@ void readMCtruth::run(ProcessingContext& pc)
     mcTreeIdeal->Branch("digitizer_cogpad", &cogp);
     mcTreeIdeal->Branch("digitizer_cogtime", &cogt);
     mcTreeIdeal->Branch("digitizer_cogq", &cogq);
+    mcTreeIdeal->Branch("digitizer_sigmapad", &maxp);
+    mcTreeIdeal->Branch("digitizer_sigmatime", &maxt);
     mcTreeIdeal->Branch("digitizer_maxpad", &maxp);
     mcTreeIdeal->Branch("digitizer_maxtime", &maxt);
     mcTreeIdeal->Branch("digitizer_maxq", &maxq);
@@ -498,6 +504,8 @@ void readMCtruth::run(ProcessingContext& pc)
       row = rows[i];
       maxp = maxps[i];
       maxt = maxts[i];
+      sigmap = sigmaps[i];
+      sigmat = sigmats[i];
       cogp = cogps[i];
       cogt = cogts[i];
       cogq = cogqs[i];

@@ -595,8 +595,10 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         }
         idx++;
       }
-      p = point_counter[i];
       if(mq > 3 && cq > 5){
+        sp = std::sqrt(sp/max_q[i].size());
+        st = std::sqrt(st/max_q[i].size());
+        p = point_counter[i];
         mcTree->Fill();
       }
       sp = 0, st = 0, mp = 0; mt = 0; mq = 0; mcn=0; mcf=0; idx = 0;

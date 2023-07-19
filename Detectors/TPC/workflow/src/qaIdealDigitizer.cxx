@@ -73,6 +73,7 @@ class qaIdeal : public Task
   std::vector<int> maxima_digits;                                          // , digit_isNoise, digit_isQED, digit_isValid;
   std::array<std::vector<std::array<int, 3>>, 36> digit_map, ideal_max_map;
   std::array<std::vector<std::array<float, 3>>, 36> ideal_cog_map;
+  std::array<std::vector<std::array<float, 2>>, 36> ideal_sigma_map;
   std::array<std::vector<float>, 36> ideal_max_q, ideal_cog_q, digit_q;
 
   std::vector<std::vector<std::array<int, 2>>> adj_mat = {{{0, 0}}, {{1, 0}, {0, 1}, {-1, 0}, {0, -1}}, {{1, 1}, {-1, 1}, {-1, -1}, {1, -1}}, {{2,0}, {0,-2}, {-2,0}, {0,2}}, {{2, 1}, {1, 2}, {-1, 2}, {-2, 1}, {-2, -1}, {-1, -2}, {1, -2}, {2, -1}}, {{2, 2}, {-2, 2}, {-2, -2}, {2, -2}}};
@@ -171,7 +172,7 @@ void qaIdeal::read_ideal()
 {
 
   int sec, row, maxp, maxt, pcount, lab;
-  float cogp, cogt, cogq, maxq;
+  float cogp, cogt, cogq, maxq, sigmap, sigmat;
   int elements = 0;
 
   for (int sector = 0; sector < 36; sector++) {
@@ -191,12 +192,15 @@ void qaIdeal::read_ideal()
     digitizerSector->SetBranchAddress("cluster_cog_q", &cogq);
     digitizerSector->SetBranchAddress("cluster_max_pad", &maxp);
     digitizerSector->SetBranchAddress("cluster_max_time", &maxt);
+    digitizerSector->SetBranchAddress("cluster_sigma_pad", &sigmap);
+    digitizerSector->SetBranchAddress("cluster_sigma_time", &sigmat);
     digitizerSector->SetBranchAddress("cluster_max_q", &maxq);
     // digitizerSector->SetBranchAddress("cluster_points", &pcount);
 
     ideal_max_map[sector].resize(digitizerSector->GetEntries());
     ideal_max_q[sector].resize(digitizerSector->GetEntries());
     ideal_cog_map[sector].resize(digitizerSector->GetEntries());
+    ideal_sigma_map[sector].resize(digitizerSector->GetEntries());
     ideal_cog_q[sector].resize(digitizerSector->GetEntries());
 
     if (verbose >= 1)
@@ -209,6 +213,7 @@ void qaIdeal::read_ideal()
         ideal_max_map[sector][j] = std::array<int, 3>{row, maxp, maxt};
         ideal_max_q[sector][j] = maxq;
         ideal_cog_map[sector][j] = std::array<float, 3>{(float)row, cogp, cogt};
+        ideal_sigma_map[sector][j] = std::array<float, 2>{sigmap, sigmat};
         ideal_cog_q[sector][j] = cogq;
         elements++;
 
@@ -632,7 +637,7 @@ void qaIdeal::run(ProcessingContext& pc)
       std::fill(tr_data_X.begin(), tr_data_X.end(), atomic_unit);
 
       std::vector<int> tr_data_Y_class(data_size, -1);
-      std::array<std::vector<float>, 3> tr_data_Y_reg;
+      std::array<std::vector<float>, 5> tr_data_Y_reg;
       std::fill(tr_data_Y_reg.begin(), tr_data_Y_reg.end(), std::vector<float>(data_size, -1));
 
       std::fill(assigned_ideal.begin(), assigned_ideal.end(), 0);
@@ -706,7 +711,9 @@ void qaIdeal::run(ProcessingContext& pc)
           if (check_assignment > 0 && is_min_dist) {
             tr_data_Y_reg[0][max_point] = ideal_cog_map[loop_sectors][index_assignment][2] - digit_map[loop_sectors][maxima_digits[max_point]][2]; // time
             tr_data_Y_reg[1][max_point] = ideal_cog_map[loop_sectors][index_assignment][1] - digit_map[loop_sectors][maxima_digits[max_point]][1]; // pad
-            tr_data_Y_reg[2][max_point] = ideal_cog_q[loop_sectors][index_assignment] / q_max;
+            tr_data_Y_reg[2][max_point] = ideal_sigma_map[loop_sectors][index_assignment][0]; // sigma pad
+            tr_data_Y_reg[3][max_point] = ideal_sigma_map[loop_sectors][index_assignment][1]; // sigma time
+            tr_data_Y_reg[4][max_point] = ideal_cog_q[loop_sectors][index_assignment] / q_max;
             // if(std::abs(digit_map[loop_sectors][maxima_digits[max_point]][2] - ideal_cog_map[loop_sectors][index_assignment][2]) > 3 || std::abs(digit_map[loop_sectors][maxima_digits[max_point]][1] - ideal_cog_map[loop_sectors][index_assignment][1]) > 3){
             //   LOG(info) << "#Maxima: " << maxima_digits.size() << ", Index (point) " << max_point << " & (max) " << maxima_digits[max_point] << " & (ideal) " << index_assignment << ", ideal_cog_map[loop_sectors].size(): " <<  ideal_cog_map[loop_sectors].size() << ", index_assignment: " << index_assignment;
             // }
@@ -714,6 +721,8 @@ void qaIdeal::run(ProcessingContext& pc)
             tr_data_Y_reg[0][max_point] = -1.f;
             tr_data_Y_reg[1][max_point] = -1.f;
             tr_data_Y_reg[2][max_point] = -1.f;
+            tr_data_Y_reg[3][max_point] = -1.f;
+            tr_data_Y_reg[4][max_point] = -1.f;
           }
         } else {
           LOG(warning) << "Element at index [" << digit_map[loop_sectors][maxima_digits[max_point]][2] << " " << digit_map[loop_sectors][maxima_digits[max_point]][0] << " " << digit_map[loop_sectors][maxima_digits[max_point]][1] << "] has value " << map_dig_idx;
@@ -737,7 +746,7 @@ void qaIdeal::run(ProcessingContext& pc)
       }
 
       int class_val = 0, idx_sector = 0, idx_row = 0, idx_pad = 0, idx_time = 0;
-      float trY_time = 0, trY_pad = 0, trY_q = 0;
+      float trY_time = 0, trY_pad = 0, trY_sigma_pad = 0, trY_sigma_time = 0, trY_q = 0;
       tr_data->Branch("out_class", &class_val);
       tr_data->Branch("out_idx_sector", &idx_sector);
       tr_data->Branch("out_idx_row", &idx_row);
@@ -745,6 +754,8 @@ void qaIdeal::run(ProcessingContext& pc)
       tr_data->Branch("out_idx_time", &idx_time);
       tr_data->Branch("out_reg_pad", &trY_pad);
       tr_data->Branch("out_reg_time", &trY_time);
+      tr_data->Branch("out_sigma_pad", &trY_sigma_pad);
+      tr_data->Branch("out_sigma_time", &trY_sigma_time);
       tr_data->Branch("out_reg_qTotOverqMax", &trY_q);
 
       // Filling elements
@@ -753,7 +764,9 @@ void qaIdeal::run(ProcessingContext& pc)
         class_val = tr_data_Y_class[element];
         trY_time = tr_data_Y_reg[0][element];
         trY_pad = tr_data_Y_reg[1][element];
-        trY_q = tr_data_Y_reg[2][element];
+        trY_sigma_time = tr_data_Y_reg[2][element];
+        trY_sigma_pad = tr_data_Y_reg[3][element];
+        trY_q = tr_data_Y_reg[4][element];
         idx_sector = loop_sectors;
         idx_row = digit_map[loop_sectors][maxima_digits[element]][0];
         idx_pad = digit_map[loop_sectors][maxima_digits[element]][1];
