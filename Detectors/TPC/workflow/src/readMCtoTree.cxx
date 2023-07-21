@@ -166,7 +166,7 @@ void readMCtruth::run(ProcessingContext& pc)
     TFile outputFile("mclabels_native.root", "RECREATE");
     TTree* mcTree = new TTree("mcLabelsNative", "MC tree");
 
-    Int_t sector, row, nclusters, nevent;
+    Int_t sector, row, nevent;
     Float_t pad, ctime, sigmapad, sigmatime, qmax, qtot;
     mcTree->Branch("native_sector", &sector);
     mcTree->Branch("native_row", &row);
@@ -175,7 +175,6 @@ void readMCtruth::run(ProcessingContext& pc)
     mcTree->Branch("native_sigmapad", &sigmapad);
     mcTree->Branch("native_sigmatime", &sigmatime);
     mcTree->Branch("native_event", &nevent);
-    mcTree->Branch("native_nclusters", &nclusters);
     mcTree->Branch("native_qmax", &qmax);
     mcTree->Branch("native_qtot", &qtot);
 
@@ -192,7 +191,6 @@ void readMCtruth::run(ProcessingContext& pc)
           const int nClusters = clusterIndex.nClusters[isector][irow];
           sector = isector;
           row = irow;
-          nclusters = nClusters;
           if (!nClusters) {
             continue;
           }

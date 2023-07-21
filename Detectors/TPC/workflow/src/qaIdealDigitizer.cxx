@@ -48,6 +48,7 @@ class qaIdeal : public Task
   bool checkIdx(int);
   void read_digits();
   void read_ideal();
+  void read_native();
   void init_map2d(int);
   void fill_map2d(int, int, int);
   void clear_memory();
@@ -65,8 +66,6 @@ class qaIdeal : public Task
   std::string mode = "training_data";
   std::string inFileDigits = "tpcdigits.root";
   std::string inFileNative = "tpc-cluster-native.root";
-  std::string inFileTracks = "tpctracks.root";
-  std::string inFileKinematics = "collisioncontext.root";
   std::string inFileDigitizer = "mclabels_digitizer.root";
 
   std::array<std::vector<std::array<std::array<int, 170>, 152>>, 2> map2d; // 0 - index ideal; 1 - index digits
@@ -165,6 +164,56 @@ void qaIdeal::read_digits()
 
   if (verbose >= 1)
     LOG(info) << "Done reading digits!";
+}
+
+// ---------------------------------
+void qaIdeal::read_native()
+{
+
+  if (verbose >= 1)
+    LOG(info) << "Reading native clusters...";
+
+  ClusterNativeHelper::Reader tpcClusterReader;
+  tpcClusterReader.init(inFileNative.c_str());
+
+  ClusterNativeAccess clusterIndex;
+  std::unique_ptr<ClusterNative[]> clusterBuffer;
+  memset(&clusterIndex, 0, sizeof(clusterIndex));
+  o2::tpc::ClusterNativeHelper::ConstMCLabelContainerViewWithBuffer clusterMCBuffer;
+
+  qc::Clusters clusters;
+
+  for (int i = 0; i < tpcClusterReader.getTreeSize(); ++i) {
+    tpcClusterReader.read(i);
+    tpcClusterReader.fillIndex(clusterIndex, clusterBuffer, clusterMCBuffer);
+    for (int isector = 0; isector < o2::tpc::constants::MAXSECTOR; ++isector) {
+      int nClustersSec = 0;
+      for (int irow = 0; irow < o2::tpc::constants::MAXGLOBALPADROW; ++irow) {
+        nClustersSec += clusterIndex.nClusters[isector][irow];
+      }
+      digit_map[isector].resize(nClustersSec);
+      digit_q[isector].resize(nClustersSec);
+      for (int irow = 0; irow < o2::tpc::constants::MAXGLOBALPADROW; ++irow) {
+        const int nClusters = clusterIndex.nClusters[isector][irow];
+        if (!nClusters) {
+          continue;
+        }
+        for (int icl = 0; icl < nClusters; ++icl) {
+          const auto& cl = *(clusterIndex.clusters[isector][irow] + icl);
+          clusters.processCluster(cl, Sector(isector), irow);
+          digit_map[isector][icl] = std::array<int, 3>{irow, cl.getPad(), cl.getTime()};
+          digit_q[isector][icl] = cl.getQtot();
+          if (cl.getTime() > max_time[isector])
+            max_time[isector] = cl.getTime();
+          if (cl.getPad() > max_pad[isector])
+            max_pad[isector] = cl.getPad();
+        }
+      }
+    }
+  }
+
+  if (verbose >= 1)
+    LOG(info) << "Done reading native clusters!";
 }
 
 // ---------------------------------
@@ -395,8 +444,14 @@ int qaIdeal::test_neighbour(std::array<int, 3> index, std::array<int, 2> nn, int
 void qaIdeal::run(ProcessingContext& pc)
 {
 
-  read_digits();
-  read_ideal();
+  if(mode.find(std::string("native")) == std::string::npos){
+    read_digits();
+    read_ideal();
+  }
+  else{
+    read_native();
+    read_ideal();
+  }
 
   std::array<unsigned int, 25> assignments_ideal, assignments_digit, assignments_ideal_findable, assignments_digit_findable;
   unsigned int number_of_ideal_max = 0, number_of_digit_max = 0, number_of_ideal_max_findable = 0;
@@ -417,9 +472,16 @@ void qaIdeal::run(ProcessingContext& pc)
 
     init_map2d(max_time[loop_sectors]);
     fill_map2d(loop_sectors, -1, 1);
-    find_maxima(loop_sectors);
-    overwrite_map2d(loop_sectors);
 
+    if(mode.find(std::string("native")) == std::string::npos){
+      find_maxima(loop_sectors);
+      overwrite_map2d(loop_sectors);
+    }
+    else{
+      maxima_digits.resize(digit_q[loop_sectors].size());
+      std::iota (std::begin(maxima_digits), std::end(maxima_digits), 0);  
+    }
+    
     // effCloneFake(0, loop_chunks*chunk_size);
     // Assignment at d=1
     LOG(info) << "Maxima found in digits (before): " << maxima_digits.size() << "; Maxima found in ideal clusters (before): " << ideal_max_map[loop_sectors].size();
@@ -621,7 +683,7 @@ void qaIdeal::run(ProcessingContext& pc)
       }
     }
 
-    if (mode.find(std::string("training_data")) != std::string::npos) {
+    if (mode.find(std::string("training_data")) != std::string::npos && mode.find(std::string("native")) == std::string::npos) {
 
       overwrite_map2d(loop_sectors, 1);
 
@@ -834,7 +896,7 @@ DataProcessorSpec processIdealClusterizer()
     adaptFromTask<qaIdeal>(),
     Options{
       {"verbose", VariantType::Int, 0, {"Verbosity level"}},
-      {"mode", VariantType::String, "training_data", {"Enables different settings (e.g. creation of training data for NN)."}},
+      {"mode", VariantType::String, "training_data", {"Enables different settings (e.g. creation of training data for NN, running with tpc-native clusters)."}},
       {"infile-digits", VariantType::String, "tpcdigits.root", {"Input file name (digits)"}},
       {"infile-native", VariantType::String, "tpc-native-clusters.root", {"Input file name (native)"}}}};
 }
