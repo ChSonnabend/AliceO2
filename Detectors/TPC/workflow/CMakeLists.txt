@@ -72,7 +72,7 @@ endif()
 o2_add_executable(qa-digits
                   COMPONENT_NAME tpc
                   SOURCES src/qaIdealDigitizer.cxx
-                  PUBLIC_LINK_LIBRARIES O2::TPCWorkflow O2::SimulationDataFormat O2::TPCQC O2::DataFormatsTPC O2::TPCBase)
+                  PUBLIC_LINK_LIBRARIES O2::TPCWorkflow O2::SimulationDataFormat O2::TPCQC O2::DataFormatsTPC O2::TPCBase O2::ML ONNXRuntime::ONNXRuntime)
 
 o2_add_executable(mc-labels
                   COMPONENT_NAME tpc

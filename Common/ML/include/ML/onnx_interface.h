@@ -47,6 +47,7 @@ class OnnxModel
   void init(std::string, bool = false, int = 0);
   float* inference(std::vector<Ort::Value>, int = 0);
   float* inference(std::vector<float>, int = 0);
+  template<class T> float* inference(T input, int size);
 
   // Reset session
   void resetSession() { mSession.reset(new Ort::Experimental::Session{*mEnv, modelPath, sessionOptions}); }

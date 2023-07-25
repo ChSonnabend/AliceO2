@@ -54,6 +54,16 @@ void OnnxModel::init(std::string localPath, bool enableOptimizations, int thread
   mInputShapes = mSession->GetInputShapes();
   mOutputNames = mSession->GetOutputNames();
   mOutputShapes = mSession->GetOutputShapes();
+
+  LOG(info) << "Input Nodes:";
+  for (size_t i = 0; i < mInputNames.size(); i++) {
+    LOG(info) << "\t" << mInputNames[i] << " : " << printShape(mInputShapes[i]);
+  }
+
+  LOG(info) << "Output Nodes:";
+  for (size_t i = 0; i < mOutputNames.size(); i++) {
+    LOG(info) << "\t" << mOutputNames[i] << " : " << printShape(mOutputShapes[i]);
+  }
   
   LOG(info) << "--- Model initialized! ---";
 }
@@ -86,6 +96,23 @@ float* OnnxModel::inference(std::vector<float> input, int device_id)
   try {
     auto outputTensors = mSession->Run(mInputNames, inputTensors, mOutputNames);
     float* outputValues = outputTensors[0].GetTensorMutableData<float>();
+    return outputValues;
+  } catch (const Ort::Exception& exception) {
+    LOG(error) << "Error running model inference: " << exception.what();
+  }
+  return nullptr;
+}
+
+template<class T>
+float* OnnxModel::inference(T input, int size)
+{
+
+  std::vector<std::vector<int64_t>> inputShape = mInputShapes;
+  inputShape[0][0] = size;
+  auto inputTensors = Ort::Experimental::Value::CreateTensor<float>(&input, size, inputShape);
+  try {
+    auto outputTensors = mSession->Run(mInputNames, inputTensors, mOutputNames);
+    float* outputValues = outputTensors[0].template GetTensorMutableData<float>();
     return outputValues;
   } catch (const Ort::Exception& exception) {
     LOG(error) << "Error running model inference: " << exception.what();

@@ -1,5 +1,7 @@
 #include <cmath>
 
+#include "ML/onnx_interface.h"
+
 #include "DetectorsRaw/HBFUtils.h"
 
 #include "DataFormatsTPC/WorkflowHelper.h"
@@ -40,6 +42,7 @@ using namespace o2;
 using namespace GPUCA_NAMESPACE::gpu;
 using namespace o2::tpc;
 using namespace o2::framework;
+using namespace o2::ml;
 
 class qaIdeal : public Task
 {
@@ -53,6 +56,7 @@ class qaIdeal : public Task
   void fill_map2d(int, int, int);
   void clear_memory();
   void find_maxima(int);
+  void run_network(int, int);
   void overwrite_map2d(int, int);
   int test_neighbour(std::array<int, 3>, std::array<int, 2>, int);
   // void effCloneFake(int, int);
@@ -67,6 +71,8 @@ class qaIdeal : public Task
   std::string inFileDigits = "tpcdigits.root";
   std::string inFileNative = "tpc-cluster-native.root";
   std::string inFileDigitizer = "mclabels_digitizer.root";
+  std::string networkClassification = "./net_classification.onnx";
+  std::string networkRegression = "./net_regression.onnx";
 
   std::array<std::vector<std::array<std::array<int, 170>, 152>>, 2> map2d; // 0 - index ideal; 1 - index digits
   std::vector<int> maxima_digits;                                          // , digit_isNoise, digit_isQED, digit_isValid;
@@ -85,6 +91,8 @@ void qaIdeal::init(InitContext& ic)
   mode = ic.options().get<std::string>("mode");
   inFileDigits = ic.options().get<std::string>("infile-digits");
   inFileNative = ic.options().get<std::string>("infile-native");
+  networkClassification = ic.options().get<std::string>("network-classification-path");
+  networkRegression = ic.options().get<std::string>("network-regression-path");
 
   if (verbose >= 1)
     LOG(info) << "Initialized QA macro!";
@@ -191,8 +199,12 @@ void qaIdeal::read_native()
       for (int irow = 0; irow < o2::tpc::constants::MAXGLOBALPADROW; ++irow) {
         nClustersSec += clusterIndex.nClusters[isector][irow];
       }
+      if (verbose >= 2){
+        LOG(info) << "Native clusters in sector " << isector << ": " << nClustersSec;
+      }
       digit_map[isector].resize(nClustersSec);
       digit_q[isector].resize(nClustersSec);
+      int count_clusters = 0;
       for (int irow = 0; irow < o2::tpc::constants::MAXGLOBALPADROW; ++irow) {
         const int nClusters = clusterIndex.nClusters[isector][irow];
         if (!nClusters) {
@@ -201,12 +213,13 @@ void qaIdeal::read_native()
         for (int icl = 0; icl < nClusters; ++icl) {
           const auto& cl = *(clusterIndex.clusters[isector][irow] + icl);
           clusters.processCluster(cl, Sector(isector), irow);
-          digit_map[isector][icl] = std::array<int, 3>{irow, cl.getPad(), cl.getTime()};
-          digit_q[isector][icl] = cl.getQtot();
+          digit_map[isector][count_clusters] = std::array<int, 3>{irow, static_cast<int>(round(cl.getPad())), static_cast<int>(round(cl.getTime()))};
+          digit_q[isector][count_clusters] = cl.getQtot();
           if (cl.getTime() > max_time[isector])
             max_time[isector] = cl.getTime();
           if (cl.getPad() > max_pad[isector])
             max_pad[isector] = cl.getPad();
+          count_clusters++;
         }
       }
     }
@@ -404,6 +417,63 @@ void qaIdeal::find_maxima(int sector)
     LOG(info) << "Found " << maxima_digits.size() << " maxima. Done!";
 }
 
+// ---------------------------------
+void qaIdeal::run_network(int sector, int mode=0){
+
+  OnnxModel network;
+
+  // Loading the data
+  // std::vector<std::vector<std::vector<std::vector<float>>>> input_vector(maxima_digits.size(), std::vector<std::vector<std::vector<float>>>(1, std::vector<std::vector<float>>(2*global_shift[0]+1, std::vector<float>(2*global_shift[1]+1,0)))); // 11x11 images for each maximum of the digits
+  std::vector<float> input_vector(maxima_digits.size()*(2*global_shift[0]+1)*(2*global_shift[1]+1));
+  std::vector<float> central_charges(maxima_digits.size());
+
+  for (unsigned int max = 0; max < maxima_digits.size(); max++) {
+    central_charges[max] = digit_q[sector][map2d[1][digit_map[sector][maxima_digits[max]][2] + global_shift[1]][digit_map[sector][maxima_digits[max]][0]][digit_map[sector][maxima_digits[max]][1] + global_shift[0]]];
+    for(int pad=0; pad<2*global_shift[0]+1; pad++){
+      for(int time=0; time<2*global_shift[1]+1; time++){
+        //input_vector[(2*global_shift[0]+1)*pad + time][0][pad][time] = digit_q[sector][map2d[1][digit_map[sector][maxima_digits[max]][2] + time][digit_map[sector][maxima_digits[max]][0]][digit_map[sector][maxima_digits[max]][1] + pad]] / central_charges[max];
+        input_vector[max*(2*global_shift[0]+1)*(2*global_shift[1]+1) + (2*global_shift[0]+1)*pad + time] = digit_q[sector][map2d[1][digit_map[sector][maxima_digits[max]][2] + time][digit_map[sector][maxima_digits[max]][0]][digit_map[sector][maxima_digits[max]][1] + pad]] / central_charges[max];
+      }
+    }
+  }
+
+  if(mode>=0){
+    network.init(networkClassification);
+    float* output_network = network.inference(input_vector, input_vector.size());
+
+    for(int idx = 0; idx<maxima_digits.size(); idx++){
+      if(output_network[idx] < 0.5){
+        maxima_digits.erase(maxima_digits.begin() + idx);
+        central_charges.erase(central_charges.begin() + idx);
+        input_vector.erase(std::next(input_vector.begin(), idx), std::next(input_vector.begin(), idx + (2*global_shift[0] + 1)*(2*global_shift[1] + 1)));
+      }
+    }
+  }
+  if(mode>=1){
+    network.init(networkRegression);
+    float* output_network = network.inference(input_vector, input_vector.size()/((2*global_shift[0]+1)*(2*global_shift[1]+1)));
+
+    std::vector<int> rows_max(maxima_digits.size());
+    for (unsigned int max = 0; max < maxima_digits.size(); max++) {
+      rows_max[max] = digit_map[sector][maxima_digits[max]][0];
+    }
+    std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);
+    digit_map[sector].clear();
+    digit_q[sector].clear();
+    digit_map[sector].resize(maxima_digits.size());
+    digit_q[sector].resize(maxima_digits.size());
+
+    for(int i=0; i<maxima_digits.size(); i++){
+      digit_map[sector][i] = std::array<int, 3>{rows_max[i], static_cast<int>(round(output_network[3*i])), static_cast<int>(round(output_network[3*i+1]))};
+      digit_q[sector][i] = output_network[3*i+2] * central_charges[i];
+    }
+  }
+  else {
+    LOG(fatal) << "(Network evaluation error) Mode unknown!";
+  }
+}
+
+// ---------------------------------
 void qaIdeal::overwrite_map2d(int sector, int mode = 0)
 {
 
@@ -475,11 +545,17 @@ void qaIdeal::run(ProcessingContext& pc)
 
     if(mode.find(std::string("native")) == std::string::npos){
       find_maxima(loop_sectors);
+      if(mode.find(std::string("network")) != std::string::npos && mode.find(std::string("network_reg")) == std::string::npos){
+        run_network(loop_sectors, 0); // classification of maxima
+      }
+      else if(mode.find(std::string("network_reg")) != std::string::npos){
+        run_network(loop_sectors, 1); // classification + regression
+      }
       overwrite_map2d(loop_sectors);
     }
     else{
       maxima_digits.resize(digit_q[loop_sectors].size());
-      std::iota (std::begin(maxima_digits), std::end(maxima_digits), 0);  
+      std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);  
     }
     
     // effCloneFake(0, loop_chunks*chunk_size);
@@ -683,7 +759,7 @@ void qaIdeal::run(ProcessingContext& pc)
       }
     }
 
-    if (mode.find(std::string("training_data")) != std::string::npos && mode.find(std::string("native")) == std::string::npos) {
+    if (mode.find(std::string("training_data")) != std::string::npos) {
 
       overwrite_map2d(loop_sectors, 1);
 
@@ -898,7 +974,9 @@ DataProcessorSpec processIdealClusterizer()
       {"verbose", VariantType::Int, 0, {"Verbosity level"}},
       {"mode", VariantType::String, "training_data", {"Enables different settings (e.g. creation of training data for NN, running with tpc-native clusters)."}},
       {"infile-digits", VariantType::String, "tpcdigits.root", {"Input file name (digits)"}},
-      {"infile-native", VariantType::String, "tpc-native-clusters.root", {"Input file name (native)"}}}};
+      {"infile-native", VariantType::String, "tpc-native-clusters.root", {"Input file name (native)"}},
+      {"network-classification-path", VariantType::String, "./net_classification.onnx", {"Absolute path to the network file (classification)"}},
+      {"network-regression-path", VariantType::String, "./net_regression.onnx", {"Absolute path to the network file (regression)"}}}};
 }
 
 WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
