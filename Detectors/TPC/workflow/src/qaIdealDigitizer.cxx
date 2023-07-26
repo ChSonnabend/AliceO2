@@ -424,15 +424,15 @@ void qaIdeal::run_network(int sector, int mode=0){
 
   // Loading the data
   // std::vector<std::vector<std::vector<std::vector<float>>>> input_vector(maxima_digits.size(), std::vector<std::vector<std::vector<float>>>(1, std::vector<std::vector<float>>(2*global_shift[0]+1, std::vector<float>(2*global_shift[1]+1,0)))); // 11x11 images for each maximum of the digits
-  std::vector<float> input_vector(maxima_digits.size()*(2*global_shift[0]+1)*(2*global_shift[1]+1));
-  std::vector<float> central_charges(maxima_digits.size());
+  std::vector<float> input_vector(maxima_digits.size()*(2*global_shift[0]+1)*(2*global_shift[1]+1), 0.);
+  std::vector<float> central_charges(maxima_digits.size(), 0.);
 
   for (unsigned int max = 0; max < maxima_digits.size(); max++) {
     central_charges[max] = digit_q[sector][map2d[1][digit_map[sector][maxima_digits[max]][2] + global_shift[1]][digit_map[sector][maxima_digits[max]][0]][digit_map[sector][maxima_digits[max]][1] + global_shift[0]]];
     for(int pad=0; pad<2*global_shift[0]+1; pad++){
       for(int time=0; time<2*global_shift[1]+1; time++){
         //input_vector[(2*global_shift[0]+1)*pad + time][0][pad][time] = digit_q[sector][map2d[1][digit_map[sector][maxima_digits[max]][2] + time][digit_map[sector][maxima_digits[max]][0]][digit_map[sector][maxima_digits[max]][1] + pad]] / central_charges[max];
-        input_vector[max*(2*global_shift[0]+1)*(2*global_shift[1]+1) + (2*global_shift[0]+1)*pad + time] = digit_q[sector][map2d[1][digit_map[sector][maxima_digits[max]][2] + time][digit_map[sector][maxima_digits[max]][0]][digit_map[sector][maxima_digits[max]][1] + pad]] / central_charges[max];
+        input_vector[max*(2*global_shift[0]+1)*(2*global_shift[1]+1) + (2*global_shift[1]+1)*pad + time] = digit_q[sector][map2d[1][digit_map[sector][maxima_digits[max]][2] + time][digit_map[sector][maxima_digits[max]][0]][digit_map[sector][maxima_digits[max]][1] + pad]] / central_charges[max];
       }
     }
   }
@@ -445,13 +445,13 @@ void qaIdeal::run_network(int sector, int mode=0){
       if(output_network[idx] < 0.5){
         maxima_digits.erase(maxima_digits.begin() + idx);
         central_charges.erase(central_charges.begin() + idx);
-        input_vector.erase(std::next(input_vector.begin(), idx), std::next(input_vector.begin(), idx + (2*global_shift[0] + 1)*(2*global_shift[1] + 1)));
+        input_vector.erase(std::next(input_vector.begin(), idx*((2*global_shift[0] + 1)*(2*global_shift[1] + 1))), std::next(input_vector.begin(), idx*((2*global_shift[0] + 1)*(2*global_shift[1] + 1)) + (2*global_shift[0] + 1)*(2*global_shift[1] + 1)));
       }
     }
   }
   if(mode>=1){
     network.init(networkRegression);
-    float* output_network = network.inference(input_vector, input_vector.size()/((2*global_shift[0]+1)*(2*global_shift[1]+1)));
+    float* output_network = network.inference(input_vector, input_vector.size());
 
     std::vector<int> rows_max(maxima_digits.size());
     for (unsigned int max = 0; max < maxima_digits.size(); max++) {

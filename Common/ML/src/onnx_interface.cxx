@@ -68,51 +68,60 @@ void OnnxModel::init(std::string localPath, bool enableOptimizations, int thread
   LOG(info) << "--- Model initialized! ---";
 }
 
-float* OnnxModel::inference(std::vector<Ort::Value> input, int device_id)
-{
+// float* OnnxModel::inference(std::vector<Ort::Value> input, int device_id)
+// {
 
-  // Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_MIGraphX(sessionOptions, device_id));
+//   // Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_MIGraphX(sessionOptions, device_id));
 
-  try {
-    auto outputTensors = mSession->Run(mInputNames, input, mOutputNames);
-    float* outputValues = outputTensors[0].GetTensorMutableData<float>();
-    return outputValues;
-  } catch (const Ort::Exception& exception) {
-    LOG(error) << "Error running model inference: " << exception.what();
-  }
-  return nullptr;
-}
+//   try {
+//     auto outputTensors = mSession->Run(mInputNames, input, mOutputNames);
+//     float* outputValues = outputTensors[0].GetTensorMutableData<float>();
+//     return outputValues;
+//   } catch (const Ort::Exception& exception) {
+//     LOG(error) << "Error running model inference: " << exception.what();
+//   }
+//   return nullptr;
+// }
 
-float* OnnxModel::inference(std::vector<float> input, int device_id)
-{
-
-  // Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_MIGraphX(sessionOptions, device_id));
-
-  int64_t size = input.size();
-  assert(size % mInputShapes[0][1] == 0);
-  std::vector<int64_t> inputShape{size / mInputShapes[0][1], mInputShapes[0][1]};
-  std::vector<Ort::Value> inputTensors;
-  inputTensors.emplace_back(Ort::Experimental::Value::CreateTensor<float>(input.data(), size, inputShape));
-  try {
-    auto outputTensors = mSession->Run(mInputNames, inputTensors, mOutputNames);
-    float* outputValues = outputTensors[0].GetTensorMutableData<float>();
-    return outputValues;
-  } catch (const Ort::Exception& exception) {
-    LOG(error) << "Error running model inference: " << exception.what();
-  }
-  return nullptr;
-}
+// float* OnnxModel::inference(std::vector<float> input, int device_id)
+// {
+// 
+//   // Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_MIGraphX(sessionOptions, device_id));
+// 
+//   int64_t size = input.size();
+//   assert(size % mInputShapes[0][1] == 0);
+//   std::vector<int64_t> inputShape{size / mInputShapes[0][1], mInputShapes[0][1]};
+//   std::vector<Ort::Value> inputTensors;
+//   inputTensors.emplace_back(Ort::Experimental::Value::CreateTensor<float>(input.data(), size, inputShape));
+//   try {
+//     auto outputTensors = mSession->Run(mInputNames, inputTensors, mOutputNames);
+//     float* outputValues = outputTensors[0].GetTensorMutableData<float>();
+//     return outputValues;
+//   } catch (const Ort::Exception& exception) {
+//     LOG(error) << "Error running model inference: " << exception.what();
+//   }
+//   return nullptr;
+// }
 
 template<class T>
-float* OnnxModel::inference(T input, int size)
+float* OnnxModel::inference(T input, unsigned int size)
 {
 
-  std::vector<std::vector<int64_t>> inputShape = mInputShapes;
-  inputShape[0][0] = size;
-  auto inputTensors = Ort::Experimental::Value::CreateTensor<float>(&input, size, inputShape);
+  std::vector<int64_t> inputShape = mInputShapes[0];
+  inputShape[0] = size;
+  std::vector<Ort::Value> inputTensors;
+  size_t mem_size = 1;
+  for(auto elem : inputShape){
+    mem_size*=elem;
+  }
+  LOG(info) << "Memory size: " << mem_size*sizeof(float)/1e6 << "MB";
+  inputTensors.emplace_back(Ort::Experimental::Value::CreateTensor<float>(input.data(), mem_size, inputShape));
+  LOG(info) << "Input tensors created";
   try {
     auto outputTensors = mSession->Run(mInputNames, inputTensors, mOutputNames);
-    float* outputValues = outputTensors[0].template GetTensorMutableData<float>();
+    LOG(info) << "Output created";
+    float* outputValues = outputTensors[0].GetTensorMutableData<float>();
+    LOG(info) << "Output written";
     return outputValues;
   } catch (const Ort::Exception& exception) {
     LOG(error) << "Error running model inference: " << exception.what();
@@ -124,6 +133,8 @@ void OnnxModel::setActiveThreads(int threads)
 {
   activeThreads = threads;
 }
+
+template float* OnnxModel::inference(std::vector<float>, unsigned int);
 
 } // namespace gpu
 
