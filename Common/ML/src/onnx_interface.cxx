@@ -43,8 +43,16 @@ void OnnxModel::init(std::string localPath, bool enableOptimizations, int thread
   activeThreads = threads;
 
   /// Enableing optimizations
+  if(threads != 0){
+    // sessionOptions.SetInterOpNumThreads(1);
+    sessionOptions.SetIntraOpNumThreads(threads);
+  }
   if (enableOptimizations) {
-    sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+    // sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+    sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+    // uint32_t coreml_flags = 0;
+    // coreml_flags |= COREML_FLAG_ONLY_ENABLE_DEVICE_WITH_ANE;
+    // Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CoreML(sessionOptions, coreml_flags));
   }
 
   mEnv = std::make_shared<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "onnx-model");
@@ -114,14 +122,11 @@ float* OnnxModel::inference(T input, unsigned int size)
   for(auto elem : inputShape){
     mem_size*=elem;
   }
-  LOG(info) << "Memory size: " << mem_size*sizeof(float)/1e6 << "MB";
   inputTensors.emplace_back(Ort::Experimental::Value::CreateTensor<float>(input.data(), mem_size, inputShape));
-  LOG(info) << "Input tensors created";
+  LOG(info) << "Input tensors created, memory size: " << mem_size*sizeof(float)/1e6 << "MB";
   try {
     auto outputTensors = mSession->Run(mInputNames, inputTensors, mOutputNames);
-    LOG(info) << "Output created";
     float* outputValues = outputTensors[0].GetTensorMutableData<float>();
-    LOG(info) << "Output written";
     return outputValues;
   } catch (const Ort::Exception& exception) {
     LOG(error) << "Error running model inference: " << exception.what();

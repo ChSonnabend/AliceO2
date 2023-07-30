@@ -26,6 +26,7 @@
 #include <string>
 #include <memory>
 #include <map>
+#include <thread>
 
 // O2 includes
 #include "Framework/Logger.h"

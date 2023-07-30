@@ -27,14 +27,14 @@ class OnnxInference : public Task
  private:
   int verbose = 0;
   std::string localpath = "";
-  uint32_t numElements = 1;
+  int numElements = 1;
 };
 
 void OnnxInference::init(InitContext& ic)
 {
   verbose = ic.options().get<int>("verbose");
   localpath = ic.options().get<std::string>("path");
-  numElements = ic.options().get<uint32_t>("size");
+  numElements = ic.options().get<int>("numElements");
 }
 
 void OnnxInference::run(ProcessingContext& pc)
@@ -70,7 +70,7 @@ DataProcessorSpec testOnnx()
       adaptFromTask<OnnxInference>(),
       Options{
         {"verbose", VariantType::Int, 0, {"Verbosity level"}},
-        {"size", VariantType::UInt32, 1, {"Number of elements which will be evaluated"}},
+        {"numElements", VariantType::Int, 1, {"Number of elements which will be evaluated"}},
         {"path", VariantType::String, "", {"Path to local ONNX model"}}}};
 }
 
