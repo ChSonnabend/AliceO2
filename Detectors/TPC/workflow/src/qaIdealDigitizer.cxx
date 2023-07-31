@@ -641,6 +641,7 @@ void qaIdeal::run(ProcessingContext& pc)
 
     if((mode.find(std::string("network")) == std::string::npos) && (mode.find(std::string("native")) == std::string::npos)){
       find_maxima(loop_sectors);
+      overwrite_map2d(loop_sectors);
     }
 
     // if(mode.find(std::string("native")) == std::string::npos){
@@ -966,7 +967,9 @@ void qaIdeal::run(ProcessingContext& pc)
             tr_data_Y_reg[4][max_point] = -1.f;
           }
         } else {
-          LOG(warning) << "Element at index [" << digit_map[loop_sectors][maxima_digits[max_point]][2] << " " << digit_map[loop_sectors][maxima_digits[max_point]][0] << " " << digit_map[loop_sectors][maxima_digits[max_point]][1] << "] has value " << map_dig_idx;
+          if(current_idx_id > 20000000){
+            LOG(warning) << "Element at index [" << digit_map[loop_sectors][maxima_digits[max_point]][2] << " " << digit_map[loop_sectors][maxima_digits[max_point]][0] << " " << digit_map[loop_sectors][maxima_digits[max_point]][1] << "] has value " << map_dig_idx;
+          } 
         }
       }
       if (verbose >= 3)
