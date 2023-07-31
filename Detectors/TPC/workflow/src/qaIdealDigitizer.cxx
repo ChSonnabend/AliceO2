@@ -896,7 +896,7 @@ void qaIdeal::run(ProcessingContext& pc)
           for (int time = 0; time < mat_size_time; time++) {
             for (int pad = 0; pad < mat_size_pad; pad++) {
               map_q_idx = map2d[0][digit_map[loop_sectors][maxima_digits[max_point]][2] + time][digit_map[loop_sectors][maxima_digits[max_point]][0]][digit_map[loop_sectors][maxima_digits[max_point]][1] + pad];
-              map_q_idx == -1 ? tr_data_X[max_point][time][pad] = 0 : tr_data_X[max_point][time][pad] = digit_q[loop_sectors][map_q_idx] / q_max;
+              map_q_idx == -1 ? tr_data_X[max_point][time][pad] = 0 : tr_data_X[max_point][time][pad] = digit_q[loop_sectors][map_q_idx] / 100.f;
             }
           }
           check_assignment = 0;
