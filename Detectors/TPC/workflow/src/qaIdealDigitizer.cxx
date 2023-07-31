@@ -639,6 +639,10 @@ void qaIdeal::run(ProcessingContext& pc)
     init_map2d(max_time[loop_sectors]);
     fill_map2d(loop_sectors, -1, 1);
 
+    if((mode.find(std::string("network")) == std::string::npos) && (mode.find(std::string("native")) == std::string::npos)){
+      find_maxima(loop_sectors);
+    }
+
     // if(mode.find(std::string("native")) == std::string::npos){
     //   find_maxima(loop_sectors);
     //   if(mode.find(std::string("network")) != std::string::npos && mode.find(std::string("network_reg")) == std::string::npos){
