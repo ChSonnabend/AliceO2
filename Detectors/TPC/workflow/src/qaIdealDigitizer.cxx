@@ -608,16 +608,15 @@ void qaIdeal::run(ProcessingContext& pc)
 
   if(mode.find(std::string("native")) != std::string::npos){
     read_native();
-    read_ideal();
   }
   else if(mode.find(std::string("network")) != std::string::npos){
     read_network();
-    read_ideal();
   }
   else{
     read_digits();
-    read_ideal();
   }
+
+  read_ideal();
 
   std::array<unsigned int, 25> assignments_ideal, assignments_digit, assignments_ideal_findable, assignments_digit_findable;
   unsigned int number_of_ideal_max = 0, number_of_digit_max = 0, number_of_ideal_max_findable = 0;
@@ -643,6 +642,10 @@ void qaIdeal::run(ProcessingContext& pc)
       find_maxima(loop_sectors);
       overwrite_map2d(loop_sectors);
     }
+    else{
+      maxima_digits.resize(digit_q[loop_sectors].size());
+      std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);  
+    }
 
     // if(mode.find(std::string("native")) == std::string::npos){
     //   find_maxima(loop_sectors);
@@ -658,9 +661,6 @@ void qaIdeal::run(ProcessingContext& pc)
     //   maxima_digits.resize(digit_q[loop_sectors].size());
     //   std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);  
     // }
-
-    maxima_digits.resize(digit_q[loop_sectors].size());
-    std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);  
     
     // effCloneFake(0, loop_chunks*chunk_size);
     // Assignment at d=1
@@ -936,7 +936,7 @@ void qaIdeal::run(ProcessingContext& pc)
                       }
                     }
                   }
-                  if (is_min_dist && std::pow((digit_map[loop_sectors][maxima_digits[max_point]][2] - ideal_max_map[loop_sectors][current_idx_id][2]), 2) + std::pow((digit_map[loop_sectors][maxima_digits[max_point]][1] - ideal_max_map[loop_sectors][current_idx_id][1]), 2) <= 5) {
+                  if (is_min_dist && (std::pow((digit_map[loop_sectors][maxima_digits[max_point]][2] - ideal_max_map[loop_sectors][current_idx_id][2]), 2) + std::pow((digit_map[loop_sectors][maxima_digits[max_point]][1] - ideal_max_map[loop_sectors][current_idx_id][1]), 2) <= 5)) {
                     check_assignment++;
                     distance_assignment = current_distance_dig_to_id;
                     index_assignment = current_idx_id;
