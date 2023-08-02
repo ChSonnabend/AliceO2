@@ -1,4 +1,5 @@
 #include <cmath>
+#include <boost/thread.hpp>
 
 #include "ML/onnx_interface.h"
 
@@ -43,6 +44,7 @@ using namespace GPUCA_NAMESPACE::gpu;
 using namespace o2::tpc;
 using namespace o2::framework;
 using namespace o2::ml;
+using namespace boost;
 
 class qaIdeal : public Task
 {
@@ -53,14 +55,14 @@ class qaIdeal : public Task
   void read_ideal();
   void read_native();
   void read_network();
-  void init_map2d(int);
-  void fill_map2d(int, int, int);
-  void clear_memory();
-  void find_maxima(int);
-  void run_network(int, int);
-  void overwrite_map2d(int, int);
-  int test_neighbour(std::array<int, 3>, std::array<int, 2>, int);
-  // void effCloneFake(int, int);
+  void init_map2d(int, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2>);
+  void fill_map2d(int, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2>, int, int);
+  void clear_memory(std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2>);
+  void find_maxima(int, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2>);
+  void run_network(int, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2>, int);
+  void overwrite_map2d(int, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2>, int);
+  int test_neighbour(std::array<int, 3>, std::array<int, 2>, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2>, int);
+  void runQa(int);
   void run(ProcessingContext&) final;
 
  private:
@@ -70,7 +72,7 @@ class qaIdeal : public Task
   int networkInputSize = 100;       // vector input size for neural network
   bool networkOptimizations = true; // ONNX session optimizations
   int networkNumThreads = 10;       // Future: Add Cuda and CoreML Execution providers to run on CPU
-  std::array<int, 36> max_time, max_pad;
+  std::array<int, o2::tpc::constants::MAXSECTOR> max_time, max_pad;
   std::string mode = "training_data";
   std::string inFileDigits = "tpcdigits.root";
   std::string inFileNative = "tpc-cluster-native.root";
@@ -79,14 +81,18 @@ class qaIdeal : public Task
   std::string networkClassification = "./net_classification.onnx";
   std::string networkRegression = "./net_regression.onnx";
 
-  std::array<std::vector<std::array<std::array<int, 170>, 152>>, 2> map2d; // 0 - index ideal; 1 - index digits
   std::vector<int> maxima_digits;                                          // , digit_isNoise, digit_isQED, digit_isValid;
-  std::array<std::vector<std::array<int, 3>>, 36> digit_map, ideal_max_map;
-  std::array<std::vector<std::array<float, 3>>, 36> ideal_cog_map;
-  std::array<std::vector<std::array<float, 2>>, 36> ideal_sigma_map;
-  std::array<std::vector<float>, 36> ideal_max_q, ideal_cog_q, digit_q;
+  std::array<std::vector<std::array<int, 3>>, o2::tpc::constants::MAXSECTOR> digit_map, ideal_max_map;
+  std::array<std::vector<std::array<float, 3>>, o2::tpc::constants::MAXSECTOR> ideal_cog_map;
+  std::array<std::vector<std::array<float, 2>>, o2::tpc::constants::MAXSECTOR> ideal_sigma_map;
+  std::array<std::vector<float>, o2::tpc::constants::MAXSECTOR> ideal_max_q, ideal_cog_q, digit_q;
 
   std::vector<std::vector<std::array<int, 2>>> adj_mat = {{{0, 0}}, {{1, 0}, {0, 1}, {-1, 0}, {0, -1}}, {{1, 1}, {-1, 1}, {-1, -1}, {1, -1}}, {{2,0}, {0,-2}, {-2,0}, {0,2}}, {{2, 1}, {1, 2}, {-1, 2}, {-2, 1}, {-2, -1}, {-1, -2}, {1, -2}, {2, -1}}, {{2, 2}, {-2, 2}, {-2, -2}, {2, -2}}};
+
+  std::array<unsigned int, 25> assignments_ideal, assignments_digit, assignments_ideal_findable, assignments_digit_findable;
+  unsigned int number_of_ideal_max = 0, number_of_digit_max = 0, number_of_ideal_max_findable = 0;
+  unsigned int clones = 0;
+  float fractional_clones = 0;
 };
 
 // ---------------------------------
@@ -113,7 +119,7 @@ bool qaIdeal::checkIdx(int idx){
 }
 
 // ---------------------------------
-void qaIdeal::clear_memory()
+void qaIdeal::clear_memory(std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2> map2d)
 {
   map2d[0].clear();
   map2d[1].clear();
@@ -141,7 +147,7 @@ void qaIdeal::read_digits()
   TFile* digitFile = TFile::Open(inFileDigits.c_str());
   TTree* digitTree = (TTree*)digitFile->Get("o2sim");
 
-  for (int sector = 0; sector < 36; sector++) {
+  for (int sector = 0; sector < o2::tpc::constants::MAXSECTOR; sector++) {
 
     std::vector<o2::tpc::Digit>* digits = nullptr;
     int current_time = 0;
@@ -250,7 +256,7 @@ void qaIdeal::read_network()
   TTree* networkTree = (TTree*)networkFile->Get("data_tree");
 
   double sector, row, pad, time, reg_pad, reg_time, reg_qRatio;
-  std::vector<int> sizes(36,0);
+  std::vector<int> sizes(o2::tpc::constants::MAXSECTOR,0);
 
   networkTree->SetBranchAddress("sector", &sector);
   networkTree->SetBranchAddress("row", &row);
@@ -273,7 +279,7 @@ void qaIdeal::read_network()
     }
   }
 
-  for(int sec = 0; sec < 36; sec++){
+  for(int sec = 0; sec < o2::tpc::constants::MAXSECTOR; sec++){
     digit_map[sec].resize(sizes[sec]);
     digit_q[sec].resize(sizes[sec]);
   }
@@ -304,7 +310,7 @@ void qaIdeal::read_ideal()
   float cogp, cogt, cogq, maxq, sigmap, sigmat;
   int elements = 0;
 
-  for (int sector = 0; sector < 36; sector++) {
+  for (int sector = 0; sector < o2::tpc::constants::MAXSECTOR; sector++) {
     if (verbose > 0)
       LOG(info) << "Reading ideal clusterizer, sector " << sector << " ...";
     std::stringstream tmp_file;
@@ -354,13 +360,13 @@ void qaIdeal::read_ideal()
   }
 }
 
-void qaIdeal::init_map2d(int maxtime)
+void qaIdeal::init_map2d(int maxtime, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2> map2d)
 {
-  std::array<std::array<int, 170>, 152> temp_arr;
+  std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW> temp_arr;
   for (int i = 0; i < 2; i++) {
     for (int time_size = 0; time_size < maxtime + (2 * global_shift[1]) + 1; time_size++) {
       map2d[i].push_back(temp_arr);
-      for (int row = 0; row < 152; row++) {
+      for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++) {
         for (int pad = 0; pad < 170; pad++) {
           map2d[i][time_size][row][pad] = -1;
         }
@@ -373,7 +379,7 @@ void qaIdeal::init_map2d(int maxtime)
 }
 
 // ---------------------------------
-void qaIdeal::fill_map2d(int sector, int fillmode = 0, int use_max_cog = 0)
+void qaIdeal::fill_map2d(int sector, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2> map2d, int fillmode = 0, int use_max_cog = 0)
 {
 
   if (use_max_cog == 0) {
@@ -420,7 +426,7 @@ void qaIdeal::fill_map2d(int sector, int fillmode = 0, int use_max_cog = 0)
 }
 
 // ---------------------------------
-void qaIdeal::find_maxima(int sector)
+void qaIdeal::find_maxima(int sector, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2> map2d)
 {
 
   if (verbose >= 1) {
@@ -429,7 +435,7 @@ void qaIdeal::find_maxima(int sector)
 
   bool is_max = true;
   float current_charge = 0;
-  for (int row = 0; row < 152; row++) {
+  for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++) {
     if (verbose >= 3)
       LOG(info) << "Finding maxima in row " << row;
     for (int pad = 0; pad < 170; pad++) {
@@ -485,7 +491,7 @@ void qaIdeal::find_maxima(int sector)
 }
 
 // ---------------------------------
-void qaIdeal::run_network(int sector, int mode=0){
+void qaIdeal::run_network(int sector, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2> map2d, int mode=0){
 
   OnnxModel network;
 
@@ -566,11 +572,11 @@ void qaIdeal::run_network(int sector, int mode=0){
 }
 
 // ---------------------------------
-void qaIdeal::overwrite_map2d(int sector, int mode = 0)
+void qaIdeal::overwrite_map2d(int sector, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2> map2d, int mode = 0)
 {
 
   if (mode == 0) {
-    for (int row = 0; row < 152; row++) {
+    for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++) {
       for (int pad = 0; pad < 170; pad++) {
         for (int time = 0; time < (max_time[sector] + 2 * global_shift[1] + 1); time++) {
           map2d[1][time][row][pad] = -1;
@@ -581,7 +587,7 @@ void qaIdeal::overwrite_map2d(int sector, int mode = 0)
       map2d[1][digit_map[sector][maxima_digits[max]][2] + global_shift[1]][digit_map[sector][maxima_digits[max]][0]][digit_map[sector][maxima_digits[max]][1] + global_shift[0]] = max;
     }
   } else if (mode == 1) {
-    for (int row = 0; row < 152; row++) {
+    for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++) {
       for (int pad = 0; pad < 170; pad++) {
         for (int time = 0; time < (max_time[sector] + 2 * global_shift[1]); time++) {
           map2d[0][time][row][pad] = -1;
@@ -597,50 +603,24 @@ void qaIdeal::overwrite_map2d(int sector, int mode = 0)
 }
 
 // ---------------------------------
-int qaIdeal::test_neighbour(std::array<int, 3> index, std::array<int, 2> nn, int mode = 1)
+int qaIdeal::test_neighbour(std::array<int, 3> index, std::array<int, 2> nn, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2> map2d, int mode = 1)
 {
   return map2d[mode][(int)index[2] + global_shift[1] + nn[1]][(int)index[0]][(int)index[1] + global_shift[0] + nn[0]];
 }
 
 // ---------------------------------
-void qaIdeal::run(ProcessingContext& pc)
-{
+void qaIdeal::runQa(int loop_sectors){
 
-  if(mode.find(std::string("native")) != std::string::npos){
-    read_native();
-  }
-  else if(mode.find(std::string("network")) != std::string::npos){
-    read_network();
-  }
-  else{
-    read_digits();
-  }
+  std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2> map2d; // local 2D charge map, 0 - digits; 1 - ideal
+  
+  LOG(info) << "\nStarting process for sector " << loop_sectors;
 
-  read_ideal();
-
-  std::array<unsigned int, 25> assignments_ideal, assignments_digit, assignments_ideal_findable, assignments_digit_findable;
-  unsigned int number_of_ideal_max = 0, number_of_digit_max = 0, number_of_ideal_max_findable = 0;
-  unsigned int clones = 0;
-  float fractional_clones = 0;
-
-  // init array
-  for (int i = 0; i < 25; i++) {
-    assignments_ideal[i] = 0;
-    assignments_digit[i] = 0;
-    assignments_ideal_findable[i] = 0;
-    assignments_digit_findable[i] = 0;
-  }
-
-  // int current_max_dig_counter=0, current_max_id_counter=0;
-  for (int loop_sectors = 0; loop_sectors < 36; loop_sectors++) {
-    LOG(info) << "\nStarting process for sector " << loop_sectors;
-
-    init_map2d(max_time[loop_sectors]);
-    fill_map2d(loop_sectors, -1, 1);
+    init_map2d(max_time[loop_sectors], map2d);
+    fill_map2d(loop_sectors, map2d, -1, 1);
 
     if((mode.find(std::string("network")) == std::string::npos) && (mode.find(std::string("native")) == std::string::npos)){
-      find_maxima(loop_sectors);
-      overwrite_map2d(loop_sectors);
+      find_maxima(loop_sectors, map2d);
+      overwrite_map2d(loop_sectors, map2d);
     }
     else{
       maxima_digits.resize(digit_q[loop_sectors].size());
@@ -650,10 +630,10 @@ void qaIdeal::run(ProcessingContext& pc)
     // if(mode.find(std::string("native")) == std::string::npos){
     //   find_maxima(loop_sectors);
     //   if(mode.find(std::string("network")) != std::string::npos && mode.find(std::string("network_reg")) == std::string::npos){
-    //     run_network(loop_sectors, 0); // classification of maxima
+    //     run_network(loop_sectors, map2d, 0); // classification of maxima
     //   }
     //   else if(mode.find(std::string("network_reg")) != std::string::npos){
-    //     run_network(loop_sectors, 1); // classification + regression
+    //     run_network(loop_sectors, map2d, 1); // classification + regression
     //   }
     //   overwrite_map2d(loop_sectors);
     // }
@@ -709,7 +689,7 @@ void qaIdeal::run(ProcessingContext& pc)
 
         // Level-3 loop: Goes through all digit maxima and checks neighbourhood for potential ideal maxima
         for (unsigned int locdigit = 0; locdigit < maxima_digits.size(); locdigit++) {
-          current_neighbour = test_neighbour(digit_map[loop_sectors][maxima_digits[locdigit]], adj_mat[layer][nn], 0);
+          current_neighbour = test_neighbour(digit_map[loop_sectors][maxima_digits[locdigit]], adj_mat[layer][nn], map2d, 0);
           // if (verbose >= 5) LOG(info) << "current_neighbour: " << current_neighbour;
           // if (verbose >= 5) LOG(info) << "Maximum digit " << maxima_digits[locdigit];
           // if (verbose >= 5) LOG(info) << "Digit max index: " << digit_map[loop_sectors][maxima_digits[locdigit]][0] << " " << digit_map[loop_sectors][maxima_digits[locdigit]][1] << " " << digit_map[loop_sectors][maxima_digits[locdigit]][2];
@@ -729,7 +709,7 @@ void qaIdeal::run(ProcessingContext& pc)
           for (int i = 0; i < 3; i++) {
             rounded_cog[i] = round(ideal_cog_map[loop_sectors][locideal][i]);
           }
-          current_neighbour = test_neighbour(rounded_cog, adj_mat[layer][nn], 1);
+          current_neighbour = test_neighbour(rounded_cog, adj_mat[layer][nn], map2d, 1);
           // if (verbose >= 5) LOG(info) << "current_neighbour: " << current_neighbour;
           // if (verbose >= 5) LOG(info) << "Maximum ideal " << locideal;
           // if (verbose >= 5) LOG(info) << "Ideal max index: " << ideal_max_map[loop_sectors][locideal][0] << " " << ideal_max_map[loop_sectors][locideal][1] << " " << ideal_max_map[loop_sectors][locideal][2];
@@ -865,7 +845,7 @@ void qaIdeal::run(ProcessingContext& pc)
 
     if (mode.find(std::string("training_data")) != std::string::npos) {
 
-      overwrite_map2d(loop_sectors, 1);
+      overwrite_map2d(loop_sectors, map2d, 1);
 
       if (verbose >= 3)
         LOG(info) << "Creating training data...";
@@ -1021,8 +1001,40 @@ void qaIdeal::run(ProcessingContext& pc)
       outputFileTrData->Close();
     }
 
-    clear_memory();
+    clear_memory(map2d);
+
+}
+
+// ---------------------------------
+void qaIdeal::run(ProcessingContext& pc)
+{
+
+  if(mode.find(std::string("native")) != std::string::npos){
+    read_native();
   }
+  else if(mode.find(std::string("network")) != std::string::npos){
+    read_network();
+  }
+  else{
+    read_digits();
+  }
+
+  read_ideal();
+
+  // init array
+  for (int i = 0; i < 25; i++) {
+    assignments_ideal[i] = 0;
+    assignments_digit[i] = 0;
+    assignments_ideal_findable[i] = 0;
+    assignments_digit_findable[i] = 0;
+  }
+
+  // int current_max_dig_counter=0, current_max_id_counter=0;
+  thread_group group;
+  for (int loop_sectors = 0; loop_sectors < o2::tpc::constants::MAXSECTOR; loop_sectors++) {
+    group.create_thread(boost::bind(&qaIdeal::runQa, this, loop_sectors));
+  }
+  group.join_all();
 
   LOG(info) << "------- RESULTS -------\n";
   LOG(info) << "Number of digit maxima: " << number_of_digit_max;
