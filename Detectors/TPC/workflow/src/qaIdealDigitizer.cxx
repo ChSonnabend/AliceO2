@@ -55,13 +55,13 @@ class qaIdeal : public Task
   void read_ideal();
   void read_native();
   void read_network();
-  void init_map2d(int, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2>);
-  void fill_map2d(int, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2>, int, int);
-  void clear_memory(std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2>);
-  void find_maxima(int, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2>);
-  void run_network(int, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2>, int);
-  void overwrite_map2d(int, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2>, int);
-  int test_neighbour(std::array<int, 3>, std::array<int, 2>, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2>, int);
+  template <class T> void init_map2d(int, T);
+  template <class T> void fill_map2d(int, T, int, int);
+  template <class T> void clear_memory(T);
+  template <class T> void find_maxima(int, T);
+  template <class T> void run_network(int, T, int);
+  template <class T> void overwrite_map2d(int, T, int);
+  template <class T> int test_neighbour(std::array<int, 3>, std::array<int, 2>, T, int);
   void runQa(int);
   void run(ProcessingContext&) final;
 
@@ -72,6 +72,7 @@ class qaIdeal : public Task
   int networkInputSize = 100;       // vector input size for neural network
   bool networkOptimizations = true; // ONNX session optimizations
   int networkNumThreads = 10;       // Future: Add Cuda and CoreML Execution providers to run on CPU
+  int numPads = o2::tpc::constants::MAXGLOBALPADROW;                  // Number of pads to be multithreaded
   std::array<int, o2::tpc::constants::MAXSECTOR> max_time, max_pad;
   std::string mode = "training_data";
   std::string inFileDigits = "tpcdigits.root";
@@ -119,7 +120,8 @@ bool qaIdeal::checkIdx(int idx){
 }
 
 // ---------------------------------
-void qaIdeal::clear_memory(std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2> map2d)
+template <class T>
+void qaIdeal::clear_memory(T map2d)
 {
   map2d[0].clear();
   map2d[1].clear();
@@ -360,13 +362,14 @@ void qaIdeal::read_ideal()
   }
 }
 
-void qaIdeal::init_map2d(int maxtime, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2> map2d)
+template <class T>
+void qaIdeal::init_map2d(int maxtime, T map2d)
 {
-  std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW> temp_arr;
+  std::array<std::array<int, 170>, numPads> temp_arr; // std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2>
   for (int i = 0; i < 2; i++) {
     for (int time_size = 0; time_size < maxtime + (2 * global_shift[1]) + 1; time_size++) {
       map2d[i].push_back(temp_arr);
-      for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++) {
+      for (int row = 0; row < numPads; row++) {
         for (int pad = 0; pad < 170; pad++) {
           map2d[i][time_size][row][pad] = -1;
         }
@@ -379,7 +382,8 @@ void qaIdeal::init_map2d(int maxtime, std::array<std::vector<std::array<std::arr
 }
 
 // ---------------------------------
-void qaIdeal::fill_map2d(int sector, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2> map2d, int fillmode = 0, int use_max_cog = 0)
+template <class T>
+void qaIdeal::fill_map2d(int sector, T map2d, int fillmode = 0, int use_max_cog = 0)
 {
 
   if (use_max_cog == 0) {
@@ -426,7 +430,8 @@ void qaIdeal::fill_map2d(int sector, std::array<std::vector<std::array<std::arra
 }
 
 // ---------------------------------
-void qaIdeal::find_maxima(int sector, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2> map2d)
+template <class T>
+void qaIdeal::find_maxima(int sector, T map2d)
 {
 
   if (verbose >= 1) {
@@ -491,7 +496,8 @@ void qaIdeal::find_maxima(int sector, std::array<std::vector<std::array<std::arr
 }
 
 // ---------------------------------
-void qaIdeal::run_network(int sector, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2> map2d, int mode=0){
+template <class T>
+void qaIdeal::run_network(int sector, T map2d, int mode=0){
 
   OnnxModel network;
 
@@ -572,7 +578,8 @@ void qaIdeal::run_network(int sector, std::array<std::vector<std::array<std::arr
 }
 
 // ---------------------------------
-void qaIdeal::overwrite_map2d(int sector, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2> map2d, int mode = 0)
+template <class T>
+void qaIdeal::overwrite_map2d(int sector, T map2d, int mode = 0)
 {
 
   if (mode == 0) {
@@ -603,7 +610,8 @@ void qaIdeal::overwrite_map2d(int sector, std::array<std::vector<std::array<std:
 }
 
 // ---------------------------------
-int qaIdeal::test_neighbour(std::array<int, 3> index, std::array<int, 2> nn, std::array<std::vector<std::array<std::array<int, 170>, o2::tpc::constants::MAXGLOBALPADROW>>, 2> map2d, int mode = 1)
+template <class T>
+int qaIdeal::test_neighbour(std::array<int, 3> index, std::array<int, 2> nn, T map2d, int mode = 1)
 {
   return map2d[mode][(int)index[2] + global_shift[1] + nn[1]][(int)index[0]][(int)index[1] + global_shift[0] + nn[0]];
 }
