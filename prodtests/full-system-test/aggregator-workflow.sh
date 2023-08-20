@@ -224,6 +224,9 @@ if [[ $AGGREGATOR_TASKS == BARREL_TF ]] || [[ $AGGREGATOR_TASKS == ALL ]]; then
   if [[ $CALIB_TRD_GAIN == 1 ]]; then
     TRD_CALIB_CONFIG+=" --gain"
   fi
+  if [[ $CALIB_TRD_T0 == 1 ]]; then
+    TRD_CALIB_CONFIG+=" --t0"
+  fi
   if [[ ! -z ${TRD_CALIB_CONFIG} ]]; then
     add_W o2-calibration-trd-workflow "${TRD_CALIB_CONFIG}"
   fi
@@ -253,7 +256,7 @@ nBuffer=$((100 * 128 / ${NHBPERTF}))
 IDC_DELTA="--disable-IDCDelta true" # off by default
 # deltas are on by default; you need to request explicitly to switch them off;
 if [[ "${DISABLE_IDC_DELTA:-}" == "1" ]]; then IDC_DELTA=""; fi
-if [[ "${ENABLE_IDC_DELTA_FILE:-}" == "1" ]]; then IDC_DELTA+=" --dump-IDCDelta-calib-data true --output-dir $CALIB_DIR --meta-output-dir $CALIB_DIR"; fi
+if [[ "${ENABLE_IDC_DELTA_FILE:-}" == "1" ]]; then IDC_DELTA+=" --dump-IDCDelta-calib-data true --output-dir $CALIB_DIR --meta-output-dir $EPN2EOS_METAFILES_DIR "; fi
 
 if ! workflow_has_parameter CALIB_LOCAL_INTEGRATED_AGGREGATOR; then
   if [[ $CALIB_TPC_IDC == 1 ]] && [[ $AGGREGATOR_TASKS == TPC_IDCBOTH_SAC || $AGGREGATOR_TASKS == ALL ]]; then

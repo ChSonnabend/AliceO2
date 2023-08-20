@@ -159,7 +159,9 @@ fi
 workflow_has_parameter CALIB && [[ $CALIB_TRD_VDRIFTEXB == 1 ]] && TRD_CONFIG+=" --enable-vdexb-calib"
 workflow_has_parameter CALIB && [[ $CALIB_TRD_GAIN == 1 ]] && TRD_CONFIG+=" --enable-gain-calib"
 ! has_detector FT0 && TRD_CONFIG+=" --disable-ft0-pileup-tagging"
-[[ ${DISABLE_TRD_PH:-} != 1 ]] && TRD_CONFIG+=" --enable-ph"
+if ( workflow_has_parameter CALIB && [[ $CALIB_TRD_T0 == 1 ]] ) || [[ ${DISABLE_TRD_PH:-} != 1 ]]; then
+  TRD_CONFIG+=" --enable-ph"
+fi
 
 SEND_ITSTPC_DTGL=
 workflow_has_parameter CALIB && [[ $CALIB_TPC_VDRIFTTGL == 1 ]] && SEND_ITSTPC_DTGL="--produce-calibration-data"
@@ -261,7 +263,7 @@ fi
 ( workflow_has_parameter AOD || [[ -z "$DISABLE_ROOT_OUTPUT" ]] || needs_root_output o2-emcal-cell-writer-workflow ) && has_detector EMC && RAW_EMC_SUBSPEC=" --subspecification 1 "
 has_detector_reco MID && has_detector_matching MCHMID && MFTMCHConf="FwdMatching.useMIDMatch=true;" || MFTMCHConf="FwdMatching.useMIDMatch=false;"
 
-[[ $IS_SIMULATED_DATA == "1" ]] && EMCRAW2C_CONFIG+=" --no-mergeHGLG --no-checkactivelinks"
+[[ $IS_SIMULATED_DATA == "1" ]] && EMCRAW2C_CONFIG+=" --no-checkactivelinks"
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Temporary extra options
@@ -466,8 +468,9 @@ has_detector_reco MCH && ( [[ -z "$DISABLE_ROOT_OUTPUT" ]] || needs_root_output 
 has_detector_matching PRIMVTX && [[ ! -z "$VERTEXING_SOURCES" ]] && add_W o2-primary-vertexing-workflow "$DISABLE_MC $DISABLE_DIGIT_ROOT_INPUT $DISABLE_ROOT_OUTPUT $PVERTEX_CONFIG --pipeline $(get_N primary-vertexing MATCH REST 1 PRIMVTX),$(get_N pvertex-track-matching MATCH REST 1 PRIMVTXMATCH)" "${PVERTEXING_CONFIG_KEY}"
 
 if [[ $BEAMTYPE != "cosmic" ]]; then
-  has_detectors_reco ITS && has_detector_matching SECVTX && [[ ! -z "$SVERTEXING_SOURCES" ]] && add_W o2-secondary-vertexing-workflow "$DISABLE_DIGIT_ROOT_INPUT $DISABLE_ROOT_OUTPUT $TPC_CORR_SCALING --vertexing-sources $SVERTEXING_SOURCES --threads $SVERTEX_THREADS --pipeline $(get_N secondary-vertexing MATCH REST $SVERTEX_THREADS SECVTX)"
-  has_detectors_reco ITS && has_detector_matching SECVTX && has_detector_matching STRK && add_W o2-strangeness-tracking-workflow "$DISABLE_MC $DISABLE_DIGIT_ROOT_INPUT $DISABLE_ROOT_OUTPUT --pipeline $(get_N strangeness-tracking MATCH REST 1 STRK)"
+  : ${STRTRACKING:="--disable-strangeness-tracker"}
+  has_detectors_reco ITS && has_detector_matching SECVTX && has_detector_matching && STRTRACKING=""
+  has_detectors_reco ITS && has_detector_matching SECVTX && [[ ! -z "$SVERTEXING_SOURCES" ]] && add_W o2-secondary-vertexing-workflow "$DISABLE_MC $STRTRACKING $DISABLE_DIGIT_ROOT_INPUT $DISABLE_ROOT_OUTPUT $TPC_CORR_SCALING --vertexing-sources $SVERTEXING_SOURCES --threads $SVERTEX_THREADS --pipeline $(get_N secondary-vertexing MATCH REST $SVERTEX_THREADS SECVTX)"
 fi
 
 # ---------------------------------------------------------------------------------------------------------------------

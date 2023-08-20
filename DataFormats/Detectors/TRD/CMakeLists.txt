@@ -14,6 +14,7 @@ o2_add_library(DataFormatsTRD
                        src/LinkRecord.cxx
                        src/AngularResidHistos.cxx
                        src/GainCalibHistos.cxx
+                       src/T0FitHistos.cxx
                        src/DcsCcdbObjects.cxx
                        src/Tracklet64.cxx
                        src/RawData.cxx
@@ -37,13 +38,15 @@ o2_target_root_dictionary(DataFormatsTRD
                        include/DataFormatsTRD/DcsCcdbObjects.h
                        include/DataFormatsTRD/AngularResidHistos.h
                        include/DataFormatsTRD/GainCalibHistos.h
+                       include/DataFormatsTRD/T0FitHistos.h
                        include/DataFormatsTRD/HelperMethods.h
                        include/DataFormatsTRD/Hit.h
                        include/DataFormatsTRD/Digit.h
                        include/DataFormatsTRD/KrCluster.h
                        include/DataFormatsTRD/KrClusterTriggerRecord.h
                        include/DataFormatsTRD/NoiseCalibration.h
-                        include/DataFormatsTRD/PHData.h
+                       include/DataFormatsTRD/PHData.h
+                       include/DataFormatsTRD/RawDataStats.h
                        include/DataFormatsTRD/CTF.h
                        include/DataFormatsTRD/CalVdriftExB.h
                        include/DataFormatsTRD/CalGain.h
