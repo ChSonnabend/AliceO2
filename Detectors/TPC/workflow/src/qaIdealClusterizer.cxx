@@ -62,28 +62,28 @@ class qaIdeal : public Task
 
   void read_network(int);
 
+  void clear_memory(int, int, int);
+
   template <class T>
   T init_map2d(int, std::vector<int>);
 
   template <class T>
-  void fill_map2d(int, std::vector<int>, T, int = 0, int = 0);
-
-  void clear_memory(int, int, int);
+  void fill_map2d(int, std::vector<int>, T&, int = 0, int = 0);
 
   template <class T>
-  void find_maxima(int, int, int, T);
+  void find_maxima(int, int, int, T&);
 
   template <class T>
-  void run_network(int, int, int, T, int = 0);
+  void run_network(int, int, int, T&, int = 0);
 
   template <class T>
-  void overwrite_map2d(int, int, int, T, int = 0);
+  void overwrite_map2d(int, int, int, T&, int = 0);
 
   template <class T>
-  int test_neighbour(int, std::array<int, 3>, std::array<int, 2>, T, int = 1);
+  int test_neighbour(int, std::array<int, 3>, std::array<int, 2>, T&, int = 1);
 
   template <class T>
-  void runQaSingle(int, int, int, T);
+  void runQaSingle(int, int, int, T&);
 
   template <class T>
   void runQa(int, std::vector<int>);
@@ -97,7 +97,7 @@ class qaIdeal : public Task
   int networkInputSize = 100;       // vector input size for neural network
   bool networkOptimizations = true; // ONNX session optimizations
   int networkNumThreads = 10;       // Future: Add Cuda and CoreML Execution providers to run on CPU
-  int numThreads = 1;               // Number of threads for multithreading
+  int numThreads = 1;                 // Number of cores for multithreading
   std::array<int, o2::tpc::constants::MAXSECTOR> max_time, max_pad;
   std::string mode = "training_data";
   std::string inFileDigits = "tpcdigits.root";
@@ -401,7 +401,7 @@ T qaIdeal::init_map2d(int maxtime, std::vector<int> rows)
   for (int i = 0; i < 2; i++) {
     map2d[i].resize(maxtime + (2 * global_shift[1]) + 1);
     for (int time_size = 0; time_size < maxtime + (2 * global_shift[1]) + 1; time_size++) {
-      // map2d[i].push_back(std::array<std::array<int, 170>, 10>{});
+      map2d[i][time_size].resize((int)std::ceil(o2::tpc::constants::MAXGLOBALPADROW / (2 * numThreads)));
       for (int row = 0; row < rows[1] - rows[0]; row++) {
         for (int pad = 0; pad < 170; pad++) {
           map2d[i][time_size][row][pad] = -1;
@@ -412,13 +412,13 @@ T qaIdeal::init_map2d(int maxtime, std::vector<int> rows)
 
   if (verbose >= 1)
     LOG(info) << "Initialized 2D map! Time size is " << map2d[0].size();
-  
+
   return map2d;
 }
 
 // ---------------------------------
 template <class T>
-void qaIdeal::fill_map2d(int sector, std::vector<int> rows, T map2d, int fillmode, int use_max_cog)
+void qaIdeal::fill_map2d(int sector, std::vector<int> rows, T& map2d, int fillmode, int use_max_cog)
 {
 
   // assert(map2d[0][sector].size() == rows.size()); //s Add later
@@ -471,7 +471,7 @@ void qaIdeal::fill_map2d(int sector, std::vector<int> rows, T map2d, int fillmod
 
 // ---------------------------------
 template <class T>
-void qaIdeal::find_maxima(int sector, int globalrow, int localrow, T map2d)
+void qaIdeal::find_maxima(int sector, int globalrow, int localrow, T& map2d)
 {
 
   if (verbose >= 1) {
@@ -526,16 +526,16 @@ void qaIdeal::find_maxima(int sector, int globalrow, int localrow, T map2d)
       }
     }
     if (verbose >= 3)
-      LOG(info) << "Found " << maxima_digits[sector][globalrow].size() << " maxima in row " << globalrow;
+      LOG(info) << "Global row " << globalrow << "; Found " << maxima_digits[sector][globalrow].size() << " maxima in row " << globalrow;
   }
 
   if (verbose >= 1)
-    LOG(info) << "Found " << maxima_digits[sector][globalrow].size() << " maxima. Done!";
+    LOG(info) << "Global row " << globalrow << "; Found " << maxima_digits[sector][globalrow].size() << " maxima. Done!";
 }
 
 // ---------------------------------
 template <class T>
-void qaIdeal::run_network(int sector, int globalrow, int localrow, T map2d, int mode)
+void qaIdeal::run_network(int sector, int globalrow, int localrow, T& map2d, int mode)
 {
 
   OnnxModel network;
@@ -616,7 +616,7 @@ void qaIdeal::run_network(int sector, int globalrow, int localrow, T map2d, int 
 
 // ---------------------------------
 template <class T>
-void qaIdeal::overwrite_map2d(int sector, int globalrow, int localrow, T map2d, int mode)
+void qaIdeal::overwrite_map2d(int sector, int globalrow, int localrow, T& map2d, int mode)
 {
 
   if (mode == 0) {
@@ -644,17 +644,18 @@ void qaIdeal::overwrite_map2d(int sector, int globalrow, int localrow, T map2d, 
 
 // ---------------------------------
 template <class T>
-int qaIdeal::test_neighbour(int localrow, std::array<int, 3> index, std::array<int, 2> nn, T map2d, int mode)
+int qaIdeal::test_neighbour(int localrow, std::array<int, 3> index, std::array<int, 2> nn, T& map2d, int mode)
 {
   return map2d[mode][(int)index[2] + global_shift[1] + nn[1]][localrow][(int)index[1] + global_shift[0] + nn[0]];
 }
 
 // ---------------------------------
 template <class T>
-void qaIdeal::runQaSingle(int sector, int globalrow, int localrow, T map2d)
+void qaIdeal::runQaSingle(int sector, int globalrow, int localrow, T& map2d)
 {
 
-  LOG(info) << "Starting process for sector " << sector;
+  if (verbose >= 1)
+    LOG(info) << "Starting process for sector " << sector;
 
   if ((mode.find(std::string("network")) == std::string::npos) && (mode.find(std::string("native")) == std::string::npos)) {
     find_maxima<T>(sector, globalrow, localrow, map2d);
@@ -681,7 +682,8 @@ void qaIdeal::runQaSingle(int sector, int globalrow, int localrow, T map2d)
 
   // effCloneFake(0, loop_chunks*chunk_size);
   // Assignment at d=1
-  LOG(info) << "Maxima found in digits (before): " << maxima_digits.size() << "; Maxima found in ideal clusters (before): " << ideal_max_map[sector][globalrow].size();
+  // if (verbose >= 1)
+  //   LOG(info) << "Maxima found in digits (before): " << maxima_digits[sector][globalrow].size() << "; Maxima found in ideal clusters (before): " << ideal_max_map[sector][globalrow].size();
 
   std::vector<int> assigned_ideal(ideal_max_map[sector][globalrow].size(), 0), clone_order(maxima_digits[sector][globalrow].size(), 0);
   std::vector<std::array<int, 25>> assignments_dig_to_id(ideal_max_map[sector][globalrow].size());
@@ -1050,14 +1052,11 @@ void qaIdeal::runQaSingle(int sector, int globalrow, int localrow, T map2d)
 template <class T>
 void qaIdeal::runQa(int sector, std::vector<int> rows)
 {
-  LOG(info) << "Running QA for sector " << sector << ", rows " << rows[0] << " - " << rows[1];
+  LOG(info) << "Running QA for sector " << sector << ", rows " << rows[0] << " - " << rows[1]-1;
   T map2d = init_map2d<T>(max_time[sector], rows);
-  LOG(info) << "Initialized 2D charge map";
   fill_map2d<T>(sector, rows, map2d, -1, 1);
-  LOG(info) << "Filled charge map";
   for (int row = rows[0]; row < rows[1]; row++) {
-    runQaSingle(sector, row, row - rows[0], map2d);
-    LOG(info) << "Cleaning up...";
+    runQaSingle<T>(sector, row, row - rows[0], map2d);
     clear_memory(sector, rows[0] + row, row);
   }
 }
@@ -1066,8 +1065,7 @@ void qaIdeal::runQa(int sector, std::vector<int> rows)
 void qaIdeal::run(ProcessingContext& pc)
 {
 
-  const int rows_size = 10;
-  typedef std::array<std::vector<std::array<std::array<int, 170>, rows_size>>, 2> qa_t;
+  typedef std::array<std::vector<std::vector<std::array<int, 170>>>, 2> qa_t;
 
   // init array
   for (int i = 0; i < 25; i++) {
@@ -1090,8 +1088,8 @@ void qaIdeal::run(ProcessingContext& pc)
 
     if (numThreads > 1) {
       thread_group group;
-      for (int loop_rows = 0; loop_rows < 16; loop_rows++) {
-        group.create_thread(boost::bind(&qaIdeal::runQa<qa_t>, this, loop_sectors, std::vector<int>{loop_rows * rows_size, (loop_rows + 1) * rows_size}));
+      for (int loop_threads = 0; loop_threads < numThreads; loop_threads++) {
+        group.create_thread(boost::bind(&qaIdeal::runQa<qa_t>, this, loop_sectors, std::vector<int>{loop_threads * (int)(o2::tpc::constants::MAXGLOBALPADROW / numThreads), (int)std::min((loop_threads + 1) * (int)(o2::tpc::constants::MAXGLOBALPADROW / numThreads), o2::tpc::constants::MAXGLOBALPADROW)}));
       }
       group.join_all();
     } else {
@@ -1160,7 +1158,7 @@ DataProcessorSpec processIdealClusterizer()
     Options{
       {"verbose", VariantType::Int, 0, {"Verbosity level"}},
       {"mode", VariantType::String, "training_data", {"Enables different settings (e.g. creation of training data for NN, running with tpc-native clusters)."}},
-      {"threads", VariantType::Int, 1, {"Number of CPU cores to be used."}},
+      {"threads", VariantType::Int, 1, {"Number of CPU threads to be used."}},
       {"infile-digits", VariantType::String, "tpcdigits.root", {"Input file name (digits)"}},
       {"infile-native", VariantType::String, "tpc-native-clusters.root", {"Input file name (native)"}},
       {"network-data-output", VariantType::String, "network_out.root", {"Input file for the network output"}},
