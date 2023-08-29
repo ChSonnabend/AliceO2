@@ -410,7 +410,7 @@ T qaIdeal::init_map2d(int maxtime)
 {
   T map2d;
   for (int i = 0; i < 2; i++) {
-    map2d[i].resize(maxtime + (2 * global_shift[1]) + 1);
+    map2d[i].resize(maxtime + (2 * global_shift[1]) + 10);
     for (int time_size = 0; time_size < maxtime + (2 * global_shift[1]) + 1; time_size++) {
       for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++) {
         for (int pad = 0; pad < 170; pad++) {
@@ -965,8 +965,8 @@ void qaIdeal::runQa(int loop_sectors)
                   assigned_ideal[current_idx_id]++;
                   current_element[0] = native_map[loop_sectors][maxima_digits[loop_sectors][max_point]][2];
                   current_element[1] = native_map[loop_sectors][maxima_digits[loop_sectors][max_point]][1];
-                  current_element[2] = ideal_max_map[loop_sectors][current_idx_id][2];
-                  current_element[3] = ideal_max_map[loop_sectors][current_idx_id][1];
+                  current_element[2] = ideal_cog_map[loop_sectors][current_idx_id][2];
+                  current_element[3] = ideal_cog_map[loop_sectors][current_idx_id][1];
                 }
               }
             }
