@@ -996,7 +996,7 @@ void qaIdeal::runQa(int loop_sectors)
     native_ideal->Branch("ideal_cog_time", &id_time);
     native_ideal->Branch("ideal_cog_pad", &id_pad);
 
-    for(int elem = 0; elem < native_ideal_assignemnt.size(); elem++){
+    for (int elem = 0; elem < native_ideal_assignemnt.size(); elem++) {
       nat_time = native_ideal_assignemnt[elem][0];
       nat_pad = native_ideal_assignemnt[elem][1];
       id_time = native_ideal_assignemnt[elem][2];
@@ -1046,7 +1046,7 @@ void qaIdeal::runQa(int loop_sectors)
         for (int time = 0; time < mat_size_time; time++) {
           for (int pad = 0; pad < mat_size_pad; pad++) {
             map_q_idx = map2d[0][digit_map[loop_sectors][maxima_digits[loop_sectors][max_point]][2] + time][digit_map[loop_sectors][maxima_digits[loop_sectors][max_point]][0]][digit_map[loop_sectors][maxima_digits[loop_sectors][max_point]][1] + pad];
-            map_q_idx == -1 ? tr_data_X[max_point][time][pad] = 0 : tr_data_X[max_point][time][pad] = digit_q[loop_sectors][map_q_idx] / 10000.f;
+            map_q_idx == -1 ? tr_data_X[max_point][time][pad] = 0 : tr_data_X[max_point][time][pad] = digit_q[loop_sectors][map_q_idx] / 1028.f;
           }
         }
         check_assignment = 0;
@@ -1210,13 +1210,23 @@ void qaIdeal::run(ProcessingContext& pc)
   if (numThreads > 1) {
     thread_group group;
     for (int loop_sectors = 0; loop_sectors < o2::tpc::constants::MAXSECTOR; loop_sectors++) {
-      if (loop_sectors == 0 || loop_sectors % numThreads != 0) {
-        group.create_thread(boost::bind(&qaIdeal::runQa, this, loop_sectors));
-      } else {
+      group.create_thread(boost::bind(&qaIdeal::runQa, this, loop_sectors));
+      if((loop_sectors+1)%numThreads == 0) {
         group.join_all();
       }
     }
     group.join_all();
+
+    // boost::thread threads[numThreads];
+    // for (int loop_sectors = 0; loop_sectors < std::ceil(o2::tpc::constants::MAXSECTOR / numThreads); loop_sectors++) {
+    //   threads[loop_sectors%numThreads] = boost::thread(&qaIdeal::runQa, loop_sectors);
+    //   if((loop_sectors+1)%numThreads == 0) {
+    //     for (int i = 0; i < numThreads; ++i) {
+    //       threads[i].join();
+    //     }
+    //   }
+    // }
+
   } else {
     for (int loop_sectors = 0; loop_sectors < o2::tpc::constants::MAXSECTOR; loop_sectors++) {
       runQa(loop_sectors);
