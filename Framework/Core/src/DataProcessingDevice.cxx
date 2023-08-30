@@ -1070,11 +1070,6 @@ void DataProcessingDevice::fillContext(DataProcessorContext& context, DeviceCont
   }
 
   auto decideEarlyForward = [&context, &spec, this]() -> bool {
-    // There is nothing produced by this device, so we can forward early
-    // because this is a proxy.
-    if (spec.forwards.empty() == false && spec.outputs.empty() == true) {
-      return true;
-    }
     /// We must make sure there is no optional
     /// if we want to optimize the forwarding
     bool canForwardEarly = (spec.forwards.empty() == false) && mProcessingPolicies.earlyForward != EarlyForwardPolicy::NEVER;
@@ -1227,6 +1222,18 @@ void DataProcessingDevice::Run()
         state.transitionHandling = TransitionHandlingState::Requested;
         auto& deviceContext = ref.get<DeviceContext>();
         auto timeout = deviceContext.exitTransitionTimeout;
+        // Check if we only have timers
+        bool onlyTimers = true;
+        auto& spec = ref.get<DeviceSpec const>();
+        for (auto& route : spec.inputs) {
+          if (route.matcher.lifetime != Lifetime::Timer) {
+            onlyTimers = false;
+            break;
+          }
+        }
+        if (onlyTimers) {
+          state.streaming = StreamingState::EndOfStreaming;
+        }
         if (timeout != 0 && state.streaming != StreamingState::Idle) {
           state.transitionHandling = TransitionHandlingState::Requested;
           ref.get<CallbackService>().call<CallbackService::Id::ExitRequested>(ServiceRegistryRef{ref});
