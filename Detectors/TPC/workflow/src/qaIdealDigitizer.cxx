@@ -397,6 +397,15 @@ void qaIdeal::read_ideal()
         ideal_cog_q[sector][j] = cogq;
         elements++;
 
+        if (maxt > max_time[sector])
+          max_time[sector] = maxt;
+        if (maxp > max_pad[sector])
+          max_pad[sector] = maxp;
+        if (std::ceil(cogt) > max_time[sector])
+          max_time[sector] = std::ceil(cogt);
+        if (std::ceil(cogp) > max_pad[sector])
+          max_pad[sector] = std::ceil(cogp);
+
       } catch (...) {
         LOG(info) << "(Digitizer) Problem occured in sector " << sector;
       }
@@ -410,7 +419,7 @@ T qaIdeal::init_map2d(int maxtime)
 {
   T map2d;
   for (int i = 0; i < 2; i++) {
-    map2d[i].resize(maxtime + (2 * global_shift[1]) + 10);
+    map2d[i].resize(maxtime + (2 * global_shift[1]) + 1);
     for (int time_size = 0; time_size < maxtime + (2 * global_shift[1]) + 1; time_size++) {
       for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++) {
         for (int pad = 0; pad < 170; pad++) {
@@ -756,20 +765,10 @@ void qaIdeal::runQa(int loop_sectors)
       // Level-3 loop: Goes through all ideal maxima and checks neighbourhood for potential digit maxima
       std::array<int, 3> rounded_cog;
       for (unsigned int locideal = 0; locideal < ideal_max_map[loop_sectors].size(); locideal++) {
-        // if (loop_sectors == 26) {
-        //   LOG(info) << "Index " << locideal << "/" << ideal_max_map[loop_sectors].size() << "/" << ideal_cog_map[loop_sectors].size();
-        //   LOG(info) << "Ideal CoG: " << ideal_cog_map[loop_sectors][locideal][0];
-        //   LOG(info) << "Ideal CoG: " << ideal_cog_map[loop_sectors][locideal][1];
-        //   LOG(info) << "Ideal CoG: " << ideal_cog_map[loop_sectors][locideal][2];
-        // }
         for (int i = 0; i < 3; i++) {
           rounded_cog[i] = round(ideal_cog_map[loop_sectors][locideal][i]);
         }
         current_neighbour = test_neighbour(rounded_cog, adj_mat[layer][nn], map2d, 1);
-
-        // if (loop_sectors == 26) {
-        //   LOG(info) << "Current neighbour " << current_neighbour;
-        // }
         // if (verbose >= 5) LOG(info) << "current_neighbour: " << current_neighbour;
         // if (verbose >= 5) LOG(info) << "Maximum ideal " << locideal;
         // if (verbose >= 5) LOG(info) << "Ideal max index: " << ideal_max_map[loop_sectors][locideal][0] << " " << ideal_max_map[loop_sectors][locideal][1] << " " << ideal_max_map[loop_sectors][locideal][2];
@@ -1168,7 +1167,7 @@ void qaIdeal::runQa(int loop_sectors)
   if (verbose >= 3)
     LOG(info) << "Files written. Clearing memory...";
 
-  clear_memory(loop_sectors);
+  // clear_memory(loop_sectors);
 
   if (verbose >= 3)
     LOG(info) << "Memory clean. Done.";

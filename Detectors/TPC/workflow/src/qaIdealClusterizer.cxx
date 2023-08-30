@@ -928,7 +928,7 @@ void qaIdeal::runQaSingle(int sector, int globalrow, int localrow, T& map2d)
         for (int time = 0; time < mat_size_time; time++) {
           for (int pad = 0; pad < mat_size_pad; pad++) {
             map_q_idx = map2d[0][digit_map[sector][globalrow][maxima_digits[sector][globalrow][max_point]][2] + time][localrow][digit_map[sector][globalrow][maxima_digits[sector][globalrow][max_point]][1] + pad];
-            map_q_idx == -1 ? tr_data_X[max_point][time][pad] = 0 : tr_data_X[max_point][time][pad] = digit_q[sector][globalrow][map_q_idx] / 100.f;
+            map_q_idx == -1 ? tr_data_X[max_point][time][pad] = 0 : tr_data_X[max_point][time][pad] = digit_q[sector][globalrow][map_q_idx] / 1024.f;
           }
         }
         check_assignment = 0;
@@ -981,7 +981,7 @@ void qaIdeal::runQaSingle(int sector, int globalrow, int localrow, T& map2d)
           tr_data_Y_reg[1][max_point] = ideal_cog_map[sector][globalrow][index_assignment][1] - digit_map[sector][globalrow][maxima_digits[sector][globalrow][max_point]][1]; // pad
           tr_data_Y_reg[2][max_point] = ideal_sigma_map[sector][globalrow][index_assignment][0];                                                                              // sigma pad
           tr_data_Y_reg[3][max_point] = ideal_sigma_map[sector][globalrow][index_assignment][1];                                                                              // sigma time
-          tr_data_Y_reg[4][max_point] = ideal_cog_q[sector][globalrow][index_assignment] / q_max;
+          tr_data_Y_reg[4][max_point] = ideal_cog_q[sector][globalrow][index_assignment] / 1.e5;
           // if(std::abs(digit_map[loop_sectors][maxima_digits[max_point]][2] - ideal_cog_map[loop_sectors][index_assignment][2]) > 3 || std::abs(digit_map[loop_sectors][maxima_digits[max_point]][1] - ideal_cog_map[loop_sectors][index_assignment][1]) > 3){
           //   LOG(info) << "#Maxima: " << maxima_digits.size() << ", Index (point) " << max_point << " & (max) " << maxima_digits[max_point] << " & (ideal) " << index_assignment << ", ideal_cog_map[loop_sectors].size(): " <<  ideal_cog_map[loop_sectors].size() << ", index_assignment: " << index_assignment;
           // }
@@ -1057,7 +1057,7 @@ void qaIdeal::runQa(int sector, std::vector<int> rows)
   fill_map2d<T>(sector, rows, map2d, -1, 1);
   for (int row = rows[0]; row < rows[1]; row++) {
     runQaSingle<T>(sector, row, row - rows[0], map2d);
-    clear_memory(sector, rows[0] + row, row);
+    // clear_memory(sector, rows[0] + row, row);
   }
 }
 
