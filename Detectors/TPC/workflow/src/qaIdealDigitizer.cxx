@@ -186,7 +186,9 @@ void qaIdeal::read_digits(int sector, std::vector<std::array<int, 3>>& digit_map
       max_time[sector] = current_time;
     if (digit.getPad() > max_pad[sector])
       max_pad[sector] = digit.getPad();
-    digit_map[i_digit] = std::array<int, 3>{digit.getRow(), digit.getPad(), current_time};
+    digit_map[i_digit][0] = digit.getRow();
+    digit_map[i_digit][1] = digit.getPad();
+    digit_map[i_digit][2] = current_time;
     digit_q[i_digit] = digit.getChargeFloat();
     // digit_isNoise[i_digit] = digit.isNoise();
     // digit_isQED[i_digit] = digit.isQED();
