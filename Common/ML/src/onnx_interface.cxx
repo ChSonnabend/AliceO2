@@ -123,7 +123,7 @@ float* OnnxModel::inference(T input, unsigned int size)
     mem_size*=elem;
   }
   inputTensors.emplace_back(Ort::Experimental::Value::CreateTensor<float>(input.data(), mem_size, inputShape));
-  LOG(info) << "Input tensors created, memory size: " << mem_size*sizeof(float)/1e6 << "MB";
+  // LOG(info) << "Input tensors created, memory size: " << mem_size*sizeof(float)/1e6 << "MB";
   try {
     auto outputTensors = mSession->Run(mInputNames, inputTensors, mOutputNames);
     float* outputValues = outputTensors[0].GetTensorMutableData<float>();

@@ -77,9 +77,10 @@ class qaIdeal : public Task
   int global_shift[2] = {5, 5};     // shifting digits to select windows easier, (pad, time)
   int charge_limits[2] = {2, 1024}; // upper and lower charge limits
   int verbose = 0;                  // chunk_size in time direction
-  int networkInputSize = 100;       // vector input size for neural network
+  int networkInputSize = 1000;       // vector input size for neural network
+  float networkClassThres = 0.5f;   // Threshold where network decides to keep / reject digit maximum
   bool networkOptimizations = true; // ONNX session optimizations
-  int networkNumThreads = 10;       // Future: Add Cuda and CoreML Execution providers to run on CPU
+  int networkNumThreads = 1;        // Future: Add Cuda and CoreML Execution providers to run on CPU
   int numThreads = 1;               // Number of cores for multithreading
 
   std::array<int, o2::tpc::constants::MAXSECTOR> max_time, max_pad;
@@ -96,6 +97,8 @@ class qaIdeal : public Task
   std::array<std::array<unsigned int, 25>, o2::tpc::constants::MAXSECTOR> assignments_ideal, assignments_digit, assignments_ideal_findable, assignments_digit_findable;
   std::array<unsigned int, o2::tpc::constants::MAXSECTOR> number_of_ideal_max, number_of_digit_max, number_of_ideal_max_findable, clones;
   std::array<float, o2::tpc::constants::MAXSECTOR> fractional_clones;
+
+  OnnxModel network_classification, network_regression;
 };
 
 // ---------------------------------
@@ -110,10 +113,16 @@ void qaIdeal::init(InitContext& ic)
   networkClassification = ic.options().get<std::string>("network-classification-path");
   networkRegression = ic.options().get<std::string>("network-regression-path");
   networkInputSize = ic.options().get<int>("network-input-size");
+  networkClassThres = ic.options().get<float>("network-class-threshold");
   networkOptimizations = ic.options().get<bool>("enable-network-optimizations");
   networkNumThreads = ic.options().get<int>("network-num-threads");
 
   ROOT::EnableThreadSafety();
+
+  if (mode.find(std::string("network")) != std::string::npos) {
+    network_classification.init(networkClassification, networkOptimizations, networkNumThreads);
+    network_regression.init(networkRegression, networkOptimizations, networkNumThreads);
+  }
 
   if (verbose >= 1)
     LOG(info) << "Initialized QA macro!";
@@ -212,7 +221,7 @@ void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map
   for (int i = 0; i < tpcClusterReader.getTreeSize(); ++i) {
     tpcClusterReader.read(i);
     tpcClusterReader.fillIndex(clusterIndex, clusterBuffer, clusterMCBuffer);
-    
+
     int nClustersSec = 0;
     for (int irow = 0; irow < o2::tpc::constants::MAXGLOBALPADROW; ++irow) {
       nClustersSec += clusterIndex.nClusters[sector][irow];
@@ -285,7 +294,7 @@ void qaIdeal::read_network(int sector, std::vector<std::array<int, 3>>& digit_ma
 
   digit_map.resize(sizes[sector]);
   digit_q.resize(sizes[sector]);
-  
+
   std::fill(sizes.begin(), sizes.end(), 0);
 
   for (unsigned int j = 0; j < networkTree->GetEntries(); j++) {
@@ -541,7 +550,7 @@ void qaIdeal::find_maxima(int sector, T& map2d, std::vector<int>& maxima_digits,
 
 // ---------------------------------
 template <class T>
-void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits, std::vector<std::array<int, 3>>& digit_map, std::vector<float>& digit_q, int mode)
+void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits, std::vector<std::array<int, 3>>& digit_map, std::vector<float>& digit_q, int eval_mode)
 {
 
   OnnxModel network;
@@ -549,7 +558,9 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
   // Loading the data
   std::vector<float> input_vector(maxima_digits.size() * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), 0.);
   std::vector<float> central_charges(maxima_digits.size(), 0.);
+  std::vector<int> new_max_dig = maxima_digits;
 
+  int network_reg_size = 0, survivor_max = 0, counter_max_dig = 0;
   std::vector<float> output_network_class(maxima_digits.size(), 0), output_network_reg;
   std::vector<float> temp_input(networkInputSize * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), 0);
 
@@ -562,38 +573,57 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
     }
   }
 
-  if (mode >= 0) {
-    network.init(networkClassification, networkOptimizations, networkNumThreads);
+  if (eval_mode >= 0) {
     for (int max = 0; max < maxima_digits.size(); max++) {
       for (int idx = 0; idx < (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1); idx++) {
         temp_input[(max % networkInputSize) * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) + idx] = input_vector[max * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) + idx];
       }
       if ((max + 1) % networkInputSize == 0) {
-        float* out_net = network.inference(temp_input, temp_input.size());
+        float* out_net = network_classification.inference(temp_input, temp_input.size());
         for (int idx = 0; idx < networkInputSize; idx++) {
           output_network_class[int(max / networkInputSize - 1) * (networkInputSize) + idx] = out_net[idx];
+          if (out_net[idx] > networkClassThres) {
+            network_reg_size++;
+          } else {
+            new_max_dig[max] = -1;
+          }
         }
       }
     }
+    maxima_digits.clear();
+    maxima_digits.resize(network_reg_size);
+
+    for (int max = 0; max < new_max_dig.size(); max++) {
+      if (new_max_dig[max] > -1) {
+        maxima_digits[counter_max_dig] = new_max_dig[max];
+      }
+    }
+
     LOG(info) << "Classification network done!";
   }
 
-  if (mode >= 1) {
-    network.init(networkRegression, networkOptimizations, networkNumThreads);
-    int count_num_maxima = 0;
+  if (eval_mode == 1) {
+    output_network_reg.resize(3 * network_reg_size);
+    int count_num_maxima = 0, count_reg = 0;
+    std::vector<int> max_pos;
+    max_pos.resize(networkInputSize);
     for (int max = 0; max < maxima_digits.size(); max++) {
-      if (output_network_class[max] > 0.5) {
+      if (output_network_class[max] > networkClassThres) {
         for (int idx = 0; idx < (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1); idx++) {
           temp_input[(max % networkInputSize) * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) + idx] = input_vector[max * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) + idx];
         }
+        count_num_maxima++;
+        max_pos[count_num_maxima] = maxima_digits[max];
       }
-      if ((max + 1) % networkInputSize == 0) {
-        float* out_net = network.inference(temp_input, temp_input.size());
-        for (int idx = 0; idx < 3 * networkInputSize; idx++) {
-          output_network_reg.push_back(out_net[idx]);
+      if (count_num_maxima % networkInputSize == 0) {
+        float* out_net = network_regression.inference(temp_input, temp_input.size());
+        for (int idx = 0; idx < networkInputSize; idx++) {
+          output_network_reg[count_reg] = out_net[3 * idx] + digit_map[maxima_digits[max_pos[idx]]][1] + global_shift[0];
+          output_network_reg[count_reg + 1] = out_net[3 * idx + 1] + digit_map[maxima_digits[max_pos[idx]]][2] + global_shift[1];
+          output_network_reg[count_reg + 2] = out_net[3 * idx + 2];
+          count_reg += 3;
         }
-      } else {
-        maxima_digits.erase(maxima_digits.begin() + max);
+        count_num_maxima = 0;
       }
     }
     LOG(info) << "Regression network done!";
@@ -614,7 +644,7 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
     }
     LOG(info) << "Digit map written.";
   } else {
-    LOG(fatal) << "(Network evaluation error) Mode unknown!";
+    LOG(fatal) << "(Network evaluation failure) Mode unknown!";
   }
 }
 
@@ -672,7 +702,8 @@ void qaIdeal::runQa(int loop_sectors)
   if (mode.find(std::string("native")) != std::string::npos) {
     read_native(loop_sectors, digit_map, native_map, digit_q);
   } else if (mode.find(std::string("network")) != std::string::npos) {
-    read_network(loop_sectors, digit_map, digit_q);
+    // read_network(loop_sectors, digit_map, digit_q);
+    read_digits(loop_sectors, digit_map, digit_q);
   } else {
     read_digits(loop_sectors, digit_map, digit_q);
   }
@@ -692,20 +723,18 @@ void qaIdeal::runQa(int loop_sectors)
     std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);
   }
 
-  // if(mode.find(std::string("native")) == std::string::npos){
-  //   find_maxima(loop_sectors);
-  //   if(mode.find(std::string("network")) != std::string::npos && mode.find(std::string("network_reg")) == std::string::npos){
-  //     run_network(loop_sectors, map2d, 0); // classification of maxima
-  //   }
-  //   else if(mode.find(std::string("network_reg")) != std::string::npos){
-  //     run_network(loop_sectors, map2d, 1); // classification + regression
-  //   }
-  //   overwrite_map2d(loop_sectors);
-  // }
-  // else{
-  //   maxima_digits.resize(digit_q.size());
-  //   std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);
-  // }
+  if (mode.find(std::string("native")) == std::string::npos) {
+    find_maxima<qa_t>(loop_sectors, map2d, maxima_digits, digit_q);
+    if (mode.find(std::string("network")) != std::string::npos && mode.find(std::string("network_reg")) == std::string::npos) {
+      run_network<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, 0); // classification of maxima
+    } else if (mode.find(std::string("network_reg")) != std::string::npos) {
+      run_network<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, 1); // classification + regression
+    }
+    overwrite_map2d<qa_t>(loop_sectors, map2d, digit_map, digit_q, maxima_digits, 0);
+  } else {
+    maxima_digits.resize(digit_q.size());
+    std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);
+  }
 
   // effCloneFake(0, loop_chunks*chunk_size);
   // Assignment at d=1
@@ -1102,8 +1131,8 @@ void qaIdeal::runQa(int loop_sectors)
         if (check_assignment > 0 && is_min_dist) {
           tr_data_Y_reg[0][max_point] = ideal_cog_map[index_assignment][2] - digit_map[maxima_digits[max_point]][2]; // time
           tr_data_Y_reg[1][max_point] = ideal_cog_map[index_assignment][1] - digit_map[maxima_digits[max_point]][1]; // pad
-          tr_data_Y_reg[2][max_point] = ideal_sigma_map[index_assignment][0];                                                                    // sigma pad
-          tr_data_Y_reg[3][max_point] = ideal_sigma_map[index_assignment][1];                                                                    // sigma time
+          tr_data_Y_reg[2][max_point] = ideal_sigma_map[index_assignment][0];                                        // sigma pad
+          tr_data_Y_reg[3][max_point] = ideal_sigma_map[index_assignment][1];                                        // sigma time
           tr_data_Y_reg[4][max_point] = ideal_cog_q[index_assignment] / 10000.f;
           // if(std::abs(digit_map[maxima_digits[max_point]][2] - ideal_cog_map[index_assignment][2]) > 3 || std::abs(digit_map[maxima_digits[max_point]][1] - ideal_cog_map[index_assignment][1]) > 3){
           //   LOG(info) << "#Maxima: " << maxima_digits.size() << ", Index (point) " << max_point << " & (max) " << maxima_digits[max_point] << " & (ideal) " << index_assignment << ", ideal_cog_map.size(): " <<  ideal_cog_map.size() << ", index_assignment: " << index_assignment;
@@ -1178,7 +1207,7 @@ void qaIdeal::runQa(int loop_sectors)
   if (verbose >= 3)
     LOG(info) << "Memory clean. Done.";
 
-    // boost::this_thread::sleep(boost::posix_time::milliseconds(10));
+  // boost::this_thread::sleep(boost::posix_time::milliseconds(10));
 }
 
 // ---------------------------------
@@ -1208,22 +1237,11 @@ void qaIdeal::run(ProcessingContext& pc)
     thread_group group;
     for (int loop_sectors = 0; loop_sectors < o2::tpc::constants::MAXSECTOR; loop_sectors++) {
       group.create_thread(boost::bind(&qaIdeal::runQa, this, loop_sectors));
-      if((loop_sectors+1)%numThreads == 0) {
+      if ((loop_sectors + 1) % numThreads == 0) {
         group.join_all();
       }
     }
     group.join_all();
-
-    // boost::thread threads[numThreads];
-    // for (int loop_sectors = 0; loop_sectors < std::ceil(o2::tpc::constants::MAXSECTOR / numThreads); loop_sectors++) {
-    //   threads[loop_sectors%numThreads] = boost::thread(&qaIdeal::runQa, loop_sectors);
-    //   if((loop_sectors+1)%numThreads == 0) {
-    //     for (int i = 0; i < numThreads; ++i) {
-    //       threads[i].join();
-    //     }
-    //   }
-    // }
-
   } else {
     for (int loop_sectors = 0; loop_sectors < o2::tpc::constants::MAXSECTOR; loop_sectors++) {
       runQa(loop_sectors);
@@ -1317,9 +1335,10 @@ DataProcessorSpec processIdealClusterizer()
       {"network-data-output", VariantType::String, "network_out.root", {"Input file for the network output"}},
       {"network-classification-path", VariantType::String, "./net_classification.onnx", {"Absolute path to the network file (classification)"}},
       {"network-regression-path", VariantType::String, "./net_regression.onnx", {"Absolute path to the network file (regression)"}},
-      {"network-input-size", VariantType::Int, 100, {"Size of the vector to be fed through the neural network"}},
+      {"network-input-size", VariantType::Int, 1000, {"Size of the vector to be fed through the neural network"}},
+      {"network-class-threshold", VariantType::Float, 0.5f, {"Threshold for classification network: Keep or reject maximum (default: 0.5)"}},
       {"enable-network-optimizations", VariantType::Bool, true, {"Enable ONNX network optimizations"}},
-      {"network-num-threads", VariantType::Int, 10, {"Set the number of CPU threads for network execution"}}}};
+      {"network-num-threads", VariantType::Int, 1, {"Set the number of CPU threads for network execution"}}}};
 }
 
 WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
