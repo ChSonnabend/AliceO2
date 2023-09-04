@@ -61,7 +61,7 @@ class qaIdeal : public Task
   template <class T>
   T init_map2d(int);
   template <class T>
-  void fill_map2d(int, T&, std::vector<std::array<int, 3>>&, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 3>>&, int = 0, int = 0);
+  void fill_map2d(int, T&, std::vector<std::array<int, 3>>&, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<float>&, int = 0, int = 0);
   template <class T>
   void find_maxima(int, T&, std::vector<int>&, std::vector<float>&);
   template <class T>
@@ -77,7 +77,7 @@ class qaIdeal : public Task
   int global_shift[2] = {5, 5};     // shifting digits to select windows easier, (pad, time)
   int charge_limits[2] = {2, 1024}; // upper and lower charge limits
   int verbose = 0;                  // chunk_size in time direction
-  int networkInputSize = 1000;       // vector input size for neural network
+  int networkInputSize = 1000;      // vector input size for neural network
   float networkClassThres = 0.5f;   // Threshold where network decides to keep / reject digit maximum
   bool networkOptimizations = true; // ONNX session optimizations
   int networkNumThreads = 1;        // Future: Add Cuda and CoreML Execution providers to run on CPU
@@ -243,8 +243,12 @@ void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map
       for (int icl = 0; icl < nClusters; ++icl) {
         const auto& cl = *(clusterIndex.clusters[sector][irow] + icl);
         clusters.processCluster(cl, Sector(sector), irow);
-        digit_map[count_clusters] = std::array<int, 3>{irow, static_cast<int>(round(cl.getPad())), static_cast<int>(round(cl.getTime()))};
-        native_map[count_clusters] = std::array<float, 3>{(float)irow, cl.getPad(), cl.getTime()};
+        digit_map[count_clusters][0] = irow;
+        digit_map[count_clusters][1] = static_cast<int>(round(cl.getPad()));
+        digit_map[count_clusters][2] = static_cast<int>(round(cl.getTime()));
+        native_map[count_clusters][0] = (float)irow;
+        native_map[count_clusters][1] =  cl.getPad();
+        native_map[count_clusters][2] = cl.getTime();
         digit_q[count_clusters] = cl.getQtot();
         if (cl.getTime() > max_time[sector])
           max_time[sector] = cl.getTime();
@@ -438,47 +442,51 @@ T qaIdeal::init_map2d(int maxtime)
 
 // ---------------------------------
 template <class T>
-void qaIdeal::fill_map2d(int sector, T& map2d, std::vector<std::array<int, 3>>& digit_map, std::vector<std::array<int, 3>>& ideal_max_map, std::vector<std::array<float, 3>>& ideal_cog_map, int fillmode, int use_max_cog)
+void qaIdeal::fill_map2d(int sector, T& map2d, std::vector<std::array<int, 3>>& digit_map, std::vector<std::array<int, 3>>& ideal_max_map, std::vector<float>& ideal_max_q, std::vector<std::array<float, 3>>& ideal_cog_map, std::vector<float>& ideal_cog_q, int fillmode, int use_max_cog)
 {
+
+  int* map_ptr = nullptr;
 
   if (use_max_cog == 0) {
     // Storing the indices
-    if (fillmode == 0) {
+    if (fillmode == 0 || fillmode == -1) {
       for (unsigned int ind = 0; ind < digit_map.size(); ind++) {
         map2d[1][digit_map[ind][2] + global_shift[1]][digit_map[ind][0]][digit_map[ind][1] + global_shift[0]] = ind;
       }
-    } else if (fillmode == 1) {
+    }
+    if (fillmode == 1 || fillmode == -1) {
       for (unsigned int ind = 0; ind < ideal_max_map.size(); ind++) {
-        map2d[0][ideal_max_map[ind][2] + global_shift[1]][ideal_max_map[ind][0]][ideal_max_map[ind][1] + global_shift[0]] = ind;
+        map_ptr = &map2d[0][ideal_max_map[ind][2] + global_shift[1]][ideal_max_map[ind][0]][ideal_max_map[ind][1] + global_shift[0]];
+        if (*map_ptr == -1 || ideal_max_q[ind] > ideal_max_q[*map_ptr]) { // Using short-circuiting for second expression
+          if(*map_ptr != -1 && verbose >= 4){
+            LOG(warning) << "Conflict detected! Current MaxQ : " << ideal_max_q[*map_ptr] << "; New MaxQ: " << ideal_max_q[ind] << "; Index " << ind << "/" << ideal_max_map.size();
+          }
+          *map_ptr = ind;
+        }
       }
-    } else if (fillmode == -1) {
-      for (unsigned int ind = 0; ind < digit_map.size(); ind++) {
-        map2d[1][digit_map[ind][2] + global_shift[1]][digit_map[ind][0]][digit_map[ind][1] + global_shift[0]] = ind;
-      }
-      for (unsigned int ind = 0; ind < ideal_max_map.size(); ind++) {
-        map2d[0][ideal_max_map[ind][2] + global_shift[1]][ideal_max_map[ind][0]][ideal_max_map[ind][1] + global_shift[0]] = ind;
-      }
-    } else {
+    }
+    if (fillmode < -1 || fillmode > 1) {
       LOG(info) << "Fillmode unknown! No fill performed!";
     }
   } else if (use_max_cog == 1) {
     // Storing the indices
-    if (fillmode == 0) {
+    if (fillmode == 0 || fillmode == -1) {
       for (unsigned int ind = 0; ind < digit_map.size(); ind++) {
         map2d[1][digit_map[ind][2] + global_shift[1]][digit_map[ind][0]][digit_map[ind][1] + global_shift[0]] = ind;
       }
-    } else if (fillmode == 1) {
+    }
+    if (fillmode == 1 || fillmode == -1) {
       for (unsigned int ind = 0; ind < ideal_cog_map.size(); ind++) {
-        map2d[0][round(ideal_cog_map[ind][2]) + global_shift[1]][round(ideal_cog_map[ind][0])][round(ideal_cog_map[ind][1]) + global_shift[0]] = ind;
+        map_ptr = &map2d[0][round(ideal_cog_map[ind][2]) + global_shift[1]][round(ideal_cog_map[ind][0])][round(ideal_cog_map[ind][1]) + global_shift[0]];
+        if (*map_ptr == -1 || ideal_cog_q[ind] > ideal_cog_q[*map_ptr]) {
+          if(*map_ptr != -1 && verbose >= 4){
+            LOG(warning) << "Conflict detected! Current CoGQ : " << ideal_cog_q[*map_ptr] << "; New CoGQ: " << ideal_cog_q[ind] << "; Index " << ind << "/" << ideal_cog_map.size();
+          }
+          *map_ptr = ind;
+        }
       }
-    } else if (fillmode == -1) {
-      for (unsigned int ind = 0; ind < digit_map.size(); ind++) {
-        map2d[1][digit_map[ind][2] + global_shift[1]][digit_map[ind][0]][digit_map[ind][1] + global_shift[0]] = ind;
-      }
-      for (unsigned int ind = 0; ind < ideal_cog_map.size(); ind++) {
-        map2d[0][round(ideal_cog_map[ind][2]) + global_shift[1]][round(ideal_cog_map[ind][0])][round(ideal_cog_map[ind][1]) + global_shift[0]] = ind;
-      }
-    } else {
+    }
+    if (fillmode < -1 || fillmode > 1) {
       LOG(info) << "Fillmode unknown! No fill performed!";
     }
   }
@@ -715,7 +723,7 @@ void qaIdeal::runQa(int loop_sectors)
   LOG(info) << "Starting process for sector " << loop_sectors;
 
   qa_t map2d = init_map2d<qa_t>(max_time[loop_sectors]);
-  fill_map2d<qa_t>(loop_sectors, map2d, digit_map, ideal_max_map, ideal_cog_map, -1, 1);
+  fill_map2d<qa_t>(loop_sectors, map2d, digit_map, ideal_max_map, ideal_max_q, ideal_cog_map, ideal_cog_q, -1, 1);
 
   if ((mode.find(std::string("network")) == std::string::npos) && (mode.find(std::string("native")) == std::string::npos)) {
     find_maxima<qa_t>(loop_sectors, map2d, maxima_digits, digit_q);
