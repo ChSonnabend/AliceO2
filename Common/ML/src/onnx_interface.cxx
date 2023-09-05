@@ -45,7 +45,13 @@ void OnnxModel::init(std::string localPath, bool enableOptimizations, int thread
   /// Enableing optimizations
   if(threads != 0){
     // sessionOptions.SetInterOpNumThreads(1);
-    sessionOptions.SetIntraOpNumThreads(threads);
+    if(threads == 1){
+      sessionOptions.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
+    }
+    else{
+      sessionOptions.SetExecutionMode(ExecutionMode::ORT_PARALLEL);
+      sessionOptions.SetIntraOpNumThreads(threads);
+    }
   }
   if (enableOptimizations) {
     // sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
