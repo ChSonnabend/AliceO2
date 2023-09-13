@@ -52,7 +52,7 @@ class qaIdeal : public Task
 {
  public:
   void init(InitContext&) final;
-  void setGeomFromTxt(std::string, std::vector<int> = {152,14});
+  void setGeomFromTxt(std::string, std::vector<int> = {152, 14});
   bool checkIdx(int);
   void clear_memory(int);
   void read_digits(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
@@ -75,16 +75,16 @@ class qaIdeal : public Task
   void run(ProcessingContext&) final;
 
  private:
-  std::vector<int> global_shift = {5, 5, 0};        // shifting digits to select windows easier, (pad, time)
-  int charge_limits[2] = {2, 1024};                 // upper and lower charge limits
-  int verbose = 0;                                  // chunk_size in time direction
-  bool create_output = true;                        // Create output files specific for any mode
-  int dim = 2;                                      // Dimensionality of the training data
-  int networkInputSize = 1000;                      // vector input size for neural network
-  float networkClassThres = 0.5f;                   // Threshold where network decides to keep / reject digit maximum
-  bool networkOptimizations = true;                 // ONNX session optimizations
-  int networkNumThreads = 1;                        // Future: Add Cuda and CoreML Execution providers to run on CPU
-  int numThreads = 1;                               // Number of cores for multithreading
+  std::vector<int> global_shift = {5, 5, 0}; // shifting digits to select windows easier, (pad, time)
+  int charge_limits[2] = {2, 1024};          // upper and lower charge limits
+  int verbose = 0;                           // chunk_size in time direction
+  bool create_output = true;                 // Create output files specific for any mode
+  int dim = 2;                               // Dimensionality of the training data
+  int networkInputSize = 1000;               // vector input size for neural network
+  float networkClassThres = 0.5f;            // Threshold where network decides to keep / reject digit maximum
+  bool networkOptimizations = true;          // ONNX session optimizations
+  int networkNumThreads = 1;                 // Future: Add Cuda and CoreML Execution providers to run on CPU
+  int numThreads = 1;                        // Number of cores for multithreading
   int use_max_cog = 1;
 
   std::array<int, o2::tpc::constants::MAXSECTOR> max_time, max_pad;
@@ -107,7 +107,8 @@ class qaIdeal : public Task
   OnnxModel network_classification, network_regression;
 };
 
-void qaIdeal::setGeomFromTxt(std::string inputFile, std::vector<int> size){
+void qaIdeal::setGeomFromTxt(std::string inputFile, std::vector<int> size)
+{
 
   std::ifstream infile(inputFile.c_str(), std::ifstream::in);
   if (!infile.is_open()) {
@@ -131,7 +132,7 @@ void qaIdeal::setGeomFromTxt(std::string inputFile, std::vector<int> size){
 
   TPC_GEOM.resize(size[0]);
   std::fill(TPC_GEOM.begin(), TPC_GEOM.end(), std::vector<float>(size[1], 0));
-  int trace=0;
+  int trace = 0;
 
   std::string line;
   while (std::getline(infile, line)) {
@@ -172,21 +173,20 @@ void qaIdeal::init(InitContext& ic)
   //   LOG(info) << "Output of classification network (" << "): " << out_net_class[i];
   // }
 
-  if (mode.find(std::string("network")) != std::string::npos) {
+  if (mode.find(std::string("network_class")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
     network_classification.init(networkClassification, networkOptimizations, networkNumThreads);
   }
-  if (mode.find(std::string("network_reg")) != std::string::npos) {
+  if (mode.find(std::string("network_reg")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
     network_regression.init(networkRegression, networkOptimizations, networkNumThreads);
   }
 
   const char* aliceO2env = std::getenv("O2_ROOT");
-  if(aliceO2env){
+  if (aliceO2env) {
     std::string geom_file = aliceO2env;
     geom_file += "/share/Detectors/TPC/files/PAD_ROW_MAX.txt";
     setGeomFromTxt(geom_file);
     LOG(info) << "Geometry set!";
-  }
-  else{
+  } else {
     LOG(fatal) << "ALICE O2 environment not found!";
   }
   if (verbose >= 1)
@@ -481,12 +481,12 @@ void qaIdeal::fill_map2d(int sector, T& map2d, std::vector<std::array<int, 3>>& 
     // Storing the indices
     if (fillmode == 0 || fillmode == -1) {
       for (unsigned int ind = 0; ind < digit_map.size(); ind++) {
-        map2d[1][digit_map[ind][2] + global_shift[1]][digit_map[ind][0] + global_shift[2]][digit_map[ind][1] + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[digit_map[ind][0]][2])/2)] = ind;
+        map2d[1][digit_map[ind][2] + global_shift[1]][digit_map[ind][0] + global_shift[2]][digit_map[ind][1] + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[digit_map[ind][0]][2]) / 2)] = ind;
       }
     }
     if (fillmode == 1 || fillmode == -1) {
       for (unsigned int ind = 0; ind < ideal_max_map.size(); ind++) {
-        map_ptr = &map2d[0][ideal_max_map[ind][2] + global_shift[1]][ideal_max_map[ind][0] + global_shift[2]][ideal_max_map[ind][1] + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[ideal_max_map[ind][0]][2])/2)];
+        map_ptr = &map2d[0][ideal_max_map[ind][2] + global_shift[1]][ideal_max_map[ind][0] + global_shift[2]][ideal_max_map[ind][1] + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[ideal_max_map[ind][0]][2]) / 2)];
         if (*map_ptr == -1 || ideal_max_q[ind] > ideal_max_q[*map_ptr]) { // Using short-circuiting for second expression
           if (*map_ptr != -1 && verbose >= 4) {
             LOG(warning) << "Conflict detected! Current MaxQ : " << ideal_max_q[*map_ptr] << "; New MaxQ: " << ideal_max_q[ind] << "; Index " << ind << "/" << ideal_max_map.size();
@@ -502,12 +502,12 @@ void qaIdeal::fill_map2d(int sector, T& map2d, std::vector<std::array<int, 3>>& 
     // Storing the indices
     if (fillmode == 0 || fillmode == -1) {
       for (unsigned int ind = 0; ind < digit_map.size(); ind++) {
-        map2d[1][digit_map[ind][2] + global_shift[1]][digit_map[ind][0] + global_shift[2]][digit_map[ind][1] + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[digit_map[ind][0]][2])/2)] = ind;
+        map2d[1][digit_map[ind][2] + global_shift[1]][digit_map[ind][0] + global_shift[2]][digit_map[ind][1] + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[digit_map[ind][0]][2]) / 2)] = ind;
       }
     }
     if (fillmode == 1 || fillmode == -1) {
       for (unsigned int ind = 0; ind < ideal_cog_map.size(); ind++) {
-        map_ptr = &map2d[0][round(ideal_cog_map[ind][2]) + global_shift[1]][round(ideal_cog_map[ind][0] + global_shift[2])][round(ideal_cog_map[ind][1]) + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[round(ideal_cog_map[ind][0])][2])/2)];
+        map_ptr = &map2d[0][round(ideal_cog_map[ind][2]) + global_shift[1]][round(ideal_cog_map[ind][0] + global_shift[2])][round(ideal_cog_map[ind][1]) + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[round(ideal_cog_map[ind][0])][2]) / 2)];
         if (*map_ptr == -1 || ideal_cog_q[ind] > ideal_cog_q[*map_ptr]) {
           if (*map_ptr != -1 && verbose >= 4) {
             LOG(warning) << "Conflict detected! Current CoGQ : " << ideal_cog_q[*map_ptr] << "; New CoGQ: " << ideal_cog_q[ind] << "; Index " << ind << "/" << ideal_cog_map.size();
@@ -538,44 +538,44 @@ void qaIdeal::find_maxima(int sector, T& map2d, std::vector<int>& maxima_digits,
       LOG(info) << "Finding maxima in row " << row;
     for (int pad = 0; pad < TPC_GEOM[row][2] + 1; pad++) {
       for (int time = 0; time < max_time[sector]; time++) {
-        if (checkIdx(map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[row][2])/2)])) {
+        if (checkIdx(map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)])) {
 
-          current_charge = digit_q[map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[row][2])/2)]];
+          current_charge = digit_q[map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)]];
 
-          if (map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[row][2])/2) + 1] != -1) {
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[row][2])/2) + 1]]);
+          if (map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) + 1] != -1) {
+            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) + 1]]);
           }
 
-          if (is_max && map2d[1][time + global_shift[1] + 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[row][2])/2)] != -1) {
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] + 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[row][2])/2)]]);
+          if (is_max && map2d[1][time + global_shift[1] + 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)] != -1) {
+            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] + 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)]]);
           }
 
-          if (is_max && map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[row][2])/2) - 1] != -1) {
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[row][2])/2) - 1]]);
+          if (is_max && map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) - 1] != -1) {
+            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) - 1]]);
           }
 
-          if (is_max && map2d[1][time + global_shift[1] - 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[row][2])/2)] != -1) {
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] - 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[row][2])/2)]]);
+          if (is_max && map2d[1][time + global_shift[1] - 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)] != -1) {
+            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] - 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)]]);
           }
 
-          if (is_max && map2d[1][time + global_shift[1] + 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[row][2])/2) + 1] != -1) {
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] + 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[row][2])/2) + 1]]);
+          if (is_max && map2d[1][time + global_shift[1] + 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) + 1] != -1) {
+            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] + 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) + 1]]);
           }
 
-          if (is_max && map2d[1][time + global_shift[1] - 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[row][2])/2) + 1] != -1) {
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] - 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[row][2])/2) + 1]]);
+          if (is_max && map2d[1][time + global_shift[1] - 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) + 1] != -1) {
+            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] - 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) + 1]]);
           }
 
-          if (is_max && map2d[1][time + global_shift[1] + 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[row][2])/2) - 1] != -1) {
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] + 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[row][2])/2) - 1]]);
+          if (is_max && map2d[1][time + global_shift[1] + 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) - 1] != -1) {
+            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] + 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) - 1]]);
           }
 
-          if (is_max && map2d[1][time + global_shift[1] - 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[row][2])/2) - 1] != -1) {
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] - 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[row][2])/2) - 1]]);
+          if (is_max && map2d[1][time + global_shift[1] - 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) - 1] != -1) {
+            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] - 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) - 1]]);
           }
 
           if (is_max) {
-            maxima_digits.push_back(map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[row][2])/2)]);
+            maxima_digits.push_back(map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)]);
           }
           is_max = true;
         }
@@ -597,25 +597,27 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
   // Loading the data
   std::vector<float> input_vector(maxima_digits.size() * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), 0.f);
   std::vector<float> central_charges(maxima_digits.size(), 0.f);
-  std::vector<int> new_max_dig = maxima_digits;
+  std::vector<int> new_max_dig = maxima_digits, index_pass(maxima_digits.size(), 0);
+  std::iota(index_pass.begin(), index_pass.end(), 0);
+  network_map.resize(maxima_digits.size());
 
-  int network_reg_size = 0, survivor_max = 0, counter_max_dig = 0, array_idx;
+  int network_reg_size = maxima_digits.size(), counter_max_dig = 0, array_idx;
   std::vector<float> output_network_class(maxima_digits.size(), 0.f), output_network_reg;
   std::vector<float> temp_input(networkInputSize * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), 0.f);
 
   for (unsigned int max = 0; max < maxima_digits.size(); max++) {
-    central_charges[max] = digit_q[map2d[1][digit_map[maxima_digits[max]][2] + global_shift[1]][digit_map[maxima_digits[max]][0]][digit_map[maxima_digits[max]][1] + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[digit_map[maxima_digits[max]][0]][2])/2)]];
+    central_charges[max] = digit_q[map2d[1][digit_map[maxima_digits[max]][2] + global_shift[1]][digit_map[maxima_digits[max]][0]][digit_map[maxima_digits[max]][1] + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[digit_map[maxima_digits[max]][0]][2]) / 2)]];
     for (int pad = 0; pad < 2 * global_shift[0] + 1; pad++) {
       for (int time = 0; time < 2 * global_shift[1] + 1; time++) {
-        array_idx = map2d[1][digit_map[maxima_digits[max]][2] + time][digit_map[maxima_digits[max]][0]][digit_map[maxima_digits[max]][1] + pad + (int)((TPC_GEOM[151][2]-TPC_GEOM[digit_map[maxima_digits[max]][0]][2])/2)];
+        array_idx = map2d[1][digit_map[maxima_digits[max]][2] + time][digit_map[maxima_digits[max]][0]][digit_map[maxima_digits[max]][1] + pad + (int)((TPC_GEOM[151][2] - TPC_GEOM[digit_map[maxima_digits[max]][0]][2]) / 2)];
         if (array_idx > -1)
           input_vector[max * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) + (2 * global_shift[1] + 1) * pad + time] = digit_q[array_idx] / central_charges[max];
       }
     }
   }
 
-  if (eval_mode >= 0) {
-
+  if (eval_mode == 0 || eval_mode == 2) {
+    network_reg_size = 0;
     for (int max = 0; max < maxima_digits.size(); max++) {
       for (int idx = 0; idx < (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1); idx++) {
         temp_input[(max % networkInputSize) * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) + idx] = input_vector[max * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) + idx];
@@ -650,12 +652,14 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
     }
     maxima_digits.clear();
     network_map.clear();
+    index_pass.clear();
     maxima_digits.resize(network_reg_size);
     network_map.resize(network_reg_size);
 
     for (int max = 0; max < new_max_dig.size(); max++) {
       if (new_max_dig[max] > -1) {
         maxima_digits[counter_max_dig] = new_max_dig[max];
+        index_pass.push_back(max);
         counter_max_dig++;
       }
     }
@@ -663,25 +667,25 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
     LOG(info) << "Classification network done!";
   }
 
-  if (eval_mode == 1) {
+  if (eval_mode == 1 || eval_mode == 2) {
     output_network_reg.resize(3 * network_reg_size);
     int count_num_maxima = 0, count_reg = 0;
     std::vector<int> max_pos(networkInputSize);
     for (int max = 0; max < maxima_digits.size(); max++) {
       for (int idx = 0; idx < (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1); idx++) {
-        temp_input[(count_num_maxima % networkInputSize) * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) + idx] = input_vector[max * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) + idx];
+        temp_input[(count_num_maxima % networkInputSize) * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) + idx] = input_vector[index_pass[max] * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) + idx];
       }
-      count_num_maxima++;
       max_pos[count_num_maxima] = max;
+      count_num_maxima++;
       if ((count_num_maxima % networkInputSize == 0 && count_num_maxima > 0) || max + 1 == maxima_digits.size()) {
         float* out_net = network_regression.inference(temp_input, networkInputSize);
         for (int idx = 0; idx < networkInputSize; idx++) {
-          if (max + 1 == maxima_digits.size() && idx > (count_num_maxima % networkInputSize)) {
+          if (max + 1 == maxima_digits.size() && idx >= (count_num_maxima % networkInputSize)) {
             break;
           } else {
-            output_network_reg[count_reg] = out_net[3 * idx] + digit_map[maxima_digits[max_pos[idx]]][1];
-            output_network_reg[count_reg + 1] = out_net[3 * idx + 1] + digit_map[maxima_digits[max_pos[idx]]][2];
-            output_network_reg[count_reg + 2] = out_net[3 * idx + 2];
+            output_network_reg[count_reg] = digit_map[new_max_dig[index_pass[max_pos[idx]]]][2] - out_net[3 * idx + 1]; // time
+            output_network_reg[count_reg + 1] = out_net[3 * idx] + digit_map[new_max_dig[index_pass[max_pos[idx]]]][1]; // pad
+            output_network_reg[count_reg + 2] = out_net[3 * idx + 2] * central_charges[index_pass[max_pos[idx]]];       // charge
             count_reg += 3;
           }
         }
@@ -697,24 +701,20 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
     for (unsigned int max = 0; max < maxima_digits.size(); max++) {
       rows_max[max] = digit_map[maxima_digits[max]][0];
     }
-    std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);
+    std::iota(maxima_digits.begin(), maxima_digits.end(), 0);
     digit_map.clear();
     digit_q.clear();
     digit_map.resize(maxima_digits.size());
     digit_q.resize(maxima_digits.size());
 
     for (int i = 0; i < maxima_digits.size(); i++) {
-      digit_map[i] = std::array<int, 3>{rows_max[i], static_cast<int>(round(output_network_reg[3 * i])), static_cast<int>(round(output_network_reg[3 * i + 1]))};
-      digit_q[i] = output_network_reg[3 * i + 2] * central_charges[i];
-      network_map[i][0] = output_network_reg[3 * i];
-      network_map[i][1] = output_network_reg[3 * i + 1];
-      network_map[i][2] = output_network_reg[3 * i + 2];
+      digit_map[i] = std::array<int, 3>{rows_max[i], static_cast<int>(round(output_network_reg[3 * i + 1])), static_cast<int>(round(output_network_reg[3 * i]))};
+      digit_q[i] = output_network_reg[3 * i + 2];
+      network_map[i][0] = rows_max[i];
+      network_map[i][1] = output_network_reg[3 * i + 1]; // pad
+      network_map[i][2] = output_network_reg[3 * i];     // time
     }
     LOG(info) << "Network map written.";
-  }
-
-  if (eval_mode != 0 && eval_mode != 1) {
-    LOG(fatal) << "Network evaluation failure: Mode unknown!";
   }
 }
 
@@ -732,7 +732,7 @@ void qaIdeal::overwrite_map2d(int sector, T& map2d, std::vector<std::array<int, 
       }
     }
     for (unsigned int max = 0; max < maxima_digits.size(); max++) {
-      map2d[1][digit_map[maxima_digits[max]][2] + global_shift[1]][digit_map[maxima_digits[max]][0] + global_shift[2]][digit_map[maxima_digits[max]][1] + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[digit_map[maxima_digits[max]][0]][2])/2)] = max;
+      map2d[1][digit_map[maxima_digits[max]][2] + global_shift[1]][digit_map[maxima_digits[max]][0] + global_shift[2]][digit_map[maxima_digits[max]][1] + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[digit_map[maxima_digits[max]][0]][2]) / 2)] = max;
     }
   } else if (mode == 1) {
     for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW + 2 * global_shift[2]; row++) {
@@ -742,8 +742,8 @@ void qaIdeal::overwrite_map2d(int sector, T& map2d, std::vector<std::array<int, 
         }
       }
     }
-    for (unsigned int dig = 0; dig < digit_q.size(); dig++) {
-      map2d[0][digit_map[dig][2] + global_shift[1]][digit_map[dig][0] + global_shift[2]][digit_map[dig][1] + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[digit_map[dig][0]][2])/2)] = dig;
+    for (unsigned int dig = 0; dig < maxima_digits.size(); dig++) {
+      map2d[0][digit_map[dig][2] + global_shift[1]][digit_map[dig][0] + global_shift[2]][digit_map[dig][1] + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[digit_map[dig][0]][2]) / 2)] = dig;
     }
   } else {
     LOG(fatal) << "Mode unknown!";
@@ -754,7 +754,7 @@ void qaIdeal::overwrite_map2d(int sector, T& map2d, std::vector<std::array<int, 
 template <class T>
 int qaIdeal::test_neighbour(std::array<int, 3> index, std::array<int, 2> nn, T& map2d, int mode)
 {
-  return map2d[mode][index[2] + global_shift[1] + nn[1]][index[0] + global_shift[2]][index[1] + (int)((TPC_GEOM[151][2]-TPC_GEOM[index[0]][2])/2) + global_shift[0] + nn[0]];
+  return map2d[mode][index[2] + global_shift[1] + nn[1]][index[0] + global_shift[2]][index[1] + (int)((TPC_GEOM[151][2] - TPC_GEOM[index[0]][2]) / 2) + global_shift[0] + nn[0]];
 }
 
 // ---------------------------------
@@ -809,10 +809,12 @@ void qaIdeal::runQa(int loop_sectors)
   } else {
     if (mode.find(std::string("native")) == std::string::npos) {
       find_maxima<qa_t>(loop_sectors, map2d, maxima_digits, digit_q);
-      if (mode.find(std::string("network")) != std::string::npos && mode.find(std::string("network_reg")) == std::string::npos) {
-        run_network<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, network_map, 0); // classification of maxima
+      if (mode.find(std::string("network_class")) != std::string::npos && mode.find(std::string("network_reg")) == std::string::npos) {
+        run_network<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, network_map, 0); // classification
       } else if (mode.find(std::string("network_reg")) != std::string::npos) {
-        run_network<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, network_map, 1); // classification + regression
+        run_network<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, network_map, 1); // regression
+      } else if (mode.find(std::string("network_full")) != std::string::npos) {
+        run_network<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, network_map, 2); // classification + regression
       }
       overwrite_map2d<qa_t>(loop_sectors, map2d, digit_map, digit_q, maxima_digits, 0);
     } else {
@@ -1033,7 +1035,7 @@ void qaIdeal::runQa(int loop_sectors)
     bool is_min_dist = true;
 
     for (int max_point = 0; max_point < data_size; max_point++) {
-      map_dig_idx = map2d[1][native_map[maxima_digits[max_point]][2] + global_shift[1]][native_map[maxima_digits[max_point]][0] + global_shift[2]][native_map[maxima_digits[max_point]][1] + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[native_map[maxima_digits[max_point]][0]][2])/2)];
+      map_dig_idx = map2d[1][native_map[maxima_digits[max_point]][2] + global_shift[1]][native_map[maxima_digits[max_point]][0] + global_shift[2]][native_map[maxima_digits[max_point]][1] + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[native_map[maxima_digits[max_point]][0]][2]) / 2)];
       if (checkIdx(map_dig_idx)) {
         check_assignment = 0;
         index_assignment = -1;
@@ -1096,17 +1098,21 @@ void qaIdeal::runQa(int loop_sectors)
     TFile* outputFileNativeIdeal = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* native_ideal = new TTree("native_ideal", "tree");
 
-    float nat_time = 0, nat_pad = 0, id_time = 0, id_pad = 0;
+    float nat_time = 0, nat_pad = 0, id_time = 0, id_pad = 0, native_minus_ideal_time = 0, native_minus_ideal_pad = 0;
     native_ideal->Branch("native_cog_time", &nat_time);
     native_ideal->Branch("native_cog_pad", &nat_pad);
     native_ideal->Branch("ideal_cog_time", &id_time);
     native_ideal->Branch("ideal_cog_pad", &id_pad);
+    native_ideal->Branch("native_minus_ideal_time", &native_minus_ideal_time);
+    native_ideal->Branch("native_minus_ideal_pad", &native_minus_ideal_pad);
 
     for (int elem = 0; elem < native_ideal_assignemnt.size(); elem++) {
       nat_time = native_ideal_assignemnt[elem][0];
       nat_pad = native_ideal_assignemnt[elem][1];
       id_time = native_ideal_assignemnt[elem][2];
       id_pad = native_ideal_assignemnt[elem][3];
+      native_minus_ideal_time = nat_time - id_time;
+      native_minus_ideal_pad = nat_pad - id_pad;
       native_ideal->Fill();
     }
 
@@ -1114,7 +1120,7 @@ void qaIdeal::runQa(int loop_sectors)
     outputFileNativeIdeal->Close();
   }
 
-  if (mode.find(std::string("network_reg")) != std::string::npos && create_output) {
+  if ((mode.find(std::string("network_reg")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) && create_output) {
 
     if (verbose >= 3)
       LOG(info) << "Network-Ideal assignment...";
@@ -1134,7 +1140,7 @@ void qaIdeal::runQa(int loop_sectors)
     bool is_min_dist = true;
 
     for (int max_point = 0; max_point < data_size; max_point++) {
-      map_dig_idx = map2d[1][network_map[maxima_digits[max_point]][2] + global_shift[1]][network_map[maxima_digits[max_point]][0] + global_shift[2]][network_map[maxima_digits[max_point]][1] + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[network_map[maxima_digits[max_point]][0]][2])/2)];
+      map_dig_idx = map2d[1][network_map[maxima_digits[max_point]][2] + global_shift[1]][network_map[maxima_digits[max_point]][0] + global_shift[2]][network_map[maxima_digits[max_point]][1] + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[network_map[maxima_digits[max_point]][0]][2]) / 2)];
       if (checkIdx(map_dig_idx)) {
         check_assignment = 0;
         index_assignment = -1;
@@ -1194,25 +1200,32 @@ void qaIdeal::runQa(int loop_sectors)
 
     std::stringstream file_in;
     file_in << "network_ideal_" << loop_sectors << ".root";
-    TFile* nutputFileNetworkIdeal = new TFile(file_in.str().c_str(), "RECREATE");
+    TFile* outputFileNetworkIdeal = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* network_ideal = new TTree("network_ideal", "tree");
 
-    float nat_time = 0, nat_pad = 0, id_time = 0, id_pad = 0;
-    network_ideal->Branch("network_cog_time", &nat_time);
-    network_ideal->Branch("network_cog_pad", &nat_pad);
+    float net_time = 0, net_pad = 0, id_time = 0, id_pad = 0, net_minus_ideal_time = 0, net_minus_ideal_pad = 0;
+    network_ideal->Branch("network_cog_time", &net_time);
+    network_ideal->Branch("network_cog_pad", &net_pad);
     network_ideal->Branch("ideal_cog_time", &id_time);
     network_ideal->Branch("ideal_cog_pad", &id_pad);
+    network_ideal->Branch("net_minus_ideal_time", &net_minus_ideal_time);
+    network_ideal->Branch("net_minus_ideal_pad", &net_minus_ideal_pad);
+
+    LOG(info) << "Network map size: " << network_map.size();
+    LOG(info) << "Network-ideal size: " << network_ideal_assignemnt.size();
 
     for (int elem = 0; elem < network_ideal_assignemnt.size(); elem++) {
-      nat_time = network_ideal_assignemnt[elem][0];
-      nat_pad = network_ideal_assignemnt[elem][1];
+      net_time = network_ideal_assignemnt[elem][0];
+      net_pad = network_ideal_assignemnt[elem][1];
       id_time = network_ideal_assignemnt[elem][2];
       id_pad = network_ideal_assignemnt[elem][3];
+      net_minus_ideal_time = net_time - id_time;
+      net_minus_ideal_pad = net_pad - id_pad;
       network_ideal->Fill();
     }
 
     network_ideal->Write();
-    nutputFileNetworkIdeal->Close();
+    outputFileNetworkIdeal->Close();
   }
 
   if (mode.find(std::string("training_data")) != std::string::npos && create_output) {
@@ -1256,14 +1269,14 @@ void qaIdeal::runQa(int loop_sectors)
     bool is_min_dist = true;
 
     for (int max_point = 0; max_point < data_size; max_point++) {
-      map_dig_idx = map2d[1][digit_map[maxima_digits[max_point]][2] + global_shift[1]][digit_map[maxima_digits[max_point]][0] + global_shift[2]][digit_map[maxima_digits[max_point]][1] + global_shift[0] + (int)((TPC_GEOM[151][2]-TPC_GEOM[digit_map[maxima_digits[max_point]][0]][2])/2)];
+      map_dig_idx = map2d[1][digit_map[maxima_digits[max_point]][2] + global_shift[1]][digit_map[maxima_digits[max_point]][0] + global_shift[2]][digit_map[maxima_digits[max_point]][1] + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[digit_map[maxima_digits[max_point]][0]][2]) / 2)];
       if (checkIdx(map_dig_idx)) {
         // if (verbose >= 5) LOG(info) << "Current elem at index [" <<digit_map[maxima_digits[max_point]][2] << " " << digit_map[maxima_digits[max_point]][0] << " " << digit_map[maxima_digits[max_point]][1] << "] has value " << map_dig_idx;
         float q_max = digit_q[maxima_digits[map_dig_idx]];
         for (int time = 0; time < mat_size_time; time++) {
           for (int pad = 0; pad < mat_size_pad; pad++) {
             for (int row = 0; row < mat_size_row; row++) {
-              map_q_idx = map2d[0][digit_map[maxima_digits[max_point]][2] + time][digit_map[maxima_digits[max_point]][0]][digit_map[maxima_digits[max_point]][1] + pad + (int)((TPC_GEOM[151][2]-TPC_GEOM[digit_map[maxima_digits[max_point]][0]][2])/2)];
+              map_q_idx = map2d[0][digit_map[maxima_digits[max_point]][2] + time][digit_map[maxima_digits[max_point]][0]][digit_map[maxima_digits[max_point]][1] + pad + (int)((TPC_GEOM[151][2] - TPC_GEOM[digit_map[maxima_digits[max_point]][0]][2]) / 2)];
               map_q_idx == -1 ? tr_data_X[max_point][time][pad][row] = 0 : tr_data_X[max_point][time][pad][row] = digit_q[map_q_idx] / q_max; // / 1024.f;
             }
           }
@@ -1299,7 +1312,7 @@ void qaIdeal::runQa(int loop_sectors)
                     }
                   }
                 }
-                if (is_min_dist){// && (digit_q[maxima_digits[max_point]] < ideal_cog_q[current_idx_id])) {
+                if (is_min_dist) { // && (digit_q[maxima_digits[max_point]] < ideal_cog_q[current_idx_id])) {
                   check_assignment++;
                   distance_assignment = current_distance_dig_to_id;
                   index_assignment = current_idx_id;
@@ -1318,7 +1331,7 @@ void qaIdeal::runQa(int loop_sectors)
           tr_data_Y_reg[1][max_point] = ideal_cog_map[index_assignment][1] - digit_map[maxima_digits[max_point]][1]; // pad
           tr_data_Y_reg[2][max_point] = ideal_sigma_map[index_assignment][0];                                        // sigma pad
           tr_data_Y_reg[3][max_point] = ideal_sigma_map[index_assignment][1];                                        // sigma time
-          tr_data_Y_reg[4][max_point] = ideal_cog_q[index_assignment] / 10000.f;
+          tr_data_Y_reg[4][max_point] = ideal_cog_q[index_assignment] / q_max;
           // if(std::abs(digit_map[maxima_digits[max_point]][2] - ideal_cog_map[index_assignment][2]) > 3 || std::abs(digit_map[maxima_digits[max_point]][1] - ideal_cog_map[index_assignment][1]) > 3){
           //   LOG(info) << "#Maxima: " << maxima_digits.size() << ", Index (point) " << max_point << " & (max) " << maxima_digits[max_point] << " & (ideal) " << index_assignment << ", ideal_cog_map.size(): " <<  ideal_cog_map.size() << ", index_assignment: " << index_assignment;
           // }
@@ -1469,14 +1482,19 @@ void qaIdeal::run(ProcessingContext& pc)
   LOG(info) << "Clones (Float, fractional clone-order): " << fractional_clones_sum << " (" << (float)fractional_clones_sum * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
   LOG(info) << "Fakes (number of digit hits that can't be assigned to any ideal hit): " << ass_dig << " (" << (float)ass_dig * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
 
-  if (mode.find(std::string("training_data")) != std::string::npos) {
+  if (mode.find(std::string("training_data")) != std::string::npos && create_output) {
     LOG(info) << "------- Merging training data -------";
     gSystem->Exec("hadd -k -f ./training_data.root ./training_data_*.root");
   }
 
-  if (mode.find(std::string("native")) != std::string::npos) {
+  if (mode.find(std::string("native")) != std::string::npos && create_output) {
     LOG(info) << "------- Merging native-ideal assignments -------";
     gSystem->Exec("hadd -k -f ./native_ideal.root ./native_ideal_*.root");
+  }
+
+  if (mode.find(std::string("network_reg")) != std::string::npos && create_output) {
+    LOG(info) << "------- Merging native-ideal assignments -------";
+    gSystem->Exec("hadd -k -f ./network_ideal.root ./network_ideal_*.root");
   }
 
   pc.services().get<ControlService>().endOfStream();
