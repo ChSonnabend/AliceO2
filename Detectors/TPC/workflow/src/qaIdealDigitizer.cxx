@@ -53,6 +53,7 @@ class qaIdeal : public Task
  public:
   void init(InitContext&) final;
   void setGeomFromTxt(std::string, std::vector<int> = {152, 14});
+  int rowOffset(int);
   bool checkIdx(int);
   void clear_memory(int);
   void read_digits(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
@@ -75,7 +76,7 @@ class qaIdeal : public Task
   void run(ProcessingContext&) final;
 
  private:
-  std::vector<int> global_shift = {5, 5, 0}; // shifting digits to select windows easier, (pad, time)
+  std::vector<int> global_shift = {5, 5, 0}; // shifting digits to select windows easier, (pad, time, row)
   int charge_limits[2] = {2, 1024};          // upper and lower charge limits
   int verbose = 0;                           // chunk_size in time direction
   bool create_output = true;                 // Create output files specific for any mode
@@ -107,6 +108,7 @@ class qaIdeal : public Task
   OnnxModel network_classification, network_regression;
 };
 
+// ---------------------------------
 void qaIdeal::setGeomFromTxt(std::string inputFile, std::vector<int> size)
 {
 
@@ -139,6 +141,18 @@ void qaIdeal::setGeomFromTxt(std::string inputFile, std::vector<int> size)
     std::stringstream streamLine(line);
     streamLine >> TPC_GEOM[trace][0] >> TPC_GEOM[trace][1] >> TPC_GEOM[trace][2] >> TPC_GEOM[trace][3] >> TPC_GEOM[trace][4] >> TPC_GEOM[trace][5] >> TPC_GEOM[trace][6] >> TPC_GEOM[trace][7] >> TPC_GEOM[trace][8] >> TPC_GEOM[trace][9] >> TPC_GEOM[trace][10] >> TPC_GEOM[trace][11] >> TPC_GEOM[trace][12] >> TPC_GEOM[trace][13];
     trace++;
+  }
+}
+
+// ---------------------------------
+int qaIdeal::rowOffset(int row)
+{
+  if (row <= 62) {
+    return (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2);
+  } else if (row >= 62 + global_shift[2]) {
+    return (int)((TPC_GEOM[151][2] - TPC_GEOM[row - global_shift[2]][2]) / 2);
+  } else {
+    return 0;
   }
 }
 
@@ -228,7 +242,7 @@ void qaIdeal::read_digits(int sector, std::vector<std::array<int, 3>>& digit_map
   TTree* digitTree = (TTree*)digitFile->Get("o2sim");
 
   std::vector<o2::tpc::Digit>* digits = nullptr;
-  int current_time = 0;
+  int current_time = 0, current_pad = 0, current_row = 0;
 
   std::string branch_name = fmt::format("TPCDigit_{:d}", sector).c_str();
   digitTree->SetBranchAddress(branch_name.c_str(), &digits);
@@ -245,12 +259,18 @@ void qaIdeal::read_digits(int sector, std::vector<std::array<int, 3>>& digit_map
   for (unsigned int i_digit = 0; i_digit < digits->size(); i_digit++) {
     const auto& digit = (*digits)[i_digit];
     current_time = digit.getTimeStamp();
-    if (current_time > max_time[sector])
-      max_time[sector] = current_time;
-    if (digit.getPad() > max_pad[sector])
-      max_pad[sector] = digit.getPad();
-    digit_map[i_digit][0] = digit.getRow();
-    digit_map[i_digit][1] = digit.getPad();
+    current_pad = digit.getPad();
+    current_row = digit.getRow();
+    if (current_time >= max_time[sector])
+      max_time[sector] = current_time + 1;
+    if (current_pad >= max_pad[sector])
+      max_pad[sector] = current_pad + 1;
+
+    digit_map[i_digit][0] = current_row;
+    if (current_row > 62)
+      digit_map[i_digit][0] += global_shift[2]; // Shifting for IROC - OROC1
+
+    digit_map[i_digit][1] = current_pad;
     digit_map[i_digit][2] = current_time;
     digit_q[i_digit] = digit.getChargeFloat();
     // digit_isNoise[i_digit] = digit.isNoise();
@@ -282,6 +302,7 @@ void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map
   o2::tpc::ClusterNativeHelper::ConstMCLabelContainerViewWithBuffer clusterMCBuffer;
 
   qc::Clusters clusters;
+  int current_time = 0, current_pad = 0, current_row = 0;
 
   for (unsigned long i = 0; i < tpcClusterReader.getTreeSize(); ++i) {
     tpcClusterReader.read(i);
@@ -306,17 +327,25 @@ void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map
       for (int icl = 0; icl < nClusters; ++icl) {
         const auto& cl = *(clusterIndex.clusters[sector][irow] + icl);
         clusters.processCluster(cl, Sector(sector), irow);
+        current_pad = cl.getPad();
+        current_time = cl.getTime();
+
         digit_map[count_clusters][0] = irow;
-        digit_map[count_clusters][1] = static_cast<int>(round(cl.getPad()));
-        digit_map[count_clusters][2] = static_cast<int>(round(cl.getTime()));
+        digit_map[count_clusters][1] = static_cast<int>(round(current_pad));
+        digit_map[count_clusters][2] = static_cast<int>(round(current_time));
         native_map[count_clusters][0] = (float)irow;
-        native_map[count_clusters][1] = cl.getPad();
-        native_map[count_clusters][2] = cl.getTime();
+        native_map[count_clusters][1] = current_pad;
+        native_map[count_clusters][2] = current_time;
         digit_q[count_clusters] = cl.getQtot();
-        if (cl.getTime() > max_time[sector])
-          max_time[sector] = cl.getTime();
-        if (cl.getPad() > max_pad[sector])
-          max_pad[sector] = cl.getPad();
+
+        if (irow > 62)
+          digit_map[count_clusters][0] += global_shift[2]; // Shifting for IROC - OROC1
+          native_map[count_clusters][0] += global_shift[2];
+
+        if (current_time >= max_time[sector])
+          max_time[sector] = current_time + 1;
+        if (current_pad >= max_pad[sector])
+          max_pad[sector] = current_pad + 1;
         count_clusters++;
       }
     }
@@ -329,6 +358,8 @@ void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map
 // ---------------------------------
 void qaIdeal::read_network(int sector, std::vector<std::array<int, 3>>& digit_map, std::vector<float>& digit_q)
 {
+
+  //////// Deprecated ////////
 
   if (verbose >= 1)
     LOG(info) << "Reading network output...";
@@ -392,7 +423,7 @@ void qaIdeal::read_ideal(int sector, std::vector<std::array<int, 3>>& ideal_max_
   int elements = 0;
 
   if (verbose > 0)
-    LOG(info) << "Reading ideal clusterizer, sector " << sector << " ...";
+    LOG(info) << "Reading ideal clusters, sector " << sector << " ...";
   std::stringstream tmp_file;
   tmp_file << "mclabels_digitizer_" << sector << ".root";
   auto inputFile = TFile::Open(tmp_file.str().c_str());
@@ -425,6 +456,9 @@ void qaIdeal::read_ideal(int sector, std::vector<std::array<int, 3>>& ideal_max_
       digitizerSector->GetEntry(j);
       // ideal_point_count.push_back(pcount);
 
+      if (row > 62)
+        row += global_shift[2]; // Shifting for IROC - OROC1
+
       ideal_max_map[j] = std::array<int, 3>{row, maxp, maxt};
       ideal_max_q[j] = maxq;
       ideal_cog_map[j] = std::array<float, 3>{(float)row, cogp, cogt};
@@ -432,14 +466,14 @@ void qaIdeal::read_ideal(int sector, std::vector<std::array<int, 3>>& ideal_max_
       ideal_cog_q[j] = cogq;
       elements++;
 
-      if (maxt > max_time[sector])
-        max_time[sector] = maxt;
-      if (maxp > max_pad[sector])
-        max_pad[sector] = maxp;
-      if (std::ceil(cogt) > max_time[sector])
-        max_time[sector] = std::ceil(cogt);
-      if (std::ceil(cogp) > max_pad[sector])
-        max_pad[sector] = std::ceil(cogp);
+      if (maxt >= max_time[sector])
+        max_time[sector] = maxt + 1;
+      if (maxp >= max_pad[sector])
+        max_pad[sector] = maxp + 1;
+      if (std::ceil(cogt) >= max_time[sector])
+        max_time[sector] = std::ceil(cogt) + 1;
+      if (std::ceil(cogp) >= max_pad[sector])
+        max_pad[sector] = std::ceil(cogp) + 1;
 
     } catch (...) {
       LOG(info) << "(Digitizer) Problem occured in sector " << sector;
@@ -449,15 +483,17 @@ void qaIdeal::read_ideal(int sector, std::vector<std::array<int, 3>>& ideal_max_
 }
 
 template <class T>
-T qaIdeal::init_map2d(int maxtime)
+T qaIdeal::init_map2d(int sector)
 {
   T map2d;
   for (int i = 0; i < 2; i++) {
-    map2d[i].resize(maxtime + (2 * global_shift[1]) + 1);
-    for (int time_size = 0; time_size < maxtime + (2 * global_shift[1]) + 1; time_size++) {
-      map2d[i][time_size].resize(o2::tpc::constants::MAXGLOBALPADROW + (2 * global_shift[2]) + 1);
-      for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW + (2 * global_shift[2]); row++) {
-        for (int pad = 0; pad < 170; pad++) {
+    map2d[i].resize(max_time[sector] + (2 * global_shift[1]));
+    for (int time_size = 0; time_size < max_time[sector] + (2 * global_shift[1]); time_size++) {
+      map2d[i][time_size].resize(o2::tpc::constants::MAXGLOBALPADROW + (3 * global_shift[2]));
+      for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW + (3 * global_shift[2]); row++) {
+        // Support for IROC - OROC1 transition: Add rows after row 62 + global_shift[2]
+        map2d[i][time_size][row].resize(138 + 2 * global_shift[0]);
+        for (int pad = 0; pad < 138 + 2 * global_shift[0]; pad++) {
           map2d[i][time_size][row][pad] = -1;
         }
       }
@@ -476,17 +512,16 @@ void qaIdeal::fill_map2d(int sector, T& map2d, std::vector<std::array<int, 3>>& 
 {
 
   int* map_ptr = nullptr;
-
   if (use_max_cog == 0) {
     // Storing the indices
     if (fillmode == 0 || fillmode == -1) {
       for (unsigned int ind = 0; ind < digit_map.size(); ind++) {
-        map2d[1][digit_map[ind][2] + global_shift[1]][digit_map[ind][0] + global_shift[2]][digit_map[ind][1] + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[digit_map[ind][0]][2]) / 2)] = ind;
+        map2d[1][digit_map[ind][2] + global_shift[1]][digit_map[ind][0] + global_shift[2]][digit_map[ind][1] + global_shift[0] + rowOffset(digit_map[ind][0])] = ind;
       }
     }
     if (fillmode == 1 || fillmode == -1) {
       for (unsigned int ind = 0; ind < ideal_max_map.size(); ind++) {
-        map_ptr = &map2d[0][ideal_max_map[ind][2] + global_shift[1]][ideal_max_map[ind][0] + global_shift[2]][ideal_max_map[ind][1] + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[ideal_max_map[ind][0]][2]) / 2)];
+        map_ptr = &map2d[0][ideal_max_map[ind][2] + global_shift[1]][ideal_max_map[ind][0] + global_shift[2]][ideal_max_map[ind][1] + global_shift[0] + rowOffset(ideal_max_map[ind][0])];
         if (*map_ptr == -1 || ideal_max_q[ind] > ideal_max_q[*map_ptr]) { // Using short-circuiting for second expression
           if (*map_ptr != -1 && verbose >= 4) {
             LOG(warning) << "Conflict detected! Current MaxQ : " << ideal_max_q[*map_ptr] << "; New MaxQ: " << ideal_max_q[ind] << "; Index " << ind << "/" << ideal_max_map.size();
@@ -502,12 +537,12 @@ void qaIdeal::fill_map2d(int sector, T& map2d, std::vector<std::array<int, 3>>& 
     // Storing the indices
     if (fillmode == 0 || fillmode == -1) {
       for (unsigned int ind = 0; ind < digit_map.size(); ind++) {
-        map2d[1][digit_map[ind][2] + global_shift[1]][digit_map[ind][0] + global_shift[2]][digit_map[ind][1] + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[digit_map[ind][0]][2]) / 2)] = ind;
+        map2d[1][digit_map[ind][2] + global_shift[1]][digit_map[ind][0] + global_shift[2]][digit_map[ind][1] + global_shift[0] + rowOffset(digit_map[ind][0])] = ind;
       }
     }
     if (fillmode == 1 || fillmode == -1) {
       for (unsigned int ind = 0; ind < ideal_cog_map.size(); ind++) {
-        map_ptr = &map2d[0][round(ideal_cog_map[ind][2]) + global_shift[1]][round(ideal_cog_map[ind][0] + global_shift[2])][round(ideal_cog_map[ind][1]) + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[round(ideal_cog_map[ind][0])][2]) / 2)];
+        map_ptr = &map2d[0][round(ideal_cog_map[ind][2]) + global_shift[1]][round(ideal_cog_map[ind][0] + global_shift[2])][round(ideal_cog_map[ind][1]) + global_shift[0] + rowOffset((int)ideal_cog_map[ind][0])];
         if (*map_ptr == -1 || ideal_cog_q[ind] > ideal_cog_q[*map_ptr]) {
           if (*map_ptr != -1 && verbose >= 4) {
             LOG(warning) << "Conflict detected! Current CoGQ : " << ideal_cog_q[*map_ptr] << "; New CoGQ: " << ideal_cog_q[ind] << "; Index " << ind << "/" << ideal_cog_map.size();
@@ -533,49 +568,54 @@ void qaIdeal::find_maxima(int sector, T& map2d, std::vector<int>& maxima_digits,
 
   bool is_max = true;
   float current_charge = 0;
+  int pad_max = 0, current_row = 0;
   for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++) {
     if (verbose >= 3)
       LOG(info) << "Finding maxima in row " << row;
-    for (int pad = 0; pad < TPC_GEOM[row][2] + 1; pad++) {
+    current_row = row;
+    if (row > 62) {
+      current_row += global_shift[2];
+    }
+    for (int pad = 0; pad < TPC_GEOM[row][2] + 1; pad++) { // -> Needs fixing
       for (int time = 0; time < max_time[sector]; time++) {
-        if (checkIdx(map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)])) {
+        if (checkIdx(map2d[1][time + global_shift[1]][current_row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)])) {
 
-          current_charge = digit_q[map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)]];
+          current_charge = digit_q[map2d[1][time + global_shift[1]][current_row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)]];
 
-          if (map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) + 1] != -1) {
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) + 1]]);
+          if (map2d[1][time + global_shift[1]][current_row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) + 1] != -1) {
+            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1]][current_row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) + 1]]);
           }
 
-          if (is_max && map2d[1][time + global_shift[1] + 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)] != -1) {
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] + 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)]]);
+          if (is_max && map2d[1][time + global_shift[1] + 1][current_row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)] != -1) {
+            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] + 1][current_row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)]]);
           }
 
-          if (is_max && map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) - 1] != -1) {
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) - 1]]);
+          if (is_max && map2d[1][time + global_shift[1]][current_row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) - 1] != -1) {
+            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1]][current_row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) - 1]]);
           }
 
-          if (is_max && map2d[1][time + global_shift[1] - 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)] != -1) {
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] - 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)]]);
+          if (is_max && map2d[1][time + global_shift[1] - 1][current_row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)] != -1) {
+            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] - 1][current_row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)]]);
           }
 
-          if (is_max && map2d[1][time + global_shift[1] + 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) + 1] != -1) {
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] + 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) + 1]]);
+          if (is_max && map2d[1][time + global_shift[1] + 1][current_row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) + 1] != -1) {
+            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] + 1][current_row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) + 1]]);
           }
 
-          if (is_max && map2d[1][time + global_shift[1] - 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) + 1] != -1) {
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] - 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) + 1]]);
+          if (is_max && map2d[1][time + global_shift[1] - 1][current_row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) + 1] != -1) {
+            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] - 1][current_row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) + 1]]);
           }
 
-          if (is_max && map2d[1][time + global_shift[1] + 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) - 1] != -1) {
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] + 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) - 1]]);
+          if (is_max && map2d[1][time + global_shift[1] + 1][current_row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) - 1] != -1) {
+            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] + 1][current_row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) - 1]]);
           }
 
-          if (is_max && map2d[1][time + global_shift[1] - 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) - 1] != -1) {
-            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] - 1][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) - 1]]);
+          if (is_max && map2d[1][time + global_shift[1] - 1][current_row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) - 1] != -1) {
+            is_max = (current_charge >= digit_q[map2d[1][time + global_shift[1] - 1][current_row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2) - 1]]);
           }
 
           if (is_max) {
-            maxima_digits.push_back(map2d[1][time + global_shift[1]][row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)]);
+            maxima_digits.push_back(map2d[1][time + global_shift[1]][current_row + global_shift[2]][pad + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2)]);
           }
           is_max = true;
         }
@@ -601,19 +641,21 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
   std::iota(index_pass.begin(), index_pass.end(), 0);
   network_map.resize(maxima_digits.size());
 
+  int index_shift_global = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), index_shift_row = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), index_shift_pad = (2 * global_shift[1] + 1);
+
   int network_reg_size = maxima_digits.size(), counter_max_dig = 0, array_idx;
   std::vector<float> output_network_class(maxima_digits.size(), 0.f), output_network_reg;
   std::vector<float> temp_input(networkInputSize * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), 0.f);
 
   for (unsigned int max = 0; max < maxima_digits.size(); max++) {
-    central_charges[max] = digit_q[map2d[1][digit_map[maxima_digits[max]][2] + global_shift[1]][digit_map[maxima_digits[max]][0]][digit_map[maxima_digits[max]][1] + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[digit_map[maxima_digits[max]][0]][2]) / 2)]];
+    central_charges[max] = digit_q[map2d[1][digit_map[maxima_digits[max]][2] + global_shift[1]][digit_map[maxima_digits[max]][0]][digit_map[maxima_digits[max]][1] + global_shift[0] + rowOffset(digit_map[maxima_digits[max]][0])]];
     for (int row = 0; row < 2 * global_shift[2] + 1; row++) {
       for (int pad = 0; pad < 2 * global_shift[0] + 1; pad++) {
         for (int time = 0; time < 2 * global_shift[1] + 1; time++) {
-          // (?) array_idx = map2d[1][digit_map[maxima_digits[max]][2] + 2 * global_shift[1] + 1 - time][digit_map[maxima_digits[max]][0]][digit_map[maxima_digits[max]][1] + pad + (int)((TPC_GEOM[151][2] - TPC_GEOM[digit_map[maxima_digits[max]][0]][2]) / 2)];
-          array_idx = map2d[1][digit_map[maxima_digits[max]][2] + time][digit_map[maxima_digits[max]][0] + row][digit_map[maxima_digits[max]][1] + pad + (int)((TPC_GEOM[151][2] - TPC_GEOM[digit_map[maxima_digits[max]][0]][2]) / 2)];
+          // (?) array_idx = map2d[1][digit_map[maxima_digits[max]][2] + 2 * global_shift[1] + 1 - time][digit_map[maxima_digits[max]][0]][digit_map[maxima_digits[max]][1] + pad + rowOffset(digit_map[maxima_digits[max]][0])];
+          array_idx = map2d[1][digit_map[maxima_digits[max]][2] + time][digit_map[maxima_digits[max]][0] + row][digit_map[maxima_digits[max]][1] + pad + rowOffset(digit_map[maxima_digits[max]][0])];
           if (array_idx > -1)
-            input_vector[max * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1) + row * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) + pad * (2 * global_shift[1] + 1) + time] = digit_q[array_idx] / central_charges[max];
+            input_vector[max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time] = digit_q[array_idx] / central_charges[max];
         }
       }
     }
@@ -622,8 +664,8 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
   if (eval_mode == 0 || eval_mode == 2) {
     network_reg_size = 0;
     for (int max = 0; max < maxima_digits.size(); max++) {
-      for (int idx = 0; idx < (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1); idx++) {
-        temp_input[(max % networkInputSize) * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1) + idx] = input_vector[max * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1) + idx];
+      for (int idx = 0; idx < index_shift_global; idx++) {
+        temp_input[(max % networkInputSize) * index_shift_global + idx] = input_vector[max * index_shift_global + idx];
       }
       // if (verbose >= 5 && max == 10) {
       //   LOG(info) << "Size of the input vector: " << temp_input.size();
@@ -675,8 +717,8 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
     int count_num_maxima = 0, count_reg = 0;
     std::vector<int> max_pos(networkInputSize);
     for (int max = 0; max < maxima_digits.size(); max++) {
-      for (int idx = 0; idx < (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1); idx++) {
-        temp_input[(count_num_maxima % networkInputSize) * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1) + idx] = input_vector[index_pass[max] * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1) + idx];
+      for (int idx = 0; idx < index_shift_row; idx++) {
+        temp_input[(count_num_maxima % networkInputSize) * index_shift_global + idx] = input_vector[index_pass[max] * index_shift_global + idx];
       }
       max_pos[count_num_maxima] = max;
       count_num_maxima++;
@@ -726,15 +768,17 @@ template <class T>
 void qaIdeal::overwrite_map2d(int sector, T& map2d, std::vector<std::array<int, 3>>& element_map, std::vector<int>& element_idx, int mode)
 {
 
-  for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW + 2 * global_shift[2]; row++) {
-    for (int pad = 0; pad < 170; pad++) {
-      for (int time = 0; time < (max_time[sector] + 2 * global_shift[1] + 1); time++) {
+  for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW + 3 * global_shift[2]; row++) {
+    for (int pad = 0; pad < 138 + 2 * global_shift[0]; pad++) {
+      for (int time = 0; time < (max_time[sector] + 2 * global_shift[1]); time++) {
         map2d[mode][time][row][pad] = -1;
       }
     }
   }
   for (unsigned int id = 0; id < element_idx.size(); id++) {
-    map2d[mode][element_map[element_idx[id]][2] + global_shift[1]][element_map[element_idx[id]][0] + global_shift[2]][element_map[element_idx[id]][1] + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[element_map[element_idx[id]][0]][2]) / 2)] = id;
+    // LOG(info) << "Seg fault: time: " << element_map[element_idx[id]][2] << ", row: " << element_map[element_idx[id]][0] << ", pad: " << element_map[element_idx[id]][1];
+    // LOG(info) << "Offset: " << rowOffset(element_map[element_idx[id]][0]);
+    map2d[mode][element_map[element_idx[id]][2] + global_shift[1]][element_map[element_idx[id]][0] + global_shift[2]][element_map[element_idx[id]][1] + global_shift[0] + rowOffset(element_map[element_idx[id]][0])] = id;
   }
 }
 
@@ -742,14 +786,14 @@ void qaIdeal::overwrite_map2d(int sector, T& map2d, std::vector<std::array<int, 
 template <class T>
 int qaIdeal::test_neighbour(std::array<int, 3> index, std::array<int, 2> nn, T& map2d, int mode)
 {
-  return map2d[mode][index[2] + global_shift[1] + nn[1]][index[0] + global_shift[2]][index[1] + (int)((TPC_GEOM[151][2] - TPC_GEOM[index[0]][2]) / 2) + global_shift[0] + nn[0]];
+  return map2d[mode][index[2] + global_shift[1] + nn[1]][index[0] + global_shift[2]][index[1] + rowOffset(index[0]) + global_shift[0] + nn[0]];
 }
 
 // ---------------------------------
 void qaIdeal::runQa(int loop_sectors)
 {
 
-  typedef std::array<std::vector<std::vector<std::array<int, 170>>>, 2> qa_t; // local 2D charge map, 0 - digits; 1 - ideal
+  typedef std::array<std::vector<std::vector<std::vector<int>>>, 2> qa_t; // local 2D charge map, 0 - digits; 1 - ideal
 
   std::vector<int> maxima_digits; // , digit_isNoise, digit_isQED, digit_isValid;
   std::vector<std::array<int, 3>> digit_map, ideal_max_map;
@@ -770,7 +814,7 @@ void qaIdeal::runQa(int loop_sectors)
 
   LOG(info) << "Starting process for sector " << loop_sectors;
 
-  qa_t map2d = init_map2d<qa_t>(max_time[loop_sectors]);
+  qa_t map2d = init_map2d<qa_t>(loop_sectors);
   fill_map2d<qa_t>(loop_sectors, map2d, digit_map, ideal_max_map, ideal_max_q, ideal_cog_map, ideal_cog_q, -1);
 
   // if(mode.find(std::string("network")) != std::string::npos){
@@ -1023,7 +1067,7 @@ void qaIdeal::runQa(int loop_sectors)
     bool is_min_dist = true;
 
     for (int max_point = 0; max_point < data_size; max_point++) {
-      map_dig_idx = map2d[1][native_map[maxima_digits[max_point]][2] + global_shift[1]][native_map[maxima_digits[max_point]][0] + global_shift[2]][native_map[maxima_digits[max_point]][1] + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[native_map[maxima_digits[max_point]][0]][2]) / 2)];
+      map_dig_idx = map2d[1][native_map[maxima_digits[max_point]][2] + global_shift[1]][native_map[maxima_digits[max_point]][0] + global_shift[2]][native_map[maxima_digits[max_point]][1] + global_shift[0] + rowOffset(native_map[maxima_digits[max_point]][0])];
       if (checkIdx(map_dig_idx)) {
         check_assignment = 0;
         index_assignment = -1;
@@ -1141,7 +1185,7 @@ void qaIdeal::runQa(int loop_sectors)
     bool is_min_dist = true;
 
     for (int max_point = 0; max_point < data_size; max_point++) {
-      map_dig_idx = map2d[1][network_map[maxima_digits[max_point]][2] + global_shift[1]][network_map[maxima_digits[max_point]][0] + global_shift[2]][network_map[maxima_digits[max_point]][1] + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[network_map[maxima_digits[max_point]][0]][2]) / 2)];
+      map_dig_idx = map2d[1][network_map[maxima_digits[max_point]][2] + global_shift[1]][network_map[maxima_digits[max_point]][0] + global_shift[2]][network_map[maxima_digits[max_point]][1] + global_shift[0] + rowOffset(network_map[maxima_digits[max_point]][0])];
       if (checkIdx(map_dig_idx)) {
         check_assignment = 0;
         index_assignment = -1;
@@ -1272,15 +1316,24 @@ void qaIdeal::runQa(int loop_sectors)
     bool is_min_dist = true;
 
     for (int max_point = 0; max_point < data_size; max_point++) {
-      map_dig_idx = map2d[1][digit_map[maxima_digits[max_point]][2] + global_shift[1]][digit_map[maxima_digits[max_point]][0] + global_shift[2]][digit_map[maxima_digits[max_point]][1] + global_shift[0] + (int)((TPC_GEOM[151][2] - TPC_GEOM[digit_map[maxima_digits[max_point]][0]][2]) / 2)];
+      map_dig_idx = map2d[1][digit_map[maxima_digits[max_point]][2] + global_shift[1]][digit_map[maxima_digits[max_point]][0] + global_shift[2]][digit_map[maxima_digits[max_point]][1] + global_shift[0] + rowOffset(digit_map[maxima_digits[max_point]][0])];
       if (checkIdx(map_dig_idx)) {
-        // if (verbose >= 5) LOG(info) << "Current elem at index [" <<digit_map[maxima_digits[max_point]][2] << " " << digit_map[maxima_digits[max_point]][0] << " " << digit_map[maxima_digits[max_point]][1] << "] has value " << map_dig_idx;
         float q_max = digit_q[maxima_digits[map_dig_idx]];
         for (int row = 0; row < mat_size_row; row++) {
           for (int pad = 0; pad < mat_size_pad; pad++) {
             for (int time = 0; time < mat_size_time; time++) {
-              map_q_idx = map2d[0][digit_map[maxima_digits[max_point]][2] + time][digit_map[maxima_digits[max_point]][0]][digit_map[maxima_digits[max_point]][1] + pad + (int)((TPC_GEOM[151][2] - TPC_GEOM[digit_map[maxima_digits[max_point]][0]][2]) / 2)];
-              map_q_idx == -1 ? tr_data_X[max_point][row][pad][time] = 0 : tr_data_X[max_point][row][pad][time] = digit_q[map_q_idx] / q_max; // / 1024.f;
+              map_q_idx = map2d[0][digit_map[maxima_digits[max_point]][2] + time][digit_map[maxima_digits[max_point]][0]][digit_map[maxima_digits[max_point]][1] + pad + rowOffset(digit_map[maxima_digits[max_point]][0])];
+              if (map_q_idx == -1) {
+                if (digit_map[maxima_digits[max_point]][0] >= 62 + global_shift[2] && row < (2 * global_shift[2] - digit_map[maxima_digits[max_point]][0] + 62)) { // rows in OROC1
+                  tr_data_X[max_point][row][pad][time] = -1;                                                                                                       // Boundaries?
+                } else if (digit_map[maxima_digits[max_point]][0] <= 62 && row > (global_shift[2] - digit_map[maxima_digits[max_point]][0] + 62)) {                // rows in IROC
+                  tr_data_X[max_point][row][pad][time] = -1;                                                                                                       // Boundaries?
+                } else {
+                  tr_data_X[max_point][row][pad][time] = 0;
+                }
+              } else {
+                tr_data_X[max_point][row][pad][time] = digit_q[map_q_idx] / q_max; // / 1024.f;
+              }
             }
           }
         }
