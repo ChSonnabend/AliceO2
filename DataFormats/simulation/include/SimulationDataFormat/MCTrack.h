@@ -27,6 +27,7 @@
 #include "TParticle.h"
 #include "TParticlePDG.h"
 #include "TVector3.h"
+#include <type_traits>
 
 namespace o2
 {
@@ -80,6 +81,11 @@ class MCTrackT
   Double_t GetStartVertexCoordinatesY() const { return mStartVertexCoordinatesY; }
   Double_t GetStartVertexCoordinatesZ() const { return mStartVertexCoordinatesZ; }
   Double_t GetStartVertexCoordinatesT() const { return mStartVertexCoordinatesT; }
+
+  /// production radius squared
+  Double_t R2() const { return Vx() * Vx() + Vy() * Vy(); }
+  /// production radius
+  Double_t R() const { return std::sqrt(R2()); }
 
   /// return mass from PDG Database if known (print message in case cannot look up)
   Double_t GetMass() const;
@@ -256,6 +262,7 @@ class MCTrackT
       int storage : 1;  // encoding whether to store this track to the output
       unsigned int process : 6; // encoding process that created this track (enough to store TMCProcess from ROOT)
       int hitmask : 22;         // encoding hits per detector
+      static_assert(o2::detectors::DetID::nDetectors <= 22); // ensure that all known detectors can be encoded here by a bit
       int reserved1 : 1;        // bit reserved for possible future purposes
       int inhibited : 1; // whether tracking of this was inhibited
       int toBeDone : 1; // whether this (still) needs tracking --> we might more complete information to cover full ParticleStatus space
