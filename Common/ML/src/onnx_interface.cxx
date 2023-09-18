@@ -45,7 +45,13 @@ void OnnxModel::init(std::string localPath, bool enableOptimizations, int thread
   /// Enableing optimizations
   if(threads != 0){
     // sessionOptions.SetInterOpNumThreads(1);
-    sessionOptions.SetIntraOpNumThreads(threads);
+    if(threads == 1){
+      sessionOptions.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
+    }
+    else{
+      sessionOptions.SetExecutionMode(ExecutionMode::ORT_PARALLEL);
+      sessionOptions.SetIntraOpNumThreads(threads);
+    }
   }
   if (enableOptimizations) {
     // sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
@@ -123,7 +129,7 @@ float* OnnxModel::inference(T input, unsigned int size)
     mem_size*=elem;
   }
   inputTensors.emplace_back(Ort::Experimental::Value::CreateTensor<float>(input.data(), mem_size, inputShape));
-  LOG(info) << "Input tensors created, memory size: " << mem_size*sizeof(float)/1e6 << "MB";
+  // LOG(info) << "Input tensors created, memory size: " << mem_size*sizeof(float)/1e6 << "MB";
   try {
     auto outputTensors = mSession->Run(mInputNames, inputTensors, mOutputNames);
     float* outputValues = outputTensors[0].GetTensorMutableData<float>();
