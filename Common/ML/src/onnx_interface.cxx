@@ -133,6 +133,8 @@ float* OnnxModel::inference(T input, unsigned int size)
   try {
     auto outputTensors = mSession->Run(mInputNames, inputTensors, mOutputNames);
     float* outputValues = outputTensors[0].GetTensorMutableData<float>();
+    inputTensors.clear();
+    outputTensors.clear();
     return outputValues;
   } catch (const Ort::Exception& exception) {
     LOG(error) << "Error running model inference: " << exception.what();
