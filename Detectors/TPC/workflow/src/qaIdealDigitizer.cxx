@@ -330,7 +330,7 @@ void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map
   o2::tpc::ClusterNativeHelper::ConstMCLabelContainerViewWithBuffer clusterMCBuffer;
 
   qc::Clusters clusters;
-  int current_time = 0, current_pad = 0, current_row = 0;
+  float current_time = 0, current_pad = 0, current_row = 0;
 
   for (unsigned long i = 0; i < tpcClusterReader.getTreeSize(); ++i) {
     tpcClusterReader.read(i);
@@ -358,12 +358,12 @@ void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map
         current_pad = cl.getPad();
         current_time = cl.getTime();
 
-        digit_map[count_clusters][0] = irow;
-        digit_map[count_clusters][1] = static_cast<int>(round(current_pad));
-        digit_map[count_clusters][2] = static_cast<int>(round(current_time));
         native_map[count_clusters][0] = (float)irow;
         native_map[count_clusters][1] = current_pad;
         native_map[count_clusters][2] = current_time;
+        digit_map[count_clusters][0] = irow;
+        digit_map[count_clusters][1] = static_cast<int>(round(current_pad));
+        digit_map[count_clusters][2] = static_cast<int>(round(current_time));
         digit_q[count_clusters] = cl.getQtot();
 
         if (current_time >= max_time[sector])
@@ -576,7 +576,6 @@ void qaIdeal::fill_map2d(int sector, T& map2d, std::vector<std::array<int, 3>>& 
       LOG(info) << "Fillmode unknown! No fill performed!";
     }
   }
-  LOG(info) << "Map filled!";
 }
 
 // ---------------------------------
@@ -687,6 +686,7 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
   }
 
   if (eval_mode == 0 || eval_mode == 2) {
+
     network_reg_size = 0;
     for (int max = 0; max < maxima_digits.size(); max++) {
       for (int idx = 0; idx < index_shift_global; idx++) {
@@ -738,6 +738,7 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
   }
 
   if (eval_mode == 1 || eval_mode == 2) {
+
     output_network_reg.resize(3 * network_reg_size);
     int count_num_maxima = 0, count_reg = 0;
     std::vector<int> max_pos(networkInputSize);
@@ -753,9 +754,9 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
           if (max + 1 == maxima_digits.size() && idx >= (count_num_maxima % networkInputSize)) {
             break;
           } else {
-            output_network_reg[count_reg] = out_net[3 * idx + 1] + digit_map[new_max_dig[index_pass[max_pos[idx]]]][2]; // time
-            output_network_reg[count_reg + 1] = out_net[3 * idx] + digit_map[new_max_dig[index_pass[max_pos[idx]]]][1]; // pad
-            output_network_reg[count_reg + 2] = out_net[3 * idx + 2] * central_charges[index_pass[max_pos[idx]]];       // charge
+            output_network_reg[count_reg] = out_net[2 * idx + 1] * 2.5 + digit_map[new_max_dig[index_pass[max_pos[idx]]]][2]; // time
+            output_network_reg[count_reg + 1] = out_net[2 * idx] * 2.5 + digit_map[new_max_dig[index_pass[max_pos[idx]]]][1]; // pad
+            output_network_reg[count_reg + 2] = 100.f;                                                                        // out_net[3 * idx + 2]*10.f * central_charges[index_pass[max_pos[idx]]];       // charge
             count_reg += 3;
           }
         }
@@ -785,6 +786,11 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
       network_map[i][2] = output_network_reg[3 * i];     // time
     }
     LOG(info) << "Network map written.";
+
+    input_vector.clear();
+    central_charges.clear();
+    new_max_dig.clear();
+    index_pass.clear();
   }
 }
 
@@ -841,24 +847,6 @@ void qaIdeal::runQa(int loop_sectors)
 
   qa_t map2d = init_map2d<qa_t>(loop_sectors);
   fill_map2d<qa_t>(loop_sectors, map2d, digit_map, ideal_max_map, ideal_max_q, ideal_cog_map, ideal_cog_q, -1);
-
-  // if(mode.find(std::string("network")) != std::string::npos){
-  //   find_maxima<qa_t>(loop_sectors, map2d, maxima_digits, digit_q);
-  //   if (mode.find(std::string("network")) != std::string::npos && mode.find(std::string("network_reg")) == std::string::npos) {
-  //       run_network<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, 0); // classification of maxima
-  //     } else if (mode.find(std::string("network_reg")) != std::string::npos) {
-  //       run_network<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, 1); // classification + regression
-  //     }
-  //     overwrite_map2d<qa_t>(loop_sectors, map2d, digit_map, digit_q, maxima_digits, 0);
-  // }
-  // if(mode.find(std::string("native")) != std::string::npos){
-  //   maxima_digits.resize(digit_q.size());
-  //     std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);
-  // }
-  // if ((mode.find(std::string("network")) == std::string::npos) && (mode.find(std::string("native")) == std::string::npos)) {
-  //   find_maxima<qa_t>(loop_sectors, map2d, maxima_digits, digit_q);
-  //   overwrite_map2d<qa_t>(loop_sectors, map2d, digit_map, digit_q, maxima_digits, 0);
-  // }
 
   if ((mode.find(std::string("network")) == std::string::npos) && (mode.find(std::string("native")) == std::string::npos)) {
     find_maxima<qa_t>(loop_sectors, map2d, maxima_digits, digit_q);
@@ -1080,19 +1068,21 @@ void qaIdeal::runQa(int loop_sectors)
     // creating training data for the neural network
     int data_size = maxima_digits.size();
 
-    std::vector<std::array<float, 4>> native_ideal_assignemnt;
-    std::array<float, 4> current_element;
+    std::vector<std::array<float, 6>> native_ideal_assignemnt;
+    std::array<float, 6> current_element;
 
     std::fill(assigned_ideal.begin(), assigned_ideal.end(), 0);
     std::fill(assigned_digit.begin(), assigned_digit.end(), 0);
 
     // Some useful variables
-    int map_dig_idx = 0, map_q_idx = 0, check_assignment = 0, index_assignment = -1, current_idx_id = -1, current_idx_dig = -1;
+    int map_dig_idx = 0, map_q_idx = 0, check_assignment = 0, index_assignment = -1, current_idx_id = -1, current_idx_dig = -1, row_offset = 0, pad_offset = 0;
     float distance_assignment = 100000.f, current_distance_dig_to_id = 0, current_distance_id_to_dig = 0;
     bool is_min_dist = true;
 
     for (int max_point = 0; max_point < data_size; max_point++) {
-      map_dig_idx = map2d[1][native_map[maxima_digits[max_point]][2] + global_shift[1]][native_map[maxima_digits[max_point]][0] + rowOffset(native_map[maxima_digits[max_point]][0]) + global_shift[2]][native_map[maxima_digits[max_point]][1] + global_shift[0] + padOffset(native_map[maxima_digits[max_point]][0])];
+      row_offset = rowOffset(digit_map[maxima_digits[max_point]][0]);
+      pad_offset = padOffset(digit_map[maxima_digits[max_point]][0]);
+      map_dig_idx = map2d[1][digit_map[maxima_digits[max_point]][2] + global_shift[1]][digit_map[maxima_digits[max_point]][0] + row_offset + global_shift[2]][digit_map[maxima_digits[max_point]][1] + global_shift[0] + pad_offset];
       if (checkIdx(map_dig_idx)) {
         check_assignment = 0;
         index_assignment = -1;
@@ -1132,10 +1122,12 @@ void qaIdeal::runQa(int loop_sectors)
                   // Adding an assignment in order to avoid duplication
                   assigned_digit[max_point]++;
                   assigned_ideal[current_idx_id]++;
-                  current_element[0] = native_map[maxima_digits[max_point]][2];
-                  current_element[1] = native_map[maxima_digits[max_point]][1];
+                  current_element[0] = ideal_cog_map[maxima_digits[max_point]][0];
+                  current_element[1] = ideal_cog_map[current_idx_id][1];
                   current_element[2] = ideal_cog_map[current_idx_id][2];
-                  current_element[3] = ideal_cog_map[current_idx_id][1];
+                  current_element[3] = native_map[maxima_digits[max_point]][0];
+                  current_element[4] = native_map[maxima_digits[max_point]][1];
+                  current_element[5] = native_map[maxima_digits[max_point]][2];
                 }
                 // At least check if assigned, and put classification label to 1, no regression
                 // else {
@@ -1168,19 +1160,24 @@ void qaIdeal::runQa(int loop_sectors)
     TFile* outputFileNativeIdeal = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* native_ideal = new TTree("native_ideal", "tree");
 
-    float nat_time = 0, nat_pad = 0, id_time = 0, id_pad = 0, native_minus_ideal_time = 0, native_minus_ideal_pad = 0;
+    float nat_row = 0, nat_time = 0, nat_pad = 0, id_row = 0, id_time = 0, id_pad = 0, native_minus_ideal_time = 0, native_minus_ideal_pad = 0;
+    native_ideal->Branch("sector", &loop_sectors);
+    native_ideal->Branch("native_row", &nat_row);
     native_ideal->Branch("native_cog_time", &nat_time);
     native_ideal->Branch("native_cog_pad", &nat_pad);
+    native_ideal->Branch("ideal_row", &id_row);
     native_ideal->Branch("ideal_cog_time", &id_time);
     native_ideal->Branch("ideal_cog_pad", &id_pad);
     native_ideal->Branch("native_minus_ideal_time", &native_minus_ideal_time);
     native_ideal->Branch("native_minus_ideal_pad", &native_minus_ideal_pad);
 
     for (int elem = 0; elem < native_ideal_assignemnt.size(); elem++) {
-      nat_time = native_ideal_assignemnt[elem][0];
-      nat_pad = native_ideal_assignemnt[elem][1];
+      id_row = native_ideal_assignemnt[elem][0];
+      id_pad = native_ideal_assignemnt[elem][1];
       id_time = native_ideal_assignemnt[elem][2];
-      id_pad = native_ideal_assignemnt[elem][3];
+      nat_row = native_ideal_assignemnt[elem][3];
+      nat_pad = native_ideal_assignemnt[elem][4];
+      nat_time = native_ideal_assignemnt[elem][5];
       native_minus_ideal_time = nat_time - id_time;
       native_minus_ideal_pad = nat_pad - id_pad;
       native_ideal->Fill();
@@ -1198,8 +1195,8 @@ void qaIdeal::runQa(int loop_sectors)
     // creating training data for the neural network
     int data_size = maxima_digits.size();
 
-    std::vector<std::array<float, 4>> network_ideal_assignemnt;
-    std::array<float, 4> current_element;
+    std::vector<std::array<float, 5>> network_ideal_assignemnt;
+    std::array<float, 5> current_element;
 
     std::fill(assigned_ideal.begin(), assigned_ideal.end(), 0);
     std::fill(assigned_digit.begin(), assigned_digit.end(), 0);
@@ -1210,7 +1207,7 @@ void qaIdeal::runQa(int loop_sectors)
     bool is_min_dist = true;
 
     for (int max_point = 0; max_point < data_size; max_point++) {
-      map_dig_idx = map2d[1][network_map[maxima_digits[max_point]][2] + global_shift[1]][network_map[maxima_digits[max_point]][0] + rowOffset(network_map[maxima_digits[max_point]][0]) + global_shift[2]][network_map[maxima_digits[max_point]][1] + global_shift[0] + padOffset(network_map[maxima_digits[max_point]][0])];
+      map_dig_idx = map2d[1][digit_map[maxima_digits[max_point]][2] + global_shift[1]][digit_map[maxima_digits[max_point]][0] + rowOffset(digit_map[maxima_digits[max_point]][0]) + global_shift[2]][digit_map[maxima_digits[max_point]][1] + global_shift[0] + padOffset(digit_map[maxima_digits[max_point]][0])];
       if (checkIdx(map_dig_idx)) {
         check_assignment = 0;
         index_assignment = -1;
@@ -1254,6 +1251,7 @@ void qaIdeal::runQa(int loop_sectors)
                   current_element[1] = network_map[maxima_digits[max_point]][1];
                   current_element[2] = ideal_cog_map[current_idx_id][2];
                   current_element[3] = ideal_cog_map[current_idx_id][1];
+                  current_element[4] = ideal_cog_q[current_idx_id] / digit_q[maxima_digits[max_point]];
                 }
               }
             }
@@ -1273,13 +1271,14 @@ void qaIdeal::runQa(int loop_sectors)
     TFile* outputFileNetworkIdeal = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* network_ideal = new TTree("network_ideal", "tree");
 
-    float net_time = 0, net_pad = 0, id_time = 0, id_pad = 0, net_minus_ideal_time = 0, net_minus_ideal_pad = 0;
+    float net_time = 0, net_pad = 0, id_time = 0, id_pad = 0, net_minus_ideal_time = 0, net_minus_ideal_pad = 0, charge_ratio;
     network_ideal->Branch("network_cog_time", &net_time);
     network_ideal->Branch("network_cog_pad", &net_pad);
     network_ideal->Branch("ideal_cog_time", &id_time);
     network_ideal->Branch("ideal_cog_pad", &id_pad);
     network_ideal->Branch("net_minus_ideal_time", &net_minus_ideal_time);
     network_ideal->Branch("net_minus_ideal_pad", &net_minus_ideal_pad);
+    network_ideal->Branch("charge_ideal_over_network", &charge_ratio);
 
     LOG(info) << "Network map size: " << network_map.size();
     LOG(info) << "Network-ideal size: " << network_ideal_assignemnt.size();
@@ -1291,6 +1290,7 @@ void qaIdeal::runQa(int loop_sectors)
       id_pad = network_ideal_assignemnt[elem][3];
       net_minus_ideal_time = net_time - id_time;
       net_minus_ideal_pad = net_pad - id_pad;
+      charge_ratio = network_ideal_assignemnt[elem][4];
       network_ideal->Fill();
     }
 
@@ -1490,6 +1490,19 @@ void qaIdeal::runQa(int loop_sectors)
     tr_data->Write();
     outputFileTrData->Close();
   }
+
+  map2d[0].clear();
+  map2d[1].clear();
+  maxima_digits.clear();
+  digit_map.clear();
+  ideal_max_map.clear();
+  ideal_cog_map.clear();
+  native_map.clear();
+  network_map.clear();
+  ideal_sigma_map.clear();
+  ideal_max_q.clear();
+  ideal_cog_q.clear();
+  digit_q.clear();
 
   if (verbose >= 3)
     LOG(info) << "Done!";
