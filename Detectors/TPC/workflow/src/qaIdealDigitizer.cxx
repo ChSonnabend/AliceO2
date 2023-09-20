@@ -786,12 +786,15 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
       network_map[i][2] = output_network_reg[3 * i];     // time
     }
     LOG(info) << "Network map written.";
-
-    input_vector.clear();
-    central_charges.clear();
-    new_max_dig.clear();
-    index_pass.clear();
   }
+
+  input_vector.clear();
+  temp_input.clear();
+  central_charges.clear();
+  new_max_dig.clear();
+  index_pass.clear();
+  output_network_class.clear();
+  output_network_reg.clear();
 }
 
 // ---------------------------------
@@ -1495,7 +1498,7 @@ void qaIdeal::runQa(int loop_sectors)
     outputFileTrData->Close();
 
     tr_data_X.clear();
-    for(int i = 0; i < 5; i++){
+    for (int i = 0; i < 5; i++) {
       tr_data_Y_reg[i].clear();
     }
     tr_data_Y_class.clear();
@@ -1503,6 +1506,7 @@ void qaIdeal::runQa(int loop_sectors)
 
   map2d[0].clear();
   map2d[1].clear();
+
   maxima_digits.clear();
   digit_map.clear();
   ideal_max_map.clear();
@@ -1514,7 +1518,14 @@ void qaIdeal::runQa(int loop_sectors)
   ideal_cog_q.clear();
   digit_q.clear();
 
-  if (verbose >= 3)
+  assigned_ideal.clear();
+  clone_order.clear();
+  assignments_dig_to_id.clear();
+  assigned_digit.clear();
+  assignments_id_to_dig.clear();
+  fractional_clones_vector.clear();
+
+  if (verbose >= 2)
     LOG(info) << "Done!";
 
   // clear_memory(loop_sectors);
@@ -1611,7 +1622,7 @@ void qaIdeal::run(ProcessingContext& pc)
   LOG(info) << "Clones (Int, clone-order >= 2 for ideal cluster): " << clones_sum << " (" << (float)clones_sum * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
   LOG(info) << "Clones (Float, fractional clone-order): " << fractional_clones_sum << " (" << (float)fractional_clones_sum * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
   LOG(info) << "Fakes for digits (number of digit hits that can't be assigned to any ideal hit): " << ass_dig << " (" << (float)ass_dig * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
-  LOG(info) << "Fakes for ideal (number of ideal hits that can't be assigned to any digit hit): " << ass_id << " (" << (float)ass_id * 100 / (float)number_of_ideal_max_sum << "% of digit maxima)";
+  LOG(info) << "Fakes for ideal (number of ideal hits that can't be assigned to any digit hit): " << ass_id << " (" << (float)ass_id * 100 / (float)number_of_ideal_max_sum << "% of ideal maxima)";
 
   if (mode.find(std::string("training_data")) != std::string::npos && create_output) {
     LOG(info) << "------- Merging training data -------";
