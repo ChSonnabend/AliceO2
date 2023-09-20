@@ -1185,6 +1185,8 @@ void qaIdeal::runQa(int loop_sectors)
 
     native_ideal->Write();
     outputFileNativeIdeal->Close();
+
+    native_ideal_assignemnt.clear();
   }
 
   if ((mode.find(std::string("network_reg")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) && create_output) {
@@ -1296,6 +1298,8 @@ void qaIdeal::runQa(int loop_sectors)
 
     network_ideal->Write();
     outputFileNetworkIdeal->Close();
+
+    network_ideal_assignemnt.clear();
   }
 
   if (mode.find(std::string("training_data")) != std::string::npos && create_output) {
@@ -1489,6 +1493,12 @@ void qaIdeal::runQa(int loop_sectors)
     }
     tr_data->Write();
     outputFileTrData->Close();
+
+    tr_data_X.clear();
+    for(int i = 0; i < 5; i++){
+      tr_data_Y_reg[i].clear();
+    }
+    tr_data_Y_class.clear();
   }
 
   map2d[0].clear();
@@ -1533,10 +1543,16 @@ void qaIdeal::run(ProcessingContext& pc)
   numThreads = std::min(numThreads, 36);
 
   thread_group group;
-  for (int loop_sectors = 0; loop_sectors < o2::tpc::constants::MAXSECTOR; loop_sectors++) {
-    group.create_thread(boost::bind(&qaIdeal::runQa, this, loop_sectors));
-    if ((loop_sectors + 1) % numThreads == 0 || loop_sectors + 1 == o2::tpc::constants::MAXSECTOR) {
-      group.join_all();
+  if (numThreads > 1) {
+    for (int loop_sectors = 0; loop_sectors < o2::tpc::constants::MAXSECTOR; loop_sectors++) {
+      group.create_thread(boost::bind(&qaIdeal::runQa, this, loop_sectors));
+      if ((loop_sectors + 1) % numThreads == 0 || loop_sectors + 1 == o2::tpc::constants::MAXSECTOR) {
+        group.join_all();
+      }
+    }
+  } else {
+    for (int loop_sectors = 0; loop_sectors < o2::tpc::constants::MAXSECTOR; loop_sectors++) {
+      runQa(loop_sectors);
     }
   }
 
