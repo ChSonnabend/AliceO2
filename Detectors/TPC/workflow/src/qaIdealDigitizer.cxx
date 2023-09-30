@@ -51,29 +51,47 @@ using namespace boost;
 class qaIdeal : public Task
 {
  public:
+  template <typename T>
+  int sign(T);
+
   void init(InitContext&) final;
   void setGeomFromTxt(std::string, std::vector<int> = {152, 14});
   int padOffset(int);
   int rowOffset(int);
   bool isBoundary(int, int);
   bool checkIdx(int);
-  void clear_memory(int);
   void read_digits(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
   void read_ideal(int, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<std::array<float, 2>>&, std::vector<float>&);
   void read_native(int, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 3>>&, std::vector<float>&);
   void read_network(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
+
   template <class T>
   T init_map2d(int);
+
   template <class T>
   void fill_map2d(int, T&, std::vector<std::array<int, 3>>&, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<float>&, int = 0);
+
   template <class T>
   void find_maxima(int, T&, std::vector<int>&, std::vector<float>&);
+
+  template <class T>
+  bool is_local_minimum(T&, std::array<int, 3>&, std::vector<float>&);
+
+  template <class T>
+  int local_saddlepoint(T&, std::array<int, 3>&, std::vector<float>&);
+
+  template <class T>
+  void native_clusterizer(T&, std::vector<std::array<int, 3>>&, std::vector<int>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<float>&);
+
   template <class T>
   void run_network(int, T&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 3>>&, int = 0);
+
   template <class T>
   void overwrite_map2d(int, T&, std::vector<std::array<int, 3>>&, std::vector<int>&, int = 0);
+
   template <class T>
   int test_neighbour(std::array<int, 3>, std::array<int, 2>, T&, int = 1);
+
   void runQa(int);
   void run(ProcessingContext&) final;
 
@@ -109,6 +127,13 @@ class qaIdeal : public Task
 
   OnnxModel network_classification, network_regression;
 };
+
+// ---------------------------------
+template <typename T>
+int qaIdeal::sign(T val)
+{
+  return (T(0) < val) - (val < T(0));
+}
 
 // ---------------------------------
 void qaIdeal::setGeomFromTxt(std::string inputFile, std::vector<int> size)
@@ -241,23 +266,6 @@ void qaIdeal::init(InitContext& ic)
 bool qaIdeal::checkIdx(int idx)
 {
   return (idx > -1);
-}
-
-// ---------------------------------
-void qaIdeal::clear_memory(int sector)
-{
-  // maxima_digits.clear();
-  // digit_map.clear();
-  // ideal_max_map.clear();
-  // ideal_cog_map.clear();
-  // ideal_sigma_map[sector].clear();
-  // ideal_max_q[sector].clear();
-  // ideal_cog_q[sector].clear();
-  // digit_q.clear();
-  // native_map[sector].clear();
-
-  if (verbose >= 1)
-    LOG(info) << "Cleared the 2D charge map!";
 }
 
 // ---------------------------------
@@ -650,6 +658,232 @@ void qaIdeal::find_maxima(int sector, T& map2d, std::vector<int>& maxima_digits,
 
 // ---------------------------------
 template <class T>
+bool qaIdeal::is_local_minimum(T& map2d, std::array<int, 3>& current_position, std::vector<float>& digit_q)
+{
+
+  bool is_min = false;
+  float current_charge = 0;
+  int row = current_position[0], pad = current_position[1], time = current_position[2];
+  int row_offset = rowOffset(current_position[0]);
+  int pad_offset = padOffset(current_position[0]);
+  if (checkIdx(map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset])) {
+
+    current_charge = digit_q[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset]];
+
+    if (map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1] != -1) {
+      is_min = (current_charge < digit_q[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1]]);
+    }
+
+    if (is_min && map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset] != -1) {
+      is_min = (current_charge < digit_q[map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset]]);
+    }
+
+    if (is_min && map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1] != -1) {
+      is_min = (current_charge < digit_q[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]]);
+    }
+
+    if (is_min && map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset] != -1) {
+      is_min = (current_charge < digit_q[map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset]]);
+    }
+
+    if (is_min && map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1] != -1) {
+      is_min = (current_charge < digit_q[map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1]]);
+    }
+
+    if (is_min && map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1] != -1) {
+      is_min = (current_charge < digit_q[map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1]]);
+    }
+
+    if (is_min && map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1] != -1) {
+      is_min = (current_charge < digit_q[map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]]);
+    }
+
+    if (is_min && map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1] != -1) {
+      is_min = (current_charge < digit_q[map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]]);
+    }
+  }
+
+  return is_min;
+}
+
+// ---------------------------------
+template <class T>
+int qaIdeal::local_saddlepoint(T& map2d, std::array<int, 3>& current_position, std::vector<float>& digit_q)
+{
+
+  // returns 0 if no saddlepoint, returns 1 if saddlepoint rising in pad direction, returns 2 if saddlepoint rising in time directino
+
+  bool saddlepoint = false;
+  int saddlepoint_mode = 0;
+  float current_charge = 0;
+  int row = current_position[0], pad = current_position[1], time = current_position[2];
+  int row_offset = rowOffset(row);
+  int pad_offset = padOffset(row);
+  if (checkIdx(map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset])) {
+
+    current_charge = digit_q[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset]];
+
+    if (map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1] != -1) {
+      saddlepoint = (current_charge < digit_q[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1]]);
+      if (map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1] != -1)
+        saddlepoint = saddlepoint && (current_charge < digit_q[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]]);
+      if (map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset] != -1)
+        saddlepoint = saddlepoint && (current_charge > digit_q[map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset]]);
+      if (map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset] != -1)
+        saddlepoint = saddlepoint && (current_charge > digit_q[map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset]]);
+      if (saddlepoint)
+        saddlepoint_mode = 1;
+    }
+
+    if (!saddlepoint && map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset] != -1) {
+      saddlepoint = (current_charge < digit_q[map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset]]);
+      if (map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset] != -1)
+        saddlepoint = saddlepoint && (current_charge < digit_q[map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset]]);
+      if (map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1] != -1)
+        saddlepoint = saddlepoint && (current_charge > digit_q[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1]]);
+      if (map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1] != -1)
+        saddlepoint = saddlepoint && (current_charge > digit_q[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]]);
+      if (saddlepoint)
+        saddlepoint_mode = 2;
+    }
+  }
+  return saddlepoint_mode;
+}
+
+// ---------------------------------
+template <class T>
+void qaIdeal::native_clusterizer(T& map2d, std::vector<std::array<int, 3>>& digit_map, std::vector<int>& maxima_digits, std::vector<float>& digit_q, std::vector<std::array<float, 3>>& digit_clusterizer_map, std::vector<float>& digit_clusterizer_q)
+{
+
+  digit_clusterizer_map.clear();
+  digit_clusterizer_q.clear();
+
+  std::vector<std::array<int, 3>> digit_map_tmp = digit_map;
+  digit_map.clear();
+  std::vector<float> digit_q_tmp = digit_q;
+  digit_q.clear();
+
+  digit_clusterizer_map.resize(maxima_digits.size());
+  digit_clusterizer_q.resize(maxima_digits.size());
+  digit_map.resize(maxima_digits.size());
+  digit_q.resize(maxima_digits.size());
+
+  int row, pad, time, row_offset, pad_offset;
+  float cog_charge = 0, current_charge = 0;
+  std::array<float, 3> cog_position{}; // pad, time
+  std::array<int, 3> current_pos{};
+
+  std::array<std::array<int, 3>, 3> found_min_saddle{};
+  std::array<std::array<int, 5>, 5> investigate{};
+  std::array<int, 2> adjusted_elem;
+
+  for (int max_pos = 0; max_pos < maxima_digits.size(); max_pos++) {
+
+    row = digit_map_tmp[maxima_digits[max_pos]][0];
+    pad = digit_map_tmp[maxima_digits[max_pos]][1];
+    time = digit_map_tmp[maxima_digits[max_pos]][2];
+    row_offset = rowOffset(row);
+    pad_offset = padOffset(row);
+
+    for (int layer = 0; layer < adj_mat.size(); layer++) {
+      for (auto elem : adj_mat[layer]) {
+        if (map2d[1][time + global_shift[1] + elem[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + elem[0]] != -1) {
+          current_charge = digit_q_tmp[map2d[1][time + global_shift[1] + elem[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + elem[0]]];
+        } else {
+          current_charge = 0;
+        }
+        current_pos = {row, pad + elem[0], time + elem[1]};
+        cog_position = {row, 0, 0};
+
+        adjusted_elem[0] = elem[0] + 2;
+        adjusted_elem[1] = elem[1] + 2;
+
+        if (layer <= 2) {
+          found_min_saddle[adjusted_elem[0]][adjusted_elem[1]] = is_local_minimum(map2d, current_pos, digit_q_tmp) + 2 * local_saddlepoint(map2d, current_pos, digit_q_tmp); // 1 == min, 2 == saddlepoint, rising in pad, 4 = saddlepoint, rising in time
+          if (layer == 0 || !found_min_saddle[adjusted_elem[0]][adjusted_elem[1]]) {
+            cog_charge += current_charge;
+            cog_position[1] += elem[0] * current_charge;
+            cog_position[2] += elem[1] * current_charge;
+          } else {
+            if (std::abs(elem[0]) && std::abs(elem[1]) && current_charge > 0) {
+              if (found_min_saddle[adjusted_elem[0]][adjusted_elem[1]] == 1) {
+                investigate[sign(elem[0]) * (std::abs(elem[0]) + 1) + 2][adjusted_elem[1]] = 1;
+                investigate[elem[0] + 2][sign(elem[1]) * (std::abs(elem[1]) + 1) + 2] = 1;
+                investigate[sign(elem[0]) * (std::abs(elem[0]) + 1) + 2][sign(elem[1]) * (std::abs(elem[1]) + 1) + 2] = 1;
+              } else if (found_min_saddle[adjusted_elem[0]][adjusted_elem[1]] == 2) {
+                investigate[adjusted_elem[0]][sign(elem[1]) * (std::abs(elem[1]) + 1) + 2] = 2;
+                investigate[sign(elem[0]) * (std::abs(elem[0]) + 1) + 2][sign(elem[1]) * (std::abs(elem[1]) + 1) + 2] = 2;
+              } else if (found_min_saddle[adjusted_elem[0]][adjusted_elem[1]] == 4) {
+                investigate[sign(elem[0]) * (std::abs(elem[0]) + 1) + 2][adjusted_elem[1]] = 4;
+                investigate[sign(elem[0]) * (std::abs(elem[0]) + 1) + 2][sign(elem[1]) * (std::abs(elem[1]) + 1) + 2] = 4;
+              }
+            } else {
+              if (std::abs(elem[0]) && current_charge > 0) {
+                if (found_min_saddle[adjusted_elem[0]][adjusted_elem[1]] == 1 || found_min_saddle[adjusted_elem[0]][adjusted_elem[1]] == 2) {
+                  investigate[sign(elem[0]) * (std::abs(elem[0]) + 1) + 2][sign(elem[1]) * (std::abs(elem[1]) - 1) + 2] = 1;
+                  investigate[sign(elem[0]) * (std::abs(elem[0]) + 1) + 2][adjusted_elem[1]] = 1;
+                  investigate[sign(elem[0]) * (std::abs(elem[0]) + 1) + 2][sign(elem[1]) * (std::abs(elem[1]) + 1) + 2] = 1;
+                } else if (found_min_saddle[adjusted_elem[0]][adjusted_elem[1]] == 4) {
+                  investigate[sign(elem[0]) * (std::abs(elem[0]) + 1) + 2][sign(elem[1]) * (std::abs(elem[1]) - 1) + 2] = 4;
+                  investigate[sign(elem[0]) * (std::abs(elem[0]) + 1) + 2][adjusted_elem[1]] = 4;
+                  investigate[sign(elem[0]) * (std::abs(elem[0]) + 1) + 2][sign(elem[1]) * (std::abs(elem[1]) + 1) + 2] = 4;
+                }
+              } else if (std::abs(elem[1]) && current_charge > 0) {
+                if (found_min_saddle[adjusted_elem[0]][adjusted_elem[1]] == 1 || found_min_saddle[adjusted_elem[0]][adjusted_elem[1]] == 2) {
+                  investigate[sign(elem[0]) * (std::abs(elem[0]) + 1) + 2][sign(elem[1]) * (std::abs(elem[1]) + 1) + 2] = 1;
+                  investigate[adjusted_elem[0]][sign(elem[1]) * (std::abs(elem[1]) + 1) + 2] = 1;
+                  investigate[sign(elem[0]) * (std::abs(elem[0]) - 1) + 2][sign(elem[1]) * (std::abs(elem[1]) + 1) + 2] = 1;
+                } else if (found_min_saddle[adjusted_elem[0]][adjusted_elem[1]] == 4) {
+                  investigate[sign(elem[0]) * (std::abs(elem[0]) + 1) + 2][sign(elem[1]) * (std::abs(elem[1]) + 1) + 2] = 4;
+                  investigate[adjusted_elem[0]][sign(elem[1]) * (std::abs(elem[1]) + 1) + 2] = 4;
+                  investigate[sign(elem[0]) * (std::abs(elem[0]) - 1) + 2][sign(elem[1]) * (std::abs(elem[1]) + 1) + 2] = 4;
+                }
+              }
+            }
+            cog_charge += current_charge / 2.f;
+            cog_position[1] += elem[0] * (current_charge / 2.f);
+            cog_position[2] += elem[1] * (current_charge / 2.f);
+          }
+        } else {
+          if ((investigate[adjusted_elem[0]][adjusted_elem[1]] == 0) && !(is_local_minimum(map2d, current_pos, digit_q_tmp) || local_saddlepoint(map2d, current_pos, digit_q_tmp)) && current_charge > 0) {
+            cog_charge += current_charge;
+            cog_position[1] += elem[0] * current_charge;
+            cog_position[2] += elem[1] * current_charge;
+          } else if (investigate[adjusted_elem[0]][adjusted_elem[1]] > 1) {
+            cog_charge += current_charge / 2.f;
+            cog_position[1] += elem[0] * (current_charge / 2.f);
+            cog_position[2] += elem[1] * (current_charge / 2.f);
+          }
+        }
+      }
+    }
+
+    cog_position[1] /= cog_charge;
+    cog_position[2] /= cog_charge;
+    cog_position[1] += pad;
+    cog_position[2] += time;
+
+
+    digit_clusterizer_map[max_pos] = cog_position;
+    digit_clusterizer_q[max_pos] = cog_charge;
+    digit_map[max_pos] = {(int)cog_position[0], std::round(cog_position[1]), std::round(cog_position[2])};
+    digit_q[max_pos] = cog_charge;
+
+
+    digit_map_tmp.clear();
+    digit_q_tmp.clear();
+
+    cog_charge = 0;
+    std::fill(cog_position.begin(), cog_position.end(), 0);
+    std::fill(investigate.begin(), investigate.end(), std::array<int, 5>{0});
+    std::fill(found_min_saddle.begin(), found_min_saddle.end(), std::array<int, 3>{0});
+  }
+
+  std::iota(maxima_digits.begin(), maxima_digits.end(), 0);
+}
+
+// ---------------------------------
+template <class T>
 void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits, std::vector<std::array<int, 3>>& digit_map, std::vector<float>& digit_q, std::vector<std::array<float, 3>>& network_map, int eval_mode)
 {
 
@@ -711,7 +945,7 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
             if (out_net[idx] > networkClassThres) {
               network_reg_size++;
             } else {
-              new_max_dig[max] = -1;
+              new_max_dig[int((max + 1) - networkInputSize) + idx] = -1;
             }
           }
         }
@@ -831,9 +1065,9 @@ void qaIdeal::runQa(int loop_sectors)
 
   std::vector<int> maxima_digits; // , digit_isNoise, digit_isQED, digit_isValid;
   std::vector<std::array<int, 3>> digit_map, ideal_max_map;
-  std::vector<std::array<float, 3>> ideal_cog_map, native_map, network_map;
+  std::vector<std::array<float, 3>> ideal_cog_map, native_map, network_map, digit_clusterizer_map;
   std::vector<std::array<float, 2>> ideal_sigma_map;
-  std::vector<float> ideal_max_q, ideal_cog_q, digit_q;
+  std::vector<float> ideal_max_q, ideal_cog_q, digit_q, digit_clusterizer_q;
 
   if (mode.find(std::string("native")) != std::string::npos) {
     read_native(loop_sectors, digit_map, native_map, digit_q);
@@ -853,6 +1087,9 @@ void qaIdeal::runQa(int loop_sectors)
 
   if ((mode.find(std::string("network")) == std::string::npos) && (mode.find(std::string("native")) == std::string::npos)) {
     find_maxima<qa_t>(loop_sectors, map2d, maxima_digits, digit_q);
+    if (mode.find(std::string("clusterizer")) != std::string::npos) {
+      native_clusterizer(map2d, digit_map, maxima_digits, digit_q, digit_clusterizer_map, digit_clusterizer_q);
+    }
     overwrite_map2d<qa_t>(loop_sectors, map2d, digit_map, maxima_digits, 1);
   } else {
     if (mode.find(std::string("native")) == std::string::npos) {
@@ -1343,7 +1580,7 @@ void qaIdeal::runQa(int loop_sectors)
       LOG(info) << "Initialized arrays...";
 
     // Some useful variables
-    int map_dig_idx = 0, map_q_idx = 0, check_assignment = 0, index_assignment = -1, current_idx_id = -1, current_idx_dig = -1, row_offset = 0, pad_offset = 0;
+    int map_dig_idx = 0, map_q_idx = 0, check_assignment = 0, index_assignment = -1, current_idx_id = -1, current_idx_dig = -1, row_offset = 0, pad_offset = 0, class_label = 0;
     float distance_assignment = 100000.f, current_distance_dig_to_id = 0, current_distance_id_to_dig = 0;
     bool is_min_dist = true;
 
@@ -1380,9 +1617,11 @@ void qaIdeal::runQa(int loop_sectors)
         index_assignment = -1;
         distance_assignment = 100000.f;
         is_min_dist = true;
+        class_label = 0;
         for (int i = 0; i < 25; i++) {
           // Checks all ideal maxima assigned to one digit maximum by calculating mutual distance
           current_idx_id = assignments_id_to_dig[max_point][i];
+          class_label++;
           if (checkIdx(current_idx_id)) {
             if ((ideal_cog_q[current_idx_id] < 5 && ideal_max_q[current_idx_id] < 3) || (assigned_ideal[current_idx_id] != 0)) {
               is_min_dist = false;
@@ -1428,7 +1667,8 @@ void qaIdeal::runQa(int loop_sectors)
           }
         }
 
-        tr_data_Y_class[max_point] = check_assignment;
+        // tr_data_Y_class[max_point] = check_assignment;
+        tr_data_Y_class[max_point] = class_label;
         if (check_assignment > 0 && is_min_dist) {
           tr_data_Y_reg[0][max_point] = ideal_cog_map[index_assignment][2] - digit_map[maxima_digits[max_point]][2]; // time
           tr_data_Y_reg[1][max_point] = ideal_cog_map[index_assignment][1] - digit_map[maxima_digits[max_point]][1]; // pad
@@ -1438,7 +1678,8 @@ void qaIdeal::runQa(int loop_sectors)
           // if(std::abs(digit_map[maxima_digits[max_point]][2] - ideal_cog_map[index_assignment][2]) > 3 || std::abs(digit_map[maxima_digits[max_point]][1] - ideal_cog_map[index_assignment][1]) > 3){
           //   LOG(info) << "#Maxima: " << maxima_digits.size() << ", Index (point) " << max_point << " & (max) " << maxima_digits[max_point] << " & (ideal) " << index_assignment << ", ideal_cog_map.size(): " <<  ideal_cog_map.size() << ", index_assignment: " << index_assignment;
           // }
-        } else {
+        }
+          else {
           tr_data_Y_reg[0][max_point] = -1.f;
           tr_data_Y_reg[1][max_point] = -1.f;
           tr_data_Y_reg[2][max_point] = -1.f;
@@ -1513,10 +1754,12 @@ void qaIdeal::runQa(int loop_sectors)
   ideal_cog_map.clear();
   native_map.clear();
   network_map.clear();
+  digit_clusterizer_map.clear();
   ideal_sigma_map.clear();
   ideal_max_q.clear();
   ideal_cog_q.clear();
   digit_q.clear();
+  digit_clusterizer_q.clear();
 
   assigned_ideal.clear();
   clone_order.clear();
@@ -1526,9 +1769,7 @@ void qaIdeal::runQa(int loop_sectors)
   fractional_clones_vector.clear();
 
   if (verbose >= 2)
-    LOG(info) << "Done!";
-
-  // clear_memory(loop_sectors);
+    LOG(info) << "Done with sector " << loop_sectors << "!";
 }
 
 // ---------------------------------
@@ -1658,7 +1899,7 @@ DataProcessorSpec processIdealClusterizer()
     adaptFromTask<qaIdeal>(),
     Options{
       {"verbose", VariantType::Int, 0, {"Verbosity level"}},
-      {"mode", VariantType::String, "training_data", {"Enables different settings (e.g. creation of training data for NN, running with tpc-native clusters)."}},
+      {"mode", VariantType::String, "training_data", {"Enables different settings (e.g. creation of training data for NN, running with tpc-native clusters). Options are: training_data, native, network_classification, network_regression, network_full, clusterizer"}},
       {"create-output", VariantType::Bool, true, {"Create output, specific to any given mode."}},
       {"use-max-cog", VariantType::Int, 1, {"Use maxima for assignment = 0, use CoG's = 1"}},
       {"size-pad", VariantType::Int, 11, {"Training data selection size: Images are (size-pad, size-time, size-row)."}},
