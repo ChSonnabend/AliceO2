@@ -107,7 +107,7 @@ class qaIdeal : public Task
   int networkNumThreads = 1;                 // Future: Add Cuda and CoreML Execution providers to run on CPU
   int numThreads = 1;                        // Number of cores for multithreading
   int use_max_cog = 1;
-  int normalization_mode = 0;
+  int normalization_mode = 1;
 
   std::array<int, o2::tpc::constants::MAXSECTOR> max_time, max_pad;
   std::string mode = "training_data";
@@ -910,9 +910,9 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
           // (?) array_idx = map2d[1][digit_map[maxima_digits[max]][2] + 2 * global_shift[1] + 1 - time][digit_map[maxima_digits[max]][0]][digit_map[maxima_digits[max]][1] + pad + pad_offset];
           array_idx = map2d[1][digit_map[maxima_digits[max]][2] + time][digit_map[maxima_digits[max]][0] + row + row_offset][digit_map[maxima_digits[max]][1] + pad + pad_offset];
           if (array_idx > -1) {
-            if(normalization_mode == 0){
+            if (normalization_mode == 0) {
               input_vector[max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time] = digit_q[array_idx] / 1024.f;
-            } else if(normalization_mode == 1){
+            } else if (normalization_mode == 1) {
               input_vector[max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time] = digit_q[array_idx] / central_charges[max];
             }
           } else if (isBoundary(digit_map[maxima_digits[max]][0] + row + row_offset, digit_map[maxima_digits[max]][1] + pad + pad_offset)) {
@@ -1506,7 +1506,11 @@ void qaIdeal::runQa(int loop_sectors)
                   current_element[1] = network_map[maxima_digits[max_point]][1];
                   current_element[2] = ideal_cog_map[current_idx_id][2];
                   current_element[3] = ideal_cog_map[current_idx_id][1];
-                  current_element[4] = ideal_cog_q[current_idx_id] / digit_q[maxima_digits[max_point]];
+                  if (normalization_mode == 0) {
+                    current_element[4] = ideal_cog_q[current_idx_id] / 1024.f;
+                  } else if (normalization_mode == 1) {
+                    current_element[4] = ideal_cog_q[current_idx_id] / digit_q[maxima_digits[max_point]];
+                  }
                 }
               }
             }
@@ -1621,9 +1625,9 @@ void qaIdeal::runQa(int loop_sectors)
                   tr_data_X[max_point][row][pad][time] = 0;
                 }
               } else {
-                if(normalization_mode == 0){
+                if (normalization_mode == 0) {
                   tr_data_X[max_point][row][pad][time] = digit_q[map_q_idx] / 1024.f;
-                } else if(normalization_mode == 1) {
+                } else if (normalization_mode == 1) {
                   tr_data_X[max_point][row][pad][time] = digit_q[map_q_idx] / q_max;
                 }
               }
@@ -1691,7 +1695,11 @@ void qaIdeal::runQa(int loop_sectors)
           tr_data_Y_reg[1][max_point] = ideal_cog_map[index_assignment][1] - digit_map[maxima_digits[max_point]][1]; // pad
           tr_data_Y_reg[2][max_point] = ideal_sigma_map[index_assignment][0];                                        // sigma pad
           tr_data_Y_reg[3][max_point] = ideal_sigma_map[index_assignment][1];                                        // sigma time
-          tr_data_Y_reg[4][max_point] = ideal_cog_q[index_assignment] / q_max;
+          if(normalization_mode == 0){
+            tr_data_Y_reg[4][max_point] = ideal_cog_q[index_assignment] / 1024.f;
+          } else if(normalization_mode == 1){
+            tr_data_Y_reg[4][max_point] = ideal_cog_q[index_assignment] / q_max;
+          }
           // if(std::abs(digit_map[maxima_digits[max_point]][2] - ideal_cog_map[index_assignment][2]) > 3 || std::abs(digit_map[maxima_digits[max_point]][1] - ideal_cog_map[index_assignment][1]) > 3){
           //   LOG(info) << "#Maxima: " << maxima_digits.size() << ", Index (point) " << max_point << " & (max) " << maxima_digits[max_point] << " & (ideal) " << index_assignment << ", ideal_cog_map.size(): " <<  ideal_cog_map.size() << ", index_assignment: " << index_assignment;
           // }
@@ -1916,7 +1924,7 @@ DataProcessorSpec processIdealClusterizer()
     Options{
       {"verbose", VariantType::Int, 0, {"Verbosity level"}},
       {"mode", VariantType::String, "training_data", {"Enables different settings (e.g. creation of training data for NN, running with tpc-native clusters). Options are: training_data, native, network_classification, network_regression, network_full, clusterizer"}},
-      {"normalization-mode", VariantType::Int, 0, {"Normalization: 0 = normalization by 1024.f; 1 = normalization by q_center "}},
+      {"normalization-mode", VariantType::Int, 1, {"Normalization: 0 = normalization by 1024.f; 1 = normalization by q_center "}},
       {"create-output", VariantType::Int, 1, {"Create output, specific to any given mode."}},
       {"use-max-cog", VariantType::Int, 1, {"Use maxima for assignment = 0, use CoG's = 1"}},
       {"size-pad", VariantType::Int, 11, {"Training data selection size: Images are (size-pad, size-time, size-row)."}},
