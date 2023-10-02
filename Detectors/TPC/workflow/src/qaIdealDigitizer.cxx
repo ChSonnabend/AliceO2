@@ -1612,7 +1612,7 @@ void qaIdeal::runQa(int loop_sectors)
             for (int time = 0; time < mat_size_time; time++) {
               map_q_idx = map2d[0][digit_map[maxima_digits[max_point]][2] + time][digit_map[maxima_digits[max_point]][0] + row + row_offset][digit_map[maxima_digits[max_point]][1] + pad + pad_offset];
               if (map_q_idx == -1) {
-                if (isBoundary(digit_map[maxima_digits[max_point]][0] + row + row_offset, digit_map[maxima_digits[max_point]][1] + pad + pad_offset)) {
+                if (isBoundary(digit_map[maxima_digits[max_point]][0] + row + row_offset - global_shift[2], digit_map[maxima_digits[max_point]][1] + pad + pad_offset - global_shift[0])) {
                   // if ((row < (global_shift[2] - digit_map[maxima_digits[max_point]][0])) ||
                   //   (row > (global_shift[2] - digit_map[maxima_digits[max_point]][0] + 62)) ||
                   //   (row < (2 * global_shift[2] - digit_map[maxima_digits[max_point]][0] + 62)) ||
