@@ -99,7 +99,7 @@ class qaIdeal : public Task
   std::vector<int> global_shift = {5, 5, 0}; // shifting digits to select windows easier, (pad, time, row)
   int charge_limits[2] = {2, 1024};          // upper and lower charge limits
   int verbose = 0;                           // chunk_size in time direction
-  bool create_output = true;                 // Create output files specific for any mode
+  int create_output = 1;                     // Create output files specific for any mode
   int dim = 2;                               // Dimensionality of the training data
   int networkInputSize = 1000;               // vector input size for neural network
   float networkClassThres = 0.5f;            // Threshold where network decides to keep / reject digit maximum
@@ -107,6 +107,7 @@ class qaIdeal : public Task
   int networkNumThreads = 1;                 // Future: Add Cuda and CoreML Execution providers to run on CPU
   int numThreads = 1;                        // Number of cores for multithreading
   int use_max_cog = 1;
+  int normalization_mode = 0;
 
   std::array<int, o2::tpc::constants::MAXSECTOR> max_time, max_pad;
   std::string mode = "training_data";
@@ -191,7 +192,7 @@ int qaIdeal::rowOffset(int row)
 bool qaIdeal::isBoundary(int row, int pad)
 {
   if (row <= 62) {
-    if (pad < (TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2 || pad >= (TPC_GEOM[151][2] + TPC_GEOM[row][2]) / 2) {
+    if (pad < (TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2 || pad > (TPC_GEOM[151][2] + TPC_GEOM[row][2]) / 2) {
       return true;
     } else {
       return false;
@@ -199,7 +200,7 @@ bool qaIdeal::isBoundary(int row, int pad)
   } else if (row <= 62 + global_shift[2]) {
     return true;
   } else if (row <= 151 + global_shift[2]) {
-    if (pad < (TPC_GEOM[151][2] - TPC_GEOM[row - global_shift[2]][2]) / 2 || pad >= (TPC_GEOM[151][2] + TPC_GEOM[row - global_shift[2]][2]) / 2) {
+    if (pad < (TPC_GEOM[151][2] - TPC_GEOM[row - global_shift[2]][2]) / 2 || pad > (TPC_GEOM[151][2] + TPC_GEOM[row - global_shift[2]][2]) / 2) {
       return true;
     } else {
       return false;
@@ -216,7 +217,7 @@ void qaIdeal::init(InitContext& ic)
 {
   verbose = ic.options().get<int>("verbose");
   mode = ic.options().get<std::string>("mode");
-  create_output = ic.options().get<bool>("create-output");
+  create_output = ic.options().get<int>("create-output");
   use_max_cog = ic.options().get<int>("use-max-cog");
   global_shift[0] = (int)((ic.options().get<int>("size-pad") - 1.f) / 2.f);
   global_shift[1] = (int)((ic.options().get<int>("size-time") - 1.f) / 2.f);
@@ -231,6 +232,7 @@ void qaIdeal::init(InitContext& ic)
   networkClassThres = ic.options().get<float>("network-class-threshold");
   networkOptimizations = ic.options().get<bool>("enable-network-optimizations");
   networkNumThreads = ic.options().get<int>("network-num-threads");
+  normalization_mode = ic.options().get<int>("normalization-mode");
 
   ROOT::EnableThreadSafety();
 
@@ -863,12 +865,10 @@ void qaIdeal::native_clusterizer(T& map2d, std::vector<std::array<int, 3>>& digi
     cog_position[1] += pad;
     cog_position[2] += time;
 
-
     digit_clusterizer_map[max_pos] = cog_position;
     digit_clusterizer_q[max_pos] = cog_charge;
     digit_map[max_pos] = {(int)cog_position[0], std::round(cog_position[1]), std::round(cog_position[2])};
     digit_q[max_pos] = cog_charge;
-
 
     digit_map_tmp.clear();
     digit_q_tmp.clear();
@@ -910,7 +910,11 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
           // (?) array_idx = map2d[1][digit_map[maxima_digits[max]][2] + 2 * global_shift[1] + 1 - time][digit_map[maxima_digits[max]][0]][digit_map[maxima_digits[max]][1] + pad + pad_offset];
           array_idx = map2d[1][digit_map[maxima_digits[max]][2] + time][digit_map[maxima_digits[max]][0] + row + row_offset][digit_map[maxima_digits[max]][1] + pad + pad_offset];
           if (array_idx > -1) {
-            input_vector[max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time] = digit_q[array_idx] / central_charges[max];
+            if(normalization_mode == 0){
+              input_vector[max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time] = digit_q[array_idx] / 1024.f;
+            } else if(normalization_mode == 1){
+              input_vector[max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time] = digit_q[array_idx] / central_charges[max];
+            }
           } else if (isBoundary(digit_map[maxima_digits[max]][0] + row + row_offset, digit_map[maxima_digits[max]][1] + pad + pad_offset)) {
             input_vector[max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time] = -1;
           }
@@ -988,9 +992,16 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
           if (max + 1 == maxima_digits.size() && idx >= (count_num_maxima % networkInputSize)) {
             break;
           } else {
-            output_network_reg[count_reg] = out_net[2 * idx + 1] * 2.5 + digit_map[new_max_dig[index_pass[max_pos[idx]]]][2]; // time
-            output_network_reg[count_reg + 1] = out_net[2 * idx] * 2.5 + digit_map[new_max_dig[index_pass[max_pos[idx]]]][1]; // pad
-            output_network_reg[count_reg + 2] = 100.f;                                                                        // out_net[3 * idx + 2]*10.f * central_charges[index_pass[max_pos[idx]]];       // charge
+            if ((out_net[2 * idx + 1] * 2.5 + digit_map[new_max_dig[index_pass[max_pos[idx]]]][2] < max_time[sector]) &&
+                (out_net[2 * idx] * 2.5 + digit_map[new_max_dig[index_pass[max_pos[idx]]]][1] < max_pad[sector])) {
+              output_network_reg[count_reg] = out_net[2 * idx + 1] * 2.5 + digit_map[new_max_dig[index_pass[max_pos[idx]]]][2]; // time
+              output_network_reg[count_reg + 1] = out_net[2 * idx] * 2.5 + digit_map[new_max_dig[index_pass[max_pos[idx]]]][1]; // pad
+              output_network_reg[count_reg + 2] = 100.f;                                                                        // out_net[3 * idx + 2]*10.f * central_charges[index_pass[max_pos[idx]]];       // charge
+            } else {
+              output_network_reg[count_reg] = 0;         // time
+              output_network_reg[count_reg + 1] = 0;     // pad
+              output_network_reg[count_reg + 2] = 100.f; // out_net[3 * idx + 2]*10.f * central_charges[index_pass[max_pos[idx]]];       // charge
+            }
             count_reg += 3;
           }
         }
@@ -1096,6 +1107,9 @@ void qaIdeal::runQa(int loop_sectors)
       find_maxima<qa_t>(loop_sectors, map2d, maxima_digits, digit_q);
       if (mode.find(std::string("network_class")) != std::string::npos && mode.find(std::string("network_reg")) == std::string::npos) {
         run_network<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, network_map, 0); // classification
+        if (mode.find(std::string("clusterizer")) != std::string::npos) {
+          native_clusterizer(map2d, digit_map, maxima_digits, digit_q, digit_clusterizer_map, digit_clusterizer_q);
+        }
       } else if (mode.find(std::string("network_reg")) != std::string::npos) {
         run_network<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, network_map, 1); // regression
       } else if (mode.find(std::string("network_full")) != std::string::npos) {
@@ -1108,7 +1122,6 @@ void qaIdeal::runQa(int loop_sectors)
     }
   }
 
-  // effCloneFake(0, loop_chunks*chunk_size);
   // Assignment at d=1
   LOG(info) << "Maxima found in digits (before): " << maxima_digits.size() << "; Maxima found in ideal clusters (before): " << ideal_max_map.size();
 
@@ -1300,7 +1313,7 @@ void qaIdeal::runQa(int loop_sectors)
     }
   }
 
-  if (mode.find(std::string("native")) != std::string::npos && create_output) {
+  if (mode.find(std::string("native")) != std::string::npos && create_output == 1) {
 
     if (verbose >= 3)
       LOG(info) << "Native-Ideal assignment...";
@@ -1429,7 +1442,7 @@ void qaIdeal::runQa(int loop_sectors)
     native_ideal_assignemnt.clear();
   }
 
-  if ((mode.find(std::string("network_reg")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) && create_output) {
+  if (mode.find(std::string("network")) != std::string::npos && create_output == 1) {
 
     if (verbose >= 3)
       LOG(info) << "Network-Ideal assignment...";
@@ -1542,7 +1555,7 @@ void qaIdeal::runQa(int loop_sectors)
     network_ideal_assignemnt.clear();
   }
 
-  if (mode.find(std::string("training_data")) != std::string::npos && create_output) {
+  if (mode.find(std::string("training_data")) != std::string::npos && create_output == 1) {
 
     std::vector<int> index_digits(digit_map.size());
     std::iota(index_digits.begin(), index_digits.end(), 0);
@@ -1608,7 +1621,11 @@ void qaIdeal::runQa(int loop_sectors)
                   tr_data_X[max_point][row][pad][time] = 0;
                 }
               } else {
-                tr_data_X[max_point][row][pad][time] = digit_q[map_q_idx] / q_max; // / 1024.f;
+                if(normalization_mode == 0){
+                  tr_data_X[max_point][row][pad][time] = digit_q[map_q_idx] / 1024.f;
+                } else if(normalization_mode == 1) {
+                  tr_data_X[max_point][row][pad][time] = digit_q[map_q_idx] / q_max;
+                }
               }
             }
           }
@@ -1678,8 +1695,7 @@ void qaIdeal::runQa(int loop_sectors)
           // if(std::abs(digit_map[maxima_digits[max_point]][2] - ideal_cog_map[index_assignment][2]) > 3 || std::abs(digit_map[maxima_digits[max_point]][1] - ideal_cog_map[index_assignment][1]) > 3){
           //   LOG(info) << "#Maxima: " << maxima_digits.size() << ", Index (point) " << max_point << " & (max) " << maxima_digits[max_point] << " & (ideal) " << index_assignment << ", ideal_cog_map.size(): " <<  ideal_cog_map.size() << ", index_assignment: " << index_assignment;
           // }
-        }
-          else {
+        } else {
           tr_data_Y_reg[0][max_point] = -1.f;
           tr_data_Y_reg[1][max_point] = -1.f;
           tr_data_Y_reg[2][max_point] = -1.f;
@@ -1865,17 +1881,17 @@ void qaIdeal::run(ProcessingContext& pc)
   LOG(info) << "Fakes for digits (number of digit hits that can't be assigned to any ideal hit): " << ass_dig << " (" << (float)ass_dig * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
   LOG(info) << "Fakes for ideal (number of ideal hits that can't be assigned to any digit hit): " << ass_id << " (" << (float)ass_id * 100 / (float)number_of_ideal_max_sum << "% of ideal maxima)";
 
-  if (mode.find(std::string("training_data")) != std::string::npos && create_output) {
+  if (mode.find(std::string("training_data")) != std::string::npos && create_output == 1) {
     LOG(info) << "------- Merging training data -------";
     gSystem->Exec("hadd -k -f ./training_data.root ./training_data_*.root");
   }
 
-  if (mode.find(std::string("native")) != std::string::npos && create_output) {
+  if (mode.find(std::string("native")) != std::string::npos && create_output == 1) {
     LOG(info) << "------- Merging native-ideal assignments -------";
     gSystem->Exec("hadd -k -f ./native_ideal.root ./native_ideal_*.root");
   }
 
-  if (mode.find(std::string("network")) != std::string::npos && create_output) {
+  if (mode.find(std::string("network")) != std::string::npos && create_output == 1) {
     LOG(info) << "------- Merging native-ideal assignments -------";
     gSystem->Exec("hadd -k -f ./network_ideal.root ./network_ideal_*.root");
   }
@@ -1900,7 +1916,8 @@ DataProcessorSpec processIdealClusterizer()
     Options{
       {"verbose", VariantType::Int, 0, {"Verbosity level"}},
       {"mode", VariantType::String, "training_data", {"Enables different settings (e.g. creation of training data for NN, running with tpc-native clusters). Options are: training_data, native, network_classification, network_regression, network_full, clusterizer"}},
-      {"create-output", VariantType::Bool, true, {"Create output, specific to any given mode."}},
+      {"normalization-mode", VariantType::Int, 0, {"Normalization: 0 = normalization by 1024.f; 1 = normalization by q_center "}},
+      {"create-output", VariantType::Int, 1, {"Create output, specific to any given mode."}},
       {"use-max-cog", VariantType::Int, 1, {"Use maxima for assignment = 0, use CoG's = 1"}},
       {"size-pad", VariantType::Int, 11, {"Training data selection size: Images are (size-pad, size-time, size-row)."}},
       {"size-time", VariantType::Int, 11, {"Training data selection size: Images are (size-pad, size-time, size-row)."}},
