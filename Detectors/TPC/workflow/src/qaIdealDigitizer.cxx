@@ -1613,13 +1613,6 @@ void qaIdeal::runQa(int loop_sectors)
               map_q_idx = map2d[0][digit_map[maxima_digits[max_point]][2] + time][digit_map[maxima_digits[max_point]][0] + row + row_offset][digit_map[maxima_digits[max_point]][1] + pad + pad_offset];
               if (map_q_idx == -1) {
                 if (isBoundary(digit_map[maxima_digits[max_point]][0] + row + row_offset - global_shift[2], digit_map[maxima_digits[max_point]][1] + pad + pad_offset - global_shift[0])) {
-                  // if ((row < (global_shift[2] - digit_map[maxima_digits[max_point]][0])) ||
-                  //   (row > (global_shift[2] - digit_map[maxima_digits[max_point]][0] + 62)) ||
-                  //   (row < (2 * global_shift[2] - digit_map[maxima_digits[max_point]][0] + 62)) ||
-                  //   (row > (151 + 2 * global_shift[2] - digit_map[maxima_digits[max_point]][0]))) { // rows in IROC -> OROC1 and outside boundaries
-                  // tr_data_X[max_point][row][pad][time] = -1;                                                                                        // Boundaries - Maybe rethink?
-                  // } else {
-
                   tr_data_X[max_point][row][pad][time] = -1;
                 } else {
                   tr_data_X[max_point][row][pad][time] = 0;
@@ -1642,12 +1635,12 @@ void qaIdeal::runQa(int loop_sectors)
         for (int i = 0; i < 25; i++) {
           // Checks all ideal maxima assigned to one digit maximum by calculating mutual distance
           current_idx_id = assignments_id_to_dig[max_point][i];
-          class_label++;
           if (checkIdx(current_idx_id)) {
             if ((ideal_cog_q[current_idx_id] < 5 && ideal_max_q[current_idx_id] < 3) || (assigned_ideal[current_idx_id] != 0)) {
               is_min_dist = false;
               break;
             } else {
+              class_label++;
               if (use_max_cog == 0) {
                 current_distance_dig_to_id = std::pow((digit_map[maxima_digits[max_point]][2] - ideal_max_map[current_idx_id][2]), 2) + std::pow((digit_map[maxima_digits[max_point]][1] - ideal_max_map[current_idx_id][1]), 2);
               } else if (use_max_cog == 1) {
