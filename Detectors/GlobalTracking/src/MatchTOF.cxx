@@ -53,6 +53,9 @@ using Cluster = o2::tof::Cluster;
 using GTrackID = o2::dataformats::GlobalTrackID;
 using timeEst = o2::dataformats::TimeStampWithError<float, float>;
 
+bool MatchTOF::mHasFillScheme = false;
+bool MatchTOF::mFillScheme[o2::constants::lhc::LHCMaxBunches] = {0};
+
 ClassImp(MatchTOF);
 
 //______________________________________________
@@ -1187,22 +1190,40 @@ void MatchTOF::doMatchingForTPC(int sec)
 //______________________________________________
 int MatchTOF::findFITIndex(int bc, const gsl::span<const o2::ft0::RecPoints>& FITRecPoints, unsigned long firstOrbit)
 {
+  if ((!mHasFillScheme) && o2::tof::Utils::hasFillScheme()) {
+    mHasFillScheme = true;
+    for (int ibc = 0; ibc < o2::tof::Utils::getNinteractionBC(); ibc++) {
+      mFillScheme[o2::tof::Utils::getInteractionBC(ibc)] = true;
+    }
+  }
+
   if (FITRecPoints.size() == 0) {
     return -1;
   }
 
   int index = -1;
-  int distMax = 7; // require bc distance below 5
+  int distMax = 0;
+  bool bestQuality = false; // prioritize FT0 BC with good quality (FT0-AC + vertex) to remove umbiguity in Pb-Pb (not a strict cut because inefficient in pp)
+  const int distThr = 8;
 
   for (unsigned int i = 0; i < FITRecPoints.size(); i++) {
     const o2::InteractionRecord ir = FITRecPoints[i].getInteractionRecord();
+    if (mHasFillScheme && !mFillScheme[ir.bc]) {
+      continue;
+    }
+    bool quality = (fabs(FITRecPoints[i].getCollisionTime(0)) < 1000 && fabs(FITRecPoints[i].getVertex()) < 1000);
+    if (bestQuality && !quality) { // if current has no good quality and the one previoulsy selected has -> discard the current one
+      continue;
+    }
     int bct0 = (ir.orbit - firstOrbit) * o2::constants::lhc::LHCMaxBunches + ir.bc;
     int dist = bc - bct0;
 
-    if (dist < 0 || dist > distMax) {
+    bool worseDistance = dist < 0 || dist > distThr || dist < distMax;
+    if (worseDistance && (!quality || bestQuality)) { // discard if BC is later than the one selected, but is has a better quality
       continue;
     }
 
+    bestQuality = quality;
     distMax = dist;
     index = i;
   }

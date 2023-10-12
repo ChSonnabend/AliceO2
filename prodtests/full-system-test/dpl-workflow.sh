@@ -87,6 +87,7 @@ EMCRAW2C_CONFIG=
 PHS_CONFIG=
 MCH_CONFIG_KEY=
 CTP_CONFIG=
+: ${STRTRACKING:=}
 : ${ITSEXTRAERR:=}
 : ${TRACKTUNETPCINNER:=}
 : ${ITSTPC_CONFIG_KEY:=}
@@ -145,17 +146,13 @@ fi
 
 if [[ $BEAMTYPE == "PbPb" ]]; then
   PVERTEXING_CONFIG_KEY+="pvertexer.maxChi2TZDebris=2000;"
-  : ${STRTRACKING:=" --disable-strangeness-tracker "}
-  AODPROD_OPT+=" --disable-strangeness-tracking "
 elif [[ $BEAMTYPE == "pp" ]]; then
   PVERTEXING_CONFIG_KEY+="pvertexer.maxChi2TZDebris=10;"
-  : ${STRTRACKING:=" "}
 fi
 
 if [[ $BEAMTYPE == "cosmic" ]]; then
   [[ -z ${ITS_CONFIG+x} ]] && ITS_CONFIG=" --tracking-mode cosmics"
   : ${STRTRACKING:=" --disable-strangeness-tracker "}
-  AODPROD_OPT+=" --disable-strangeness-tracking "
 elif [[ $SYNCMODE == 1 ]]; then
   [[ -z ${ITS_CONFIG+x} ]] && ITS_CONFIG=" --tracking-mode sync"
 else
@@ -402,7 +399,13 @@ if [[ ! -z $INPUT_DETECTOR_LIST ]]; then
       done
     done
     [[ ! -z ${TIMEFRAME_RATE_LIMIT:-} ]] && [[ $TIMEFRAME_RATE_LIMIT != 0 ]] && PROXY_CHANNEL+=";name=metric-feedback,type=pull,method=connect,address=ipc://${UDS_PREFIX}metric-feedback-${O2JOBID:-$NUMAID},transport=shmem,rateLogging=0"
-    add_W o2-dpl-raw-proxy "--dataspec \"$PROXY_INSPEC\" --inject-missing-data --readout-proxy \"--channel-config \\\"$PROXY_CHANNEL\\\"\" ${TIMEFRAME_SHM_LIMIT+--timeframes-shm-limit} ${TIMEFRAME_SHM_LIMIT:-}" "" 0
+    if [[ $EPNSYNCMODE == 1 ]]; then
+      RAWPROXY_CONFIG="--print-input-sizes 1000"
+    else
+      RAWPROXY_CONFIG="--print-input-sizes 1"
+    fi
+
+    add_W o2-dpl-raw-proxy "--dataspec \"$PROXY_INSPEC\" --inject-missing-data $RAWPROXY_CONFIG --readout-proxy \"--channel-config \\\"$PROXY_CHANNEL\\\"\" ${TIMEFRAME_SHM_LIMIT+--timeframes-shm-limit} ${TIMEFRAME_SHM_LIMIT:-}" "" 0
   elif [[ $DIGITINPUT == 1 ]]; then
     [[ $NTIMEFRAMES != 1 ]] && { echo "Digit input works only with NTIMEFRAMES=1" 1>&2; exit 1; }
     DISABLE_DIGIT_ROOT_INPUT=
@@ -566,6 +569,7 @@ workflow_has_parameter GPU_DISPLAY && [[ $NUMAID == 0 ]] && add_W o2-gpu-display
 # ---------------------------------------------------------------------------------------------------------------------
 # AOD
 [[ ${SECTVTX_ON:-} != "1" ]] && AODPROD_OPT+=" --disable-secondary-vertices "
+AODPROD_OPT+=" $STRTRACKING "
 workflow_has_parameter AOD && [[ ! -z "$AOD_INPUT" ]] && add_W o2-aod-producer-workflow "$AODPROD_OPT --info-sources $AOD_INPUT $DISABLE_ROOT_INPUT --aod-writer-keep dangling --aod-writer-resfile \"AO2D\" --aod-writer-resmode UPDATE $DISABLE_MC --pipeline $(get_N aod-producer-workflow AOD REST 1 AODPROD)"
 
 # ---------------------------------------------------------------------------------------------------------------------
