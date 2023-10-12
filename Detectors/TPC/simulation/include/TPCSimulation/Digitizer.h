@@ -141,6 +141,10 @@ class Digitizer
   std::vector<int> getMcLabels(){ return mclabel_int; }
   std::vector<int> getIsNoise(){ return mclabel_isNoise; }
   std::vector<int> getIsFake(){ return mclabel_isFake; }
+  void setWindowSize(std::vector<int> new_window_size){ 
+    window_size.clear();
+    window_size = new_window_size;
+  }
   std::vector<int> getWindowSize(){ return window_size; }
   int64_t getElemCounter(){ return elem_counter; }
   void clearElements(){
@@ -167,7 +171,7 @@ class Digitizer
 
   std::vector<std::vector<int>> max_time, max_pad;
   std::vector<std::vector<float>> max_q;
-  std::vector<int> window_size = {12, 8}; // time-window, pad-window
+  std::vector<int> window_size = {6, 4}; // time-window, pad-window
 
   std::vector<MCCompLabel> mclabel;
   std::vector<int> mclabel_isNoise, mclabel_isFake, mclabel_int;

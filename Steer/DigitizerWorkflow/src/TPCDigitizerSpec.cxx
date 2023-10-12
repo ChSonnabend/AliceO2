@@ -122,6 +122,7 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
     auto useDistortions = ic.options().get<int>("distortionType");
     auto triggeredMode = ic.options().get<bool>("TPCtriggered");
     mUseCalibrationsFromCCDB = ic.options().get<bool>("TPCuseCCDB");
+    window_size = std::vector<int>{ic.options().get<int>("ideal-clusterizer-timesize"), ic.options().get<int>("ideal-clusterizer-padsize")};
     LOG(info) << "TPC calibrations from CCDB: " << mUseCalibrationsFromCCDB;
 
     if (useDistortions > 0) {
@@ -444,7 +445,7 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
       // for each collision, loop over the constituents event and source IDs
       // (background signal merging is basically taking place here)
 
-      window_size = mDigitizer.getWindowSize();
+      mDigitizer.setWindowSize(window_size);
       for (auto& part : eventParts[collID]) {
         const int eventID = part.entryID;
         const int sourceID = part.sourceID;
@@ -722,6 +723,8 @@ o2::framework::DataProcessorSpec getTPCDigitizerSpec(int channel, bool writeGRP,
       {"readSpaceCharge", VariantType::String, "", {"Path to root file containing pre-calculated space-charge object and name of the object (comma separated)"}},
       {"TPCtriggered", VariantType::Bool, false, {"Impose triggered RO mode (default: continuous)"}},
       {"TPCuseCCDB", VariantType::Bool, false, {"true: load calibrations from CCDB; false: use random calibratoins"}},
+      {"ideal-clusterizer-padsize", VariantType::Int, 4, {"size of the ideal clusterizer in pad direction"}},
+      {"ideal-clusterizer-timesize", VariantType::Int, 6, {"size of the ideal clusterizer in time direction"}},
     }};
 }
 
