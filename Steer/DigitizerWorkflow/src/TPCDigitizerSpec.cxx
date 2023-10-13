@@ -123,6 +123,7 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
     auto triggeredMode = ic.options().get<bool>("TPCtriggered");
     mUseCalibrationsFromCCDB = ic.options().get<bool>("TPCuseCCDB");
     window_size = std::vector<int>{ic.options().get<int>("ideal-clusterizer-timesize"), ic.options().get<int>("ideal-clusterizer-padsize")};
+    LOG(info) << "Ideal clusterizer settings: pad-size " << window_size[1] << "; time-size " << window_size[0];
     LOG(info) << "TPC calibrations from CCDB: " << mUseCalibrationsFromCCDB;
 
     if (useDistortions > 0) {
