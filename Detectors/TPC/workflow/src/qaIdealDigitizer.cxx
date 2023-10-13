@@ -191,7 +191,9 @@ int qaIdeal::rowOffset(int row)
 // ---------------------------------
 bool qaIdeal::isBoundary(int row, int pad)
 {
-  if (row <= 62) {
+  if (row < 0 || pad < 0) {
+    return true;
+  } else if (row <= 62) {
     if (pad < (TPC_GEOM[151][2] - TPC_GEOM[row][2]) / 2 || pad > (TPC_GEOM[151][2] + TPC_GEOM[row][2]) / 2) {
       return true;
     } else {
@@ -968,6 +970,9 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
       if (new_max_dig[max] > -1) {
         maxima_digits[counter_max_dig] = new_max_dig[max];
         index_pass.push_back(max);
+        network_map[max][0] = digit_map[new_max_dig[max]][0];
+        network_map[max][1] = digit_map[new_max_dig[max]][1];
+        network_map[max][2] = digit_map[new_max_dig[max]][2];
         counter_max_dig++;
       }
     }
@@ -1688,9 +1693,9 @@ void qaIdeal::runQa(int loop_sectors)
           tr_data_Y_reg[1][max_point] = ideal_cog_map[index_assignment][1] - digit_map[maxima_digits[max_point]][1]; // pad
           tr_data_Y_reg[2][max_point] = ideal_sigma_map[index_assignment][0];                                        // sigma pad
           tr_data_Y_reg[3][max_point] = ideal_sigma_map[index_assignment][1];                                        // sigma time
-          if(normalization_mode == 0){
+          if (normalization_mode == 0) {
             tr_data_Y_reg[4][max_point] = ideal_cog_q[index_assignment] / 1024.f;
-          } else if(normalization_mode == 1){
+          } else if (normalization_mode == 1) {
             tr_data_Y_reg[4][max_point] = ideal_cog_q[index_assignment] / q_max;
           }
           // if(std::abs(digit_map[maxima_digits[max_point]][2] - ideal_cog_map[index_assignment][2]) > 3 || std::abs(digit_map[maxima_digits[max_point]][1] - ideal_cog_map[index_assignment][1]) > 3){
