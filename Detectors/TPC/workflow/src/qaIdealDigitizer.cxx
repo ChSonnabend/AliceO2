@@ -900,12 +900,12 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
 
   int network_reg_size = maxima_digits.size(), counter_max_dig = 0, array_idx;
   std::vector<float> output_network_class(maxima_digits.size(), 0.f), output_network_reg;
-  std::vector<float> temp_input(networkInputSize * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), 0.f);
+  std::vector<float> temp_input(networkInputSize * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), 0.f);
 
   for (unsigned int max = 0; max < maxima_digits.size(); max++) {
     row_offset = rowOffset(digit_map[maxima_digits[max]][0]);
     pad_offset = padOffset(digit_map[maxima_digits[max]][0]);
-    central_charges[max] = digit_q[map2d[1][digit_map[maxima_digits[max]][2] + global_shift[1]][digit_map[maxima_digits[max]][0] + row_offset][digit_map[maxima_digits[max]][1] + global_shift[0] + pad_offset]];
+    central_charges[max] = digit_q[map2d[1][digit_map[maxima_digits[max]][2] + global_shift[1]][digit_map[maxima_digits[max]][0] + row_offset + global_shift[2]][digit_map[maxima_digits[max]][1] + global_shift[0] + pad_offset]];
     for (int row = 0; row < 2 * global_shift[2] + 1; row++) {
       for (int pad = 0; pad < 2 * global_shift[0] + 1; pad++) {
         for (int time = 0; time < 2 * global_shift[1] + 1; time++) {
