@@ -83,10 +83,10 @@ class qaIdeal : public Task
   template <class T>
   void native_clusterizer(T&, std::vector<std::array<int, 3>>&, std::vector<int>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<float>&);
 
-  std::vector<std::vector<std::vector<int>>> looper_tagger(int, std::vector<std::array<int, 3>>&, std::vector<int>&);
+  std::vector<std::vector<std::vector<int>>> looper_tagger(int, std::vector<std::array<int, 3>>&, std::vector<float>& index_q, std::vector<int>&);
 
   template <class T>
-  void remove_loopers(int, T&, std::vector<int>&);
+  void remove_loopers(int, T&, std::vector<float>& index_q, std::vector<int>&);
 
   template <class T>
   void run_network(int, T&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 3>>&, int = 0);
@@ -113,9 +113,10 @@ class qaIdeal : public Task
   int numThreads = 1;                        // Number of cores for multithreading
   int use_max_cog = 1;                       // 0 = use ideal maxima position; 1 = use ideal CoG position (rounded) for assignment
   int normalization_mode = 1;                // Normalization of the charge: 0 = divide by 1024; 1 = divide by central charge
-  int looper_tagger_granularity = 20;        // Granularity of looper tagger (time bins in which loopers are excluded in rectangular areas)
-  int looper_tagger_window = 40;             // Total time-window size of the looper tagger for evaluating if a region is looper or not
-  int looper_tagger_threshold = 20;          // Number of maxima in digits that need to be persent in area [-1,0,1] in pad direction of each row in order to classify as looper
+  int looper_tagger_granularity = 5;         // Granularity of looper tagger (time bins in which loopers are excluded in rectangular areas)
+  int looper_tagger_window = 20;             // Total time-window size of the looper tagger for evaluating if a region is looper or not
+  int looper_tagger_threshold_num = 5;       // Threshold of number of clusters over which rejection takes place
+  float looper_tagger_threshold_q = 700.f;   // Threshold of charge-per-cluster that should be rejected
 
   std::array<int, o2::tpc::constants::MAXSECTOR> max_time, max_pad;
   std::string mode = "training_data";
@@ -245,7 +246,8 @@ void qaIdeal::init(InitContext& ic)
   normalization_mode = ic.options().get<int>("normalization-mode");
   looper_tagger_granularity = ic.options().get<int>("looper-tagger-granularity");
   looper_tagger_window = ic.options().get<int>("looper-tagger-window");
-  looper_tagger_threshold = ic.options().get<int>("looper-tagger-threshold");
+  looper_tagger_threshold_num = ic.options().get<int>("looper-tagger-threshold-num");
+  looper_tagger_threshold_q = ic.options().get<float>("looper-tagger-threshold-q");
 
   ROOT::EnableThreadSafety();
 
@@ -896,11 +898,12 @@ void qaIdeal::native_clusterizer(T& map2d, std::vector<std::array<int, 3>>& digi
 }
 
 // ---------------------------------
-std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, std::vector<std::array<int, 3>>& digit_map, std::vector<int>& maxima_digits)
+std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, std::vector<std::array<int, 3>>& index_map, std::vector<float>& index_q, std::vector<int>& index_array)
 {
   int looper_detector_timesize = std::ceil((float)max_time[sector] / (float)looper_tagger_granularity);
 
   std::vector<std::vector<std::vector<int>>> tagger(looper_detector_timesize, std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW));               // time_slice (=std::floor(time/looper_tagger_granularity)), row, pad array -> looper_tagged = 1, else 0
+  std::vector<std::vector<std::vector<int>>> tagger_counter(looper_detector_timesize, std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW));
   std::vector<std::vector<std::vector<int>>> looper_tagged_region(looper_detector_timesize, std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW)); // accumulates all the regions that should be tagged: looper_tagged_region[time_slice][row] = (pad_low, pad_high)
 
   for (int t = 0; t < looper_detector_timesize; t++) {
@@ -911,31 +914,38 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, st
   }
 
   int row = 0, pad = 0, time_slice = 0;
-  for (int max = 0; max < maxima_digits.size(); max++) {
-    row = digit_map[maxima_digits[max]][0];
-    pad = digit_map[maxima_digits[max]][1];
-    time_slice = std::floor(digit_map[maxima_digits[max]][2] / (float)looper_tagger_granularity);
+  for (int idx = 0; idx < index_array.size(); idx++) {
+    row = index_map[index_array[idx]][0];
+    pad = index_map[index_array[idx]][1];
+    time_slice = std::floor(index_map[index_array[idx]][2] / (float)looper_tagger_granularity);
 
-    tagger[time_slice][row][pad]++;
+    // tagger[time_slice][row][pad]++;
+    tagger_counter[time_slice][row][pad]++;
+    tagger[time_slice][row][pad] += index_q[index_array[idx]];
   }
 
-  int sum = 0;
+  // int unit_volume = looper_tagger_window * 3;
+  int avg_charge = 0, num_elements = 0;
   for (int t = 0; t < looper_detector_timesize; t++) {
     for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
       for (int p = 0; p < TPC_GEOM[t][2]; p++) {
         for (int t_acc = 0; t_acc < std::ceil(looper_tagger_window / looper_tagger_granularity); t_acc++) {
           if (r == 0) {
-            sum += tagger[t + t_acc][r][p] + tagger[t + t_acc][r + 1][p];
+            avg_charge += tagger[t + t_acc][r][p] / tagger_counter[t + t_acc][r][p] + tagger[t + t_acc][r + 1][p] / tagger_counter[t + t_acc][r + 1][p];
+            num_elements += tagger_counter[t + t_acc][r][p] + tagger_counter[t + t_acc][r + 1][p];
           } else if (r == o2::tpc::constants::MAXGLOBALPADROW - 1) {
-            sum += tagger[t + t_acc][r][p] + tagger[t + t_acc][r - 1][p];
+            avg_charge += tagger[t + t_acc][r][p] / tagger_counter[t + t_acc][r][p] + tagger[t + t_acc][r - 1][p] / tagger_counter[t + t_acc][r - 1][p];
+            num_elements += tagger_counter[t + t_acc][r][p] + tagger_counter[t + t_acc][r - 1][p];
           } else {
-            sum += tagger[t + t_acc][r + 1][p] + tagger[t + t_acc][r][p] + tagger[t + t_acc][r - 1][p];
+            avg_charge += tagger[t + t_acc][r + 1][p] / tagger_counter[t + t_acc][r + 1][p] + tagger[t + t_acc][r][p] / tagger_counter[t + t_acc][r][p] + tagger[t + t_acc][r - 1][p] / tagger_counter[t + t_acc][r - 1][p];
+            num_elements += tagger_counter[t + t_acc][r - 1][p] + tagger_counter[t + t_acc][r][p] + tagger_counter[t + t_acc][r + 1][p];
           }
         }
-        if (sum >= looper_tagger_threshold) {
+        if (avg_charge >= looper_tagger_threshold_q && num_elements >= looper_tagger_threshold_num) {
           looper_tagged_region[t][r][p] = 1;
         }
-        sum = 0;
+        avg_charge = 0;
+        num_elements = 0;
       }
     }
   }
@@ -945,9 +955,9 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, st
 
 // ---------------------------------
 template <class T>
-void qaIdeal::remove_loopers(int sector, T& map, std::vector<int>& index_array)
+void qaIdeal::remove_loopers(int sector, T& map, std::vector<float>& index_q, std::vector<int>& index_array)
 {
-  std::vector<std::vector<std::vector<int>>> tagged_loopers = looper_tagger(sector, map, index_array);
+  std::vector<std::vector<std::vector<int>>> tagged_loopers = looper_tagger(sector, map, index_q, index_array);
   int looper_detector_timesize = std::ceil((float)max_time[sector] / (float)looper_tagger_granularity);
 
   std::vector<int> new_index_array;
@@ -1188,14 +1198,14 @@ void qaIdeal::runQa(int loop_sectors)
       native_clusterizer(map2d, digit_map, maxima_digits, digit_q, digit_clusterizer_map, digit_clusterizer_q);
     }
     if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-      remove_loopers(loop_sectors, digit_map, maxima_digits);
+      remove_loopers(loop_sectors, digit_map, digit_q, maxima_digits);
     }
     overwrite_map2d<qa_t>(loop_sectors, map2d, digit_map, maxima_digits, 1);
   } else {
     if (mode.find(std::string("native")) == std::string::npos) {
       find_maxima<qa_t>(loop_sectors, map2d, maxima_digits, digit_q);
       if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-        remove_loopers(loop_sectors, digit_map, maxima_digits);
+        remove_loopers(loop_sectors, digit_map, digit_q, maxima_digits);
       }
       if (mode.find(std::string("network_class")) != std::string::npos && mode.find(std::string("network_reg")) == std::string::npos) {
         run_network<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, network_map, 0); // classification
@@ -1212,7 +1222,7 @@ void qaIdeal::runQa(int loop_sectors)
       maxima_digits.resize(digit_q.size());
       std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);
       if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-        remove_loopers(loop_sectors, digit_map, maxima_digits);
+        remove_loopers(loop_sectors, digit_map, digit_q, maxima_digits);
       }
     }
   }
@@ -2019,9 +2029,10 @@ DataProcessorSpec processIdealClusterizer()
       {"size-time", VariantType::Int, 11, {"Training data selection size: Images are (size-pad, size-time, size-row)."}},
       {"size-row", VariantType::Int, 1, {"Training data selection size: Images are (size-pad, size-time, size-row)."}},
       {"threads", VariantType::Int, 1, {"Number of CPU threads to be used."}},
-      {"looper-tagger-granularity", VariantType::Int, 20, {"Granularity of looper tagger (time bins in which loopers are excluded in rectangular areas)."}},
-      {"looper-tagger-window", VariantType::Int, 40, {"Total time-window size of the looper tagger for evaluating if a region is looper or not."}},
-      {"looper-tagger-threshold", VariantType::Int, 20, {"Number of maxima in digits that need to be persent in area [-1,0,1] in pad direction of each row in order to classify as looper."}},
+      {"looper-tagger-granularity", VariantType::Int, 5, {"Granularity of looper tagger (time bins in which loopers are excluded in rectangular areas)."}},
+      {"looper-tagger-window", VariantType::Int, 20, {"Total time-window size of the looper tagger for evaluating if a region is looper or not."}},
+      {"looper-tagger-threshold-num", VariantType::Int, 5, {"Threshold of number of clusters over which rejection takes place."}},
+      {"looper-tagger-threshold-q", VariantType::Float, 600.f, {"Threshold of charge-per-cluster that should be rejected."}},
       {"infile-digits", VariantType::String, "tpcdigits.root", {"Input file name (digits)"}},
       {"infile-native", VariantType::String, "tpc-native-clusters.root", {"Input file name (native)"}},
       {"network-data-output", VariantType::String, "network_out.root", {"Input file for the network output"}},
