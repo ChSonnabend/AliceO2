@@ -83,7 +83,8 @@ class qaIdeal : public Task
   template <class T>
   void native_clusterizer(T&, std::vector<std::array<int, 3>>&, std::vector<int>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<float>&);
 
-  std::vector<std::vector<std::vector<int>>> looper_tagger(int, std::vector<std::array<int, 3>>&, std::vector<float>& index_q, std::vector<int>&);
+  template <class T>
+  std::vector<std::vector<std::vector<int>>> looper_tagger(int, T&, std::vector<float>& index_q, std::vector<int>&);
 
   template <class T>
   void remove_loopers(int, T&, std::vector<float>& index_q, std::vector<int>&);
@@ -898,51 +899,71 @@ void qaIdeal::native_clusterizer(T& map2d, std::vector<std::array<int, 3>>& digi
 }
 
 // ---------------------------------
-std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, std::vector<std::array<int, 3>>& index_map, std::vector<float>& index_q, std::vector<int>& index_array)
+template <class T>
+std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T& index_map, std::vector<float>& array_q, std::vector<int>& index_array)
 {
   int looper_detector_timesize = std::ceil((float)max_time[sector] / (float)looper_tagger_granularity);
 
-  std::vector<std::vector<std::vector<int>>> tagger(looper_detector_timesize, std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW));               // time_slice (=std::floor(time/looper_tagger_granularity)), row, pad array -> looper_tagged = 1, else 0
+  std::vector<std::vector<std::vector<float>>> tagger(looper_detector_timesize, std::vector<std::vector<float>>(o2::tpc::constants::MAXGLOBALPADROW)); // time_slice (=std::floor(time/looper_tagger_granularity)), row, pad array -> looper_tagged = 1, else 0
   std::vector<std::vector<std::vector<int>>> tagger_counter(looper_detector_timesize, std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW));
   std::vector<std::vector<std::vector<int>>> looper_tagged_region(looper_detector_timesize, std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW)); // accumulates all the regions that should be tagged: looper_tagged_region[time_slice][row] = (pad_low, pad_high)
 
   for (int t = 0; t < looper_detector_timesize; t++) {
     for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
-      tagger[t][r].resize(TPC_GEOM[r][2]);
-      looper_tagged_region[t][r].resize(TPC_GEOM[r][2]);
+      tagger[t][r].resize(TPC_GEOM[r][2] + 1);
+      tagger_counter[t][r].resize(TPC_GEOM[r][2] + 1);
+      looper_tagged_region[t][r].resize(TPC_GEOM[r][2] + 1);
     }
   }
 
   int row = 0, pad = 0, time_slice = 0;
   for (int idx = 0; idx < index_array.size(); idx++) {
-    row = index_map[index_array[idx]][0];
-    pad = index_map[index_array[idx]][1];
+    row = std::round(index_map[index_array[idx]][0]);
+    pad = std::round(index_map[index_array[idx]][1]);
     time_slice = std::floor(index_map[index_array[idx]][2] / (float)looper_tagger_granularity);
 
     // tagger[time_slice][row][pad]++;
     tagger_counter[time_slice][row][pad]++;
-    tagger[time_slice][row][pad] += index_q[index_array[idx]];
+    tagger[time_slice][row][pad] += array_q[index_array[idx]];
   }
 
+  if (verbose > 2)
+    LOG(info) << "Tagger done. Building tagged regions.";
+
   // int unit_volume = looper_tagger_window * 3;
-  int avg_charge = 0, num_elements = 0;
-  for (int t = 0; t < looper_detector_timesize; t++) {
+  float avg_charge = 0;
+  int num_elements = 0;
+  for (int t = 0; t < (looper_detector_timesize - std::ceil(looper_tagger_window / looper_tagger_granularity)); t++) {
     for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
-      for (int p = 0; p < TPC_GEOM[t][2]; p++) {
-        for (int t_acc = 0; t_acc < std::ceil(looper_tagger_window / looper_tagger_granularity); t_acc++) {
-          if (r == 0) {
-            avg_charge += tagger[t + t_acc][r][p] / tagger_counter[t + t_acc][r][p] + tagger[t + t_acc][r + 1][p] / tagger_counter[t + t_acc][r + 1][p];
-            num_elements += tagger_counter[t + t_acc][r][p] + tagger_counter[t + t_acc][r + 1][p];
-          } else if (r == o2::tpc::constants::MAXGLOBALPADROW - 1) {
-            avg_charge += tagger[t + t_acc][r][p] / tagger_counter[t + t_acc][r][p] + tagger[t + t_acc][r - 1][p] / tagger_counter[t + t_acc][r - 1][p];
-            num_elements += tagger_counter[t + t_acc][r][p] + tagger_counter[t + t_acc][r - 1][p];
+      for (int p = 0; p < TPC_GEOM[r][2] + 1; p++) {
+        for (int t_acc = 0; t_acc < std::ceil(looper_tagger_window / looper_tagger_granularity) + 1; t_acc++) {
+          if (p == 0) {
+            if (tagger_counter[t + t_acc][r][p] > 0)
+              avg_charge += tagger[t + t_acc][r][p] / tagger_counter[t + t_acc][r][p];
+            if (tagger_counter[t + t_acc][r][p+1] > 0)
+              avg_charge += tagger[t + t_acc][r][p+1] / tagger_counter[t + t_acc][r][p+1];
+            num_elements += tagger_counter[t + t_acc][r][p] + tagger_counter[t + t_acc][r][p+1];
+          } else if (p == TPC_GEOM[t][2]) {
+            if (tagger_counter[t + t_acc][r][p] > 0)
+              avg_charge += tagger[t + t_acc][r][p] / tagger_counter[t + t_acc][r][p];
+            if (tagger_counter[t + t_acc][r][p-1])
+              avg_charge += tagger[t + t_acc][r][p-1] / tagger_counter[t + t_acc][r][p-1];
+            num_elements += tagger_counter[t + t_acc][r][p] + tagger_counter[t + t_acc][r][p-1];
           } else {
-            avg_charge += tagger[t + t_acc][r + 1][p] / tagger_counter[t + t_acc][r + 1][p] + tagger[t + t_acc][r][p] / tagger_counter[t + t_acc][r][p] + tagger[t + t_acc][r - 1][p] / tagger_counter[t + t_acc][r - 1][p];
-            num_elements += tagger_counter[t + t_acc][r - 1][p] + tagger_counter[t + t_acc][r][p] + tagger_counter[t + t_acc][r + 1][p];
+            if (tagger_counter[t + t_acc][r][p+1] > 0)
+              avg_charge += tagger[t + t_acc][r][p+1] / tagger_counter[t + t_acc][r][p+1];
+            if (tagger_counter[t + t_acc][r][p] > 0)
+              avg_charge += tagger[t + t_acc][r][p] / tagger_counter[t + t_acc][r][p];
+            if (tagger_counter[t + t_acc][r][p-1] > 0)
+              avg_charge += tagger[t + t_acc][r][p-1] / tagger_counter[t + t_acc][r][p-1];
+            num_elements += tagger_counter[t + t_acc][r][p-1] + tagger_counter[t + t_acc][r][p] + tagger_counter[t + t_acc][r][p+1];
           }
         }
+
         if (avg_charge >= looper_tagger_threshold_q && num_elements >= looper_tagger_threshold_num) {
           looper_tagged_region[t][r][p] = 1;
+        } else {
+          looper_tagged_region[t][r][p] = 0;
         }
         avg_charge = 0;
         num_elements = 0;
@@ -950,20 +971,26 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, st
     }
   }
 
+  if (verbose > 2)
+    LOG(info) << "Looper tagging complete.";
+
+  tagger_counter.clear();
+  tagger.clear();
+
   return looper_tagged_region;
 }
 
 // ---------------------------------
 template <class T>
-void qaIdeal::remove_loopers(int sector, T& map, std::vector<float>& index_q, std::vector<int>& index_array)
+void qaIdeal::remove_loopers(int sector, T& map, std::vector<float>& array_q, std::vector<int>& index_array)
 {
-  std::vector<std::vector<std::vector<int>>> tagged_loopers = looper_tagger(sector, map, index_q, index_array);
+  std::vector<std::vector<std::vector<int>>> tagged_loopers = looper_tagger(sector, map, array_q, index_array);
   int looper_detector_timesize = std::ceil((float)max_time[sector] / (float)looper_tagger_granularity);
 
   std::vector<int> new_index_array;
 
   for (int m = 0; m < index_array.size(); m++) {
-    if (tagged_loopers[std::floor(map[index_array[m]][2] / (float)looper_tagger_granularity)][map[index_array[m]][0]][map[index_array[m]][1]] == 0) {
+    if (tagged_loopers[std::floor(map[index_array[m]][2] / (float)looper_tagger_granularity)][std::round(map[index_array[m]][0])][std::round(map[index_array[m]][1])] == 0) {
       new_index_array.push_back(index_array[m]);
     }
   }
@@ -973,6 +1000,7 @@ void qaIdeal::remove_loopers(int sector, T& map, std::vector<float>& index_q, st
 
   index_array.clear();
   index_array = new_index_array;
+  new_index_array.clear();
 }
 
 // ---------------------------------
