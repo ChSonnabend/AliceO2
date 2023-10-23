@@ -811,7 +811,7 @@ void qaIdeal::native_clusterizer(T& map2d, std::vector<std::array<int, 3>>& digi
           current_charge = 0;
         }
         current_pos = {row, pad + elem[0], time + elem[1]};
-        cog_position = {row, 0, 0};
+        cog_position = {(float)row, 0.f, 0.f};
 
         adjusted_elem[0] = elem[0] + 2;
         adjusted_elem[1] = elem[1] + 2;
@@ -883,7 +883,7 @@ void qaIdeal::native_clusterizer(T& map2d, std::vector<std::array<int, 3>>& digi
 
     digit_clusterizer_map[max_pos] = cog_position;
     digit_clusterizer_q[max_pos] = cog_charge;
-    digit_map[max_pos] = {(int)cog_position[0], std::round(cog_position[1]), std::round(cog_position[2])};
+    digit_map[max_pos] = {(int)cog_position[0], static_cast<int>(std::round(cog_position[1])), static_cast<int>(std::round(cog_position[2]))};
     digit_q[max_pos] = cog_charge;
 
     digit_map_tmp.clear();
