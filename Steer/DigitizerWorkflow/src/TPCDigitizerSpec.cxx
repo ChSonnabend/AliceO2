@@ -571,6 +571,7 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
     mcTree->Branch("cluster_mc_noise", &mcn);
     mcTree->Branch("cluster_mc_fake", &mcf);
     mcTree->Branch("cluster_points", &p);
+    mcTree->Branch("cluster_label", &lab);
 
     for(int i = 0; i<elem_counter; i++){
       sec = sector_vec[i];
@@ -580,6 +581,7 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
       cq = cog_q[i];
       mcn = mc_noise[i];
       mcf = mc_fake[i];
+      lab = mclabel[i];
       for(auto elem : max_q[i]){
         sp += std::pow(max_pad[i][idx] - cog_pad[i], 2);
         st += std::pow(max_time[i][idx] - cog_time[i], 2);
@@ -603,7 +605,7 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         p = point_counter[i];
         mcTree->Fill();
       }
-      sp = 0, st = 0, mp = 0; mt = 0; mq = 0; mcn=0; mcf=0; idx = 0;
+      sp = 0; st = 0; mp = 0; mt = 0; mq = 0; mcn=0; mcf=0; idx=0; lab=0;
     }
 
     mcTree->Write();
