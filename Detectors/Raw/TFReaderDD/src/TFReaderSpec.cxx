@@ -264,6 +264,10 @@ void TFReaderSpec::run(o2f::ProcessingContext& ctx)
         nparts += msgIt.second->Size() / 2;
         device->Send(*msgIt.second.get(), msgIt.first);
       }
+      // FIXME: this is to pretend we did send some messages via DPL.
+      //        we should really migrate everything to use FairMQDeviceProxy,
+      //        however this is a small enough hack for now.
+      ctx.services().get<o2f::MessageContext>().fakeDispatch();
       tNow = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::system_clock::now()).time_since_epoch().count();
       deltaSending = mTFCounter ? tNow - tLastTF : 0;
       LOGP(info, "Sent TF {} of size {} with {} parts, {:.4f} s elapsed from previous TF.", mTFCounter, dataSize, nparts, double(deltaSending) * 1e-6);
@@ -443,6 +447,10 @@ o2f::DataProcessorSpec o2::rawdd::getTFReaderSpec(o2::rawdd::TFReaderInp& rinp)
           continue;
         }
         // in case detectors were processed on FLP
+        if (id == DetID::CTP) {
+          spec.outputs.emplace_back(o2f::OutputSpec{o2f::OutputSpec{DetID::getDataOrigin(DetID::CTP), "LUMI", 0}});
+          rinp.hdVec.emplace_back(o2h::DataHeader{"LUMI", DetID::getDataOrigin(DetID::CTP), 0, 0}); // in abcence of real data this will be sent
+        }
         if (id == DetID::TOF) {
           spec.outputs.emplace_back(o2f::OutputSpec{o2f::ConcreteDataTypeMatcher{DetID::getDataOrigin(DetID::TOF), "CRAWDATA"}});
           rinp.hdVec.emplace_back(o2h::DataHeader{"CRAWDATA", DetID::getDataOrigin(DetID::TOF), 0xDEADBEEF, 0}); // in abcence of real data this will be sent
