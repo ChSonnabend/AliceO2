@@ -1,6 +1,7 @@
 #include <cmath>
 #include <boost/thread.hpp>
 #include <stdlib.h>
+#include <unordered_map>
 
 #include "ML/onnx_interface.h"
 
@@ -61,7 +62,7 @@ class qaIdeal : public Task
   bool isBoundary(int, int);
   bool checkIdx(int);
   void read_digits(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
-  void read_ideal(int, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<std::array<float, 2>>&, std::vector<float>&);
+  void read_ideal(int, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<std::array<float, 2>>&, std::vector<float>&, std::vector<int>&);
   void read_native(int, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 3>>&, std::vector<float>&);
   void read_network(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
 
@@ -84,7 +85,7 @@ class qaIdeal : public Task
   void native_clusterizer(T&, std::vector<std::array<int, 3>>&, std::vector<int>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<float>&);
 
   template <class T>
-  std::vector<std::vector<std::vector<int>>> looper_tagger(int, T&, std::vector<float>&, std::vector<int>&, std::string);
+  std::vector<std::vector<std::vector<int>>> looper_tagger(int, T&, std::vector<float>&, std::vector<int>&, std::vector<int>&, std::string);
 
   template <class T>
   void remove_loopers(int, std::vector<std::vector<std::vector<int>>>&, T&, std::vector<int>&);
@@ -143,6 +144,22 @@ class qaIdeal : public Task
   float landau_approx(float x)
   {
     return (1.f / TMath::Sqrt(2.f * (float)TMath::Pi())) * TMath::Exp(-(x + TMath::Exp(-x)) / 2.f) + 0.005; // +0.005 for regularization
+  }
+
+  bool hasElementAppearedMoreThanNTimesInVectors(const std::vector<std::vector<int>>& vectors, int n)
+  {
+    for (const std::vector<int>& vec : vectors) {
+      std::unordered_map<int, int> elementCount;
+
+      for (int element : vec) {
+        elementCount[element]++;
+        if (elementCount[element] > n) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 };
 
@@ -474,7 +491,7 @@ void qaIdeal::read_network(int sector, std::vector<std::array<int, 3>>& digit_ma
 }
 
 // ---------------------------------
-void qaIdeal::read_ideal(int sector, std::vector<std::array<int, 3>>& ideal_max_map, std::vector<float>& ideal_max_q, std::vector<std::array<float, 3>>& ideal_cog_map, std::vector<std::array<float, 2>>& ideal_sigma_map, std::vector<float>& ideal_cog_q)
+void qaIdeal::read_ideal(int sector, std::vector<std::array<int, 3>>& ideal_max_map, std::vector<float>& ideal_max_q, std::vector<std::array<float, 3>>& ideal_cog_map, std::vector<std::array<float, 2>>& ideal_sigma_map, std::vector<float>& ideal_cog_q, std::vector<int>& ideal_mclabel)
 {
 
   int sec, row, maxp, maxt, pcount, lab;
@@ -500,6 +517,7 @@ void qaIdeal::read_ideal(int sector, std::vector<std::array<int, 3>>& ideal_max_
   digitizerSector->SetBranchAddress("cluster_sigma_pad", &sigmap);
   digitizerSector->SetBranchAddress("cluster_sigma_time", &sigmat);
   digitizerSector->SetBranchAddress("cluster_max_q", &maxq);
+  digitizerSector->SetBranchAddress("cluster_label", &lab);
   // digitizerSector->SetBranchAddress("cluster_points", &pcount);
 
   ideal_max_map.resize(digitizerSector->GetEntries());
@@ -507,6 +525,7 @@ void qaIdeal::read_ideal(int sector, std::vector<std::array<int, 3>>& ideal_max_
   ideal_cog_map.resize(digitizerSector->GetEntries());
   ideal_sigma_map.resize(digitizerSector->GetEntries());
   ideal_cog_q.resize(digitizerSector->GetEntries());
+  ideal_mclabel.resize(digitizerSector->GetEntries());
 
   if (verbose >= 3)
     LOG(info) << "Trying to read " << digitizerSector->GetEntries() << " ideal digits";
@@ -520,6 +539,7 @@ void qaIdeal::read_ideal(int sector, std::vector<std::array<int, 3>>& ideal_max_
       ideal_cog_map[j] = std::array<float, 3>{(float)row, cogp, cogt};
       ideal_sigma_map[j] = std::array<float, 2>{sigmap, sigmat};
       ideal_cog_q[j] = cogq;
+      ideal_mclabel[j] = lab;
       elements++;
 
       if (maxt >= max_time[sector])
@@ -909,7 +929,7 @@ void qaIdeal::native_clusterizer(T& map2d, std::vector<std::array<int, 3>>& digi
 
 // ---------------------------------
 template <class T>
-std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T& index_map, std::vector<float>& array_q, std::vector<int>& index_array, std::string op_mode)
+std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T& index_map, std::vector<float>& array_q, std::vector<int>& index_array, std::vector<int>& ideal_mclabels, std::string op_mode)
 {
   int looper_detector_timesize = std::ceil((float)max_time[sector] / (float)looper_tagger_granularity);
 
@@ -917,6 +937,11 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
   std::vector<std::vector<std::vector<int>>> tagger_counter(looper_detector_timesize, std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW));
   std::vector<std::vector<std::vector<int>>> looper_tagged_region(looper_detector_timesize, std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW)); // accumulates all the regions that should be tagged: looper_tagged_region[time_slice][row] = (pad_low, pad_high)
   // std::vector<std::vector<std::vector<std::vector<float>>>> indv_charges(looper_detector_timesize, std::vector<std::vector<std::vector<float>>>(o2::tpc::constants::MAXGLOBALPADROW));
+  std::vector<std::vector<std::vector<std::vector<int>>>> mclabels(looper_detector_timesize, std::vector<std::vector<std::vector<int>>>(o2::tpc::constants::MAXGLOBALPADROW));
+
+  int operation_mode = 0;
+  op_mode.find(std::string("digit")) != std::string::npos ? operation_mode = 1 : operation_mode = operation_mode;
+  op_mode.find(std::string("ideal")) != std::string::npos ? operation_mode = 2 : operation_mode = operation_mode;
 
   for (int t = 0; t < looper_detector_timesize; t++) {
     for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
@@ -924,28 +949,31 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
       tagger_counter[t][r].resize(TPC_GEOM[r][2] + looper_tagger_padwindow);
       looper_tagged_region[t][r].resize(TPC_GEOM[r][2] + 1);
       // indv_charges.resize(TPC_GEOM[r][2] + looper_tagger_padwindow);
+      if (operation_mode == 2) {
+        mclabels[t][r].resize(TPC_GEOM[r][2] + looper_tagger_padwindow);
+      }
     }
   }
-
-  int operation_mode = 0;
-  op_mode.find(std::string("digit")) != std::string::npos ? operation_mode = 1 : operation_mode = operation_mode;
-  op_mode.find(std::string("ideal")) != std::string::npos ? operation_mode = 2 : operation_mode = operation_mode;
 
   // Improvements:
   // - Check the charge sigma -> Looper should have narrow sigma in charge
   // - Check width between clusters -> Looper should have regular distance -> peak in distribution of distance
   // - Check for gaussian distribution of charge: D'Agostino-Pearson
 
-  int row = 0, pad = 0, time_slice = 0;
+  int row = 0, pad = 0, time_slice = 0, pad_offset = (looper_tagger_padwindow - 1) / 2;
   for (int idx = 0; idx < index_array.size(); idx++) {
     row = std::round(index_map[index_array[idx]][0]);
-    pad = std::round(index_map[index_array[idx]][1]);
+    pad = std::round(index_map[index_array[idx]][1]) + pad_offset;
     time_slice = std::floor(index_map[index_array[idx]][2] / (float)looper_tagger_granularity);
 
     // tagger[time_slice][row][pad]++;
-    tagger_counter[time_slice][row][pad]++;
-    tagger[time_slice][row][pad] += array_q[index_array[idx]] / landau_approx((array_q[index_array[idx]] - 25.f) / 17.f);
+    tagger_counter[time_slice][row][pad + pad_offset]++;
+    tagger[time_slice][row][pad + pad_offset] += array_q[index_array[idx]]; // / landau_approx((array_q[index_array[idx]] - 25.f) / 17.f);
     // indv_charges[time_slice][row][pad].push_back(array_q[index_array[idx]]);
+
+    if (operation_mode == 2) {
+      mclabels[time_slice][row][pad + pad_offset].push_back(ideal_mclabels[index_array[idx]]);
+    }
 
     // Approximate Landau and scale for the width:
     // Lindhards theory: L(x, mu=0, c=pi/2) ~ exp(-1/x)/(x*(x+1))
@@ -958,47 +986,29 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
   // int unit_volume = looper_tagger_timewindow * 3;
   float avg_charge = 0;
   int num_elements = 0;
+  std::vector<std::vector<int>> fill_temp_mclabels;
   for (int t = 0; t < (looper_detector_timesize - std::ceil(looper_tagger_timewindow / looper_tagger_granularity)); t++) {
     for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
       for (int p = 0; p < TPC_GEOM[r][2] + 1; p++) {
         for (int t_acc = 0; t_acc < std::ceil(looper_tagger_timewindow / looper_tagger_granularity); t_acc++) {
-          if (p == 0) {
+          for (int padwindow = 0; padwindow < looper_tagger_padwindow; padwindow++) {
             if (operation_mode == 1) {
-              if (tagger_counter[t + t_acc][r][p] > 0)
-                avg_charge += tagger[t + t_acc][r][p] / tagger_counter[t + t_acc][r][p];
-              if (tagger_counter[t + t_acc][r][p + 1] > 0)
-                avg_charge += tagger[t + t_acc][r][p + 1] / tagger_counter[t + t_acc][r][p + 1];
+              num_elements += tagger_counter[t + t_acc][r][p + padwindow];
+              if (tagger_counter[t + t_acc][r][p + padwindow] > 0)
+                avg_charge += tagger[t + t_acc][r][p + padwindow] / tagger_counter[t + t_acc][r][p + padwindow];
+            } else if (operation_mode == 2) {
+              num_elements += tagger_counter[t + t_acc][r][p + padwindow];
+              fill_temp_mclabels.push_back(mclabels[t + t_acc][r][p + padwindow]);
             }
-            num_elements += tagger_counter[t + t_acc][r][p] + tagger_counter[t + t_acc][r][p + 1];
-          } else if (p == TPC_GEOM[r][2]) {
-            if (operation_mode == 1) {
-              if (tagger_counter[t + t_acc][r][p] > 0)
-                avg_charge += tagger[t + t_acc][r][p] / tagger_counter[t + t_acc][r][p];
-              if (tagger_counter[t + t_acc][r][p - 1])
-                avg_charge += tagger[t + t_acc][r][p - 1] / tagger_counter[t + t_acc][r][p - 1];
-            }
-            num_elements += tagger_counter[t + t_acc][r][p] + tagger_counter[t + t_acc][r][p - 1];
-          } else {
-            if (operation_mode == 1) {
-              if (tagger_counter[t + t_acc][r][p + 1] > 0)
-                avg_charge += tagger[t + t_acc][r][p + 1] / tagger_counter[t + t_acc][r][p + 1];
-              if (tagger_counter[t + t_acc][r][p] > 0)
-                avg_charge += tagger[t + t_acc][r][p] / tagger_counter[t + t_acc][r][p];
-              if (tagger_counter[t + t_acc][r][p - 1] > 0)
-                avg_charge += tagger[t + t_acc][r][p - 1] / tagger_counter[t + t_acc][r][p - 1];
-            }
-            num_elements += tagger_counter[t + t_acc][r][p - 1] + tagger_counter[t + t_acc][r][p] + tagger_counter[t + t_acc][r][p + 1];
           }
         }
 
-        if (operation_mode == 1 && avg_charge >= looper_tagger_threshold_q && num_elements >= looper_tagger_threshold_num) {
+        if ((operation_mode == 1 && avg_charge >= looper_tagger_threshold_q && num_elements >= looper_tagger_threshold_num) ||
+            (operation_mode == 2 && num_elements >= looper_tagger_threshold_num && hasElementAppearedMoreThanNTimesInVectors(fill_temp_mclabels, looper_tagger_threshold_num))) {
           for (int t_tag = 0; t_tag < std::ceil(looper_tagger_timewindow / looper_tagger_granularity); t_tag++) {
             looper_tagged_region[t + t_tag][r][p] = 1;
           }
-        } else if (operation_mode == 2 && num_elements >= looper_tagger_threshold_num) {
-          for (int t_tag = 0; t_tag < std::ceil(looper_tagger_timewindow / looper_tagger_granularity); t_tag++) {
-            looper_tagged_region[t + t_tag][r][p] = 1;
-          }
+          fill_temp_mclabels.clear();
         }
         avg_charge = 0;
         num_elements = 0;
@@ -1228,7 +1238,7 @@ void qaIdeal::runQa(int loop_sectors)
 
   typedef std::array<std::vector<std::vector<std::vector<int>>>, 2> qa_t; // local 2D charge map, 0 - digits; 1 - ideal
 
-  std::vector<int> maxima_digits; // , digit_isNoise, digit_isQED, digit_isValid;
+  std::vector<int> maxima_digits, ideal_mclabels; // , digit_isNoise, digit_isQED, digit_isValid;
   std::vector<std::array<int, 3>> digit_map, ideal_max_map;
   std::vector<std::array<float, 3>> ideal_cog_map, native_map, network_map, digit_clusterizer_map;
   std::vector<std::array<float, 2>> ideal_sigma_map;
@@ -1244,7 +1254,7 @@ void qaIdeal::runQa(int loop_sectors)
     read_digits(loop_sectors, digit_map, digit_q);
   }
 
-  read_ideal(loop_sectors, ideal_max_map, ideal_max_q, ideal_cog_map, ideal_sigma_map, ideal_cog_q);
+  read_ideal(loop_sectors, ideal_max_map, ideal_max_q, ideal_cog_map, ideal_sigma_map, ideal_cog_q, ideal_mclabels);
 
   LOG(info) << "Starting process for sector " << loop_sectors;
 
@@ -1254,7 +1264,7 @@ void qaIdeal::runQa(int loop_sectors)
   std::vector<int> dummy_counter(ideal_max_map.size());
   std::iota(dummy_counter.begin(), dummy_counter.end(), 0);
   if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-    tagger_map = looper_tagger(loop_sectors, ideal_max_map, ideal_max_q, dummy_counter, looper_tagger_opmode);
+    tagger_map = looper_tagger(loop_sectors, ideal_max_map, ideal_max_q, dummy_counter, ideal_mclabels, looper_tagger_opmode);
   }
 
   if ((mode.find(std::string("network")) == std::string::npos) && (mode.find(std::string("native")) == std::string::npos)) {
