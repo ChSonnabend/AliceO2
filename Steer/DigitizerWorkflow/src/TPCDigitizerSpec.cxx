@@ -123,7 +123,10 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
     auto triggeredMode = ic.options().get<bool>("TPCtriggered");
     mUseCalibrationsFromCCDB = ic.options().get<bool>("TPCuseCCDB");
     window_size = std::vector<int>{ic.options().get<int>("ideal-clusterizer-timesize"), ic.options().get<int>("ideal-clusterizer-padsize")};
+    reject_maxq = ic.options().get<int>("ideal-clusterizer-reject-maxq");
+    reject_cogq = ic.options().get<int>("ideal-clusterizer-reject-cogq");
     LOG(info) << "Ideal clusterizer settings: pad-size " << window_size[1] << "; time-size " << window_size[0];
+    LOG(info) << "Ideal clusterizer settings: MaxQ rejection at (ADC counts): " << reject_maxq << "; CoGQ rejection (ADC counts): " << reject_cogq;
     LOG(info) << "TPC calibrations from CCDB: " << mUseCalibrationsFromCCDB;
 
     if (useDistortions > 0) {
@@ -599,7 +602,7 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         }
         idx++;
       }
-      if(mq > 3 && cq > 5){
+      if(mq > reject_maxq && cq > reject_cogq){
         sp = std::sqrt(sp/max_q[i].size());
         st = std::sqrt(st/max_q[i].size());
         p = point_counter[i];
@@ -676,6 +679,9 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
 
   /// OWN IMPLEMENTATION
   int64_t elem_counter = 0;
+  int reject_maxq = 2;
+  int reject_cogq = 3;
+
   std::vector<int> tmp_sector_vec, tmp_row_vec, tmp_point_counter, tmp_mc_label, tmp_mc_noise, tmp_mc_fake;
   std::vector<std::vector<int>>  tmp_max_time, tmp_max_pad;
   std::vector<float> tmp_cog_time, tmp_cog_pad, tmp_cog_q;
@@ -728,6 +734,8 @@ o2::framework::DataProcessorSpec getTPCDigitizerSpec(int channel, bool writeGRP,
       {"TPCuseCCDB", VariantType::Bool, false, {"true: load calibrations from CCDB; false: use random calibratoins"}},
       {"ideal-clusterizer-padsize", VariantType::Int, 4, {"size of the ideal clusterizer in pad direction"}},
       {"ideal-clusterizer-timesize", VariantType::Int, 6, {"size of the ideal clusterizer in time direction"}},
+      {"ideal-clusterizer-reject-maxq", VariantType::Int, 2, {"Rejection for ideal clusters: MaxQ"}},
+      {"ideal-clusterizer-reject-cogq", VariantType::Int, 3, {"Rejection for ideal clusters: CoGQ"}},
     }};
 }
 

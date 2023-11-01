@@ -85,10 +85,12 @@ class qaIdeal : public Task
   void native_clusterizer(T&, std::vector<std::array<int, 3>>&, std::vector<int>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<float>&);
 
   template <class T>
-  std::vector<std::vector<std::vector<int>>> looper_tagger(int, T&, std::vector<float>&, std::vector<int>&, std::vector<int>&, std::string);
+  std::vector<std::vector<std::vector<int>>> looper_tagger(int, T&, std::vector<float>&, std::vector<int>&, std::vector<int>&, std::string = "digits");
 
   template <class T>
-  void remove_loopers(int, std::vector<std::vector<std::vector<int>>>&, T&, std::vector<int>&);
+  void remove_loopers_digits(int, std::vector<std::vector<std::vector<int>>>&, T&, std::vector<int>&);
+
+  void remove_loopers_ideal(int, std::vector<std::vector<std::vector<int>>>&, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 3>>&, std::vector<float>&, std::vector<float>&, std::vector<std::array<float, 2>>&, std::vector<int>&);
 
   template <class T>
   void run_network(int, T&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 3>>&, int = 0);
@@ -1027,9 +1029,10 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
 
 // ---------------------------------
 template <class T>
-void qaIdeal::remove_loopers(int sector, std::vector<std::vector<std::vector<int>>>& looper_map, T& map, std::vector<int>& index_array)
+void qaIdeal::remove_loopers_digits(int sector, std::vector<std::vector<std::vector<int>>>& looper_map, T& map, std::vector<int>& index_array)
 {
   std::vector<int> new_index_array;
+  T new_map;
 
   for (int m = 0; m < index_array.size(); m++) {
     if (looper_map[std::floor(map[index_array[m]][2] / (float)looper_tagger_granularity)][std::round(map[index_array[m]][0])][std::round(map[index_array[m]][1])] == 0) {
@@ -1041,6 +1044,42 @@ void qaIdeal::remove_loopers(int sector, std::vector<std::vector<std::vector<int
     LOG(info) << "Old size of maxima index array: " << index_array.size() << "; New size: " << new_index_array.size();
 
   index_array = new_index_array;
+}
+
+// ---------------------------------
+void qaIdeal::remove_loopers_ideal(int sector, std::vector<std::vector<std::vector<int>>>& looper_map, std::vector<std::array<int, 3>>& ideal_max_map, std::vector<std::array<float, 3>>& ideal_cog_map, std::vector<float>& ideal_max_q, std::vector<float>& ideal_cog_q, std::vector<std::array<float, 2>>& ideal_sigma_map, std::vector<int>& ideal_mclabels)
+{
+
+  std::vector<int> ideal_idx_map(ideal_max_map.size()), new_ideal_idx_map;
+  std::iota(ideal_idx_map.begin(), ideal_idx_map.end(), 0);
+
+  for (int m = 0; m < ideal_idx_map.size(); m++) {
+    if (looper_map[std::floor(ideal_cog_map[m][2] / (float)looper_tagger_granularity)][std::round(ideal_cog_map[m][0])][std::round(ideal_cog_map[m][1])] == 0)
+      new_ideal_idx_map.push_back(m);
+  }
+
+  std::vector<std::array<int, 3>> new_ideal_max_map;
+  std::vector<std::array<float, 3>> new_ideal_cog_map;
+  std::vector<float> new_ideal_max_q;
+  std::vector<float> new_ideal_cog_q;
+  std::vector<std::array<float, 2>> new_ideal_sigma_map;
+  std::vector<int> new_ideal_mclabels;
+
+  for (auto m : new_ideal_idx_map) {
+    new_ideal_max_map.push_back(ideal_max_map[m]);
+    new_ideal_cog_map.push_back(ideal_cog_map[m]);
+    new_ideal_max_q.push_back(ideal_max_q[m]);
+    new_ideal_cog_q.push_back(ideal_cog_q[m]);
+    new_ideal_sigma_map.push_back(ideal_sigma_map[m]);
+    new_ideal_mclabels.push_back(ideal_mclabels[m]);
+  }
+
+  ideal_max_map = new_ideal_max_map;
+  ideal_cog_map = new_ideal_cog_map;
+  ideal_max_q = new_ideal_max_q;
+  ideal_cog_q = new_ideal_cog_q;
+  ideal_sigma_map = new_ideal_sigma_map;
+  ideal_mclabels = new_ideal_mclabels;
 }
 
 // ---------------------------------
@@ -1259,18 +1298,22 @@ void qaIdeal::runQa(int loop_sectors)
   LOG(info) << "Starting process for sector " << loop_sectors;
 
   qa_t map2d = init_map2d<qa_t>(loop_sectors);
-  fill_map2d<qa_t>(loop_sectors, map2d, digit_map, ideal_max_map, ideal_max_q, ideal_cog_map, ideal_cog_q, -1);
 
-  std::vector<int> dummy_counter(ideal_max_map.size());
-  std::iota(dummy_counter.begin(), dummy_counter.end(), 0);
+  std::vector<int> ideal_idx(ideal_cog_map.size());
+  std::iota(ideal_idx.begin(), ideal_idx.end(), 0);
+
   if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-    tagger_map = looper_tagger(loop_sectors, ideal_max_map, ideal_max_q, dummy_counter, ideal_mclabels, looper_tagger_opmode);
+    tagger_map = looper_tagger(loop_sectors, ideal_max_map, ideal_max_q, ideal_idx, ideal_mclabels, looper_tagger_opmode);
+    remove_loopers_ideal(loop_sectors, tagger_map, ideal_max_map, ideal_cog_map, ideal_max_q, ideal_cog_q, ideal_sigma_map, ideal_mclabels);
+    remove_loopers_ideal(loop_sectors, tagger_map, ideal_max_map, ideal_cog_map, ideal_max_q, ideal_cog_q, ideal_sigma_map, ideal_mclabels);
   }
+
+  fill_map2d<qa_t>(loop_sectors, map2d, digit_map, ideal_max_map, ideal_max_q, ideal_cog_map, ideal_cog_q, -1);
 
   if ((mode.find(std::string("network")) == std::string::npos) && (mode.find(std::string("native")) == std::string::npos)) {
     find_maxima<qa_t>(loop_sectors, map2d, maxima_digits, digit_q);
     if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-      remove_loopers(loop_sectors, tagger_map, digit_map, maxima_digits);
+      remove_loopers_digits(loop_sectors, tagger_map, digit_map, maxima_digits);
     }
     if (mode.find(std::string("clusterizer")) != std::string::npos) {
       native_clusterizer(map2d, digit_map, maxima_digits, digit_q, digit_clusterizer_map, digit_clusterizer_q);
@@ -1280,7 +1323,7 @@ void qaIdeal::runQa(int loop_sectors)
     if (mode.find(std::string("native")) == std::string::npos) {
       find_maxima<qa_t>(loop_sectors, map2d, maxima_digits, digit_q);
       if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-        remove_loopers(loop_sectors, tagger_map, digit_map, maxima_digits);
+        remove_loopers_digits(loop_sectors, tagger_map, digit_map, maxima_digits);
       }
       if (mode.find(std::string("network_class")) != std::string::npos && mode.find(std::string("network_reg")) == std::string::npos) {
         run_network<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, network_map, 0); // classification
@@ -1297,8 +1340,8 @@ void qaIdeal::runQa(int loop_sectors)
       maxima_digits.resize(digit_q.size());
       std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);
       if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-        remove_loopers(loop_sectors, tagger_map, digit_map, maxima_digits);
-        remove_loopers(loop_sectors, tagger_map, native_map, maxima_digits);
+        remove_loopers_digits(loop_sectors, tagger_map, digit_map, maxima_digits);
+        remove_loopers_digits(loop_sectors, tagger_map, native_map, maxima_digits);
       }
     }
   }
@@ -1472,16 +1515,16 @@ void qaIdeal::runQa(int loop_sectors)
         count_links += 1;
       }
     }
-    if (count_links > 1) {
-      for (auto elem_id : assignments_dig_to_id[locideal]) {
-        if (checkIdx(elem_id)) {
-          fractional_clones_vector[elem_id] += 1.f / (float)count_links;
-        }
+    for (auto elem_id : assignments_dig_to_id[locideal]) {
+      if (checkIdx(elem_id)) {
+        fractional_clones_vector[elem_id] += 1.f / (float)count_links;
       }
     }
   }
   for (auto elem_frac : fractional_clones_vector) {
-    fractional_clones[loop_sectors] += elem_frac;
+    if (elem_frac > 1) {
+      fractional_clones[loop_sectors] += elem_frac - 1;
+    }
   }
 
   if (verbose >= 3)
@@ -2016,7 +2059,7 @@ void qaIdeal::run(ProcessingContext& pc)
 
   unsigned int efficiency_normal = 0;
   unsigned int efficiency_findable = 0;
-  for (int ass = 0; ass < 10; ass++) {
+  for (int ass = 0; ass < 25; ass++) {
     int ass_dig = 0, ass_id = 0;
     for (int s = 0; s < o2::tpc::constants::MAXSECTOR; s++) {
       ass_dig += assignments_digit[s][ass];
@@ -2029,7 +2072,7 @@ void qaIdeal::run(ProcessingContext& pc)
     LOG(info) << "Number of assigned ideal maxima (#assignments " << ass << "): " << ass_id << "\n";
   }
 
-  for (int ass = 0; ass < 10; ass++) {
+  for (int ass = 0; ass < 25; ass++) {
     int ass_dig = 0, ass_id = 0;
     for (int s = 0; s < o2::tpc::constants::MAXSECTOR; s++) {
       ass_dig += assignments_digit_findable[s][ass];
