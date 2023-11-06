@@ -116,6 +116,8 @@ class qaIdeal : public Task
   int networkNumThreads = 1;                  // Future: Add Cuda and CoreML Execution providers to run on CPU
   int numThreads = 1;                         // Number of cores for multithreading
   int use_max_cog = 1;                        // 0 = use ideal maxima position; 1 = use ideal CoG position (rounded) for assignment
+  float threshold_cogq = 5.f;                 // Threshold for ideal cluster to be findable (Q_tot)
+  float threshold_maxq = 3.f;                 // Threshold for ideal cluster to be findable (Q_max)
   int normalization_mode = 1;                 // Normalization of the charge: 0 = divide by 1024; 1 = divide by central charge
   int looper_tagger_granularity = 5;          // Granularity of looper tagger (time bins in which loopers are excluded in rectangular areas)
   int looper_tagger_timewindow = 20;          // Total time-window size of the looper tagger for evaluating if a region is looper or not
@@ -1569,7 +1571,7 @@ void qaIdeal::runQa(int loop_sectors)
           // Checks all ideal maxima assigned to one digit maximum by calculating mutual distance
           current_idx_id = assignments_id_to_dig[max_point][i];
           if (checkIdx(current_idx_id)) {
-            if ((ideal_cog_q[current_idx_id] < 5 && ideal_max_q[current_idx_id] < 3) || (assigned_ideal[current_idx_id] != 0)) {
+            if ((ideal_cog_q[current_idx_id] < threshold_cogq && ideal_max_q[current_idx_id] < threshold_maxq) || (assigned_ideal[current_idx_id] != 0)) {
               is_min_dist = false;
               break;
             } else {
@@ -1696,7 +1698,7 @@ void qaIdeal::runQa(int loop_sectors)
           // Checks all ideal maxima assigned to one digit maximum by calculating mutual distance
           current_idx_id = assignments_id_to_dig[max_point][i];
           if (checkIdx(current_idx_id)) {
-            if ((ideal_cog_q[current_idx_id] < 5 && ideal_max_q[current_idx_id] < 3) || (assigned_ideal[current_idx_id] != 0)) {
+            if ((ideal_cog_q[current_idx_id] < threshold_cogq && ideal_max_q[current_idx_id] < threshold_maxq) || (assigned_ideal[current_idx_id] != 0)) {
               is_min_dist = false;
               break;
             } else {
@@ -1860,7 +1862,7 @@ void qaIdeal::runQa(int loop_sectors)
           // Checks all ideal maxima assigned to one digit maximum by calculating mutual distance
           current_idx_id = assignments_id_to_dig[max_point][i];
           if (checkIdx(current_idx_id)) {
-            if ((ideal_cog_q[current_idx_id] < 5 && ideal_max_q[current_idx_id] < 3) || (assigned_ideal[current_idx_id] != 0)) {
+            if ((ideal_cog_q[current_idx_id] < threshold_cogq && ideal_max_q[current_idx_id] < threshold_maxq) || (assigned_ideal[current_idx_id] != 0)) {
               is_min_dist = false;
               break;
             } else {
