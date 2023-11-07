@@ -138,9 +138,11 @@ class Digitizer
   std::vector<float> getCogPad(){ return cog_pad; }
   std::vector<float> getCogQ(){ return cog_q; }
   std::vector<int> getPointCounter(){ return point_counter; }
-  std::vector<int> getMcLabels(){ return mclabel_int; }
-  std::vector<int> getIsNoise(){ return mclabel_isNoise; }
-  std::vector<int> getIsFake(){ return mclabel_isFake; }
+  std::vector<MCCompLabel> getMcLabels(){ return mclabel; }
+  std::vector<int> getMcLabelCounter(){ return mclabel_assigned; }
+  std::vector<int> getTrackID(){ return mclabel_trackID; }
+  std::vector<int> getEventID(){ return mclabel_eventID; }
+  std::vector<int> getSourceID(){ return mclabel_sourceID; }
   void setWindowSize(std::vector<int> new_window_size){ 
     window_size.clear();
     window_size = new_window_size;
@@ -149,7 +151,7 @@ class Digitizer
   int64_t getElemCounter(){ return elem_counter; }
   void clearElements(){
     sector.clear(); row.clear(); max_time.clear(); max_pad.clear(); max_q.clear(); cog_time.clear();
-    point_counter.clear(); cog_pad.clear(); cog_q.clear(); mclabel.clear(); mclabel_isNoise.clear(); mclabel_isFake.clear(); elem_counter = 0;
+    point_counter.clear(); cog_pad.clear(); cog_q.clear(); mclabel.clear(); mclabel_trackID.clear(); mclabel_eventID.clear(); mclabel_sourceID.clear(); elem_counter = 0;
   }
 
 
@@ -174,7 +176,7 @@ class Digitizer
   std::vector<int> window_size = {6, 4}; // time-window, pad-window
 
   std::vector<MCCompLabel> mclabel;
-  std::vector<int> mclabel_isNoise, mclabel_isFake, mclabel_int;
+  std::vector<int> mclabel_trackID, mclabel_eventID, mclabel_sourceID, mclabel_assigned;
   ClassDefNV(Digitizer, 1);
 };
 } // namespace tpc

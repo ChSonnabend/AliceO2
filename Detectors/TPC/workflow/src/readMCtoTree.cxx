@@ -427,11 +427,11 @@ void readMCtruth::run(ProcessingContext& pc)
   // Digitizer -> Cluster-information based on MC labels, see O2/Detectors/TPC/simulation/src/Digitizer.cxx, O2/Steer/DigitizerWorkflow/src/TPCDigitizerSpec.cxx
   if (mode.find(std::string("ideal_clusterizer")) != std::string::npos) {
 
-    int sec, row, maxp, maxt, pcount, lab;
+    int sec, row, maxp, maxt, pcount, labcount, trkid, evid, srcid;
     float cogp, cogt, sigmap, sigmat, cogq, maxq;
     long elements = 0;
 
-    std::vector<int> sectors, rows, maxps, maxts, point_count, mclabels;
+    std::vector<int> sectors, rows, maxps, maxts, point_count, mc_labelcounter, mc_trackid, mc_eventid, mc_sourceid;
     std::vector<float> cogps, cogts, sigmaps, sigmats, cogqs, maxqs;
 
     for(int i = 0; i<36; i++){
@@ -457,6 +457,10 @@ void readMCtruth::run(ProcessingContext& pc)
       digitizerSector->SetBranchAddress("cluster_max_time", &maxt);
       digitizerSector->SetBranchAddress("cluster_max_q", &maxq);
       digitizerSector->SetBranchAddress("cluster_points", &pcount);
+      digitizerSector->SetBranchAddress("cluster_labelcounter", &labcount);
+      digitizerSector->SetBranchAddress("cluster_trackid", &trkid);
+      digitizerSector->SetBranchAddress("cluster_eventid", &evid);
+      digitizerSector->SetBranchAddress("cluster_sourceid", &srcid);
 
       for(int j=0; j<digitizerSector->GetEntries(); j++){
         try{
@@ -471,6 +475,10 @@ void readMCtruth::run(ProcessingContext& pc)
           cogts.push_back(cogt);
           cogqs.push_back(cogq);
           maxqs.push_back(maxq);
+          mc_labelcounter.push_back(labcount); 
+          mc_trackid.push_back(trkid); 
+          mc_eventid.push_back(evid); 
+          mc_sourceid.push_back(srcid);
           point_count.push_back(pcount);
           elements++;
         }
@@ -496,6 +504,10 @@ void readMCtruth::run(ProcessingContext& pc)
     mcTreeIdeal->Branch("digitizer_maxpad", &maxp);
     mcTreeIdeal->Branch("digitizer_maxtime", &maxt);
     mcTreeIdeal->Branch("digitizer_maxq", &maxq);
+    mcTreeIdeal->Branch("digitizer_labelcounter", &labcount);
+    mcTreeIdeal->Branch("digitizer_trackid", &trkid);
+    mcTreeIdeal->Branch("digitizer_eventid", &evid);
+    mcTreeIdeal->Branch("digitizer_sourceid", &srcid);
 
     for(int i = 0; i<elements; i++){
       sec = sectors[i];
@@ -508,6 +520,10 @@ void readMCtruth::run(ProcessingContext& pc)
       cogt = cogts[i];
       cogq = cogqs[i];
       maxq = maxqs[i];
+      labcount = mc_labelcounter[i]; 
+      trkid = mc_trackid[i]; 
+      evid = mc_eventid[i]; 
+      srcid = mc_sourceid[i]; 
       mcTreeIdeal->Fill();
     }
     

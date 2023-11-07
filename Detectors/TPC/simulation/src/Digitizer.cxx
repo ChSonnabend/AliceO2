@@ -87,9 +87,11 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
   cog_pad.clear();
   cog_q.clear();
   point_counter.clear();
-  mclabel_isNoise.clear();
-  mclabel_isFake.clear();
+  mclabel_trackID.clear();
+  mclabel_eventID.clear();
+  mclabel_sourceID.clear();
   mclabel.clear();
+  mclabel_assigned.clear();
   elem_counter = 0;
 
   for (auto& hitGroup : hits) {
@@ -244,9 +246,10 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
               cog_q.push_back(currentSignal);
               point_counter.push_back(1);
               mclabel.push_back(label);
-              mclabel_isNoise.push_back(label.isNoise());
-              mclabel_isFake.push_back(label.isFake());
-              mclabel_int.push_back(label_counter);
+              mclabel_trackID.push_back(label.getTrackID());
+              mclabel_eventID.push_back(label.getEventID());
+              mclabel_sourceID.push_back(label.getSourceID());
+              mclabel_assigned.push_back(label_counter);
               elem_counter++;
             }
           }
