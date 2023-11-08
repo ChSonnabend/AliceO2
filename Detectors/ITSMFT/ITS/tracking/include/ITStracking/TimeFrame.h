@@ -34,6 +34,7 @@
 #include "ITStracking/Road.h"
 #include "ITStracking/Tracklet.h"
 #include "ITStracking/IndexTableUtils.h"
+#include "ITStracking/ExternalAllocator.h"
 
 #include "SimulationDataFormat/MCCompLabel.h"
 #include "SimulationDataFormat/MCTruthContainer.h"
@@ -69,12 +70,6 @@ struct lightVertex {
   float mAvgDistance2;
   int mContributors;
   int mTimeStamp;
-};
-
-class ExternalAllocator
-{
- public:
-  virtual void* allocate(size_t) = 0;
 };
 
 class TimeFrame
@@ -163,9 +158,7 @@ class TimeFrame
   std::vector<std::vector<Cluster>>& getClusters();
   std::vector<std::vector<Cluster>>& getUnsortedClusters();
   int getClusterROF(int iLayer, int iCluster);
-  std::vector<std::vector<Cell>>& getCells();
-  std::vector<std::vector<o2::track::TrackParCovF>>& getCellSeeds();
-  std::vector<std::vector<float>>& getCellSeedsChi2() { return mCellSeedsChi2; }
+  std::vector<std::vector<CellSeed>>& getCells();
 
   std::vector<std::vector<int>>& getCellsLookupTable();
   std::vector<std::vector<int>>& getCellsNeighbours();
@@ -179,6 +172,7 @@ class TimeFrame
   int getNumberOfClusters() const;
   int getNumberOfCells() const;
   int getNumberOfTracklets() const;
+  int getNumberOfNeighbours() const;
   size_t getNumberOfTracks() const;
   size_t getNumberOfUsedClusters() const;
 
@@ -271,7 +265,7 @@ class TimeFrame
   ExternalAllocator* mAllocator = nullptr;
   std::vector<std::vector<Cluster>> mUnsortedClusters;
   std::vector<std::vector<Tracklet>> mTracklets;
-  std::vector<std::vector<Cell>> mCells;
+  std::vector<std::vector<CellSeed>> mCells;
   std::vector<std::vector<o2::track::TrackParCovF>> mCellSeeds;
   std::vector<std::vector<float>> mCellSeedsChi2;
   std::vector<Road<5>> mRoads;
@@ -576,9 +570,7 @@ inline std::vector<std::vector<Cluster>>& TimeFrame::getUnsortedClusters()
   return mUnsortedClusters;
 }
 
-inline std::vector<std::vector<Cell>>& TimeFrame::getCells() { return mCells; }
-
-inline std::vector<std::vector<o2::track::TrackParCovF>>& TimeFrame::getCellSeeds() { return mCellSeeds; }
+inline std::vector<std::vector<CellSeed>>& TimeFrame::getCells() { return mCells; }
 
 inline std::vector<std::vector<int>>& TimeFrame::getCellsLookupTable()
 {
@@ -642,6 +634,15 @@ inline int TimeFrame::getNumberOfTracklets() const
     nTracklets += layer.size();
   }
   return nTracklets;
+}
+
+inline int TimeFrame::getNumberOfNeighbours() const
+{
+  int n{0};
+  for (auto& l : mCellsNeighbours) {
+    n += l.size();
+  }
+  return n;
 }
 
 inline size_t TimeFrame::getNumberOfTracks() const

@@ -107,7 +107,7 @@ class GpuTimeFrameChunk
   int* getDeviceIndexTables(const int);
   Tracklet* getDeviceTracklets(const int);
   int* getDeviceTrackletsLookupTables(const int);
-  Cell* getDeviceCells(const int);
+  CellSeed* getDeviceCells(const int);
   int* getDeviceCellsLookupTables(const int);
   int* getDeviceRoadsLookupTables(const int);
   TimeFrameGPUParameters* getTimeFrameGPUParameters() const { return mTFGPUParams; }
@@ -117,7 +117,7 @@ class GpuTimeFrameChunk
   int* getDeviceNFoundCells() { return mNFoundCellsDevice; }
   int* getDeviceCellNeigboursLookupTables(const int);
   int* getDeviceCellNeighbours(const int);
-  Cell** getDeviceArrayCells() const { return mCellsDeviceArray; }
+  CellSeed** getDeviceArrayCells() const { return mCellsDeviceArray; }
   int** getDeviceArrayNeighboursCell() const { return mNeighboursCellDeviceArray; }
   int** getDeviceArrayNeighboursCellLUT() const { return mNeighboursCellLookupTablesDeviceArray; }
 
@@ -141,7 +141,7 @@ class GpuTimeFrameChunk
   std::array<int*, nLayers> mIndexTablesDevice;
   std::array<Tracklet*, nLayers - 1> mTrackletsDevice;
   std::array<int*, nLayers - 1> mTrackletsLookupTablesDevice;
-  std::array<Cell*, nLayers - 2> mCellsDevice;
+  std::array<CellSeed*, nLayers - 2> mCellsDevice;
   // Road<nLayers - 2>* mRoadsDevice;
   std::array<int*, nLayers - 2> mCellsLookupTablesDevice;
   std::array<int*, nLayers - 3> mNeighboursCellDevice;
@@ -149,7 +149,7 @@ class GpuTimeFrameChunk
   std::array<int*, nLayers - 2> mRoadsLookupTablesDevice;
 
   // These are to make them accessible using layer index
-  Cell** mCellsDeviceArray;
+  CellSeed** mCellsDeviceArray;
   int** mNeighboursCellDeviceArray;
   int** mNeighboursCellLookupTablesDeviceArray;
 
@@ -198,7 +198,9 @@ class TimeFrameGPU : public TimeFrame
   void loadTrackSeedsDevice();
   void loadTrackSeedsChi2Device();
   void loadRoadsDevice();
-  void createTrackITSExtDevice();
+  void loadTrackSeedsDevice(std::vector<CellSeed>&);
+  void createTrackITSExtDevice(const std::vector<CellSeed>& seeds);
+  void createTrackITSExtDevice(); // deprecated
   void downloadTrackITSExtDevice();
   void initDeviceChunks(const int, const int);
   template <Task task>
@@ -231,7 +233,8 @@ class TimeFrameGPU : public TimeFrame
   Cluster** getDeviceArrayClusters() const { return mClustersDeviceArray; }
   Cluster** getDeviceArrayUnsortedClusters() const { return mUnsortedClustersDeviceArray; }
   Tracklet** getDeviceArrayTracklets() const { return mTrackletsDeviceArray; }
-  Cell** getDeviceArrayCells() const { return mCellsDeviceArray; }
+  CellSeed** getDeviceArrayCells() const { return mCellsDeviceArray; }
+  CellSeed* getDeviceTrackSeeds() { return mTrackSeedsDevice; }
   o2::track::TrackParCovF** getDeviceArrayTrackSeeds() { return mCellSeedsDeviceArray; }
   float** getDeviceArrayTrackSeedsChi2() { return mCellSeedsChi2DeviceArray; }
   void setDevicePropagator(const o2::base::PropagatorImpl<float>*) override;
@@ -262,8 +265,9 @@ class TimeFrameGPU : public TimeFrame
   Cluster** mUnsortedClustersDeviceArray;
   std::array<Tracklet*, nLayers - 1> mTrackletsDevice;
   Tracklet** mTrackletsDeviceArray;
-  std::array<Cell*, nLayers - 2> mCellsDevice;
-  Cell** mCellsDeviceArray;
+  std::array<CellSeed*, nLayers - 2> mCellsDevice;
+  CellSeed* mTrackSeedsDevice;
+  CellSeed** mCellsDeviceArray;
   std::array<o2::track::TrackParCovF*, nLayers - 2> mCellSeedsDevice;
   o2::track::TrackParCovF** mCellSeedsDeviceArray;
   std::array<float*, nLayers - 2> mCellSeedsChi2Device;
