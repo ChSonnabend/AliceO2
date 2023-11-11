@@ -85,7 +85,7 @@ class qaIdeal : public Task
   void native_clusterizer(T&, std::vector<std::array<int, 3>>&, std::vector<int>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<float>&);
 
   template <class T>
-  std::vector<std::vector<std::vector<int>>> looper_tagger(int, T&, std::vector<float>&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::string = "digits");
+  std::vector<std::vector<std::vector<int>>> looper_tagger(int, T&, std::vector<float>&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::string = "digits", int = 0);
 
   template <class T>
   void remove_loopers_digits(int, std::vector<std::vector<std::vector<int>>>&, T&, std::vector<int>&);
@@ -946,7 +946,7 @@ void qaIdeal::native_clusterizer(T& map2d, std::vector<std::array<int, 3>>& digi
 
 // ---------------------------------
 template <class T>
-std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T& index_map, std::vector<float>& array_q, std::vector<int>& index_array, std::vector<std::array<int, 3>>& ideal_mclabels, std::string op_mode)
+std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T& index_map, std::vector<float>& array_q, std::vector<int>& index_array, std::vector<std::array<int, 3>>& ideal_mclabels, std::string op_mode, int exclusion_zones_counter)
 {
   int looper_detector_timesize = std::ceil((float)max_time[sector] / (float)looper_tagger_granularity);
 
@@ -1031,6 +1031,36 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
         num_elements = 0;
       }
     }
+  }
+
+  if(create_output==1){
+    // Saving the tagged region to file
+    std::stringstream file_in;
+    file_in << "looper_tagger_" << sector << ".root";
+    TFile* outputFileLooperTagged = new TFile(file_in.str().c_str(), "RECREATE");
+    TTree* looper_tagged_tree = new TTree("tagged_region", "tree");
+    
+    int tagged_sector = sector, tagged_row = 0, tagged_pad = 0, tagged_time = 0;
+    looper_tagged_tree->Branch("tagged_sector", &sector);
+    looper_tagged_tree->Branch("tagged_row", &tagged_row);
+    looper_tagged_tree->Branch("tagged_pad", &tagged_pad);
+    looper_tagged_tree->Branch("tagged_time", &tagged_time);
+    
+    for (int t = 0; t < (looper_detector_timesize - std::ceil(looper_tagger_timewindow / looper_tagger_granularity)); t++) {
+      for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
+        for (int p = 0; p < TPC_GEOM[r][2] + 1; p++) {
+          if(looper_tagged_region[t][r][p] == 1){
+            tagged_row = r;
+            tagged_pad = p;
+            tagged_time = t * looper_tagger_granularity;
+            looper_tagged_tree->Fill();
+          }
+        }
+      }
+    }
+
+    looper_tagged_tree->Write();
+    outputFileLooperTagged->Close();
   }
 
   if (verbose > 2)
@@ -2121,6 +2151,11 @@ void qaIdeal::run(ProcessingContext& pc)
   LOG(info) << "Clones (Float, fractional clone-order): " << fractional_clones_sum << " (" << (float)fractional_clones_sum * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
   LOG(info) << "Fakes for digits (number of digit hits that can't be assigned to any ideal hit): " << ass_dig << " (" << (float)ass_dig * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
   LOG(info) << "Fakes for ideal (number of ideal hits that can't be assigned to any digit hit): " << ass_id << " (" << (float)ass_id * 100 / (float)number_of_ideal_max_sum << "% of ideal maxima)";
+
+  if (mode.find(std::string("looper_tagger")) != std::string::npos && create_output == 1) {
+    LOG(info) << "------- Merging looper tagger regions -------";
+    gSystem->Exec("hadd -k -f ./looper_tagger.root ./looper_tagger_*.root");
+  }
 
   if (mode.find(std::string("training_data")) != std::string::npos && create_output == 1) {
     LOG(info) << "------- Merging training data -------";
