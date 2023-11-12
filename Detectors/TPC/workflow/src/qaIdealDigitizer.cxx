@@ -585,8 +585,8 @@ T qaIdeal::init_map2d(int sector)
       map2d[i][time_size].resize(o2::tpc::constants::MAXGLOBALPADROW + (3 * global_shift[2]));
       for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW + (3 * global_shift[2]); row++) {
         // Support for IROC - OROC1 transition: Add rows after row 62 + global_shift[2]
-        map2d[i][time_size][row].resize(138 + 2 * global_shift[0]);
-        for (int pad = 0; pad < 138 + 2 * global_shift[0]; pad++) {
+        map2d[i][time_size][row].resize(TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW][2] + 1 + 2 * global_shift[0]);
+        for (int pad = 0; pad < TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW][2] + 1 + 2 * global_shift[0]; pad++) {
           map2d[i][time_size][row][pad] = -1;
         }
       }
@@ -954,7 +954,7 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
   std::vector<std::vector<std::vector<int>>> tagger_counter(looper_detector_timesize, std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW));
   std::vector<std::vector<std::vector<int>>> looper_tagged_region(looper_detector_timesize, std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW)); // accumulates all the regions that should be tagged: looper_tagged_region[time_slice][row] = (pad_low, pad_high)
   // std::vector<std::vector<std::vector<std::vector<float>>>> indv_charges(looper_detector_timesize, std::vector<std::vector<std::vector<float>>>(o2::tpc::constants::MAXGLOBALPADROW));
-  std::vector<std::vector<std::vector<std::vector<std::array<int, 3>>>>> mclabels(looper_detector_timesize, std::vector<std::vector<std::vector<std::array<int,3>>>>(o2::tpc::constants::MAXGLOBALPADROW));
+  std::vector<std::vector<std::vector<std::vector<std::array<int, 3>>>>> mclabels(looper_detector_timesize, std::vector<std::vector<std::vector<std::array<int, 3>>>>(o2::tpc::constants::MAXGLOBALPADROW));
 
   int operation_mode = 0;
   op_mode.find(std::string("digit")) != std::string::npos ? operation_mode = 1 : operation_mode = operation_mode;
@@ -1033,23 +1033,23 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
     }
   }
 
-  if(create_output==1){
+  if (create_output == 1) {
     // Saving the tagged region to file
     std::stringstream file_in;
     file_in << "looper_tagger_" << sector << ".root";
     TFile* outputFileLooperTagged = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* looper_tagged_tree = new TTree("tagged_region", "tree");
-    
+
     int tagged_sector = sector, tagged_row = 0, tagged_pad = 0, tagged_time = 0;
     looper_tagged_tree->Branch("tagged_sector", &sector);
     looper_tagged_tree->Branch("tagged_row", &tagged_row);
     looper_tagged_tree->Branch("tagged_pad", &tagged_pad);
     looper_tagged_tree->Branch("tagged_time", &tagged_time);
-    
+
     for (int t = 0; t < (looper_detector_timesize - std::ceil(looper_tagger_timewindow / looper_tagger_granularity)); t++) {
       for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
         for (int p = 0; p < TPC_GEOM[r][2] + 1; p++) {
-          if(looper_tagged_region[t][r][p] == 1){
+          if (looper_tagged_region[t][r][p] == 1) {
             tagged_row = r;
             tagged_pad = p;
             tagged_time = t * looper_tagger_granularity;
@@ -1349,6 +1349,7 @@ void qaIdeal::runQa(int loop_sectors)
   std::iota(ideal_idx.begin(), ideal_idx.end(), 0);
 
   if (mode.find(std::string("looper_tagger")) != std::string::npos) {
+    LOG(info) << "Looper tagger active, settings: granularity " << looper_tagger_granularity << ", time-window: " << looper_tagger_timewindow << ", pad-window: " << looper_tagger_padwindow << ", threshold (num. points): " << looper_tagger_threshold_num << ", threshold (Q): " << looper_tagger_threshold_q << ", operational mode: " << looper_tagger_opmode;
     tagger_map = looper_tagger(loop_sectors, ideal_max_map, ideal_max_q, ideal_idx, ideal_mclabels, looper_tagger_opmode);
     remove_loopers_ideal(loop_sectors, tagger_map, ideal_max_map, ideal_cog_map, ideal_max_q, ideal_cog_q, ideal_sigma_map, ideal_mclabels);
     remove_loopers_ideal(loop_sectors, tagger_map, ideal_max_map, ideal_cog_map, ideal_max_q, ideal_cog_q, ideal_sigma_map, ideal_mclabels);
@@ -1421,7 +1422,7 @@ void qaIdeal::runQa(int loop_sectors)
   number_of_ideal_max[loop_sectors] += ideal_max_map.size();
 
   for (int max = 0; max < ideal_max_map.size(); max++) {
-    if (ideal_cog_q[max] >= 5 && ideal_max_q[max] >= 3) {
+    if (ideal_cog_q[max] >= threshold_cogq && ideal_max_q[max] >= threshold_maxq) {
       number_of_ideal_max_findable[loop_sectors]++;
     }
   }
@@ -1436,9 +1437,9 @@ void qaIdeal::runQa(int loop_sectors)
       // Level-3 loop: Goes through all digit maxima and checks neighbourhood for potential ideal maxima
       for (unsigned int locdigit = 0; locdigit < maxima_digits.size(); locdigit++) {
         current_neighbour = test_neighbour(digit_map[maxima_digits[locdigit]], adj_mat[layer][nn], map2d, 0);
-        // if (verbose >= 5) LOG(info) << "current_neighbour: " << current_neighbour;
-        // if (verbose >= 5) LOG(info) << "Maximum digit " << maxima_digits[locdigit];
-        // if (verbose >= 5) LOG(info) << "Digit max index: " << digit_map[maxima_digits[locdigit]][0] << " " << digit_map[maxima_digits[locdigit]][1] << " " << digit_map[maxima_digits[locdigit]][2];
+        // if (verbose >= threshold_cogq) LOG(info) << "current_neighbour: " << current_neighbour;
+        // if (verbose >= threshold_cogq) LOG(info) << "Maximum digit " << maxima_digits[locdigit];
+        // if (verbose >= threshold_cogq) LOG(info) << "Digit max index: " << digit_map[maxima_digits[locdigit]][0] << " " << digit_map[maxima_digits[locdigit]][1] << " " << digit_map[maxima_digits[locdigit]][2];
         if (current_neighbour >= -1) {
           assignments_id_to_dig[locdigit][layer_count + nn] = ((current_neighbour != -1 && assigned_digit[locdigit] == 0) ? (assigned_ideal[current_neighbour] == 0 ? current_neighbour : -1) : -1);
         }
@@ -1453,9 +1454,9 @@ void qaIdeal::runQa(int loop_sectors)
           rounded_cog[i] = round(ideal_cog_map[locideal][i]);
         }
         current_neighbour = test_neighbour(rounded_cog, adj_mat[layer][nn], map2d, 1);
-        // if (verbose >= 5) LOG(info) << "current_neighbour: " << current_neighbour;
-        // if (verbose >= 5) LOG(info) << "Maximum ideal " << locideal;
-        // if (verbose >= 5) LOG(info) << "Ideal max index: " << ideal_max_map[locideal][0] << " " << ideal_max_map[locideal][1] << " " << ideal_max_map[locideal][2];
+        // if (verbose >= threshold_cogq) LOG(info) << "current_neighbour: " << current_neighbour;
+        // if (verbose >= threshold_cogq) LOG(info) << "Maximum ideal " << locideal;
+        // if (verbose >= threshold_cogq) LOG(info) << "Ideal max index: " << ideal_max_map[locideal][0] << " " << ideal_max_map[locideal][1] << " " << ideal_max_map[locideal][2];
         if (current_neighbour >= -1) {
           assignments_dig_to_id[locideal][layer_count + nn] = ((current_neighbour != -1 && assigned_ideal[locideal] == 0) ? (assigned_digit[current_neighbour] == 0 ? current_neighbour : -1) : -1);
         }
@@ -1505,7 +1506,7 @@ void qaIdeal::runQa(int loop_sectors)
     for (auto elem : assignments_dig_to_id[ass_id]) {
       if (checkIdx(elem)) {
         count_elements_id += 1;
-        if (ideal_cog_q[ass_id] >= 5 && ideal_max_q[ass_id] >= 3) {
+        if (ideal_cog_q[ass_id] >= threshold_cogq && ideal_max_q[ass_id] >= threshold_maxq) {
           count_elements_findable += 1;
         }
       }
@@ -1520,7 +1521,7 @@ void qaIdeal::runQa(int loop_sectors)
     for (auto elem : assignments_id_to_dig[ass_dig]) {
       if (checkIdx(elem)) {
         count_elements_dig += 1;
-        if (ideal_cog_q[elem] >= 5 && ideal_max_q[elem] >= 3) {
+        if (ideal_cog_q[elem] >= threshold_cogq && ideal_max_q[elem] >= threshold_maxq) {
           count_elements_findable += 1;
         }
       }
