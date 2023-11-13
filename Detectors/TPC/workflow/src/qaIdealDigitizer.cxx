@@ -984,12 +984,12 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
     time_slice = std::floor(index_map[index_array[idx]][2] / (float)looper_tagger_granularity);
 
     // tagger[time_slice][row][pad]++;
-    tagger_counter[time_slice][row][pad + pad_offset]++;
-    tagger[time_slice][row][pad + pad_offset] += array_q[index_array[idx]]; // / landau_approx((array_q[index_array[idx]] - 25.f) / 17.f);
+    tagger_counter[time_slice][row][pad]++;
+    tagger[time_slice][row][pad] += array_q[index_array[idx]]; // / landau_approx((array_q[index_array[idx]] - 25.f) / 17.f);
     // indv_charges[time_slice][row][pad].push_back(array_q[index_array[idx]]);
 
     if (operation_mode == 2) {
-      mclabels[time_slice][row][pad + pad_offset].push_back(ideal_mclabels[index_array[idx]]);
+      mclabels[time_slice][row][pad].push_back(ideal_mclabels[index_array[idx]]);
     }
 
     // Approximate Landau and scale for the width:
@@ -1079,9 +1079,9 @@ void qaIdeal::remove_loopers_digits(int sector, std::vector<std::vector<std::vec
   std::vector<int> new_index_array;
   T new_map;
 
-  for (int m = 0; m < index_array.size(); m++) {
-    if (looper_map[std::floor(map[index_array[m]][2] / (float)looper_tagger_granularity)][std::round(map[index_array[m]][0])][std::round(map[index_array[m]][1])] == 0) {
-      new_index_array.push_back(index_array[m]);
+  for (auto idx : index_array) {
+    if (looper_map[std::floor(map[idx][2] / (float)looper_tagger_granularity)][std::round(map[idx][0])][std::round(map[idx][1])] == 0) {
+      new_index_array.push_back(idx);
     }
   }
 
