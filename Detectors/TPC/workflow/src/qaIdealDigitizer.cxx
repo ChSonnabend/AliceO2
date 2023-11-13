@@ -181,7 +181,7 @@ class qaIdeal : public Task
   bool hasElementAppearedMoreThanNTimesInVectors(const std::vector<std::vector<int>>& vectors, int n)
   {
     std::unordered_map<int, int> elementCount;
-    for (const std::vector<std::array<int, 3>>& vec : vectors) {
+    for (const std::vector<int>& vec : vectors) {
       for (int element : vec) {
         elementCount[element]++;
         if (elementCount[element] > n) {
