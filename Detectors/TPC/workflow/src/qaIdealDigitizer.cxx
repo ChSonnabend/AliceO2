@@ -581,12 +581,12 @@ T qaIdeal::init_map2d(int sector)
   T map2d;
   for (int i = 0; i < 2; i++) {
     map2d[i].resize(max_time[sector] + (2 * global_shift[1]));
-    for (int time_size = 0; time_size < max_time[sector] + (2 * global_shift[1]); time_size++) {
+    for (int time_size = 0; time_size < (max_time[sector] + 2 * global_shift[1]); time_size++) {
       map2d[i][time_size].resize(o2::tpc::constants::MAXGLOBALPADROW + (3 * global_shift[2]));
-      for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW + (3 * global_shift[2]); row++) {
+      for (int row = 0; row < (o2::tpc::constants::MAXGLOBALPADROW + 3 * global_shift[2]); row++) {
         // Support for IROC - OROC1 transition: Add rows after row 62 + global_shift[2]
-        map2d[i][time_size][row].resize(TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW][2] + 1 + 2 * global_shift[0]);
-        for (int pad = 0; pad < TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW][2] + 1 + 2 * global_shift[0]; pad++) {
+        map2d[i][time_size][row].resize(TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] + 1 + 2 * global_shift[0]);
+        for (int pad = 0; pad < (TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] + 1 + 2 * global_shift[0]); pad++) {
           map2d[i][time_size][row][pad] = -1;
         }
       }
@@ -978,18 +978,18 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
   // - Check for gaussian distribution of charge: D'Agostino-Pearson
 
   int row = 0, pad = 0, time_slice = 0, pad_offset = (looper_tagger_padwindow - 1) / 2;
-  for (int idx = 0; idx < index_array.size(); idx++) {
-    row = std::round(index_map[index_array[idx]][0]);
-    pad = std::round(index_map[index_array[idx]][1]) + pad_offset;
-    time_slice = std::floor(index_map[index_array[idx]][2] / (float)looper_tagger_granularity);
+  for (auto idx : index_array) {
+    row = std::round(index_map[idx][0]);
+    pad = std::round(index_map[idx][1]) + pad_offset;
+    time_slice = std::floor(index_map[idx][2] / (float)looper_tagger_granularity);
 
     // tagger[time_slice][row][pad]++;
     tagger_counter[time_slice][row][pad]++;
-    tagger[time_slice][row][pad] += array_q[index_array[idx]]; // / landau_approx((array_q[index_array[idx]] - 25.f) / 17.f);
-    // indv_charges[time_slice][row][pad].push_back(array_q[index_array[idx]]);
+    tagger[time_slice][row][pad] += array_q[idx]; // / landau_approx((array_q[idx] - 25.f) / 17.f);
+    // indv_charges[time_slice][row][pad].push_back(array_q[idx]);
 
     if (operation_mode == 2) {
-      mclabels[time_slice][row][pad].push_back(ideal_mclabels[index_array[idx]]);
+      mclabels[time_slice][row][pad].push_back(ideal_mclabels[idx]);
     }
 
     // Approximate Landau and scale for the width:
