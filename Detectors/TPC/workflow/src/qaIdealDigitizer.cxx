@@ -178,13 +178,13 @@ class qaIdeal : public Task
   //  return false;
   //}
 
-  bool hasElementAppearedMoreThanNTimesInVectors(const std::vector<std::vector<int>>& vectors, int n)
+  bool hasElementAppearedMoreThanNTimesInVectors(const std::vector<std::vector<std::array<int,3>>>& vectors, int n)
   {
     std::unordered_map<int, int> elementCount;
-    for (const std::vector<int>& vec : vectors) {
-      for (int element : vec) {
-        elementCount[element]++;
-        if (elementCount[element] > n) {
+    for (const std::vector<std::array<int,3>>& vec : vectors) {
+      for (std::array<int,3> element : vec) {
+        elementCount[element[0]]++;
+        if (elementCount[element[0]] > n) {
           return true;
         }
       }
@@ -1075,8 +1075,7 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
   // int unit_volume = looper_tagger_timewindow * 3;
   float avg_charge = 0;
   int num_elements = 0;
-  // std::vector<std::vector<std::array<int,3>>> fill_temp_mclabels; //In case hashing is needed, e.g. trackID appears multiple times in different events
-  std::vector<std::vector<int>> fill_temp_mclabels;
+  std::vector<std::vector<std::array<int,3>>> fill_temp_mclabels; //In case hashing is needed, e.g. trackID appears multiple times in different events
   for (int t = 0; t < (looper_detector_timesize - std::ceil(looper_tagger_timewindow / looper_tagger_granularity)); t++) {
     for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
       for (int p = 0; p < TPC_GEOM[r][2] + 1; p++) {
@@ -1088,7 +1087,7 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
                 avg_charge += tagger[t + t_acc][r][p + padwindow] / tagger_counter[t + t_acc][r][p + padwindow];
             } else if (operation_mode == 2) {
               num_elements += tagger_counter[t + t_acc][r][p + padwindow];
-              fill_temp_mclabels.push_back(mclabels[t + t_acc][r][p + padwindow][0]); // only filling trackID, otherwise use std::array<int,3> and ArrayHasher for undorder map and unique association
+              fill_temp_mclabels.push_back(mclabels[t + t_acc][r][p + padwindow]); // only filling trackID, otherwise use std::array<int,3> and ArrayHasher for undorder map and unique association
             }
           }
         }
