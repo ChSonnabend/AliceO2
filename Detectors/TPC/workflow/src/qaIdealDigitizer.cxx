@@ -64,6 +64,7 @@ class qaIdeal : public Task
   void read_digits(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
   void read_ideal(int, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<std::array<float, 2>>&, std::vector<float>&, std::vector<std::array<int, 3>>&);
   void read_native(int, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 3>>&, std::vector<float>&);
+  void read_kinematics(int, std::map<int, std::array<float,8>>);
   void read_network(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
 
   template <class T>
@@ -131,6 +132,7 @@ class qaIdeal : public Task
   std::string inFileDigits = "tpcdigits.root";
   std::string inFileNative = "tpc-cluster-native.root";
   std::string inFileDigitizer = "mclabels_digitizer.root";
+  std::string inFileKinematics = "o2sim_Kine.root";
   std::string networkDataOutput = "./network_out.root";
   std::string networkClassification = "./net_classification.onnx";
   std::string networkRegression = "./net_regression.onnx";
@@ -162,18 +164,31 @@ class qaIdeal : public Task
     }
   };
 
-  bool hasElementAppearedMoreThanNTimesInVectors(const std::vector<std::vector<std::array<int, 3>>>& vectors, int n)
+  //bool hasElementAppearedMoreThanNTimesInVectors(const std::vector<std::vector<std::array<int, 3>>>& vectors, int n)
+  //{
+  //  std::unordered_map<std::array<int, 3>, int, ArrayHasher> elementCount;
+  //  for (const std::vector<std::array<int, 3>>& vec : vectors) {
+  //    for (std::array<int, 3> element : vec) {
+  //      elementCount[element]++;
+  //      if (elementCount[element] > n) {
+  //        return true;
+  //      }
+  //    }
+  //  }
+  //  return false;
+  //}
+
+  bool hasElementAppearedMoreThanNTimesInVectors(const std::vector<std::vector<int>>& vectors, int n)
   {
-    std::unordered_map<std::array<int, 3>, int, ArrayHasher> elementCount;
+    std::unordered_map<int, int> elementCount;
     for (const std::vector<std::array<int, 3>>& vec : vectors) {
-      for (std::array<int, 3> element : vec) {
+      for (int element : vec) {
         elementCount[element]++;
         if (elementCount[element] > n) {
           return true;
         }
       }
     }
-
     return false;
   }
 };
@@ -276,6 +291,7 @@ void qaIdeal::init(InitContext& ic)
   numThreads = ic.options().get<int>("threads");
   inFileDigits = ic.options().get<std::string>("infile-digits");
   inFileNative = ic.options().get<std::string>("infile-native");
+  inFileKinematics = ic.options().get<std::string>("infile-kinematics");
   networkDataOutput = ic.options().get<std::string>("network-data-output");
   networkClassification = ic.options().get<std::string>("network-classification-path");
   networkRegression = ic.options().get<std::string>("network-regression-path");
@@ -573,6 +589,62 @@ void qaIdeal::read_ideal(int sector, std::vector<std::array<int, 3>>& ideal_max_
     }
   }
   inputFile->Close();
+}
+
+// ---------------------------------
+void qaIdeal::read_kinematics(int sector, std::map<int, std::array<float,8>> mc_association)
+{
+
+  LOG(info) << "Reading kinematics information, sector " << sector;
+  auto inputFile = TFile::Open(inFileKinematics.c_str());
+  auto kineRefs = (TTree*)inputFile->Get("TrackRefs");
+
+  int track_number; //track MC label
+  float x, y, z, px, py, pz, tof, track_length;
+
+  kineRefs->SetBranchAddress("mX", &x);
+  kineRefs->SetBranchAddress("mY", &y);
+  kineRefs->SetBranchAddress("mZ", &z);
+  kineRefs->SetBranchAddress("mPX", &px);
+  kineRefs->SetBranchAddress("mPY", &py);
+  kineRefs->SetBranchAddress("mPZ", &pz);
+  kineRefs->SetBranchAddress("mTof", &tof);
+  kineRefs->SetBranchAddress("mTrackLength", &track_length);
+  kineRefs->SetBranchAddress("mTrackNumber", &track_number);
+
+  for (unsigned int j = 0; j < kineRefs->GetEntries(); j++) {
+    kineRefs->GetEntry(j);
+    mc_association[track_number] = {x, y, z, px, py, pz, tof, track_length};
+  }
+
+  kineRefs->SetBranchStatus("*", false); // disable all branches
+  kineRefs->SetBranchStatus("MCTrack*", true);
+  kineRefs->SetBranchStatus("MCEventHeader*", true);
+
+  std::vector<o2::MCTrack>* mcArr;
+  kineRefs->SetBranchAddress("MCTrack", &mcArr);
+  o2::dataformats::MCEventHeader* mcEvent = nullptr;
+  kineRefs->SetBranchAddress("MCEventHeader", &mcEvent);
+
+  // int lastEventIDcl = -1;
+  // auto nev = kineRefs->GetEntriesFast();
+  // std::vector<std::vector<ParticleInfo>> info(nev);
+  // for (int iEntry = 0; kineRefs->LoadTree(iEntry) >= 0; ++iEntry) { // loop over MC events
+  //   kineRefs->GetEvent(iEntry);
+  //   info[iEntry].resize(mcArr->size());
+  //   for (unsigned int mcI{0}; mcI < mcArr->size(); ++mcI) {
+  //     const auto part = (*mcArr)[mcI];
+  //     info[iEntry][mcI].event = iEntry;
+  //     info[iEntry][mcI].pdg = std::abs(part.GetPdgCode());
+  //     info[iEntry][mcI].pt = part.GetPt();
+  //     info[iEntry][mcI].phi = part.GetPhi();
+  //     info[iEntry][mcI].eta = part.GetEta();
+  //     if (std::sqrt(part.GetStartVertexCoordinatesX() * part.GetStartVertexCoordinatesX() + part.GetStartVertexCoordinatesY() * part.GetStartVertexCoordinatesY()) < 0.1) {
+  //       info[iEntry][mcI].isPrimary = true;
+  //     }
+  //   }
+  // }
+
 }
 
 template <class T>
@@ -1003,7 +1075,8 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
   // int unit_volume = looper_tagger_timewindow * 3;
   float avg_charge = 0;
   int num_elements = 0;
-  std::vector<std::vector<std::array<int, 3>>> fill_temp_mclabels;
+  // std::vector<std::vector<std::array<int,3>>> fill_temp_mclabels; //In case hashing is needed, e.g. trackID appears multiple times in different events
+  std::vector<std::vector<int>> fill_temp_mclabels;
   for (int t = 0; t < (looper_detector_timesize - std::ceil(looper_tagger_timewindow / looper_tagger_granularity)); t++) {
     for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
       for (int p = 0; p < TPC_GEOM[r][2] + 1; p++) {
@@ -1015,7 +1088,7 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
                 avg_charge += tagger[t + t_acc][r][p + padwindow] / tagger_counter[t + t_acc][r][p + padwindow];
             } else if (operation_mode == 2) {
               num_elements += tagger_counter[t + t_acc][r][p + padwindow];
-              fill_temp_mclabels.push_back(mclabels[t + t_acc][r][p + padwindow]);
+              fill_temp_mclabels.push_back(mclabels[t + t_acc][r][p + padwindow][0]); // only filling trackID, otherwise use std::array<int,3> and ArrayHasher for undorder map and unique association
             }
           }
         }
@@ -1329,6 +1402,7 @@ void qaIdeal::runQa(int loop_sectors)
   std::vector<std::array<float, 2>> ideal_sigma_map;
   std::vector<float> ideal_max_q, ideal_cog_q, digit_q, digit_clusterizer_q;
   std::vector<std::vector<std::vector<int>>> tagger_map;
+  std::map<int, std::array<float, 8>> mc_association;
 
   if (mode.find(std::string("native")) != std::string::npos) {
     read_native(loop_sectors, digit_map, native_map, digit_q);
@@ -1339,6 +1413,7 @@ void qaIdeal::runQa(int loop_sectors)
     read_digits(loop_sectors, digit_map, digit_q);
   }
 
+  read_kinematics(loop_sectors, mc_association);
   read_ideal(loop_sectors, ideal_max_map, ideal_max_q, ideal_cog_map, ideal_sigma_map, ideal_cog_q, ideal_mclabels);
 
   LOG(info) << "Starting process for sector " << loop_sectors;
@@ -2208,6 +2283,7 @@ DataProcessorSpec processIdealClusterizer()
       {"looper-tagger-threshold-q", VariantType::Float, 600.f, {"Threshold of charge-per-cluster that should be rejected."}},
       {"infile-digits", VariantType::String, "tpcdigits.root", {"Input file name (digits)"}},
       {"infile-native", VariantType::String, "tpc-native-clusters.root", {"Input file name (native)"}},
+      {"infile-kinematics", VariantType::String, "o2sim_Kine.root", {"Input file name (kinematics)"}},
       {"network-data-output", VariantType::String, "network_out.root", {"Input file for the network output"}},
       {"network-classification-path", VariantType::String, "./net_classification.onnx", {"Absolute path to the network file (classification)"}},
       {"network-regression-path", VariantType::String, "./net_regression.onnx", {"Absolute path to the network file (regression)"}},
