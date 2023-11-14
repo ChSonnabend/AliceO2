@@ -186,7 +186,7 @@ class qaIdeal : public Task
     for (const std::vector<std::array<int,3>>& vec : vectors) {
       for (std::array<int,3> element : vec) {
         elementCount[element[0]]++;
-        if (elementCount[element[0]] > n) {
+        if (elementCount[element[0]] >= n) {
           return true;
         }
       }
@@ -749,7 +749,7 @@ void qaIdeal::find_maxima(int sector, T& map2d, std::vector<int>& maxima_digits,
         }
       }
     }
-    if (verbose >= 3)
+    if (verbose > 3)
       LOG(info) << "Found " << maxima_digits.size() << " maxima in row " << row;
   }
 
@@ -1056,14 +1056,13 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
             }
           }
         }
-
         if ((operation_mode == 1 && avg_charge >= looper_tagger_threshold_q && num_elements >= looper_tagger_threshold_num) ||
             (operation_mode == 2 && num_elements >= looper_tagger_threshold_num && hasElementAppearedMoreThanNTimesInVectors(fill_temp_mclabels, looper_tagger_threshold_num))) {
           for (int t_tag = 0; t_tag < std::ceil(looper_tagger_timewindow / looper_tagger_granularity); t_tag++) {
             looper_tagged_region[t + t_tag][r][p] = 1;
           }
-          fill_temp_mclabels.clear();
         }
+        fill_temp_mclabels.clear();
         avg_charge = 0;
         num_elements = 0;
       }
