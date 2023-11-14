@@ -64,7 +64,7 @@ class qaIdeal : public Task
   void read_digits(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
   void read_ideal(int, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<std::array<float, 2>>&, std::vector<float>&, std::vector<std::array<int, 3>>&);
   void read_native(int, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 3>>&, std::vector<float>&);
-  void read_kinematics(int, std::map<int, std::array<float,8>>);
+  void read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>&);
   void read_network(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
 
   template <class T>
@@ -132,16 +132,18 @@ class qaIdeal : public Task
   std::string inFileDigits = "tpcdigits.root";
   std::string inFileNative = "tpc-cluster-native.root";
   std::string inFileDigitizer = "mclabels_digitizer.root";
-  std::string inFileKinematics = "o2sim_Kine.root";
+  std::string inFileKinematics = "collisioncontext.root";
   std::string networkDataOutput = "./network_out.root";
   std::string networkClassification = "./net_classification.onnx";
   std::string networkRegression = "./net_regression.onnx";
 
   std::vector<std::vector<std::array<int, 2>>> adj_mat = {{{0, 0}}, {{1, 0}, {0, 1}, {-1, 0}, {0, -1}}, {{1, 1}, {-1, 1}, {-1, -1}, {1, -1}}, {{2, 0}, {0, -2}, {-2, 0}, {0, 2}}, {{2, 1}, {1, 2}, {-1, 2}, {-2, 1}, {-2, -1}, {-1, -2}, {1, -2}, {2, -1}}, {{2, 2}, {-2, 2}, {-2, -2}, {2, -2}}};
 
+  std::vector<std::vector<std::vector<o2::MCTrack>>> mctracks; // mc_track = mctracks[sourceId][eventId][trackId]
   std::array<std::array<unsigned int, 25>, o2::tpc::constants::MAXSECTOR> assignments_ideal, assignments_digit, assignments_ideal_findable, assignments_digit_findable;
   std::array<unsigned int, o2::tpc::constants::MAXSECTOR> number_of_ideal_max, number_of_digit_max, number_of_ideal_max_findable, clones;
   std::array<float, o2::tpc::constants::MAXSECTOR> fractional_clones;
+
 
   std::vector<std::vector<float>> TPC_GEOM;
 
@@ -389,7 +391,6 @@ void qaIdeal::read_digits(int sector, std::vector<std::array<int, 3>>& digit_map
     // digit_isValid[i_digit] = digit.isValid();
     counter++;
   }
-  (*digits).clear();
 
   digitFile->Close();
 
@@ -592,58 +593,22 @@ void qaIdeal::read_ideal(int sector, std::vector<std::array<int, 3>>& ideal_max_
 }
 
 // ---------------------------------
-void qaIdeal::read_kinematics(int sector, std::map<int, std::array<float,8>> mc_association)
+void qaIdeal::read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>& tracks)
 {
 
-  LOG(info) << "Reading kinematics information, sector " << sector;
-  auto inputFile = TFile::Open(inFileKinematics.c_str());
-  auto kineRefs = (TTree*)inputFile->Get("TrackRefs");
+  LOG(info) << "Reading kinematics information.";
 
-  int track_number; //track MC label
-  float x, y, z, px, py, pz, tof, track_length;
+  o2::steer::MCKinematicsReader reader("collisioncontext.root");
 
-  kineRefs->SetBranchAddress("mX", &x);
-  kineRefs->SetBranchAddress("mY", &y);
-  kineRefs->SetBranchAddress("mZ", &z);
-  kineRefs->SetBranchAddress("mPX", &px);
-  kineRefs->SetBranchAddress("mPY", &py);
-  kineRefs->SetBranchAddress("mPZ", &pz);
-  kineRefs->SetBranchAddress("mTof", &tof);
-  kineRefs->SetBranchAddress("mTrackLength", &track_length);
-  kineRefs->SetBranchAddress("mTrackNumber", &track_number);
-
-  for (unsigned int j = 0; j < kineRefs->GetEntries(); j++) {
-    kineRefs->GetEntry(j);
-    mc_association[track_number] = {x, y, z, px, py, pz, tof, track_length};
+  tracks.resize(reader.getNSources());
+  for(int src = 0; src < reader.getNSources(); src++){
+    tracks[src].resize(reader.getNEvents(src));
+    for(int ev = 0; ev < reader.getNEvents(src); ev++){
+      tracks[src][ev] = reader.getTracks(src, ev);
+    }
   }
 
-  kineRefs->SetBranchStatus("*", false); // disable all branches
-  kineRefs->SetBranchStatus("MCTrack*", true);
-  kineRefs->SetBranchStatus("MCEventHeader*", true);
-
-  std::vector<o2::MCTrack>* mcArr;
-  kineRefs->SetBranchAddress("MCTrack", &mcArr);
-  o2::dataformats::MCEventHeader* mcEvent = nullptr;
-  kineRefs->SetBranchAddress("MCEventHeader", &mcEvent);
-
-  // int lastEventIDcl = -1;
-  // auto nev = kineRefs->GetEntriesFast();
-  // std::vector<std::vector<ParticleInfo>> info(nev);
-  // for (int iEntry = 0; kineRefs->LoadTree(iEntry) >= 0; ++iEntry) { // loop over MC events
-  //   kineRefs->GetEvent(iEntry);
-  //   info[iEntry].resize(mcArr->size());
-  //   for (unsigned int mcI{0}; mcI < mcArr->size(); ++mcI) {
-  //     const auto part = (*mcArr)[mcI];
-  //     info[iEntry][mcI].event = iEntry;
-  //     info[iEntry][mcI].pdg = std::abs(part.GetPdgCode());
-  //     info[iEntry][mcI].pt = part.GetPt();
-  //     info[iEntry][mcI].phi = part.GetPhi();
-  //     info[iEntry][mcI].eta = part.GetEta();
-  //     if (std::sqrt(part.GetStartVertexCoordinatesX() * part.GetStartVertexCoordinatesX() + part.GetStartVertexCoordinatesY() * part.GetStartVertexCoordinatesY()) < 0.1) {
-  //       info[iEntry][mcI].isPrimary = true;
-  //     }
-  //   }
-  // }
+  LOG(info) << "Done reading kinematics, exporting to file (for python readout)";
 
 }
 
@@ -1401,7 +1366,6 @@ void qaIdeal::runQa(int loop_sectors)
   std::vector<std::array<float, 2>> ideal_sigma_map;
   std::vector<float> ideal_max_q, ideal_cog_q, digit_q, digit_clusterizer_q;
   std::vector<std::vector<std::vector<int>>> tagger_map;
-  std::map<int, std::array<float, 8>> mc_association;
 
   if (mode.find(std::string("native")) != std::string::npos) {
     read_native(loop_sectors, digit_map, native_map, digit_q);
@@ -1412,7 +1376,6 @@ void qaIdeal::runQa(int loop_sectors)
     read_digits(loop_sectors, digit_map, digit_q);
   }
 
-  read_kinematics(loop_sectors, mc_association);
   read_ideal(loop_sectors, ideal_max_map, ideal_max_q, ideal_cog_map, ideal_sigma_map, ideal_cog_q, ideal_mclabels);
 
   LOG(info) << "Starting process for sector " << loop_sectors;
@@ -1931,7 +1894,9 @@ void qaIdeal::runQa(int loop_sectors)
 
     std::fill(tr_data_X.begin(), tr_data_X.end(), atomic_unit);
 
-    std::vector<int> tr_data_Y_class(data_size, -1);
+    o2::MCTrack current_track;
+    std::vector<float> cluster_pT(data_size, -1), cluster_eta(data_size, -1), cluster_mass(data_size, -1), cluster_p(data_size, -1);
+    std::vector<int> tr_data_Y_class(data_size, -1), cluster_isPrimary(data_size, -1);
     std::array<std::vector<float>, 5> tr_data_Y_reg;
     std::fill(tr_data_Y_reg.begin(), tr_data_Y_reg.end(), std::vector<float>(data_size, -1));
 
@@ -2033,6 +1998,12 @@ void qaIdeal::runQa(int loop_sectors)
           tr_data_Y_reg[1][max_point] = ideal_cog_map[index_assignment][1] - digit_map[maxima_digits[max_point]][1]; // pad
           tr_data_Y_reg[2][max_point] = ideal_sigma_map[index_assignment][0];                                        // sigma pad
           tr_data_Y_reg[3][max_point] = ideal_sigma_map[index_assignment][1];                                        // sigma time
+          current_track = mctracks[ideal_mclabels[index_assignment][2]][ideal_mclabels[index_assignment][1]][ideal_mclabels[index_assignment][0]];
+          cluster_pT[max_point] = current_track.GetPt();
+          cluster_eta[max_point] = current_track.GetEta();
+          cluster_mass[max_point] = current_track.GetMass();
+          cluster_p[max_point] = current_track.GetP();
+          cluster_isPrimary[max_point] = (int)current_track.isPrimary();
           if (normalization_mode == 0) {
             tr_data_Y_reg[4][max_point] = ideal_cog_q[index_assignment] / 1024.f;
           } else if (normalization_mode == 1) {
@@ -2070,7 +2041,7 @@ void qaIdeal::runQa(int loop_sectors)
     }
 
     int class_val = 0, idx_sector = 0, idx_row = 0, idx_pad = 0, idx_time = 0;
-    float trY_time = 0, trY_pad = 0, trY_sigma_pad = 0, trY_sigma_time = 0, trY_q = 0;
+    float trY_time = 0, trY_pad = 0, trY_sigma_pad = 0, trY_sigma_time = 0, trY_q = 0, pT=0, eta=0, mass=0, p=0, isPrimary=0;
     tr_data->Branch("out_class", &class_val);
     tr_data->Branch("out_idx_sector", &idx_sector);
     tr_data->Branch("out_idx_row", &idx_row);
@@ -2078,9 +2049,14 @@ void qaIdeal::runQa(int loop_sectors)
     tr_data->Branch("out_idx_time", &idx_time);
     tr_data->Branch("out_reg_pad", &trY_pad);
     tr_data->Branch("out_reg_time", &trY_time);
+    tr_data->Branch("out_reg_qTotOverqMax", &trY_q);
     tr_data->Branch("out_sigma_pad", &trY_sigma_pad);
     tr_data->Branch("out_sigma_time", &trY_sigma_time);
-    tr_data->Branch("out_reg_qTotOverqMax", &trY_q);
+    tr_data->Branch("cluster_pT", &pT);
+    tr_data->Branch("cluster_eta", &eta);
+    tr_data->Branch("cluster_mass", &mass);
+    tr_data->Branch("cluster_p", &p);
+    tr_data->Branch("cluster_isPrimary", &isPrimary);
 
     // Filling elements
     for (int element = 0; element < data_size; element++) {
@@ -2095,6 +2071,11 @@ void qaIdeal::runQa(int loop_sectors)
       idx_row = digit_map[maxima_digits[element]][0];
       idx_pad = digit_map[maxima_digits[element]][1];
       idx_time = digit_map[maxima_digits[element]][2];
+      pT = cluster_pT[element];
+      eta = cluster_eta[element];
+      mass = cluster_mass[element];
+      p = cluster_p[element];
+      isPrimary = cluster_isPrimary[element];
       tr_data->Fill();
     }
     tr_data->Write();
@@ -2137,6 +2118,8 @@ void qaIdeal::runQa(int loop_sectors)
 // ---------------------------------
 void qaIdeal::run(ProcessingContext& pc)
 {
+
+  read_kinematics(mctracks);
 
   number_of_ideal_max.fill(0);
   number_of_digit_max.fill(0);
@@ -2282,7 +2265,7 @@ DataProcessorSpec processIdealClusterizer()
       {"looper-tagger-threshold-q", VariantType::Float, 600.f, {"Threshold of charge-per-cluster that should be rejected."}},
       {"infile-digits", VariantType::String, "tpcdigits.root", {"Input file name (digits)"}},
       {"infile-native", VariantType::String, "tpc-native-clusters.root", {"Input file name (native)"}},
-      {"infile-kinematics", VariantType::String, "o2sim_Kine.root", {"Input file name (kinematics)"}},
+      {"infile-kinematics", VariantType::String, "collisioncontext.root", {"Input file name (kinematics)"}},
       {"network-data-output", VariantType::String, "network_out.root", {"Input file for the network output"}},
       {"network-classification-path", VariantType::String, "./net_classification.onnx", {"Absolute path to the network file (classification)"}},
       {"network-regression-path", VariantType::String, "./net_regression.onnx", {"Absolute path to the network file (regression)"}},
