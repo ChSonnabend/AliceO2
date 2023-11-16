@@ -86,12 +86,12 @@ class qaIdeal : public Task
   void native_clusterizer(T&, std::vector<std::array<int, 3>>&, std::vector<int>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<float>&);
 
   template <class T>
-  std::vector<std::vector<std::vector<int>>> looper_tagger(int, T&, std::vector<float>&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::string = "digits", int = 0);
+  std::vector<std::vector<std::vector<int>>> looper_tagger(int, int, T&, std::vector<float>&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::string = "digits", int = 0);
 
   template <class T>
-  void remove_loopers_digits(int, std::vector<std::vector<std::vector<int>>>&, T&, std::vector<int>&);
+  void remove_loopers_digits(int, int, std::vector<std::vector<std::vector<int>>>&, T&, std::vector<int>&);
 
-  void remove_loopers_ideal(int, std::vector<std::vector<std::vector<int>>>&, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 3>>&, std::vector<float>&, std::vector<float>&, std::vector<std::array<float, 2>>&, std::vector<std::array<int, 3>>&);
+  void remove_loopers_ideal(int, int, std::vector<std::vector<std::vector<int>>>&, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 3>>&, std::vector<float>&, std::vector<float>&, std::vector<std::array<float, 2>>&, std::vector<std::array<int, 3>>&);
 
   template <class T>
   void run_network(int, T&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 3>>&, int = 0);
@@ -106,26 +106,26 @@ class qaIdeal : public Task
   void run(ProcessingContext&) final;
 
  private:
-  std::vector<int> global_shift = {5, 5, 0};  // shifting digits to select windows easier, (pad, time, row)
-  int charge_limits[2] = {2, 1024};           // upper and lower charge limits
-  int verbose = 0;                            // chunk_size in time direction
-  int create_output = 1;                      // Create output files specific for any mode
-  int dim = 2;                                // Dimensionality of the training data
-  int networkInputSize = 1000;                // vector input size for neural network
-  float networkClassThres = 0.5f;             // Threshold where network decides to keep / reject digit maximum
-  bool networkOptimizations = true;           // ONNX session optimizations
-  int networkNumThreads = 1;                  // Future: Add Cuda and CoreML Execution providers to run on CPU
-  int numThreads = 1;                         // Number of cores for multithreading
-  int use_max_cog = 1;                        // 0 = use ideal maxima position; 1 = use ideal CoG position (rounded) for assignment
-  float threshold_cogq = 5.f;                 // Threshold for ideal cluster to be findable (Q_tot)
-  float threshold_maxq = 3.f;                 // Threshold for ideal cluster to be findable (Q_max)
-  int normalization_mode = 1;                 // Normalization of the charge: 0 = divide by 1024; 1 = divide by central charge
-  int looper_tagger_granularity = 5;          // Granularity of looper tagger (time bins in which loopers are excluded in rectangular areas)
-  int looper_tagger_timewindow = 20;          // Total time-window size of the looper tagger for evaluating if a region is looper or not
-  int looper_tagger_padwindow = 3;            // Total pad-window size of the looper tagger for evaluating if a region is looper or not
-  int looper_tagger_threshold_num = 5;        // Threshold of number of clusters over which rejection takes place
-  float looper_tagger_threshold_q = 700.f;    // Threshold of charge-per-cluster that should be rejected
-  std::string looper_tagger_opmode = "digit"; // Operational mode of the looper tagger
+  std::vector<int> global_shift = {5, 5, 0};                  // shifting digits to select windows easier, (pad, time, row)
+  int charge_limits[2] = {2, 1024};                           // upper and lower charge limits
+  int verbose = 0;                                            // chunk_size in time direction
+  int create_output = 1;                                      // Create output files specific for any mode
+  int dim = 2;                                                // Dimensionality of the training data
+  int networkInputSize = 1000;                                // vector input size for neural network
+  float networkClassThres = 0.5f;                             // Threshold where network decides to keep / reject digit maximum
+  bool networkOptimizations = true;                           // ONNX session optimizations
+  int networkNumThreads = 1;                                  // Future: Add Cuda and CoreML Execution providers to run on CPU
+  int numThreads = 1;                                         // Number of cores for multithreading
+  int use_max_cog = 1;                                        // 0 = use ideal maxima position; 1 = use ideal CoG position (rounded) for assignment
+  float threshold_cogq = 5.f;                                 // Threshold for ideal cluster to be findable (Q_tot)
+  float threshold_maxq = 3.f;                                 // Threshold for ideal cluster to be findable (Q_max)
+  int normalization_mode = 1;                                 // Normalization of the charge: 0 = divide by 1024; 1 = divide by central charge
+  std::vector<int> looper_tagger_granularity = {5};           // Granularity of looper tagger (time bins in which loopers are excluded in rectangular areas)
+  std::vector<int> looper_tagger_timewindow = {20};           // Total time-window size of the looper tagger for evaluating if a region is looper or not
+  std::vector<int> looper_tagger_padwindow = {3};             // Total pad-window size of the looper tagger for evaluating if a region is looper or not
+  std::vector<int> looper_tagger_threshold_num = {5};         // Threshold of number of clusters over which rejection takes place
+  std::vector<float> looper_tagger_threshold_q = {70.f};      // Threshold of charge-per-cluster that should be rejected
+  std::string looper_tagger_opmode = "digit";                 // Operational mode of the looper tagger
 
   std::array<int, o2::tpc::constants::MAXSECTOR> max_time, max_pad;
   std::string mode = "training_data";
@@ -138,15 +138,13 @@ class qaIdeal : public Task
   std::string networkRegression = "./net_regression.onnx";
 
   std::vector<std::vector<std::array<int, 2>>> adj_mat = {{{0, 0}}, {{1, 0}, {0, 1}, {-1, 0}, {0, -1}}, {{1, 1}, {-1, 1}, {-1, -1}, {1, -1}}, {{2, 0}, {0, -2}, {-2, 0}, {0, 2}}, {{2, 1}, {1, 2}, {-1, 2}, {-2, 1}, {-2, -1}, {-1, -2}, {1, -2}, {2, -1}}, {{2, 2}, {-2, 2}, {-2, -2}, {2, -2}}};
+  std::vector<std::vector<float>> TPC_GEOM;
+  OnnxModel network_classification, network_regression;
 
   std::vector<std::vector<std::vector<o2::MCTrack>>> mctracks; // mc_track = mctracks[sourceId][eventId][trackId]
   std::array<std::array<unsigned int, 25>, o2::tpc::constants::MAXSECTOR> assignments_ideal, assignments_digit, assignments_ideal_findable, assignments_digit_findable;
   std::array<unsigned int, o2::tpc::constants::MAXSECTOR> number_of_ideal_max, number_of_digit_max, number_of_ideal_max_findable, clones;
   std::array<float, o2::tpc::constants::MAXSECTOR> fractional_clones;
-
-  std::vector<std::vector<float>> TPC_GEOM;
-
-  OnnxModel network_classification, network_regression;
 
   float landau_approx(float x)
   {
@@ -165,27 +163,14 @@ class qaIdeal : public Task
     }
   };
 
-  // bool hasElementAppearedMoreThanNTimesInVectors(const std::vector<std::vector<std::array<int, 3>>>& vectors, int n)
-  //{
-  //   std::unordered_map<std::array<int, 3>, int, ArrayHasher> elementCount;
-  //   for (const std::vector<std::array<int, 3>>& vec : vectors) {
-  //     for (std::array<int, 3> element : vec) {
-  //       elementCount[element]++;
-  //       if (elementCount[element] > n) {
-  //         return true;
-  //       }
-  //     }
-  //   }
-  //   return false;
-  // }
-
   bool hasElementAppearedMoreThanNTimesInVectors(const std::vector<std::vector<std::array<int, 3>>>& vectors, int n)
   {
+    // std::unordered_map<std::array<int, 3>, int, ArrayHasher> elementCount;
     std::unordered_map<int, int> elementCount;
     for (const std::vector<std::array<int, 3>>& vec : vectors) {
       for (std::array<int, 3> element : vec) {
         elementCount[element[0]]++;
-        if (elementCount[element[0]] >= n) {
+        if (elementCount[element[0]] > n) {
           return true;
         }
       }
@@ -193,7 +178,21 @@ class qaIdeal : public Task
     return false;
   }
 
-  std::unordered_map<int, std::vector<int>> distinctElementAppearance(const std::vector<std::vector<int>>& index_vector, std::vector<std::array<int, 3>> assignment_vector)
+  bool hasElementAppearedMoreThanNTimesInVectors(const std::vector<std::vector<int>>& index_vector, const std::vector<std::array<int, 3>>& assignment_vector, int n)
+  {
+    std::unordered_map<int, int> elementCount;
+    for (const std::vector<int>& vec : index_vector) {
+      for (int element : vec) {
+        elementCount[assignment_vector[element][0]]++;
+        if(elementCount[assignment_vector[element][0]] > n){
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  std::unordered_map<int, std::vector<int>> distinctElementAppearance(const std::vector<std::vector<int>>& index_vector, const std::vector<std::array<int, 3>>& assignment_vector)
   {
     std::unordered_map<int, std::vector<int>> elementCount;
     for (const std::vector<int>& vec : index_vector) {
@@ -313,11 +312,11 @@ void qaIdeal::init(InitContext& ic)
   networkOptimizations = ic.options().get<bool>("enable-network-optimizations");
   networkNumThreads = ic.options().get<int>("network-num-threads");
   normalization_mode = ic.options().get<int>("normalization-mode");
-  looper_tagger_granularity = ic.options().get<int>("looper-tagger-granularity");
-  looper_tagger_timewindow = ic.options().get<int>("looper-tagger-timewindow");
-  looper_tagger_padwindow = ic.options().get<int>("looper-tagger-padwindow");
-  looper_tagger_threshold_num = ic.options().get<int>("looper-tagger-threshold-num");
-  looper_tagger_threshold_q = ic.options().get<float>("looper-tagger-threshold-q");
+  looper_tagger_granularity = ic.options().get<std::vector<int>>("looper-tagger-granularity");
+  looper_tagger_timewindow = ic.options().get<std::vector<int>>("looper-tagger-timewindow");
+  looper_tagger_padwindow = ic.options().get<std::vector<int>>("looper-tagger-padwindow");
+  looper_tagger_threshold_num = ic.options().get<std::vector<int>>("looper-tagger-threshold-num");
+  looper_tagger_threshold_q = ic.options().get<std::vector<float>>("looper-tagger-threshold-q");
   looper_tagger_opmode = ic.options().get<std::string>("looper-tagger-opmode");
 
   ROOT::EnableThreadSafety();
@@ -993,14 +992,13 @@ void qaIdeal::native_clusterizer(T& map2d, std::vector<std::array<int, 3>>& digi
 
 // ---------------------------------
 template <class T>
-std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T& index_map, std::vector<float>& array_q, std::vector<int>& index_array, std::vector<std::array<int, 3>>& ideal_mclabels, std::string op_mode, int exclusion_zones_counter)
+std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, int counter, T& index_map, std::vector<float>& array_q, std::vector<int>& index_array, std::vector<std::array<int, 3>>& ideal_mclabels, std::string op_mode, int exclusion_zones_counter)
 {
-  int looper_detector_timesize = std::ceil((float)max_time[sector] / (float)looper_tagger_granularity);
+  int looper_detector_timesize = std::ceil((float)max_time[sector] / (float)looper_tagger_granularity[counter]);
 
-  std::vector<std::vector<std::vector<float>>> tagger(looper_detector_timesize, std::vector<std::vector<float>>(o2::tpc::constants::MAXGLOBALPADROW)); // time_slice (=std::floor(time/looper_tagger_granularity)), row, pad array -> looper_tagged = 1, else 0
+  std::vector<std::vector<std::vector<float>>> tagger(looper_detector_timesize, std::vector<std::vector<float>>(o2::tpc::constants::MAXGLOBALPADROW)); // time_slice (=std::floor(time/looper_tagger_granularity[counter])), row, pad array -> looper_tagged = 1, else 0
   std::vector<std::vector<std::vector<int>>> tagger_counter(looper_detector_timesize, std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW));
   std::vector<std::vector<std::vector<int>>> looper_tagged_region(looper_detector_timesize, std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW)); // accumulates all the regions that should be tagged: looper_tagged_region[time_slice][row] = (pad_low, pad_high)
-  // std::vector<std::vector<std::vector<std::vector<float>>>> indv_charges(looper_detector_timesize, std::vector<std::vector<std::vector<float>>>(o2::tpc::constants::MAXGLOBALPADROW));
   std::vector<std::vector<std::vector<std::vector<int>>>> sorted_idx(looper_detector_timesize, std::vector<std::vector<std::vector<int>>>(o2::tpc::constants::MAXGLOBALPADROW));
 
   int operation_mode = 0;
@@ -1009,12 +1007,12 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
 
   for (int t = 0; t < looper_detector_timesize; t++) {
     for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
-      tagger[t][r].resize(TPC_GEOM[r][2] + looper_tagger_padwindow);
-      tagger_counter[t][r].resize(TPC_GEOM[r][2] + looper_tagger_padwindow);
+      tagger[t][r].resize(TPC_GEOM[r][2] + looper_tagger_padwindow[counter]);
+      tagger_counter[t][r].resize(TPC_GEOM[r][2] + looper_tagger_padwindow[counter]);
       looper_tagged_region[t][r].resize(TPC_GEOM[r][2] + 1);
-      // indv_charges.resize(TPC_GEOM[r][2] + looper_tagger_padwindow);
+      // indv_charges.resize(TPC_GEOM[r][2] + looper_tagger_padwindow[counter]);
       if (operation_mode == 2) {
-        sorted_idx[t][r].resize(TPC_GEOM[r][2] + looper_tagger_padwindow);
+        sorted_idx[t][r].resize(TPC_GEOM[r][2] + looper_tagger_padwindow[counter]);
       }
     }
   }
@@ -1024,11 +1022,11 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
   // - Check width between clusters -> Looper should have regular distance -> peak in distribution of distance
   // - Check for gaussian distribution of charge: D'Agostino-Pearson
 
-  int row = 0, pad = 0, time_slice = 0, pad_offset = (looper_tagger_padwindow - 1) / 2;
+  int row = 0, pad = 0, time_slice = 0, pad_offset = (looper_tagger_padwindow[counter] - 1) / 2;
   for (auto idx : index_array) {
     row = std::round(index_map[idx][0]);
     pad = std::round(index_map[idx][1]) + pad_offset;
-    time_slice = std::floor(index_map[idx][2] / (float)looper_tagger_granularity);
+    time_slice = std::floor(index_map[idx][2] / (float)looper_tagger_granularity[counter]);
 
     // tagger[time_slice][row][pad]++;
     tagger_counter[time_slice][row][pad]++;
@@ -1047,16 +1045,16 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
   if (verbose > 2)
     LOG(info) << "Tagger done. Building tagged regions.";
 
-  // int unit_volume = looper_tagger_timewindow * 3;
+  // int unit_volume = looper_tagger_timewindow[counter] * 3;
   float avg_charge = 0;
   int num_elements = 0;
   bool accept = false;
   std::vector<std::vector<int>> idx_vector; // In case hashing is needed, e.g. trackID appears multiple times in different events
-  for (int t = 0; t < (looper_detector_timesize - std::ceil(looper_tagger_timewindow / looper_tagger_granularity)); t++) {
+  for (int t = 0; t < (looper_detector_timesize - std::ceil(looper_tagger_timewindow[counter] / looper_tagger_granularity[counter])); t++) {
     for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
       for (int p = 0; p < TPC_GEOM[r][2] + 1; p++) {
-        for (int t_acc = 0; t_acc < std::ceil(looper_tagger_timewindow / looper_tagger_granularity); t_acc++) {
-          for (int padwindow = 0; padwindow < looper_tagger_padwindow; padwindow++) {
+        for (int t_acc = 0; t_acc < std::ceil(looper_tagger_timewindow[counter] / looper_tagger_granularity[counter]); t_acc++) {
+          for (int padwindow = 0; padwindow < looper_tagger_padwindow[counter]; padwindow++) {
             if (operation_mode == 1) {
               num_elements += tagger_counter[t + t_acc][r][p + padwindow];
               if (tagger_counter[t + t_acc][r][p + padwindow] > 0)
@@ -1068,25 +1066,27 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
           }
         }
 
-        accept = (operation_mode == 1 && avg_charge >= looper_tagger_threshold_q && num_elements >= looper_tagger_threshold_num);
-        if(!accept && operation_mode == 2 && num_elements >= looper_tagger_threshold_num){
-          std::unordered_map<int, std::vector<int>> distinctElements = distinctElementAppearance(idx_vector, ideal_mclabels);
-          for (auto& elem : distinctElements) {
-            if(elem.second.size() >= num_elements){
-              std::map<int,int> tmp_indices; // orders low to high times and corresponding charges
-              float tmp_charge = -1;
-              for(int idx : elem.second){
-                tmp_indices[std::floor(index_map[idx][2])] = array_q[idx];
-              }
-              for(auto idx : tmp_indices){
-                tmp_charge==-1 ? tmp_charge = idx.second : (idx.second < 0.9*tmp_charge ? tmp_charge=idx.second : accept = true);
-              }
-            }
-          }
+        accept = (operation_mode == 1 && avg_charge >= looper_tagger_threshold_q[counter] && num_elements >= looper_tagger_threshold_num[counter]);
+        if(!accept && operation_mode == 2 && num_elements >= looper_tagger_threshold_num[counter]){
+          // std::unordered_map<int, std::vector<int>> distinctElements = distinctElementAppearance(idx_vector, ideal_mclabels);
+          // for (auto& elem : distinctElements) {
+          //   if(elem.second.size() >= num_elements){
+          //     std::map<int,int> tmp_indices; // orders low to high times and corresponding charges
+          //     float tmp_charge = -1;
+          //     for(int idx : elem.second){
+          //       tmp_indices[std::floor(index_map[idx][2])] = array_q[idx];
+          //     }
+          //     for(auto idx : tmp_indices){
+          //       tmp_charge==-1 ? tmp_charge = idx.second : (idx.second < 0.9*tmp_charge ? tmp_charge=idx.second : accept = true);
+          //     }
+          //   }
+          // }
+          
+          accept = hasElementAppearedMoreThanNTimesInVectors(idx_vector, ideal_mclabels, num_elements);
         }
 
         if (accept) {
-          for (int t_tag = 0; t_tag < std::ceil(looper_tagger_timewindow / looper_tagger_granularity); t_tag++) {
+          for (int t_tag = 0; t_tag < std::ceil(looper_tagger_timewindow[counter] / looper_tagger_granularity[counter]); t_tag++) {
             looper_tagged_region[t + t_tag][r][p] = 1;
           }
         }
@@ -1102,7 +1102,7 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
   if (create_output == 1) {
     // Saving the tagged region to file
     std::stringstream file_in;
-    file_in << "looper_tagger_" << sector << ".root";
+    file_in << "looper_tagger_" << sector << "_" << counter << ".root";
     TFile* outputFileLooperTagged = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* looper_tagged_tree = new TTree("tagged_region", "tree");
 
@@ -1112,13 +1112,13 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
     looper_tagged_tree->Branch("tagged_pad", &tagged_pad);
     looper_tagged_tree->Branch("tagged_time", &tagged_time);
 
-    for (int t = 0; t < (looper_detector_timesize - std::ceil(looper_tagger_timewindow / looper_tagger_granularity)); t++) {
+    for (int t = 0; t < (looper_detector_timesize - std::ceil(looper_tagger_timewindow[counter] / looper_tagger_granularity[counter])); t++) {
       for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
         for (int p = 0; p < TPC_GEOM[r][2] + 1; p++) {
           if (looper_tagged_region[t][r][p] == 1) {
             tagged_row = r;
             tagged_pad = p;
-            tagged_time = t * looper_tagger_granularity;
+            tagged_time = t * looper_tagger_granularity[counter];
             looper_tagged_tree->Fill();
           }
         }
@@ -1140,13 +1140,13 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
 
 // ---------------------------------
 template <class T>
-void qaIdeal::remove_loopers_digits(int sector, std::vector<std::vector<std::vector<int>>>& looper_map, T& map, std::vector<int>& index_array)
+void qaIdeal::remove_loopers_digits(int sector, int counter, std::vector<std::vector<std::vector<int>>>& looper_map, T& map, std::vector<int>& index_array)
 {
   std::vector<int> new_index_array;
   T new_map;
 
   for (auto idx : index_array) {
-    if (looper_map[std::floor(map[idx][2] / (float)looper_tagger_granularity)][std::round(map[idx][0])][std::round(map[idx][1])] == 0) {
+    if (looper_map[std::floor(map[idx][2] / (float)looper_tagger_granularity[counter])][std::round(map[idx][0])][std::round(map[idx][1])] == 0) {
       new_index_array.push_back(idx);
     }
   }
@@ -1158,14 +1158,14 @@ void qaIdeal::remove_loopers_digits(int sector, std::vector<std::vector<std::vec
 }
 
 // ---------------------------------
-void qaIdeal::remove_loopers_ideal(int sector, std::vector<std::vector<std::vector<int>>>& looper_map, std::vector<std::array<int, 3>>& ideal_max_map, std::vector<std::array<float, 3>>& ideal_cog_map, std::vector<float>& ideal_max_q, std::vector<float>& ideal_cog_q, std::vector<std::array<float, 2>>& ideal_sigma_map, std::vector<std::array<int, 3>>& ideal_mclabels)
+void qaIdeal::remove_loopers_ideal(int sector, int counter, std::vector<std::vector<std::vector<int>>>& looper_map, std::vector<std::array<int, 3>>& ideal_max_map, std::vector<std::array<float, 3>>& ideal_cog_map, std::vector<float>& ideal_max_q, std::vector<float>& ideal_cog_q, std::vector<std::array<float, 2>>& ideal_sigma_map, std::vector<std::array<int, 3>>& ideal_mclabels)
 {
 
   std::vector<int> ideal_idx_map(ideal_max_map.size()), new_ideal_idx_map;
   std::iota(ideal_idx_map.begin(), ideal_idx_map.end(), 0);
 
   for (int m = 0; m < ideal_idx_map.size(); m++) {
-    if (looper_map[std::floor(ideal_cog_map[m][2] / (float)looper_tagger_granularity)][std::round(ideal_cog_map[m][0])][std::round(ideal_cog_map[m][1])] == 0)
+    if (looper_map[std::floor(ideal_cog_map[m][2] / (float)looper_tagger_granularity[counter])][std::round(ideal_cog_map[m][0])][std::round(ideal_cog_map[m][1])] == 0)
       new_ideal_idx_map.push_back(m);
   }
 
@@ -1394,7 +1394,7 @@ void qaIdeal::runQa(int loop_sectors)
   std::vector<std::array<float, 3>> ideal_cog_map, native_map, network_map, digit_clusterizer_map;
   std::vector<std::array<float, 2>> ideal_sigma_map;
   std::vector<float> ideal_max_q, ideal_cog_q, digit_q, digit_clusterizer_q;
-  std::vector<std::vector<std::vector<int>>> tagger_map;
+  std::vector<std::vector<std::vector<std::vector<int>>>> tagger_map;
 
   if (mode.find(std::string("native")) != std::string::npos) {
     read_native(loop_sectors, digit_map, native_map, digit_q);
@@ -1415,10 +1415,10 @@ void qaIdeal::runQa(int loop_sectors)
   std::iota(ideal_idx.begin(), ideal_idx.end(), 0);
 
   if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-    LOG(info) << "Looper tagger active, settings: granularity " << looper_tagger_granularity << ", time-window: " << looper_tagger_timewindow << ", pad-window: " << looper_tagger_padwindow << ", threshold (num. points): " << looper_tagger_threshold_num << ", threshold (Q): " << looper_tagger_threshold_q << ", operational mode: " << looper_tagger_opmode;
-    tagger_map = looper_tagger(loop_sectors, ideal_max_map, ideal_max_q, ideal_idx, ideal_mclabels, looper_tagger_opmode);
-    remove_loopers_ideal(loop_sectors, tagger_map, ideal_max_map, ideal_cog_map, ideal_max_q, ideal_cog_q, ideal_sigma_map, ideal_mclabels);
-    remove_loopers_ideal(loop_sectors, tagger_map, ideal_max_map, ideal_cog_map, ideal_max_q, ideal_cog_q, ideal_sigma_map, ideal_mclabels);
+    for(int counter = 0; counter < looper_tagger_granularity.size(); counter++){
+      tagger_map.push_back(looper_tagger(loop_sectors, counter, ideal_max_map, ideal_max_q, ideal_idx, ideal_mclabels, looper_tagger_opmode));
+      remove_loopers_ideal(loop_sectors, counter, tagger_map[counter], ideal_max_map, ideal_cog_map, ideal_max_q, ideal_cog_q, ideal_sigma_map, ideal_mclabels);
+    }
   }
 
   fill_map2d<qa_t>(loop_sectors, map2d, digit_map, ideal_max_map, ideal_max_q, ideal_cog_map, ideal_cog_q, -1);
@@ -1426,7 +1426,9 @@ void qaIdeal::runQa(int loop_sectors)
   if ((mode.find(std::string("network")) == std::string::npos) && (mode.find(std::string("native")) == std::string::npos)) {
     find_maxima<qa_t>(loop_sectors, map2d, maxima_digits, digit_q);
     if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-      remove_loopers_digits(loop_sectors, tagger_map, digit_map, maxima_digits);
+      for(int counter = 0; counter < looper_tagger_granularity.size(); counter++){
+        remove_loopers_digits(loop_sectors, counter, tagger_map[counter], digit_map, maxima_digits);
+      }
     }
     if (mode.find(std::string("clusterizer")) != std::string::npos) {
       native_clusterizer(map2d, digit_map, maxima_digits, digit_q, digit_clusterizer_map, digit_clusterizer_q);
@@ -1436,7 +1438,9 @@ void qaIdeal::runQa(int loop_sectors)
     if (mode.find(std::string("native")) == std::string::npos) {
       find_maxima<qa_t>(loop_sectors, map2d, maxima_digits, digit_q);
       if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-        remove_loopers_digits(loop_sectors, tagger_map, digit_map, maxima_digits);
+        for(int counter = 0; counter < looper_tagger_granularity.size(); counter++){
+          remove_loopers_digits(loop_sectors, counter, tagger_map[counter], digit_map, maxima_digits);
+        }
       }
       if (mode.find(std::string("network_class")) != std::string::npos && mode.find(std::string("network_reg")) == std::string::npos) {
         run_network<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, network_map, 0); // classification
@@ -1453,8 +1457,10 @@ void qaIdeal::runQa(int loop_sectors)
       maxima_digits.resize(digit_q.size());
       std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);
       if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-        remove_loopers_digits(loop_sectors, tagger_map, digit_map, maxima_digits);
-        remove_loopers_digits(loop_sectors, tagger_map, native_map, maxima_digits);
+        for(int counter = 0; counter < looper_tagger_granularity.size(); counter++){
+          remove_loopers_digits(loop_sectors, counter, tagger_map[counter], digit_map, maxima_digits);
+          remove_loopers_digits(loop_sectors, counter, tagger_map[counter], native_map, maxima_digits);
+        }
       }
     }
   }
@@ -2148,6 +2154,12 @@ void qaIdeal::runQa(int loop_sectors)
 void qaIdeal::run(ProcessingContext& pc)
 {
 
+  if (mode.find(std::string("looper_tagger")) != std::string::npos) {
+    for(int i = 0; i < looper_tagger_granularity.size(); i++){
+      LOG(info) << "Looper tagger active, settings: granularity " << looper_tagger_granularity[i] << ", time-window: " << looper_tagger_timewindow[i] << ", pad-window: " << looper_tagger_padwindow[i] << ", threshold (num. points): " << looper_tagger_threshold_num[i] << ", threshold (Q): " << looper_tagger_threshold_q[i] << ", operational mode: " << looper_tagger_opmode;
+    }
+  }
+
   read_kinematics(mctracks);
 
   number_of_ideal_max.fill(0);
@@ -2286,12 +2298,12 @@ DataProcessorSpec processIdealClusterizer()
       {"size-time", VariantType::Int, 11, {"Training data selection size: Images are (size-pad, size-time, size-row)."}},
       {"size-row", VariantType::Int, 1, {"Training data selection size: Images are (size-pad, size-time, size-row)."}},
       {"threads", VariantType::Int, 1, {"Number of CPU threads to be used."}},
-      {"looper-tagger-opmode", VariantType::String, "digit", {"Mode in which the looper tagger is run: ideal or digit."}},
-      {"looper-tagger-granularity", VariantType::Int, 5, {"Granularity of looper tagger (time bins in which loopers are excluded in rectangular areas)."}},
-      {"looper-tagger-padwindow", VariantType::Int, 3, {"Total pad-window size of the looper tagger for evaluating if a region is looper or not."}},
-      {"looper-tagger-timewindow", VariantType::Int, 20, {"Total time-window size of the looper tagger for evaluating if a region is looper or not."}},
-      {"looper-tagger-threshold-num", VariantType::Int, 5, {"Threshold of number of clusters over which rejection takes place."}},
-      {"looper-tagger-threshold-q", VariantType::Float, 600.f, {"Threshold of charge-per-cluster that should be rejected."}},
+      {"looper-tagger-opmode", VariantType::String, "ideal", {"Mode in which the looper tagger is run: ideal or digit."}},
+      {"looper-tagger-granularity", VariantType::ArrayInt, std::vector<int>{5}, {"Granularity of looper tagger (time bins in which loopers are excluded in rectangular areas)."}}, // Needs to be called with e.g. --looper-tagger-granularity [2,3]
+      {"looper-tagger-padwindow", VariantType::ArrayInt, std::vector<int>{3}, {"Total pad-window size of the looper tagger for evaluating if a region is looper or not."}},
+      {"looper-tagger-timewindow", VariantType::ArrayInt, std::vector<int>{20}, {"Total time-window size of the looper tagger for evaluating if a region is looper or not."}},
+      {"looper-tagger-threshold-num", VariantType::ArrayInt, std::vector<int>{5}, {"Threshold of number of clusters over which rejection takes place."}},
+      {"looper-tagger-threshold-q", VariantType::ArrayFloat, std::vector<float>{70.f}, {"Threshold of charge-per-cluster that should be rejected."}},
       {"infile-digits", VariantType::String, "tpcdigits.root", {"Input file name (digits)"}},
       {"infile-native", VariantType::String, "tpc-native-clusters.root", {"Input file name (native)"}},
       {"infile-kinematics", VariantType::String, "collisioncontext.root", {"Input file name (kinematics)"}},
@@ -2301,7 +2313,8 @@ DataProcessorSpec processIdealClusterizer()
       {"network-input-size", VariantType::Int, 1000, {"Size of the vector to be fed through the neural network"}},
       {"network-class-threshold", VariantType::Float, 0.5f, {"Threshold for classification network: Keep or reject maximum (default: 0.5)"}},
       {"enable-network-optimizations", VariantType::Bool, true, {"Enable ONNX network optimizations"}},
-      {"network-num-threads", VariantType::Int, 1, {"Set the number of CPU threads for network execution"}}}};
+      {"network-num-threads", VariantType::Int, 1, {"Set the number of CPU threads for network execution"}}
+      }};
 }
 
 WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
