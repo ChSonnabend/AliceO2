@@ -144,7 +144,6 @@ class qaIdeal : public Task
   std::array<unsigned int, o2::tpc::constants::MAXSECTOR> number_of_ideal_max, number_of_digit_max, number_of_ideal_max_findable, clones;
   std::array<float, o2::tpc::constants::MAXSECTOR> fractional_clones;
 
-
   std::vector<std::vector<float>> TPC_GEOM;
 
   OnnxModel network_classification, network_regression;
@@ -166,25 +165,25 @@ class qaIdeal : public Task
     }
   };
 
-  //bool hasElementAppearedMoreThanNTimesInVectors(const std::vector<std::vector<std::array<int, 3>>>& vectors, int n)
+  // bool hasElementAppearedMoreThanNTimesInVectors(const std::vector<std::vector<std::array<int, 3>>>& vectors, int n)
   //{
-  //  std::unordered_map<std::array<int, 3>, int, ArrayHasher> elementCount;
-  //  for (const std::vector<std::array<int, 3>>& vec : vectors) {
-  //    for (std::array<int, 3> element : vec) {
-  //      elementCount[element]++;
-  //      if (elementCount[element] > n) {
-  //        return true;
-  //      }
-  //    }
-  //  }
-  //  return false;
-  //}
+  //   std::unordered_map<std::array<int, 3>, int, ArrayHasher> elementCount;
+  //   for (const std::vector<std::array<int, 3>>& vec : vectors) {
+  //     for (std::array<int, 3> element : vec) {
+  //       elementCount[element]++;
+  //       if (elementCount[element] > n) {
+  //         return true;
+  //       }
+  //     }
+  //   }
+  //   return false;
+  // }
 
-  bool hasElementAppearedMoreThanNTimesInVectors(const std::vector<std::vector<std::array<int,3>>>& vectors, int n)
+  bool hasElementAppearedMoreThanNTimesInVectors(const std::vector<std::vector<std::array<int, 3>>>& vectors, int n)
   {
     std::unordered_map<int, int> elementCount;
-    for (const std::vector<std::array<int,3>>& vec : vectors) {
-      for (std::array<int,3> element : vec) {
+    for (const std::vector<std::array<int, 3>>& vec : vectors) {
+      for (std::array<int, 3> element : vec) {
         elementCount[element[0]]++;
         if (elementCount[element[0]] >= n) {
           return true;
@@ -193,6 +192,18 @@ class qaIdeal : public Task
     }
     return false;
   }
+
+  std::unordered_map<int, std::vector<int>> distinctElementAppearance(const std::vector<std::vector<int>>& index_vector, std::vector<std::array<int, 3>> assignment_vector)
+  {
+    std::unordered_map<int, std::vector<int>> elementCount;
+    for (const std::vector<int>& vec : index_vector) {
+      for (int element : vec) {
+        elementCount[assignment_vector[element][0]].push_back(element);
+      }
+    }
+    return elementCount;
+  }
+
 };
 
 // ---------------------------------
@@ -601,15 +612,14 @@ void qaIdeal::read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>
   o2::steer::MCKinematicsReader reader("collisioncontext.root");
 
   tracks.resize(reader.getNSources());
-  for(int src = 0; src < reader.getNSources(); src++){
+  for (int src = 0; src < reader.getNSources(); src++) {
     tracks[src].resize(reader.getNEvents(src));
-    for(int ev = 0; ev < reader.getNEvents(src); ev++){
+    for (int ev = 0; ev < reader.getNEvents(src); ev++) {
       tracks[src][ev] = reader.getTracks(src, ev);
     }
   }
 
   LOG(info) << "Done reading kinematics, exporting to file (for python readout)";
-
 }
 
 template <class T>
@@ -991,7 +1001,7 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
   std::vector<std::vector<std::vector<int>>> tagger_counter(looper_detector_timesize, std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW));
   std::vector<std::vector<std::vector<int>>> looper_tagged_region(looper_detector_timesize, std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW)); // accumulates all the regions that should be tagged: looper_tagged_region[time_slice][row] = (pad_low, pad_high)
   // std::vector<std::vector<std::vector<std::vector<float>>>> indv_charges(looper_detector_timesize, std::vector<std::vector<std::vector<float>>>(o2::tpc::constants::MAXGLOBALPADROW));
-  std::vector<std::vector<std::vector<std::vector<std::array<int, 3>>>>> mclabels(looper_detector_timesize, std::vector<std::vector<std::vector<std::array<int, 3>>>>(o2::tpc::constants::MAXGLOBALPADROW));
+  std::vector<std::vector<std::vector<std::vector<int>>>> sorted_idx(looper_detector_timesize, std::vector<std::vector<std::vector<int>>>(o2::tpc::constants::MAXGLOBALPADROW));
 
   int operation_mode = 0;
   op_mode.find(std::string("digit")) != std::string::npos ? operation_mode = 1 : operation_mode = operation_mode;
@@ -1004,7 +1014,7 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
       looper_tagged_region[t][r].resize(TPC_GEOM[r][2] + 1);
       // indv_charges.resize(TPC_GEOM[r][2] + looper_tagger_padwindow);
       if (operation_mode == 2) {
-        mclabels[t][r].resize(TPC_GEOM[r][2] + looper_tagger_padwindow);
+        sorted_idx[t][r].resize(TPC_GEOM[r][2] + looper_tagger_padwindow);
       }
     }
   }
@@ -1026,7 +1036,7 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
     // indv_charges[time_slice][row][pad].push_back(array_q[idx]);
 
     if (operation_mode == 2) {
-      mclabels[time_slice][row][pad].push_back(ideal_mclabels[idx]);
+      sorted_idx[time_slice][row][pad].push_back(idx);
     }
 
     // Approximate Landau and scale for the width:
@@ -1040,7 +1050,8 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
   // int unit_volume = looper_tagger_timewindow * 3;
   float avg_charge = 0;
   int num_elements = 0;
-  std::vector<std::vector<std::array<int,3>>> fill_temp_mclabels; //In case hashing is needed, e.g. trackID appears multiple times in different events
+  bool accept = false;
+  std::vector<std::vector<int>> idx_vector; // In case hashing is needed, e.g. trackID appears multiple times in different events
   for (int t = 0; t < (looper_detector_timesize - std::ceil(looper_tagger_timewindow / looper_tagger_granularity)); t++) {
     for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
       for (int p = 0; p < TPC_GEOM[r][2] + 1; p++) {
@@ -1052,17 +1063,36 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, T&
                 avg_charge += tagger[t + t_acc][r][p + padwindow] / tagger_counter[t + t_acc][r][p + padwindow];
             } else if (operation_mode == 2) {
               num_elements += tagger_counter[t + t_acc][r][p + padwindow];
-              fill_temp_mclabels.push_back(mclabels[t + t_acc][r][p + padwindow]); // only filling trackID, otherwise use std::array<int,3> and ArrayHasher for undorder map and unique association
+              idx_vector.push_back(sorted_idx[t + t_acc][r][p + padwindow]); // only filling trackID, otherwise use std::array<int,3> and ArrayHasher for undorder map and unique association
             }
           }
         }
-        if ((operation_mode == 1 && avg_charge >= looper_tagger_threshold_q && num_elements >= looper_tagger_threshold_num) ||
-            (operation_mode == 2 && num_elements >= looper_tagger_threshold_num && hasElementAppearedMoreThanNTimesInVectors(fill_temp_mclabels, looper_tagger_threshold_num))) {
+
+        accept = (operation_mode == 1 && avg_charge >= looper_tagger_threshold_q && num_elements >= looper_tagger_threshold_num);
+        if(!accept && operation_mode == 2 && num_elements >= looper_tagger_threshold_num){
+          std::unordered_map<int, std::vector<int>> distinctElements = distinctElementAppearance(idx_vector, ideal_mclabels);
+          for (auto& elem : distinctElements) {
+            if(elem.second.size() >= num_elements){
+              std::map<int,int> tmp_indices; // orders low to high times and corresponding charges
+              float tmp_charge = -1;
+              for(int idx : elem.second){
+                tmp_indices[std::floor(index_map[idx][2])] = array_q[idx];
+              }
+              for(auto idx : tmp_indices){
+                tmp_charge==-1 ? tmp_charge = idx.second : (idx.second < 0.9*tmp_charge ? tmp_charge=idx.second : accept = true);
+              }
+            }
+          }
+        }
+
+        if (accept) {
           for (int t_tag = 0; t_tag < std::ceil(looper_tagger_timewindow / looper_tagger_granularity); t_tag++) {
             looper_tagged_region[t + t_tag][r][p] = 1;
           }
         }
-        fill_temp_mclabels.clear();
+
+        accept=false;
+        idx_vector.clear();
         avg_charge = 0;
         num_elements = 0;
       }
@@ -2040,7 +2070,7 @@ void qaIdeal::runQa(int loop_sectors)
     }
 
     int class_val = 0, idx_sector = 0, idx_row = 0, idx_pad = 0, idx_time = 0;
-    float trY_time = 0, trY_pad = 0, trY_sigma_pad = 0, trY_sigma_time = 0, trY_q = 0, pT=0, eta=0, mass=0, p=0, isPrimary=0;
+    float trY_time = 0, trY_pad = 0, trY_sigma_pad = 0, trY_sigma_time = 0, trY_q = 0, pT = 0, eta = 0, mass = 0, p = 0, isPrimary = 0;
     tr_data->Branch("out_class", &class_val);
     tr_data->Branch("out_idx_sector", &idx_sector);
     tr_data->Branch("out_idx_row", &idx_row);
