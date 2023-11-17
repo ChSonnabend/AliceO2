@@ -120,6 +120,7 @@ class qaIdeal : public Task
   float threshold_cogq = 5.f;                                 // Threshold for ideal cluster to be findable (Q_tot)
   float threshold_maxq = 3.f;                                 // Threshold for ideal cluster to be findable (Q_max)
   int normalization_mode = 1;                                 // Normalization of the charge: 0 = divide by 1024; 1 = divide by central charge
+  int remove_individual_files = 0;                            // Remove sector-individual files after task is done
   std::vector<int> looper_tagger_granularity = {5};           // Granularity of looper tagger (time bins in which loopers are excluded in rectangular areas)
   std::vector<int> looper_tagger_timewindow = {20};           // Total time-window size of the looper tagger for evaluating if a region is looper or not
   std::vector<int> looper_tagger_padwindow = {3};             // Total pad-window size of the looper tagger for evaluating if a region is looper or not
@@ -170,7 +171,7 @@ class qaIdeal : public Task
     for (const std::vector<std::array<int, 3>>& vec : vectors) {
       for (std::array<int, 3> element : vec) {
         elementCount[element[0]]++;
-        if (elementCount[element[0]] > n) {
+        if (elementCount[element[0]] >= n) {
           return true;
         }
       }
@@ -184,7 +185,7 @@ class qaIdeal : public Task
     for (const std::vector<int>& vec : index_vector) {
       for (int element : vec) {
         elementCount[assignment_vector[element][0]]++;
-        if(elementCount[assignment_vector[element][0]] > n){
+        if(elementCount[assignment_vector[element][0]] >= n){
           return true;
         }
       }
@@ -318,6 +319,7 @@ void qaIdeal::init(InitContext& ic)
   looper_tagger_threshold_num = ic.options().get<std::vector<int>>("looper-tagger-threshold-num");
   looper_tagger_threshold_q = ic.options().get<std::vector<float>>("looper-tagger-threshold-q");
   looper_tagger_opmode = ic.options().get<std::string>("looper-tagger-opmode");
+  remove_individual_files = ic.options().get<int>("remove-individual-files");
 
   ROOT::EnableThreadSafety();
 
@@ -1082,7 +1084,7 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, in
           //   }
           // }
           
-          accept = hasElementAppearedMoreThanNTimesInVectors(idx_vector, ideal_mclabels, num_elements);
+          accept = hasElementAppearedMoreThanNTimesInVectors(idx_vector, ideal_mclabels, looper_tagger_threshold_num[counter]);
         }
 
         if (accept) {
@@ -2271,6 +2273,14 @@ void qaIdeal::run(ProcessingContext& pc)
     gSystem->Exec("hadd -k -f ./network_ideal.root ./network_ideal_*.root");
   }
 
+  if(remove_individual_files > 0){
+    LOG(info) << "!!! Removing sector-individual files !!!";
+    gSystem->Exec("rm -rf ./looper_tagger_*.root");
+    gSystem->Exec("rm -rf ./training_data_*.root");
+    gSystem->Exec("rm -rf ./native_ideal_*.root");
+    gSystem->Exec("rm -rf ./network_ideal_*.root");
+  }
+
   pc.services().get<ControlService>().endOfStream();
   pc.services().get<ControlService>().readyToQuit(QuitRequest::Me);
 }
@@ -2313,7 +2323,8 @@ DataProcessorSpec processIdealClusterizer()
       {"network-input-size", VariantType::Int, 1000, {"Size of the vector to be fed through the neural network"}},
       {"network-class-threshold", VariantType::Float, 0.5f, {"Threshold for classification network: Keep or reject maximum (default: 0.5)"}},
       {"enable-network-optimizations", VariantType::Bool, true, {"Enable ONNX network optimizations"}},
-      {"network-num-threads", VariantType::Int, 1, {"Set the number of CPU threads for network execution"}}
+      {"network-num-threads", VariantType::Int, 1, {"Set the number of CPU threads for network execution"}},
+      {"remove-individual-files", VariantType::Int, 0, {"Remove sector-individual files that are created during the task and only keep merged files"}}
       }};
 }
 
