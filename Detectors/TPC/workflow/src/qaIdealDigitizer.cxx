@@ -88,6 +88,8 @@ class qaIdeal : public Task
   template <class T>
   std::vector<std::vector<std::vector<int>>> looper_tagger(int, int, T&, std::vector<float>&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::string = "digits", int = 0);
 
+  bool isTagged(std::array<int, 3>&, int, std::vector<std::vector<std::vector<int>>>&);
+
   template <class T>
   void remove_loopers_digits(int, int, std::vector<std::vector<std::vector<int>>>&, T&, std::vector<int>&);
 
@@ -106,27 +108,27 @@ class qaIdeal : public Task
   void run(ProcessingContext&) final;
 
  private:
-  std::vector<int> global_shift = {5, 5, 0};                  // shifting digits to select windows easier, (pad, time, row)
-  int charge_limits[2] = {2, 1024};                           // upper and lower charge limits
-  int verbose = 0;                                            // chunk_size in time direction
-  int create_output = 1;                                      // Create output files specific for any mode
-  int dim = 2;                                                // Dimensionality of the training data
-  int networkInputSize = 1000;                                // vector input size for neural network
-  float networkClassThres = 0.5f;                             // Threshold where network decides to keep / reject digit maximum
-  bool networkOptimizations = true;                           // ONNX session optimizations
-  int networkNumThreads = 1;                                  // Future: Add Cuda and CoreML Execution providers to run on CPU
-  int numThreads = 1;                                         // Number of cores for multithreading
-  int use_max_cog = 1;                                        // 0 = use ideal maxima position; 1 = use ideal CoG position (rounded) for assignment
-  float threshold_cogq = 5.f;                                 // Threshold for ideal cluster to be findable (Q_tot)
-  float threshold_maxq = 3.f;                                 // Threshold for ideal cluster to be findable (Q_max)
-  int normalization_mode = 1;                                 // Normalization of the charge: 0 = divide by 1024; 1 = divide by central charge
-  int remove_individual_files = 0;                            // Remove sector-individual files after task is done
-  std::vector<int> looper_tagger_granularity = {5};           // Granularity of looper tagger (time bins in which loopers are excluded in rectangular areas)
-  std::vector<int> looper_tagger_timewindow = {20};           // Total time-window size of the looper tagger for evaluating if a region is looper or not
-  std::vector<int> looper_tagger_padwindow = {3};             // Total pad-window size of the looper tagger for evaluating if a region is looper or not
-  std::vector<int> looper_tagger_threshold_num = {5};         // Threshold of number of clusters over which rejection takes place
-  std::vector<float> looper_tagger_threshold_q = {70.f};      // Threshold of charge-per-cluster that should be rejected
-  std::string looper_tagger_opmode = "digit";                 // Operational mode of the looper tagger
+  std::vector<int> global_shift = {5, 5, 0};             // shifting digits to select windows easier, (pad, time, row)
+  int charge_limits[2] = {2, 1024};                      // upper and lower charge limits
+  int verbose = 0;                                       // chunk_size in time direction
+  int create_output = 1;                                 // Create output files specific for any mode
+  int dim = 2;                                           // Dimensionality of the training data
+  int networkInputSize = 1000;                           // vector input size for neural network
+  float networkClassThres = 0.5f;                        // Threshold where network decides to keep / reject digit maximum
+  bool networkOptimizations = true;                      // ONNX session optimizations
+  int networkNumThreads = 1;                             // Future: Add Cuda and CoreML Execution providers to run on CPU
+  int numThreads = 1;                                    // Number of cores for multithreading
+  int use_max_cog = 1;                                   // 0 = use ideal maxima position; 1 = use ideal CoG position (rounded) for assignment
+  float threshold_cogq = 5.f;                            // Threshold for ideal cluster to be findable (Q_tot)
+  float threshold_maxq = 3.f;                            // Threshold for ideal cluster to be findable (Q_max)
+  int normalization_mode = 1;                            // Normalization of the charge: 0 = divide by 1024; 1 = divide by central charge
+  int remove_individual_files = 0;                       // Remove sector-individual files after task is done
+  std::vector<int> looper_tagger_granularity = {5};      // Granularity of looper tagger (time bins in which loopers are excluded in rectangular areas)
+  std::vector<int> looper_tagger_timewindow = {20};      // Total time-window size of the looper tagger for evaluating if a region is looper or not
+  std::vector<int> looper_tagger_padwindow = {3};        // Total pad-window size of the looper tagger for evaluating if a region is looper or not
+  std::vector<int> looper_tagger_threshold_num = {5};    // Threshold of number of clusters over which rejection takes place
+  std::vector<float> looper_tagger_threshold_q = {70.f}; // Threshold of charge-per-cluster that should be rejected
+  std::string looper_tagger_opmode = "digit";            // Operational mode of the looper tagger
 
   std::array<int, o2::tpc::constants::MAXSECTOR> max_time, max_pad;
   std::string mode = "training_data";
@@ -185,7 +187,7 @@ class qaIdeal : public Task
     for (const std::vector<int>& vec : index_vector) {
       for (int element : vec) {
         elementCount[assignment_vector[element][0]]++;
-        if(elementCount[assignment_vector[element][0]] >= n){
+        if (elementCount[assignment_vector[element][0]] >= n) {
           return true;
         }
       }
@@ -203,7 +205,6 @@ class qaIdeal : public Task
     }
     return elementCount;
   }
-
 };
 
 // ---------------------------------
@@ -1069,7 +1070,7 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, in
         }
 
         accept = (operation_mode == 1 && avg_charge >= looper_tagger_threshold_q[counter] && num_elements >= looper_tagger_threshold_num[counter]);
-        if(!accept && operation_mode == 2 && num_elements >= looper_tagger_threshold_num[counter]){
+        if (!accept && operation_mode == 2 && num_elements >= looper_tagger_threshold_num[counter]) {
           // std::unordered_map<int, std::vector<int>> distinctElements = distinctElementAppearance(idx_vector, ideal_mclabels);
           // for (auto& elem : distinctElements) {
           //   if(elem.second.size() >= num_elements){
@@ -1083,7 +1084,7 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, in
           //     }
           //   }
           // }
-          
+
           accept = hasElementAppearedMoreThanNTimesInVectors(idx_vector, ideal_mclabels, looper_tagger_threshold_num[counter]);
         }
 
@@ -1093,7 +1094,7 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, in
           }
         }
 
-        accept=false;
+        accept = false;
         idx_vector.clear();
         avg_charge = 0;
         num_elements = 0;
@@ -1193,6 +1194,12 @@ void qaIdeal::remove_loopers_ideal(int sector, int counter, std::vector<std::vec
   ideal_cog_q = new_ideal_cog_q;
   ideal_sigma_map = new_ideal_sigma_map;
   ideal_mclabels = new_ideal_mclabels;
+}
+
+// ---------------------------------
+bool qaIdeal::isTagged(std::array<int, 3>& element, int granularity, std::vector<std::vector<std::vector<int>>>& looper_map)
+{
+  return looper_map[std::floor(element[2] / (float)granularity)][std::round(element[0])][std::round(element[1])] == 1;
 }
 
 // ---------------------------------
@@ -1364,7 +1371,7 @@ void qaIdeal::overwrite_map2d(int sector, T& map2d, std::vector<std::array<int, 
 {
 
   for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW + 3 * global_shift[2]; row++) {
-    for (int pad = 0; pad < 138 + 2 * global_shift[0]; pad++) {
+    for (int pad = 0; pad < TPC_GEOM[151][2] + 2 * global_shift[0]; pad++) {
       for (int time = 0; time < (max_time[sector] + 2 * global_shift[1]); time++) {
         map2d[mode][time][row][pad] = -1;
       }
@@ -1390,7 +1397,7 @@ void qaIdeal::runQa(int loop_sectors)
 
   typedef std::array<std::vector<std::vector<std::vector<int>>>, 2> qa_t; // local 2D charge map, 0 - digits; 1 - ideal
 
-  std::vector<int> maxima_digits; // , digit_isNoise, digit_isQED, digit_isValid;
+  std::vector<int> maxima_digits, stored_maxima_digits; // , digit_isNoise, digit_isQED, digit_isValid;
   std::vector<std::array<int, 3>> ideal_mclabels;
   std::vector<std::array<int, 3>> digit_map, ideal_max_map;
   std::vector<std::array<float, 3>> ideal_cog_map, native_map, network_map, digit_clusterizer_map;
@@ -1417,7 +1424,7 @@ void qaIdeal::runQa(int loop_sectors)
   std::iota(ideal_idx.begin(), ideal_idx.end(), 0);
 
   if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-    for(int counter = 0; counter < looper_tagger_granularity.size(); counter++){
+    for (int counter = 0; counter < looper_tagger_granularity.size(); counter++) {
       tagger_map.push_back(looper_tagger(loop_sectors, counter, ideal_max_map, ideal_max_q, ideal_idx, ideal_mclabels, looper_tagger_opmode));
       remove_loopers_ideal(loop_sectors, counter, tagger_map[counter], ideal_max_map, ideal_cog_map, ideal_max_q, ideal_cog_q, ideal_sigma_map, ideal_mclabels);
     }
@@ -1427,8 +1434,9 @@ void qaIdeal::runQa(int loop_sectors)
 
   if ((mode.find(std::string("network")) == std::string::npos) && (mode.find(std::string("native")) == std::string::npos)) {
     find_maxima<qa_t>(loop_sectors, map2d, maxima_digits, digit_q);
+    stored_maxima_digits = maxima_digits;
     if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-      for(int counter = 0; counter < looper_tagger_granularity.size(); counter++){
+      for (int counter = 0; counter < looper_tagger_granularity.size(); counter++) {
         remove_loopers_digits(loop_sectors, counter, tagger_map[counter], digit_map, maxima_digits);
       }
     }
@@ -1439,8 +1447,9 @@ void qaIdeal::runQa(int loop_sectors)
   } else {
     if (mode.find(std::string("native")) == std::string::npos) {
       find_maxima<qa_t>(loop_sectors, map2d, maxima_digits, digit_q);
+      stored_maxima_digits = maxima_digits;
       if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-        for(int counter = 0; counter < looper_tagger_granularity.size(); counter++){
+        for (int counter = 0; counter < looper_tagger_granularity.size(); counter++) {
           remove_loopers_digits(loop_sectors, counter, tagger_map[counter], digit_map, maxima_digits);
         }
       }
@@ -1459,12 +1468,23 @@ void qaIdeal::runQa(int loop_sectors)
       maxima_digits.resize(digit_q.size());
       std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);
       if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-        for(int counter = 0; counter < looper_tagger_granularity.size(); counter++){
+        for (int counter = 0; counter < looper_tagger_granularity.size(); counter++) {
           remove_loopers_digits(loop_sectors, counter, tagger_map[counter], digit_map, maxima_digits);
           remove_loopers_digits(loop_sectors, counter, tagger_map[counter], native_map, maxima_digits);
         }
       }
     }
+  }
+
+  // Check if max was tagged
+  int count_max_dig = 0, count_cont = 0;
+  std::vector<int> max_tagged(stored_maxima_digits.size(), -1);
+  for (auto max : stored_maxima_digits) {
+    if (max == maxima_digits[count_max_dig]) {
+      max_tagged[count_cont] = count_max_dig;
+      count_max_dig++;
+    }
+    count_cont++;
   }
 
   // Assignment at d=1
@@ -1914,7 +1934,7 @@ void qaIdeal::runQa(int loop_sectors)
       LOG(info) << "Creating training data...";
 
     // creating training data for the neural network
-    int mat_size_time = (global_shift[1] * 2 + 1), mat_size_pad = (global_shift[0] * 2 + 1), mat_size_row = (global_shift[2] * 2 + 1), data_size = maxima_digits.size();
+    int mat_size_time = (global_shift[1] * 2 + 1), mat_size_pad = (global_shift[0] * 2 + 1), mat_size_row = (global_shift[2] * 2 + 1), data_size = stored_maxima_digits.size();
     std::vector<std::vector<std::vector<std::vector<float>>>> tr_data_X(data_size);
     std::vector<std::vector<std::vector<float>>> atomic_unit;
 
@@ -1933,7 +1953,7 @@ void qaIdeal::runQa(int loop_sectors)
 
     o2::MCTrack current_track;
     std::vector<float> cluster_pT(data_size, -1), cluster_eta(data_size, -1), cluster_mass(data_size, -1), cluster_p(data_size, -1);
-    std::vector<int> tr_data_Y_class(data_size, -1), cluster_isPrimary(data_size, -1);
+    std::vector<int> tr_data_Y_class(data_size, -1), cluster_isPrimary(data_size, -1), cluster_isTagged(data_size, -1);
     std::array<std::vector<float>, 5> tr_data_Y_reg;
     std::fill(tr_data_Y_reg.begin(), tr_data_Y_reg.end(), std::vector<float>(data_size, -1));
 
@@ -1946,20 +1966,24 @@ void qaIdeal::runQa(int loop_sectors)
     // Some useful variables
     int map_dig_idx = 0, map_q_idx = 0, check_assignment = 0, index_assignment = -1, current_idx_id = -1, current_idx_dig = -1, row_offset = 0, pad_offset = 0, class_label = 0;
     float distance_assignment = 100000.f, current_distance_dig_to_id = 0, current_distance_id_to_dig = 0;
-    bool is_min_dist = true;
+    bool is_min_dist = true, is_tagged = false;
 
     for (int max_point = 0; max_point < data_size; max_point++) {
-      row_offset = rowOffset(digit_map[maxima_digits[max_point]][0]);
-      pad_offset = padOffset(digit_map[maxima_digits[max_point]][0]);
-      map_dig_idx = map2d[1][digit_map[maxima_digits[max_point]][2] + global_shift[1]][digit_map[maxima_digits[max_point]][0] + row_offset + global_shift[2]][digit_map[maxima_digits[max_point]][1] + pad_offset + global_shift[0]];
+      is_tagged = false;
+      for (int i = 0; i < tagger_map.size(); i++) {
+        is_tagged |= isTagged(digit_map[stored_maxima_digits[max_point]], looper_tagger_granularity[i], tagger_map[i]);
+      }
+      row_offset = rowOffset(digit_map[stored_maxima_digits[max_point]][0]);
+      pad_offset = padOffset(digit_map[stored_maxima_digits[max_point]][0]);
+      map_dig_idx = map2d[1][digit_map[stored_maxima_digits[max_point]][2] + global_shift[1]][digit_map[stored_maxima_digits[max_point]][0] + row_offset + global_shift[2]][digit_map[stored_maxima_digits[max_point]][1] + pad_offset + global_shift[0]];
       if (checkIdx(map_dig_idx)) {
-        float q_max = digit_q[maxima_digits[map_dig_idx]];
+        float q_max = digit_q[stored_maxima_digits[map_dig_idx]];
         for (int row = 0; row < mat_size_row; row++) {
           for (int pad = 0; pad < mat_size_pad; pad++) {
             for (int time = 0; time < mat_size_time; time++) {
-              map_q_idx = map2d[0][digit_map[maxima_digits[max_point]][2] + time][digit_map[maxima_digits[max_point]][0] + row + row_offset][digit_map[maxima_digits[max_point]][1] + pad + pad_offset];
+              map_q_idx = map2d[0][digit_map[stored_maxima_digits[max_point]][2] + time][digit_map[stored_maxima_digits[max_point]][0] + row + row_offset][digit_map[stored_maxima_digits[max_point]][1] + pad + pad_offset];
               if (map_q_idx == -1) {
-                if (isBoundary(digit_map[maxima_digits[max_point]][0] + row + row_offset - global_shift[2], digit_map[maxima_digits[max_point]][1] + pad + pad_offset - global_shift[0])) {
+                if (isBoundary(digit_map[stored_maxima_digits[max_point]][0] + row + row_offset - global_shift[2], digit_map[stored_maxima_digits[max_point]][1] + pad + pad_offset - global_shift[0])) {
                   tr_data_X[max_point][row][pad][time] = -1;
                 } else {
                   tr_data_X[max_point][row][pad][time] = 0;
@@ -1979,49 +2003,51 @@ void qaIdeal::runQa(int loop_sectors)
         distance_assignment = 100000.f;
         is_min_dist = true;
         class_label = 0;
-        for (int i = 0; i < 25; i++) {
-          // Checks all ideal maxima assigned to one digit maximum by calculating mutual distance
-          current_idx_id = assignments_id_to_dig[max_point][i];
-          if (checkIdx(current_idx_id)) {
-            if ((ideal_cog_q[current_idx_id] < threshold_cogq && ideal_max_q[current_idx_id] < threshold_maxq) || (assigned_ideal[current_idx_id] != 0)) {
-              is_min_dist = false;
-              break;
-            } else {
-              class_label++;
-              if (use_max_cog == 0) {
-                current_distance_dig_to_id = std::pow((digit_map[maxima_digits[max_point]][2] - ideal_max_map[current_idx_id][2]), 2) + std::pow((digit_map[maxima_digits[max_point]][1] - ideal_max_map[current_idx_id][1]), 2);
-              } else if (use_max_cog == 1) {
-                current_distance_dig_to_id = std::pow((digit_map[maxima_digits[max_point]][2] - ideal_cog_map[current_idx_id][2]), 2) + std::pow((digit_map[maxima_digits[max_point]][1] - ideal_cog_map[current_idx_id][1]), 2);
-              }
-              // if the distance is less than the previous one check if update should be made
-              if (current_distance_dig_to_id < distance_assignment) {
-                for (int j = 0; j < 25; j++) {
-                  current_idx_dig = assignments_dig_to_id[current_idx_id][j];
-                  if (checkIdx(current_idx_dig)) {
-                    if (assigned_digit[current_idx_dig] == 0) {
-                      // calculate mutual distance from current ideal CoG to all assigned digit maxima. Update if and only if distance is minimal. Else do not assign.
-                      if (use_max_cog == 0) {
-                        current_distance_id_to_dig = std::pow((digit_map[maxima_digits[max_point]][2] - ideal_max_map[current_idx_id][2]), 2) + std::pow((digit_map[maxima_digits[max_point]][1] - ideal_max_map[current_idx_id][1]), 2);
-                      } else if (use_max_cog == 1) {
-                        current_distance_id_to_dig = std::pow((digit_map[maxima_digits[max_point]][2] - ideal_cog_map[current_idx_id][2]), 2) + std::pow((digit_map[maxima_digits[max_point]][1] - ideal_cog_map[current_idx_id][1]), 2);
+        if (max_tagged[max_point] != -1) {
+          for (int i = 0; i < 25; i++) {
+            // Checks all ideal maxima assigned to one digit maximum by calculating mutual distance
+            current_idx_id = assignments_id_to_dig[max_tagged[max_point]][i];
+            if (checkIdx(current_idx_id)) {
+              if ((ideal_cog_q[current_idx_id] < threshold_cogq && ideal_max_q[current_idx_id] < threshold_maxq) || (assigned_ideal[current_idx_id] != 0)) {
+                is_min_dist = false;
+                break;
+              } else {
+                class_label++;
+                if (use_max_cog == 0) {
+                  current_distance_dig_to_id = std::pow((digit_map[stored_maxima_digits[max_point]][2] - ideal_max_map[current_idx_id][2]), 2) + std::pow((digit_map[stored_maxima_digits[max_point]][1] - ideal_max_map[current_idx_id][1]), 2);
+                } else if (use_max_cog == 1) {
+                  current_distance_dig_to_id = std::pow((digit_map[stored_maxima_digits[max_point]][2] - ideal_cog_map[current_idx_id][2]), 2) + std::pow((digit_map[stored_maxima_digits[max_point]][1] - ideal_cog_map[current_idx_id][1]), 2);
+                }
+                // if the distance is less than the previous one check if update should be made
+                if (current_distance_dig_to_id < distance_assignment) {
+                  for (int j = 0; j < 25; j++) {
+                    current_idx_dig = assignments_dig_to_id[current_idx_id][j];
+                    if (checkIdx(current_idx_dig)) {
+                      if (assigned_digit[current_idx_dig] == 0) {
+                        // calculate mutual distance from current ideal CoG to all assigned digit maxima. Update if and only if distance is minimal. Else do not assign.
+                        if (use_max_cog == 0) {
+                          current_distance_id_to_dig = std::pow((digit_map[stored_maxima_digits[max_point]][2] - ideal_max_map[current_idx_id][2]), 2) + std::pow((digit_map[stored_maxima_digits[max_point]][1] - ideal_max_map[current_idx_id][1]), 2);
+                        } else if (use_max_cog == 1) {
+                          current_distance_id_to_dig = std::pow((digit_map[stored_maxima_digits[max_point]][2] - ideal_cog_map[current_idx_id][2]), 2) + std::pow((digit_map[stored_maxima_digits[max_point]][1] - ideal_cog_map[current_idx_id][1]), 2);
+                        }
+                        if (current_distance_id_to_dig < current_distance_dig_to_id) {
+                          is_min_dist = false;
+                          break;
+                        }
+                        ////
+                        // Potential improvement: Weight the distance calculation by the qTot/qMax such that they are not too far apart
+                        ////
                       }
-                      if (current_distance_id_to_dig < current_distance_dig_to_id) {
-                        is_min_dist = false;
-                        break;
-                      }
-                      ////
-                      // Potential improvement: Weight the distance calculation by the qTot/qMax such that they are not too far apart
-                      ////
                     }
                   }
-                }
-                if (is_min_dist) { // && (digit_q[maxima_digits[max_point]] < ideal_cog_q[current_idx_id])) {
-                  check_assignment++;
-                  distance_assignment = current_distance_dig_to_id;
-                  index_assignment = current_idx_id;
-                  // Adding an assignment in order to avoid duplication
-                  assigned_digit[max_point]++;
-                  assigned_ideal[current_idx_id]++;
+                  if (is_min_dist) { // && (digit_q[stored_maxima_digits[max_point]] < ideal_cog_q[current_idx_id])) {
+                    check_assignment++;
+                    distance_assignment = current_distance_dig_to_id;
+                    index_assignment = current_idx_id;
+                    // Adding an assignment in order to avoid duplication
+                    assigned_digit[max_tagged[max_point]]++;
+                    assigned_ideal[current_idx_id]++;
+                  }
                 }
               }
             }
@@ -2030,11 +2056,12 @@ void qaIdeal::runQa(int loop_sectors)
 
         // tr_data_Y_class[max_point] = check_assignment;
         tr_data_Y_class[max_point] = class_label;
+        cluster_isTagged[max_point] = is_tagged;
         if (check_assignment > 0 && is_min_dist) {
-          tr_data_Y_reg[0][max_point] = ideal_cog_map[index_assignment][2] - digit_map[maxima_digits[max_point]][2]; // time
-          tr_data_Y_reg[1][max_point] = ideal_cog_map[index_assignment][1] - digit_map[maxima_digits[max_point]][1]; // pad
-          tr_data_Y_reg[2][max_point] = ideal_sigma_map[index_assignment][0];                                        // sigma pad
-          tr_data_Y_reg[3][max_point] = ideal_sigma_map[index_assignment][1];                                        // sigma time
+          tr_data_Y_reg[0][max_point] = ideal_cog_map[index_assignment][2] - digit_map[stored_maxima_digits[max_point]][2]; // time
+          tr_data_Y_reg[1][max_point] = ideal_cog_map[index_assignment][1] - digit_map[stored_maxima_digits[max_point]][1]; // pad
+          tr_data_Y_reg[2][max_point] = ideal_sigma_map[index_assignment][0];                                               // sigma pad
+          tr_data_Y_reg[3][max_point] = ideal_sigma_map[index_assignment][1];                                               // sigma time
           current_track = mctracks[ideal_mclabels[index_assignment][2]][ideal_mclabels[index_assignment][1]][ideal_mclabels[index_assignment][0]];
           cluster_pT[max_point] = current_track.GetPt();
           cluster_eta[max_point] = current_track.GetEta();
@@ -2046,8 +2073,8 @@ void qaIdeal::runQa(int loop_sectors)
           } else if (normalization_mode == 1) {
             tr_data_Y_reg[4][max_point] = ideal_cog_q[index_assignment] / q_max;
           }
-          // if(std::abs(digit_map[maxima_digits[max_point]][2] - ideal_cog_map[index_assignment][2]) > 3 || std::abs(digit_map[maxima_digits[max_point]][1] - ideal_cog_map[index_assignment][1]) > 3){
-          //   LOG(info) << "#Maxima: " << maxima_digits.size() << ", Index (point) " << max_point << " & (max) " << maxima_digits[max_point] << " & (ideal) " << index_assignment << ", ideal_cog_map.size(): " <<  ideal_cog_map.size() << ", index_assignment: " << index_assignment;
+          // if(std::abs(digit_map[stored_maxima_digits[max_point]][2] - ideal_cog_map[index_assignment][2]) > 3 || std::abs(digit_map[stored_maxima_digits[max_point]][1] - ideal_cog_map[index_assignment][1]) > 3){
+          //   LOG(info) << "#Maxima: " << stored_maxima_digits.size() << ", Index (point) " << max_point << " & (max) " << stored_maxima_digits[max_point] << " & (ideal) " << index_assignment << ", ideal_cog_map.size(): " <<  ideal_cog_map.size() << ", index_assignment: " << index_assignment;
           // }
         } else {
           tr_data_Y_reg[0][max_point] = -1.f;
@@ -2078,7 +2105,7 @@ void qaIdeal::runQa(int loop_sectors)
     }
 
     int class_val = 0, idx_sector = 0, idx_row = 0, idx_pad = 0, idx_time = 0;
-    float trY_time = 0, trY_pad = 0, trY_sigma_pad = 0, trY_sigma_time = 0, trY_q = 0, pT = 0, eta = 0, mass = 0, p = 0, isPrimary = 0;
+    float trY_time = 0, trY_pad = 0, trY_sigma_pad = 0, trY_sigma_time = 0, trY_q = 0, pT = 0, eta = 0, mass = 0, p = 0, isPrimary = 0, isTagged = 0;
     tr_data->Branch("out_class", &class_val);
     tr_data->Branch("out_idx_sector", &idx_sector);
     tr_data->Branch("out_idx_row", &idx_row);
@@ -2094,6 +2121,7 @@ void qaIdeal::runQa(int loop_sectors)
     tr_data->Branch("cluster_mass", &mass);
     tr_data->Branch("cluster_p", &p);
     tr_data->Branch("cluster_isPrimary", &isPrimary);
+    tr_data->Branch("cluster_isTagged", &isTagged);
 
     // Filling elements
     for (int element = 0; element < data_size; element++) {
@@ -2113,6 +2141,7 @@ void qaIdeal::runQa(int loop_sectors)
       mass = cluster_mass[element];
       p = cluster_p[element];
       isPrimary = cluster_isPrimary[element];
+      isTagged = cluster_isTagged[element];
       tr_data->Fill();
     }
     tr_data->Write();
@@ -2157,7 +2186,7 @@ void qaIdeal::run(ProcessingContext& pc)
 {
 
   if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-    for(int i = 0; i < looper_tagger_granularity.size(); i++){
+    for (int i = 0; i < looper_tagger_granularity.size(); i++) {
       LOG(info) << "Looper tagger active, settings: granularity " << looper_tagger_granularity[i] << ", time-window: " << looper_tagger_timewindow[i] << ", pad-window: " << looper_tagger_padwindow[i] << ", threshold (num. points): " << looper_tagger_threshold_num[i] << ", threshold (Q): " << looper_tagger_threshold_q[i] << ", operational mode: " << looper_tagger_opmode;
     }
   }
@@ -2273,7 +2302,7 @@ void qaIdeal::run(ProcessingContext& pc)
     gSystem->Exec("hadd -k -f ./network_ideal.root ./network_ideal_*.root");
   }
 
-  if(remove_individual_files > 0){
+  if (remove_individual_files > 0) {
     LOG(info) << "!!! Removing sector-individual files !!!";
     gSystem->Exec("rm -rf ./looper_tagger_*.root");
     gSystem->Exec("rm -rf ./training_data_*.root");
@@ -2324,8 +2353,7 @@ DataProcessorSpec processIdealClusterizer()
       {"network-class-threshold", VariantType::Float, 0.5f, {"Threshold for classification network: Keep or reject maximum (default: 0.5)"}},
       {"enable-network-optimizations", VariantType::Bool, true, {"Enable ONNX network optimizations"}},
       {"network-num-threads", VariantType::Int, 1, {"Set the number of CPU threads for network execution"}},
-      {"remove-individual-files", VariantType::Int, 0, {"Remove sector-individual files that are created during the task and only keep merged files"}}
-      }};
+      {"remove-individual-files", VariantType::Int, 0, {"Remove sector-individual files that are created during the task and only keep merged files"}}}};
 }
 
 WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
