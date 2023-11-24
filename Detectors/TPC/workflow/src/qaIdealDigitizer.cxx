@@ -1171,7 +1171,7 @@ void qaIdeal::remove_loopers_native(int sector, int counter, std::vector<std::ve
   for (auto idx : index_array) {
     new_map.push_back(map[idx]);
   }
-  map=new_map;
+  map = new_map;
 }
 
 // ---------------------------------
@@ -1729,7 +1729,7 @@ void qaIdeal::runQa(int loop_sectors)
               is_min_dist = false;
               break;
             } else {
-              current_distance_dig_to_id = std::pow((native_map[maxima_digits[max_point]][2] - ideal_cog_map[current_idx_id][2]), 2) + std::pow((native_map[maxima_digits[max_point]][1] - ideal_cog_map[current_idx_id][1]), 2);
+              current_distance_dig_to_id = std::pow((native_map[max_point][2] - ideal_cog_map[current_idx_id][2]), 2) + std::pow((native_map[max_point][1] - ideal_cog_map[current_idx_id][1]), 2);
               // if the distance is less than the previous one check if update should be made
               if (current_distance_dig_to_id < distance_assignment) {
                 for (int j = 0; j < 25; j++) {
@@ -1737,7 +1737,7 @@ void qaIdeal::runQa(int loop_sectors)
                   if (checkIdx(current_idx_dig)) {
                     if (assigned_digit[current_idx_dig] == 0) {
                       // calculate mutual distance from current ideal CoG to all assigned digit maxima. Update if and only if distance is minimal. Else do not assign.
-                      current_distance_id_to_dig = std::pow((native_map[maxima_digits[current_idx_dig]][2] - ideal_cog_map[current_idx_id][2]), 2) + std::pow((native_map[maxima_digits[current_idx_dig]][1] - ideal_cog_map[current_idx_id][1]), 2);
+                      current_distance_id_to_dig = std::pow((native_map[current_idx_dig][2] - ideal_cog_map[current_idx_id][2]), 2) + std::pow((native_map[current_idx_dig][1] - ideal_cog_map[current_idx_id][1]), 2);
                       if (current_distance_id_to_dig < current_distance_dig_to_id) {
                         is_min_dist = false;
                         break;
@@ -1758,9 +1758,9 @@ void qaIdeal::runQa(int loop_sectors)
                   current_element[0] = ideal_cog_map[maxima_digits[max_point]][0];
                   current_element[1] = ideal_cog_map[current_idx_id][1];
                   current_element[2] = ideal_cog_map[current_idx_id][2];
-                  current_element[3] = native_map[maxima_digits[max_point]][0];
-                  current_element[4] = native_map[maxima_digits[max_point]][1];
-                  current_element[5] = native_map[maxima_digits[max_point]][2];
+                  current_element[3] = native_map[max_point][0];
+                  current_element[4] = native_map[max_point][1];
+                  current_element[5] = native_map[max_point][2];
                 }
                 // At least check if assigned, and put classification label to 1, no regression
                 // else {
@@ -1856,7 +1856,7 @@ void qaIdeal::runQa(int loop_sectors)
               is_min_dist = false;
               break;
             } else {
-              current_distance_dig_to_id = std::pow((network_map[maxima_digits[max_point]][2] - ideal_cog_map[current_idx_id][2]), 2) + std::pow((network_map[maxima_digits[max_point]][1] - ideal_cog_map[current_idx_id][1]), 2);
+              current_distance_dig_to_id = std::pow((network_map[max_point][2] - ideal_cog_map[current_idx_id][2]), 2) + std::pow((network_map[max_point][1] - ideal_cog_map[current_idx_id][1]), 2);
               // if the distance is less than the previous one check if update should be made
               if (current_distance_dig_to_id < distance_assignment) {
                 for (int j = 0; j < 25; j++) {
@@ -1864,7 +1864,7 @@ void qaIdeal::runQa(int loop_sectors)
                   if (checkIdx(current_idx_dig)) {
                     if (assigned_digit[current_idx_dig] == 0) {
                       // calculate mutual distance from current ideal CoG to all assigned digit maxima. Update if and only if distance is minimal. Else do not assign.
-                      current_distance_id_to_dig = std::pow((network_map[maxima_digits[current_idx_dig]][2] - ideal_cog_map[current_idx_id][2]), 2) + std::pow((network_map[maxima_digits[current_idx_dig]][1] - ideal_cog_map[current_idx_id][1]), 2);
+                      current_distance_id_to_dig = std::pow((network_map[current_idx_dig][2] - ideal_cog_map[current_idx_id][2]), 2) + std::pow((network_map[current_idx_dig][1] - ideal_cog_map[current_idx_id][1]), 2);
                       if (current_distance_id_to_dig < current_distance_dig_to_id) {
                         is_min_dist = false;
                         break;
@@ -1882,8 +1882,8 @@ void qaIdeal::runQa(int loop_sectors)
                   // Adding an assignment in order to avoid duplication
                   assigned_digit[max_point]++;
                   assigned_ideal[current_idx_id]++;
-                  current_element[0] = network_map[maxima_digits[max_point]][2];
-                  current_element[1] = network_map[maxima_digits[max_point]][1];
+                  current_element[0] = network_map[max_point][2];
+                  current_element[1] = network_map[max_point][1];
                   current_element[2] = ideal_cog_map[current_idx_id][2];
                   current_element[3] = ideal_cog_map[current_idx_id][1];
                   if (normalization_mode == 0) {
