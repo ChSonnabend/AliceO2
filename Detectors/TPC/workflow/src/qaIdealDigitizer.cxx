@@ -1487,6 +1487,7 @@ void qaIdeal::runQa(int loop_sectors)
           remove_loopers_native(loop_sectors, counter, tagger_map[counter], native_map, maxima_digits);
         }
       }
+      overwrite_map2d<qa_t>(loop_sectors, map2d, digit_map, maxima_digits, 1);
     }
   }
 
