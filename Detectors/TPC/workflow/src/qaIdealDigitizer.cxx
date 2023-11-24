@@ -93,6 +93,9 @@ class qaIdeal : public Task
   template <class T>
   void remove_loopers_digits(int, int, std::vector<std::vector<std::vector<int>>>&, T&, std::vector<int>&);
 
+  template <class T>
+  void remove_loopers_native(int, int, std::vector<std::vector<std::vector<int>>>&, T&, std::vector<int>&);
+
   void remove_loopers_ideal(int, int, std::vector<std::vector<std::vector<int>>>&, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 3>>&, std::vector<float>&, std::vector<float>&, std::vector<std::array<float, 2>>&, std::vector<std::array<int, 3>>&);
 
   template <class T>
@@ -1161,6 +1164,17 @@ void qaIdeal::remove_loopers_digits(int sector, int counter, std::vector<std::ve
 }
 
 // ---------------------------------
+template <class T>
+void qaIdeal::remove_loopers_native(int sector, int counter, std::vector<std::vector<std::vector<int>>>& looper_map, T& map, std::vector<int>& index_array)
+{
+  T new_map;
+  for (auto idx : index_array) {
+    new_map.push_back(map[idx]);
+  }
+  map=new_map;
+}
+
+// ---------------------------------
 void qaIdeal::remove_loopers_ideal(int sector, int counter, std::vector<std::vector<std::vector<int>>>& looper_map, std::vector<std::array<int, 3>>& ideal_max_map, std::vector<std::array<float, 3>>& ideal_cog_map, std::vector<float>& ideal_max_q, std::vector<float>& ideal_cog_q, std::vector<std::array<float, 2>>& ideal_sigma_map, std::vector<std::array<int, 3>>& ideal_mclabels)
 {
 
@@ -1470,7 +1484,7 @@ void qaIdeal::runQa(int loop_sectors)
       if (mode.find(std::string("looper_tagger")) != std::string::npos) {
         for (int counter = 0; counter < looper_tagger_granularity.size(); counter++) {
           remove_loopers_digits(loop_sectors, counter, tagger_map[counter], digit_map, maxima_digits);
-          remove_loopers_digits(loop_sectors, counter, tagger_map[counter], native_map, maxima_digits);
+          remove_loopers_native(loop_sectors, counter, tagger_map[counter], native_map, maxima_digits);
         }
       }
     }
