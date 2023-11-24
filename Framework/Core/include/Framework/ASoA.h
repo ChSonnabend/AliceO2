@@ -1053,17 +1053,26 @@ static auto haveKey(framework::pack<C...>, std::string const& key)
   return std::vector{hasKey<C>(key)...};
 }
 
+void notFoundColumn(const char* label, const char* key);
+
 template <typename T>
 static std::string getLabelFromTypeForKey(std::string const& key)
 {
   if constexpr (soa::is_type_with_originals_v<std::decay_t<T>>) {
     using Os = typename std::decay_t<T>::originals;
     auto locate = haveKey(Os{}, key);
-    return std::find_if(locate.begin(), locate.end(), [](auto const& x) { return x.first; })->second;
+    auto it = std::find_if(locate.begin(), locate.end(), [](auto const& x) { return x.first; });
+    if (it != locate.end()) {
+      return it->second;
+    }
   } else {
     auto locate = hasKey<std::decay_t<T>>(key);
-    return locate.second;
+    if (locate.first) {
+      return locate.second;
+    }
   }
+  notFoundColumn(getLabelFromType<std::decay_t<T>>().data(), key.data());
+  O2_BUILTIN_UNREACHABLE();
 }
 
 template <typename B, typename... C>
@@ -2752,7 +2761,7 @@ class FilteredBase : public T
       this->copyIndexBindings(fresult);
       return fresult;
     }
-    auto start = offset;
+    auto start = static_cast<uint64_t>(offset);
     auto end = start + slice->num_rows();
     auto start_iterator = std::lower_bound(mSelectedRows.begin(), mSelectedRows.end(), start);
     auto stop_iterator = std::lower_bound(start_iterator, mSelectedRows.end(), end);
@@ -3139,8 +3148,8 @@ class Filtered<Filtered<T>> : public FilteredBase<typename T::table_t>
   {
     auto localCache = cache.ptr->getCacheFor({o2::soa::getLabelFromTypeForKey<std::decay_t<decltype(*this)>>(node.name), node.name});
     auto [offset, count] = localCache.getSliceFor(value);
-    auto slice = this->asArrowTable()->Slice(static_cast<uint64_t>(offset), count);
-    auto start = offset;
+    auto start = static_cast<uint64_t>(offset);
+    auto slice = this->asArrowTable()->Slice(start, count);
     auto end = start + slice->num_rows();
     auto start_iterator = std::lower_bound(this->getSelectedRows().begin(), this->getSelectedRows().end(), start);
     auto stop_iterator = std::lower_bound(start_iterator, this->getSelectedRows().end(), end);

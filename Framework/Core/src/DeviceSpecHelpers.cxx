@@ -48,6 +48,8 @@
 #include <csignal>
 #include <fairmq/Device.h>
 
+#include <regex>
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
 
@@ -90,6 +92,9 @@ void signal_callback(uv_signal_t* handle, int)
 {
   // We simply wake up the event loop. Nothing to be done here.
   auto* state = (DeviceState*)handle->data;
+  if (!state) {
+    return;
+  }
   state->loopReason |= DeviceState::SIGNAL_ARRIVED;
   state->loopReason |= DeviceState::DATA_INCOMING;
 }
@@ -1068,6 +1073,8 @@ void DeviceSpecHelpers::dataProcessorSpecs2DeviceSpecs(const WorkflowSpec& workf
   std::vector<OutputSpec> outputs;
 
   WorkflowHelpers::constructGraph(workflow, logicalEdges, outputs, availableForwardsInfo);
+
+  WorkflowHelpers::validateEdges(workflow, logicalEdges, outputs);
 
   // We need to instanciate one device per (me, timeIndex) in the
   // DeviceConnectionEdge. For each device we need one new binding

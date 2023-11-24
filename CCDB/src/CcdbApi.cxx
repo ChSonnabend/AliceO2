@@ -710,7 +710,7 @@ bool CcdbApi::retrieveBlob(std::string const& path, std::string const& targetdir
   try {
     o2::utils::createDirectoriesIfAbsent(fulltargetdir);
   } catch (std::exception e) {
-    LOGP(error, fmt::format("Could not create local snapshot cache directory {}, reason: {}", fulltargetdir, e.what()));
+    LOGP(error, "Could not create local snapshot cache directory {}, reason: {}", fulltargetdir, e.what());
     return false;
   }
 
@@ -1688,7 +1688,7 @@ void CcdbApi::vectoredLoadFileToMemory(std::vector<RequestContext>& requestConte
         saveSnapshot(requestContext);
       }
     } else {
-      LOG(error) << "Did not receive content for " << requestContext.path << "\n";
+      LOG(warning) << "Did not receive content for " << requestContext.path << "\n"; // Temporarily demoted to warning, since it floods the infologger
     }
   }
 }
