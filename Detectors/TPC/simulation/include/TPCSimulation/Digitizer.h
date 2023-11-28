@@ -53,7 +53,7 @@ enum class SCDistortionType : int;
 class Digitizer
 {
  public:
-  using SC = SpaceCharge<double>;
+  using SC = SpaceCharge<float>;
 
   /// Default constructor
   Digitizer();
@@ -121,6 +121,9 @@ class Digitizer
   /// \param spaceCharge unique pointer to spaceCharge object
   void setUseSCDistortions(SC* spaceCharge);
 
+  /// \param spaceCharge unique pointer to spaceCharge object
+  void setSCDistortionsDerivative(SC* spaceCharge);
+
   /// Enable the use of space-charge distortions by providing global distortions and global corrections stored in a ROOT file
   /// The storage of the values should be done by the methods provided in the SpaceCharge class
   /// \param file containing distortions
@@ -155,16 +158,49 @@ class Digitizer
   }
 
 
+  std::vector<int> getSector(){ return sector; }
+  std::vector<int> getRow(){ return row; }
+  std::vector<std::vector<int>> getMaxTime(){ return max_time; }
+  std::vector<std::vector<int>> getMaxPad(){ return max_pad; }
+  std::vector<std::vector<float>> getMaxQ(){ return max_q; }
+  std::vector<float> getCogTime(){ return cog_time; }
+  std::vector<float> getCogPad(){ return cog_pad; }
+  std::vector<float> getCogQ(){ return cog_q; }
+  std::vector<int> getPointCounter(){ return point_counter; }
+  std::vector<MCCompLabel> getMcLabels(){ return mclabel; }
+  std::vector<int> getMcLabelCounter(){ return mclabel_assigned; }
+  std::vector<int> getTrackID(){ return mclabel_trackID; }
+  std::vector<int> getEventID(){ return mclabel_eventID; }
+  std::vector<int> getSourceID(){ return mclabel_sourceID; }
+  
+  void setWindowSize(std::vector<int> new_window_size){ 
+    window_size.clear();
+    window_size = new_window_size;
+  }
+  std::vector<int> getWindowSize(){ return window_size; }
+  int64_t getElemCounter(){ return elem_counter; }
+  void clearElements(){
+    sector.clear(); row.clear(); max_time.clear(); max_pad.clear(); max_q.clear(); cog_time.clear();
+    point_counter.clear(); cog_pad.clear(); cog_q.clear(); mclabel.clear(); mclabel_trackID.clear(); mclabel_eventID.clear(); mclabel_sourceID.clear(); elem_counter = 0;
+  }
+
+  void setDistortionScaleType(int distortionScaleType) { mDistortionScaleType = distortionScaleType; }
+  int getDistortionScaleType() const { return mDistortionScaleType; }
+  void setLumiScaleFactor();
+  void setMeanLumiDistortions(float meanLumi);
+  void setMeanLumiDistortionsDerivative(float meanLumi);
+
  private:
-  DigitContainer mDigitContainer;    ///< Container for the Digits
-  std::unique_ptr<SC> mSpaceCharge;  ///< Handler of space-charge distortions
-  Sector mSector = -1;               ///< ID of the currently processed sector
-  double mEventTime = 0.f;           ///< Time of the currently processed event
-  double mOutputDigitTimeOffset = 0; ///< Time of the first IR sampled in the digitizer
-  float mVDrift = 0;                 ///< VDrift for current timestamp
-  float mTDriftOffset = 0;           ///< drift time additive offset in \mus
-  bool mIsContinuous;                ///< Switch for continuous readout
-  bool mUseSCDistortions = false; ///< Flag to switch on the use of space-charge distortions
+  DigitContainer mDigitContainer;      ///< Container for the Digits
+  std::unique_ptr<SC> mSpaceCharge;    ///< Handler of full distortions (static + IR dependant)
+  std::unique_ptr<SC> mSpaceChargeDer; ///< Handler of reference static distortions
+  Sector mSector = -1;                 ///< ID of the currently processed sector
+  double mEventTime = 0.f;             ///< Time of the currently processed event
+  double mOutputDigitTimeOffset = 0;   ///< Time of the first IR sampled in the digitizer
+  float mVDrift = 0;                   ///< VDrift for current timestamp
+  float mTDriftOffset = 0;             ///< drift time additive offset in \mus
+  bool mIsContinuous;                  ///< Switch for continuous readout
+  bool mUseSCDistortions = false;   ///< Flag to switch on the use of space-charge distortions
 
   /// OWN IMPLEMENTATION
   int64_t elem_counter = 0;
@@ -177,7 +213,9 @@ class Digitizer
 
   std::vector<MCCompLabel> mclabel;
   std::vector<int> mclabel_trackID, mclabel_eventID, mclabel_sourceID, mclabel_assigned;
-  ClassDefNV(Digitizer, 1);
+  int mDistortionScaleType = 0;        ///< type=0: no scaling of distortions, type=1 distortions without any scaling, type=2 distortions scaling with lumi
+  float mLumiScaleFactor = 0;          ///< value used to scale the derivative map
+  ClassDefNV(Digitizer, 2);
 };
 } // namespace tpc
 } // namespace o2
