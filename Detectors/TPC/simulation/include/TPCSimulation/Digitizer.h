@@ -157,33 +157,6 @@ class Digitizer
     point_counter.clear(); cog_pad.clear(); cog_q.clear(); mclabel.clear(); mclabel_trackID.clear(); mclabel_eventID.clear(); mclabel_sourceID.clear(); elem_counter = 0;
   }
 
-
-  std::vector<int> getSector(){ return sector; }
-  std::vector<int> getRow(){ return row; }
-  std::vector<std::vector<int>> getMaxTime(){ return max_time; }
-  std::vector<std::vector<int>> getMaxPad(){ return max_pad; }
-  std::vector<std::vector<float>> getMaxQ(){ return max_q; }
-  std::vector<float> getCogTime(){ return cog_time; }
-  std::vector<float> getCogPad(){ return cog_pad; }
-  std::vector<float> getCogQ(){ return cog_q; }
-  std::vector<int> getPointCounter(){ return point_counter; }
-  std::vector<MCCompLabel> getMcLabels(){ return mclabel; }
-  std::vector<int> getMcLabelCounter(){ return mclabel_assigned; }
-  std::vector<int> getTrackID(){ return mclabel_trackID; }
-  std::vector<int> getEventID(){ return mclabel_eventID; }
-  std::vector<int> getSourceID(){ return mclabel_sourceID; }
-  
-  void setWindowSize(std::vector<int> new_window_size){ 
-    window_size.clear();
-    window_size = new_window_size;
-  }
-  std::vector<int> getWindowSize(){ return window_size; }
-  int64_t getElemCounter(){ return elem_counter; }
-  void clearElements(){
-    sector.clear(); row.clear(); max_time.clear(); max_pad.clear(); max_q.clear(); cog_time.clear();
-    point_counter.clear(); cog_pad.clear(); cog_q.clear(); mclabel.clear(); mclabel_trackID.clear(); mclabel_eventID.clear(); mclabel_sourceID.clear(); elem_counter = 0;
-  }
-
   void setDistortionScaleType(int distortionScaleType) { mDistortionScaleType = distortionScaleType; }
   int getDistortionScaleType() const { return mDistortionScaleType; }
   void setLumiScaleFactor();

@@ -327,6 +327,9 @@ class ClusterNativeHelper
       uint8_t flags = 0;
     };
 
+    /// Overwrite storage
+    void overwriteStorage(std::vector<BranchData> branchData){mStoreClusters = branchData;};
+
    private:
     /// file instance
     std::unique_ptr<TFile> mFile;

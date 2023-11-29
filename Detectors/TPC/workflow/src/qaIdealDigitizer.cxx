@@ -64,6 +64,7 @@ class qaIdeal : public Task
   void read_digits(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
   void read_ideal(int, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<std::array<float, 2>>&, std::vector<float>&, std::vector<std::array<int, 3>>&);
   void read_native(int, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 3>>&, std::vector<float>&);
+  void write_custom_native(std::vector<std::array<float, 9>>);
   void read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>&);
   void read_network(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
 
@@ -142,6 +143,7 @@ class qaIdeal : public Task
   std::string networkDataOutput = "./network_out.root";
   std::string networkClassification = "./net_classification.onnx";
   std::string networkRegression = "./net_regression.onnx";
+  std::string outCustomNative = "tpc-cluster-native-custom.root";
 
   std::vector<std::vector<std::array<int, 2>>> adj_mat = {{{0, 0}}, {{1, 0}, {0, 1}, {-1, 0}, {0, -1}}, {{1, 1}, {-1, 1}, {-1, -1}, {1, -1}}, {{2, 0}, {0, -2}, {-2, 0}, {0, 2}}, {{2, 1}, {1, 2}, {-1, 2}, {-2, 1}, {-2, -1}, {-1, -2}, {1, -2}, {2, -1}}, {{2, 2}, {-2, 2}, {-2, -2}, {2, -2}}};
   std::vector<std::vector<float>> TPC_GEOM;
@@ -477,6 +479,24 @@ void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map
 
   if (verbose >= 1)
     LOG(info) << "Done reading native clusters!";
+}
+
+// ---------------------------------
+void qaIdeal::write_custom_native(std::vector<std::array<float, 9>> assigned_clusters){
+  // assigned clusters contains {sector, row, pad, time, sigma_pad, sigma_time, qMax, qTot, mclabel}
+  ClusterNativeHelper::TreeWriter tpcClusterWriter;
+  tpcClusterWriter.init(outCustomNative.c_str(), "tpcrec");
+  ClusterNative tmp_cluster;
+  ClusterNativeHelper::TreeWriter::BranchData tmp_branch_data;
+  std::vector<ClusterNativeHelper::TreeWriter::BranchData> write_to_branch_data;
+
+  for(auto cls : assigned_clusters){
+    // tmp_cluster(cls[3], cls[8], cls[2], cls[5], cls[4], cls[6], cls[7]);
+    write_to_branch_data.push_back(ClusterNativeHelper::TreeWriter::BranchData{(int)cls[0], (int)cls[1], cls[3], cls[2], cls[5], cls[4], (uint16_t)cls[6], (uint16_t)cls[7], (uint8_t)cls[8]}); // ? is flags to be passed
+  }
+  tpcClusterWriter.overwriteStorage(write_to_branch_data);
+
+  tpcClusterWriter.close();
 }
 
 // ---------------------------------

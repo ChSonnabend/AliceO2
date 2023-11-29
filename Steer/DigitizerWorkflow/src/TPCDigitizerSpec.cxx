@@ -121,17 +121,15 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
     mWithMCTruth = o2::conf::DigiParams::Instance().mctruth;
     auto triggeredMode = ic.options().get<bool>("TPCtriggered");
     mUseCalibrationsFromCCDB = ic.options().get<bool>("TPCuseCCDB");
-<<<<<<< HEAD
     window_size = std::vector<int>{ic.options().get<int>("ideal-clusterizer-timesize"), ic.options().get<int>("ideal-clusterizer-padsize")};
     reject_maxq = ic.options().get<int>("ideal-clusterizer-reject-maxq");
     reject_cogq = ic.options().get<int>("ideal-clusterizer-reject-cogq");
-    LOG(info) << "Ideal clusterizer settings: pad-size " << window_size[1] << "; time-size " << window_size[0];
-    LOG(info) << "Ideal clusterizer settings: MaxQ rejection at (ADC counts): " << reject_maxq << "; CoGQ rejection (ADC counts): " << reject_cogq;
-=======
     mMeanLumiDistortions = ic.options().get<float>("meanLumiDistortions");
     mMeanLumiDistortionsDerivative = ic.options().get<float>("meanLumiDistortionsDerivative");
+    
+    LOG(info) << "Ideal clusterizer settings: pad-size " << window_size[1] << "; time-size " << window_size[0];
+    LOG(info) << "Ideal clusterizer settings: MaxQ rejection at (ADC counts): " << reject_maxq << "; CoGQ rejection (ADC counts): " << reject_cogq;
 
->>>>>>> dev
     LOG(info) << "TPC calibrations from CCDB: " << mUseCalibrationsFromCCDB;
 
     mDigitizer.setContinuousReadout(!triggeredMode);
