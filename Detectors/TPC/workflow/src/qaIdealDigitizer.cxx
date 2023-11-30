@@ -63,8 +63,8 @@ class qaIdeal : public Task
   bool checkIdx(int);
   void read_digits(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
   void read_ideal(int, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<std::array<float, 2>>&, std::vector<float>&, std::vector<std::array<int, 3>>&);
-  void read_native(int, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 3>>&, std::vector<float>&);
-  void write_custom_native(std::vector<std::array<float, 9>>);
+  void read_native(int, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 7>>&, std::vector<float>&);
+  void write_custom_native(std::string, std::vector<std::array<float, 9>>, int = 0);
   void read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>&);
   void read_network(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
 
@@ -100,7 +100,7 @@ class qaIdeal : public Task
   void remove_loopers_ideal(int, int, std::vector<std::vector<std::vector<int>>>&, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 3>>&, std::vector<float>&, std::vector<float>&, std::vector<std::array<float, 2>>&, std::vector<std::array<int, 3>>&);
 
   template <class T>
-  void run_network(int, T&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 3>>&, int = 0);
+  void run_network(int, T&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 7>>&, int = 0);
 
   template <class T>
   void overwrite_map2d(int, T&, std::vector<std::array<int, 3>>&, std::vector<int>&, int = 0);
@@ -127,6 +127,7 @@ class qaIdeal : public Task
   float threshold_maxq = 3.f;                            // Threshold for ideal cluster to be findable (Q_max)
   int normalization_mode = 1;                            // Normalization of the charge: 0 = divide by 1024; 1 = divide by central charge
   int remove_individual_files = 0;                       // Remove sector-individual files after task is done
+  bool write_native_file = 1;                            // Whether or not to write a custom file with native clsuters
   std::vector<int> looper_tagger_granularity = {5};      // Granularity of looper tagger (time bins in which loopers are excluded in rectangular areas)
   std::vector<int> looper_tagger_timewindow = {20};      // Total time-window size of the looper tagger for evaluating if a region is looper or not
   std::vector<int> looper_tagger_padwindow = {3};        // Total pad-window size of the looper tagger for evaluating if a region is looper or not
@@ -326,6 +327,7 @@ void qaIdeal::init(InitContext& ic)
   looper_tagger_threshold_q = ic.options().get<std::vector<float>>("looper-tagger-threshold-q");
   looper_tagger_opmode = ic.options().get<std::string>("looper-tagger-opmode");
   remove_individual_files = ic.options().get<int>("remove-individual-files");
+  write_native_file = ic.options().get<bool>("write-native-file");
 
   ROOT::EnableThreadSafety();
 
@@ -417,7 +419,7 @@ void qaIdeal::read_digits(int sector, std::vector<std::array<int, 3>>& digit_map
 }
 
 // ---------------------------------
-void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map, std::vector<std::array<float, 3>>& native_map, std::vector<float>& digit_q)
+void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map, std::vector<std::array<float, 7>>& native_map, std::vector<float>& digit_q)
 {
 
   if (verbose >= 1)
@@ -463,6 +465,11 @@ void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map
         native_map[count_clusters][0] = (float)irow;
         native_map[count_clusters][1] = current_pad;
         native_map[count_clusters][2] = current_time;
+        native_map[count_clusters][3] = cl.getSigmaPad();
+        native_map[count_clusters][4] = cl.getSigmaTime();
+        native_map[count_clusters][5] = cl.getQtot();
+        native_map[count_clusters][6] = cl.getQmax();
+
         digit_map[count_clusters][0] = irow;
         digit_map[count_clusters][1] = static_cast<int>(round(current_pad));
         digit_map[count_clusters][2] = static_cast<int>(round(current_time));
@@ -482,15 +489,16 @@ void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map
 }
 
 // ---------------------------------
-void qaIdeal::write_custom_native(std::vector<std::array<float, 9>> assigned_clusters){
+void qaIdeal::write_custom_native(std::string filename, std::vector<std::array<float, 9>> assigned_clusters, int events)
+{
   // assigned clusters contains {sector, row, pad, time, sigma_pad, sigma_time, qMax, qTot, mclabel}
   ClusterNativeHelper::TreeWriter tpcClusterWriter;
-  tpcClusterWriter.init(outCustomNative.c_str(), "tpcrec");
+  tpcClusterWriter.init(filename.c_str(), "tpcrec");
   ClusterNative tmp_cluster;
   ClusterNativeHelper::TreeWriter::BranchData tmp_branch_data;
   std::vector<ClusterNativeHelper::TreeWriter::BranchData> write_to_branch_data;
 
-  for(auto cls : assigned_clusters){
+  for (auto cls : assigned_clusters) {
     // tmp_cluster(cls[3], cls[8], cls[2], cls[5], cls[4], cls[6], cls[7]);
     write_to_branch_data.push_back(ClusterNativeHelper::TreeWriter::BranchData{(int)cls[0], (int)cls[1], cls[3], cls[2], cls[5], cls[4], (uint16_t)cls[6], (uint16_t)cls[7], (uint8_t)cls[8]}); // ? is flags to be passed
   }
@@ -1238,7 +1246,7 @@ bool qaIdeal::isTagged(std::array<int, 3>& element, int granularity, std::vector
 
 // ---------------------------------
 template <class T>
-void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits, std::vector<std::array<int, 3>>& digit_map, std::vector<float>& digit_q, std::vector<std::array<float, 3>>& network_map, int eval_mode)
+void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits, std::vector<std::array<int, 3>>& digit_map, std::vector<float>& digit_q, std::vector<std::array<float, 7>>& network_map, int eval_mode)
 {
 
   // Loading the data
@@ -1325,6 +1333,10 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
         network_map[max][0] = digit_map[new_max_dig[max]][0];
         network_map[max][1] = digit_map[new_max_dig[max]][1];
         network_map[max][2] = digit_map[new_max_dig[max]][2];
+        network_map[max][3] = 1;
+        network_map[max][4] = 1;
+        network_map[max][5] = digit_q[new_max_dig[max]];
+        network_map[max][6] = digit_q[new_max_dig[max]];
         counter_max_dig++;
       }
     }
@@ -1386,6 +1398,10 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
       network_map[i][0] = rows_max[i];
       network_map[i][1] = output_network_reg[3 * i + 1]; // pad
       network_map[i][2] = output_network_reg[3 * i];     // time
+      network_map[i][3] = 1;
+      network_map[i][4] = 1;
+      network_map[i][5] = digit_q[maxima_digits[i]];
+      network_map[i][6] = digit_q[maxima_digits[i]];
     }
     LOG(info) << "Network map written.";
   }
@@ -1434,10 +1450,12 @@ void qaIdeal::runQa(int loop_sectors)
   std::vector<int> maxima_digits, stored_maxima_digits; // , digit_isNoise, digit_isQED, digit_isValid;
   std::vector<std::array<int, 3>> ideal_mclabels;
   std::vector<std::array<int, 3>> digit_map, ideal_max_map;
-  std::vector<std::array<float, 3>> ideal_cog_map, native_map, network_map, digit_clusterizer_map;
+  std::vector<std::array<float, 3>> ideal_cog_map, digit_clusterizer_map;
   std::vector<std::array<float, 2>> ideal_sigma_map;
+  std::vector<std::array<float, 7>> network_map, native_map;
   std::vector<float> ideal_max_q, ideal_cog_q, digit_q, digit_clusterizer_q;
   std::vector<std::vector<std::vector<std::vector<int>>>> tagger_map;
+  std::vector<std::array<float, 9>> native_writer_map;
 
   if (mode.find(std::string("native")) != std::string::npos) {
     read_native(loop_sectors, digit_map, native_map, digit_q);
@@ -1721,8 +1739,8 @@ void qaIdeal::runQa(int loop_sectors)
     // creating training data for the neural network
     int data_size = maxima_digits.size();
 
-    std::vector<std::array<float, 6>> native_ideal_assignemnt;
-    std::array<float, 6> current_element;
+    std::vector<std::array<float, 10>> native_ideal_assignemnt;
+    std::array<float, 10> current_element;
 
     std::fill(assigned_ideal.begin(), assigned_ideal.end(), 0);
     std::fill(assigned_digit.begin(), assigned_digit.end(), 0);
@@ -1781,6 +1799,10 @@ void qaIdeal::runQa(int loop_sectors)
                   current_element[3] = native_map[max_point][0];
                   current_element[4] = native_map[max_point][1];
                   current_element[5] = native_map[max_point][2];
+                  current_element[6] = native_map[max_point][3];
+                  current_element[7] = native_map[max_point][4];
+                  current_element[8] = native_map[max_point][5];
+                  current_element[9] = native_map[max_point][6];
                 }
                 // At least check if assigned, and put classification label to 1, no regression
                 // else {
@@ -1813,11 +1835,16 @@ void qaIdeal::runQa(int loop_sectors)
     TFile* outputFileNativeIdeal = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* native_ideal = new TTree("native_ideal", "tree");
 
-    float nat_row = 0, nat_time = 0, nat_pad = 0, id_row = 0, id_time = 0, id_pad = 0, native_minus_ideal_time = 0, native_minus_ideal_pad = 0;
+    native_writer_map.clear();
+    native_writer_map.resize(native_ideal_assignemnt.size());
+
+    float nat_row = 0, nat_time = 0, nat_pad = 0, nat_sigma_time = 0, nat_sigma_pad = 0, id_row = 0, id_time = 0, id_pad = 0, native_minus_ideal_time = 0, native_minus_ideal_pad = 0, nat_qTot = 0, nat_qMax = 0;
     native_ideal->Branch("sector", &loop_sectors);
     native_ideal->Branch("native_row", &nat_row);
     native_ideal->Branch("native_cog_time", &nat_time);
     native_ideal->Branch("native_cog_pad", &nat_pad);
+    native_ideal->Branch("native_sigma_time", &nat_sigma_time);
+    native_ideal->Branch("native_sigma_pad", &nat_sigma_pad);
     native_ideal->Branch("ideal_row", &id_row);
     native_ideal->Branch("ideal_cog_time", &id_time);
     native_ideal->Branch("ideal_cog_pad", &id_pad);
@@ -1831,15 +1858,36 @@ void qaIdeal::runQa(int loop_sectors)
       nat_row = native_ideal_assignemnt[elem][3];
       nat_pad = native_ideal_assignemnt[elem][4];
       nat_time = native_ideal_assignemnt[elem][5];
+      nat_sigma_pad = native_ideal_assignemnt[elem][6];
+      nat_sigma_time = native_ideal_assignemnt[elem][7];
+      nat_qTot = native_ideal_assignemnt[elem][8];
+      nat_qMax = native_ideal_assignemnt[elem][9];
       native_minus_ideal_time = nat_time - id_time;
       native_minus_ideal_pad = nat_pad - id_pad;
       native_ideal->Fill();
+
+      if (write_native_file) {
+        native_writer_map[elem][0] = loop_sectors;
+        native_writer_map[elem][1] = nat_row;
+        native_writer_map[elem][2] = nat_pad;
+        native_writer_map[elem][3] = nat_time;
+        native_writer_map[elem][4] = nat_sigma_time;
+        native_writer_map[elem][5] = nat_sigma_pad;
+        native_writer_map[elem][6] = nat_qMax;
+        native_writer_map[elem][7] = nat_qTot;
+        native_writer_map[elem][8] = 1; // This is a flag, still need to set this properly
+      }
     }
 
     native_ideal->Write();
     outputFileNativeIdeal->Close();
 
     native_ideal_assignemnt.clear();
+
+    if (write_native_file) {
+      write_custom_native("tpc-native-clusters-native.root", native_writer_map, 1);
+      native_writer_map.clear();
+    }
   }
 
   if (mode.find(std::string("network")) != std::string::npos && create_output == 1) {
@@ -1919,6 +1967,9 @@ void qaIdeal::runQa(int loop_sectors)
 
         if (check_assignment > 0 && is_min_dist) {
           network_ideal_assignemnt.push_back(current_element);
+          if (write_native_file) {
+            native_writer_map.push_back(std::array<float, 9>{(float)loop_sectors, network_map[max_point][0], network_map[max_point][1], network_map[max_point][2], network_map[max_point][3], network_map[max_point][4], network_map[max_point][5], network_map[max_point][6], 1.});
+          }
         }
       }
     }
@@ -1957,6 +2008,11 @@ void qaIdeal::runQa(int loop_sectors)
     outputFileNetworkIdeal->Close();
 
     network_ideal_assignemnt.clear();
+
+    if (write_native_file) {
+      write_custom_native("tpc-native-clusters-network.root", native_writer_map, 1);
+      native_writer_map.clear();
+    }
   }
 
   if (mode.find(std::string("training_data")) != std::string::npos && create_output == 1) {
@@ -2388,7 +2444,8 @@ DataProcessorSpec processIdealClusterizer()
       {"network-class-threshold", VariantType::Float, 0.5f, {"Threshold for classification network: Keep or reject maximum (default: 0.5)"}},
       {"enable-network-optimizations", VariantType::Bool, true, {"Enable ONNX network optimizations"}},
       {"network-num-threads", VariantType::Int, 1, {"Set the number of CPU threads for network execution"}},
-      {"remove-individual-files", VariantType::Int, 0, {"Remove sector-individual files that are created during the task and only keep merged files"}}}};
+      {"remove-individual-files", VariantType::Int, 0, {"Remove sector-individual files that are created during the task and only keep merged files"}},
+      {"write-native-file", VariantType::Bool, true, {"Whether or not to write a custom native file"}}}};
 }
 
 WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)

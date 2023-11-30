@@ -328,7 +328,10 @@ class ClusterNativeHelper
     };
 
     /// Overwrite storage
-    void overwriteStorage(std::vector<BranchData> branchData){mStoreClusters = branchData;};
+    void overwriteStorage(std::vector<BranchData> branchData, int events = 0){
+      mStoreClusters = branchData;
+      mEvent = events;
+    };
 
    private:
     /// file instance
