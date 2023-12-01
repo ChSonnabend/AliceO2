@@ -89,6 +89,9 @@ class qaIdeal : public Task
   template <class T>
   std::vector<std::vector<std::vector<int>>> looper_tagger(int, int, T&, std::vector<float>&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::string = "digits", int = 0);
 
+  template <class T>
+  std::vector<std::vector<std::vector<int>>> looper_tagger_full(int, int, T&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 2>>&);
+
   bool isTagged(std::array<int, 3>&, int, std::vector<std::vector<std::vector<int>>>&);
 
   template <class T>
@@ -1174,6 +1177,95 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, in
 
 // ---------------------------------
 template <class T>
+std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger_full(int sector, int counter, T& index_map, std::vector<int>& index_array, std::vector<std::array<int, 3>>& ideal_mclabels, std::vector<std::array<float, 2>>& sigma_map)
+{
+
+  std::vector<std::vector<int>> sorted_idx(o2::tpc::constants::MAXGLOBALPADROW);
+  std::vector<std::vector<std::vector<int>>> tagger_map(max_time[sector]);
+
+  for (int time = 0; time < max_time[sector]; time++) {
+    tagger_map[time].resize(o2::tpc::constants::MAXGLOBALPADROW + (3 * global_shift[2]));
+    for (int row = 0; row < (o2::tpc::constants::MAXGLOBALPADROW + 3 * global_shift[2]); row++) {
+      tagger_map[time][row].resize(TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] + 1);
+      for (int pad = 0; pad < (TPC_GEOM[row][2] + 1); pad++) {
+        tagger_map[time][row][pad] = 0;
+      }
+    }
+  }
+
+  // Improvements:
+  // - Check the charge sigma -> Looper should have narrow sigma in charge
+  // - Check width between clusters -> Looper should have regular distance -> peak in distribution of distance
+  // - Check for gaussian distribution of charge: D'Agostino-Pearson
+
+  for (auto idx : index_array) {
+    sorted_idx[std::round(index_map[idx][0])].push_back(idx);
+  }
+
+  // int unit_volume = looper_tagger_timewindow[counter] * 3;
+  std::unordered_map<int, std::vector<int>> distinct_elements;
+  int row = 0, pad = 0, time = 0, sigma_pad = 0, sigma_time = 0;
+  std::vector<std::vector<int>> idx_vector; // In case hashing is needed, e.g. trackID appears multiple times in different events
+  for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
+    idx_vector.push_back(sorted_idx[r]); // only filling trackID, otherwise use std::array<int,3> and ArrayHasher for undorder map and unique association
+    distinct_elements = distinctElementAppearance(idx_vector, ideal_mclabels);
+    for (auto elem : distinct_elements) {
+      if (elem.second.size() > looper_tagger_threshold_num[counter]) {
+        for (int idx : elem.second) {
+          row = std::round(index_map[idx][0]);
+          pad = std::round(index_map[idx][1]);
+          time = std::round(index_map[idx][2]);
+          sigma_pad = std::round(sigma_map[idx][0]);
+          sigma_time = std::round(sigma_map[idx][1]);
+          for (int excl_time = time - sigma_time; excl_time < time + sigma_time; excl_time++) {
+            for (int excl_pad = pad - sigma_pad; excl_pad < pad + sigma_pad; excl_pad++) {
+              tagger_map[excl_time][row][excl_pad] = 1;
+            }
+          }
+        }
+      }
+    }
+    distinct_elements.clear();
+  }
+
+  if (create_output == 1) {
+    // Saving the tagged region to file
+    std::stringstream file_in;
+    file_in << "looper_tagger_" << sector << "_" << counter << ".root";
+    TFile* outputFileLooperTagged = new TFile(file_in.str().c_str(), "RECREATE");
+    TTree* looper_tagged_tree = new TTree("tagged_region", "tree");
+
+    int tagged_sector = sector, tagged_row = 0, tagged_pad = 0, tagged_time = 0;
+    looper_tagged_tree->Branch("tagged_sector", &sector);
+    looper_tagged_tree->Branch("tagged_row", &tagged_row);
+    looper_tagged_tree->Branch("tagged_pad", &tagged_pad);
+    looper_tagged_tree->Branch("tagged_time", &tagged_time);
+
+    for (int t = 0; t < max_time[sector]; t++) {
+      for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
+        for (int p = 0; p < TPC_GEOM[r][2] + 1; p++) {
+          if (tagger_map[t][r][p] == 1) {
+            tagged_row = r;
+            tagged_pad = p;
+            tagged_time = t;
+            looper_tagged_tree->Fill();
+          }
+        }
+      }
+    }
+
+    looper_tagged_tree->Write();
+    outputFileLooperTagged->Close();
+  }
+
+  if (verbose > 2)
+    LOG(info) << "Looper tagging complete.";
+
+  return tagger_map;
+}
+
+// ---------------------------------
+template <class T>
 void qaIdeal::remove_loopers_digits(int sector, int counter, std::vector<std::vector<std::vector<int>>>& looper_map, T& map, std::vector<int>& index_array)
 {
   std::vector<int> new_index_array;
@@ -1477,7 +1569,10 @@ void qaIdeal::runQa(int loop_sectors)
 
   if (mode.find(std::string("looper_tagger")) != std::string::npos) {
     for (int counter = 0; counter < looper_tagger_granularity.size(); counter++) {
-      tagger_map.push_back(looper_tagger(loop_sectors, counter, ideal_max_map, ideal_max_q, ideal_idx, ideal_mclabels, looper_tagger_opmode));
+      looper_tagger_granularity[counter] = 1;
+      // tagger_map.push_back(looper_tagger(loop_sectors, counter, ideal_max_map, ideal_max_q, ideal_idx, ideal_mclabels, looper_tagger_opmode));
+      // remove_loopers_ideal(loop_sectors, counter, tagger_map[counter], ideal_max_map, ideal_cog_map, ideal_max_q, ideal_cog_q, ideal_sigma_map, ideal_mclabels);
+      tagger_map.push_back(looper_tagger_full(loop_sectors, counter, ideal_cog_map, ideal_idx, ideal_mclabels, ideal_sigma_map));
       remove_loopers_ideal(loop_sectors, counter, tagger_map[counter], ideal_max_map, ideal_cog_map, ideal_max_q, ideal_cog_q, ideal_sigma_map, ideal_mclabels);
     }
   }
