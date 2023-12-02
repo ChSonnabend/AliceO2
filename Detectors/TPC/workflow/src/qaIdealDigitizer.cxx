@@ -1181,11 +1181,11 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger_full(int secto
 {
 
   std::vector<std::vector<int>> sorted_idx(o2::tpc::constants::MAXGLOBALPADROW);
-  std::vector<std::vector<std::vector<int>>> tagger_map(max_time[sector]);
+  std::vector<std::vector<std::vector<int>>> tagger_map(max_time[sector]); // some safety margin for the sigma_time
 
   for (int time = 0; time < max_time[sector]; time++) {
-    tagger_map[time].resize(o2::tpc::constants::MAXGLOBALPADROW + (3 * global_shift[2]));
-    for (int row = 0; row < (o2::tpc::constants::MAXGLOBALPADROW + 3 * global_shift[2]); row++) {
+    tagger_map[time].resize(o2::tpc::constants::MAXGLOBALPADROW);
+    for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++) {
       tagger_map[time][row].resize(TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] + 1);
       for (int pad = 0; pad < (TPC_GEOM[row][2] + 1); pad++) {
         tagger_map[time][row][pad] = 0;
@@ -1219,7 +1219,12 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger_full(int secto
           sigma_time = std::round(sigma_map[idx][1]);
           for (int excl_time = time - sigma_time; excl_time < time + sigma_time; excl_time++) {
             for (int excl_pad = pad - sigma_pad; excl_pad < pad + sigma_pad; excl_pad++) {
-              tagger_map[excl_time][row][excl_pad] = 1;
+              if(excl_pad < 0 || excl_pad > (TPC_GEOM[row][2]+1) || excl_time < 0 || excl_time > max_time[sector]){
+                continue;
+              }
+              else{
+                tagger_map[excl_time][row][excl_pad] = 1;
+              }
             }
           }
         }
