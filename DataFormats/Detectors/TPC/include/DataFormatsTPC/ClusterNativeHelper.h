@@ -331,6 +331,7 @@ class ClusterNativeHelper
     void overwriteStorage(std::vector<BranchData> branchData, int events = 0){
       mStoreClusters = branchData;
       mEvent = events;
+      mTree->Fill();
     };
 
    private:

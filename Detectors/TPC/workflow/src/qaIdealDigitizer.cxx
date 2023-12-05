@@ -547,7 +547,7 @@ void qaIdeal::write_custom_native(std::string filename, std::vector<std::array<f
 
   for (auto cls : assigned_clusters) {
     // tmp_cluster(cls[3], cls[8], cls[2], cls[5], cls[4], cls[6], cls[7]);
-    write_to_branch_data.push_back(ClusterNativeHelper::TreeWriter::BranchData{(int)cls[0], (int)cls[1], cls[3], cls[2], cls[5], cls[4], (uint16_t)cls[6], (uint16_t)cls[7], (uint8_t)cls[8]}); // ? is flags to be passed
+    write_to_branch_data.push_back(ClusterNativeHelper::TreeWriter::BranchData{(int)cls[0], (int)cls[1], cls[3], cls[2], cls[5], cls[4], (uint16_t)cls[6], (uint16_t)cls[7], (uint8_t)cls[8]}); // last element is flags to be passed
   }
   tpcClusterWriter.overwriteStorage(write_to_branch_data);
 
