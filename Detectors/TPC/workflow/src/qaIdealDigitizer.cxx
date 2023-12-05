@@ -233,6 +233,31 @@ class qaIdeal : public Task
     }
     return elementCount;
   }
+
+  std::vector<int> fastElementBuckets(const std::vector<std::vector<int>>& index_vector, const std::vector<std::array<int, 3>>& assignment_vector, int n){
+    std::vector<int> exclude_elements;
+    int max_track_label = -1, min_track_label = 1e9;
+    for(auto elem : index_vector){
+      if(assignment_vector[elem][0] > max_track_label){
+        max_track_label = assignment_vector[elem][0];
+      }
+      if(assignment_vector[elem][0] < min_track_label){
+        min_track_label = assignment_vector[elem][0];
+      }
+    }
+    std::vector<std::vector<int>> buckets(max_track_label - min_track_label + 1);
+    for(auto elem : index_vector){
+      buckets[assignment_vector[elem][0]-min_track_label].push_back(elem);
+    }
+    for(auto bucket : bucktes){
+      if(bucket.size() >= n){
+        for(auto elem : bucket){
+          exclude_elements.push_back(elem);
+        }
+      }
+    }
+    return exclude_elements;
+  }
 };
 
 // ---------------------------------
@@ -1140,7 +1165,7 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, in
           //   }
           // }
 
-          elementAppearance = elementsAppearedMoreThanNTimesInVectors(idx_vector, ideal_mclabels, looper_tagger_threshold_num[counter]);
+          elementAppearance = fastElementBuckets(idx_vector, ideal_mclabels, looper_tagger_threshold_num[counter]);
           accept = (elementAppearance.size() == 0 ? false : true);
         }
 
