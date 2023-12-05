@@ -214,7 +214,7 @@ class qaIdeal : public Task
       }
     }
     for (auto elem : elementCount) {
-      if (elem.second.size() > n) {
+      if (elem.second.size() >= n) {
         for (int idx : elem.second) {
           return_idx.push_back(idx);
         }
@@ -1141,14 +1141,14 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, in
           // }
 
           elementAppearance = elementsAppearedMoreThanNTimesInVectors(idx_vector, ideal_mclabels, looper_tagger_threshold_num[counter]);
-          accept = elementAppearance.size() == 0 ? false : true;
+          accept = (elementAppearance.size() == 0 ? false : true);
         }
 
         if (accept) {
           // This needs to be modified still
           for(int elem : elementAppearance){
-            sigma_pad = std::round(index_map[elem][0]);
-            sigma_time = std::round(index_map[elem][1]);
+            sigma_pad = std::round(sigma_map[elem][0]);
+            sigma_time = std::round(sigma_map[elem][1]);
             for (int excl_time = t - sigma_time; excl_time < t + sigma_time; excl_time++) {
               for (int excl_pad = p - sigma_pad; excl_pad < p + sigma_pad; excl_pad++) {
                 if ((excl_pad < 0) || (excl_pad > TPC_GEOM[r][2]) || (excl_time < 0) || (excl_time > (max_time[sector] - 1))) {
