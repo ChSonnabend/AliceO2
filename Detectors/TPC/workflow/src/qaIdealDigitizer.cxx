@@ -64,7 +64,7 @@ class qaIdeal : public Task
   void read_digits(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
   void read_ideal(int, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<std::array<float, 2>>&, std::vector<float>&, std::vector<std::array<int, 3>>&);
   void read_native(int, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 7>>&, std::vector<float>&);
-  void write_custom_native(std::string, std::vector<std::array<float, 9>>&);
+  void write_custom_native(std::string, std::vector<std::array<float, 11>>&);
   void read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>&);
   void read_network(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
 
@@ -237,19 +237,23 @@ class qaIdeal : public Task
   std::vector<int> fastElementBuckets(const std::vector<std::vector<int>>& index_vector, const std::vector<std::array<int, 3>>& assignment_vector, int n){
     std::vector<int> exclude_elements;
     int max_track_label = -1, min_track_label = 1e9;
-    for(auto elem : index_vector){
-      if(assignment_vector[elem][0] > max_track_label){
-        max_track_label = assignment_vector[elem][0];
-      }
-      if(assignment_vector[elem][0] < min_track_label){
-        min_track_label = assignment_vector[elem][0];
+    for(auto vec : index_vector){
+      for (int elem : vec) {
+        if(assignment_vector[elem][0] > max_track_label){
+          max_track_label = assignment_vector[elem][0];
+        }
+        if(assignment_vector[elem][0] < min_track_label){
+          min_track_label = assignment_vector[elem][0];
+        }
       }
     }
     std::vector<std::vector<int>> buckets(max_track_label - min_track_label + 1);
-    for(auto elem : index_vector){
-      buckets[assignment_vector[elem][0]-min_track_label].push_back(elem);
+    for(auto vec : index_vector){
+      for (int elem : vec) {
+        buckets[assignment_vector[elem][0]-min_track_label].push_back(elem);
+      }
     }
-    for(auto bucket : bucktes){
+    for(auto bucket : buckets){
       if(bucket.size() >= n){
         for(auto elem : bucket){
           exclude_elements.push_back(elem);
@@ -539,7 +543,6 @@ void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map
 void qaIdeal::write_custom_native(std::string filename, std::vector<std::array<float, 11>>& assigned_clusters)
 {
   // assigned clusters contains {sector, row, pad, time, sigma_pad, sigma_time, qMax, qTot, trackID, sourceID, eventID}
-  ClusterNative(uint32_t time, uint8_t flags, uint16_t pad, uint8_t sigmaTime, uint8_t sigmaPad, uint16_t qmax, uint16_t qtot)
 
   // Steps:
   // Read each cluster into a clusternative structure
@@ -564,9 +567,8 @@ void qaIdeal::write_custom_native(std::string filename, std::vector<std::array<f
   // Build cluster native access
   ClusterNativeAccess clusterIndex;
   ClusterNative cluster_native_array[assigned_clusters.size()];
-  ClusterNativeAccess clusterIndex;
-  o2::dataformats::ConstMCTruthContainerView<o2::MCCompLabel> mclabelContainer[assigned_clusters.size()];
-  int nClusters[o2::constants::MAXSECTOR][o2::constants::MAXGLOBALPADROW];
+  o2::dataformats::ConstMCTruthContainerView<o2::MCCompLabel> mclabelContainer;
+  int nClusters[o2::tpc::constants::MAXSECTOR][o2::tpc::constants::MAXGLOBALPADROW];
   int total_clusters = 0;
   for (auto cls : assigned_clusters) {
     // sotring cluster natives
@@ -578,17 +580,17 @@ void qaIdeal::write_custom_native(std::string filename, std::vector<std::array<f
     cluster_native_array[total_clusters].qTot = cls[7];
     
     // creating ConstMCTruthContainer
-    mclabelContainer[total_clusters] = o2::MCCompLabel(cls[8], cls[9], cls[10], false);
+    // mclabelContainer[total_clusters] = o2::MCCompLabel(cls[8], cls[9], cls[10], false);
 
-    nClusters[cls[0]][cls[1]]++;
+    // nClusters[cls[0]][cls[1]]++;
     total_clusters++;
   }
   clusterIndex.clustersLinear = cluster_native_array;
-  clusterIndex.mclabelContainer = mclabelContainer;
+  clusterIndex.clustersMCTruth = &mclabelContainer;
 
   int arr_counter = 0, counter=0, cluster_counter = 0;
-  for(int sec = 0; sec < o2::constants::MAXSECTOR; sec++){
-    for(int row = 0; row < o2::constants::MAXGLOBALPADROW; row++){
+  for(int sec = 0; sec < o2::tpc::constants::MAXSECTOR; sec++){
+    for(int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++){
       ClusterNative tmp_clus_arr[nClusters[sec][row]];
       for (auto cls : assigned_clusters) {
         if((cls[0] == sec) && (cls[1] == row)){
@@ -604,7 +606,7 @@ void qaIdeal::write_custom_native(std::string filename, std::vector<std::array<f
   }
   clusterIndex.setOffsetPtrs();
 
-  tpcClusterWriter.fillIndex(clusterIndex);
+  // tpcClusterWriter.fillIndex(clusterIndex);
   tpcClusterWriter.close();
 
 }
@@ -2118,7 +2120,7 @@ void qaIdeal::runQa(int loop_sectors)
     // creating training data for the neural network
     int data_size = maxima_digits.size();
 
-    std::vector<std::array<float, 5>> network_ideal_assignemnt;
+    std::vector<std::array<float, 8>> network_ideal_assignemnt;
     std::array<float, 8> current_element;
 
     std::fill(assigned_ideal.begin(), assigned_ideal.end(), 0);
@@ -2174,9 +2176,9 @@ void qaIdeal::runQa(int loop_sectors)
                   current_element[1] = network_map[max_point][1];
                   current_element[2] = ideal_cog_map[current_idx_id][2];
                   current_element[3] = ideal_cog_map[current_idx_id][1];
-                  current_element[5] = ideal_mclabel[current_idx_id][0];
-                  current_element[6] = ideal_mclabel[current_idx_id][1];
-                  current_element[7] = ideal_mclabel[current_idx_id][2];
+                  current_element[5] = ideal_mclabels[current_idx_id][0];
+                  current_element[6] = ideal_mclabels[current_idx_id][1];
+                  current_element[7] = ideal_mclabels[current_idx_id][2];
                   if (normalization_mode == 0) {
                     current_element[4] = ideal_cog_q[current_idx_id] / 1024.f;
                   } else if (normalization_mode == 1) {
