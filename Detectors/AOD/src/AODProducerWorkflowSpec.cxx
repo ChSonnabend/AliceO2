@@ -361,6 +361,10 @@ void AODProducerWorkflowDPL::addToMFTTracksTable(mftTracksCursorType& mftTracksC
   }
   trackTime -= bcOfTimeRef * o2::constants::lhc::LHCBunchSpacingNS;
 
+  // the Cellular Automaton track-finding algorithm flag is stored in first of the 4 bits not used for the cluster size
+  uint64_t mftClusterSizesAndTrackFlags = track.getClusterSizes();
+  mftClusterSizesAndTrackFlags |= (track.isCA()) ? (1ULL << (60)) : 0;
+
   mftTracksCursor(collisionID,
                   track.getX(),
                   track.getY(),
@@ -368,7 +372,7 @@ void AODProducerWorkflowDPL::addToMFTTracksTable(mftTracksCursorType& mftTracksC
                   truncateFloatFraction(track.getPhi(), mTrackAlpha),
                   truncateFloatFraction(track.getTanl(), mTrackTgl),
                   truncateFloatFraction(track.getInvQPt(), mTrack1Pt),
-                  track.getNumberOfPoints(),
+                  mftClusterSizesAndTrackFlags,
                   truncateFloatFraction(track.getTrackChi2(), mTrackChi2),
                   truncateFloatFraction(trackTime, mTrackTime),
                   truncateFloatFraction(trackTimeRes, mTrackTimeError));
@@ -2237,11 +2241,11 @@ void AODProducerWorkflowDPL::run(ProcessingContext& pc)
   TString ROOTVersion = ROOT_RELEASE;
   mMetaDataKeys = {"DataType", "Run", "O2Version", "ROOTVersion", "RecoPassName", "AnchorProduction", "AnchorPassName", "LPMProductionTag"};
   mMetaDataVals = {dataType, "3", O2Version, ROOTVersion, mRecoPass, mAnchorProd, mAnchorPass, mLPMProdTag};
-  pc.outputs().snapshot(Output{"AMD", "AODMetadataKeys", 0, Lifetime::Timeframe}, mMetaDataKeys);
-  pc.outputs().snapshot(Output{"AMD", "AODMetadataVals", 0, Lifetime::Timeframe}, mMetaDataVals);
+  pc.outputs().snapshot(Output{"AMD", "AODMetadataKeys", 0}, mMetaDataKeys);
+  pc.outputs().snapshot(Output{"AMD", "AODMetadataVals", 0}, mMetaDataVals);
 
-  pc.outputs().snapshot(Output{"TFN", "TFNumber", 0, Lifetime::Timeframe}, tfNumber);
-  pc.outputs().snapshot(Output{"TFF", "TFFilename", 0, Lifetime::Timeframe}, "");
+  pc.outputs().snapshot(Output{"TFN", "TFNumber", 0}, tfNumber);
+  pc.outputs().snapshot(Output{"TFF", "TFFilename", 0}, "");
 
   mTimer.Stop();
 }
@@ -2353,7 +2357,10 @@ AODProducerWorkflowDPL::TrackExtraInfo AODProducerWorkflowDPL::processBarrelTrac
     extraInfoHolder.length = intLen;
     const float mass = o2::constants::physics::MassPionCharged; // default pid = pion
     if (tofInt.getTOF(o2::track::PID::Pion) > 0.f) {
-      const float expBeta = (intLen / (tofInt.getTOF(o2::track::PID::Pion) * cSpeed));
+      float expBeta = (intLen / (tofInt.getTOF(o2::track::PID::Pion) * cSpeed));
+      if (expBeta > o2::constants::math::Almost1) {
+        expBeta = o2::constants::math::Almost1;
+      }
       extraInfoHolder.tofExpMom = mass * expBeta / std::sqrt(1.f - expBeta * expBeta);
     }
     // correct the time of the track
@@ -2657,6 +2664,9 @@ void AODProducerWorkflowDPL::addRefGlobalBCsForTOF(const o2::dataformats::VtxTra
       float tofExpMom = 0.;
       if (tofInt.getTOF(o2::track::PID::Pion) > 0.f) {
         float expBeta = (intLen / (tofInt.getTOF(o2::track::PID::Pion) * cSpeed));
+        if (expBeta > o2::constants::math::Almost1) {
+          expBeta = o2::constants::math::Almost1;
+        }
         tofExpMom = o2::constants::physics::MassPionCharged * expBeta / std::sqrt(1.f - expBeta * expBeta);
       } else {
         continue;
