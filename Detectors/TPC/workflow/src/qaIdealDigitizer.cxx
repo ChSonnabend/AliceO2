@@ -64,7 +64,7 @@ class qaIdeal : public Task
   void read_digits(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
   void read_ideal(int, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<std::array<float, 2>>&, std::vector<float>&, std::vector<std::array<int, 3>>&);
   void read_native(int, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 7>>&, std::vector<float>&);
-  void write_custom_native(std::string, std::vector<std::array<float, 9>>, int = 0);
+  void write_custom_native(std::string, std::vector<std::array<float, 9>>&);
   void read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>&);
   void read_network(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
 
@@ -536,22 +536,77 @@ void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map
 }
 
 // ---------------------------------
-void qaIdeal::write_custom_native(std::string filename, std::vector<std::array<float, 9>> assigned_clusters, int events)
+void qaIdeal::write_custom_native(std::string filename, std::vector<std::array<float, 11>>& assigned_clusters)
 {
-  // assigned clusters contains {sector, row, pad, time, sigma_pad, sigma_time, qMax, qTot, mclabel}
+  // assigned clusters contains {sector, row, pad, time, sigma_pad, sigma_time, qMax, qTot, trackID, sourceID, eventID}
+  ClusterNative(uint32_t time, uint8_t flags, uint16_t pad, uint8_t sigmaTime, uint8_t sigmaPad, uint16_t qmax, uint16_t qtot)
+
+  // Steps:
+  // Read each cluster into a clusternative structure
+  // collect them in a clusternative[n] array
+  // write them to clusternativeaccess
+  // 
+
   ClusterNativeHelper::TreeWriter tpcClusterWriter;
   tpcClusterWriter.init(filename.c_str(), "tpcrec");
-  ClusterNative tmp_cluster;
-  ClusterNativeHelper::TreeWriter::BranchData tmp_branch_data;
-  std::vector<ClusterNativeHelper::TreeWriter::BranchData> write_to_branch_data;
+  // ClusterNative tmp_cluster;
+  // ClusterNativeHelper::TreeWriter::BranchData tmp_branch_data;
+  // std::vector<ClusterNativeHelper::TreeWriter::BranchData> write_to_branch_data;
+  // for (auto cls : assigned_clusters) {
+  //   // tmp_cluster(cls[3], cls[8], cls[2], cls[5], cls[4], cls[6], cls[7]);
+  //   write_to_branch_data.push_back(ClusterNativeHelper::TreeWriter::BranchData{(int)cls[0], (int)cls[1], cls[3], cls[2], cls[5], cls[4], (uint16_t)cls[6], (uint16_t)cls[7], (uint8_t)cls[8]}); // last element is flags to be passed
+  // }
+  // tpcClusterWriter.overwriteStorage(write_to_branch_data);
+  // tpcClusterWriter.close();
 
+  // New
+
+  // Build cluster native access
+  ClusterNativeAccess clusterIndex;
+  ClusterNative cluster_native_array[assigned_clusters.size()];
+  ClusterNativeAccess clusterIndex;
+  o2::dataformats::ConstMCTruthContainerView<o2::MCCompLabel> mclabelContainer[assigned_clusters.size()];
+  int nClusters[o2::constants::MAXSECTOR][o2::constants::MAXGLOBALPADROW];
+  int total_clusters = 0;
   for (auto cls : assigned_clusters) {
-    // tmp_cluster(cls[3], cls[8], cls[2], cls[5], cls[4], cls[6], cls[7]);
-    write_to_branch_data.push_back(ClusterNativeHelper::TreeWriter::BranchData{(int)cls[0], (int)cls[1], cls[3], cls[2], cls[5], cls[4], (uint16_t)cls[6], (uint16_t)cls[7], (uint8_t)cls[8]}); // last element is flags to be passed
-  }
-  tpcClusterWriter.overwriteStorage(write_to_branch_data);
+    // sotring cluster natives
+    cluster_native_array[total_clusters].setTime(cls[3]);
+    cluster_native_array[total_clusters].setPad(cls[2]);
+    cluster_native_array[total_clusters].setSigmaTime(cls[5]);
+    cluster_native_array[total_clusters].setSigmaPad(cls[4]);
+    cluster_native_array[total_clusters].qMax = cls[6];
+    cluster_native_array[total_clusters].qTot = cls[7];
+    
+    // creating ConstMCTruthContainer
+    mclabelContainer[total_clusters] = o2::MCCompLabel(cls[8], cls[9], cls[10], false);
 
+    nClusters[cls[0]][cls[1]]++;
+    total_clusters++;
+  }
+  clusterIndex.clustersLinear = cluster_native_array;
+  clusterIndex.mclabelContainer = mclabelContainer;
+
+  int arr_counter = 0, counter=0, cluster_counter = 0;
+  for(int sec = 0; sec < o2::constants::MAXSECTOR; sec++){
+    for(int row = 0; row < o2::constants::MAXGLOBALPADROW; row++){
+      ClusterNative tmp_clus_arr[nClusters[sec][row]];
+      for (auto cls : assigned_clusters) {
+        if((cls[0] == sec) && (cls[1] == row)){
+          tmp_clus_arr[counter] = cluster_native_array[cluster_counter];
+          counter++;
+        }
+        cluster_counter++;
+      }
+      clusterIndex.clusters[sec][row] = tmp_clus_arr;
+      counter = 0;
+      cluster_counter = 0;
+    }
+  }
+  clusterIndex.setOffsetPtrs();
+
+  tpcClusterWriter.fillIndex(clusterIndex);
   tpcClusterWriter.close();
+
 }
 
 // ---------------------------------
@@ -1613,7 +1668,7 @@ void qaIdeal::runQa(int loop_sectors)
   std::vector<std::array<float, 7>> network_map, native_map;
   std::vector<float> ideal_max_q, ideal_cog_q, digit_q, digit_clusterizer_q;
   std::vector<std::vector<std::vector<std::vector<int>>>> tagger_map;
-  std::vector<std::array<float, 9>> native_writer_map;
+  std::vector<std::array<float, 11>> native_writer_map;
 
   if (mode.find(std::string("native")) != std::string::npos) {
     read_native(loop_sectors, digit_map, native_map, digit_q);
@@ -1899,8 +1954,8 @@ void qaIdeal::runQa(int loop_sectors)
     // creating training data for the neural network
     int data_size = maxima_digits.size();
 
-    std::vector<std::array<float, 10>> native_ideal_assignemnt;
-    std::array<float, 10> current_element;
+    std::vector<std::array<float, 13>> native_ideal_assignemnt;
+    std::array<float, 13> current_element;
 
     std::fill(assigned_ideal.begin(), assigned_ideal.end(), 0);
     std::fill(assigned_digit.begin(), assigned_digit.end(), 0);
@@ -1953,7 +2008,7 @@ void qaIdeal::runQa(int loop_sectors)
                   // Adding an assignment in order to avoid duplication
                   assigned_digit[max_point]++;
                   assigned_ideal[current_idx_id]++;
-                  current_element[0] = ideal_cog_map[maxima_digits[max_point]][0];
+                  current_element[0] = ideal_cog_map[current_idx_id][0];
                   current_element[1] = ideal_cog_map[current_idx_id][1];
                   current_element[2] = ideal_cog_map[current_idx_id][2];
                   current_element[3] = native_map[max_point][0];
@@ -1963,6 +2018,9 @@ void qaIdeal::runQa(int loop_sectors)
                   current_element[7] = native_map[max_point][4];
                   current_element[8] = native_map[max_point][5];
                   current_element[9] = native_map[max_point][6];
+                  current_element[10] = ideal_mclabels[current_idx_id][0];
+                  current_element[11] = ideal_mclabels[current_idx_id][1];
+                  current_element[12] = ideal_mclabels[current_idx_id][2];
                 }
                 // At least check if assigned, and put classification label to 1, no regression
                 // else {
@@ -2035,7 +2093,9 @@ void qaIdeal::runQa(int loop_sectors)
         native_writer_map[elem][5] = nat_sigma_pad;
         native_writer_map[elem][6] = nat_qMax;
         native_writer_map[elem][7] = nat_qTot;
-        native_writer_map[elem][8] = 1; // This is a flag, still need to set this properly
+        native_writer_map[elem][8] = native_ideal_assignemnt[elem][10];
+        native_writer_map[elem][9] = native_ideal_assignemnt[elem][11];
+        native_writer_map[elem][10] = native_ideal_assignemnt[elem][12];
       }
     }
 
@@ -2045,7 +2105,7 @@ void qaIdeal::runQa(int loop_sectors)
     native_ideal_assignemnt.clear();
 
     if (write_native_file) {
-      write_custom_native("tpc-native-clusters-native.root", native_writer_map, 1);
+      write_custom_native("tpc-native-clusters-native.root", native_writer_map);
       native_writer_map.clear();
     }
   }
@@ -2059,7 +2119,7 @@ void qaIdeal::runQa(int loop_sectors)
     int data_size = maxima_digits.size();
 
     std::vector<std::array<float, 5>> network_ideal_assignemnt;
-    std::array<float, 5> current_element;
+    std::array<float, 8> current_element;
 
     std::fill(assigned_ideal.begin(), assigned_ideal.end(), 0);
     std::fill(assigned_digit.begin(), assigned_digit.end(), 0);
@@ -2114,6 +2174,9 @@ void qaIdeal::runQa(int loop_sectors)
                   current_element[1] = network_map[max_point][1];
                   current_element[2] = ideal_cog_map[current_idx_id][2];
                   current_element[3] = ideal_cog_map[current_idx_id][1];
+                  current_element[5] = ideal_mclabel[current_idx_id][0];
+                  current_element[6] = ideal_mclabel[current_idx_id][1];
+                  current_element[7] = ideal_mclabel[current_idx_id][2];
                   if (normalization_mode == 0) {
                     current_element[4] = ideal_cog_q[current_idx_id] / 1024.f;
                   } else if (normalization_mode == 1) {
@@ -2128,7 +2191,7 @@ void qaIdeal::runQa(int loop_sectors)
         if (check_assignment > 0 && is_min_dist) {
           network_ideal_assignemnt.push_back(current_element);
           if (write_native_file) {
-            native_writer_map.push_back(std::array<float, 9>{(float)loop_sectors, network_map[max_point][0], network_map[max_point][1], network_map[max_point][2], network_map[max_point][3], network_map[max_point][4], network_map[max_point][5], network_map[max_point][6], 1.});
+            native_writer_map.push_back(std::array<float, 11>{(float)loop_sectors, network_map[max_point][0], network_map[max_point][1], network_map[max_point][2], network_map[max_point][3], network_map[max_point][4], network_map[max_point][5], network_map[max_point][6], current_element[5], current_element[6], current_element[7]});
           }
         }
       }
@@ -2170,7 +2233,7 @@ void qaIdeal::runQa(int loop_sectors)
     network_ideal_assignemnt.clear();
 
     if (write_native_file) {
-      write_custom_native("tpc-native-clusters-network.root", native_writer_map, 1);
+      write_custom_native("tpc-native-clusters-network.root", native_writer_map);
       native_writer_map.clear();
     }
   }
