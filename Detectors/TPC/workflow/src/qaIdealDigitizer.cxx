@@ -567,9 +567,12 @@ void qaIdeal::write_custom_native(std::string filename, std::vector<std::array<f
   // Build cluster native access
   ClusterNativeAccess clusterIndex;
   ClusterNative cluster_native_array[assigned_clusters.size()];
-  o2::dataformats::ConstMCTruthContainerView<o2::MCCompLabel> mclabelContainer;
+  o2::dataformats::MCTruthContainer<o2::MCCompLabel> mcLabelContainer;
   int nClusters[o2::tpc::constants::MAXSECTOR][o2::tpc::constants::MAXGLOBALPADROW];
   int total_clusters = 0;
+
+  const size_t BIGSIZE{assigned_clusters.size()};
+  mcLabelContainer.addNoLabelIndex(0); // the first index does not have a label
   for (auto cls : assigned_clusters) {
     // sotring cluster natives
     cluster_native_array[total_clusters].setTime(cls[3]);
@@ -580,13 +583,22 @@ void qaIdeal::write_custom_native(std::string filename, std::vector<std::array<f
     cluster_native_array[total_clusters].qTot = cls[7];
     
     // creating ConstMCTruthContainer
-    // mclabelContainer[total_clusters] = o2::MCCompLabel(cls[8], cls[9], cls[10], false);
+    
+    // mcLabelContainer[total_clusters] = o2::MCCompLabel(cls[8], cls[9], cls[10], false); // -> Needs Sandro's input
+    mcLabelContainer.addElement(total_clusters, o2::MCCompLabel(cls[8], cls[9], cls[10], false));
 
-    // nClusters[cls[0]][cls[1]]++;
+    nClusters[(int)cls[0]][(int)cls[1]]++;
     total_clusters++;
   }
   clusterIndex.clustersLinear = cluster_native_array;
-  clusterIndex.clustersMCTruth = &mclabelContainer;
+
+  std::vector<char> buffer;
+  mcLabelContainer.flatten_to(buffer);
+  o2::dataformats::IOMCTruthContainerView tmp_container(buffer);
+  o2::dataformats::ConstMCTruthContainer<o2::MCCompLabel> constMcLabelContainer;
+  tmp_container.copyandflatten(constMcLabelContainer);
+  o2::dataformats::ConstMCTruthContainerView containerView(constMcLabelContainer);
+  clusterIndex.clustersMCTruth = &containerView;
 
   int arr_counter = 0, counter=0, cluster_counter = 0;
   for(int sec = 0; sec < o2::tpc::constants::MAXSECTOR; sec++){
@@ -606,7 +618,7 @@ void qaIdeal::write_custom_native(std::string filename, std::vector<std::array<f
   }
   clusterIndex.setOffsetPtrs();
 
-  // tpcClusterWriter.fillIndex(clusterIndex);
+  tpcClusterWriter.fillFrom(clusterIndex);
   tpcClusterWriter.close();
 
 }
