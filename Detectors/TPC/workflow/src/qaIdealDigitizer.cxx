@@ -1208,13 +1208,15 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, in
       for (int p = 0; p < TPC_GEOM[r][2] + 1; p++) {
         for (int t_acc = 0; t_acc < std::ceil(looper_tagger_timewindow[counter] / looper_tagger_granularity[counter]); t_acc++) {
           for (int padwindow = 0; padwindow < looper_tagger_padwindow[counter]; padwindow++) {
-            if (operation_mode == 1) {
-              num_elements += tagger_counter[t + t_acc][r][p + padwindow];
-              if (tagger_counter[t + t_acc][r][p + padwindow] > 0)
-                avg_charge += tagger[t + t_acc][r][p + padwindow] / tagger_counter[t + t_acc][r][p + padwindow];
-            } else if (operation_mode == 2) {
-              num_elements += tagger_counter[t + t_acc][r][p + padwindow];
-              idx_vector.push_back(sorted_idx[t + t_acc][r][p + padwindow]); // only filling trackID, otherwise use std::array<int,3> and ArrayHasher for undorder map and unique association
+            if((p + padwindow <= TPC_GEOM[r][2]) && (t + t_acc < max_time[sector])){
+              if (operation_mode == 1) {
+                num_elements += tagger_counter[t + t_acc][r][p + padwindow];
+                if (tagger_counter[t + t_acc][r][p + padwindow] > 0)
+                  avg_charge += tagger[t + t_acc][r][p + padwindow] / tagger_counter[t + t_acc][r][p + padwindow];
+              } else if (operation_mode == 2) {
+                num_elements += tagger_counter[t + t_acc][r][p + padwindow];
+                idx_vector.push_back(sorted_idx[t + t_acc][r][p + padwindow]); // only filling trackID, otherwise use std::array<int,3> and ArrayHasher for undorder map and unique association
+              }
             }
           }
         }
