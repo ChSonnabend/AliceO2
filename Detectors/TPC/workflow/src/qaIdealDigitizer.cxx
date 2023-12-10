@@ -237,8 +237,6 @@ class qaIdeal : public Task
   std::vector<int> fastElementBuckets(const std::vector<std::vector<int>>& index_vector, const std::vector<std::array<int, 3>>& assignment_vector, int n){
     
     std::vector<int> exclude_elements;
-    std::vector<std::vector<int>> buckets(max_track_label - min_track_label + 1);
-    std::vector<int> exclude_elements_size(max_track_label - min_track_label + 1);
     int max_track_label = -1, min_track_label = 1e9;
 
     for(auto vec : index_vector){
@@ -249,13 +247,20 @@ class qaIdeal : public Task
         if(assignment_vector[elem][0] < min_track_label){
           min_track_label = assignment_vector[elem][0];
         }
-        exclude_elements_size[assignment_vector[elem][0]-min_track_label]++;
       }
     }
 
+    std::vector<std::vector<int>> buckets(max_track_label - min_track_label + 1);
+    std::vector<int> exclude_elements_size(max_track_label - min_track_label + 1);
+    for(auto vec : index_vector){
+      for (int elem : vec) {
+        exclude_elements_size[assignment_vector[elem][0]-min_track_label]++;
+      }
+    }
     for(int i = 0; i < exclude_elements_size.size(); i++){
         buckets[i].resize(exclude_elements_size[i]);
     }
+    
     std::fill(exclude_elements_size.begin(), exclude_elements_size.end(), 0);
     int index = 0;
     for(auto vec : index_vector){
