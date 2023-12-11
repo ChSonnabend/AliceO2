@@ -190,18 +190,18 @@ class qaIdeal : public Task
     return false;
   }
 
-  bool hasElementAppearedMoreThanNTimesInVectors(const std::vector<std::vector<int>>& index_vector, const std::vector<std::array<int, 3>>& assignment_vector, int n)
+  int hasElementAppearedMoreThanNTimesInVectors(const std::vector<std::vector<int>>& index_vector, const std::vector<std::array<int, 3>>& assignment_vector, int n)
   {
     std::unordered_map<int, int> elementCount;
     for (const std::vector<int>& vec : index_vector) {
       for (int element : vec) {
         elementCount[assignment_vector[element][0]]++;
         if (elementCount[assignment_vector[element][0]] >= n) {
-          return true;
+          return assignment_vector[element][0];
         }
       }
     }
-    return false;
+    return -1;
   }
 
   std::vector<int> elementsAppearedMoreThanNTimesInVectors(const std::vector<std::vector<int>>& index_vector, const std::vector<std::array<int, 3>>& assignment_vector, int n)
@@ -1173,12 +1173,12 @@ void qaIdeal::native_clusterizer(T& map2d, std::vector<std::array<int, 3>>& digi
 template <class T, class C>
 std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, int counter, T& index_map, C& sigma_map, std::vector<float>& array_q, std::vector<int>& index_array, std::vector<std::array<int, 3>>& ideal_mclabels, std::string op_mode, int exclusion_zones_counter)
 {
-  looper_tagger_granularity[counter] = 1; // to be removed later: Testing for now
+  // looper_tagger_granularity[counter] = 1; // to be removed later: Testing for now
   int looper_detector_timesize = std::ceil((float)max_time[sector] / (float)looper_tagger_granularity[counter]);
 
   std::vector<std::vector<std::vector<float>>> tagger(looper_detector_timesize, std::vector<std::vector<float>>(o2::tpc::constants::MAXGLOBALPADROW)); // time_slice (=std::floor(time/looper_tagger_granularity[counter])), row, pad array -> looper_tagged = 1, else 0
   std::vector<std::vector<std::vector<int>>> tagger_counter(looper_detector_timesize, std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW));
-  std::vector<std::vector<std::vector<int>>> looper_tagged_region(looper_detector_timesize, std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW)); // accumulates all the regions that should be tagged: looper_tagged_region[time_slice][row] = (pad_low, pad_high)
+  std::vector<std::vector<std::vector<int>>> looper_tagged_region(max_time[sector], std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW)); // accumulates all the regions that should be tagged: looper_tagged_region[time_slice][row] = (pad_low, pad_high)
   std::vector<std::vector<std::vector<std::vector<int>>>> sorted_idx(looper_detector_timesize, std::vector<std::vector<std::vector<int>>>(o2::tpc::constants::MAXGLOBALPADROW));
 
   int operation_mode = 0;
