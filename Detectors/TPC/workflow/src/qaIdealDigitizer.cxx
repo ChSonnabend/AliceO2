@@ -64,7 +64,7 @@ class qaIdeal : public Task
   void read_digits(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
   void read_ideal(int, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<std::array<float, 2>>&, std::vector<float>&, std::vector<std::array<int, 3>>&);
   void read_native(int, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 7>>&, std::vector<float>&);
-  void write_custom_native(std::string, std::vector<std::array<float, 11>>&);
+  void write_custom_native(ProcessingContext&, std::vector<std::array<float, 11>>&);
   void read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>&);
   void read_network(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
 
@@ -195,26 +195,20 @@ class qaIdeal : public Task
   std::vector<int> hasElementAppearedMoreThanNTimesInVectors(const std::vector<std::vector<int>>& index_vector, const std::vector<std::array<int, 3>>& assignment_vector, int n)
   {
     std::unordered_map<int, int> elementCount;
-    // int element_found = -1;
-    std::vector<int> return_idcs;
+    std::vector<int> return_labels;
+    int vector_resize;
     for (const std::vector<int>& vec : index_vector) {
       for (int element : vec) {
         elementCount[assignment_vector[element][0]]++;
-        // if (elementCount[assignment_vector[element][0]] >= n) {
-        //   element_found = assignment_vector[element][0];
-        //   break;
-        // }
-      }
-      // if(element_found != -1) break;
-    }
-    for (const std::vector<int>& vec : index_vector) {
-      for (int element : vec) {
-        if (elementCount[assignment_vector[element][0]] >= n) {
-          return_idcs.push_back(element);
-        }
       }
     }
-    return return_idcs;
+    for (auto elem : elementCount) {
+      if (elem.second >= n) {
+        return_labels.push_back(elem.first);
+      }
+    }
+
+    return return_labels;
   }
 
   std::vector<int> elementsAppearedMoreThanNTimesInVectors(const std::vector<std::vector<int>>& index_vector, const std::vector<std::array<int, 3>>& assignment_vector, int n)
@@ -583,7 +577,7 @@ void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map
 }
 
 // ---------------------------------
-void qaIdeal::write_custom_native(std::string filename, std::vector<std::array<float, 11>>& assigned_clusters)
+void qaIdeal::write_custom_native(ProcessingContext& pc, std::vector<std::array<float, 11>>& assigned_clusters)
 {
   // assigned clusters contains {sector, row, pad, time, sigma_pad, sigma_time, qMax, qTot, trackID, sourceID, eventID}
 
@@ -592,8 +586,8 @@ void qaIdeal::write_custom_native(std::string filename, std::vector<std::array<f
 
   // New
 
-  TFile* writerFile = new TFile(filename.c_str(), "RECREATE");
-  TTree* writerTree = new TTree("tpcrec", "tree");
+  // TFile* writerFile = new TFile(filename.c_str(), "RECREATE");
+  // TTree* writerTree = new TTree("tpcrec", "tree");
 
   // Build cluster native access
   ClusterNativeAccess clusterIndex;
@@ -648,19 +642,43 @@ void qaIdeal::write_custom_native(std::string filename, std::vector<std::array<f
   }
   clusterIndex.setOffsetPtrs();
 
+  // Clusters are shipped by sector, we are copying into per-sector buffers (anyway only for ROOT output)
+  o2::tpc::TPCSectorHeader clusterOutputSectorHeader{0};
+  // setOutputAllocator("CLUSTERNATIVE", mClusterOutputIds.size() > 0, outputRegions.clustersNative, std::make_tuple(gDataOriginTPC, mSpecConfig.sendClustersPerSector ? (DataDescription) "CLUSTERNATIVETMP" : (DataDescription) "CLUSTERNATIVE", NSectors, clusterOutputSectorHeader), sizeof(o2::tpc::ClusterCountIndex));
+  for (unsigned int i = 0; i < o2::tpc::constants::MAXSECTOR; i++) {
+    unsigned int subspec = i;
+    clusterOutputSectorHeader.sectorBits = (1ul << i);
+    char* buffer = pc.outputs().make<char>({o2::header::gDataOriginTPC, "CLUSTERNATIVE", subspec, {clusterOutputSectorHeader}}, clusterIndex.nClustersSector[i] * sizeof(*clusterIndex.clustersLinear) + sizeof(o2::tpc::ClusterCountIndex)).data();
+    o2::tpc::ClusterCountIndex* outIndex = reinterpret_cast<o2::tpc::ClusterCountIndex*>(buffer);
+    memset(outIndex, 0, sizeof(*outIndex));
+    for (int j = 0; j < o2::tpc::constants::MAXGLOBALPADROW; j++) {
+      outIndex->nClusters[i][j] = clusterIndex.nClusters[i][j];
+    }
+    memcpy(buffer + sizeof(*outIndex), clusterIndex.clusters[i][0], clusterIndex.nClustersSector[i] * sizeof(*clusterIndex.clustersLinear));
+    o2::dataformats::MCTruthContainer<o2::MCCompLabel> cont;
+    for (unsigned int j = 0; j < clusterIndex.nClustersSector[i]; j++) {
+      const auto& labels = clusterIndex.clustersMCTruth->getLabels(clusterIndex.clusterOffset[i][0] + j);
+      for (const auto& label : labels) {
+        cont.addElement(j, label);
+      }
+    }
+    o2::dataformats::ConstMCLabelContainer contflat;
+    cont.flatten_to(contflat);
+    pc.outputs().snapshot({o2::header::gDataOriginTPC, "CLNATIVEMCLBL", subspec, {clusterOutputSectorHeader}}, contflat);
+  }
+
   // writerTree->Branch("TPCClusterNativeSize", &total_clusters);
   // writerTree->Branch("TPCClusterNative", &buffer);
   // writerTree->Branch("TPCClusterNativeMCTruth", &tmp_container);
   // writerTree->Fill();
   // writerTree->Write();
 
-  writerTree->Branch("TPCClusterNativeSize", &total_clusters);
-  writerTree->Branch("TPCClusterNative", "std::vector<char>", &buffer);
-  writerTree->Branch("TPCClusterNativeMCTruth", "o2::dataformats::IOMCTruthContainerView", &tmp_container);
-  writerTree->Fill();
-  writerTree->Write();
-
-  writerFile->Close();
+  // writerTree->Branch("TPCClusterNativeSize", &total_clusters);
+  // writerTree->Branch("TPCClusterNative", "std::vector<char>", &buffer);
+  // writerTree->Branch("TPCClusterNativeMCTruth", "o2::dataformats::IOMCTruthContainerView", &tmp_container);
+  // writerTree->Fill();
+  // writerTree->Write();
+  // writerFile->Close();
 
   // tpcClusterWriter.fillFrom(clusterIndex);
   // tpcClusterWriter.close();
@@ -1192,7 +1210,7 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, in
 
   std::vector<std::vector<std::vector<float>>> tagger(looper_detector_timesize, std::vector<std::vector<float>>(o2::tpc::constants::MAXGLOBALPADROW)); // time_slice (=std::floor(time/looper_tagger_granularity[counter])), row, pad array -> looper_tagged = 1, else 0
   std::vector<std::vector<std::vector<int>>> tagger_counter(looper_detector_timesize, std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW));
-  std::vector<std::vector<std::vector<int>>> looper_tagged_region(max_time[sector], std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW)); // accumulates all the regions that should be tagged: looper_tagged_region[time_slice][row] = (pad_low, pad_high)
+  std::vector<std::vector<std::vector<int>>> looper_tagged_region(max_time[sector] + 1, std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW)); // accumulates all the regions that should be tagged: looper_tagged_region[time_slice][row] = (pad_low, pad_high)
   std::vector<std::vector<std::vector<std::vector<int>>>> sorted_idx(looper_detector_timesize, std::vector<std::vector<std::vector<int>>>(o2::tpc::constants::MAXGLOBALPADROW));
 
   int operation_mode = 0;
@@ -1203,8 +1221,12 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, in
     for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
       tagger[t][r].resize(TPC_GEOM[r][2] + looper_tagger_padwindow[counter]);
       tagger_counter[t][r].resize(TPC_GEOM[r][2] + looper_tagger_padwindow[counter]);
-      looper_tagged_region[t][r].resize(TPC_GEOM[r][2] + 1);
-      // indv_charges.resize(TPC_GEOM[r][2] + looper_tagger_padwindow[counter]);
+      for (int full_time = 0; full_time < looper_tagger_granularity[counter]; full_time++) {
+        if((t * looper_tagger_granularity[counter]) + full_time <= max_time[sector]){
+          looper_tagged_region[(t * looper_tagger_granularity[counter]) + full_time][r].resize(TPC_GEOM[r][2] + 1);
+        }
+      }
+      // indv_charges.resize(TPC_GEOM[r][2] + 1);
       if (operation_mode == 2) {
         sorted_idx[t][r].resize(TPC_GEOM[r][2] + looper_tagger_padwindow[counter]);
       }
@@ -1222,7 +1244,7 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, in
     pad = std::round(index_map[idx][1]) + pad_offset;
     time_slice = std::floor(index_map[idx][2] / (float)looper_tagger_granularity[counter]);
 
-    // tagger[time_slice][row][pad]++;
+    tagger[time_slice][row][pad]++;
     tagger_counter[time_slice][row][pad]++;
     tagger[time_slice][row][pad] += array_q[idx]; // / landau_approx((array_q[idx] - 25.f) / 17.f);
     // indv_charges[time_slice][row][pad].push_back(array_q[idx]);
@@ -1245,22 +1267,22 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, in
   bool accept = false;
   std::vector<int> elementAppearance;
   std::vector<std::vector<int>> idx_vector; // In case hashing is needed, e.g. trackID appears multiple times in different events
-  // for (int t = 0; t < (looper_detector_timesize - std::ceil(looper_tagger_timewindow[counter] / looper_tagger_granularity[counter])); t++) {
-  for (int t = 0; t < looper_detector_timesize; t++) {
+  for (int t = 0; t < (looper_detector_timesize - std::ceil(looper_tagger_timewindow[counter] / looper_tagger_granularity[counter])); t++) {
+    // for (int t = 0; t < looper_detector_timesize; t++) {
     for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
       for (int p = 0; p < TPC_GEOM[r][2] + 1; p++) {
         for (int t_acc = 0; t_acc < std::ceil(looper_tagger_timewindow[counter] / looper_tagger_granularity[counter]); t_acc++) {
           for (int padwindow = 0; padwindow < looper_tagger_padwindow[counter]; padwindow++) {
-            if ((p + padwindow <= TPC_GEOM[r][2]) && (t + t_acc < max_time[sector])) {
-              if (operation_mode == 1) {
-                num_elements += tagger_counter[t + t_acc][r][p + padwindow];
-                if (tagger_counter[t + t_acc][r][p + padwindow] > 0)
-                  avg_charge += tagger[t + t_acc][r][p + padwindow] / tagger_counter[t + t_acc][r][p + padwindow];
-              } else if (operation_mode == 2) {
-                num_elements += tagger_counter[t + t_acc][r][p + padwindow];
-                idx_vector.push_back(sorted_idx[t + t_acc][r][p + padwindow]); // only filling trackID, otherwise use std::array<int,3> and ArrayHasher for undorder map and unique association
-              }
+            // if ((p + padwindow <= TPC_GEOM[r][2]) && (t + t_acc < max_time[sector])) {
+            if (operation_mode == 1) {
+              num_elements += tagger_counter[t + t_acc][r][p + padwindow];
+              if (tagger_counter[t + t_acc][r][p + padwindow] > 0)
+                avg_charge += tagger[t + t_acc][r][p + padwindow] / tagger_counter[t + t_acc][r][p + padwindow];
+            } else if (operation_mode == 2) {
+              num_elements += tagger_counter[t + t_acc][r][p + padwindow];
+              idx_vector.push_back(sorted_idx[t + t_acc][r][p + padwindow]); // only filling trackID, otherwise use std::array<int,3> and ArrayHasher for undorder map and unique association
             }
+            // }
           }
         }
 
@@ -1286,15 +1308,21 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, in
 
         if (accept) {
           // This needs to be modified still
-          for (int idx : elementAppearance) {
-            sigma_pad = std::round(sigma_map[idx][0]);
-            sigma_time = std::round(sigma_map[idx][1]);
-            for (int excl_time = t - sigma_time; excl_time < t + sigma_time; excl_time++) {
-              for (int excl_pad = p - sigma_pad; excl_pad < p + sigma_pad; excl_pad++) {
-                if ((excl_pad < 0) || (excl_pad > TPC_GEOM[r][2]) || (excl_time < 0) || (excl_time > (max_time[sector] - 1))) {
-                  continue;
-                } else {
-                  looper_tagged_region[excl_time][r][excl_pad] = 1;
+          for (int lbl : elementAppearance) {
+            for (std::vector<int> idx_v : idx_vector) {
+              for (int idx : idx_v) {
+                if (ideal_mclabels[idx][0] == lbl) {
+                  sigma_pad = std::round(sigma_map[idx][0]);
+                  sigma_time = std::round(sigma_map[idx][1]);
+                  for (int excl_time = t * looper_tagger_granularity[counter] - sigma_time; excl_time < t * looper_tagger_granularity[counter] + sigma_time; excl_time++) {
+                    for (int excl_pad = p - sigma_pad; excl_pad < p + sigma_pad; excl_pad++) {
+                      if ((excl_pad < 0) || (excl_pad > TPC_GEOM[r][2]) || (excl_time < 0) || (excl_time > (max_time[sector]))) {
+                        continue;
+                      } else {
+                        looper_tagged_region[excl_time][r][excl_pad] = 1;
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -1453,7 +1481,8 @@ void qaIdeal::remove_loopers_digits(int sector, int counter, std::vector<std::ve
   T new_map;
 
   for (auto idx : index_array) {
-    if (looper_map[std::floor(map[idx][2] / (float)looper_tagger_granularity[counter])][std::round(map[idx][0])][std::round(map[idx][1])] == 0) {
+    // if (looper_map[std::floor(map[idx][2] / (float)looper_tagger_granularity[counter])][std::round(map[idx][0])][std::round(map[idx][1])] == 0) {
+    if (looper_map[std::round(map[idx][2])][std::round(map[idx][0])][std::round(map[idx][1])] == 0) {
       new_index_array.push_back(idx);
     }
   }
@@ -1483,7 +1512,8 @@ void qaIdeal::remove_loopers_ideal(int sector, int counter, std::vector<std::vec
   std::iota(ideal_idx_map.begin(), ideal_idx_map.end(), 0);
 
   for (int m = 0; m < ideal_idx_map.size(); m++) {
-    if (looper_map[std::floor(ideal_cog_map[m][2] / (float)looper_tagger_granularity[counter])][std::round(ideal_cog_map[m][0])][std::round(ideal_cog_map[m][1])] == 0)
+    // if (looper_map[std::floor(ideal_cog_map[m][2] / (float)looper_tagger_granularity[counter])][std::round(ideal_cog_map[m][0])][std::round(ideal_cog_map[m][1])] == 0)
+    if (looper_map[std::round(ideal_cog_map[m][2])][std::round(ideal_cog_map[m][0])][std::round(ideal_cog_map[m][1])] == 0)
       new_ideal_idx_map.push_back(m);
   }
 
@@ -1749,8 +1779,8 @@ void qaIdeal::runQa(int loop_sectors)
 
   if (mode.find(std::string("looper_tagger")) != std::string::npos) {
     for (int counter = 0; counter < looper_tagger_granularity.size(); counter++) {
-      looper_tagger_granularity[counter] = 1;
-      tagger_map.push_back(looper_tagger(loop_sectors, counter, ideal_max_map, ideal_sigma_map, ideal_max_q, ideal_idx, ideal_mclabels, looper_tagger_opmode));
+      // looper_tagger_granularity[counter] = 1;
+      tagger_map.push_back(looper_tagger(loop_sectors, counter, ideal_cog_map, ideal_sigma_map, ideal_cog_q, ideal_idx, ideal_mclabels, looper_tagger_opmode));
       // tagger_map.push_back(looper_tagger_full(loop_sectors, counter, ideal_cog_map, ideal_idx, ideal_mclabels, ideal_sigma_map));
       remove_loopers_ideal(loop_sectors, counter, tagger_map[counter], ideal_max_map, ideal_cog_map, ideal_max_q, ideal_cog_q, ideal_sigma_map, ideal_mclabels);
     }
@@ -2156,7 +2186,7 @@ void qaIdeal::runQa(int loop_sectors)
         // native_writer_map[elem][8] = native_ideal_assignemnt[elem][10];
         // native_writer_map[elem][9] = native_ideal_assignemnt[elem][11];
         // native_writer_map[elem][10] = native_ideal_assignemnt[elem][12];
-        native_writer_map.push_back({loop_sectors, nat_row, nat_pad, nat_time, nat_sigma_time, nat_sigma_pad, nat_qMax, nat_qTot, native_ideal_assignemnt[elem][10], native_ideal_assignemnt[elem][11], native_ideal_assignemnt[elem][12]});
+        native_writer_map.push_back({(float)loop_sectors, nat_row, nat_pad, nat_time, nat_sigma_time, nat_sigma_pad, nat_qMax, nat_qTot, native_ideal_assignemnt[elem][10], native_ideal_assignemnt[elem][11], native_ideal_assignemnt[elem][12]});
       }
     }
     m.unlock();
@@ -2680,16 +2710,16 @@ void qaIdeal::run(ProcessingContext& pc)
     gSystem->Exec("hadd -k -f ./network_ideal.root ./network_ideal_*.root");
   }
 
-  if(create_output == 1 && write_native_file == 1){
-    if(mode.find(std::string("network")) != std::string::npos){
-      write_custom_native("tpc-native-clusters-network.root", native_writer_map);
-      
+  if (create_output == 1 && write_native_file == 1) {
+    if (mode.find(std::string("network")) != std::string::npos) {
+      write_custom_native(pc, native_writer_map);
+
       // LOG(info) << "------- Merging tpc-native-clusters-network_*.root files -------";
       // gSystem->Exec("hadd -k -f ./tpc-native-clusters-network.root ./tpc-native-clusters-network_*.root");
       // gSystem->Exec("rm -rf ./tpc-native-clusters-network_*.root");
     }
-    if(mode.find(std::string("native")) != std::string::npos){
-      write_custom_native("tpc-native-clusters-native.root", native_writer_map);
+    if (mode.find(std::string("native")) != std::string::npos) {
+      write_custom_native(pc, native_writer_map);
       // LOG(info) << "------- Merging tpc-native-clusters-native_*.root files -------";
       // gSystem->Exec("hadd -k -f ./tpc-native-clusters-native.root ./tpc-native-clusters-native_*.root");
       // gSystem->Exec("rm -rf ./tpc-native-clusters-native_*.root");
