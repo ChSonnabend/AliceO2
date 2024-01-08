@@ -415,7 +415,7 @@ void qaIdeal::init(InitContext& ic)
   looper_tagger_threshold_q = ic.options().get<std::vector<float>>("looper-tagger-threshold-q");
   looper_tagger_opmode = ic.options().get<std::string>("looper-tagger-opmode");
   remove_individual_files = ic.options().get<int>("remove-individual-files");
-  write_native_file = ic.options().get<bool>("write-native-file");
+  write_native_file = (bool)ic.options().get<int>("write-native-file");
 
   ROOT::EnableThreadSafety();
 
@@ -1263,7 +1263,7 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, in
 
   // int unit_volume = looper_tagger_timewindow[counter] * 3;
   float avg_charge = 0;
-  int num_elements = 0, sigma_pad = 0, sigma_time = 0;
+  int num_elements = 0, sigma_pad = 0, sigma_time = 0, ideal_pad = 0, ideal_time = 0;
   bool accept = false;
   std::vector<int> elementAppearance;
   std::vector<std::vector<int>> idx_vector; // In case hashing is needed, e.g. trackID appears multiple times in different events
@@ -1312,10 +1312,12 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, in
             for (std::vector<int> idx_v : idx_vector) {
               for (int idx : idx_v) {
                 if (ideal_mclabels[idx][0] == lbl) {
+                  ideal_pad = std::round(index_map[idx][1]);
+                  ideal_time = std::round(index_map[idx][2]);
                   sigma_pad = std::round(sigma_map[idx][0]);
                   sigma_time = std::round(sigma_map[idx][1]);
-                  for (int excl_time = t * looper_tagger_granularity[counter] - sigma_time; excl_time < t * looper_tagger_granularity[counter] + sigma_time; excl_time++) {
-                    for (int excl_pad = p - sigma_pad; excl_pad < p + sigma_pad; excl_pad++) {
+                  for (int excl_time = ideal_time - sigma_time; excl_time <= ideal_time + sigma_time; excl_time++) {
+                    for (int excl_pad = ideal_pad - sigma_pad; excl_pad <= ideal_pad + sigma_pad; excl_pad++) {
                       if ((excl_pad < 0) || (excl_pad > TPC_GEOM[r][2]) || (excl_time < 0) || (excl_time > (max_time[sector]))) {
                         continue;
                       } else {
@@ -1354,13 +1356,13 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, in
     looper_tagged_tree->Branch("tagged_pad", &tagged_pad);
     looper_tagged_tree->Branch("tagged_time", &tagged_time);
 
-    for (int t = 0; t < (looper_detector_timesize - std::ceil(looper_tagger_timewindow[counter] / looper_tagger_granularity[counter])); t++) {
+    for (int t = 0; t < max_time[sector]; t++) {
       for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
         for (int p = 0; p < TPC_GEOM[r][2] + 1; p++) {
           if (looper_tagged_region[t][r][p] == 1) {
             tagged_row = r;
             tagged_pad = p;
-            tagged_time = t * looper_tagger_granularity[counter];
+            tagged_time = t;
             looper_tagged_tree->Fill();
           }
         }
@@ -2585,8 +2587,7 @@ void qaIdeal::runQa(int loop_sectors)
   assignments_id_to_dig.clear();
   fractional_clones_vector.clear();
 
-  if (verbose >= 2)
-    LOG(info) << "Done with sector " << loop_sectors << "!";
+  LOG(info) << "--- Done with sector " << loop_sectors << " ---\n";
 }
 
 // ---------------------------------
@@ -2778,7 +2779,7 @@ DataProcessorSpec processIdealClusterizer()
       {"enable-network-optimizations", VariantType::Bool, true, {"Enable ONNX network optimizations"}},
       {"network-num-threads", VariantType::Int, 1, {"Set the number of CPU threads for network execution"}},
       {"remove-individual-files", VariantType::Int, 0, {"Remove sector-individual files that are created during the task and only keep merged files"}},
-      {"write-native-file", VariantType::Bool, true, {"Whether or not to write a custom native file"}}}};
+      {"write-native-file", VariantType::Int, 0, {"Whether or not to write a custom native file"}}}};
 }
 
 WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
