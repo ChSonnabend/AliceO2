@@ -246,8 +246,6 @@ GPUd() bool TrackParametrizationWithError<value_T>::propagateToDCA(const o2::dat
   if (!tmpT.rotate(alp) || !tmpT.propagateTo(xv, b)) {
 #if !defined(GPUCA_ALIGPUCODE)
     LOG(debug) << "failed to propagate to alpha=" << alp << " X=" << xv << vtx << " | Track is: " << tmpT.asString();
-#elif !defined(GPUCA_NO_FMT)
-    LOG(debug) << "failed to propagate to alpha=" << alp << " X=" << xv << vtx;
 #endif
     return false;
   }
@@ -728,8 +726,8 @@ GPUd() auto TrackParametrizationWithError<value_T>::getPredictedChi2(const value
   value_t z = this->getZ() - p[1];
   auto chi2 = (d * (szz * d - sdz * z) + z * (sdd * z - d * sdz)) / det;
   if (chi2 < 0.) {
-    LOGP(warning, "Negative chi2={}, Cluster: {} {} {} Dy:{} Dz:{} | sdd:{} sdz:{} szz:{} det:{}", chi2, cov[0], cov[1], cov[2], d, z, sdd, sdz, szz, det);
 #ifndef GPUCA_ALIGPUCODE
+    LOGP(warning, "Negative chi2={}, Cluster: {} {} {} Dy:{} Dz:{} | sdd:{} sdz:{} szz:{} det:{}", chi2, cov[0], cov[1], cov[2], d, z, sdd, sdz, szz, det);
     LOGP(warning, "Track: {}", asString());
 #endif
   }

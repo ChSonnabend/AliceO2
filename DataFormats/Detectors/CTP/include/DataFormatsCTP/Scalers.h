@@ -33,6 +33,7 @@ struct errorCounters {
   void printStream(std::ostream& stream) const;
   uint32_t lmB = 0, l0B = 0, l1B = 0, lmA = 0, l0A = 0, l1A = 0;       // decreasing counters
   uint32_t lmBlmA = 0, lmAl0B = 0, l0Bl0A = 0, l0Al1B = 0, l1Bl1A = 0; // between levels countres
+  uint32_t lmBlmAd1 = 0, lmAl0Bd1 = 0, l0Bl0Ad1 = 0, l0Al1Bd1 = 0, l1Bl1Ad1 = 0; // between levels countres - diff =1 - just warning
   uint32_t MAXPRINT = 3;
 };
 struct CTPScalerRaw {
@@ -93,7 +94,7 @@ class CTPRunScalers
   void printFromZero(std::ostream& stream) const;
   void printClasses(std::ostream& stream) const;
   std::vector<uint32_t> getClassIndexes() const;
-  int getScalerIndexForClass(int cls) const;
+  int getScalerIndexForClass(uint32_t cls) const;
   std::vector<CTPScalerRecordO2>& getScalerRecordO2() { return mScalerRecordO2; };
   int readScalers(const std::string& rawscalers);
   int convertRawToO2();
@@ -115,7 +116,8 @@ class CTPRunScalers
   // v1
   // static constexpr uint32_t NCOUNTERS = 1070;
   // v2 - orbitid added at the end
-  static constexpr uint32_t NCOUNTERS = 1071;
+  static constexpr uint32_t NCOUNTERSv2 = 1071;
+  static constexpr uint32_t NCOUNTERS = 1085;
   static std::vector<std::string> scalerNames;
 
   void printLMBRateVsT() const; // prints LMB interaction rate vs time for debugging
@@ -150,7 +152,7 @@ class CTPRunScalers
   o2::detectors::DetID::mask_t mDetectorMask;
   std::vector<CTPScalerRecordRaw> mScalerRecordRaw;
   std::vector<CTPScalerRecordO2> mScalerRecordO2;
-  int processScalerLine(const std::string& line, int& level, int& nclasses);
+  int processScalerLine(const std::string& line, int& level, uint32_t& nclasses);
   int copyRawToO2ScalerRecord(const CTPScalerRecordRaw& rawrec, CTPScalerRecordO2& o2rec, overflows_t& classesoverflows, std::array<uint32_t, 48>& overflows);
   int updateOverflows(const CTPScalerRecordRaw& rec0, const CTPScalerRecordRaw& rec1, overflows_t& classesoverflows) const;
   int updateOverflows(const CTPScalerRaw& scal0, const CTPScalerRaw& scal1, std::array<uint32_t, 6>& overflow) const;

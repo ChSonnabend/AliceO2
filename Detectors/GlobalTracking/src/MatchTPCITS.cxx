@@ -400,7 +400,7 @@ void MatchTPCITS::addTPCSeed(const o2::track::TrackParCov& _tr, float t0, float 
   uint8_t clSect = 0, clRow = 0;
   uint32_t clIdx = 0;
   tpcOrig.getClusterReference(mTPCTrackClusIdx, tpcOrig.getNClusterReferences() - 1, clSect, clRow, clIdx);
-  if (clRow > mParams->askMinTPCRow) {
+  if (clRow > mParams->askMinTPCRow[clSect]) {
     return;
   }
   // create working copy of track param
@@ -1332,8 +1332,8 @@ bool MatchTPCITS::refitTrackTPCITS(int iTPC, int& iITS, pmr::vector<o2::dataform
   const auto& itsTrOrig = mITSTracksArray[tITS.sourceID];
   auto& trfit = matchedTracks.emplace_back(tTPC, tITS); // create a copy of TPC track at xRef
   trfit.getParamOut().setUserField(0);                  // reset eventual clones flag
-  trfit.setPID(tTPC.getPID());
-  trfit.getParamOut().setPID(tTPC.getPID());
+  trfit.setPID(tTPC.getPID(), true);
+  trfit.getParamOut().setPID(tTPC.getPID(), true);
   // in continuos mode the Z of TPC track is meaningless, unless it is CE crossing
   // track (currently absent, TODO)
   if (!mCompareTracksDZ) {

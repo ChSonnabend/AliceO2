@@ -160,6 +160,7 @@ void TrackInterpolation::prepareInputTrackSample(const o2::globaltracking::RecoC
       int idMin = vtref.getFirstEntryOfSource(is), idMax = idMin + vtref.getEntriesOfSource(is);
       for (int i = idMin; i < idMax; i++) {
         auto vid = trackIndex[i];
+        auto vidOrig = vid; // in case only ITS-TPC tracks are configured vid might be overwritten. We need to remember it for the PID
         if (mParams->ignoreNonPVContrib && !vid.isPVContributor()) {
           continue;
         }
@@ -183,6 +184,7 @@ void TrackInterpolation::prepareInputTrackSample(const o2::globaltracking::RecoC
           continue;
         }
         mSeeds.push_back(mRecoCont->getITSTrack(gidTable[GTrackID::ITS]).getParamOut());
+        mSeeds.back().setPID(mRecoCont->getTrackParam(vidOrig).getPID(), true);
         mGIDs.push_back(vid);
         mGIDtables.push_back(gidTable);
         mTrackTimes.push_back(pv.getTimeStamp().getTimeStamp());
@@ -575,7 +577,7 @@ void TrackInterpolation::extrapolateTrack(int iSeed)
   auto propagator = o2::base::Propagator::Instance();
   unsigned short rowPrev = 0; // used to calculate dRow of two consecutive cluster residuals
   unsigned short nMeasurements = 0;
-  uint8_t clRowPrev = -1; // used to identify and skip split clusters on the same pad row
+  uint8_t clRowPrev = constants::MAXGLOBALPADROW; // used to identify and skip split clusters on the same pad row
   for (int iCl = trkTPC.getNClusterReferences(); iCl--;) {
     uint8_t sector, row;
     uint32_t clusterIndexInRow;
@@ -583,6 +585,11 @@ void TrackInterpolation::extrapolateTrack(int iSeed)
     if (clRowPrev == row) {
       // if there are split clusters we only take the first one on the pad row
       continue;
+    } else if (clRowPrev < constants::MAXGLOBALPADROW && clRowPrev > row) {
+      // we seem to be looping, abort this track
+      LOGP(debug, "TPC track with pT={} GeV and {} clusters has cluster {} on row {} while the previous cluster was on row {}",
+           mSeeds[iSeed].getPt(), trkTPC.getNClusterReferences(), iCl, row, clRowPrev);
+      return;
     } else {
       // this is the first cluster we see on this pad row
       clRowPrev = row;
@@ -618,6 +625,10 @@ void TrackInterpolation::extrapolateTrack(int iSeed)
   }
 
   TrackParams params; // for refitted track parameters and flagging rejected clusters
+  if (clusterResiduals.size() > constants::MAXGLOBALPADROW) {
+    LOGP(warn, "Extrapolated ITS-TPC track and found more reesiduals than possible ({})", clusterResiduals.size());
+    return;
+  }
   if (mParams->skipOutlierFiltering || validateTrack(trackData, params, clusterResiduals)) {
     // track is good
     int nClValidated = 0;
