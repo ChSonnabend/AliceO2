@@ -829,7 +829,7 @@ void qaIdeal::read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>
     }
   }
 
-  LOG(info) << "Done reading kinematics, exporting to file (for python readout)";
+  // LOG(info) << "Done reading kinematics, exporting to file (for python readout)";
 }
 
 template <class T>
@@ -2472,7 +2472,6 @@ void qaIdeal::runQa(int loop_sectors)
           tr_data_Y_reg[1][max_point] = ideal_cog_map[index_assignment][1] - digit_map[stored_maxima_digits[max_point]][1]; // pad
           tr_data_Y_reg[2][max_point] = ideal_sigma_map[index_assignment][0];                                               // sigma pad
           tr_data_Y_reg[3][max_point] = ideal_sigma_map[index_assignment][1];                                               // sigma time
-          current_track = mctracks[ideal_mclabels[index_assignment][2]][ideal_mclabels[index_assignment][1]][ideal_mclabels[index_assignment][0]];
           cluster_pT[max_point] = current_track.GetPt();
           cluster_eta[max_point] = current_track.GetEta();
           cluster_mass[max_point] = current_track.GetMass();
@@ -2543,9 +2542,9 @@ void qaIdeal::runQa(int loop_sectors)
       trY_sigma_pad = tr_data_Y_reg[3][element];
       trY_q = tr_data_Y_reg[4][element];
       idx_sector = loop_sectors;
-      idx_row = digit_map[maxima_digits[element]][0];
-      idx_pad = digit_map[maxima_digits[element]][1];
-      idx_time = digit_map[maxima_digits[element]][2];
+      idx_row = digit_map[stored_maxima_digits[element]][0];
+      idx_pad = digit_map[stored_maxima_digits[element]][1];
+      idx_time = digit_map[stored_maxima_digits[element]][2];
       pT = cluster_pT[element];
       eta = cluster_eta[element];
       mass = cluster_mass[element];
