@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <unordered_map>
 #include <regex>
+#include <chrono>
+#include <thread>
 
 #include "Algorithm/RangeTokenizer.h"
 
@@ -61,17 +63,13 @@ using namespace boost;
 template <typename T>
 using BranchDefinition = o2::framework::MakeRootTreeWriterSpec::BranchDefinition<T>;
 
-// customize clusterers and cluster decoders to process immediately what comes in
-void customize(std::vector<o2::framework::CompletionPolicy>& policies) {
-  policies.push_back(o2::framework::CompletionPolicyHelpers::consumeWhenAllOrdered(".*(?:TPC|tpc).*[w,W]riter.*"));
-}
-
 class qaIdeal : public Task
 {
  public:
   template <typename T>
   int sign(T);
 
+  qaIdeal(std::unordered_map<std::string, std::string>);
   void init(InitContext&) final;
   void setGeomFromTxt(std::string, std::vector<int> = {152, 14});
   int padOffset(int);
@@ -149,12 +147,14 @@ class qaIdeal : public Task
   int normalization_mode = 1;                            // Normalization of the charge: 0 = divide by 1024; 1 = divide by central charge
   int remove_individual_files = 0;                       // Remove sector-individual files after task is done
   bool write_native_file = 1;                            // Whether or not to write a custom file with native clsuters
+  bool native_file_single_branch = 1;                    // Whether the native clusters should be written into a single branch
   std::vector<int> looper_tagger_granularity = {5};      // Granularity of looper tagger (time bins in which loopers are excluded in rectangular areas)
   std::vector<int> looper_tagger_timewindow = {20};      // Total time-window size of the looper tagger for evaluating if a region is looper or not
   std::vector<int> looper_tagger_padwindow = {3};        // Total pad-window size of the looper tagger for evaluating if a region is looper or not
   std::vector<int> looper_tagger_threshold_num = {5};    // Threshold of number of clusters over which rejection takes place
   std::vector<float> looper_tagger_threshold_q = {70.f}; // Threshold of charge-per-cluster that should be rejected
   std::string looper_tagger_opmode = "digit";            // Operational mode of the looper tagger
+  std::vector<int> tpcSectors;                           // The TPC sectors for which processing should be started
 
   std::array<int, o2::tpc::constants::MAXSECTOR> max_time, max_pad;
   std::string mode = "training_data";
@@ -486,6 +486,13 @@ bool qaIdeal::isBoundary(int row, int pad)
 }
 
 // ---------------------------------
+qaIdeal::qaIdeal(std::unordered_map<std::string, std::string> options_map){
+  write_native_file = (bool)std::stoi(options_map["write-native-file"]);
+  native_file_single_branch = (bool)std::stoi(options_map["native-file-single-branch"]);
+  tpcSectors = o2::RangeTokenizer::tokenize<int>(options_map["tpc-sectors"]);
+}
+
+// ---------------------------------
 void qaIdeal::init(InitContext& ic)
 {
   verbose = ic.options().get<int>("verbose");
@@ -514,7 +521,6 @@ void qaIdeal::init(InitContext& ic)
   looper_tagger_threshold_q = ic.options().get<std::vector<float>>("looper-tagger-threshold-q");
   looper_tagger_opmode = ic.options().get<std::string>("looper-tagger-opmode");
   remove_individual_files = ic.options().get<int>("remove-individual-files");
-  write_native_file = (bool)ic.options().get<int>("write-native-file");
 
   ROOT::EnableThreadSafety();
 
@@ -1618,19 +1624,28 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
     row_offset = rowOffset(digit_map[maxima_digits[max]][0]);
     pad_offset = padOffset(digit_map[maxima_digits[max]][0]);
     central_charges[max] = digit_q[map2d[1][digit_map[maxima_digits[max]][2] + global_shift[1]][digit_map[maxima_digits[max]][0] + row_offset + global_shift[2]][digit_map[maxima_digits[max]][1] + global_shift[0] + pad_offset]];
+    bool compromised_charge = (central_charges[max] <= 0);
+    if(compromised_charge){
+      LOG(warning) << "[" << sector << "] Central charge < 0 detected at index " << maxima_digits[max] << " = (sector: " << sector << ", row: " << digit_map[maxima_digits[max]][0] << ", pad: " << digit_map[maxima_digits[max]][1] << ", time: " << digit_map[maxima_digits[max]][2] << ") ! Continuing with input vector set to -1 everywhere...";
+    }
     for (int row = 0; row < 2 * global_shift[2] + 1; row++) {
       for (int pad = 0; pad < 2 * global_shift[0] + 1; pad++) {
         for (int time = 0; time < 2 * global_shift[1] + 1; time++) {
-          // (?) array_idx = map2d[1][digit_map[maxima_digits[max]][2] + 2 * global_shift[1] + 1 - time][digit_map[maxima_digits[max]][0]][digit_map[maxima_digits[max]][1] + pad + pad_offset];
-          array_idx = map2d[1][digit_map[maxima_digits[max]][2] + time][digit_map[maxima_digits[max]][0] + row + row_offset][digit_map[maxima_digits[max]][1] + pad + pad_offset];
-          if (array_idx > -1) {
-            if (normalization_mode == 0) {
-              input_vector[max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time] = digit_q[array_idx] / 1024.f;
-            } else if (normalization_mode == 1) {
-              input_vector[max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time] = digit_q[array_idx] / central_charges[max];
-            }
-          } else if (isBoundary(digit_map[maxima_digits[max]][0] + row + row_offset, digit_map[maxima_digits[max]][1] + pad + pad_offset)) {
+          if(compromised_charge){
             input_vector[max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time] = -1;
+          }
+          else{
+            // (?) array_idx = map2d[1][digit_map[maxima_digits[max]][2] + 2 * global_shift[1] + 1 - time][digit_map[maxima_digits[max]][0]][digit_map[maxima_digits[max]][1] + pad + pad_offset];
+            array_idx = map2d[1][digit_map[maxima_digits[max]][2] + time][digit_map[maxima_digits[max]][0] + row + row_offset][digit_map[maxima_digits[max]][1] + pad + pad_offset];
+            if (array_idx > -1) {
+              if (normalization_mode == 0) {
+                input_vector[max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time] = digit_q[array_idx] / 1024.f;
+              } else if (normalization_mode == 1) {
+                input_vector[max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time] = digit_q[array_idx] / central_charges[max];
+              }
+            } else if (isBoundary(digit_map[maxima_digits[max]][0] + row + row_offset, digit_map[maxima_digits[max]][1] + pad + pad_offset)) {
+              input_vector[max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time] = -1;
+            }
           }
         }
       }
@@ -1661,11 +1676,11 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
           if (max + 1 == maxima_digits.size() && idx > (max % networkInputSize))
             break;
           else {
-            output_network_class[int((max + 1) - networkInputSize) + idx] = out_net[idx];
+            output_network_class[int(max / networkInputSize) * networkInputSize  + idx] = out_net[idx];
             if (out_net[idx] > networkClassThres) {
               network_reg_size++;
             } else {
-              new_max_dig[int((max + 1) - networkInputSize) + idx] = -1;
+              new_max_dig[int(max / networkInputSize) * networkInputSize  + idx] = -1;
             }
           }
         }
@@ -1674,23 +1689,25 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
         break;
       }
     }
+
     maxima_digits.clear();
     network_map.clear();
     index_pass.clear();
+    index_pass.resize(network_reg_size);
     maxima_digits.resize(network_reg_size);
     network_map.resize(network_reg_size);
 
     for (int max = 0; max < new_max_dig.size(); max++) {
       if (new_max_dig[max] > -1) {
         maxima_digits[counter_max_dig] = new_max_dig[max];
-        index_pass.push_back(max);
-        network_map[max][0] = digit_map[new_max_dig[max]][0];
-        network_map[max][1] = digit_map[new_max_dig[max]][1];
-        network_map[max][2] = digit_map[new_max_dig[max]][2];
-        network_map[max][3] = 1;
-        network_map[max][4] = 1;
-        network_map[max][5] = digit_q[new_max_dig[max]];
-        network_map[max][6] = digit_q[new_max_dig[max]];
+        index_pass[counter_max_dig] = max;
+        network_map[counter_max_dig][0] = digit_map[new_max_dig[max]][0];
+        network_map[counter_max_dig][1] = digit_map[new_max_dig[max]][1];
+        network_map[counter_max_dig][2] = digit_map[new_max_dig[max]][2];
+        network_map[counter_max_dig][3] = 1;
+        network_map[counter_max_dig][4] = 1;
+        network_map[counter_max_dig][5] = digit_q[new_max_dig[max]];
+        network_map[counter_max_dig][6] = digit_q[new_max_dig[max]];
         counter_max_dig++;
       }
     }
@@ -2599,17 +2616,16 @@ void qaIdeal::run(ProcessingContext& pc)
   fill_nested_container(assignments_digit_findable, 0);
 
   numThreads = std::min(numThreads, 36);
-
   thread_group group;
   if (numThreads > 1) {
-    for (int loop_sectors = 0; loop_sectors < o2::tpc::constants::MAXSECTOR; loop_sectors++) {
+    for (int loop_sectors : tpcSectors) {
       group.create_thread(boost::bind(&qaIdeal::runQa, this, loop_sectors));
       if ((loop_sectors + 1) % numThreads == 0 || loop_sectors + 1 == o2::tpc::constants::MAXSECTOR) {
         group.join_all();
       }
     }
   } else {
-    for (int loop_sectors = 0; loop_sectors < o2::tpc::constants::MAXSECTOR; loop_sectors++) {
+    for (int loop_sectors : tpcSectors) {
       runQa(loop_sectors);
     }
   }
@@ -2697,6 +2713,7 @@ void qaIdeal::run(ProcessingContext& pc)
   }
 
   if (create_output == 1 && write_native_file == 1) {
+
     if (mode.find(std::string("network")) != std::string::npos) {
       write_custom_native(pc, native_writer_map);
 
@@ -2724,31 +2741,53 @@ void qaIdeal::run(ProcessingContext& pc)
   pc.services().get<ControlService>().readyToQuit(QuitRequest::Me);
 }
 
+
+// ----- Input and output processors -----
+
+// customize clusterers and cluster decoders to process immediately what comes in
+void customize(std::vector<o2::framework::CompletionPolicy>& policies) {
+  policies.push_back(o2::framework::CompletionPolicyHelpers::consumeWhenAllOrdered(".*(?:TPC|tpc).*[w,W]riter.*"));
+}
+
+void customize(std::vector<o2::framework::ConfigParamSpec>& workflowOptions)
+{
+  std::vector<ConfigParamSpec> options{
+    {"tpc-sectors", VariantType::String, "0-35", {"TPC sector range, e.g. 5-7,8,9"}},
+    {"write-native-file", VariantType::Int, 0, {"Whether or not to write a custom native file"}},
+    {"native-file-single-branch", VariantType::Int, 1, {"Whether or not to write a single branch in the custom native file"}}
+  };
+  std::swap(workflowOptions, options);
+}
+
 // ---------------------------------
 #include "Framework/runDataProcessing.h"
 
-DataProcessorSpec processIdealClusterizer()
+DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector<InputSpec>& inputs, std::vector<OutputSpec>& outputs)
 {
-  std::vector<InputSpec> inputs;
-  std::vector<OutputSpec> outputs;
 
-  static o2::framework::Output gDispatchTrigger{"", ""};
-  gDispatchTrigger = o2::framework::Output{"TPC", "CLUSTERNATIVE"};
+  // A copy of the global workflow options from customize() to pass to the task
+  std::unordered_map<std::string, std::string> options_map{
+    {"tpc-sectors" , cfgc.options().get<std::string>("tpc-sectors")},
+    {"write-native-file" , cfgc.options().get<std::string>("write-native-file")},
+    {"native-file-single-branch" , cfgc.options().get<std::string>("native-file-single-branch")},
+  };
 
-  for (int i = 0; i < o2::tpc::constants::MAXSECTOR; i++) {
-    outputs.emplace_back(o2::header::gDataOriginTPC, "CLUSTERNATIVE", i, Lifetime::Timeframe); // Dropping incomplete Lifetime::Transient?
-    outputs.emplace_back(o2::header::gDataOriginTPC, "CLNATIVEMCLBL", i, Lifetime::Timeframe); // Dropping incomplete Lifetime::Transient?
+  if(cfgc.options().get<int>("write-native-file")){
+    for (int i = 0; i < o2::tpc::constants::MAXSECTOR; i++) {
+      outputs.emplace_back(o2::header::gDataOriginTPC, "CLUSTERNATIVE", i, Lifetime::Timeframe); // Dropping incomplete Lifetime::Transient?
+      outputs.emplace_back(o2::header::gDataOriginTPC, "CLNATIVEMCLBL", i, Lifetime::Timeframe); // Dropping incomplete Lifetime::Transient?
+    }
   }
 
   return DataProcessorSpec{
     "tpc-qa-ideal",
     inputs,
     outputs,
-    adaptFromTask<qaIdeal>(),
+    adaptFromTask<qaIdeal>(options_map),
     Options{
       {"verbose", VariantType::Int, 0, {"Verbosity level"}},
       {"mode", VariantType::String, "training_data", {"Enables different settings (e.g. creation of training data for NN, running with tpc-native clusters). Options are: training_data, native, network_classification, network_regression, network_full, clusterizer"}},
-      {"normalization-mode", VariantType::Int, 1, {"Normalization: 0 = normalization by 1024.f; 1 = normalization by q_center "}},
+      {"normalization-mode", VariantType::Int, 1, {"Normalization: 0 = normalization by 1024.f; 1 = normalization by q_center"}},
       {"create-output", VariantType::Int, 1, {"Create output, specific to any given mode."}},
       {"use-max-cog", VariantType::Int, 1, {"Use maxima for assignment = 0, use CoG's = 1"}},
       {"size-pad", VariantType::Int, 11, {"Training data selection size: Images are (size-pad, size-time, size-row)."}},
@@ -2772,8 +2811,8 @@ DataProcessorSpec processIdealClusterizer()
       {"enable-network-optimizations", VariantType::Bool, true, {"Enable ONNX network optimizations"}},
       {"network-num-threads", VariantType::Int, 1, {"Set the number of CPU threads for network execution"}},
       {"remove-individual-files", VariantType::Int, 0, {"Remove sector-individual files that are created during the task and only keep merged files"}},
-      {"write-native-file", VariantType::Int, 0, {"Whether or not to write a custom native file"}},
-      {"native-file-single-branch", VariantType::Int, 1, {"Whether or not to write a single branch in the custom native file"}}}};
+    }
+  };
 }
 
 WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
@@ -2781,14 +2820,19 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
 
   WorkflowSpec specs;
 
+  static o2::framework::Output gDispatchTrigger{"", ""};
+  static std::vector<InputSpec> inputs;
+  static std::vector<OutputSpec> outputs;
+  
+  gDispatchTrigger = o2::framework::Output{"TPC", "CLUSTERNATIVE"};
+
   // --- Functions writing to the WorkflowSpec ---
 
   // QA task
-  specs.push_back(processIdealClusterizer());
+  specs.push_back(processIdealClusterizer(cfgc, inputs, outputs));
 
   // Native writer
-  std::vector<int> tpcSectors(o2::tpc::constants::MAXSECTOR);
-  std::iota(tpcSectors.begin(), tpcSectors.end(), 0);
+  std::vector<int> tpcSectors = o2::RangeTokenizer::tokenize<int>(cfgc.options().get<std::string>("tpc-sectors"));
   std::vector<int> laneConfiguration = tpcSectors;
 
   auto getIndex = [tpcSectors](o2::framework::DataRef const& ref) {
