@@ -13,6 +13,14 @@ o2_add_dpl_workflow(dummy-workflow
                   SOURCES src/o2DummyWorkflow.cxx
                   COMPONENT_NAME TestWorkflows)
 
+o2_add_dpl_workflow(detect-missing-timeframe
+                  SOURCES test/test_DetectMissingTimeframe.cxx
+                  COMPONENT_NAME TestWorkflows)
+
+o2_add_dpl_workflow(wait-until-possible
+                  SOURCES test/test_WaitUntilPossible.cxx
+                  COMPONENT_NAME TestWorkflows)
+
 o2_add_dpl_workflow(o2rootmessage-workflow
                   SOURCES "src/test_o2RootMessageWorkflow.cxx"
                   COMPONENT_NAME TestWorkflows)

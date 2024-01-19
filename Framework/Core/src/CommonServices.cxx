@@ -57,6 +57,7 @@
 #include <Configuration/ConfigurationInterface.h>
 #include <Configuration/ConfigurationFactory.h>
 #include <Monitoring/MonitoringFactory.h>
+#include "Framework/Signpost.h"
 
 #include <fairmq/Device.h>
 #include <fairmq/shmem/Monitor.h>
@@ -78,6 +79,9 @@ using Value = o2::monitoring::tags::Value;
 // This is to allow C++20 aggregate initialisation
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
+
+O2_DECLARE_DYNAMIC_LOG(data_processor_context);
+O2_DECLARE_DYNAMIC_LOG(stream_context);
 
 namespace o2::framework
 {
@@ -162,6 +166,55 @@ o2::framework::ServiceSpec CommonServices::streamContextSpec()
     .uniqueId = simpleServiceId<StreamContext>(),
     .init = simpleServiceInit<StreamContext, StreamContext, ServiceKind::Stream>(),
     .configure = noConfiguration(),
+    .preProcessing = [](ProcessingContext& context, void* service) {
+      auto* stream = (StreamContext*)service;
+      auto& routes = context.services().get<DeviceSpec const>().outputs;
+      // Notice I need to do this here, because different invocation for
+      // the same stream might be referring to different data processors.
+      // We should probably have a context which is per stream of a specific
+      // data processor.
+      stream->routeUserCreated.resize(routes.size());
+      // Reset the routeUserCreated at every processing step
+      std::fill(stream->routeUserCreated.begin(), stream->routeUserCreated.end(), false); },
+    .postProcessing = [](ProcessingContext& processingContext, void* service) {
+      auto* stream = (StreamContext*)service;
+      auto& routes = processingContext.services().get<DeviceSpec const>().outputs;
+      auto& timeslice = processingContext.services().get<TimingInfo>().timeslice;
+      auto& messageContext = processingContext.services().get<MessageContext>();
+      // Check if we never created any data for this timeslice
+      // if we did not, but we still have didDispatched set to true
+      // it means it was created out of band.
+      bool didCreate = false;
+      for (size_t ri = 0; ri < routes.size(); ++ri) {
+        if (stream->routeUserCreated[ri] == true) {
+          didCreate = true;
+          break;
+        }
+      }
+      if (didCreate == false && messageContext.didDispatch() == true) {
+        O2_SIGNPOST_ID_FROM_POINTER(cid, stream_context, service);
+        O2_SIGNPOST_EVENT_EMIT(stream_context, cid, "postProcessingCallbacks", "Data created out of band");
+        LOGP(debug, "Data created out of band");
+        return;
+      }
+      if (didCreate == false && messageContext.didDispatch() == false) {
+        O2_SIGNPOST_ID_FROM_POINTER(cid, stream_context, service);
+        O2_SIGNPOST_EVENT_EMIT(stream_context, cid, "postProcessingCallbacks", "No data created");
+        return;
+      }
+      for (size_t ri = 0; ri < routes.size(); ++ri) {
+        if (stream->routeUserCreated[ri] == true) {
+          continue;
+        }
+        auto &route = routes[ri];
+        auto &matcher = route.matcher;
+        if ((timeslice % route.maxTimeslices) != route.timeslice) {
+          continue;
+        }
+        if (matcher.lifetime == Lifetime::Timeframe) {
+          LOGP(error, "Expected Lifetime::Timeframe data {} was not created for timeslice {} and might result in dropped timeframes", DataSpecUtils::describe(matcher), timeslice);
+        }
+      } },
     .kind = ServiceKind::Stream};
 }
 
@@ -416,7 +469,9 @@ o2::framework::ServiceSpec CommonServices::ccdbSupportSpec()
       // For any output that is a FLP/DISTSUBTIMEFRAME with subspec != 0,
       // we create a new message.
       InputSpec matcher{"matcher", ConcreteDataTypeMatcher{"FLP", "DISTSUBTIMEFRAME"}};
-      for (auto& output : pc.services().get<DeviceSpec const>().outputs) {
+      auto& streamContext = pc.services().get<StreamContext>();
+      for (size_t oi = 0; oi < pc.services().get<DeviceSpec const>().outputs.size(); ++oi) {
+        OutputRoute const& output = pc.services().get<DeviceSpec const>().outputs[oi];
         if ((output.timeslice % output.maxTimeslices) != 0) {
           continue;
         }
@@ -429,6 +484,9 @@ o2::framework::ServiceSpec CommonServices::ccdbSupportSpec()
           stfDist.id = timingInfo.timeslice;
           stfDist.firstOrbit = timingInfo.firstTForbit;
           stfDist.runNumber = timingInfo.runNumber;
+          // We mark it as not created, because we do should not account for it when
+          // checking if we created all the data for a timeslice.
+          streamContext.routeUserCreated[oi] = false;
         }
       } },
     .kind = ServiceKind::Global};
