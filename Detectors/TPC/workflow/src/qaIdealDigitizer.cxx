@@ -745,6 +745,17 @@ void qaIdeal::write_custom_native(ProcessingContext& pc, std::vector<std::array<
       outIndex->nClusters[i][j] = clusterIndex.nClusters[i][j];
     }
     memcpy(buffer + sizeof(*outIndex), clusterIndex.clusters[i][0], clusterIndex.nClustersSector[i] * sizeof(*clusterIndex.clustersLinear));
+  
+    o2::dataformats::MCLabelContainer cont;
+    for (unsigned int j = 0; j < clusterIndex.nClustersSector[i]; j++) {
+      const auto& labels = clusterIndex.clustersMCTruth->getLabels(clusterIndex.clusterOffset[i][0] + j);
+      for (const auto& label : labels) {
+        cont.addElement(j, label);
+      }
+    }
+    o2::dataformats::ConstMCLabelContainer contflat;
+    cont.flatten_to(contflat);
+    pc.outputs().snapshot({o2::header::gDataOriginTPC, "CLNATIVEMCLBL", subspec, {clusterOutputSectorHeader}}, contflat);
   }
 
   LOG(info) << "------- Native clusters structure created -------";
@@ -2773,6 +2784,7 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
   };
 
   if(cfgc.options().get<int>("write-native-file")){
+    // setOutputAllocator("CLUSTERNATIVE", true, outputRegions.clustersNative, std::make_tuple(gDataOriginTPC, mSpecConfig.sendClustersPerSector ? (DataDescription) "CLUSTERNATIVETMP" : (DataDescription) "CLUSTERNATIVE", NSectors, clusterOutputSectorHeader), sizeof(o2::tpc::ClusterCountIndex));
     for (int i = 0; i < o2::tpc::constants::MAXSECTOR; i++) {
       outputs.emplace_back(o2::header::gDataOriginTPC, "CLUSTERNATIVE", i, Lifetime::Timeframe); // Dropping incomplete Lifetime::Transient?
       outputs.emplace_back(o2::header::gDataOriginTPC, "CLNATIVEMCLBL", i, Lifetime::Timeframe); // Dropping incomplete Lifetime::Transient?
