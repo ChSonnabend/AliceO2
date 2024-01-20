@@ -2844,86 +2844,88 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
   specs.push_back(processIdealClusterizer(cfgc, inputs, outputs));
 
   // Native writer
-  std::vector<int> tpcSectors = o2::RangeTokenizer::tokenize<int>(cfgc.options().get<std::string>("tpc-sectors"));
-  std::vector<int> laneConfiguration = tpcSectors;
+  if(cfgc.options().get<int>("write-native-file")){
+    std::vector<int> tpcSectors = o2::RangeTokenizer::tokenize<int>(cfgc.options().get<std::string>("tpc-sectors"));
+    std::vector<int> laneConfiguration = tpcSectors;
 
-  auto getIndex = [tpcSectors](o2::framework::DataRef const& ref) {
-    auto const* tpcSectorHeader = o2::framework::DataRefUtils::getHeader<o2::tpc::TPCSectorHeader*>(ref);
-    if (!tpcSectorHeader) {
-      throw std::runtime_error("TPC sector header missing in header stack");
-    }
-    if (tpcSectorHeader->sector() < 0) {
-      // special data sets, don't write
-      return ~(size_t)0;
-    }
-    size_t index = 0;
-    for (auto const& sector : tpcSectors) {
-      if (sector == tpcSectorHeader->sector()) {
-        return index;
+    auto getIndex = [tpcSectors](o2::framework::DataRef const& ref) {
+      auto const* tpcSectorHeader = o2::framework::DataRefUtils::getHeader<o2::tpc::TPCSectorHeader*>(ref);
+      if (!tpcSectorHeader) {
+        throw std::runtime_error("TPC sector header missing in header stack");
       }
-      index += 1;
-    }
-    throw std::runtime_error("sector " + std::to_string(tpcSectorHeader->sector()) + " not configured for writing");
-  };
-
-  auto getName = [tpcSectors](std::string base, size_t index) {
-    // LOG(info) << "Writer publishing for sector " << tpcSectors.at(index);
-    return base + "_" + std::to_string(tpcSectors.at(index));
-  };
-
-  auto fillLabels = [](TBranch& branch, std::vector<char> const& labelbuffer, DataRef const& /*ref*/) {
-    o2::dataformats::ConstMCTruthContainerView<o2::MCCompLabel> labels(labelbuffer);
-    o2::dataformats::IOMCTruthContainerView outputcontainer;
-    auto ptr = &outputcontainer;
-    auto br = o2::framework::RootTreeWriter::remapBranch(branch, &ptr);
-    outputcontainer.adopt(labelbuffer);
-    br->Fill();
-    br->ResetAddress();
-  };
-
-  auto makeWriterSpec = [tpcSectors, laneConfiguration, getIndex, getName, fillLabels](const char* processName,
-                                                                                       const char* defaultFileName,
-                                                                                       const char* defaultTreeName,
-                                                                                       auto&& databranch,
-                                                                                       auto&& mcbranch,
-                                                                                       bool singleBranch = false) {
-    if (tpcSectors.size() == 0) {
-      throw std::invalid_argument(std::string("writer process configuration needs list of TPC sectors"));
-    }
-
-    auto amendInput = [tpcSectors, laneConfiguration](InputSpec& input, size_t index) {
-      input.binding += std::to_string(laneConfiguration[index]);
-      DataSpecUtils::updateMatchingSubspec(input, laneConfiguration[index]);
-    };
-    auto amendBranchDef = [laneConfiguration, amendInput, tpcSectors, getIndex, getName, singleBranch](auto&& def, bool enableMC = true) {
-      if (!singleBranch) {
-        def.keys = mergeInputs(def.keys, o2::tpc::constants::MAXSECTOR, amendInput);
-        // the branch is disabled if set to 0
-        def.nofBranches = o2::tpc::constants::MAXSECTOR;
-        def.getIndex = getIndex;
-        def.getName = getName;
-        return std::move(def);
-      } else {
-        // instead of the separate sector branches only one is going to be written
-        def.nofBranches = enableMC ? 1 : 0;
+      if (tpcSectorHeader->sector() < 0) {
+        // special data sets, don't write
+        return ~(size_t)0;
       }
+      size_t index = 0;
+      for (auto const& sector : tpcSectors) {
+        if (sector == tpcSectorHeader->sector()) {
+          return index;
+        }
+        index += 1;
+      }
+      throw std::runtime_error("sector " + std::to_string(tpcSectorHeader->sector()) + " not configured for writing");
     };
 
-    return std::move(MakeRootTreeWriterSpec(processName, defaultFileName, defaultTreeName,
-                                            std::move(amendBranchDef(databranch)),
-                                            std::move(amendBranchDef(mcbranch)))());
-  };
-  // ---
+    auto getName = [tpcSectors](std::string base, size_t index) {
+      // LOG(info) << "Writer publishing for sector " << tpcSectors.at(index);
+      return base + "_" + std::to_string(tpcSectors.at(index));
+    };
 
-  specs.push_back(makeWriterSpec("tpc-custom-native-writer",
-                                 "tpc-native-clusters-custom.root",
-                                 "tpcrec",
-                                 BranchDefinition<const char*>{InputSpec{"data", ConcreteDataTypeMatcher{"TPC", o2::header::DataDescription("CLUSTERNATIVE")}},
-                                                               "TPCClusterNative",
-                                                               "databranch"},
-                                 BranchDefinition<std::vector<char>>{InputSpec{"mc", ConcreteDataTypeMatcher{"TPC", o2::header::DataDescription("CLNATIVEMCLBL")}},
-                                                                     "TPCClusterNativeMCTruth",
-                                                                     "mcbranch", fillLabels}));
+    auto fillLabels = [](TBranch& branch, std::vector<char> const& labelbuffer, DataRef const& /*ref*/) {
+      o2::dataformats::ConstMCTruthContainerView<o2::MCCompLabel> labels(labelbuffer);
+      o2::dataformats::IOMCTruthContainerView outputcontainer;
+      auto ptr = &outputcontainer;
+      auto br = o2::framework::RootTreeWriter::remapBranch(branch, &ptr);
+      outputcontainer.adopt(labelbuffer);
+      br->Fill();
+      br->ResetAddress();
+    };
+
+    auto makeWriterSpec = [tpcSectors, laneConfiguration, getIndex, getName, fillLabels](const char* processName,
+                                                                                        const char* defaultFileName,
+                                                                                        const char* defaultTreeName,
+                                                                                        auto&& databranch,
+                                                                                        auto&& mcbranch,
+                                                                                        bool singleBranch = false) {
+      if (tpcSectors.size() == 0) {
+        throw std::invalid_argument(std::string("writer process configuration needs list of TPC sectors"));
+      }
+
+      auto amendInput = [tpcSectors, laneConfiguration](InputSpec& input, size_t index) {
+        input.binding += std::to_string(laneConfiguration[index]);
+        DataSpecUtils::updateMatchingSubspec(input, laneConfiguration[index]);
+      };
+      auto amendBranchDef = [laneConfiguration, amendInput, tpcSectors, getIndex, getName, singleBranch](auto&& def, bool enableMC = true) {
+        if (!singleBranch) {
+          def.keys = mergeInputs(def.keys, o2::tpc::constants::MAXSECTOR, amendInput);
+          // the branch is disabled if set to 0
+          def.nofBranches = o2::tpc::constants::MAXSECTOR;
+          def.getIndex = getIndex;
+          def.getName = getName;
+          return std::move(def);
+        } else {
+          // instead of the separate sector branches only one is going to be written
+          def.nofBranches = enableMC ? 1 : 0;
+        }
+      };
+
+      return std::move(MakeRootTreeWriterSpec(processName, defaultFileName, defaultTreeName,
+                                              std::move(amendBranchDef(databranch)),
+                                              std::move(amendBranchDef(mcbranch)))());
+    };
+    // ---
+
+    specs.push_back(makeWriterSpec("tpc-custom-native-writer",
+                                  "tpc-native-clusters-custom.root",
+                                  "tpcrec",
+                                  BranchDefinition<const char*>{InputSpec{"data", ConcreteDataTypeMatcher{"TPC", o2::header::DataDescription("CLUSTERNATIVE")}},
+                                                                "TPCClusterNative",
+                                                                "databranch"},
+                                  BranchDefinition<std::vector<char>>{InputSpec{"mc", ConcreteDataTypeMatcher{"TPC", o2::header::DataDescription("CLNATIVEMCLBL")}},
+                                                                      "TPCClusterNativeMCTruth",
+                                                                      "mcbranch", fillLabels}));
+  };
 
   return specs;
 }
