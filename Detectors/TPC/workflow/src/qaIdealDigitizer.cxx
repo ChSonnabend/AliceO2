@@ -2382,14 +2382,13 @@ void qaIdeal::runQa(int loop_sectors)
     std::vector<std::vector<int>> digit_non_looper_assignment_labels(maxima_digits.size());
     for (int dig_max = 0; dig_max < maxima_digits.size(); dig_max++) {
       bool digit_has_assignment = false;
-      int ideal_counter = 0;
       for (int ass : assignments_id_to_dig[dig_max]) {
         if (ass != -1) {
           digit_has_assignment = true;
           bool is_tagged = false;
-          if (ideal_tagged[ideal_counter]) {
-            for (int lbl : ideal_tag_label[ideal_counter]) {
-              is_tagged |= (lbl != -1 ? (ass == lbl) : false);
+          if (ideal_tagged[ass]) {
+            for (int lbl : ideal_tag_label[ass]) {
+              is_tagged |= (lbl != -1 ? (ideal_mclabels[ass][0] == lbl) : false);
             }
           }
           if (!is_tagged) {
@@ -2397,7 +2396,6 @@ void qaIdeal::runQa(int loop_sectors)
             digit_non_looper_assignment_labels[dig_max].push_back(ass);
           }
         }
-        ideal_counter += 1;
       }
       if (digit_has_non_looper_assignments[dig_max] == -1 && digit_has_assignment) {
         digit_has_non_looper_assignments[dig_max] = 0;
@@ -2719,7 +2717,7 @@ void qaIdeal::run(ProcessingContext& pc)
   }
 
   if (mode.find(std::string("network")) != std::string::npos && create_output == 1) {
-    LOG(info) << "------- Merging native-ideal assignments -------";
+    LOG(info) << "------- Merging network-ideal assignments -------";
     gSystem->Exec("hadd -k -f ./network_ideal.root ./network_ideal_*.root");
   }
 
