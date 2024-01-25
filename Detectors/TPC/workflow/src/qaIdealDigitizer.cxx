@@ -76,12 +76,13 @@ class qaIdeal : public Task
   int rowOffset(int);
   bool isBoundary(int, int);
   bool checkIdx(int);
+
+  // Readers
   void read_digits(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
   void read_ideal(int, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<std::array<float, 2>>&, std::vector<float>&, std::vector<std::array<int, 3>>&);
   void read_native(int, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 7>>&, std::vector<float>&);
   void write_custom_native(ProcessingContext&, std::vector<std::array<float, 11>>&);
   void read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>&);
-  void read_network(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
 
   template <class T>
   T init_map2d(int);
@@ -102,13 +103,7 @@ class qaIdeal : public Task
   void native_clusterizer(T&, std::vector<std::array<int, 3>>&, std::vector<int>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<float>&);
 
   template <class T, class C>
-  std::vector<std::vector<std::vector<int>>> looper_tagger(int, int, T&, C&, std::vector<float>&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::string = "digits", int = 0);
-
-  template <class T>
-  std::vector<std::vector<std::vector<int>>> looper_tagger_full(int, int, T&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 2>>&);
-
-  template <class T>
-  int tagLabel(T&, std::vector<std::vector<std::vector<int>>>&);
+  std::vector<std::vector<std::vector<int>>> looper_tagger(int, int, T&, C&, std::vector<float>&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::string = "ideal", int = 0);
 
   template <class T>
   void remove_loopers_digits(int, int, std::vector<std::vector<std::vector<int>>>&, T&, std::vector<int>&);
@@ -171,7 +166,7 @@ class qaIdeal : public Task
   std::vector<std::vector<float>> TPC_GEOM;
   OnnxModel network_classification, network_regression;
 
-  int num_ideal_max = 0, num_digit_max = 0, num_ideal_max_findable = 0;
+  int num_total_ideal_max = 0, num_total_digit_max = 0;
   std::vector<std::vector<std::vector<o2::MCTrack>>> mctracks; // mc_track = mctracks[sourceId][eventId][trackId]
   std::array<std::array<unsigned int, 25>, o2::tpc::constants::MAXSECTOR> assignments_ideal, assignments_digit, assignments_ideal_findable, assignments_digit_findable;
   std::array<unsigned int, o2::tpc::constants::MAXSECTOR> number_of_ideal_max, number_of_digit_max, number_of_ideal_max_findable;
@@ -612,9 +607,6 @@ void qaIdeal::read_digits(int sector, std::vector<std::array<int, 3>>& digit_map
 void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map, std::vector<std::array<float, 7>>& native_map, std::vector<float>& digit_q)
 {
 
-  if (verbose >= 1)
-    LOG(info) << "[" << sector << "] Reading native clusters...";
-
   ClusterNativeHelper::Reader tpcClusterReader;
   tpcClusterReader.init(inFileNative.c_str());
 
@@ -758,63 +750,7 @@ void qaIdeal::write_custom_native(ProcessingContext& pc, std::vector<std::array<
     pc.outputs().snapshot({o2::header::gDataOriginTPC, "CLNATIVEMCLBL", subspec, {clusterOutputSectorHeader}}, contflat);
   }
 
-  LOG(info) << "------- Native clusters structure created -------";
-}
-
-// ---------------------------------
-void qaIdeal::read_network(int sector, std::vector<std::array<int, 3>>& digit_map, std::vector<float>& digit_q)
-{
-
-  //////// Deprecated ////////
-
-  if (verbose >= 1)
-    LOG(info) << "Reading network output...";
-
-  // reading in the raw digit information
-  TFile* networkFile = TFile::Open(networkDataOutput.c_str());
-  TTree* networkTree = (TTree*)networkFile->Get("data_tree");
-
-  double sec, row, pad, time, reg_pad, reg_time, reg_qRatio;
-  std::vector<int> sizes(o2::tpc::constants::MAXSECTOR, 0);
-
-  networkTree->SetBranchAddress("sector", &sec);
-  networkTree->SetBranchAddress("row", &row);
-  networkTree->SetBranchAddress("pad", &pad);
-  networkTree->SetBranchAddress("time", &time);
-  networkTree->SetBranchAddress("reg_pad", &reg_pad);
-  networkTree->SetBranchAddress("reg_time", &reg_time);
-  networkTree->SetBranchAddress("reg_qRatio", &reg_qRatio);
-
-  for (unsigned int j = 0; j < networkTree->GetEntries(); j++) {
-    try {
-      networkTree->GetEntry(j);
-      sizes[sector]++;
-      if (round(time + reg_time) > max_time[sector])
-        max_time[sector] = round(time + reg_time);
-      if (round(pad + reg_pad) > max_pad[sector])
-        max_pad[sector] = round(pad + reg_pad);
-    } catch (...) {
-      LOG(info) << "(Digitizer) Problem occured in sector " << sector;
-    }
-  }
-
-  digit_map.resize(sizes[sector]);
-  digit_q.resize(sizes[sector]);
-
-  std::fill(sizes.begin(), sizes.end(), 0);
-
-  for (unsigned int j = 0; j < networkTree->GetEntries(); j++) {
-    try {
-      networkTree->GetEntry(j);
-      digit_map[sizes[sector]] = std::array<int, 3>{(int)row, static_cast<int>(round(pad + reg_pad)), static_cast<int>(round(time + reg_time))};
-      digit_q[sizes[sector]] = 1000;
-      sizes[sector]++;
-    } catch (...) {
-      LOG(info) << "(Digitizer) Problem occured in sector " << sector;
-    }
-  }
-
-  networkFile->Close();
+  LOG(info) << "------- Native clusters structure written -------";
 }
 
 // ---------------------------------
@@ -825,8 +761,6 @@ void qaIdeal::read_ideal(int sector, std::vector<std::array<int, 3>>& ideal_max_
   float cogp, cogt, cogq, maxq, sigmap, sigmat;
   int elements = 0;
 
-  if (verbose > 0)
-    LOG(info) << "[" << sector << "] Reading ideal clusters";
   std::stringstream tmp_file;
   tmp_file << "mclabels_digitizer_" << sector << ".root";
   auto inputFile = TFile::Open(tmp_file.str().c_str());
@@ -856,8 +790,6 @@ void qaIdeal::read_ideal(int sector, std::vector<std::array<int, 3>>& ideal_max_
   ideal_cog_q.resize(digitizerSector->GetEntries());
   ideal_mclabel.resize(digitizerSector->GetEntries());
 
-  if (verbose >= 3)
-    LOG(info) << "[" << sector << "] Trying to read " << digitizerSector->GetEntries() << " ideal digits";
   for (unsigned int j = 0; j < digitizerSector->GetEntries(); j++) {
     try {
       digitizerSector->GetEntry(j);
@@ -890,8 +822,6 @@ void qaIdeal::read_ideal(int sector, std::vector<std::array<int, 3>>& ideal_max_
 // ---------------------------------
 void qaIdeal::read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>& tracks)
 {
-
-  LOG(info) << "Reading kinematics information.";
 
   o2::steer::MCKinematicsReader reader("collisioncontext.root");
 
@@ -985,10 +915,6 @@ void qaIdeal::fill_map2d(int sector, T& map2d, std::vector<std::array<int, 3>>& 
 template <class T>
 void qaIdeal::find_maxima(int sector, T& map2d, std::vector<int>& maxima_digits, std::vector<float>& digit_q)
 {
-
-  if (verbose >= 1) {
-    LOG(info) << "[" << sector << "] Finding local maxima";
-  }
 
   bool is_max = true;
   float current_charge = 0;
@@ -1441,99 +1367,6 @@ std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger(int sector, in
 
 // ---------------------------------
 template <class T>
-std::vector<std::vector<std::vector<int>>> qaIdeal::looper_tagger_full(int sector, int counter, T& index_map, std::vector<int>& index_array, std::vector<std::array<int, 3>>& ideal_mclabels, std::vector<std::array<float, 2>>& sigma_map)
-{
-
-  std::vector<std::vector<int>> sorted_idx(o2::tpc::constants::MAXGLOBALPADROW);
-  std::vector<std::vector<std::vector<int>>> tagger_map(max_time[sector]); // some safety margin for the sigma_time
-
-  for (int time = 0; time < max_time[sector]; time++) {
-    tagger_map[time].resize(o2::tpc::constants::MAXGLOBALPADROW);
-    for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++) {
-      tagger_map[time][row].resize(TPC_GEOM[row][2] + 1);
-      for (int pad = 0; pad < (TPC_GEOM[row][2] + 1); pad++) {
-        tagger_map[time][row][pad] = 0;
-      }
-    }
-  }
-
-  // Improvements:
-  // - Check the charge sigma -> Looper should have narrow sigma in charge
-  // - Check width between clusters -> Looper should have regular distance -> peak in distribution of distance
-  // - Check for gaussian distribution of charge: D'Agostino-Pearson
-
-  for (auto idx : index_array) {
-    sorted_idx[std::round(index_map[idx][0])].push_back(idx);
-  }
-
-  // int unit_volume = looper_tagger_timewindow[counter] * 3;
-  std::unordered_map<int, std::vector<int>> distinct_elements;
-  int row = 0, pad = 0, time = 0, sigma_pad = 0, sigma_time = 0;
-  std::vector<std::vector<int>> idx_vector; // In case hashing is needed, e.g. trackID appears multiple times in different events
-  for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
-    idx_vector.push_back(sorted_idx[r]); // only filling trackID, otherwise use std::array<int,3> and ArrayHasher for undorder map and unique association
-    distinct_elements = distinctElementAppearance(idx_vector, ideal_mclabels);
-    for (auto elem : distinct_elements) {
-      if (elem.second.size() > looper_tagger_threshold_num[counter]) {
-        for (int idx : elem.second) {
-          row = std::round(index_map[idx][0]);
-          pad = std::round(index_map[idx][1]);
-          time = std::round(index_map[idx][2]);
-          sigma_pad = std::round(sigma_map[idx][0]);
-          sigma_time = std::round(sigma_map[idx][1]);
-          for (int excl_time = time - sigma_time; excl_time < time + sigma_time; excl_time++) {
-            for (int excl_pad = pad - sigma_pad; excl_pad < pad + sigma_pad; excl_pad++) {
-              if ((excl_pad < 0) || (excl_pad > TPC_GEOM[row][2]) || (excl_time < 0) || (excl_time > (max_time[sector] - 1))) {
-                continue;
-              } else {
-                tagger_map[excl_time][row][excl_pad] = 1;
-              }
-            }
-          }
-        }
-      }
-    }
-    distinct_elements.clear();
-  }
-
-  if (create_output == 1) {
-    // Saving the tagged region to file
-    std::stringstream file_in;
-    file_in << "looper_tagger_" << sector << "_" << counter << ".root";
-    TFile* outputFileLooperTagged = new TFile(file_in.str().c_str(), "RECREATE");
-    TTree* looper_tagged_tree = new TTree("tagged_region", "tree");
-
-    int tagged_sector = sector, tagged_row = 0, tagged_pad = 0, tagged_time = 0;
-    looper_tagged_tree->Branch("tagged_sector", &sector);
-    looper_tagged_tree->Branch("tagged_row", &tagged_row);
-    looper_tagged_tree->Branch("tagged_pad", &tagged_pad);
-    looper_tagged_tree->Branch("tagged_time", &tagged_time);
-
-    for (int t = 0; t < max_time[sector]; t++) {
-      for (int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++) {
-        for (int p = 0; p < TPC_GEOM[r][2] + 1; p++) {
-          if (tagger_map[t][r][p] == 1) {
-            tagged_row = r;
-            tagged_pad = p;
-            tagged_time = t;
-            looper_tagged_tree->Fill();
-          }
-        }
-      }
-    }
-
-    looper_tagged_tree->Write();
-    outputFileLooperTagged->Close();
-  }
-
-  if (verbose > 2)
-    LOG(info) << "[" << sector << "] Looper tagging complete.";
-
-  return tagger_map;
-}
-
-// ---------------------------------
-template <class T>
 void qaIdeal::remove_loopers_digits(int sector, int counter, std::vector<std::vector<std::vector<int>>>& looper_map, T& map, std::vector<int>& index_array)
 {
   std::vector<int> new_index_array;
@@ -1600,17 +1433,6 @@ void qaIdeal::remove_loopers_ideal(int sector, int counter, std::vector<std::vec
   ideal_cog_q = new_ideal_cog_q;
   ideal_sigma_map = new_ideal_sigma_map;
   ideal_mclabels = new_ideal_mclabels;
-}
-
-// ---------------------------------
-template <class T>
-int qaIdeal::tagLabel(T& element, std::vector<std::vector<std::vector<int>>>& looper_map)
-{
-  if (std::is_same<T, int>::value) {
-    return looper_map[element[2]][element[0]][element[1]];
-  } else {
-    return looper_map[rint(element[2])][rint(element[0])][rint(element[1])];
-  }
 }
 
 // ---------------------------------
@@ -1801,19 +1623,8 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
 template <class T>
 void qaIdeal::overwrite_map2d(int sector, T& map2d, std::vector<std::array<int, 3>>& element_map, std::vector<int>& element_idx, int mode)
 {
-
-  // for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW + 3 * global_shift[2]; row++) {
-  //   for (int pad = 0; pad < TPC_GEOM[151][2] + 2 * global_shift[0]; pad++) {
-  //     for (int time = 0; time < (max_time[sector] + 2 * global_shift[1]); time++) {
-  //       map2d[mode][time][row][pad] = -1;
-  //     }
-  //   }
-  // }
-
   fill_nested_container(map2d[mode], -1);
   for (unsigned int id = 0; id < element_idx.size(); id++) {
-    // LOG(info) << "Seg fault: time: " << element_map[element_idx[id]][2] << ", row: " << element_map[element_idx[id]][0] << ", pad: " << element_map[element_idx[id]][1];
-    // LOG(info) << "Offset: " << padOffset(element_map[element_idx[id]][0]);
     map2d[mode][element_map[element_idx[id]][2] + global_shift[1]][element_map[element_idx[id]][0] + global_shift[2] + rowOffset(element_map[element_idx[id]][0])][element_map[element_idx[id]][1] + global_shift[0] + padOffset(element_map[element_idx[id]][0])] = id;
   }
 }
@@ -1844,13 +1655,13 @@ void qaIdeal::runQa(int loop_sectors)
 
   if (mode.find(std::string("native")) != std::string::npos) {
     read_native(loop_sectors, digit_map, native_map, digit_q);
-  } else if (mode.find(std::string("network")) != std::string::npos) {
-    read_digits(loop_sectors, digit_map, digit_q);
   } else {
     read_digits(loop_sectors, digit_map, digit_q);
   }
 
   read_ideal(loop_sectors, ideal_max_map, ideal_max_q, ideal_cog_map, ideal_sigma_map, ideal_cog_q, ideal_mclabels);
+  
+  num_total_ideal_max += ideal_max_map.size();
 
   qa_t map2d = init_map2d<qa_t>(loop_sectors);
 
@@ -1868,6 +1679,7 @@ void qaIdeal::runQa(int loop_sectors)
 
   if ((mode.find(std::string("network")) == std::string::npos) && (mode.find(std::string("native")) == std::string::npos)) {
     find_maxima<qa_t>(loop_sectors, map2d, maxima_digits, digit_q);
+    num_total_digit_max += maxima_digits.size();
     // if (mode.find(std::string("looper_tagger")) != std::string::npos) {
     //   for (int counter = 0; counter < looper_tagger_granularity.size(); counter++) {
     //     remove_loopers_digits(loop_sectors, counter, tagger_maps[counter], digit_map, maxima_digits);
@@ -1897,6 +1709,7 @@ void qaIdeal::runQa(int loop_sectors)
       }
       overwrite_map2d<qa_t>(loop_sectors, map2d, digit_map, maxima_digits, 1);
     } else {
+      num_total_digit_max += digit_q.size();
       maxima_digits.resize(digit_q.size());
       std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);
       // if (mode.find(std::string("looper_tagger")) != std::string::npos) {
@@ -2648,8 +2461,10 @@ void qaIdeal::run(ProcessingContext& pc)
   sum_nested_container(fractional_clones, fractional_clones_sum);
 
   LOG(info) << "------- RESULTS -------\n";
+  LOG(info) << "Number of digit maxima (before exclusions): " << num_total_digit_max;
+  LOG(info) << "Number of ideal maxima (before exclusions): " << num_total_ideal_max << "\n";
   LOG(info) << "Number of digit maxima: " << number_of_digit_max_sum;
-  LOG(info) << "Number of ideal maxima (total): " << number_of_ideal_max_sum;
+  LOG(info) << "Number of ideal maxima: " << number_of_ideal_max_sum;
   LOG(info) << "Number of ideal maxima (findable): " << number_of_ideal_max_findable_sum << "\n";
 
   unsigned int efficiency_normal = 0;
@@ -2776,6 +2591,7 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
 
   // A copy of the global workflow options from customize() to pass to the task
   std::unordered_map<std::string, std::string> options_map{
+    // {"mch-config", VariantType::String, "", {"JSON or INI file with parameters"}},
     {"tpc-sectors" , cfgc.options().get<std::string>("tpc-sectors")},
     {"write-native-file" , cfgc.options().get<std::string>("write-native-file")},
     {"native-file-single-branch" , cfgc.options().get<std::string>("native-file-single-branch")},
@@ -2820,7 +2636,7 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
       {"network-class-threshold", VariantType::Float, 0.5f, {"Threshold for classification network: Keep or reject maximum (default: 0.5)"}},
       {"enable-network-optimizations", VariantType::Bool, true, {"Enable ONNX network optimizations"}},
       {"network-num-threads", VariantType::Int, 1, {"Set the number of CPU threads for network execution"}},
-      {"remove-individual-files", VariantType::Int, 0, {"Remove sector-individual files that are created during the task and only keep merged files"}},
+      {"remove-individual-files", VariantType::Int, 0, {"Remove sector-individual files that are created during the task and only keep merged files"}}
     }
   };
 }
