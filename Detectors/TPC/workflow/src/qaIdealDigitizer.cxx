@@ -149,7 +149,7 @@ class qaIdeal : public Task
   std::vector<int> looper_tagger_threshold_num = {5};    // Threshold of number of clusters over which rejection takes place
   std::vector<float> looper_tagger_threshold_q = {70.f}; // Threshold of charge-per-cluster that should be rejected
   std::string looper_tagger_opmode = "digit";            // Operational mode of the looper tagger
-  std::vector<int> tpcSectors;                           // The TPC sectors for which processing should be started
+  std::vector<int> tpc_sectors;                          // The TPC sectors for which processing should be started
 
   std::array<int, o2::tpc::constants::MAXSECTOR> max_time, max_pad;
   std::string mode = "training_data";
@@ -392,7 +392,6 @@ class qaIdeal : public Task
       return {0};
     }
   }
-
 };
 
 // ---------------------------------
@@ -481,10 +480,11 @@ bool qaIdeal::isBoundary(int row, int pad)
 }
 
 // ---------------------------------
-qaIdeal::qaIdeal(std::unordered_map<std::string, std::string> options_map){
+qaIdeal::qaIdeal(std::unordered_map<std::string, std::string> options_map)
+{
   write_native_file = (bool)std::stoi(options_map["write-native-file"]);
   native_file_single_branch = (bool)std::stoi(options_map["native-file-single-branch"]);
-  tpcSectors = o2::RangeTokenizer::tokenize<int>(options_map["tpc-sectors"]);
+  tpc_sectors = o2::RangeTokenizer::tokenize<int>(options_map["tpc-sectors"]);
 }
 
 // ---------------------------------
@@ -727,7 +727,7 @@ void qaIdeal::write_custom_native(ProcessingContext& pc, std::vector<std::array<
 
   // Clusters are shipped by sector, we are copying into per-sector buffers (anyway only for ROOT output)
   o2::tpc::TPCSectorHeader clusterOutputSectorHeader{0};
-  for (unsigned int i = 0; i < o2::tpc::constants::MAXSECTOR; i++) {
+  for (unsigned int i : tpc_sectors) {
     unsigned int subspec = i;
     clusterOutputSectorHeader.sectorBits = (1ul << i);
     char* buffer = pc.outputs().make<char>({o2::header::gDataOriginTPC, "CLUSTERNATIVE", subspec, {clusterOutputSectorHeader}}, clusterIndex.nClustersSector[i] * sizeof(*clusterIndex.clustersLinear) + sizeof(o2::tpc::ClusterCountIndex)).data();
@@ -737,7 +737,7 @@ void qaIdeal::write_custom_native(ProcessingContext& pc, std::vector<std::array<
       outIndex->nClusters[i][j] = clusterIndex.nClusters[i][j];
     }
     memcpy(buffer + sizeof(*outIndex), clusterIndex.clusters[i][0], clusterIndex.nClustersSector[i] * sizeof(*clusterIndex.clustersLinear));
-  
+
     o2::dataformats::MCLabelContainer cont;
     for (unsigned int j = 0; j < clusterIndex.nClustersSector[i]; j++) {
       const auto& labels = clusterIndex.clustersMCTruth->getLabels(clusterIndex.clusterOffset[i][0] + j);
@@ -1458,16 +1458,15 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
     pad_offset = padOffset(digit_map[maxima_digits[max]][0]);
     central_charges[max] = digit_q[map2d[1][digit_map[maxima_digits[max]][2] + global_shift[1]][digit_map[maxima_digits[max]][0] + row_offset + global_shift[2]][digit_map[maxima_digits[max]][1] + global_shift[0] + pad_offset]];
     bool compromised_charge = (central_charges[max] <= 0);
-    if(compromised_charge){
+    if (compromised_charge) {
       LOG(warning) << "[" << sector << "] Central charge < 0 detected at index " << maxima_digits[max] << " = (sector: " << sector << ", row: " << digit_map[maxima_digits[max]][0] << ", pad: " << digit_map[maxima_digits[max]][1] << ", time: " << digit_map[maxima_digits[max]][2] << ") ! Continuing with input vector set to -1 everywhere...";
     }
     for (int row = 0; row < 2 * global_shift[2] + 1; row++) {
       for (int pad = 0; pad < 2 * global_shift[0] + 1; pad++) {
         for (int time = 0; time < 2 * global_shift[1] + 1; time++) {
-          if(compromised_charge){
+          if (compromised_charge) {
             input_vector[max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time] = -1;
-          }
-          else{
+          } else {
             // (?) array_idx = map2d[1][digit_map[maxima_digits[max]][2] + 2 * global_shift[1] + 1 - time][digit_map[maxima_digits[max]][0]][digit_map[maxima_digits[max]][1] + pad + pad_offset];
             array_idx = map2d[1][digit_map[maxima_digits[max]][2] + time][digit_map[maxima_digits[max]][0] + row + row_offset][digit_map[maxima_digits[max]][1] + pad + pad_offset];
             if (array_idx > -1) {
@@ -1509,11 +1508,11 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
           if (max + 1 == maxima_digits.size() && idx > (max % networkInputSize))
             break;
           else {
-            output_network_class[int(max / networkInputSize) * networkInputSize  + idx] = out_net[idx];
+            output_network_class[int(max / networkInputSize) * networkInputSize + idx] = out_net[idx];
             if (out_net[idx] > networkClassThres) {
               network_reg_size++;
             } else {
-              new_max_dig[int(max / networkInputSize) * networkInputSize  + idx] = -1;
+              new_max_dig[int(max / networkInputSize) * networkInputSize + idx] = -1;
             }
           }
         }
@@ -1660,7 +1659,7 @@ void qaIdeal::runQa(int loop_sectors)
   }
 
   read_ideal(loop_sectors, ideal_max_map, ideal_max_q, ideal_cog_map, ideal_sigma_map, ideal_cog_q, ideal_mclabels);
-  
+
   num_total_ideal_max += ideal_max_map.size();
 
   qa_t map2d = init_map2d<qa_t>(loop_sectors);
@@ -2441,14 +2440,16 @@ void qaIdeal::run(ProcessingContext& pc)
   numThreads = std::min(numThreads, 36);
   thread_group group;
   if (numThreads > 1) {
-    for (int loop_sectors : tpcSectors) {
+    int loop_counter = 0;
+    for (int loop_sectors : tpc_sectors) {
+      loop_counter++;
       group.create_thread(boost::bind(&qaIdeal::runQa, this, loop_sectors));
-      if ((loop_sectors + 1) % numThreads == 0 || loop_sectors + 1 == o2::tpc::constants::MAXSECTOR) {
+      if ((loop_sectors + 1) % numThreads == 0 || loop_sectors + 1 == o2::tpc::constants::MAXSECTOR || loop_counter == tpc_sectors.size()) {
         group.join_all();
       }
     }
   } else {
-    for (int loop_sectors : tpcSectors) {
+    for (int loop_sectors : tpc_sectors) {
       runQa(loop_sectors);
     }
   }
@@ -2566,11 +2567,11 @@ void qaIdeal::run(ProcessingContext& pc)
   pc.services().get<ControlService>().readyToQuit(QuitRequest::Me);
 }
 
-
 // ----- Input and output processors -----
 
 // customize clusterers and cluster decoders to process immediately what comes in
-void customize(std::vector<o2::framework::CompletionPolicy>& policies) {
+void customize(std::vector<o2::framework::CompletionPolicy>& policies)
+{
   policies.push_back(o2::framework::CompletionPolicyHelpers::consumeWhenAllOrdered(".*(?:TPC|tpc).*[w,W]riter.*"));
 }
 
@@ -2579,8 +2580,7 @@ void customize(std::vector<o2::framework::ConfigParamSpec>& workflowOptions)
   std::vector<ConfigParamSpec> options{
     {"tpc-sectors", VariantType::String, "0-35", {"TPC sector range, e.g. 5-7,8,9"}},
     {"write-native-file", VariantType::Int, 0, {"Whether or not to write a custom native file"}},
-    {"native-file-single-branch", VariantType::Int, 1, {"Whether or not to write a single branch in the custom native file"}}
-  };
+    {"native-file-single-branch", VariantType::Int, 1, {"Whether or not to write a single branch in the custom native file"}}};
   std::swap(workflowOptions, options);
 }
 
@@ -2593,12 +2593,12 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
   // A copy of the global workflow options from customize() to pass to the task
   std::unordered_map<std::string, std::string> options_map{
     // {"mch-config", VariantType::String, "", {"JSON or INI file with parameters"}},
-    {"tpc-sectors" , cfgc.options().get<std::string>("tpc-sectors")},
-    {"write-native-file" , cfgc.options().get<std::string>("write-native-file")},
-    {"native-file-single-branch" , cfgc.options().get<std::string>("native-file-single-branch")},
+    {"tpc-sectors", cfgc.options().get<std::string>("tpc-sectors")},
+    {"write-native-file", cfgc.options().get<std::string>("write-native-file")},
+    {"native-file-single-branch", cfgc.options().get<std::string>("native-file-single-branch")},
   };
 
-  if(cfgc.options().get<int>("write-native-file")){
+  if (cfgc.options().get<int>("write-native-file")) {
     // setOutputAllocator("CLUSTERNATIVE", true, outputRegions.clustersNative, std::make_tuple(gDataOriginTPC, mSpecConfig.sendClustersPerSector ? (DataDescription) "CLUSTERNATIVETMP" : (DataDescription) "CLUSTERNATIVE", NSectors, clusterOutputSectorHeader), sizeof(o2::tpc::ClusterCountIndex));
     for (int i = 0; i < o2::tpc::constants::MAXSECTOR; i++) {
       outputs.emplace_back(o2::header::gDataOriginTPC, "CLUSTERNATIVE", i, Lifetime::Timeframe); // Dropping incomplete Lifetime::Transient?
@@ -2637,9 +2637,7 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
       {"network-class-threshold", VariantType::Float, 0.5f, {"Threshold for classification network: Keep or reject maximum (default: 0.5)"}},
       {"enable-network-optimizations", VariantType::Bool, true, {"Enable ONNX network optimizations"}},
       {"network-num-threads", VariantType::Int, 1, {"Set the number of CPU threads for network execution"}},
-      {"remove-individual-files", VariantType::Int, 0, {"Remove sector-individual files that are created during the task and only keep merged files"}}
-    }
-  };
+      {"remove-individual-files", VariantType::Int, 0, {"Remove sector-individual files that are created during the task and only keep merged files"}}}};
 }
 
 WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
@@ -2650,7 +2648,7 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
   static o2::framework::Output gDispatchTrigger{"", ""};
   static std::vector<InputSpec> inputs;
   static std::vector<OutputSpec> outputs;
-  
+
   gDispatchTrigger = o2::framework::Output{"TPC", "CLUSTERNATIVE"};
 
   // --- Functions writing to the WorkflowSpec ---
@@ -2659,7 +2657,8 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
   specs.push_back(processIdealClusterizer(cfgc, inputs, outputs));
 
   // Native writer
-  if(cfgc.options().get<int>("write-native-file")){
+  if (cfgc.options().get<int>("write-native-file")) {
+
     std::vector<int> tpcSectors = o2::RangeTokenizer::tokenize<int>(cfgc.options().get<std::string>("tpc-sectors"));
     std::vector<int> laneConfiguration = tpcSectors;
 
@@ -2698,11 +2697,11 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
     };
 
     auto makeWriterSpec = [tpcSectors, laneConfiguration, getIndex, getName, fillLabels](const char* processName,
-                                                                                        const char* defaultFileName,
-                                                                                        const char* defaultTreeName,
-                                                                                        auto&& databranch,
-                                                                                        auto&& mcbranch,
-                                                                                        bool singleBranch = false) {
+                                                                                         const char* defaultFileName,
+                                                                                         const char* defaultTreeName,
+                                                                                         auto&& databranch,
+                                                                                         auto&& mcbranch,
+                                                                                         bool singleBranch = false) {
       if (tpcSectors.size() == 0) {
         throw std::invalid_argument(std::string("writer process configuration needs list of TPC sectors"));
       }
@@ -2713,9 +2712,9 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
       };
       auto amendBranchDef = [laneConfiguration, amendInput, tpcSectors, getIndex, getName, singleBranch](auto&& def, bool enableMC = true) {
         if (!singleBranch) {
-          def.keys = mergeInputs(def.keys, o2::tpc::constants::MAXSECTOR, amendInput);
+          def.keys = mergeInputs(def.keys, laneConfiguration.size(), amendInput);
           // the branch is disabled if set to 0
-          def.nofBranches = o2::tpc::constants::MAXSECTOR;
+          def.nofBranches = tpcSectors.size();
           def.getIndex = getIndex;
           def.getName = getName;
           return std::move(def);
@@ -2732,14 +2731,14 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
     // ---
 
     specs.push_back(makeWriterSpec("tpc-custom-native-writer",
-                                  "tpc-native-clusters-custom.root",
-                                  "tpcrec",
-                                  BranchDefinition<const char*>{InputSpec{"data", ConcreteDataTypeMatcher{"TPC", o2::header::DataDescription("CLUSTERNATIVE")}},
-                                                                "TPCClusterNative",
-                                                                "databranch"},
-                                  BranchDefinition<std::vector<char>>{InputSpec{"mc", ConcreteDataTypeMatcher{"TPC", o2::header::DataDescription("CLNATIVEMCLBL")}},
-                                                                      "TPCClusterNativeMCTruth",
-                                                                      "mcbranch", fillLabels}));
+                                   "tpc-native-clusters-custom.root",
+                                   "tpcrec",
+                                   BranchDefinition<const char*>{InputSpec{"data", ConcreteDataTypeMatcher{"TPC", o2::header::DataDescription("CLUSTERNATIVE")}},
+                                                                 "TPCClusterNative",
+                                                                 "databranch"},
+                                   BranchDefinition<std::vector<char>>{InputSpec{"mc", ConcreteDataTypeMatcher{"TPC", o2::header::DataDescription("CLNATIVEMCLBL")}},
+                                                                       "TPCClusterNativeMCTruth",
+                                                                       "mcbranch", fillLabels}));
   };
 
   return specs;
