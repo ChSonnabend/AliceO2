@@ -673,7 +673,7 @@ void qaIdeal::write_custom_native(ProcessingContext& pc, std::vector<std::array<
 
   // Build cluster native access structure
   ClusterNativeAccess clusterIndex;
-  ClusterNative cluster_native_array[assigned_clusters.size()];
+  std::vector<ClusterNative> cluster_native_array(assigned_clusters.size());
   o2::dataformats::MCTruthContainer<o2::MCCompLabel> mcLabelContainer;
   std::memset(clusterIndex.nClusters, 0, sizeof(clusterIndex.nClusters));
   int total_clusters = 0;
@@ -696,7 +696,7 @@ void qaIdeal::write_custom_native(ProcessingContext& pc, std::vector<std::array<
     clusterIndex.nClusters[(int)cls[0]][(int)cls[1]]++;
     total_clusters++;
   }
-  clusterIndex.clustersLinear = cluster_native_array;
+  clusterIndex.clustersLinear = cluster_native_array.data();
 
   std::array<std::array<std::vector<ClusterNative>, o2::tpc::constants::MAXGLOBALPADROW>, o2::tpc::constants::MAXSECTOR> tmp_clus_arr;
   std::array<std::array<int, o2::tpc::constants::MAXGLOBALPADROW>, o2::tpc::constants::MAXSECTOR> tmp_idx_counter;
@@ -756,6 +756,7 @@ void qaIdeal::write_custom_native(ProcessingContext& pc, std::vector<std::array<
   }
 
   LOG(info) << "------- Native clusters structure written -------";
+  
 }
 
 // ---------------------------------
