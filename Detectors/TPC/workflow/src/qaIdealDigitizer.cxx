@@ -1678,7 +1678,6 @@ void qaIdeal::runQa(int loop_sectors)
 
   if ((mode.find(std::string("network")) == std::string::npos) && (mode.find(std::string("native")) == std::string::npos)) {
     find_maxima<qa_t>(loop_sectors, map2d, maxima_digits, digit_q);
-    num_total_digit_max += maxima_digits.size();
     // if (mode.find(std::string("looper_tagger")) != std::string::npos) {
     //   for (int counter = 0; counter < looper_tagger_granularity.size(); counter++) {
     //     remove_loopers_digits(loop_sectors, counter, tagger_maps[counter], digit_map, maxima_digits);
@@ -1687,11 +1686,11 @@ void qaIdeal::runQa(int loop_sectors)
     if (mode.find(std::string("clusterizer")) != std::string::npos) {
       native_clusterizer(map2d, digit_map, maxima_digits, digit_q, digit_clusterizer_map, digit_clusterizer_q);
     }
+    num_total_digit_max += maxima_digits.size();
     overwrite_map2d<qa_t>(loop_sectors, map2d, digit_map, maxima_digits, 1);
   } else {
     if (mode.find(std::string("native")) == std::string::npos) {
       find_maxima<qa_t>(loop_sectors, map2d, maxima_digits, digit_q);
-      num_total_digit_max += maxima_digits.size();
       // if (mode.find(std::string("looper_tagger")) != std::string::npos) {
       //   for (int counter = 0; counter < looper_tagger_granularity.size(); counter++) {
       //     remove_loopers_digits(loop_sectors, counter, tagger_maps[counter], digit_map, maxima_digits);
@@ -1707,6 +1706,7 @@ void qaIdeal::runQa(int loop_sectors)
       } else if (mode.find(std::string("network_full")) != std::string::npos) {
         run_network<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, network_map, 2); // classification + regression
       }
+      num_total_digit_max += maxima_digits.size();
       overwrite_map2d<qa_t>(loop_sectors, map2d, digit_map, maxima_digits, 1);
     } else {
       num_total_digit_max += digit_q.size();
