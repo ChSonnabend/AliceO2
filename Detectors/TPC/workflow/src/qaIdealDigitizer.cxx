@@ -698,6 +698,29 @@ void qaIdeal::write_custom_native(ProcessingContext& pc, std::vector<std::array<
   }
   clusterIndex.clustersLinear = cluster_native_array;
 
+  std::array<std::array<std::vector<ClusterNative>, o2::tpc::constants::MAXGLOBALPADROW>, o2::tpc::constants::MAXSECTOR> tmp_clus_arr;
+  std::array<std::array<int, o2::tpc::constants::MAXGLOBALPADROW>, o2::tpc::constants::MAXSECTOR> tmp_idx_counter;
+  for (int sec = 0; sec < o2::tpc::constants::MAXSECTOR; sec++) {
+    for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++) {
+      tmp_clus_arr[sec][row].resize(clusterIndex.nClusters[sec][row]);
+      tmp_idx_counter[sec][row] = 0;
+    }
+  }
+  int cluster_counter = 0, tmp_sec = 0, tmp_row = 0;
+  for (auto cls : assigned_clusters) {
+    tmp_sec = (int)cls[0];
+    tmp_row = (int)cls[1];
+    tmp_clus_arr[tmp_sec][tmp_row][tmp_idx_counter[tmp_sec][tmp_row]] = cluster_native_array[cluster_counter];
+    tmp_idx_counter[tmp_sec][tmp_row]++;
+    cluster_counter++;
+  }
+  for (int sec = 0; sec < o2::tpc::constants::MAXSECTOR; sec++) {
+    for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++) {
+      clusterIndex.clusters[sec][row] = tmp_clus_arr[sec][row].data();
+    }
+  }
+  clusterIndex.setOffsetPtrs();
+
   // Some reshuffeling to accomodate for MCTruthContainer structure
   std::vector<char> buffer;
   mcLabelContainer.flatten_to(buffer);
@@ -706,24 +729,6 @@ void qaIdeal::write_custom_native(ProcessingContext& pc, std::vector<std::array<
   tmp_container.copyandflatten(constMcLabelContainer);
   o2::dataformats::ConstMCTruthContainerView containerView(constMcLabelContainer);
   clusterIndex.clustersMCTruth = &containerView;
-
-  int arr_counter = 0, counter = 0, cluster_counter = 0;
-  for (int sec = 0; sec < o2::tpc::constants::MAXSECTOR; sec++) {
-    for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++) {
-      ClusterNative tmp_clus_arr[clusterIndex.nClusters[sec][row]];
-      for (auto cls : assigned_clusters) {
-        if ((cls[0] == sec) && (cls[1] == row)) {
-          tmp_clus_arr[counter] = cluster_native_array[cluster_counter];
-          counter++;
-        }
-        cluster_counter++;
-      }
-      clusterIndex.clusters[sec][row] = tmp_clus_arr;
-      counter = 0;
-      cluster_counter = 0;
-    }
-  }
-  clusterIndex.setOffsetPtrs();
 
   // Clusters are shipped by sector, we are copying into per-sector buffers (anyway only for ROOT output)
   o2::tpc::TPCSectorHeader clusterOutputSectorHeader{0};
