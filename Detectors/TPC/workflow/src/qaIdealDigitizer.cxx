@@ -114,7 +114,13 @@ class qaIdeal : public Task
   void remove_loopers_ideal(int, int, std::vector<std::vector<std::vector<int>>>&, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 3>>&, std::vector<float>&, std::vector<float>&, std::vector<std::array<float, 2>>&, std::vector<std::array<int, 3>>&);
 
   template <class T>
-  void run_network(int, T&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 7>>&, int = 0);
+  std::vector<float> create_network_input(int, T&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::vector<float>&);
+
+  template <class T>
+  void run_network_classification(int, T&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 7>>&);
+
+  template <class T>
+  void run_network_regression(int, T&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 7>>&);
 
   template <class T>
   void overwrite_map2d(int, T&, std::vector<std::array<int, 3>>&, std::vector<int>&, int = 0);
@@ -354,6 +360,22 @@ class qaIdeal : public Task
       }
     } else {
       container = value;
+    }
+  };
+
+  // Helper function for resizing a nested container
+  template <typename Container>
+  void resize_nested_container(Container& container, const std::vector<size_t>& size, const double& value = 0)
+  {
+    if constexpr (is_container<Container>::value) {
+      container.resize(size[0]);
+      std::vector<size_t> nested_size(size.size()-1);
+      std::copy(size.begin()+1, size.end(), nested_size.begin());
+      for (auto& elem : container) {
+        resize_nested_container(elem, nested_size, value);
+      }
+    } else {
+      container = (decltype(container))value;
     }
   };
 
@@ -1443,25 +1465,15 @@ void qaIdeal::remove_loopers_ideal(int sector, int counter, std::vector<std::vec
 
 // ---------------------------------
 template <class T>
-void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits, std::vector<std::array<int, 3>>& digit_map, std::vector<float>& digit_q, std::vector<std::array<float, 7>>& network_map, int eval_mode)
-{
+std::vector<float> qaIdeal::create_network_input(int sector, T& map2d, std::vector<int>& maxima_digits, std::vector<std::array<int, 3>>& digit_map, std::vector<float>& digit_q){
 
-  // Loading the data
+  int index_shift_global = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), index_shift_row = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), index_shift_pad = (2 * global_shift[1] + 1);
   std::vector<float> input_vector(maxima_digits.size() * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), 0.f);
   std::vector<float> central_charges(maxima_digits.size(), 0.f);
-  std::vector<int> new_max_dig = maxima_digits, index_pass(maxima_digits.size(), 0);
-  std::iota(index_pass.begin(), index_pass.end(), 0);
-  network_map.resize(maxima_digits.size());
-
-  int index_shift_global = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), index_shift_row = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), index_shift_pad = (2 * global_shift[1] + 1), row_offset = 0, pad_offset = 0;
-
-  int network_reg_size = maxima_digits.size(), counter_max_dig = 0, array_idx;
-  std::vector<float> output_network_class(maxima_digits.size(), 0.f), output_network_reg;
-  std::vector<float> temp_input(networkInputSize * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), 0.f);
 
   for (unsigned int max = 0; max < maxima_digits.size(); max++) {
-    row_offset = rowOffset(digit_map[maxima_digits[max]][0]);
-    pad_offset = padOffset(digit_map[maxima_digits[max]][0]);
+    int row_offset = rowOffset(digit_map[maxima_digits[max]][0]);
+    int pad_offset = padOffset(digit_map[maxima_digits[max]][0]);
     central_charges[max] = digit_q[map2d[1][digit_map[maxima_digits[max]][2] + global_shift[1]][digit_map[maxima_digits[max]][0] + row_offset + global_shift[2]][digit_map[maxima_digits[max]][1] + global_shift[0] + pad_offset]];
     bool compromised_charge = (central_charges[max] <= 0);
     if (compromised_charge) {
@@ -1474,7 +1486,7 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
             input_vector[max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time] = -1;
           } else {
             // (?) array_idx = map2d[1][digit_map[maxima_digits[max]][2] + 2 * global_shift[1] + 1 - time][digit_map[maxima_digits[max]][0]][digit_map[maxima_digits[max]][1] + pad + pad_offset];
-            array_idx = map2d[1][digit_map[maxima_digits[max]][2] + time][digit_map[maxima_digits[max]][0] + row + row_offset][digit_map[maxima_digits[max]][1] + pad + pad_offset];
+            int array_idx = map2d[1][digit_map[maxima_digits[max]][2] + time][digit_map[maxima_digits[max]][0] + row + row_offset][digit_map[maxima_digits[max]][1] + pad + pad_offset];
             if (array_idx > -1) {
               if (normalization_mode == 0) {
                 input_vector[max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time] = digit_q[array_idx] / 1024.f;
@@ -1489,139 +1501,169 @@ void qaIdeal::run_network(int sector, T& map2d, std::vector<int>& maxima_digits,
       }
     }
   }
+  return input_vector;
+}
 
-  if (eval_mode == 0 || eval_mode == 2) {
+// ---------------------------------
+template <class T>
+void qaIdeal::run_network_classification(int sector, T& map2d, std::vector<int>& maxima_digits, std::vector<std::array<int, 3>>& digit_map, std::vector<float>& digit_q, std::vector<std::array<float, 7>>& network_map)
+{
 
-    network_reg_size = 0;
-    for (int max = 0; max < maxima_digits.size(); max++) {
-      for (int idx = 0; idx < index_shift_global; idx++) {
-        temp_input[(max % networkInputSize) * index_shift_global + idx] = input_vector[max * index_shift_global + idx];
+  // Loading the data
+  std::vector<int> new_max_dig = maxima_digits;
+  network_map.resize(maxima_digits.size());
+
+  int index_shift_global = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), index_shift_row = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), index_shift_pad = (2 * global_shift[1] + 1);
+  int network_class_size = maxima_digits.size(), counter_max_dig = 0, num_output_nodes = network_classification.getNumOutputNodes();
+  std::vector<std::vector<float>> output_network_class;
+  resize_nested_container(output_network_class, std::vector<size_t>{maxima_digits.size(), num_output_nodes});
+  std::vector<float> temp_input(networkInputSize * index_shift_global, 0.f);
+  std::vector<float> input_vector = create_network_input(sector, map2d, maxima_digits, digit_map, digit_q);
+
+  network_class_size = 0;
+  for (int max = 0; max < maxima_digits.size(); max++) {
+    for (int idx = 0; idx < index_shift_global; idx++) {
+      temp_input[(max % networkInputSize) * index_shift_global + idx] = input_vector[max * index_shift_global + idx];
+    }
+    /* For debugging / testing input structure
+    if (verbose >= 5 && max == 10) {
+      LOG(info) << "Size of the input vector: " << temp_input.size();
+      LOG(info) << "Example input for neural network";
+      for (int i = 0; i < 11; i++) {
+        LOG(info) << "[ " << temp_input[11 * i + 0] << " " << temp_input[11 * i + 1] << " " << temp_input[11 * i + 2] << " " << temp_input[11 * i + 3] << " " << temp_input[11 * i + 4] << " " << temp_input[11 * i + 5] << " " << temp_input[11 * i + 6] << " " << temp_input[11 * i + 7] << " " << temp_input[11 * i + 8] << " " << temp_input[11 * i + 9] << " " << temp_input[11 * i + 10] << " ]";
       }
-      /*
-      if (verbose >= 5 && max == 10) {
-        LOG(info) << "Size of the input vector: " << temp_input.size();
-        LOG(info) << "Example input for neural network";
-        for (int i = 0; i < 11; i++) {
-          LOG(info) << "[ " << temp_input[11 * i + 0] << " " << temp_input[11 * i + 1] << " " << temp_input[11 * i + 2] << " " << temp_input[11 * i + 3] << " " << temp_input[11 * i + 4] << " " << temp_input[11 * i + 5] << " " << temp_input[11 * i + 6] << " " << temp_input[11 * i + 7] << " " << temp_input[11 * i + 8] << " " << temp_input[11 * i + 9] << " " << temp_input[11 * i + 10] << " ]";
-        }
-        LOG(info) << "Example output (classification): " << network_classification.inference(temp_input, networkInputSize)[0];
-        LOG(info) << "Example output (regression): " << network_regression.inference(temp_input, networkInputSize)[0] << ", " << network_regression.inference(temp_input, networkInputSize)[1] << ", " << network_regression.inference(temp_input, networkInputSize)[2];
-      }
-      */
-      if ((max + 1) % networkInputSize == 0 || max + 1 == maxima_digits.size()) {
-        float* out_net = network_classification.inference(temp_input, networkInputSize);
-        for (int idx = 0; idx < networkInputSize; idx++) {
-          if (max + 1 == maxima_digits.size() && idx > (max % networkInputSize))
-            break;
-          else {
-            output_network_class[int(max / networkInputSize) * networkInputSize + idx] = out_net[idx];
+      LOG(info) << "Example output (classification): " << network_classification.inference(temp_input, networkInputSize)[0];
+      LOG(info) << "Example output (regression): " << network_regression.inference(temp_input, networkInputSize)[0] << ", " << network_regression.inference(temp_input, networkInputSize)[1] << ", " << network_regression.inference(temp_input, networkInputSize)[2];
+    }
+    */
+    if ((max + 1) % networkInputSize == 0 || max + 1 == maxima_digits.size()) {
+      float* out_net = network_classification.inference(temp_input, networkInputSize);
+      for (int idx = 0; idx < networkInputSize; idx++) {
+        if (max + 1 == maxima_digits.size() && idx > (max % networkInputSize))
+          break;
+        else {
+          for(int s = 0; s < num_output_nodes; s++){
+            output_network_class[int(max / networkInputSize) * networkInputSize + idx][s] = out_net[idx * networkInputSize + s];
+          }
+          if(num_output_nodes == 1){
             if (out_net[idx] > networkClassThres) {
-              network_reg_size++;
+              network_class_size++;
             } else {
               new_max_dig[int(max / networkInputSize) * networkInputSize + idx] = -1;
             }
           }
-        }
-      }
-      if (max + 1 == maxima_digits.size()) {
-        break;
-      }
-    }
-
-    maxima_digits.clear();
-    network_map.clear();
-    index_pass.clear();
-    index_pass.resize(network_reg_size);
-    maxima_digits.resize(network_reg_size);
-    network_map.resize(network_reg_size);
-
-    for (int max = 0; max < new_max_dig.size(); max++) {
-      if (new_max_dig[max] > -1) {
-        maxima_digits[counter_max_dig] = new_max_dig[max];
-        index_pass[counter_max_dig] = max;
-        network_map[counter_max_dig][0] = digit_map[new_max_dig[max]][0];
-        network_map[counter_max_dig][1] = digit_map[new_max_dig[max]][1];
-        network_map[counter_max_dig][2] = digit_map[new_max_dig[max]][2];
-        network_map[counter_max_dig][3] = 1;
-        network_map[counter_max_dig][4] = 1;
-        network_map[counter_max_dig][5] = digit_q[new_max_dig[max]];
-        network_map[counter_max_dig][6] = digit_q[new_max_dig[max]];
-        counter_max_dig++;
-      }
-    }
-
-    LOG(info) << "[" << sector << "] Classification network done!";
-  }
-
-  if (eval_mode == 1 || eval_mode == 2) {
-
-    output_network_reg.resize(3 * network_reg_size);
-    int count_num_maxima = 0, count_reg = 0;
-    std::vector<int> max_pos(networkInputSize);
-    for (int max = 0; max < maxima_digits.size(); max++) {
-      for (int idx = 0; idx < index_shift_row; idx++) {
-        temp_input[(count_num_maxima % networkInputSize) * index_shift_global + idx] = input_vector[index_pass[max] * index_shift_global + idx];
-      }
-      max_pos[count_num_maxima] = max;
-      count_num_maxima++;
-      if ((count_num_maxima % networkInputSize == 0 && count_num_maxima > 0) || max + 1 == maxima_digits.size()) {
-        float* out_net = network_regression.inference(temp_input, networkInputSize);
-        for (int idx = 0; idx < networkInputSize; idx++) {
-          if (max + 1 == maxima_digits.size() && idx >= (count_num_maxima % networkInputSize)) {
-            break;
-          } else {
-            if ((out_net[2 * idx + 1] * 2.5 + digit_map[new_max_dig[index_pass[max_pos[idx]]]][2] < max_time[sector]) &&
-                (out_net[2 * idx] * 2.5 + digit_map[new_max_dig[index_pass[max_pos[idx]]]][1] < max_pad[sector])) {
-              output_network_reg[count_reg] = out_net[2 * idx + 1] * 2.5 + digit_map[new_max_dig[index_pass[max_pos[idx]]]][2]; // time
-              output_network_reg[count_reg + 1] = out_net[2 * idx] * 2.5 + digit_map[new_max_dig[index_pass[max_pos[idx]]]][1]; // pad
-              output_network_reg[count_reg + 2] = 100.f;                                                                        // out_net[3 * idx + 2]*10.f * central_charges[index_pass[max_pos[idx]]];       // charge
+          else{
+            if (std::distance(output_network_class[int(max / networkInputSize) * networkInputSize + idx].begin(), std::max_element(output_network_class[int(max / networkInputSize) * networkInputSize + idx].begin(), output_network_class[int(max / networkInputSize) * networkInputSize + idx].end())) > networkClassThres) {
+              // For 5 class classifier: Nodes 0 and 1 correspond to looper tagger or not assigned -> Reject in both cases --> Bettter done via argmax layer in network
+              new_max_dig[int(max / networkInputSize) * networkInputSize + idx] = -1;
             } else {
-              output_network_reg[count_reg] = 0;         // time
-              output_network_reg[count_reg + 1] = 0;     // pad
-              output_network_reg[count_reg + 2] = 100.f; // out_net[3 * idx + 2]*10.f * central_charges[index_pass[max_pos[idx]]];       // charge
+              network_class_size++;
             }
-            count_reg += 3;
           }
         }
-        count_num_maxima = 0;
-      }
-      if (max + 1 == maxima_digits.size()) {
-        break;
       }
     }
-    LOG(info) << "Regression network done!";
-
-    std::vector<int> rows_max(maxima_digits.size());
-    for (unsigned int max = 0; max < maxima_digits.size(); max++) {
-      rows_max[max] = digit_map[maxima_digits[max]][0];
+    if (max + 1 == maxima_digits.size()) {
+      break;
     }
-    std::iota(maxima_digits.begin(), maxima_digits.end(), 0);
-    digit_map.clear();
-    digit_q.clear();
-    digit_map.resize(maxima_digits.size());
-    digit_q.resize(maxima_digits.size());
-
-    for (int i = 0; i < maxima_digits.size(); i++) {
-      digit_map[i] = std::array<int, 3>{rows_max[i], static_cast<int>(round(output_network_reg[3 * i + 1])), static_cast<int>(round(output_network_reg[3 * i]))};
-      digit_q[i] = output_network_reg[3 * i + 2];
-      network_map[i][0] = rows_max[i];
-      network_map[i][1] = output_network_reg[3 * i + 1]; // pad
-      network_map[i][2] = output_network_reg[3 * i];     // time
-      network_map[i][3] = 1;
-      network_map[i][4] = 1;
-      network_map[i][5] = digit_q[maxima_digits[i]];
-      network_map[i][6] = digit_q[maxima_digits[i]];
-    }
-    LOG(info) << "Network map written.";
   }
+
+  maxima_digits.clear();
+  network_map.clear();
+  maxima_digits.resize(network_class_size);
+  network_map.resize(network_class_size);
+
+  for (int max : new_max_dig) {
+    if (max > -1) {
+      maxima_digits[counter_max_dig] = max;
+      network_map[counter_max_dig][0] = digit_map[max][0];
+      network_map[counter_max_dig][1] = digit_map[max][1];
+      network_map[counter_max_dig][2] = digit_map[max][2];
+      network_map[counter_max_dig][3] = 1;
+      network_map[counter_max_dig][4] = 1;
+      network_map[counter_max_dig][5] = digit_q[max];
+      network_map[counter_max_dig][6] = digit_q[max];
+      counter_max_dig++;
+    }
+  }
+
+  LOG(info) << "[" << sector << "] Classification network done!";
 
   input_vector.clear();
   temp_input.clear();
-  central_charges.clear();
-  new_max_dig.clear();
-  index_pass.clear();
-  output_network_class.clear();
-  output_network_reg.clear();
+}
+
+// ---------------------------------
+template <class T>
+void qaIdeal::run_network_regression(int sector, T& map2d, std::vector<int>& maxima_digits, std::vector<std::array<int, 3>>& digit_map, std::vector<float>& digit_q, std::vector<std::array<float, 7>>& network_map){
+
+  int index_shift_global = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), index_shift_row = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), index_shift_pad = (2 * global_shift[1] + 1);
+  int num_output_nodes = network_regression.getNumOutputNodes();
+  std::vector<std::vector<float>> output_network_reg;
+  resize_nested_container(output_network_reg, std::vector<size_t>{maxima_digits.size(), num_output_nodes});
+  std::vector<float> temp_input(networkInputSize * index_shift_global, 0.f);
+  std::vector<float> input_vector = create_network_input(sector, map2d, maxima_digits, digit_map, digit_q);
+
+  for (int max = 0; max < maxima_digits.size(); max++) {
+    for (int idx = 0; idx < index_shift_row; idx++) {
+      temp_input[(max % networkInputSize) * index_shift_global + idx] = input_vector[max * index_shift_global + idx];
+    }
+    if ((max + 1) % networkInputSize == 0 || max + 1 == maxima_digits.size()) {
+      float* out_net = network_regression.inference(temp_input, networkInputSize);
+      for (int idx = 0; idx < networkInputSize; idx++) {
+        if (max + 1 == maxima_digits.size() && idx > (max % networkInputSize))
+          break;
+        else {
+          if(num_output_nodes == 2 || num_output_nodes == 3){
+            int row_offset = rowOffset(digit_map[maxima_digits[max]][0]);
+            int pad_offset = padOffset(digit_map[maxima_digits[max]][0]);
+            output_network_reg[int(max / networkInputSize) * networkInputSize * num_output_nodes + idx][0] = 2.5 * out_net[idx * networkInputSize];
+            output_network_reg[int(max / networkInputSize) * networkInputSize * num_output_nodes + idx][1] = 2.5 * out_net[idx * networkInputSize + 1];
+            if(num_output_nodes == 2){
+              output_network_reg[int(max / networkInputSize) * networkInputSize * num_output_nodes + idx][2] = digit_q[map2d[1][digit_map[maxima_digits[max]][2] + global_shift[1]][digit_map[maxima_digits[max]][0] + row_offset + global_shift[2]][digit_map[maxima_digits[max]][1] + global_shift[0] + pad_offset]];
+            }
+            else{
+              output_network_reg[int(max / networkInputSize) * networkInputSize * num_output_nodes + idx][2] = out_net[idx * networkInputSize + 2] * digit_q[map2d[1][digit_map[maxima_digits[max]][2] + global_shift[1]][digit_map[maxima_digits[max]][0] + row_offset + global_shift[2]][digit_map[maxima_digits[max]][1] + global_shift[0] + pad_offset]];
+            }
+          }
+          else{
+            for(int s = 0; s < num_output_nodes; s++){
+              output_network_reg[int(max / networkInputSize) * networkInputSize * num_output_nodes + idx][s] = out_net[idx * networkInputSize + s];
+            }
+          }
+        }
+      }
+    }
+    if (max + 1 == maxima_digits.size()) {
+      break;
+    }
+  }
+
+  std::vector<int> rows_max(maxima_digits.size());
+  for (unsigned int max = 0; max < maxima_digits.size(); max++) {
+    rows_max[max] = digit_map[maxima_digits[max]][0];
+  }
+  std::iota(maxima_digits.begin(), maxima_digits.end(), 0);
+  digit_map.clear();
+  digit_q.clear();
+  digit_map.resize(maxima_digits.size());
+  digit_q.resize(maxima_digits.size());
+
+  for (int i = 0; i < maxima_digits.size(); i++) {
+    digit_map[i] = std::array<int, 3>{rows_max[i], static_cast<int>(round(output_network_reg[i][1])), static_cast<int>(round(output_network_reg[i][2]))};
+    digit_q[i] = output_network_reg[i][2];
+    network_map[i][0] = rows_max[i];
+    network_map[i][1] = output_network_reg[i][1]; // pad
+    network_map[i][2] = output_network_reg[i][0];     // time
+    network_map[i][3] = 1;
+    network_map[i][4] = 1;
+    network_map[i][5] = digit_q[maxima_digits[i]];
+    network_map[i][6] = digit_q[maxima_digits[i]];
+  }
+  LOG(info) << "[" << sector << "] Regression network done";
+
+  input_vector.clear();
+  temp_input.clear();
 }
 
 // ---------------------------------
@@ -1702,15 +1744,13 @@ void qaIdeal::runQa(int loop_sectors)
       //     remove_loopers_digits(loop_sectors, counter, tagger_maps[counter], digit_map, maxima_digits);
       //   }
       // }
-      if (mode.find(std::string("network_class")) != std::string::npos && mode.find(std::string("network_reg")) == std::string::npos) {
-        run_network<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, network_map, 0); // classification
+      if (mode.find(std::string("network_class")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
+        run_network_classification<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, network_map); // classification
         if (mode.find(std::string("clusterizer")) != std::string::npos) {
           native_clusterizer(map2d, digit_map, maxima_digits, digit_q, digit_clusterizer_map, digit_clusterizer_q);
         }
-      } else if (mode.find(std::string("network_reg")) != std::string::npos) {
-        run_network<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, network_map, 1); // regression
-      } else if (mode.find(std::string("network_full")) != std::string::npos) {
-        run_network<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, network_map, 2); // classification + regression
+      } else if (mode.find(std::string("network_reg")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
+        run_network_regression<qa_t>(loop_sectors, map2d, maxima_digits, digit_map, digit_q, network_map); // classification + regression
       }
       num_total_digit_max += maxima_digits.size();
       overwrite_map2d<qa_t>(loop_sectors, map2d, digit_map, maxima_digits, 1);
