@@ -60,6 +60,8 @@ using namespace o2::framework;
 using namespace o2::ml;
 using namespace boost;
 
+using uchar = unsigned char;
+
 template <typename T>
 using BranchDefinition = o2::framework::MakeRootTreeWriterSpec::BranchDefinition<T>;
 
@@ -80,8 +82,8 @@ class qaIdeal : public Task
   // Readers
   void read_digits(int, std::vector<std::array<int, 3>>&, std::vector<float>&);
   void read_ideal(int, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<std::array<float, 2>>&, std::vector<float>&, std::vector<std::array<int, 3>>&);
-  void read_native(int, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 7>>&, std::vector<float>&);
-  void write_custom_native(ProcessingContext&, std::vector<std::array<float, 11>>&);
+  void read_native(int, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 8>>&, std::vector<float>&);
+  void write_custom_native(ProcessingContext&, std::vector<std::array<float, 12>>&);
   void read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>&);
 
   template <class T>
@@ -114,13 +116,13 @@ class qaIdeal : public Task
   void remove_loopers_ideal(int, int, std::vector<std::vector<std::vector<int>>>&, std::vector<std::array<int, 3>>&, std::vector<std::array<float, 3>>&, std::vector<float>&, std::vector<float>&, std::vector<std::array<float, 2>>&, std::vector<std::array<int, 3>>&);
 
   template <class T>
-  std::vector<float> create_network_input(int, T&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::vector<float>&);
+  std::tuple<std::vector<float>, std::vector<float>> create_network_input(int, T&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::vector<float>&);
 
   template <class T>
-  void run_network_classification(int, T&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 7>>&);
+  void run_network_classification(int, T&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 8>>&);
 
   template <class T>
-  void run_network_regression(int, T&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 7>>&);
+  void run_network_regression(int, T&, std::vector<int>&, std::vector<std::array<int, 3>>&, std::vector<float>&, std::vector<std::array<float, 8>>&);
 
   template <class T>
   void overwrite_map2d(int, T&, std::vector<std::array<int, 3>>&, std::vector<int>&, int = 0);
@@ -177,7 +179,7 @@ class qaIdeal : public Task
   std::array<std::array<unsigned int, 25>, o2::tpc::constants::MAXSECTOR> assignments_ideal, assignments_digit, assignments_ideal_findable, assignments_digit_findable;
   std::array<unsigned int, o2::tpc::constants::MAXSECTOR> number_of_ideal_max, number_of_digit_max, number_of_ideal_max_findable;
   std::array<float, o2::tpc::constants::MAXSECTOR> clones, fractional_clones;
-  std::vector<std::array<float, 11>> native_writer_map;
+  std::vector<std::array<float, 12>> native_writer_map;
   std::mutex m;
 
   float landau_approx(float x)
@@ -523,6 +525,7 @@ void qaIdeal::init(InitContext& ic)
   inFileDigits = ic.options().get<std::string>("infile-digits");
   inFileNative = ic.options().get<std::string>("infile-native");
   inFileKinematics = ic.options().get<std::string>("infile-kinematics");
+  outCustomNative = ic.options().get<std::string>("outfile-native");
   networkDataOutput = ic.options().get<std::string>("network-data-output");
   networkClassification = ic.options().get<std::string>("network-classification-path");
   networkRegression = ic.options().get<std::string>("network-regression-path");
@@ -626,7 +629,7 @@ void qaIdeal::read_digits(int sector, std::vector<std::array<int, 3>>& digit_map
 }
 
 // ---------------------------------
-void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map, std::vector<std::array<float, 7>>& native_map, std::vector<float>& digit_q)
+void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map, std::vector<std::array<float, 8>>& native_map, std::vector<float>& digit_q)
 {
 
   ClusterNativeHelper::Reader tpcClusterReader;
@@ -673,6 +676,7 @@ void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map
         native_map[count_clusters][4] = cl.getSigmaTime();
         native_map[count_clusters][5] = cl.getQtot();
         native_map[count_clusters][6] = cl.getQmax();
+        native_map[count_clusters][6] = cl.getFlags();
 
         digit_map[count_clusters][0] = irow;
         digit_map[count_clusters][1] = static_cast<int>(round(current_pad));
@@ -690,7 +694,7 @@ void qaIdeal::read_native(int sector, std::vector<std::array<int, 3>>& digit_map
 }
 
 // ---------------------------------
-void qaIdeal::write_custom_native(ProcessingContext& pc, std::vector<std::array<float, 11>>& assigned_clusters)
+void qaIdeal::write_custom_native(ProcessingContext& pc, std::vector<std::array<float, 12>>& assigned_clusters)
 {
 
   // Build cluster native access structure
@@ -706,6 +710,7 @@ void qaIdeal::write_custom_native(ProcessingContext& pc, std::vector<std::array<
   for (auto cls : assigned_clusters) {
     // storing cluster natives
     cluster_native_array[total_clusters].setTime(cls[3]);
+    cluster_native_array[total_clusters].setFlags((uchar)cls[11]);
     cluster_native_array[total_clusters].setPad(cls[2]);
     cluster_native_array[total_clusters].setSigmaTime(cls[5]);
     cluster_native_array[total_clusters].setSigmaPad(cls[4]);
@@ -1465,11 +1470,12 @@ void qaIdeal::remove_loopers_ideal(int sector, int counter, std::vector<std::vec
 
 // ---------------------------------
 template <class T>
-std::vector<float> qaIdeal::create_network_input(int sector, T& map2d, std::vector<int>& maxima_digits, std::vector<std::array<int, 3>>& digit_map, std::vector<float>& digit_q){
+std::tuple<std::vector<float>, std::vector<float>> qaIdeal::create_network_input(int sector, T& map2d, std::vector<int>& maxima_digits, std::vector<std::array<int, 3>>& digit_map, std::vector<float>& digit_q){
 
   int index_shift_global = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), index_shift_row = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), index_shift_pad = (2 * global_shift[1] + 1);
   std::vector<float> input_vector(maxima_digits.size() * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), 0.f);
   std::vector<float> central_charges(maxima_digits.size(), 0.f);
+  std::vector<float> flags(maxima_digits.size(), 0.f);
 
   for (unsigned int max = 0; max < maxima_digits.size(); max++) {
     int row_offset = rowOffset(digit_map[maxima_digits[max]][0]);
@@ -1500,25 +1506,39 @@ std::vector<float> qaIdeal::create_network_input(int sector, T& map2d, std::vect
         }
       }
     }
+    
+    uchar flag = 0;
+    // Boundary
+    flag |= isBoundary(digit_map[maxima_digits[max]][0] + row_offset + 1, digit_map[maxima_digits[max]][1] + pad_offset + 1) ? o2::tpc::ClusterNative::flagEdge : 0;
+    flag |= isBoundary(digit_map[maxima_digits[max]][0] + row_offset + 1, digit_map[maxima_digits[max]][1] + pad_offset - 1) ? o2::tpc::ClusterNative::flagEdge : 0;
+    flag |= isBoundary(digit_map[maxima_digits[max]][0] + row_offset - 1, digit_map[maxima_digits[max]][1] + pad_offset + 1) ? o2::tpc::ClusterNative::flagEdge : 0;
+    flag |= isBoundary(digit_map[maxima_digits[max]][0] + row_offset - 1, digit_map[maxima_digits[max]][1] + pad_offset - 1) ? o2::tpc::ClusterNative::flagEdge : 0;
+    // Single pad and time
+    flag |= ((map2d[1][digit_map[maxima_digits[max]][2] + global_shift[1] + 1][digit_map[maxima_digits[max]][0] + row_offset + global_shift[2]][digit_map[maxima_digits[max]][1] + global_shift[0] + pad_offset] == -1 &&
+              map2d[1][digit_map[maxima_digits[max]][2] + global_shift[1] - 1][digit_map[maxima_digits[max]][0] + row_offset + global_shift[2]][digit_map[maxima_digits[max]][1] + global_shift[0] + pad_offset] == -1) ||
+              (map2d[1][digit_map[maxima_digits[max]][2] + global_shift[1]][digit_map[maxima_digits[max]][0] + row_offset + global_shift[2]][digit_map[maxima_digits[max]][1] + global_shift[0] + pad_offset + 1] == -1 &&
+              map2d[1][digit_map[maxima_digits[max]][2] + global_shift[1]][digit_map[maxima_digits[max]][0] + row_offset + global_shift[2]][digit_map[maxima_digits[max]][1] + global_shift[0] + pad_offset - 1] == -1)) ? tpc::ClusterNative::flagSingle : 0;
+    flags[max] = (float)flag;
   }
-  return input_vector;
+  return std::make_tuple(input_vector, flags);
 }
 
 // ---------------------------------
 template <class T>
-void qaIdeal::run_network_classification(int sector, T& map2d, std::vector<int>& maxima_digits, std::vector<std::array<int, 3>>& digit_map, std::vector<float>& digit_q, std::vector<std::array<float, 7>>& network_map)
+void qaIdeal::run_network_classification(int sector, T& map2d, std::vector<int>& maxima_digits, std::vector<std::array<int, 3>>& digit_map, std::vector<float>& digit_q, std::vector<std::array<float, 8>>& network_map)
 {
 
   // Loading the data
   std::vector<int> new_max_dig = maxima_digits;
+  std::vector<int> class_label(maxima_digits.size(), 0);
   network_map.resize(maxima_digits.size());
 
   int index_shift_global = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), index_shift_row = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), index_shift_pad = (2 * global_shift[1] + 1);
-  int network_class_size = maxima_digits.size(), counter_max_dig = 0, num_output_nodes = network_classification.getNumOutputNodes();
+  int network_class_size = maxima_digits.size(), counter_max_dig = 0, counter_cls_lbl = 0, num_output_nodes = network_classification.getNumOutputNodes();
   std::vector<std::vector<float>> output_network_class;
   resize_nested_container(output_network_class, std::vector<size_t>{maxima_digits.size(), num_output_nodes});
   std::vector<float> temp_input(networkInputSize * index_shift_global, 0.f);
-  std::vector<float> input_vector = create_network_input(sector, map2d, maxima_digits, digit_map, digit_q);
+  auto [input_vector, flags] = create_network_input(sector, map2d, maxima_digits, digit_map, digit_q);
 
   network_class_size = 0;
   for (int max = 0; max < maxima_digits.size(); max++) {
@@ -1547,17 +1567,20 @@ void qaIdeal::run_network_classification(int sector, T& map2d, std::vector<int>&
           }
           if(num_output_nodes == 1){
             if (out_net[idx] > networkClassThres) {
+              class_label[int(max / networkInputSize) * networkInputSize + idx] = 1;
               network_class_size++;
             } else {
               new_max_dig[int(max / networkInputSize) * networkInputSize + idx] = -1;
             }
           }
           else{
-            if (std::distance(output_network_class[int(max / networkInputSize) * networkInputSize + idx].begin(), std::max_element(output_network_class[int(max / networkInputSize) * networkInputSize + idx].begin(), output_network_class[int(max / networkInputSize) * networkInputSize + idx].end())) > networkClassThres) {
+            int tmp_class_label = std::distance(output_network_class[int(max / networkInputSize) * networkInputSize + idx].begin(), std::max_element(output_network_class[int(max / networkInputSize) * networkInputSize + idx].begin(), output_network_class[int(max / networkInputSize) * networkInputSize + idx].end()));
+            if (tmp_class_label > networkClassThres) {
               // For 5 class classifier: Nodes 0 and 1 correspond to looper tagger or not assigned -> Reject in both cases --> Bettter done via argmax layer in network
-              new_max_dig[int(max / networkInputSize) * networkInputSize + idx] = -1;
-            } else {
+              class_label[int(max / networkInputSize) * networkInputSize + idx] = tmp_class_label;
               network_class_size++;
+            } else {
+              new_max_dig[int(max / networkInputSize) * networkInputSize + idx] = -1;
             }
           }
         }
@@ -1572,10 +1595,33 @@ void qaIdeal::run_network_classification(int sector, T& map2d, std::vector<int>&
   network_map.clear();
   maxima_digits.resize(network_class_size);
   network_map.resize(network_class_size);
+  // int sum_cls_lbl = 0;
+  // sum_nested_container(class_label, sum_cls_lbl)
+  // network_map.resize(sum_cls_lbl);
 
   for (int max : new_max_dig) {
     if (max > -1) {
-      maxima_digits[counter_max_dig] = max;
+      maxima_digits[counter_max_dig] = max; // only change number of digit maxima if regression network is called
+      
+      // IDEA: 
+      // Create regression net for every possible class (e.g. 0 to 5).
+      // Create entry for network_map n_class times.
+      // Sort entries for maxima_digits based on class label.
+      // Eval networks in usual form for each point but choose the network according to class label.
+      // Write output to network_map and inflate size of maxima digits for assignments.
+
+      // for(int c = 0; c < class_label[counter_max_dig]; c++){
+      //   network_map[counter_cls_lbl][0] = digit_map[max][0];
+      //   network_map[counter_cls_lbl][1] = digit_map[max][1];
+      //   network_map[counter_cls_lbl][2] = digit_map[max][2];
+      //   network_map[counter_cls_lbl][3] = 1;
+      //   network_map[counter_cls_lbl][4] = 1;
+      //   network_map[counter_cls_lbl][5] = digit_q[max];
+      //   network_map[counter_cls_lbl][6] = digit_q[max];
+      //   network_map[counter_cls_lbl][7] = class_label[counter_max_dig];
+      //   counter_cls_lbl++;
+      // }
+      uchar tmp_flag = ((uchar)flags[counter_max_dig] | (class_label[counter_max_dig] > 1 ? tpc::ClusterNative::flagSplitTime : 0));
       network_map[counter_max_dig][0] = digit_map[max][0];
       network_map[counter_max_dig][1] = digit_map[max][1];
       network_map[counter_max_dig][2] = digit_map[max][2];
@@ -1583,6 +1629,7 @@ void qaIdeal::run_network_classification(int sector, T& map2d, std::vector<int>&
       network_map[counter_max_dig][4] = 1;
       network_map[counter_max_dig][5] = digit_q[max];
       network_map[counter_max_dig][6] = digit_q[max];
+      network_map[counter_max_dig][7] = (float)tmp_flag;
       counter_max_dig++;
     }
   }
@@ -1590,19 +1637,20 @@ void qaIdeal::run_network_classification(int sector, T& map2d, std::vector<int>&
   LOG(info) << "[" << sector << "] Classification network done!";
 
   input_vector.clear();
+  flags.clear();
   temp_input.clear();
 }
 
 // ---------------------------------
 template <class T>
-void qaIdeal::run_network_regression(int sector, T& map2d, std::vector<int>& maxima_digits, std::vector<std::array<int, 3>>& digit_map, std::vector<float>& digit_q, std::vector<std::array<float, 7>>& network_map){
+void qaIdeal::run_network_regression(int sector, T& map2d, std::vector<int>& maxima_digits, std::vector<std::array<int, 3>>& digit_map, std::vector<float>& digit_q, std::vector<std::array<float, 8>>& network_map){
 
   int index_shift_global = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), index_shift_row = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), index_shift_pad = (2 * global_shift[1] + 1);
   int num_output_nodes = network_regression.getNumOutputNodes();
   std::vector<std::vector<float>> output_network_reg;
-  resize_nested_container(output_network_reg, std::vector<size_t>{maxima_digits.size(), num_output_nodes});
+  resize_nested_container(output_network_reg, std::vector<size_t>{network_map.size(), num_output_nodes});
   std::vector<float> temp_input(networkInputSize * index_shift_global, 0.f);
-  std::vector<float> input_vector = create_network_input(sector, map2d, maxima_digits, digit_map, digit_q);
+  auto [input_vector, flags] = create_network_input(sector, map2d, maxima_digits, digit_map, digit_q);
 
   for (int max = 0; max < maxima_digits.size(); max++) {
     for (int idx = 0; idx < index_shift_row; idx++) {
@@ -1654,7 +1702,7 @@ void qaIdeal::run_network_regression(int sector, T& map2d, std::vector<int>& max
     digit_q[i] = output_network_reg[i][2];
     network_map[i][0] = rows_max[i];
     network_map[i][1] = output_network_reg[i][1]; // pad
-    network_map[i][2] = output_network_reg[i][0];     // time
+    network_map[i][2] = output_network_reg[i][0]; // time
     network_map[i][3] = 1;
     network_map[i][4] = 1;
     network_map[i][5] = digit_q[maxima_digits[i]];
@@ -1663,6 +1711,7 @@ void qaIdeal::run_network_regression(int sector, T& map2d, std::vector<int>& max
   LOG(info) << "[" << sector << "] Regression network done";
 
   input_vector.clear();
+  flags.clear();
   temp_input.clear();
 }
 
@@ -1694,7 +1743,7 @@ void qaIdeal::runQa(int loop_sectors)
   std::vector<std::array<int, 3>> digit_map, ideal_max_map;
   std::vector<std::array<float, 3>> ideal_cog_map, digit_clusterizer_map;
   std::vector<std::array<float, 2>> ideal_sigma_map;
-  std::vector<std::array<float, 7>> network_map, native_map;
+  std::vector<std::array<float, 8>> network_map, native_map;
   std::vector<float> ideal_max_q, ideal_cog_q, digit_q, digit_clusterizer_q;
   std::vector<std::vector<std::vector<std::vector<int>>>> tagger_maps(looper_tagger_granularity.size());
 
@@ -2098,7 +2147,7 @@ void qaIdeal::runQa(int loop_sectors)
       native_ideal->Fill();
 
       if (write_native_file) {
-        native_writer_map.push_back({(float)loop_sectors, nat_row, nat_pad, nat_time, nat_sigma_time, nat_sigma_pad, nat_qMax, nat_qTot, native_ideal_assignemnt[elem][10], native_ideal_assignemnt[elem][11], native_ideal_assignemnt[elem][12]});
+        native_writer_map.push_back({(float)loop_sectors, nat_row, nat_pad, nat_time, nat_sigma_time, nat_sigma_pad, nat_qMax, nat_qTot, native_ideal_assignemnt[elem][10], native_ideal_assignemnt[elem][11], native_ideal_assignemnt[elem][12], native_ideal_assignemnt[elem][9]});
       }
     }
     m.unlock();
@@ -2191,7 +2240,7 @@ void qaIdeal::runQa(int loop_sectors)
         if (check_assignment > 0 && is_min_dist) {
           network_ideal_assignemnt.push_back(current_element);
           if (write_native_file) {
-            native_writer_map.push_back(std::array<float, 11>{(float)loop_sectors, network_map[max_point][0], network_map[max_point][1], network_map[max_point][2], network_map[max_point][3], network_map[max_point][4], network_map[max_point][5], network_map[max_point][6], current_element[5], current_element[6], current_element[7]});
+            native_writer_map.push_back(std::array<float, 12>{(float)loop_sectors, network_map[max_point][0], network_map[max_point][1], network_map[max_point][2], ideal_sigma_map[current_idx_id][0], ideal_sigma_map[current_idx_id][1], network_map[max_point][5], network_map[max_point][6], current_element[5], current_element[6], current_element[7], network_map[max_point][7]});
           }
         }
       }
@@ -2626,6 +2675,7 @@ void customize(std::vector<o2::framework::ConfigParamSpec>& workflowOptions)
   std::vector<ConfigParamSpec> options{
     {"tpc-sectors", VariantType::String, "0-35", {"TPC sector range, e.g. 5-7,8,9"}},
     {"write-native-file", VariantType::Int, 0, {"Whether or not to write a custom native file"}},
+    {"outfile-native", VariantType::String, "./tpc-native-cluster-custom.root", {"Path to native file"}},
     {"native-file-single-branch", VariantType::Int, 1, {"Whether or not to write a single branch in the custom native file"}}};
   std::swap(workflowOptions, options);
 }
@@ -2641,6 +2691,7 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
     // {"mch-config", VariantType::String, "", {"JSON or INI file with parameters"}},
     {"tpc-sectors", cfgc.options().get<std::string>("tpc-sectors")},
     {"write-native-file", cfgc.options().get<std::string>("write-native-file")},
+    {"outfile-native", cfgc.options().get<std::string>("outfile-native")},
     {"native-file-single-branch", cfgc.options().get<std::string>("native-file-single-branch")},
   };
 
@@ -2777,7 +2828,7 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
     // ---
 
     specs.push_back(makeWriterSpec("tpc-custom-native-writer",
-                                   "tpc-native-clusters-custom.root",
+                                   cfgc.options().get<std::string>("outfile-native").c_str(),
                                    "tpcrec",
                                    BranchDefinition<const char*>{InputSpec{"data", ConcreteDataTypeMatcher{"TPC", o2::header::DataDescription("CLUSTERNATIVE")}},
                                                                  "TPCClusterNative",
