@@ -1909,6 +1909,18 @@ void qaCluster::runQa(int sector)
 
   if (mode.find(std::string("native")) != std::string::npos && create_output == 1) {
 
+    if (write_native_file) {
+      int native_writer_map_size = native_writer_map.size();
+      native_writer_map.resize(native_writer_map_size + native_map.size());
+      int cluster_counter = 0;
+      for(auto const cls : native_map){
+        if(!digit_tagged[cluster_counter]){
+          native_writer_map[native_writer_map_size + cluster_counter] = native_map[cluster_counter];
+        }
+        cluster_counter++;
+      }
+    }
+
     if (verbose >= 3)
       LOG(info) << "Native-Ideal assignment...";
 
@@ -1990,8 +2002,8 @@ void qaCluster::runQa(int sector)
     TFile* outputFileNativeIdeal = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* native_ideal = new TTree("native_ideal", "tree");
 
-    int native_writer_map_size = native_writer_map.size();
-    native_writer_map.resize(native_writer_map_size + native_ideal_assignemnt.size());
+    // int native_writer_map_size = native_writer_map.size();
+    // native_writer_map.resize(native_writer_map_size + native_ideal_assignemnt.size());
 
     float nat_row = 0, nat_time = 0, nat_pad = 0, nat_sigma_time = 0, nat_sigma_pad = 0, id_row = 0, id_time = 0, id_pad = 0, native_minus_ideal_time = 0, native_minus_ideal_pad = 0, nat_qTot = 0, nat_qMax = 0;
     native_ideal->Branch("sector", &sector);
@@ -2022,10 +2034,10 @@ void qaCluster::runQa(int sector)
       native_minus_ideal_pad = nat_pad - id_pad;
       native_ideal->Fill();
 
-      if (write_native_file) {
-        native_writer_map[native_writer_map_size + elem_counter] = elem[0];
-      }
-      elem_counter++;
+      // if (write_native_file) {
+      //   native_writer_map[native_writer_map_size + elem_counter] = elem[0];
+      // }
+      // elem_counter++;
     }
 
     native_ideal->Write();
@@ -2033,6 +2045,18 @@ void qaCluster::runQa(int sector)
   }
 
   if (mode.find(std::string("network")) != std::string::npos && create_output == 1) {
+
+    if (write_native_file) {
+      int native_writer_map_size = native_writer_map.size();
+      native_writer_map.resize(native_writer_map_size + network_map.size());
+      int cluster_counter = 0;
+      for(auto const cls : network_map){
+        if(!digit_tagged[cluster_counter]){
+          native_writer_map[native_writer_map_size + cluster_counter] = network_map[cluster_counter];
+        }
+        cluster_counter++;
+      }
+    }
 
     if (verbose >= 3)
       LOG(info) << "[" << sector << "] Network-Ideal assignment...";
@@ -2132,8 +2156,8 @@ void qaCluster::runQa(int sector)
     network_ideal->Branch("net_minus_ideal_pad", &net_minus_ideal_pad);
     network_ideal->Branch("charge_ideal_over_network", &charge_ratio);
 
-    int native_writer_map_size = native_writer_map.size();
-    native_writer_map.resize(native_writer_map_size + network_ideal_assignment.size());
+    // int native_writer_map_size = native_writer_map.size();
+    // native_writer_map.resize(native_writer_map_size + network_ideal_assignment.size());
 
     int elem_counter = 0;
     for (auto elem : network_ideal_assignment) {
@@ -2146,13 +2170,13 @@ void qaCluster::runQa(int sector)
       charge_ratio = elem[1].qTot / elem[0].qTot;
       network_ideal->Fill();
 
-      if (write_native_file) {
-        elem[0].mcTrkId = elem[1].mcTrkId;
-        elem[0].mcSrcId = elem[1].mcSrcId;
-        elem[0].mcEvId = elem[1].mcEvId;
-        native_writer_map[native_writer_map_size + elem_counter] = elem[0];
-      }
-      elem_counter++;
+      // if (write_native_file) {
+      //   elem[0].mcTrkId = elem[1].mcTrkId;
+      //   elem[0].mcSrcId = elem[1].mcSrcId;
+      //   elem[0].mcEvId = elem[1].mcEvId;
+      //   native_writer_map[native_writer_map_size + elem_counter] = elem[0];
+      // }
+      // elem_counter++;
     }
 
     network_ideal->Write();
