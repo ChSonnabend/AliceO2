@@ -185,7 +185,7 @@ class qaIdeal : public Task
     int mcTrkId = -1.f;
     int mcEvId = -1.f;
     int mcSrcId = -1.f;
-  }
+  };
 
   int num_total_ideal_max = 0, num_total_digit_max = 0;
   std::vector<std::vector<std::vector<o2::MCTrack>>> mctracks; // mc_track = mctracks[sourceId][eventId][trackId]
