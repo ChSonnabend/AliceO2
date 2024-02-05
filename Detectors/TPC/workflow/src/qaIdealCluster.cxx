@@ -714,6 +714,8 @@ void qaCluster::read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>
 void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customCluster>& native_writer_map)
 {
 
+  // using MCLabelContainer = o2::dataformats::MCTruthContainer<o2::MCCompLabel>;
+
   std::vector<ClusterNativeContainer> cont(o2::tpc::constants::MAXSECTOR * o2::tpc::constants::MAXGLOBALPADROW);
   std::vector<o2::dataformats::MCLabelContainer> mcTruth(o2::tpc::constants::MAXSECTOR * o2::tpc::constants::MAXGLOBALPADROW);
 
@@ -732,6 +734,7 @@ void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customClu
   }
 
   int total_clusters = 0;
+  o2::dataformats::MCLabelContainer mcTruthBuffer;
   fill_nested_container(cluster_sector_counter, 0);
   for (auto const cls : native_writer_map) {
     int sec = cls.sector;
@@ -744,18 +747,17 @@ void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customClu
     cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].qMax = cls.qMax;
     cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].qTot = cls.qTot;
     mcTruth[sec * o2::tpc::constants::MAXGLOBALPADROW + row].addElement(cluster_sector_counter[sec][row], o2::MCCompLabel(cls.mcTrkId, cls.mcEvId, cls.mcSrcId, false));
+    mcTruthBuffer.addElement(total_clusters, o2::MCCompLabel());
     cluster_sector_counter[sec][row]++;
     total_clusters++;
   }
 
-  o2::dataformats::MCLabelContainer mcTruthBuffer[total_clusters];
-
   std::unique_ptr<ClusterNative[]> clusterBuffer;
-  std::unique_ptr<ClusterNativeAccess> clusters = ClusterNativeHelper::createClusterNativeIndex(clusterBuffer, cont, mcTruthBuffer, &mcTruth);
+  std::unique_ptr<ClusterNativeAccess> clusters = ClusterNativeHelper::createClusterNativeIndex(clusterBuffer, cont, &mcTruthBuffer, &mcTruth);
 
   LOG(info) << "ClusterNativeAccess structure created.";
   std::vector<char> buffer;
-  (*mcTruthBuffer).flatten_to(buffer);
+  mcTruthBuffer.flatten_to(buffer);
   o2::dataformats::IOMCTruthContainerView tmp_container(buffer);
   o2::dataformats::ConstMCTruthContainer<o2::MCCompLabel> constMcLabelContainer;
   tmp_container.copyandflatten(constMcLabelContainer);
