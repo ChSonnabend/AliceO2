@@ -459,7 +459,7 @@ void qaCluster::init(InitContext& ic)
   // }
 
   if (mode.find(std::string("network_class")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
-    network_classification = ic.options().get<std::vector<std::string>>("network-classification-paths");
+    network_classification = std::vector<std::string>{ic.options().get<std::string>("network-classification-paths")};
     // network_classification.resize(network_paths.size());
     // int counter = 0;
     // for(auto path : network_paths){
@@ -468,10 +468,7 @@ void qaCluster::init(InitContext& ic)
     // }
   }
   if (mode.find(std::string("network_reg")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
-    network_regression = ic.options().get<std::vector<std::string>>("network-regression-paths");
-    for(auto path : network_regression){
-      LOG(info) << path;
-    }
+    network_regression = std::vector<std::string>{ic.options().get<std::string>("network-regression-paths")};
     // network_regression.resize(network_paths.size());
     // int counter = 0;
     // for(auto path : network_paths){
@@ -1493,7 +1490,7 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
       }
       */
       if ((max + 1) % networkInputSize == 0 || max + 1 == maxima_digits.size()) {
-        float* out_net =net.inference(temp_input, networkInputSize);
+        float* out_net = net.inference(temp_input, networkInputSize);
         for (int idx = 0; idx < networkInputSize; idx++) {
           if (max + 1 == maxima_digits.size() && idx > (max % networkInputSize))
             break;
@@ -1565,7 +1562,6 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
   int index_shift_global = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), index_shift_row = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), index_shift_pad = (2 * global_shift[1] + 1);
   
   OnnxModel net_tmp;
-  LOG(info) << network_regression[0];
   net_tmp.init(network_regression[0], networkOptimizations, 1);
   int num_output_nodes_classification = network_regression.size() + 1, num_output_nodes_regression = net_tmp.getNumOutputNodes(); // Expects regression networks to be sorted by class output
 
@@ -2666,8 +2662,10 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
       {"infile-native", VariantType::String, "tpc-native-clusters.root", {"Input file name (native)"}},
       {"infile-kinematics", VariantType::String, "collisioncontext.root", {"Input file name (kinematics)"}},
       {"network-data-output", VariantType::String, "network_out.root", {"Input file for the network output"}},
-      {"network-regression-paths", VariantType::ArrayString, std::vector<std::string>{"./net_regression.onnx"}, {"Absolute path(s) to the network file(s) (cluster regression)"}}, // Change to array
-      {"network-classification-paths", VariantType::ArrayString, std::vector<std::string>{"./net_classification.onnx"}, {"Absolute path(s) to the network file(s) (cluster classification)"}}, // Change to array
+      // {"network-regression-paths", VariantType::ArrayString, std::vector<std::string>{""}, {"Absolute path(s) to the network file(s) (cluster regression)"}}, // Change to array
+      // {"network-classification-paths", VariantType::ArrayString, std::vector<std::string>{""}, {"Absolute path(s) to the network file(s) (cluster classification)"}}, // Change to array
+      {"network-regression-paths", VariantType::String, "", {"Absolute path(s) to the network file(s) (cluster regression)"}}, // Change to array
+      {"network-classification-paths", VariantType::String, "", {"Absolute path(s) to the network file(s) (cluster classification)"}}, // Change to array
       {"network-input-size", VariantType::Int, 1000, {"Size of the vector to be fed through the neural network"}},
       {"network-class-threshold", VariantType::Float, 0.5f, {"Threshold for classification network: Keep or reject maximum (default: 0.5)"}},
       {"enable-network-optimizations", VariantType::Bool, true, {"Enable ONNX network optimizations"}},
