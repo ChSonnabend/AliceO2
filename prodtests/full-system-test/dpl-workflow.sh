@@ -130,7 +130,7 @@ if [[ $SYNCMODE == 1 ]]; then
     fi
     ITSTPC_CONFIG_KEY+="tpcitsMatch.safeMarginTimeCorrErr=5.;tpcitsMatch.cutMatchingChi2=60;"
     if [[ -z $TRACKTUNETPCINNER ]]; then # account for extra TPC errors
-      TRACKTUNETPCINNER="trackTuneParams.sourceLevelTPC=true;trackTuneParams.tpcCovInnerType=1;trackTuneParams.useTPCInnerCorr=false;trackTuneParams.tpcCovInner[0]=0.25;trackTuneParams.tpcCovInner[2]=2.25e-4;trackTuneParams.tpcCovInner[3]=2.25e-4;trackTuneParams.tpcCovInner[4]=0.0256;"
+      TRACKTUNETPCINNER="trackTuneParams.sourceLevelTPC=true;trackTuneParams.tpcCovInnerType=1;trackTuneParams.useTPCInnerCorr=false;trackTuneParams.tpcCovInner[0]=0.5;trackTuneParams.tpcCovInner[2]=0.01;trackTuneParams.tpcCovInner[3]=0.01;trackTuneParams.tpcCovInner[4]=0.1;"
     fi
   fi
   GPU_CONFIG_KEY+="GPU_global.synchronousProcessing=1;GPU_proc.clearO2OutputFromGPU=1;"
@@ -270,15 +270,19 @@ GPU_CONFIG_SELF="--severity $SEVERITY_TPC"
 
 parse_TPC_CORR_SCALING()
 {
+local IGNOREIDC=1
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --lumi-type=*) TPC_CORR_OPT+=" --lumi-type ${1#*=}"; [[ ${1#*=} == "2" ]] && NEED_TPC_SCALERS_WF=1; shift 1;;
-    --lumi-type) TPC_CORR_OPT+=" --lumi-type ${2}"; [[ ${2} == "2" ]] && NEED_TPC_SCALERS_WF=1; shift 2;;
+    --lumi-type=*) TPC_CORR_OPT+=" --lumi-type ${1#*=}"; [[ ${1#*=} == "2" ]] && { NEED_TPC_SCALERS_WF=1; IGNOREIDC=0; }; shift 1;;
+    --lumi-type) TPC_CORR_OPT+=" --lumi-type ${2}"; [[ ${2} == "2" ]] && { NEED_TPC_SCALERS_WF=1; IGNOREIDC=0; }; shift 2;;
+    --enable-M-shape-correction) TPC_CORR_OPT+=" --enable-M-shape-correction"; NEED_TPC_SCALERS_WF=1; TPC_SCALERS_CONF+=" --enable-M-shape-correction" ; shift 1;;
     --corrmap-lumi-mode=*) TPC_CORR_OPT+=" --corrmap-lumi-mode ${1#*=}"; shift 1;;
     --corrmap-lumi-mode) TPC_CORR_OPT+=" --corrmap-lumi-mode ${2}"; shift 2;;
+    --disable-ctp-lumi-request) TPC_CORR_OPT+=" --disable-ctp-lumi-request"; shift 1;;
     *) TPC_CORR_KEY+="$1;"; shift 1;;
   esac
 done
+[[ ${NEED_TPC_SCALERS_WF:-} == 1 ]] && [[ $IGNOREIDC == 1 ]] && TPC_SCALERS_CONF+=" --disable-IDC-scalers"
 }
 
 parse_TPC_CORR_SCALING $TPC_CORR_SCALING
@@ -291,6 +295,13 @@ if ! has_detector_reco TOF; then
   TOF_OUTPUT=digits
 elif [[ -z "$DISABLE_ROOT_OUTPUT" ]] && has_detector_reco TOF && ! has_detector_from_global_reader TOF; then
   TOF_OUTPUT+=",digits"
+fi
+
+# adding FIT info to TOF matching for calib (only if FIT is present)
+if  has_detector_reco FT0 ; then
+: ${TOF_MATCH_OPT="--use-fit"}
+else
+: ${TOF_MATCH_OPT=}
 fi
 
 if has_detector_calib PHS && workflow_has_parameter CALIB; then
@@ -478,7 +489,7 @@ has_detector_reco FT0 && ! has_detector_from_global_reader FT0 && add_W o2-ft0-r
 has_detector_reco TRD && ! has_detector_from_global_reader TRD && add_W o2-trd-tracklet-transformer "--disable-irframe-reader $DISABLE_DIGIT_ROOT_INPUT $DISABLE_ROOT_OUTPUT $DISABLE_MC $TRD_FILTER_CONFIG --pipeline $(get_N TRDTRACKLETTRANSFORMER TRD REST 1 TRDTRKTRANS)"
 has_detectors_reco ITS TPC && has_detector_matching ITSTPC && add_W o2-tpcits-match-workflow "$DISABLE_ROOT_INPUT $DISABLE_ROOT_OUTPUT $DISABLE_MC $SEND_ITSTPC_DTGL  $TPC_CORR_OPT --nthreads $ITSTPC_THREADS --pipeline $(get_N itstpc-track-matcher MATCH REST $ITSTPC_THREADS TPCITS)" "$ITSTPC_CONFIG_KEY;$INTERACTION_TAG_CONFIG_KEY;$ITSMFT_STROBES;$ITSEXTRAERR;$TPC_CORR_KEY"
 has_detector_reco TRD && [[ ! -z "$TRD_SOURCES" ]] && add_W o2-trd-global-tracking "$DISABLE_ROOT_INPUT $DISABLE_ROOT_OUTPUT $DISABLE_MC $TRD_CONFIG $TRD_FILTER_CONFIG $TPC_CORR_OPT --track-sources $TRD_SOURCES --pipeline $(get_N trd-globaltracking_TPC_ITS-TPC_ TRD REST 1 TRDTRK),$(get_N trd-globaltracking_TPC_FT0_ITS-TPC_ TRD REST 1 TRDTRK),$(get_N trd-globaltracking_TPC_FT0_ITS-TPC_CTP_ TRD REST 1 TRDTRK)" "$TRD_CONFIG_KEY;$INTERACTION_TAG_CONFIG_KEY;$ITSMFT_STROBES;$ITSEXTRAERR;$TPC_CORR_KEY"
-has_detector_reco TOF && [[ ! -z "$TOF_SOURCES" ]] && add_W o2-tof-matcher-workflow "$DISABLE_ROOT_INPUT $DISABLE_ROOT_OUTPUT $DISABLE_MC $TPC_CORR_OPT ${TOFMATCH_THREADS:+--tof-lanes ${TOFMATCH_THREADS}} --track-sources $TOF_SOURCES --pipeline $(get_N tof-matcher TOF REST 1 TOFMATCH)" "$ITSMFT_STROBES;$ITSEXTRAERR;$TPC_CORR_KEY"
+has_detector_reco TOF && [[ ! -z "$TOF_SOURCES" ]] && add_W o2-tof-matcher-workflow "$TOF_MATCH_OPT $DISABLE_ROOT_INPUT $DISABLE_ROOT_OUTPUT $DISABLE_MC $TPC_CORR_OPT ${TOFMATCH_THREADS:+--tof-lanes ${TOFMATCH_THREADS}} --track-sources $TOF_SOURCES --pipeline $(get_N tof-matcher TOF REST 1 TOFMATCH)" "$ITSMFT_STROBES;$ITSEXTRAERR;$TPC_CORR_KEY"
 has_detectors TPC && [[ -z "$DISABLE_ROOT_OUTPUT" && "${SKIP_TPC_CLUSTERSTRACKS_OUTPUT:-}" != 1 ]] && ! has_detector_from_global_reader TPC && add_W o2-tpc-reco-workflow "--input-type pass-through --output-type clusters,tpc-triggers,tracks,send-clusters-per-sector $DISABLE_MC"
 
 # ---------------------------------------------------------------------------------------------------------------------
