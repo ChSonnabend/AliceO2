@@ -133,13 +133,41 @@ float* OnnxModel::inference(T input, unsigned int size)
   try {
     auto outputTensors = mSession->Run(mInputNames, inputTensors, mOutputNames);
     float* outputValues = outputTensors[0].GetTensorMutableData<float>();
-    inputTensors.clear();
-    outputTensors.clear();
     return outputValues;
   } catch (const Ort::Exception& exception) {
     LOG(error) << "Error running model inference: " << exception.what();
   }
   return nullptr;
+}
+
+template<class T>
+std::vector<float> OnnxModel::inference_vector(T input, unsigned int size)
+{
+
+  std::vector<int64_t> inputShape = mInputShapes[0];
+  inputShape[0] = size;
+  std::vector<Ort::Value> inputTensors;
+  // std::vector<float> outputValues;
+  size_t mem_size = 1;
+  for(auto elem : inputShape){
+    mem_size*=elem;
+  }
+  inputTensors.emplace_back(Ort::Experimental::Value::CreateTensor<float>(input.data(), mem_size, inputShape));
+  // LOG(info) << "Input tensors created, memory size: " << mem_size*sizeof(float)/1e6 << "MB";
+  try {
+    auto outputTensors = mSession->Run(mInputNames, inputTensors, mOutputNames);
+    float* outputValues = outputTensors[0].GetTensorMutableData<float>();
+    std::vector<float> outputVector{outputValues, outputValues + size * mOutputShapes[0][1]};
+    // for(int s = 0; s < size; s++){
+    //   for(int o = 0; o < mOutputShapes[0][1]; o++){
+    //     outputValues.push_back(tmp_output_values[s*(int)mOutputShapes[0][1] + o]);
+    //   }
+    // }
+    return outputVector;
+  } catch (const Ort::Exception& exception) {
+    LOG(error) << "Error running model inference: " << exception.what();
+  }
+  return std::vector<float>{};
 }
 
 void OnnxModel::setActiveThreads(int threads)
@@ -148,6 +176,7 @@ void OnnxModel::setActiveThreads(int threads)
 }
 
 template float* OnnxModel::inference(std::vector<float>, unsigned int);
+template std::vector<float> OnnxModel::inference_vector(std::vector<float>, unsigned int);
 
 } // namespace gpu
 
