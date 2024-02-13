@@ -2103,6 +2103,7 @@ void qaCluster::runQa(int sector)
 
   if (mode.find(std::string("native")) != std::string::npos && create_output == 1) {
 
+    m.lock();
     if (write_native_file) {
       int native_writer_map_size = native_writer_map.size();
       int cluster_counter = 0, total_counter = 0;
@@ -2123,6 +2124,7 @@ void qaCluster::runQa(int sector)
         total_counter++;
       }
     }
+    m.unlock();
 
     if (verbose >= 3)
       LOG(info) << "Native-Ideal assignment...";
@@ -2254,6 +2256,7 @@ void qaCluster::runQa(int sector)
 
   if (mode.find(std::string("network")) != std::string::npos && create_output == 1) {
 
+    m.lock();
     if (write_native_file) {
       int native_writer_map_size = native_writer_map.size();
       int cluster_counter = 0, total_counter = 0;
@@ -2274,6 +2277,7 @@ void qaCluster::runQa(int sector)
         total_counter++;
       }
     }
+    m.unlock();
 
     if (verbose >= 3)
       LOG(info) << "[" << sector << "] Network-Ideal assignment...";
