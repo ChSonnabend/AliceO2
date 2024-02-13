@@ -1735,6 +1735,9 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
         
         std::vector<int> investigate_maxima;
         fill_container_by_range(investigate_maxima, sorted_digit_idx[class_idx], max_epoch * networkInputSize, ((max_epoch + 1) * networkInputSize) - 1);
+        for(int inv_max = 0; inv_max < investigate_maxima.size(); inv_max++){
+          investigate_maxima[inv_max] = maxima_digits[inv_max];
+        }
         auto [input_vector, flags] = create_network_input(sector, map2d, investigate_maxima, digit_map);
 
         int eval_size = input_vector.size() / index_shift_global;
