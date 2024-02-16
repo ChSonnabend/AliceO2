@@ -1604,9 +1604,9 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
   for(int net_counter = 0; net_counter < network_classification_paths.size(); net_counter++){
 
     network_class_size = 0;
-    int num_output_nodes = network_classification[net_counter].getNumOutputNodes();
+    size_t num_output_nodes = network_classification[net_counter].getNumOutputNodes();
     std::vector<std::vector<float>> output_network_class;
-    resize_nested_container(output_network_class, std::vector<size_t>{maxima_digits.size(), (int)num_output_nodes});
+    resize_nested_container(output_network_class, std::vector<int>{maxima_digits.size(), num_output_nodes});
 
     for (int max_epoch = 0; max_epoch < std::ceil(maxima_digits.size() / (float)networkInputSize); max_epoch++) {
 
@@ -1658,7 +1658,7 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
         if (num_output_nodes == 1) {
           tmp_class_label = (int)(output_network_class[current_max_idx][0] > networkClassThres);
         } else {
-          tmp_class_label = std::distance(output_network_class[current_max_idx].begin(), std::max_element(output_network_class[current_max_idx].begin(), output_network_class[current_max_idx].end()));
+          tmp_class_label = std::min((int)std::distance(output_network_class[current_max_idx].begin(), std::max_element(output_network_class[current_max_idx].begin(), output_network_class[current_max_idx].end())), (int)network_regression_paths.size());
         }
 
         if (tmp_class_label > 0 && class_label[current_max_idx] > 0) {
@@ -1709,7 +1709,7 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
   int num_output_classes = network_regression_paths.size(), num_output_nodes_regression = 5; // Expects regression networks to be sorted by class output and have 5 outputs -> [pad1, pad2, ..., time1, time2, ..., sigma_pad1, ..., sigma_time1, ..., qRatio1, ...]
 
   int total_num_points = 0;
-  std::vector<std::vector<int>> sorted_digit_idx(num_output_classes + 1);
+  std::vector<std::vector<int>> sorted_digit_idx(6); // maybe good to change this once to a fixed number of possible classes
   for(int max = 0; max < maxima_digits.size(); max++){
     if(digit_map[maxima_digits[max]].label > 0){
       total_num_points++;
@@ -1735,8 +1735,8 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
         
         std::vector<int> investigate_maxima;
         fill_container_by_range(investigate_maxima, sorted_digit_idx[class_idx], max_epoch * networkInputSize, ((max_epoch + 1) * networkInputSize) - 1);
-        for(int inv_max = 0; inv_max < investigate_maxima.size(); inv_max++){
-          investigate_maxima[inv_max] = maxima_digits[investigate_maxima[inv_max]];
+        for(int& inv_max : investigate_maxima){
+          inv_max = maxima_digits[inv_max];
         }
         auto [input_vector, flags] = create_network_input(sector, map2d, investigate_maxima, digit_map);
 
@@ -1744,9 +1744,10 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
         std::vector<float> out_net = network_regression[class_idx-1].inference_vector(input_vector, eval_size);
 
         for(int idx = 0; idx < eval_size; idx++){
+          int digit_max_idx = sorted_digit_idx[class_idx][max_epoch * networkInputSize + idx];
           for(int subclass = 0; subclass < class_idx; subclass++){
-            int digit_max_idx = sorted_digit_idx[class_idx][max_epoch * networkInputSize + idx], out_net_idx = idx * class_idx * num_output_nodes_regression + subclass;
-            auto& net_cluster = output_network_reg[corresponding_index_output[digit_max_idx] + subclass];
+            int out_net_idx = idx * class_idx * num_output_nodes_regression + subclass;
+            customCluster& net_cluster = output_network_reg[corresponding_index_output[digit_max_idx] + subclass];
             net_cluster = digit_map[maxima_digits[digit_max_idx]];
             net_cluster.cog_pad += out_net[out_net_idx + 0 * class_idx];
             net_cluster.cog_time += out_net[out_net_idx + 1 * class_idx];
@@ -1754,7 +1755,7 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
             net_cluster.sigmaTime = out_net[out_net_idx + 3 * class_idx];
             net_cluster.qTot = out_net[out_net_idx + 4 * class_idx] * net_cluster.qMax; // Change for normalization mode
 
-            if(round(net_cluster.cog_pad) >= TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] || round(net_cluster.cog_time) >= max_time[sector] || round(net_cluster.cog_pad) < 0 || round(net_cluster.cog_time) < 0){
+            if(round(net_cluster.cog_pad) > TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] || round(net_cluster.cog_time) > max_time[sector] || round(net_cluster.cog_pad) < 0 || round(net_cluster.cog_time) < 0){
               LOG(warning) << "[" << sector << "] Stepping over boundaries! row: " << net_cluster.row << "; pad: " << net_cluster.cog_pad << " / " << TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] << "; time: " << net_cluster.cog_time << " / " << max_time[sector] << ". Resetting cluster center-of-gravity to maximum position.";
               net_cluster.cog_pad = net_cluster.max_pad;
               net_cluster.cog_time = net_cluster.max_time;
@@ -1794,7 +1795,7 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
   }
 
   network_map = output_network_reg;
-  // digit_map = output_network_reg; // -> This causes huge trouble: memory leaks and invalid frees. Not sure why...
+  // digit_map = output_network_reg; // -> This causes huge trouble. Not sure why...
   maxima_digits.resize(output_network_reg.size());
   for(int max = 0; max < maxima_digits.size(); max++){
     maxima_digits[max] = output_network_reg[max].index;
