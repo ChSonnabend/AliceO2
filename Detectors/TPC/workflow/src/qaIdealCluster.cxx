@@ -745,14 +745,14 @@ void qaCluster::read_native(int sector, std::vector<customCluster>& digit_map, s
         current_time = cl.getTime();
 
         if (overwrite_max_time) {
-          native_map[count_clusters] = customCluster{sector, irow, round(current_pad), round(current_time), current_pad, current_time, cl.getSigmaPad(), cl.getSigmaTime(), (float)cl.getQmax(), (float)cl.getQtot(), cl.getFlags(), -1, -1, -1, count_clusters, 0.f};
+          native_map[count_clusters] = customCluster{sector, irow, (int)round(current_pad), (int)round(current_time), current_pad, current_time, cl.getSigmaPad(), cl.getSigmaTime(), (float)cl.getQmax(), (float)cl.getQtot(), cl.getFlags(), -1, -1, -1, count_clusters, 0.f};
           if (current_time > max_time[sector]){
             max_time[sector] = current_time + 1;
           }
           count_clusters++;
         } else {
           if (current_time < max_time[sector]) {
-            native_map[count_clusters] = customCluster{sector, irow, round(current_pad), round(current_time), current_pad, current_time, cl.getSigmaPad(), cl.getSigmaTime(), (float)cl.getQmax(), (float)cl.getQtot(), cl.getFlags(), -1, -1, -1, count_clusters, 0.f};
+            native_map[count_clusters] = customCluster{sector, irow, (int)round(current_pad), (int)round(current_time), current_pad, current_time, cl.getSigmaPad(), cl.getSigmaTime(), (float)cl.getQmax(), (float)cl.getQtot(), cl.getFlags(), -1, -1, -1, count_clusters, 0.f};
             count_clusters++;
           }
         }
@@ -1606,7 +1606,7 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
     network_class_size = 0;
     size_t num_output_nodes = network_classification[net_counter].getNumOutputNodes();
     std::vector<std::vector<float>> output_network_class;
-    resize_nested_container(output_network_class, std::vector<int>{maxima_digits.size(), num_output_nodes});
+    resize_nested_container(output_network_class, std::vector<size_t>{maxima_digits.size(), num_output_nodes});
 
     for (int max_epoch = 0; max_epoch < std::ceil(maxima_digits.size() / (float)networkInputSize); max_epoch++) {
 
@@ -1935,7 +1935,7 @@ void qaCluster::runQa(int sector)
 
       // Level-3 loop: Goes through all digit maxima and checks neighbourhood for potential ideal maxima
       for (unsigned int locdigit = 0; locdigit < maxima_digits.size(); locdigit++) {
-        int current_neighbour = test_neighbour({digit_map[maxima_digits[locdigit]].row, round(digit_map[maxima_digits[locdigit]].cog_pad), round(digit_map[maxima_digits[locdigit]].cog_time)}, adj_mat[layer][nn], map2d, 0);
+        int current_neighbour = test_neighbour({digit_map[maxima_digits[locdigit]].row, (int)round(digit_map[maxima_digits[locdigit]].cog_pad), (int)round(digit_map[maxima_digits[locdigit]].cog_time)}, adj_mat[layer][nn], map2d, 0);
         if (current_neighbour > -1 && current_neighbour < (int)ideal_map.size()) {
           assignments_id_to_dig[locdigit][layer_count + nn] = (assigned_digit[locdigit] == 0 && assigned_ideal[current_neighbour] == 0) ? current_neighbour : -1;
         } else if(current_neighbour >= (int)ideal_map.size()){
@@ -1947,7 +1947,7 @@ void qaCluster::runQa(int sector)
 
       // Level-3 loop: Goes through all ideal maxima and checks neighbourhood for potential digit maxima
       for (unsigned int locideal = 0; locideal < ideal_map.size(); locideal++) {
-        int current_neighbour = test_neighbour({ideal_map[locideal].row, round(ideal_map[locideal].cog_pad), round(ideal_map[locideal].cog_time)}, adj_mat[layer][nn], map2d, 1);
+        int current_neighbour = test_neighbour({ideal_map[locideal].row, (int)round(ideal_map[locideal].cog_pad), (int)round(ideal_map[locideal].cog_time)}, adj_mat[layer][nn], map2d, 1);
         if (current_neighbour > -1 && current_neighbour < digit_map.size()) {
           assignments_dig_to_id[locideal][layer_count + nn] = (assigned_ideal[locideal] == 0 && assigned_digit[current_neighbour] == 0) ? current_neighbour : -1;
         } else if(current_neighbour >= (int)digit_map.size()){
