@@ -77,7 +77,7 @@ endif()
 
 o2_add_executable(qa-clusters
                   COMPONENT_NAME tpc
-                  SOURCES src/qaIdealCluster.cxx
+                  SOURCES src/qaIdealClusters.cxx
                   PUBLIC_LINK_LIBRARIES O2::TPCWorkflow O2::SimulationDataFormat O2::TPCQC O2::DataFormatsTPC O2::TPCBase O2::ML ONNXRuntime::ONNXRuntime Boost::thread)
 
 # o2_add_executable(qa-clusters-old

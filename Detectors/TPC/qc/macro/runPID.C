@@ -38,9 +38,9 @@ using namespace o2::tpc;
 const int mipTot = 50;
 const int mipMax = 50;
 
-TCanvas* draw(std::vector<std::unique_ptr<TH1>>& histdEdxTot, std::vector<std::unique_ptr<TH1>>& histdEdxMax, std::string_view opt /*= ""*/, std::string_view add /*= ""*/, bool logx /*= false*/, bool logy /*= false*/, bool logz /*= false*/, int mipTot, int mipMax)
+TCanvas* draw(std::vector<std::unique_ptr<TH1>>& histdEdxTot, std::vector<std::unique_ptr<TH1>>& histdEdxMax, std::string opt /*= ""*/, std::string add /*= ""*/, bool logx /*= false*/, bool logy /*= false*/, bool logz /*= false*/, int mipTot, int mipMax)
 {
-  auto* cdEdx = new TCanvas(fmt::format("cdEdx{}", add).data(), fmt::format("dEdx {}", add).data(), 1500, 500);
+  auto* cdEdx = new TCanvas(Form("cdEdx%s", add.c_str()), Form("dEdx %s", add.c_str()), 1500, 500);
   if (histdEdxTot.size() == 1) {
     cdEdx->Divide(2, histdEdxTot.size());
   } else {
