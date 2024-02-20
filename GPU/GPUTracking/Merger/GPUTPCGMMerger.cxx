@@ -233,7 +233,7 @@ void GPUTPCGMMerger::PrintMergeGraph(const GPUTPCGMSliceTrack* trk, std::ostream
   }
 
   int nextId = trk - mSliceTrackInfos;
-  out << "Graph of track %d" << (orgTrack - mSliceTrackInfos) << "\n";
+  out << "Graph of track " << (orgTrack - mSliceTrackInfos) << "\n";
   while (nextId >= 0) {
     trk = &mSliceTrackInfos[nextId];
     if (trk->PrevSegmentNeighbour() >= 0) {
@@ -264,6 +264,9 @@ void* GPUTPCGMMerger::SetPointersMerger(void* mem)
   if (mRec->GetParam().rec.nonConsecutiveIDs) {
     computePointerWithAlignment(mem, mGlobalClusterIDs, mNMaxOutputTrackClusters);
   }
+  if (mRec->GetProcessingSettings().deterministicGPUReconstruction) {
+    computePointerWithAlignment(mem, mTmpSortMemory, std::max(mNTotalSliceTracks, mNMaxTracks));
+  }
 
   void* memBase = mem;
   computePointerWithAlignment(mem, mBorderMemory, 2 * mNTotalSliceTracks); // MergeBorders & Resolve
@@ -280,7 +283,7 @@ void* GPUTPCGMMerger::SetPointersMerger(void* mem)
   computePointerWithAlignment(mem, mTrackCCRoots, mNTotalSliceTracks);
   void* memMax = mem;
   mem = memBase;
-  computePointerWithAlignment(mem, mTrackIDs, mNMaxTracks); // UnpackResetIds - RefitSliceTracks - UnpackSliceGlobal
+  computePointerWithAlignment(mem, mTrackIDs, GPUCA_NSLICES * mNMaxSingleSliceTracks); // UnpackResetIds - RefitSliceTracks - UnpackSliceGlobal
   memMax = (void*)std::max((size_t)mem, (size_t)memMax);
   mem = memBase;
   computePointerWithAlignment(mem, mTrackSort, mNMaxTracks); // PrepareClustersForFit0 - SortTracksQPt - PrepareClustersForFit1 - PrepareClustersForFit1 / Finalize0 - Finalize2
@@ -436,9 +439,9 @@ int GPUTPCGMMerger::CheckSlices()
 
 #endif // GPUCA_GPUCODE
 
-GPUd() void GPUTPCGMMerger::ClearTrackLinks(int nBlocks, int nThreads, int iBlock, int iThread, bool nOutput)
+GPUd() void GPUTPCGMMerger::ClearTrackLinks(int nBlocks, int nThreads, int iBlock, int iThread, bool output)
 {
-  const int n = nOutput ? mMemory->nOutputTracks : SliceTrackInfoLocalTotal();
+  const int n = output ? mMemory->nOutputTracks : SliceTrackInfoLocalTotal();
   for (int i = iBlock * nThreads + iThread; i < n; i += nThreads * nBlocks) {
     mTrackLinks[i] = -1;
   }
@@ -1000,11 +1003,9 @@ GPUd() void GPUTPCGMMerger::MergeWithinSlicesPrepare(int nBlocks, int nThreads, 
     GPUTPCGMSliceTrack& track = mSliceTrackInfos[itr];
     int iSlice = track.Slice();
     GPUTPCGMBorderTrack b;
-    ;
     if (track.TransportToX(this, x0, Param().constBz, b, maxSin)) {
       b.SetTrackID(itr);
-      CADEBUG(
-        printf("WITHIN SLICE %d Track %d - ", iSlice, itr); for (int i = 0; i < 5; i++) { printf("%8.3f ", b.Par()[i]); } printf(" - "); for (int i = 0; i < 5; i++) { printf("%8.3f ", b.Cov()[i]); } printf("\n"));
+      CADEBUG(printf("WITHIN SLICE %d Track %d - ", iSlice, itr); for (int i = 0; i < 5; i++) { printf("%8.3f ", b.Par()[i]); } printf(" - "); for (int i = 0; i < 5; i++) { printf("%8.3f ", b.Cov()[i]); } printf("\n"));
       b.SetNClusters(track.NClusters());
       unsigned int myTrack = CAMath::AtomicAdd(&mMemory->tmpCounter[iSlice], 1u);
       mBorder[iSlice][myTrack] = b;

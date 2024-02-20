@@ -32,6 +32,9 @@
 #include "GPUTPCTrackletSelector.h"
 #include "GPUTPCGlobalTracking.h"
 #include "GPUTRDTrackerKernels.h"
+#include "GPUTPCCreateOccupancyMap.h"
+#include "GPUTPCSectorDebugSortKernels.h"
+#include "GPUTPCGlobalDebugSortKernels.h"
 #ifdef GPUCA_NOCOMPAT
 #include "GPUTPCGMMergerGPU.h"
 #endif

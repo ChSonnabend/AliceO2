@@ -493,7 +493,7 @@ void AODProducerWorkflowDPL::fillTrackTablesPerCollision(int collisionID,
           }
           const auto& trOrig = data.getTrackParam(trackIndex);
           bool isProp = false;
-          if (mPropTracks && trOrig.getX() < mMinPropR && mGIDUsedBySVtx.find(trackIndex) != mGIDUsedBySVtx.end()) {
+          if (mPropTracks && trOrig.getX() < mMinPropR && mGIDUsedBySVtx.find(trackIndex) == mGIDUsedBySVtx.end()) { // Do not propagate track assoc. to V0s
             auto trackPar(trOrig);
             isProp = propagateTrackToPV(trackPar, data, collisionID);
             if (isProp) {
@@ -1279,7 +1279,7 @@ void AODProducerWorkflowDPL::fillHMPID(const o2::globaltracking::RecoContainer& 
     }
     auto tref = mGIDToTableID.find(match.getTrackRef());
     if (tref != mGIDToTableID.end()) {
-      hmpCursor(tref->second, match.getHMPsignal(), xTrk, yTrk, xMip, yMip, nph, charge, match.getMipClusSize(), match.getHmpMom(), photChargeVec2);
+      hmpCursor(tref->second, match.getHMPsignal(), xTrk, yTrk, xMip, yMip, nph, charge, match.getIdxHMPClus(), match.getHmpMom(), photChargeVec2);
     } else {
       LOG(error) << "Could not find AOD track table entry for HMP-matched track " << match.getTrackRef().asString();
     }

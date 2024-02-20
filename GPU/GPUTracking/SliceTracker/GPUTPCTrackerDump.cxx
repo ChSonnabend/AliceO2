@@ -99,25 +99,10 @@ void GPUTPCTracker::DumpHitWeights(std::ostream& out)
   }
 }
 
-int GPUTPCTracker::StarthitSortComparison(const void* a, const void* b)
-{
-  // qsort helper function to sort start hits
-  const GPUTPCHitId* aa = reinterpret_cast<const GPUTPCHitId*>(a);
-  const GPUTPCHitId* bb = reinterpret_cast<const GPUTPCHitId*>(b);
-
-  if (aa->RowIndex() != bb->RowIndex()) {
-    return (aa->RowIndex() - bb->RowIndex());
-  }
-  return (aa->HitIndex() - bb->HitIndex());
-}
-
 void GPUTPCTracker::DumpStartHits(std::ostream& out)
 {
-  // sort start hits and dump to file
+  // dump start hits to file
   out << "\nStart Hits: (Slice" << mISlice << ") (" << *NStartHits() << ")" << std::endl;
-  if (mRec->GetProcessingSettings().comparableDebutOutput) {
-    qsort(TrackletStartHits(), *NStartHits(), sizeof(GPUTPCHitId), StarthitSortComparison);
-  }
   for (unsigned int i = 0; i < *NStartHits(); i++) {
     out << TrackletStartHit(i).RowIndex() << "-" << TrackletStartHit(i).HitIndex() << std::endl;
   }
@@ -138,7 +123,7 @@ void GPUTPCTracker::DumpTrackHits(std::ostream& out)
           for (int i = 0; i < Tracks()[j].NHits(); i++) {
             out << TrackHits()[Tracks()[j].FirstHitID() + i].RowIndex() << "-" << TrackHits()[Tracks()[j].FirstHitID() + i].HitIndex() << ", ";
           }
-          if (!mRec->GetProcessingSettings().comparableDebutOutput) {
+          if (!mRec->GetProcessingSettings().deterministicGPUReconstruction) {
             out << "(Track: " << j << ")";
           }
           out << std::endl;
@@ -158,7 +143,7 @@ void GPUTPCTracker::DumpTrackletHits(std::ostream& out)
   out << "\nTracklets: (Slice" << mISlice << ") (" << nTracklets << ")" << std::endl;
   std::vector<int> Ids(nTracklets);
   std::iota(Ids.begin(), Ids.end(), 0);
-  if (mRec->GetProcessingSettings().comparableDebutOutput) {
+  if (mRec->GetProcessingSettings().deterministicGPUReconstruction) {
     std::sort(Ids.begin(), Ids.end(), [this](const int& a, const int& b) {
       if (this->Tracklets()[a].FirstRow() == this->Tracklets()[b].FirstRow()) {
         return this->Tracklets()[a].Param().Y() > this->Tracklets()[b].Param().Y();

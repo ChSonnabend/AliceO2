@@ -17,6 +17,8 @@
 #include "GPUO2DataTypes.h"
 #include "GPUMemorySizeScalers.h"
 #include "GPUTPCClusterData.h"
+#include "GPUTrackingInputProvider.h"
+#include "GPUTPCClusterOccupancyMap.h"
 #include "utils/strtag.h"
 #include <fstream>
 
@@ -143,6 +145,20 @@ int GPUChainTracking::RunTPCTrackingSlices_internal()
     return (2);
   }
 
+  if (param().rec.tpc.occupancyMapTimeBins) {
+    AllocateRegisteredMemory(mInputsHost->mResourceOccupancyMap, mSubOutputControls[GPUTrackingOutputs::getIndex(&GPUTrackingOutputs::tpcOccupancyMap)]);
+    ReleaseEvent(mEvents->init);
+    auto* ptr = doGPU ? mInputsShadow->mTPCClusterOccupancyMap : mInputsHost->mTPCClusterOccupancyMap;
+    runKernel<GPUMemClean16>(GetGridAutoStep(mRec->NStreams() - 1, RecoStep::TPCSliceTracking), krnlRunRangeNone, {}, ptr, GPUTPCClusterOccupancyMapBin::getTotalSize(param()));
+    runKernel<GPUTPCCreateOccupancyMap, GPUTPCCreateOccupancyMap::fill>(GetGridBlk(GPUCA_NSLICES * GPUCA_ROW_COUNT, mRec->NStreams() - 1), krnlRunRangeNone, krnlEventNone, ptr);
+    runKernel<GPUTPCCreateOccupancyMap, GPUTPCCreateOccupancyMap::fold>(GetGridBlk(GPUCA_NSLICES * GPUCA_ROW_COUNT, mRec->NStreams() - 1), krnlRunRangeNone, {&mEvents->init}, ptr);
+    if (doGPU) {
+      TransferMemoryResourceLinkToHost(RecoStep::TPCSliceTracking, mInputsHost->mResourceOccupancyMap);
+    } else {
+      TransferMemoryResourceLinkToGPU(RecoStep::TPCSliceTracking, mInputsHost->mResourceOccupancyMap);
+    }
+  }
+
   int streamMap[NSLICES];
 
   bool error = false;
@@ -170,12 +186,14 @@ int GPUChainTracking::RunTPCTrackingSlices_internal()
         GPUInfo("Waiting for helper thread %d", iSlice % (GetProcessingSettings().nDeviceHelperThreads + 1) - 1);
       }
       while (HelperDone(iSlice % (GetProcessingSettings().nDeviceHelperThreads + 1) - 1) < (int)iSlice) {
-        ;
       }
       if (HelperError(iSlice % (GetProcessingSettings().nDeviceHelperThreads + 1) - 1)) {
         error = 1;
         continue;
       }
+    }
+    if (GetProcessingSettings().deterministicGPUReconstruction) {
+      runKernel<GPUTPCSectorDebugSortKernels, GPUTPCSectorDebugSortKernels::hitData>(GetGridBlk(GPUCA_ROW_COUNT, useStream), {iSlice});
     }
     if (!doGPU && trk.CheckEmptySlice() && GetProcessingSettings().debugLevel == 0) {
       continue;
@@ -229,6 +247,9 @@ int GPUChainTracking::RunTPCTrackingSlices_internal()
       runKernel<GPUTPCStartHitsSorter>(GetGridAuto(useStream), {iSlice});
     }
 #endif
+    if (GetProcessingSettings().deterministicGPUReconstruction) {
+      runKernel<GPUTPCSectorDebugSortKernels, GPUTPCSectorDebugSortKernels::startHits>(GetGrid(1, 1, useStream), {iSlice});
+    }
     DoDebugAndDump(RecoStep::TPCSliceTracking, 32, trk, &GPUTPCTracker::DumpStartHits, *mDebugFile);
 
     if (GetProcessingSettings().memoryAllocationStrategy == GPUMemoryResource::ALLOCATION_INDIVIDUAL) {
@@ -240,7 +261,7 @@ int GPUChainTracking::RunTPCTrackingSlices_internal()
     if (!(doGPU || GetProcessingSettings().debugLevel >= 1) || GetProcessingSettings().trackletConstructorInPipeline) {
       runKernel<GPUTPCTrackletConstructor>(GetGridAuto(useStream), {iSlice});
       DoDebugAndDump(RecoStep::TPCSliceTracking, 128, trk, &GPUTPCTracker::DumpTrackletHits, *mDebugFile);
-      if (GetProcessingSettings().debugMask & 256 && !GetProcessingSettings().comparableDebutOutput) {
+      if (GetProcessingSettings().debugMask & 256 && GetProcessingSettings().deterministicGPUReconstruction < 2) {
         trk.DumpHitWeights(*mDebugFile);
       }
     }
@@ -248,6 +269,9 @@ int GPUChainTracking::RunTPCTrackingSlices_internal()
     if (!(doGPU || GetProcessingSettings().debugLevel >= 1) || GetProcessingSettings().trackletSelectorInPipeline) {
       runKernel<GPUTPCTrackletSelector>(GetGridAuto(useStream), {iSlice});
       runKernel<GPUTPCGlobalTrackingCopyNumbers>({1, -ThreadCount(), useStream}, {iSlice}, {}, 1);
+      if (GetProcessingSettings().deterministicGPUReconstruction) {
+        runKernel<GPUTPCSectorDebugSortKernels, GPUTPCSectorDebugSortKernels::sliceTracks>(GetGrid(1, 1, useStream), {iSlice});
+      }
       TransferMemoryResourceLinkToHost(RecoStep::TPCSliceTracking, trk.MemoryResCommon(), useStream, &mEvents->slice[iSlice]);
       streamMap[iSlice] = useStream;
       if (GetProcessingSettings().debugLevel >= 3) {
@@ -304,6 +328,9 @@ int GPUChainTracking::RunTPCTrackingSlices_internal()
         runKernel<GPUTPCTrackletSelector>(GetGridAuto(useStream), {iSlice, runSlices});
         runKernel<GPUTPCGlobalTrackingCopyNumbers>({1, -ThreadCount(), useStream}, {iSlice}, {}, runSlices);
         for (unsigned int k = iSlice; k < iSlice + runSlices; k++) {
+          if (GetProcessingSettings().deterministicGPUReconstruction) {
+            runKernel<GPUTPCSectorDebugSortKernels, GPUTPCSectorDebugSortKernels::sliceTracks>(GetGrid(1, 1, useStream), {k});
+          }
           TransferMemoryResourceLinkToHost(RecoStep::TPCSliceTracking, processors()->tpcTrackers[k].MemoryResCommon(), useStream, &mEvents->slice[k]);
           streamMap[k] = useStream;
         }
@@ -346,7 +373,7 @@ int GPUChainTracking::RunTPCTrackingSlices_internal()
         if (GetProcessingSettings().keepAllMemory) {
           TransferMemoryResourcesToHost(RecoStep::TPCSliceTracking, &processors()->tpcTrackers[iSlice], -1, true);
           if (!GetProcessingSettings().trackletConstructorInPipeline) {
-            if (GetProcessingSettings().debugMask & 256 && !GetProcessingSettings().comparableDebutOutput) {
+            if (GetProcessingSettings().debugMask & 256 && GetProcessingSettings().deterministicGPUReconstruction < 2) {
               processors()->tpcTrackers[iSlice].DumpHitWeights(*mDebugFile);
             }
           }
@@ -439,7 +466,7 @@ int GPUChainTracking::RunTPCTrackingSlices_internal()
     }
   }
 
-  if (GetProcessingSettings().debugMask & 1024 && !GetProcessingSettings().comparableDebutOutput) {
+  if (GetProcessingSettings().debugMask & 1024 && !GetProcessingSettings().deterministicGPUReconstruction) {
     for (unsigned int i = 0; i < NSLICES; i++) {
       processors()->tpcTrackers[i].DumpOutput(*mDebugFile);
     }
