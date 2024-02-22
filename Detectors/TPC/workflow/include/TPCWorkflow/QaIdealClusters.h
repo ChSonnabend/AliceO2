@@ -5,6 +5,9 @@
 #include <regex>
 #include <chrono>
 #include <thread>
+#include <iostream>
+#include <type_traits>
+#include <tuple>
 
 #include "Algorithm/RangeTokenizer.h"
 
@@ -17,6 +20,7 @@
 #include "DataFormatsTPC/Constants.h"
 #include "DataFormatsTPC/TrackTPC.h"
 #include "DataFormatsGlobalTracking/TrackTuneParams.h"
+#include "DataFormatsTPC/Defs.h"
 
 #include "DPLUtils/RootTreeReader.h"
 #include "DPLUtils/MakeRootTreeWriterSpec.h"
@@ -46,6 +50,7 @@
 #include "TPCQC/Clusters.h"
 #include "TPCBase/Painter.h"
 #include "TPCBase/CalDet.h"
+#include "TPCBase/Mapper.h"
 
 #include "TFile.h"
 #include "TTree.h"
@@ -87,10 +92,179 @@ struct customCluster {
   int mcSrcId = -1;
   int index = -1;
   float label = 0.f; // holds e.g. the network class label / classification score
+  float X = -1.f;
+  float Y = -1.f;
 
   ~customCluster(){}
+
+  std::vector<std::pair<std::string, std::string>> getMemberMap() const {
+    return {
+      {"sector", typeid(sector).name()},
+      {"row", typeid(row).name()},
+      {"max_pad", typeid(max_pad).name()},
+      {"max_time", typeid(max_time).name()},
+      {"cog_pad", typeid(cog_pad).name()},
+      {"cog_time", typeid(cog_time).name()},
+      {"sigmaPad", typeid(sigmaPad).name()},
+      {"sigmaTime", typeid(sigmaTime).name()},
+      {"qMax", typeid(qMax).name()},
+      {"qTot", typeid(qTot).name()},
+      {"flag", typeid(flag).name()},
+      {"mcTrkId", typeid(mcTrkId).name()},
+      {"mcEvId", typeid(mcEvId).name()},
+      {"mcSrcId", typeid(mcSrcId).name()},
+      {"index", typeid(index).name()},
+      {"label", typeid(label).name()}
+    };
+  }
 };
 
+class TPCMap
+{
+  public:
+    int GetRegion(int row) const { return mRegion[row]; }
+    int GetRegionRows(int region) const { return mRegionRows[region]; }
+    int GetRegionStart(int region) const { return mRegionStart[region]; }
+    int GetSampaMapping(int region) const { return mSampaMapping[region]; }
+    int GetChannelOffset(int region) const { return mChannelOffset[region]; }
+    int GetSectorFECOffset(int partition) const { return mSectorFECOffset[partition]; }
+    int GetROC(int row) const { return row < 97 ? (row < 63 ? 0 : 1) : (row < 127 ? 2 : 3); }
+    int EndIROC() const { return 63; }
+    int EndOROC1() const { return 97; }
+    int EndOROC2() const { return 127; }
+
+    float TPCLength() { return 250.f - 0.275f; }
+    float Row2X(int row) const { return (mX[row]); }
+    float PadHeight(int row) const { return (mPadHeight[GetRegion(row)]); }
+    float PadHeightByRegion(int region) const { return (mPadHeight[region]); }
+    float PadWidth(int row) const { return (mPadWidth[GetRegion(row)]); }
+    int NPads(int row) const { return mNPads[row]; }
+
+    float LinearPad2Y(int slice, int row, float pad) const
+    {
+      float u = (pad - 0.5 * mNPads[row]) * PadWidth(row);
+      return (slice >= o2::tpc::constants::MAXSECTOR / 2) ? -u : u;
+    }
+
+    float LinearTime2Z(int slice, float time)
+    {
+      float v = 250.f - time * FACTOR_T2Z; // Used in compression, must remain constant at 250cm!
+      return (slice >= o2::tpc::constants::MAXSECTOR / 2) ? -v : v;
+    }
+
+    float LinearY2Pad(int slice, int row, float y) const
+    {
+      float u = (slice >= o2::tpc::constants::MAXSECTOR / 2) ? -y : y;
+      return u / PadWidth(row) + 0.5 * mNPads[row];
+    }
+
+    float LinearZ2Time(int slice, float z)
+    {
+      float v = (slice >= o2::tpc::constants::MAXSECTOR / 2) ? -z : z;
+      return (250.f - v) * FACTOR_Z2T; // Used in compression, must remain constant at 250cm
+    }
+
+    std::vector<std::array<float, 4>> getSectorsXY() // From /data.local1/csonnab/MyO2/O2/Detectors/TPC/base/src/Painter.cxx:692
+    {
+      constexpr float phiWidth = float(SECPHIWIDTH);
+      const float rFactor = std::cos(phiWidth / 2.);
+      const float rLow = 83.65 / rFactor;
+      const float rIROCup = 133.3 / rFactor;
+      const float rOROClow = 133.5 / rFactor;
+      const float rOROC12 = 169.75 / rFactor;
+      const float rOROC23 = 207.85 / rFactor;
+      const float rOut = 247.7 / rFactor;
+      const float rText = rLow * rFactor * 3. / 4.;
+
+      std::vector<std::array<float, 4>> tpc_xy_boundaries;
+
+      for (Int_t isector = 0; isector < 18; ++isector) {
+        const float sinText = std::sin(phiWidth * (isector + 0.5));
+        const float cosText = std::cos(phiWidth * (isector + 0.5));
+
+        const float xText = rText * cosText;
+        const float yText = rText * sinText;
+
+        tpc_xy_boundaries.push_back({xText, yText, 0, 0});
+      }
+
+      for (Int_t isector = 0; isector < 18; ++isector) {
+        const float sinR = std::sin(phiWidth * isector);
+        const float cosR = std::cos(phiWidth * isector);
+
+        const float sinL = std::sin(phiWidth * ((isector + 1) % 18));
+        const float cosL = std::cos(phiWidth * ((isector + 1) % 18));
+
+        const float xR1 = rLow * cosR;
+        const float yR1 = rLow * sinR;
+        const float xR2 = rOut * cosR;
+        const float yR2 = rOut * sinR;
+
+        const float xL1 = rLow * cosL;
+        const float yL1 = rLow * sinL;
+        const float xL2 = rOut * cosL;
+        const float yL2 = rOut * sinL;
+
+        const float xOROCmup1 = rOROClow * cosR;
+        const float yOROCmup1 = rOROClow * sinR;
+        const float xOROCmup2 = rOROClow * cosL;
+        const float yOROCmup2 = rOROClow * sinL;
+
+        const float xIROCmup1 = rIROCup * cosR;
+        const float yIROCmup1 = rIROCup * sinR;
+        const float xIROCmup2 = rIROCup * cosL;
+        const float yIROCmup2 = rIROCup * sinL;
+
+        const float xO121 = rOROC12 * cosR;
+        const float yO121 = rOROC12 * sinR;
+        const float xO122 = rOROC12 * cosL;
+        const float yO122 = rOROC12 * sinL;
+
+        const float xO231 = rOROC23 * cosR;
+        const float yO231 = rOROC23 * sinR;
+        const float xO232 = rOROC23 * cosL;
+        const float yO232 = rOROC23 * sinL;
+
+        tpc_xy_boundaries.push_back({xR1, yR1, xR2, yR2});
+        tpc_xy_boundaries.push_back({xR1, yR1, xL1, yL1});
+        tpc_xy_boundaries.push_back({xIROCmup1, yIROCmup1, xIROCmup2, yIROCmup2});
+        tpc_xy_boundaries.push_back({xOROCmup1, yOROCmup1, xOROCmup2, yOROCmup2});
+        tpc_xy_boundaries.push_back({xO121, yO121, xO122, yO122});
+        tpc_xy_boundaries.push_back({xO231, yO231, xO232, yO232});
+        tpc_xy_boundaries.push_back({xR2, yR2, xL2, yL2});
+      }
+      return tpc_xy_boundaries;
+    }
+
+  private:
+    const std::vector<float> mX = {85.225f, 85.975f, 86.725f, 87.475f, 88.225f, 88.975f, 89.725f, 90.475f, 91.225f, 91.975f, 92.725f, 93.475f, 94.225f, 94.975f, 95.725f, 96.475f, 97.225f, 97.975f, 98.725f, 99.475f, 100.225f, 100.975f,
+                                                        101.725f, 102.475f, 103.225f, 103.975f, 104.725f, 105.475f, 106.225f, 106.975f, 107.725f, 108.475f, 109.225f, 109.975f, 110.725f, 111.475f, 112.225f, 112.975f, 113.725f, 114.475f, 115.225f, 115.975f, 116.725f, 117.475f,
+                                                        118.225f, 118.975f, 119.725f, 120.475f, 121.225f, 121.975f, 122.725f, 123.475f, 124.225f, 124.975f, 125.725f, 126.475f, 127.225f, 127.975f, 128.725f, 129.475f, 130.225f, 130.975f, 131.725f, 135.2f, 136.2f, 137.2f,
+                                                        138.2f, 139.2f, 140.2f, 141.2f, 142.2f, 143.2f, 144.2f, 145.2f, 146.2f, 147.2f, 148.2f, 149.2f, 150.2f, 151.2f, 152.2f, 153.2f, 154.2f, 155.2f, 156.2f, 157.2f, 158.2f, 159.2f,
+                                                        160.2f, 161.2f, 162.2f, 163.2f, 164.2f, 165.2f, 166.2f, 167.2f, 168.2f, 171.4f, 172.6f, 173.8f, 175.f, 176.2f, 177.4f, 178.6f, 179.8f, 181.f, 182.2f, 183.4f, 184.6f, 185.8f,
+                                                        187.f, 188.2f, 189.4f, 190.6f, 191.8f, 193.f, 194.2f, 195.4f, 196.6f, 197.8f, 199.f, 200.2f, 201.4f, 202.6f, 203.8f, 205.f, 206.2f, 209.65f, 211.15f, 212.65f, 214.15f, 215.65f,
+                                                        217.15f, 218.65f, 220.15f, 221.65f, 223.15f, 224.65f, 226.15f, 227.65f, 229.15f, 230.65f, 232.15f, 233.65f, 235.15f, 236.65f, 238.15f, 239.65f, 241.15f, 242.65f, 244.15f, 245.65f};
+
+    const  std::vector<int> mNPads = {66, 66, 66, 68, 68, 68, 70, 70, 70, 72, 72, 72, 74, 74, 74, 74, 76, 76, 76, 76, 78, 78, 78, 80, 80, 80, 82, 82, 82, 84, 84, 84, 86, 86, 86, 88, 88, 88,
+                                                                    90, 90, 90, 90, 92, 92, 92, 94, 94, 94, 92, 92, 92, 94, 94, 94, 96, 96, 96, 98, 98, 98, 100, 100, 100, 76, 76, 76, 76, 78, 78, 78, 80, 80, 80, 80, 82, 82,
+                                                                    82, 84, 84, 84, 84, 86, 86, 86, 88, 88, 88, 90, 90, 90, 90, 92, 92, 92, 94, 94, 94, 94, 96, 96, 96, 98, 98, 98, 100, 100, 102, 102, 102, 104, 104, 104, 106, 110,
+                                                                    110, 112, 112, 112, 114, 114, 114, 116, 116, 116, 118, 118, 118, 118, 118, 120, 120, 122, 122, 124, 124, 124, 126, 126, 128, 128, 128, 130, 130, 132, 132, 132, 134, 134, 136, 136, 138, 138};
+
+    const std::vector<int> mRegion = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+                                                                    4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9};
+    const std::vector<int> mRegionRows = {17, 15, 16, 15, 18, 16, 16, 14, 13, 12};
+    const std::vector<int> mRegionStart = {0, 17, 32, 48, 63, 81, 97, 113, 127, 140};
+
+    const std::vector<int> mSampaMapping = {0, 0, 1, 1, 2, 3, 3, 4, 4, 2};
+    const std::vector<int> mChannelOffset = {0, 16, 0, 16, 0, 0, 16, 0, 16, 16};
+    const std::vector<int> mSectorFECOffset = {0, 15, 15 + 18, 15 + 18 + 18, 15 + 18 + 18 + 20};
+
+    const std::vector<float> mPadHeight = {.75f, .75f, .75f, .75f, 1.f, 1.f, 1.2f, 1.2f, 1.5f, 1.5f};
+    const std::vector<float> mPadWidth = {.416f, .420f, .420f, .436f, .6f, .6f, .608f, .588f, .604f, .607f};
+
+    const float FACTOR_T2Z = 250.f / 512.f;
+    const float FACTOR_Z2T = 1.f / FACTOR_T2Z;
+};
 
 class qaCluster : public Task
 {
@@ -142,8 +316,9 @@ class qaCluster : public Task
   void run(ProcessingContext&) final;
 
  private:
-  std::vector<int> tpc_sectors; // The TPC sectors for which processing should be started
+  TPCMap tpcmap;
 
+  std::vector<int> tpc_sectors; // The TPC sectors for which processing should be started
   std::vector<int> global_shift = {5, 5, 0}; // shifting digits to select windows easier, (pad, time, row)
   int charge_limits[2] = {2, 1024};          // upper and lower charge limits
   int verbose = 0;                           // chunk_size in time direction
@@ -171,14 +346,18 @@ class qaCluster : public Task
   bool overwrite_max_time = true;
   std::array<int, o2::tpc::constants::MAXSECTOR> max_time;
   std::string mode = "training_data";
+  std::string simulationPath = ".";
+  std::string outputPath = ".";
   std::string inFileDigits = "tpcdigits.root";
   std::string inFileNative = "tpc-cluster-native.root";
   std::string inFileDigitizer = "mclabels_digitizer.root";
   std::string inFileKinematics = "collisioncontext.root";
-  std::string networkDataOutput = "./network_out.root";
-  std::string networkClassification = "./net_classification.onnx";
-  std::string networkRegression = "./net_regression.onnx";
+  std::string inFileTracks = "tpctracks.root";
+  std::string networkDataOutput = "network_out.root";
+  std::string networkClassification = "net_classification.onnx";
+  std::string networkRegression = "net_regression.onnx";
   std::string outCustomNative = "tpc-cluster-native-custom.root";
+  std::string outFileCustomClusters = "custom-clusters.root";
 
   std::vector<std::vector<std::array<int, 2>>> adj_mat = {{{0, 0}}, {{1, 0}, {0, 1}, {-1, 0}, {0, -1}}, {{1, 1}, {-1, 1}, {-1, -1}, {1, -1}}, {{2, 0}, {0, -2}, {-2, 0}, {0, 2}}, {{2, 1}, {1, 2}, {-1, 2}, {-2, 1}, {-2, -1}, {-1, -2}, {1, -2}, {2, -1}}, {{2, 2}, {-2, 2}, {-2, -2}, {2, -2}}};
   std::vector<std::vector<float>> TPC_GEOM;
@@ -438,71 +617,67 @@ std::vector<std::string> splitString(const std::string& input, const std::string
     }
   }
 
-  template<class T>
-  void WriteClustersToRootFile(std::string fileName, std::vector<T>& clusters) {
-    // Create a TFile
-    TFile *file = new TFile(fileName.c_str(), "RECREATE");
-    if (!file || file->IsZombie()) {
-        printf("Error: Cannot create file %s\n", fileName);
-        return;
+  GlobalPosition2D convertSecRowPadToXY(int sector, int row, float pad){
+
+    const auto& mapper = Mapper::instance();
+
+    int firstRegion = 0, lastRegion = 10;
+    if (row < 63) {
+      firstRegion = 0;
+      lastRegion = 4;
+    } else {
+      firstRegion = 4;
+      lastRegion = 10;
     }
 
-    // Create a TTree
-    TTree *tree = new TTree("customClusters", "Tree with customCluster struct data");
-
-    // Create a branch and associate the struct with it
-    T elem;
-    TBranch *branch = tree->Branch("customClusters", &elem);
-
-    // Fill the tree with some example data
-    for (int i = 0; i < clusters.size(); ++i) {
-      elem = clusters[i];
-        tree->Fill();
+    GlobalPosition2D pos = mapper.getPadCentre(PadSecPos(sector, row, pad));
+    float fractionalPad = 0;
+    if(int(pad) != pad){
+      fractionalPad = mapper.getPadRegionInfo(firstRegion).getPadWidth()*(pad - int(pad));
     }
+    return GlobalPosition2D(pos.X() + fractionalPad, pos.Y());
+  }
 
-    // Write the tree to the file
-    tree->Write();
-    file->Close();
-}
+  // Write function for vector of customCluster
+  void writeStructToRootFile(const char* filename, const char* treeName, const std::vector<customCluster>& data) {
+      if (data.empty()) {
+          std::cerr << "Error: Data vector is empty." << std::endl;
+          return;
+      }
 
-template<class T>
-void ReadClustersFromRootFile(std::string fileName, std::vector<T>& clusters) {
-    // Open the ROOT file
-    TFile *file = new TFile(fileName.c_str());
-    if (!file || file->IsZombie()) {
-        printf("Error: Cannot open file %s\n", fileName);
-        return;
-    }
+      TFile file(filename, "RECREATE");
+      TTree tree(treeName, "Tree with struct data");
 
-    // Get the TTree from the file
-    TTree *tree;
-    file->GetObject("customClusters", tree);
-    if (!tree) {
-        printf("Error: Cannot find TTree in file %s\n", fileName);
-        return;
-    }
+      customCluster cls;
+      tree.Branch("sector", &cls.sector);
+      tree.Branch("row", &cls.row);
+      tree.Branch("max_pad", &cls.max_pad);
+      tree.Branch("max_time", &cls.max_time);
+      tree.Branch("cog_pad", &cls.cog_pad);
+      tree.Branch("cog_time", &cls.cog_time);
+      tree.Branch("sigmaPad", &cls.sigmaPad);
+      tree.Branch("sigmaTime", &cls.sigmaTime);
+      tree.Branch("qMax", &cls.qMax);
+      tree.Branch("qTot", &cls.qTot);
+      tree.Branch("flag", &cls.flag);
+      tree.Branch("mcTrkId", &cls.mcTrkId);
+      tree.Branch("mcEvId", &cls.mcEvId);
+      tree.Branch("mcSrcId", &cls.mcSrcId);
+      tree.Branch("index", &cls.index);
+      tree.Branch("label", &cls.label);
+      tree.Branch("X", &cls.X);
+      tree.Branch("Y", &cls.Y);
 
-    // Associate the branch with the struct
-    T data;
-    TBranch *branch = tree->GetBranch("customClusters");
-    if (!branch) {
-        printf("Error: Cannot find TBranch in TTree\n");
-        return;
-    }
+      // Fill the tree with the data
+      for (const auto& item : data) {
+        cls = item;
+        tree.Fill();
+      }
 
-    branch->SetAddress(&data);
-
-    // Read and print the data
-    int nEntries = tree->GetEntries();
-    clusters.resize(nEntries);
-    for (int i = 0; i < nEntries; ++i) {
-        branch->GetEntry(i);
-        clusters[i] = data;
-    }
-
-    // Clean up
-    file->Close();
-}
+      // Write the tree to the file
+      file.Write();
+      file.Close();
+  }
 }
 // ---------------------------------
 template <typename T>

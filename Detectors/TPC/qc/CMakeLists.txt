@@ -19,7 +19,6 @@ o2_add_library(TPCQC
                        src/SACs.cxx
                        src/IDCsVsSACs.cxx
                        src/TrackClusters.cxx
-                       src/ClustersTracksQA.cxx
                PUBLIC_LINK_LIBRARIES O2::TPCBase
                                      O2::DataFormatsTPC
                                      O2::GPUO2Interface
@@ -37,8 +36,7 @@ o2_target_root_dictionary(TPCQC
                                   include/TPCQC/DCSPTemperature.h
                                   include/TPCQC/SACs.h
                                   include/TPCQC/IDCsVsSACs.h
-                                  include/TPCQC/TrackClusters.h
-                                  include/TPCQC/ClustersTracksQA.h)
+                                  include/TPCQC/TrackClusters.h)
 
 o2_add_test(PID
             COMPONENT_NAME tpc
@@ -94,9 +92,3 @@ o2_add_test_root_macro(macro/runTracks.C
                                              O2::DataFormatsTPC
                                              O2::TPCBase
                                              LABELS tpc COMPILE_ONLY)
-
-o2_add_test_root_macro(macro/runClusterTracksQa.C
-                        PUBLIC_LINK_LIBRARIES O2::TPCQC
-                                                O2::DataFormatsTPC
-                                                O2::TPCBase
-                                                LABELS tpc COMPILE_ONLY)

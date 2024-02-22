@@ -3,9 +3,13 @@
 // ---------------------------------
 qaCluster::qaCluster(std::unordered_map<std::string, std::string> options_map)
 {
+  simulationPath = options_map["simulation-path"];
+  outputPath = options_map["output-path"];
+  create_output = std::stoi(options_map["create-output"]);
   write_native_file = (bool)std::stoi(options_map["write-native-file"]);
   native_file_single_branch = (bool)std::stoi(options_map["native-file-single-branch"]);
   outCustomNative = options_map["outfile-native"];
+  outFileCustomClusters = options_map["outfile-clusters"];
   tpc_sectors = o2::RangeTokenizer::tokenize<int>(options_map["tpc-sectors"]);
 }
 
@@ -14,7 +18,6 @@ void qaCluster::init(InitContext& ic)
 {
   verbose = ic.options().get<int>("verbose");
   mode = ic.options().get<std::string>("mode");
-  create_output = ic.options().get<int>("create-output");
   use_max_cog = ic.options().get<int>("use-max-cog");
   global_shift[0] = (int)((ic.options().get<int>("size-pad") - 1.f) / 2.f);
   global_shift[1] = (int)((ic.options().get<int>("size-time") - 1.f) / 2.f);
@@ -23,6 +26,7 @@ void qaCluster::init(InitContext& ic)
   inFileDigits = ic.options().get<std::string>("infile-digits");
   inFileNative = ic.options().get<std::string>("infile-native");
   inFileKinematics = ic.options().get<std::string>("infile-kinematics");
+  inFileTracks = ic.options().get<std::string>("infile-tracks");
   networkDataOutput = ic.options().get<std::string>("network-data-output");
   networkInputSize = ic.options().get<int>("network-input-size");
   networkClassThres = ic.options().get<float>("network-class-threshold");
@@ -103,10 +107,12 @@ void qaCluster::init(InitContext& ic)
   }
 
   if (create_output == 1) {
-    gSystem->Exec("rm -rf ./looper_tagger*.root");
-    gSystem->Exec("rm -rf ./training_data*.root");
-    gSystem->Exec("rm -rf ./native_ideal*.root");
-    gSystem->Exec("rm -rf ./network_ideal*.root");
+    std::stringstream command;
+    command << "rm -rf " << outputPath;
+    gSystem->Exec((command.str() + "/looper_tagger*.root").c_str());
+    gSystem->Exec((command.str() + "/training_data*.root").c_str());
+    gSystem->Exec((command.str() + "/native_ideal*.root").c_str());
+    gSystem->Exec((command.str() + "/network_ideal*.root").c_str());
   }
 
   if (verbose >= 1)
@@ -127,7 +133,7 @@ void qaCluster::read_digits(int sector, std::vector<customCluster>& digit_map)
     LOG(info) << "[" << sector << "] Reading the digits...";
 
   // reading in the raw digit information
-  TFile* digitFile = TFile::Open(inFileDigits.c_str());
+  TFile* digitFile = TFile::Open((simulationPath + "/" + inFileDigits).c_str());
   TTree* digitTree = (TTree*)digitFile->Get("o2sim");
 
   std::vector<o2::tpc::Digit>* digits = nullptr;
@@ -181,7 +187,7 @@ void qaCluster::read_native(int sector, std::vector<customCluster>& digit_map, s
 {
 
   ClusterNativeHelper::Reader tpcClusterReader;
-  tpcClusterReader.init(inFileNative.c_str());
+  tpcClusterReader.init((simulationPath + "/" + inFileNative).c_str());
 
   ClusterNativeAccess clusterIndex;
   std::unique_ptr<ClusterNative[]> clusterBuffer;
@@ -257,7 +263,7 @@ void qaCluster::read_ideal(int sector, std::vector<customCluster>& ideal_map)
   int elements = 0, count_clusters = 0;
 
   std::stringstream tmp_file;
-  tmp_file << "mclabels_digitizer_" << sector << ".root";
+  tmp_file << simulationPath << "/mclabels_digitizer_" << sector << ".root";
   auto inputFile = TFile::Open(tmp_file.str().c_str());
   std::stringstream tmp_sec;
   tmp_sec << "sector_" << sector;
@@ -323,7 +329,7 @@ void qaCluster::read_ideal(int sector, std::vector<customCluster>& ideal_map)
 void qaCluster::read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>& tracks)
 {
 
-  o2::steer::MCKinematicsReader reader("collisioncontext.root");
+  o2::steer::MCKinematicsReader reader((simulationPath + "/collisioncontext.root").c_str());
 
   tracks.resize(reader.getNSources());
   for (int src = 0; src < reader.getNSources(); src++) {
@@ -912,7 +918,7 @@ std::vector<std::vector<std::vector<int>>> qaCluster::looper_tagger(int sector, 
   if (create_output == 1) {
     // Saving the tagged region to file
     std::stringstream file_in;
-    file_in << "looper_tagger_" << sector << "_" << counter << ".root";
+    file_in << outputPath << "/looper_tagger_" << sector << "_" << counter << ".root";
     TFile* outputFileLooperTagged = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* looper_tagged_tree = new TTree("tagged_region", "tree");
 
@@ -1157,10 +1163,10 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
   network_map.clear();
   maxima_digits.resize(network_class_size);
   network_map.resize(network_class_size);
-  int counter_max_dig = 0;
+  int counter_max_out = 0, counter_max_dig = 0;
   for (int max : new_max_dig) {
     if (max > -1) {
-      maxima_digits[counter_max_dig] = max; // only change number of digit maxima if regression network is called
+      maxima_digits[counter_max_out] = max; // only change number of digit maxima if regression network is called
       // IDEA:
       // Create regression net for every possible class (e.g. 0 to 5).
       // Create entry for network_map n_class times.
@@ -1168,11 +1174,13 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
       // Eval networks in usual form for each point but choose the network according to class label.
       // Write output to network_map and inflate size of maxima digits for assignments.
       uint8_t tmp_flag = (flags_memory[counter_max_dig] | (class_label[counter_max_dig] > 1 ? tpc::ClusterNative::flagSplitTime : 0));
-      network_map[counter_max_dig] = digit_map[max];
-      network_map[counter_max_dig].flag = tmp_flag;
-      network_map[counter_max_dig].label = class_label[counter_max_dig];
-      counter_max_dig++;
+      network_map[counter_max_out] = digit_map[max];
+      network_map[counter_max_out].flag = tmp_flag;
+      network_map[counter_max_out].label = class_label[counter_max_dig];
+      network_map[counter_max_out].index = counter_max_out;
+      counter_max_out++;
     }
+    counter_max_dig++;
   }
 
   LOG(info) << "[" << sector << "] Classification network done!";
@@ -1600,6 +1608,9 @@ void qaCluster::runQa(int sector)
       for(auto const cls : native_map){
         if(!digit_tagged[total_counter]){
           native_writer_map[native_writer_map_size + cluster_counter] = cls;
+          GlobalPosition2D conv_pos = custom::convertSecRowPadToXY(cls.sector, cls.row, cls.cog_pad);
+          native_writer_map[native_writer_map_size + cluster_counter].X = conv_pos.X();
+          native_writer_map[native_writer_map_size + cluster_counter].Y = conv_pos.Y();
           cluster_counter++;
         }
         total_counter++;
@@ -1684,7 +1695,7 @@ void qaCluster::runQa(int sector)
       LOG(info) << "Done performing native-ideal assignment. Writing to file...";
 
     std::stringstream file_in;
-    file_in << "native_ideal_" << sector << ".root";
+    file_in << outputPath << "/native_ideal_" << sector << ".root";
     TFile* outputFileNativeIdeal = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* native_ideal = new TTree("native_ideal", "tree");
 
@@ -1753,6 +1764,9 @@ void qaCluster::runQa(int sector)
       for(auto const cls : network_map){
         if(!digit_tagged[total_counter]){
           native_writer_map[native_writer_map_size + cluster_counter] = cls;
+          GlobalPosition2D conv_pos = custom::convertSecRowPadToXY(cls.sector, cls.row, cls.cog_pad);
+          native_writer_map[native_writer_map_size + cluster_counter].X = conv_pos.X();
+          native_writer_map[native_writer_map_size + cluster_counter].Y = conv_pos.Y();
           cluster_counter++;
         }
         total_counter++;
@@ -1844,17 +1858,18 @@ void qaCluster::runQa(int sector)
       LOG(info) << "Done performing network-ideal assignment. Writing to file...";
 
     std::stringstream file_in;
-    file_in << "network_ideal_" << sector << ".root";
+    file_in << outputPath << "/network_ideal_" << sector << ".root";
     TFile* outputFileNetworkIdeal = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* network_ideal = new TTree("network_ideal", "tree");
 
-    float net_row = 0, net_time = 0, net_pad = 0, net_sigma_time = 0, net_sigma_pad = 0, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, netive_minus_ideal_time = 0, netive_minus_ideal_pad = 0, net_qTot = 0, net_qMax = 0, id_qTot = 0, id_qMax = 0;
+    float net_row = 0, net_time = 0, net_pad = 0, net_sigma_time = 0, net_sigma_pad = 0, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, netive_minus_ideal_time = 0, netive_minus_ideal_pad = 0, net_qTot = 0, net_qMax = 0, id_qTot = 0, id_qMax = 0, net_idx = 0, id_idx = 0;
     network_ideal->Branch("sector", &sector);
     network_ideal->Branch("network_row", &net_row);
     network_ideal->Branch("network_cog_time", &net_time);
     network_ideal->Branch("network_cog_pad", &net_pad);
     network_ideal->Branch("network_sigma_time", &net_sigma_time);
     network_ideal->Branch("network_sigma_pad", &net_sigma_pad);
+    network_ideal->Branch("network_index", &net_idx);
     network_ideal->Branch("ideal_row", &id_row);
     network_ideal->Branch("ideal_cog_time", &id_time);
     network_ideal->Branch("ideal_cog_pad", &id_pad);
@@ -1862,6 +1877,7 @@ void qaCluster::runQa(int sector)
     network_ideal->Branch("ideal_sigma_pad", &id_pad);
     network_ideal->Branch("ideal_qMax", &id_time);
     network_ideal->Branch("ideal_qTot", &id_pad);
+    network_ideal->Branch("ideal_index", &id_idx);
 
     // int netive_writer_map_size = netive_writer_map.size();
     // netive_writer_map.resize(native_writer_map_size + network_ideal_assignment.size());
@@ -1875,6 +1891,7 @@ void qaCluster::runQa(int sector)
       net_sigma_time = elem[0].sigmaTime;
       net_qTot = elem[0].qTot;
       net_qMax = elem[0].qMax;
+      net_idx = elem[0].index;
       id_row = elem[1].row;
       id_pad = elem[1].cog_pad;
       id_time = elem[1].cog_time;
@@ -1882,6 +1899,7 @@ void qaCluster::runQa(int sector)
       id_sigma_time = elem[1].sigmaTime;
       id_qTot = elem[1].qTot;
       id_qMax = elem[1].qMax;
+      id_idx = elem[1].index;
       network_ideal->Fill();
 
       // if (write_native_file) {
@@ -2037,7 +2055,7 @@ void qaCluster::runQa(int sector)
       LOG(info) << "[" << sector << "] Done creating training data. Writing to file...";
 
     std::stringstream file_in;
-    file_in << "training_data_" << sector << ".root";
+    file_in << outputPath << "/training_data_" << sector << ".root";
     TFile* outputFileTrData = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* tr_data = new TTree("tr_data", "tree");
 
@@ -2106,144 +2124,230 @@ void qaCluster::runQa(int sector)
 void qaCluster::run(ProcessingContext& pc)
 {
 
-  if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-    for (int i = 0; i < looper_tagger_granularity.size(); i++) {
-      LOG(info) << "Looper tagger active, settings: granularity " << looper_tagger_granularity[i] << ", time-window: " << looper_tagger_timewindow[i] << ", pad-window: " << looper_tagger_padwindow[i] << ", threshold (num. points): " << looper_tagger_threshold_num[i] << ", threshold (Q): " << looper_tagger_threshold_q[i] << ", operational mode: " << looper_tagger_opmode;
-    }
-  }
-
-  read_kinematics(mctracks);
-
-  number_of_ideal_max.fill(0);
-  number_of_digit_max.fill(0);
-  number_of_ideal_max_findable.fill(0);
-  clones.fill(0);
-  fractional_clones.fill(0.f);
-
-  // init array
-  custom::fill_nested_container(assignments_ideal, 0);
-  custom::fill_nested_container(assignments_digit, 0);
-  custom::fill_nested_container(assignments_ideal_findable, 0);
-  custom::fill_nested_container(assignments_digit_findable, 0);
-
-  numThreads = std::min(numThreads, 36);
-  thread_group group;
-  if (numThreads > 1) {
-    int loop_counter = 0;
-    for (int sector : tpc_sectors) {
-      loop_counter++;
-      group.create_thread(boost::bind(&qaCluster::runQa, this, sector));
-      if ((sector + 1) % numThreads == 0 || sector + 1 == o2::tpc::constants::MAXSECTOR || loop_counter == tpc_sectors.size()) {
-        group.join_all();
+  if (mode.find(std::string("matcher")) != std::string::npos){
+    if (mode.find(std::string("looper_tagger")) != std::string::npos) {
+      for (int i = 0; i < looper_tagger_granularity.size(); i++) {
+        LOG(info) << "Looper tagger active, settings: granularity " << looper_tagger_granularity[i] << ", time-window: " << looper_tagger_timewindow[i] << ", pad-window: " << looper_tagger_padwindow[i] << ", threshold (num. points): " << looper_tagger_threshold_num[i] << ", threshold (Q): " << looper_tagger_threshold_q[i] << ", operational mode: " << looper_tagger_opmode;
       }
     }
-  } else {
-    for (int sector : tpc_sectors) {
-      runQa(sector);
-    }
-  }
-  LOG(info) << "Per sector QA done. Creating ECF values.";
 
-  unsigned int number_of_ideal_max_sum = 0, number_of_digit_max_sum = 0, number_of_ideal_max_findable_sum = 0;
-  float clones_sum = 0, fractional_clones_sum = 0;
-  custom::sum_nested_container(assignments_ideal, number_of_ideal_max_sum);
-  custom::sum_nested_container(assignments_digit, number_of_digit_max_sum);
-  custom::sum_nested_container(assignments_ideal_findable, number_of_ideal_max_findable_sum);
-  custom::sum_nested_container(clones, clones_sum);
-  custom::sum_nested_container(fractional_clones, fractional_clones_sum);
+    read_kinematics(mctracks);
 
-  LOG(info) << "------- RESULTS -------\n";
-  LOG(info) << "Number of digit maxima (before exclusions): " << num_total_digit_max;
-  LOG(info) << "Number of ideal maxima (before exclusions): " << num_total_ideal_max << "\n";
-  LOG(info) << "Number of digit maxima: " << number_of_digit_max_sum;
-  LOG(info) << "Number of ideal maxima: " << number_of_ideal_max_sum;
-  LOG(info) << "Number of ideal maxima (findable): " << number_of_ideal_max_findable_sum << "\n";
+    number_of_ideal_max.fill(0);
+    number_of_digit_max.fill(0);
+    number_of_ideal_max_findable.fill(0);
+    clones.fill(0);
+    fractional_clones.fill(0.f);
 
-  unsigned int efficiency_normal = 0;
-  unsigned int efficiency_findable = 0;
-  for (int ass = 0; ass < 25; ass++) {
-    int ass_dig = 0, ass_id = 0;
-    for (int s : tpc_sectors) {
-      ass_dig += assignments_digit[s][ass];
-      ass_id += assignments_ideal[s][ass];
-      if (ass > 0) {
-        efficiency_normal += assignments_ideal[s][ass];
+    // init array
+    custom::fill_nested_container(assignments_ideal, 0);
+    custom::fill_nested_container(assignments_digit, 0);
+    custom::fill_nested_container(assignments_ideal_findable, 0);
+    custom::fill_nested_container(assignments_digit_findable, 0);
+
+    numThreads = std::min(numThreads, 36);
+    thread_group group;
+    if (numThreads > 1) {
+      int loop_counter = 0;
+      for (int sector : tpc_sectors) {
+        loop_counter++;
+        group.create_thread(boost::bind(&qaCluster::runQa, this, sector));
+        if ((sector + 1) % numThreads == 0 || sector + 1 == o2::tpc::constants::MAXSECTOR || loop_counter == tpc_sectors.size()) {
+          group.join_all();
+        }
+      }
+    } else {
+      for (int sector : tpc_sectors) {
+        runQa(sector);
       }
     }
-    LOG(info) << "Number of assigned digit maxima (#assignments " << ass << "): " << ass_dig;
-    LOG(info) << "Number of assigned ideal maxima (#assignments " << ass << "): " << ass_id << "\n";
-  }
+    LOG(info) << "Per sector QA done. Creating ECF values.";
 
-  for (int ass = 0; ass < 25; ass++) {
-    int ass_dig = 0, ass_id = 0;
-    for (int s : tpc_sectors) {
-      ass_dig += assignments_digit_findable[s][ass];
-      ass_id += assignments_ideal_findable[s][ass];
-    }
-    if (ass == 0) {
-      ass_id -= (number_of_ideal_max_sum - number_of_ideal_max_findable_sum);
-    }
-    LOG(info) << "Number of finable assigned digit maxima (#assignments " << ass << "): " << ass_dig;
-    LOG(info) << "Number of finable assigned ideal maxima (#assignments " << ass << "): " << ass_id << "\n";
-    if (ass > 0) {
+    unsigned int number_of_ideal_max_sum = 0, number_of_digit_max_sum = 0, number_of_ideal_max_findable_sum = 0;
+    float clones_sum = 0, fractional_clones_sum = 0;
+    custom::sum_nested_container(assignments_ideal, number_of_ideal_max_sum);
+    custom::sum_nested_container(assignments_digit, number_of_digit_max_sum);
+    custom::sum_nested_container(assignments_ideal_findable, number_of_ideal_max_findable_sum);
+    custom::sum_nested_container(clones, clones_sum);
+    custom::sum_nested_container(fractional_clones, fractional_clones_sum);
+
+    LOG(info) << "------- RESULTS -------\n";
+    LOG(info) << "Number of digit maxima (before exclusions): " << num_total_digit_max;
+    LOG(info) << "Number of ideal maxima (before exclusions): " << num_total_ideal_max << "\n";
+    LOG(info) << "Number of digit maxima: " << number_of_digit_max_sum;
+    LOG(info) << "Number of ideal maxima: " << number_of_ideal_max_sum;
+    LOG(info) << "Number of ideal maxima (findable): " << number_of_ideal_max_findable_sum << "\n";
+
+    unsigned int efficiency_normal = 0;
+    unsigned int efficiency_findable = 0;
+    for (int ass = 0; ass < 25; ass++) {
+      int ass_dig = 0, ass_id = 0;
       for (int s : tpc_sectors) {
-        efficiency_findable += assignments_ideal_findable[s][ass];
+        ass_dig += assignments_digit[s][ass];
+        ass_id += assignments_ideal[s][ass];
+        if (ass > 0) {
+          efficiency_normal += assignments_ideal[s][ass];
+        }
+      }
+      LOG(info) << "Number of assigned digit maxima (#assignments " << ass << "): " << ass_dig;
+      LOG(info) << "Number of assigned ideal maxima (#assignments " << ass << "): " << ass_id << "\n";
+    }
+
+    for (int ass = 0; ass < 25; ass++) {
+      int ass_dig = 0, ass_id = 0;
+      for (int s : tpc_sectors) {
+        ass_dig += assignments_digit_findable[s][ass];
+        ass_id += assignments_ideal_findable[s][ass];
+      }
+      if (ass == 0) {
+        ass_id -= (number_of_ideal_max_sum - number_of_ideal_max_findable_sum);
+      }
+      LOG(info) << "Number of finable assigned digit maxima (#assignments " << ass << "): " << ass_dig;
+      LOG(info) << "Number of finable assigned ideal maxima (#assignments " << ass << "): " << ass_id << "\n";
+      if (ass > 0) {
+        for (int s : tpc_sectors) {
+          efficiency_findable += assignments_ideal_findable[s][ass];
+        }
       }
     }
-  }
 
-  int fakes_dig = 0;
-  for (int s : tpc_sectors) {
-    fakes_dig += assignments_digit[s][0];
-  }
-  int fakes_id = 0;
-  for (int s : tpc_sectors) {
-    fakes_id += assignments_ideal[s][0];
-  }
-
-  LOG(info) << "Efficiency - Number of assigned (ideal -> digit) clusters: " << efficiency_normal << " (" << (float)efficiency_normal * 100 / (float)number_of_ideal_max_sum << "% of ideal maxima)";
-  LOG(info) << "Efficiency (findable) - Number of assigned (ideal -> digit) clusters: " << efficiency_findable << " (" << (float)efficiency_findable * 100 / (float)number_of_ideal_max_findable_sum << "% of ideal maxima)";
-  LOG(info) << "Clones (Int, clone-order >= 2 for ideal cluster): " << clones_sum << " (" << (float)clones_sum * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
-  LOG(info) << "Clones (Float, fractional clone-order): " << fractional_clones_sum << " (" << (float)fractional_clones_sum * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
-  LOG(info) << "Fakes for digits (number of digit hits that can't be assigned to any ideal hit): " << fakes_dig << " (" << (float)fakes_dig * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
-  LOG(info) << "Fakes for ideal (number of ideal hits that can't be assigned to any digit hit): " << fakes_id << " (" << (float)fakes_id * 100 / (float)number_of_ideal_max_sum << "% of ideal maxima)";
-
-  if (mode.find(std::string("looper_tagger")) != std::string::npos && create_output == 1) {
-    LOG(info) << "------- Merging looper tagger regions -------";
-    gSystem->Exec("hadd -k -f ./looper_tagger.root ./looper_tagger_*.root");
-  }
-
-  if (mode.find(std::string("training_data")) != std::string::npos && create_output == 1) {
-    LOG(info) << "------- Merging training data -------";
-    gSystem->Exec("hadd -k -f ./training_data.root ./training_data_*.root");
-  }
-
-  if (mode.find(std::string("native")) != std::string::npos && create_output == 1) {
-    LOG(info) << "------- Merging native-ideal assignments -------";
-    gSystem->Exec("hadd -k -f ./native_ideal.root ./native_ideal_*.root");
-  }
-
-  if (mode.find(std::string("network")) != std::string::npos && create_output == 1) {
-    LOG(info) << "------- Merging network-ideal assignments -------";
-    gSystem->Exec("hadd -k -f ./network_ideal.root ./network_ideal_*.root");
-  }
-
-  if (create_output == 1 && write_native_file == 1) {
-    custom::WriteClustersToRootFile("custom_clusters.root", native_writer_map);
-    if (mode.find(std::string("network")) != std::string::npos) {
-      write_custom_native(pc, native_writer_map);
+    int fakes_dig = 0;
+    for (int s : tpc_sectors) {
+      fakes_dig += assignments_digit[s][0];
     }
-    if (mode.find(std::string("native")) != std::string::npos) {
-      write_custom_native(pc, native_writer_map);
+    int fakes_id = 0;
+    for (int s : tpc_sectors) {
+      fakes_id += assignments_ideal[s][0];
+    }
+
+    LOG(info) << "Efficiency - Number of assigned (ideal -> digit) clusters: " << efficiency_normal << " (" << (float)efficiency_normal * 100 / (float)number_of_ideal_max_sum << "% of ideal maxima)";
+    LOG(info) << "Efficiency (findable) - Number of assigned (ideal -> digit) clusters: " << efficiency_findable << " (" << (float)efficiency_findable * 100 / (float)number_of_ideal_max_findable_sum << "% of ideal maxima)";
+    LOG(info) << "Clones (Int, clone-order >= 2 for ideal cluster): " << clones_sum << " (" << (float)clones_sum * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
+    LOG(info) << "Clones (Float, fractional clone-order): " << fractional_clones_sum << " (" << (float)fractional_clones_sum * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
+    LOG(info) << "Fakes for digits (number of digit hits that can't be assigned to any ideal hit): " << fakes_dig << " (" << (float)fakes_dig * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
+    LOG(info) << "Fakes for ideal (number of ideal hits that can't be assigned to any digit hit): " << fakes_id << " (" << (float)fakes_id * 100 / (float)number_of_ideal_max_sum << "% of ideal maxima)";
+
+    if (mode.find(std::string("looper_tagger")) != std::string::npos && create_output == 1) {
+      LOG(info) << "------- Merging looper tagger regions -------";
+      std::stringstream command;
+      command << "hadd -k -f " << outputPath << "/looper_tagger.root " << outputPath << "/looper_tagger_*.root";
+      gSystem->Exec(command.str().c_str());
+    }
+
+    if (mode.find(std::string("training_data")) != std::string::npos && create_output == 1) {
+      LOG(info) << "------- Merging training data -------";
+      std::stringstream command;
+      command << "hadd -k -f " << outputPath << "/training_data.root " << outputPath << "/training_data_*.root";
+      gSystem->Exec(command.str().c_str());
+    }
+
+    if (mode.find(std::string("native")) != std::string::npos && create_output == 1) {
+      LOG(info) << "------- Merging native-ideal assignments -------";
+      std::stringstream command;
+      command << "hadd -k -f " << outputPath << "/native_ideal.root " << outputPath << "/native_ideal_*.root";
+      gSystem->Exec(command.str().c_str());
+    }
+
+    if (mode.find(std::string("network")) != std::string::npos && create_output == 1) {
+      LOG(info) << "------- Merging network-ideal assignments -------";
+      std::stringstream command;
+      command << "hadd -k -f " << outputPath << "/network_ideal.root " << outputPath << "/network_ideal_*.root";
+      gSystem->Exec(command.str().c_str());
+    }
+
+    if (create_output == 1 && write_native_file == 1) {
+      custom::writeStructToRootFile((outputPath + "/" + outFileCustomClusters).c_str(), "data", native_writer_map);
+      if (mode.find(std::string("network")) != std::string::npos) {
+        write_custom_native(pc, native_writer_map);
+      }
+      if (mode.find(std::string("native")) != std::string::npos) {
+        write_custom_native(pc, native_writer_map);
+      }
+    }
+
+    if (remove_individual_files > 0) {
+      LOG(info) << "!!! Removing sector-individual files !!!";
+      std::stringstream command;
+      command << "rm -rf " << outputPath;
+      gSystem->Exec((command.str() + "/looper_tagger_*.root").c_str());
+      gSystem->Exec((command.str() + "/training_data_*.root").c_str());
+      gSystem->Exec((command.str() + "/native_ideal_*.root").c_str());
+      gSystem->Exec((command.str() + "/network_ideal_*.root").c_str());
     }
   }
 
-  if (remove_individual_files > 0) {
-    LOG(info) << "!!! Removing sector-individual files !!!";
-    gSystem->Exec("rm -rf ./looper_tagger_*.root");
-    gSystem->Exec("rm -rf ./training_data_*.root");
-    gSystem->Exec("rm -rf ./native_ideal_*.root");
-    gSystem->Exec("rm -rf ./network_ideal_*.root");
+  if(mode.find(std::string("track_chopper")) != std::string::npos) {
+    const auto& mapper = Mapper::instance();
+
+    auto file = TFile::Open((simulationPath + "/" + inFileTracks).c_str());
+    auto tree = (TTree*)file->Get("tpcrec");
+    if (tree == nullptr) {
+      std::cout << "Error getting tree\n";
+    }
+
+    // ===| branch setup |==========================================================
+    std::vector<TrackTPC>* tpcTracks = nullptr;
+    tree->SetBranchAddress("TPCTracks", &tpcTracks);
+
+    std::vector<customCluster> track_paths;
+    int tabular_data_counter = 0, track_counter = 0;
+    float B_field = -5.f; // kiloGauss in z direction
+
+    // ===| event loop |============================================================
+    for (int i = 0; i < tree->GetEntriesFast(); ++i) {
+      tree->GetEntry(i);
+      size_t nTracks = tpcTracks->size();
+      track_paths.resize(track_paths.size() + nTracks*o2::tpc::constants::MAXGLOBALPADROW);
+      LOG(info) << "Loaded " << nTracks << " tracks. Chopping...";
+      // ---| track loop |---
+      for (size_t k = 0; k < nTracks; k++) {
+        auto track = (*tpcTracks)[k];
+        for(int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++){ // this needs to be defined -> x = x_coordinate of row.
+          float x=0, y=0, z=0, p=0, t=0;
+          int sector=0;
+          x = tpcmap.Row2X(row);
+          track.getYZAt(x, B_field, y, z);
+          float phi = std::atan2(y, x);
+          if (phi < 0.) {
+            phi += TWOPI;
+            sector += 17;
+          }
+          sector += std::floor(phi / SECPHIWIDTH);
+          GlobalPosition2D conv_pos = mapper.LocalToGlobal(custom::convertSecRowPadToXY(sector, row, tpcmap.LinearY2Pad(sector, row, y)), Sector(sector));
+          track_paths[tabular_data_counter] = customCluster{sector, row, tpcmap.LinearY2Pad(sector, row, y), tpcmap.LinearZ2Time(sector, z), tpcmap.LinearY2Pad(sector, row, y), tpcmap.LinearZ2Time(sector, z), -1, -1, 10000, 10000, 1, -1, -1, -1, track_counter, -1, conv_pos.X(), conv_pos.Y()};
+          tabular_data_counter++; 
+        }
+        track_counter++;
+      }
+    }
+
+    std::string outfile = custom::splitString(outFileCustomClusters, ".root")[0];
+    custom::writeStructToRootFile((outputPath + "/" + outfile + "_tracks.root").c_str(), "data", track_paths);
+    LOG(info) << "Chopped tracks written!";
+  }
+
+  if(mode.find(std::string("tpc_geometry")) != std::string::npos) {
+    std::vector<std::array<float, 4>> sector_xy_coords = tpcmap.getSectorsXY();
+
+    TFile file((outputPath + "/tpc_geometry.root").c_str(), "RECREATE");
+    TTree tree("tpc_geomtery", "TPC sector boundary geometry");
+
+    // First 18 elements only have X1 and Y1 because they are the positions of the letters
+    float X1, Y1, X2, Y2;
+    tree.Branch("X1", &X1);
+    tree.Branch("Y1", &Y1);
+    tree.Branch("X2", &X2);
+    tree.Branch("Y2", &Y2);
+
+    for(auto coord : sector_xy_coords){
+      X1 = coord[0];
+      Y1 = coord[1];
+      X2 = coord[2];
+      Y2 = coord[3];
+      tree.Fill();
+    }
+    file.Write();
+    file.Close();
   }
 
   pc.services().get<ControlService>().endOfStream();
@@ -2261,10 +2365,15 @@ void customize(std::vector<o2::framework::CompletionPolicy>& policies)
 void customize(std::vector<o2::framework::ConfigParamSpec>& workflowOptions)
 {
   std::vector<ConfigParamSpec> options{
-    {"tpc-sectors", VariantType::String, "0-35", {"TPC sector range, e.g. 5-7,8,9"}},
+    {"output-path", VariantType::String, ".", {"Path to the folder where output files should be written"}},
+    {"simulation-path", VariantType::String, ".", {"Path to the folder where simulation files are taken from"}},
+    {"create-output", VariantType::Int, 1, {"Create output, specific to any given mode."}},
     {"write-native-file", VariantType::Int, 0, {"Whether or not to write a custom native file"}},
-    {"outfile-native", VariantType::String, "./tpc-native-cluster-custom.root", {"Path to native file"}},
-    {"native-file-single-branch", VariantType::Int, 1, {"Whether or not to write a single branch in the custom native file"}}};
+    {"outfile-native", VariantType::String, "tpc-native-cluster-custom.root", {"Path to native file"}},
+    {"outfile-clusters", VariantType::String, "custom_clusters.root", {"Path to custom clusters file"}},
+    {"native-file-single-branch", VariantType::Int, 1, {"Whether or not to write a single branch in the custom native file"}},
+    {"tpc-sectors", VariantType::String, "0-35", {"TPC sector range, e.g. 5-7,8,9"}}
+  };
   std::swap(workflowOptions, options);
 }
 
@@ -2276,11 +2385,14 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
 
   // A copy of the global workflow options from customize() to pass to the task
   std::unordered_map<std::string, std::string> options_map{
-    // {"mch-config", VariantType::String, "", {"JSON or INI file with parameters"}},
-    {"tpc-sectors", cfgc.options().get<std::string>("tpc-sectors")},
+    {"create-output", cfgc.options().get<std::string>("create-output")},
+    {"output-path", cfgc.options().get<std::string>("output-path")},
+    {"simulation-path", cfgc.options().get<std::string>("simulation-path")},
     {"write-native-file", cfgc.options().get<std::string>("write-native-file")},
     {"outfile-native", cfgc.options().get<std::string>("outfile-native")},
+    {"outfile-clusters", cfgc.options().get<std::string>("outfile-clusters")},
     {"native-file-single-branch", cfgc.options().get<std::string>("native-file-single-branch")},
+    {"tpc-sectors", cfgc.options().get<std::string>("tpc-sectors")}
   };
 
   if (cfgc.options().get<int>("write-native-file")) {
@@ -2298,9 +2410,8 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
     adaptFromTask<qaCluster>(options_map),
     Options{
       {"verbose", VariantType::Int, 0, {"Verbosity level"}},
-      {"mode", VariantType::String, "training_data", {"Enables different settings (e.g. creation of training data for NN, running with tpc-native clusters). Options are: training_data, native, network_classification, network_regression, network_full, clusterizer"}},
+      {"mode", VariantType::String, "matcher,training_data", {"Enables different settings (e.g. creation of training data for NN, running with tpc-native clusters). Options are: training_data, native, network_classification, network_regression, network_full, clusterizer"}},
       {"normalization-mode", VariantType::Int, 1, {"Normalization: 0 = normalization by 1024.f; 1 = normalization by q_center"}},
-      {"create-output", VariantType::Int, 1, {"Create output, specific to any given mode."}},
       {"use-max-cog", VariantType::Int, 1, {"Use maxima for assignment = 0, use CoG's = 1"}},
       {"max-time", VariantType::Int, -1, {"Maximum time allowed for reading data."}},
       {"size-pad", VariantType::Int, 11, {"Training data selection size: Images are (size-pad, size-time, size-row)."}},
@@ -2316,6 +2427,7 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
       {"infile-digits", VariantType::String, "tpcdigits.root", {"Input file name (digits)"}},
       {"infile-native", VariantType::String, "tpc-native-clusters.root", {"Input file name (native)"}},
       {"infile-kinematics", VariantType::String, "collisioncontext.root", {"Input file name (kinematics)"}},
+      {"infile-tracks", VariantType::String, "tpctracks.root", {"Input file name (tracks)"}},
       {"network-data-output", VariantType::String, "network_out.root", {"Input file for the network output"}},
       // {"network-regression-paths", VariantType::ArrayString, std::vector<std::string>{""}, {"Absolute path(s) to the network file(s) (cluster regression)"}}, // Change to array
       // {"network-classification-paths", VariantType::ArrayString, std::vector<std::string>{""}, {"Absolute path(s) to the network file(s) (cluster classification)"}}, // Change to array
@@ -2419,7 +2531,7 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
     // ---
 
     specs.push_back(makeWriterSpec("tpc-custom-native-writer",
-                                   cfgc.options().get<std::string>("outfile-native").c_str(),
+                                   (cfgc.options().get<std::string>("output-path") + "/" + cfgc.options().get<std::string>("outfile-native")).c_str(),
                                    "tpcrec",
                                    BranchDefinition<const char*>{InputSpec{"data", ConcreteDataTypeMatcher{"TPC", o2::header::DataDescription("CLUSTERNATIVE")}},
                                                                  "TPCClusterNative",
