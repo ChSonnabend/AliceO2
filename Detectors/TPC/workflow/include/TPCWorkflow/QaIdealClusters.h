@@ -129,6 +129,7 @@ class TPCMap
     int GetChannelOffset(int region) const { return mChannelOffset[region]; }
     int GetSectorFECOffset(int partition) const { return mSectorFECOffset[partition]; }
     int GetROC(int row) const { return row < 97 ? (row < 63 ? 0 : 1) : (row < 127 ? 2 : 3); }
+    float GetTimeBoundary() const { return T_BOUNDARY; }
     int EndIROC() const { return 63; }
     int EndOROC1() const { return 97; }
     int EndOROC2() const { return 127; }
@@ -148,7 +149,7 @@ class TPCMap
 
     float LinearTime2Z(int slice, float time)
     {
-      float v = 250.f - time * FACTOR_T2Z; // Used in compression, must remain constant at 250cm!
+      float v = T_BOUNDARY - time * FACTOR_T2Z; // Used in compression, must remain constant at 250cm!
       return (slice >= o2::tpc::constants::MAXSECTOR / 2) ? -v : v;
     }
 
@@ -161,7 +162,7 @@ class TPCMap
     float LinearZ2Time(int slice, float z)
     {
       float v = (slice >= o2::tpc::constants::MAXSECTOR / 2) ? -z : z;
-      return (250.f - v) * FACTOR_Z2T; // Used in compression, must remain constant at 250cm
+      return (T_BOUNDARY - v) * FACTOR_Z2T; // Used in compression, must remain constant at 250cm
     }
 
     std::vector<std::array<float, 4>> getSectorsXY() // From /data.local1/csonnab/MyO2/O2/Detectors/TPC/base/src/Painter.cxx:692
@@ -262,8 +263,9 @@ class TPCMap
     const std::vector<float> mPadHeight = {.75f, .75f, .75f, .75f, 1.f, 1.f, 1.2f, 1.2f, 1.5f, 1.5f};
     const std::vector<float> mPadWidth = {.416f, .420f, .420f, .436f, .6f, .6f, .608f, .588f, .604f, .607f};
 
-    const float FACTOR_T2Z = 250.f / 512.f;
-    const float FACTOR_Z2T = 1.f / FACTOR_T2Z;
+    const float T_BOUNDARY = 0.f;
+    const float FACTOR_T2Z = 1.f; // 250.f / 512.f;
+    const float FACTOR_Z2T = 1.f; // 1.f / FACTOR_T2Z;
 };
 
 class qaCluster : public Task
@@ -639,14 +641,14 @@ std::vector<std::string> splitString(const std::string& input, const std::string
   }
 
   // Write function for vector of customCluster
-  void writeStructToRootFile(const char* filename, const char* treeName, const std::vector<customCluster>& data) {
+  void writeStructToRootFile(std::string filename, std::string treeName, const std::vector<customCluster>& data) {
       if (data.empty()) {
           std::cerr << "Error: Data vector is empty." << std::endl;
           return;
       }
 
-      TFile file(filename, "RECREATE");
-      TTree tree(treeName, "Tree with struct data");
+      TFile file(filename.c_str(), "RECREATE");
+      TTree tree(treeName.c_str(), "Tree with struct data");
 
       customCluster cls;
       tree.Branch("sector", &cls.sector);
@@ -677,6 +679,28 @@ std::vector<std::string> splitString(const std::string& input, const std::string
       // Write the tree to the file
       file.Write();
       file.Close();
+
+      std::cout << filename << " written." << std::endl;
+  }
+
+  template<class T>
+  void writeTabularToRootFile(std::vector<std::string> branch_names, T data, std::string filepath, std::string treename = "tree", std::string treeinfo = "tree"){
+    // T is something like std::vector<szd::vector<float>> or std::vector<std::array<float, ...>>
+    TFile file(filepath.c_str(), "RECREATE");
+    TTree tree(treename.c_str(), treeinfo.c_str());
+
+    auto tmp_data = data[0];
+    for(int b = 0; b < branch_names.size(); b++){
+      tree.Branch(branch_names[b].c_str(), &tmp_data[b]);
+    }
+    for(auto elem : data){
+      tmp_data = elem;
+      tree.Fill();
+    }
+    file.Write();
+    file.Close();
+
+    std::cout << filepath << " written." << std::endl;
   }
 }
 // ---------------------------------

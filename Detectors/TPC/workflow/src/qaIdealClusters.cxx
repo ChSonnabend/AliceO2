@@ -1192,22 +1192,23 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
 
   int index_shift_global = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), index_shift_row = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), index_shift_pad = (2 * global_shift[1] + 1);
   int num_output_classes = network_regression_paths.size(), num_output_nodes_regression = 5; // Expects regression networks to be sorted by class output and have 5 outputs -> [pad1, pad2, ..., time1, time2, ..., sigma_pad1, ..., sigma_time1, ..., qRatio1, ...]
+  std::vector<int> digit_idcs;
 
   int total_num_points = 0;
   std::vector<std::vector<int>> sorted_digit_idx(6); // maybe good to change this once to a fixed number of possible classes
   for(int max = 0; max < maxima_digits.size(); max++){
-    if(digit_map[maxima_digits[max]].label > 0){
+    if(network_map[max].label > 0){
       total_num_points++;
-      sorted_digit_idx[digit_map[maxima_digits[max]].label].push_back(max);
+      sorted_digit_idx[network_map[max].label].push_back(max);
     }
   }
   std::vector<int> corresponding_index_output(total_num_points, 0);
   total_num_points = 0;
   int tmp_idx = 0;
   for(int max = 0; max < maxima_digits.size(); max++){
-    total_num_points += digit_map[maxima_digits[max]].label;
-    if(max > 0 && digit_map[maxima_digits[max]].label > 0){
-      corresponding_index_output[tmp_idx] = corresponding_index_output[tmp_idx-1] + digit_map[maxima_digits[max]].label;
+    total_num_points += network_map[max].label;
+    if(max < (maxima_digits.size()-1) && network_map[max].label > 0){
+      corresponding_index_output[tmp_idx+1] = corresponding_index_output[tmp_idx] + network_map[max].label;
       tmp_idx++;
     }
   }
@@ -1232,13 +1233,14 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
           int digit_max_idx = sorted_digit_idx[class_idx][max_epoch * networkInputSize + idx];
           for(int subclass = 0; subclass < class_idx; subclass++){
             int out_net_idx = idx * class_idx * num_output_nodes_regression + subclass;
-            customCluster& net_cluster = output_network_reg[corresponding_index_output[digit_max_idx] + subclass];
-            net_cluster = digit_map[maxima_digits[digit_max_idx]];
+            customCluster net_cluster = network_map[digit_max_idx];
             net_cluster.cog_pad += out_net[out_net_idx + 0 * class_idx];
             net_cluster.cog_time += out_net[out_net_idx + 1 * class_idx];
             net_cluster.sigmaPad = out_net[out_net_idx + 2 * class_idx];
             net_cluster.sigmaTime = out_net[out_net_idx + 3 * class_idx];
             net_cluster.qTot = out_net[out_net_idx + 4 * class_idx] * net_cluster.qMax; // Change for normalization mode
+            output_network_reg[corresponding_index_output[digit_max_idx] + subclass] = net_cluster;
+            digit_idcs.push_back(maxima_digits[digit_max_idx]);
 
             if(round(net_cluster.cog_pad) > TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] || round(net_cluster.cog_time) > max_time[sector] || round(net_cluster.cog_pad) < 0 || round(net_cluster.cog_time) < 0){
               LOG(warning) << "[" << sector << "] Stepping over boundaries! row: " << net_cluster.row << "; pad: " << net_cluster.cog_pad << " / " << TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] << "; time: " << net_cluster.cog_time << " / " << max_time[sector] << ". Resetting cluster center-of-gravity to maximum position.";
@@ -1283,7 +1285,7 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
   // digit_map = output_network_reg; // -> This causes huge trouble. Not sure why...
   maxima_digits.resize(output_network_reg.size());
   for(int max = 0; max < maxima_digits.size(); max++){
-    maxima_digits[max] = output_network_reg[max].index;
+    maxima_digits[max] = digit_map[digit_idcs[max]].index;
   }
 
   LOG(info) << "[" << sector << "] Regression network done!";
@@ -1374,6 +1376,8 @@ void qaCluster::runQa(int sector)
       if (mode.find(std::string("network_reg")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
         run_network_regression(sector, map2d, maxima_digits, digit_map, network_map); // classification + regression
       }
+      digit_map = network_map;
+      std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);
       num_total_digit_max += maxima_digits.size();
       overwrite_map2d(sector, map2d, digit_map, maxima_digits, 1);
     } else {
@@ -2256,7 +2260,7 @@ void qaCluster::run(ProcessingContext& pc)
     }
 
     if (create_output == 1 && write_native_file == 1) {
-      custom::writeStructToRootFile((outputPath + "/" + outFileCustomClusters).c_str(), "data", native_writer_map);
+      custom::writeStructToRootFile(outputPath + "/" + outFileCustomClusters, "data", native_writer_map);
       if (mode.find(std::string("network")) != std::string::npos) {
         write_custom_native(pc, native_writer_map);
       }
@@ -2294,60 +2298,56 @@ void qaCluster::run(ProcessingContext& pc)
     float B_field = -5.f; // kiloGauss in z direction
 
     // ===| event loop |============================================================
-    for (int i = 0; i < tree->GetEntriesFast(); ++i) {
-      tree->GetEntry(i);
-      size_t nTracks = tpcTracks->size();
-      track_paths.resize(track_paths.size() + nTracks*o2::tpc::constants::MAXGLOBALPADROW);
-      LOG(info) << "Loaded " << nTracks << " tracks. Chopping...";
-      // ---| track loop |---
-      for (size_t k = 0; k < nTracks; k++) {
-        auto track = (*tpcTracks)[k];
-        for(int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++){ // this needs to be defined -> x = x_coordinate of row.
-          float x=0, y=0, z=0, p=0, t=0;
-          int sector=0;
-          x = tpcmap.Row2X(row);
-          track.getYZAt(x, B_field, y, z);
-          float phi = std::atan2(y, x);
-          if (phi < 0.) {
-            phi += TWOPI;
-            sector += 17;
-          }
-          sector += std::floor(phi / SECPHIWIDTH);
-          GlobalPosition2D conv_pos = mapper.LocalToGlobal(custom::convertSecRowPadToXY(sector, row, tpcmap.LinearY2Pad(sector, row, y)), Sector(sector));
-          track_paths[tabular_data_counter] = customCluster{sector, row, tpcmap.LinearY2Pad(sector, row, y), tpcmap.LinearZ2Time(sector, z), tpcmap.LinearY2Pad(sector, row, y), tpcmap.LinearZ2Time(sector, z), -1, -1, 10000, 10000, 1, -1, -1, -1, track_counter, -1, conv_pos.X(), conv_pos.Y()};
-          tabular_data_counter++; 
+    std::vector<std::array<float, 7>> misc_track_data;
+    std::vector<std::string> misc_track_data_branch_names = {"NClusters", "Chi2", "hasASideClusters", "hasCSideClusters", "P", "dEdx", "AbsCharge"};
+    
+    tree->GetEntry(0);
+    size_t nTracks = tpcTracks->size();
+    track_paths.resize(track_paths.size() + nTracks*o2::tpc::constants::MAXGLOBALPADROW);
+    misc_track_data.resize(nTracks);
+    LOG(info) << "Loaded " << nTracks << " tracks. Chopping...";
+    // ---| track loop |---
+    for (size_t k = 0; k < nTracks; k++) {
+      auto track = (*tpcTracks)[k];
+      for(int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++){ // this needs to be defined -> x = x_coordinate of row.
+        float x=0, y=0, z=0, p=0, t=0;
+        int sector=0;
+        x = tpcmap.Row2X(row);
+        bool ok = 1;
+        auto point = track.getXYZGloAt(x, B_field, ok);
+        float phi = std::atan2(point.Y(), point.X());
+        if (phi < 0.) {
+          phi += TWOPI;
+          // if(point.Z() < tpcmap.GetTimeBoundary()){
+          //   sector += 18;
+          // }
         }
-        track_counter++;
+        sector += std::floor(phi / SECPHIWIDTH);
+        // GlobalPosition2D conv_pos = mapper.LocalToGlobal(custom::convertSecRowPadToXY(sector, row, tpcmap.LinearY2Pad(sector, row, y)), Sector(sector));
+        track_paths[tabular_data_counter] = customCluster{sector, row, tpcmap.LinearY2Pad(sector, row, point.Y()), tpcmap.LinearZ2Time(sector, point.Z()), tpcmap.LinearY2Pad(sector, row, point.Y()), tpcmap.LinearZ2Time(sector, point.Z()), -1, -1, 10000, 10000, 1, -1, -1, -1, k, -1, point.X(), point.Y()};
+        tabular_data_counter++; 
       }
+      misc_track_data[k][0] = track.getNClusters();
+      misc_track_data[k][1] = track.getChi2();
+      misc_track_data[k][2] = track.hasASideClusters();
+      misc_track_data[k][3] = track.hasCSideClusters();
+      misc_track_data[k][4] = track.getP();
+      misc_track_data[k][5] = track.getdEdx().dEdxTotTPC;
+      misc_track_data[k][6] = track.getAbsCharge(); // TPC inner param = P / AbsCharge
     }
 
     std::string outfile = custom::splitString(outFileCustomClusters, ".root")[0];
-    custom::writeStructToRootFile((outputPath + "/" + outfile + "_tracks.root").c_str(), "data", track_paths);
+    custom::writeStructToRootFile(outputPath + "/" + outfile + "_tracks.root", "data", track_paths);
     LOG(info) << "Chopped tracks written!";
+
+    custom::writeTabularToRootFile(misc_track_data_branch_names, misc_track_data, outputPath + "/tpc_tracks_tabular_information.root", "tpc_tracks_info", "TPC track information");
+
   }
 
   if(mode.find(std::string("tpc_geometry")) != std::string::npos) {
     std::vector<std::array<float, 4>> sector_xy_coords = tpcmap.getSectorsXY();
-
-    TFile file((outputPath + "/tpc_geometry.root").c_str(), "RECREATE");
-    TTree tree("tpc_geomtery", "TPC sector boundary geometry");
-
-    // First 18 elements only have X1 and Y1 because they are the positions of the letters
-    float X1, Y1, X2, Y2;
-    tree.Branch("X1", &X1);
-    tree.Branch("Y1", &Y1);
-    tree.Branch("X2", &X2);
-    tree.Branch("Y2", &Y2);
-
-    for(auto coord : sector_xy_coords){
-      X1 = coord[0];
-      Y1 = coord[1];
-      X2 = coord[2];
-      Y2 = coord[3];
-      tree.Fill();
-    }
-    file.Write();
-    file.Close();
+    std::vector<std::string> coords_branch_names = {"X1", "Y1", "X2", "Y2"};
+    custom::writeTabularToRootFile(coords_branch_names, sector_xy_coords, outputPath + "/tpc_geometry.root", "tpc_geomtery", "TPC sector boundary geometry");
   }
 
   pc.services().get<ControlService>().endOfStream();
