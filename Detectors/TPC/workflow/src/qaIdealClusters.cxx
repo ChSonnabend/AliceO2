@@ -1184,7 +1184,7 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
       // Write output to network_map and inflate size of maxima digits for assignments.
       uint8_t tmp_flag = (flags_memory[counter_max_dig] | (class_label[counter_max_dig] > 1 ? tpc::ClusterNative::flagSplitTime : 0));
       network_map[counter_max_out] = digit_map[max];
-      network_map[counter_max_out].flag = 0; //tmp_flag;
+      network_map[counter_max_out].flag = tmp_flag;
       network_map[counter_max_out].label = class_label[counter_max_dig];
       network_map[counter_max_out].index = counter_max_out;
       counter_max_out++;
