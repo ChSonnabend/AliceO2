@@ -2292,7 +2292,7 @@ void qaCluster::run(ProcessingContext& pc)
   if(mode.find(std::string("track_clusters")) != std::string::npos) {
     const auto& mapper = Mapper::instance();
 
-    auto file = TFile::Open((simulationPath + "/" + inFileTracks).c_str());
+    auto file = TFile::Open((outputPath + "/" + inFileTracks).c_str());
     auto tree = (TTree*)file->Get("tpcrec");
     if (tree == nullptr) {
       std::cout << "Error getting tree\n";
@@ -2306,7 +2306,7 @@ void qaCluster::run(ProcessingContext& pc)
 
     // Getting the native clusters
     ClusterNativeHelper::Reader tpcClusterReader;
-    tpcClusterReader.init((simulationPath + "/" + inFileNative).c_str());
+    tpcClusterReader.init((outputPath + "/" + inFileNative).c_str());
     ClusterNativeAccess clusterIndex;
     std::unique_ptr<ClusterNative[]> clusterBuffer;
     memset(&clusterIndex, 0, sizeof(clusterIndex));
@@ -2320,8 +2320,8 @@ void qaCluster::run(ProcessingContext& pc)
     std::vector<customCluster> track_paths;
     int tabular_data_counter = 0, track_counter = 0;
     float B_field = -5.f; // kiloGauss in z direction
-    std::vector<std::array<float, 7>> misc_track_data;
-    std::vector<std::string> misc_track_data_branch_names = {"NClusters", "Chi2", "hasASideClusters", "hasCSideClusters", "P", "dEdx", "AbsCharge"};
+    std::vector<std::array<float, 10>> misc_track_data;
+    std::vector<std::string> misc_track_data_branch_names = {"NClusters", "Chi2", "hasASideClusters", "hasCSideClusters", "P", "dEdx", "AbsCharge", "Eta", "Phi", "Pt"};
     
     // const auto& tpcClusRefs = data.getTPCTracksClusterRefs();
     // const auto& tpcClusAcc = // get from tpc-native-clsuters the flat array
@@ -2336,12 +2336,10 @@ void qaCluster::run(ProcessingContext& pc)
     for (size_t k = 0; k < nTracks; k++) {
       auto track = (*tpcTracks)[k];
       for(int cl = 0; cl < track.getNClusters(); cl++){
-        uint8_t sector, row;
-        auto cluster = track.getCluster(mCluRefVecInp, cl, clusterIndex, sector, row, track.getClusterRef()); // ClusterNative instance
-        float x = tpcmap.Row2X(row);
-        bool ok = 1;
-        auto point = track.getXYZGloAt(x, B_field, ok);
-        track_paths.push_back(customCluster{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, k, 0.f, point.X(), point.Y()});
+        uint8_t sector = 0, row = 0;
+        const auto cluster = track.getCluster(*mCluRefVecInp, cl, clusterIndex, sector, row); // ClusterNative instance
+        GlobalPosition2D conv_pos = mapper.LocalToGlobal(custom::convertSecRowPadToXY((int)sector, (int)row, cluster.getPad()), Sector((int)sector));
+        track_paths.push_back(customCluster{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, k, 0.f, conv_pos.X(), conv_pos.Y()});
       }
 
       // linear projection of the track to the (pad, time) dimention -> This needs improvement!!!
@@ -2370,6 +2368,9 @@ void qaCluster::run(ProcessingContext& pc)
       misc_track_data[k][4] = track.getP();
       misc_track_data[k][5] = track.getdEdx().dEdxTotTPC;
       misc_track_data[k][6] = track.getAbsCharge(); // TPC inner param = P / AbsCharge
+      misc_track_data[k][7] = track.getEta();
+      misc_track_data[k][8] = track.getPhi();
+      misc_track_data[k][9] = track.getPt();
 
       // Cluster Reference
       // for (int i = 0; i < track.getNClusters(); i++) {
