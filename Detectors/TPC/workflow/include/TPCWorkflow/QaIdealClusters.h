@@ -114,7 +114,9 @@ struct customCluster {
       {"mcEvId", typeid(mcEvId).name()},
       {"mcSrcId", typeid(mcSrcId).name()},
       {"index", typeid(index).name()},
-      {"label", typeid(label).name()}
+      {"label", typeid(label).name()},
+      {"X", typeid(X).name()},
+      {"Y", typeid(Y).name()}
     };
   }
 };

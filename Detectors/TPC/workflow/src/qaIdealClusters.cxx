@@ -301,9 +301,9 @@ void qaCluster::read_ideal(int sector, std::vector<customCluster>& ideal_map)
   for (unsigned int j = 0; j < digitizerSector->GetEntries(); j++) {
     try {
       digitizerSector->GetEntry(j);
-
+      auto const mctrk = mctracks[srcid][evid][trkid];
       if (overwrite_max_time) {
-        ideal_map[count_clusters] = customCluster{sector, row, maxp, maxt, cogp, cogt, sigmap, sigmat, maxq, cogq, 0, trkid, evid, srcid, (int)count_clusters, 0.f};
+        ideal_map[count_clusters] = customCluster{sector, row, maxp, maxt, cogp, cogt, sigmap, sigmat, maxq, cogq, 0, trkid, evid, srcid, (int)count_clusters, 0.f, -1.f, -1.f};
         if (maxt >= max_time[sector]){
           max_time[sector] = maxt + 1;
         }
@@ -313,7 +313,7 @@ void qaCluster::read_ideal(int sector, std::vector<customCluster>& ideal_map)
         count_clusters++;
       } else {
         if (maxt < max_time[sector] && cogt < max_time[sector]) {
-          ideal_map[count_clusters] = customCluster{sector, row, maxp, maxt, cogp, cogt, sigmap, sigmat, maxq, cogq, 0, trkid, evid, srcid, (int)count_clusters, 0.f};
+          ideal_map[count_clusters] = customCluster{sector, row, maxp, maxt, cogp, cogt, sigmap, sigmat, maxq, cogq, 0, trkid, evid, srcid, (int)count_clusters, 0.f, -1.f, -1.f};
           count_clusters++;
         }
       }
@@ -330,14 +330,23 @@ void qaCluster::read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>
 {
 
   o2::steer::MCKinematicsReader reader((simulationPath + "/collisioncontext.root").c_str());
+  std::vector<std::array<float,7>> track_ideal_info;
+  std::vector<std::string> track_ideal_branches = {"SourceID", "EventID", "TrackID", "Eta", "Phi", "P", "Pt"};
 
   tracks.resize(reader.getNSources());
   for (int src = 0; src < reader.getNSources(); src++) {
     tracks[src].resize(reader.getNEvents(src));
     for (int ev = 0; ev < reader.getNEvents(src); ev++) {
       tracks[src][ev] = reader.getTracks(src, ev);
+      int track_counter = 0;
+      for(auto trk : tracks[src][ev]){
+        track_ideal_info.push_back({(float)src, (float)ev, (float)track_counter, (float)trk.GetEta(), (float)trk.GetPhi(), (float)trk.GetP(), (float)trk.GetPt()});
+        track_counter++;
+      }
     }
   }
+
+  custom::writeTabularToRootFile(track_ideal_branches, track_ideal_info, outputPath + "/mc_tracks_tabular_information.root", "mc_tracks_info", "MC track information");
 
   // LOG(info) << "Done reading kinematics, exporting to file (for python readout)";
 }
@@ -2280,7 +2289,7 @@ void qaCluster::run(ProcessingContext& pc)
     }
   }
 
-  if(mode.find(std::string("track_chopper")) != std::string::npos) {
+  if(mode.find(std::string("track_clusters")) != std::string::npos) {
     const auto& mapper = Mapper::instance();
 
     auto file = TFile::Open((simulationPath + "/" + inFileTracks).c_str());
@@ -2288,27 +2297,54 @@ void qaCluster::run(ProcessingContext& pc)
     if (tree == nullptr) {
       std::cout << "Error getting tree\n";
     }
-
-    // ===| branch setup |==========================================================
     std::vector<TrackTPC>* tpcTracks = nullptr;
+    std::vector<o2::tpc::TPCClRefElem>* mCluRefVecInp = nullptr; // index to clusters linear structure in ClusterNativeAccess
+    std::vector<o2::MCCompLabel>* mMCTruthInp = nullptr;
     tree->SetBranchAddress("TPCTracks", &tpcTracks);
+    tree->SetBranchAddress("ClusRefs", &mCluRefVecInp);
+    tree->SetBranchAddress("TPCTracksMCTruth", &mMCTruthInp);
+
+    // Getting the native clusters
+    ClusterNativeHelper::Reader tpcClusterReader;
+    tpcClusterReader.init((simulationPath + "/" + inFileNative).c_str());
+    ClusterNativeAccess clusterIndex;
+    std::unique_ptr<ClusterNative[]> clusterBuffer;
+    memset(&clusterIndex, 0, sizeof(clusterIndex));
+    o2::tpc::ClusterNativeHelper::ConstMCLabelContainerViewWithBuffer clusterMCBuffer;
+    qc::Clusters clusters;
+    for (unsigned long i = 0; i < tpcClusterReader.getTreeSize(); ++i) {
+      tpcClusterReader.read(i);
+      tpcClusterReader.fillIndex(clusterIndex, clusterBuffer, clusterMCBuffer);
+    }
 
     std::vector<customCluster> track_paths;
     int tabular_data_counter = 0, track_counter = 0;
     float B_field = -5.f; // kiloGauss in z direction
-
-    // ===| event loop |============================================================
     std::vector<std::array<float, 7>> misc_track_data;
     std::vector<std::string> misc_track_data_branch_names = {"NClusters", "Chi2", "hasASideClusters", "hasCSideClusters", "P", "dEdx", "AbsCharge"};
     
+    // const auto& tpcClusRefs = data.getTPCTracksClusterRefs();
+    // const auto& tpcClusAcc = // get from tpc-native-clsuters the flat array
+
     tree->GetEntry(0);
     size_t nTracks = tpcTracks->size();
-    track_paths.resize(track_paths.size() + nTracks*o2::tpc::constants::MAXGLOBALPADROW);
+    // track_paths.resize(track_paths.size() + nTracks*o2::tpc::constants::MAXGLOBALPADROW);
     misc_track_data.resize(nTracks);
-    LOG(info) << "Loaded " << nTracks << " tracks. Chopping...";
+    LOG(info) << "Loaded " << nTracks << " tracks. Processing...";
+
     // ---| track loop |---
     for (size_t k = 0; k < nTracks; k++) {
       auto track = (*tpcTracks)[k];
+      for(int cl = 0; cl < track.getNClusters(); cl++){
+        uint8_t sector, row;
+        auto cluster = track.getCluster(mCluRefVecInp, cl, clusterIndex, sector, row, track.getClusterRef()); // ClusterNative instance
+        float x = tpcmap.Row2X(row);
+        bool ok = 1;
+        auto point = track.getXYZGloAt(x, B_field, ok);
+        track_paths.push_back(customCluster{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, k, 0.f, point.X(), point.Y()});
+      }
+
+      // linear projection of the track to the (pad, time) dimention -> This needs improvement!!!
       for(int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++){ // this needs to be defined -> x = x_coordinate of row.
         float x=0, y=0, z=0, p=0, t=0;
         int sector=0;
@@ -2324,7 +2360,7 @@ void qaCluster::run(ProcessingContext& pc)
         }
         sector += std::floor(phi / SECPHIWIDTH);
         // GlobalPosition2D conv_pos = mapper.LocalToGlobal(custom::convertSecRowPadToXY(sector, row, tpcmap.LinearY2Pad(sector, row, y)), Sector(sector));
-        track_paths[tabular_data_counter] = customCluster{sector, row, tpcmap.LinearY2Pad(sector, row, point.Y()), tpcmap.LinearZ2Time(sector, point.Z()), tpcmap.LinearY2Pad(sector, row, point.Y()), tpcmap.LinearZ2Time(sector, point.Z()), -1, -1, 10000, 10000, 1, -1, -1, -1, k, -1, point.X(), point.Y()};
+        // track_paths[tabular_data_counter] = customCluster{sector, row, tpcmap.LinearY2Pad(sector, row, point.Y()), tpcmap.LinearZ2Time(sector, point.Z()), tpcmap.LinearY2Pad(sector, row, point.Y()), tpcmap.LinearZ2Time(sector, point.Z()), -1, -1, 10000, 10000, 1, -1, -1, -1, k, -1, point.X(), point.Y(), 0.f, 0.f, 0.f, 0.f, track.getdEdx()};
         tabular_data_counter++; 
       }
       misc_track_data[k][0] = track.getNClusters();
@@ -2334,14 +2370,20 @@ void qaCluster::run(ProcessingContext& pc)
       misc_track_data[k][4] = track.getP();
       misc_track_data[k][5] = track.getdEdx().dEdxTotTPC;
       misc_track_data[k][6] = track.getAbsCharge(); // TPC inner param = P / AbsCharge
+
+      // Cluster Reference
+      // for (int i = 0; i < track.getNClusters(); i++) {
+      //   o2::tpc::TrackTPC::getClusterReference(tpcClusRefs, i, sectorIndex, rowIndex, clusterIndex, track.getClusterRef());
+      //   unsigned int absoluteIndex = tpcClusAcc.clusterOffset[sectorIndex][rowIndex] + clusterIndex;
+      //   
+      // }
     }
 
     std::string outfile = custom::splitString(outFileCustomClusters, ".root")[0];
     custom::writeStructToRootFile(outputPath + "/" + outfile + "_tracks.root", "data", track_paths);
-    LOG(info) << "Chopped tracks written!";
+    LOG(info) << "Clusters of tracks written!";
 
     custom::writeTabularToRootFile(misc_track_data_branch_names, misc_track_data, outputPath + "/tpc_tracks_tabular_information.root", "tpc_tracks_info", "TPC track information");
-
   }
 
   if(mode.find(std::string("tpc_geometry")) != std::string::npos) {
