@@ -377,6 +377,7 @@ void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customClu
   int total_clusters = 0;
   o2::dataformats::MCLabelContainer mcTruthBuffer;
   custom::fill_nested_container(cluster_sector_counter, 0);
+  o2::MCCompLabel dummyMcLabel(true);
   for (auto const cls : native_writer_map) {
     int sec = cls.sector;
     int row = cls.row;
@@ -387,8 +388,13 @@ void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customClu
     cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].setSigmaPad(cls.sigmaPad);
     cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].qMax = cls.qMax;
     cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].qTot = cls.qTot;
-    mcTruth[sec * o2::tpc::constants::MAXGLOBALPADROW + row].addElement(cluster_sector_counter[sec][row], o2::MCCompLabel(cls.mcTrkId, cls.mcEvId, cls.mcSrcId, false));
-    mcTruthBuffer.addElement(total_clusters, o2::MCCompLabel());
+    if(cls.mcTrkId != -1){
+      mcTruth[sec * o2::tpc::constants::MAXGLOBALPADROW + row].addElement(cluster_sector_counter[sec][row], o2::MCCompLabel(cls.mcTrkId, cls.mcEvId, cls.mcSrcId, false));
+      mcTruthBuffer.addElement(total_clusters, o2::MCCompLabel(cls.mcTrkId, cls.mcEvId, cls.mcSrcId, false));
+    } else {
+      mcTruth[sec * o2::tpc::constants::MAXGLOBALPADROW + row].addElement(cluster_sector_counter[sec][row], dummyMcLabel);
+      mcTruthBuffer.addElement(total_clusters, dummyMcLabel);
+    }
     cluster_sector_counter[sec][row]++;
     total_clusters++;
   }
@@ -1251,7 +1257,7 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
             output_network_reg[corresponding_index_output[digit_max_idx] + subclass] = net_cluster;
             digit_idcs.push_back(maxima_digits[digit_max_idx]);
 
-            if(round(net_cluster.cog_pad) > TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] || round(net_cluster.cog_time) > max_time[sector] || round(net_cluster.cog_pad) < 0 || round(net_cluster.cog_time) < 0){
+            if(round(net_cluster.cog_pad) > TPC_GEOM[net_cluster.row][2] || round(net_cluster.cog_time) > max_time[sector] || round(net_cluster.cog_pad) < 0 || round(net_cluster.cog_time) < 0){
               LOG(warning) << "[" << sector << "] Stepping over boundaries! row: " << net_cluster.row << "; pad: " << net_cluster.cog_pad << " / " << TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] << "; time: " << net_cluster.cog_time << " / " << max_time[sector] << ". Resetting cluster center-of-gravity to maximum position.";
               net_cluster.cog_pad = net_cluster.max_pad;
               net_cluster.cog_time = net_cluster.max_time;
