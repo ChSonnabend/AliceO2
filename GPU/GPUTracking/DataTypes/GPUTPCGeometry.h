@@ -17,6 +17,15 @@
 
 #include "GPUCommonDef.h"
 
+#if !defined(GPUCA_NSLICES) && !defined(GPUCA_ROW_COUNT) && defined(GPUCA_HAVE_O2HEADERS)
+#include "DataFormatsTPC/Constants.h"
+#define GPUCA_NSLICES o2::tpc::constants::MAXSECTOR
+#define GPUCA_ROW_COUNT o2::tpc::constants::MAXGLOBALPADROW
+#ifndef GPUCA_TPC_GEOMETRY_O2
+#define GPUCA_TPC_GEOMETRY_O2
+#endif
+#endif
+
 namespace GPUCA_NAMESPACE
 {
 namespace gpu
@@ -114,7 +123,7 @@ class GPUTPCGeometry // TODO: Make values constexpr
 #if !defined(__OPENCL__) || defined(__OPENCLCPP__)
   GPUd() float LinearPad2Y(int slice, int row, float pad) const
   {
-    const float u = (pad - 0.5 * mNPads[row]) * PadWidth(row);
+    const float u = (pad - 0.5f * mNPads[row]) * PadWidth(row);
     return (slice >= GPUCA_NSLICES / 2) ? -u : u;
   }
 
@@ -127,7 +136,7 @@ class GPUTPCGeometry // TODO: Make values constexpr
   GPUd() float LinearY2Pad(int slice, int row, float y) const
   {
     const float u = (slice >= GPUCA_NSLICES / 2) ? -y : y;
-    return u / PadWidth(row) + 0.5 * mNPads[row];
+    return u / PadWidth(row) + 0.5f * mNPads[row];
   }
 
   GPUd() static float LinearZ2Time(int slice, float z)

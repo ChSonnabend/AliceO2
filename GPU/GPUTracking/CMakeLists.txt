@@ -55,7 +55,6 @@ set(SRCS
     Merger/GPUTPCGMPropagator.cxx
     Merger/GPUTPCGlobalDebugSortKernels.cxx
     Merger/GPUTPCGMPhysicalTrackModel.cxx
-    Merger/GPUTPCGMPolynomialField.cxx
     Merger/GPUTPCGMPolynomialFieldManager.cxx
     DataTypes/GPUTRDTrack.cxx
     TRDTracking/GPUTRDTracker.cxx
@@ -65,10 +64,9 @@ set(SRCS
 
 set(SRCS_DATATYPES DataTypes/GPUDataTypes.cxx)
 set(SRCS_O2_DATATYPE_HEADERS
+    DataTypes/GPUTPCGMPolynomialField.cxx
     DataTypes/GPUTRDTrackO2.cxx)
-set(SRCS_O2_DATATYPES
-    ${SRCS_DATATYPES}
-    Interface/GPUO2InterfaceConfigurableParam.cxx)
+
 set(HDRS_CINT_O2 Merger/GPUTPCGMMergedTrack.h Merger/GPUTPCGMSliceTrack.h Merger/GPUTPCGMBorderTrack.h)
 set(HDRS_CINT_O2_DATATYPES DataTypes/GPUDataTypes.h DataTypes/GPUTPCGMMergedTrackHit.h)
 set(HDRS_CIND_O2_CONFIGURABLEPARAM Interface/GPUO2InterfaceConfigurableParam.h)
@@ -107,61 +105,61 @@ set(SRCS_NO_H SliceTracker/GPUTPCTrackerDump.cxx
               Global/GPUChainTrackingIO.cxx)
 
 set(HDRS_INSTALL
-    SliceTracker/GPUTPCMCInfo.h
-    SliceTracker/GPUTPCHit.h
-    SliceTracker/GPUTPCHitId.h
-    SliceTracker/GPUTPCClusterData.h
-    SliceTracker/GPUTPCBaseTrackParam.h
-    SliceTracker/GPUTPCTracklet.h
-    SliceTracker/GPUTPCSliceOutCluster.h
-    SliceTracker/GPUTPCTrackLinearisation.h
-    Merger/GPUTPCGMBorderTrack.h
-    Merger/GPUTPCGMMergedTrack.h
+    Base/GPUConstantMem.h
+    Base/GPUParam.inc
+    Base/GPUParamRTC.h
+    Base/GPUReconstructionHelpers.h
+    Base/GPUReconstructionIncludes.h
+    Base/GPUReconstructionIncludesITS.h
+    Base/GPUReconstructionKernelMacros.h
+    DataCompression/GPUTPCClusterRejection.h
+    DataCompression/GPUTPCCompressionKernels.inc
+    DataCompression/TPCClusterDecompressor.inc
+    DataTypes/GPUdEdxInfo.h
+    DataTypes/GPUHostDataTypes.h
+    DataTypes/GPUO2DataTypes.h
+    DataTypes/GPUO2FakeClasses.h
+    DataTypes/GPUOutputControl.h
+    DataTypes/GPUSettings.h
+    DataTypes/GPUTPCGeometry.h
     DataTypes/GPUTPCGMMergedTrackHit.h
     DataTypes/GPUTRDDef.h
-    DataTypes/GPUSettings.h
-    TRDTracking/GPUTRDTrackPoint.h
-    TRDTracking/GPUTRDSpacePoint.h
-    TRDTracking/GPUTRDTrackData.h
-    TRDTracking/GPUTRDTrackPoint.h
-    TRDTracking/GPUTRDTrackletLabels.h
-    Base/GPUReconstructionIncludes.h
-    SliceTracker/GPUTPCDef.h
-    SliceTracker/GPUTPCGeometry.h
-    TRDTracking/GPUTRDGeometry.h
-    TRDTracking/GPUTRDTrackerDebug.h
-    TRDTracking/GPUTRDInterfaces.h
-    Base/GPUConstantMem.h
-    Base/GPUParamRTC.h
-    Base/GPUReconstructionIncludesITS.h
-    Base/GPUReconstructionHelpers.h
-    TPCConvert/GPUTPCConvertImpl.h
-    Base/GPUReconstructionKernelMacros.h
-    DataTypes/GPUO2FakeClasses.h
-    Definitions/GPUSettingsList.h
-    DataTypes/GPUOutputControl.h
-    DataTypes/GPUTriggerOutputs.h
-    DataTypes/GPUO2DataTypes.h
-    DataTypes/GPUHostDataTypes.h
-    DataTypes/GPUdEdxInfo.h
     DataTypes/GPUTRDInterfaceO2Track.h
-    Base/GPUParam.inc
-    DataCompression/TPCClusterDecompressor.inc
-    DataCompression/GPUTPCCompressionKernels.inc
-    Merger/GPUTPCGMMergerTypes.h
-    Global/GPUErrorCodes.h
-    Global/GPUChainTrackingDefs.h
-    qconfigoptions.h
-    qa/GPUQAHelper.h
-    DataCompression/GPUTPCClusterRejection.h
-    Refit/GPUTrackParamConvert.h
-    Definitions/GPUDef.h
+    DataTypes/GPUTriggerOutputs.h
+    Debug/GPUROOTDump.h
     Definitions/GPUDefConstantsAndSettings.h
     Definitions/GPUDefGPUParameters.h
+    Definitions/GPUDef.h
+    Definitions/GPUDefMacros.h
     Definitions/GPUDefOpenCL12Templates.h
     Definitions/GPULogging.h
-    Definitions/GPUDefMacros.h
-    Debug/GPUROOTDump.h
+    Definitions/GPUSettingsList.h
+    Global/GPUChainTrackingDefs.h
+    Global/GPUErrorCodes.h
+    Merger/GPUTPCGMBorderTrack.h
+    Merger/GPUTPCGMMergedTrack.h
+    Merger/GPUTPCGMMergerTypes.h
+    qa/GPUQAHelper.h
+    qconfigoptions.h
+    Refit/GPUTrackParamConvert.h
+    SliceTracker/GPUTPCBaseTrackParam.h
+    SliceTracker/GPUTPCClusterData.h
+    SliceTracker/GPUTPCDef.h
+    SliceTracker/GPUTPCHit.h
+    SliceTracker/GPUTPCHitId.h
+    SliceTracker/GPUTPCMCInfo.h
+    SliceTracker/GPUTPCSliceOutCluster.h
+    SliceTracker/GPUTPCTracklet.h
+    SliceTracker/GPUTPCTrackLinearisation.h
+    TPCConvert/GPUTPCConvertImpl.h
+    TRDTracking/GPUTRDGeometry.h
+    TRDTracking/GPUTRDInterfaces.h
+    TRDTracking/GPUTRDSpacePoint.h
+    TRDTracking/GPUTRDTrackData.h
+    TRDTracking/GPUTRDTrackerDebug.h
+    TRDTracking/GPUTRDTrackletLabels.h
+    TRDTracking/GPUTRDTrackPoint.h
+    TRDTracking/GPUTRDTrackPoint.h
 )
 
 # Sources for O2 and for Standalone if requested in config file
@@ -180,6 +178,8 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2" OR CONFIG_O2_EXTENSIONS)
         DataCompression/GPUTPCCompression.cxx
         DataCompression/GPUTPCCompressionTrackModel.cxx
         DataCompression/GPUTPCCompressionKernels.cxx
+        DataCompression/GPUTPCDecompression.cxx
+        DataCompression/GPUTPCDecompressionKernels.cxx
         DataCompression/TPCClusterDecompressor.cxx
         DataCompression/GPUTPCClusterStatistics.cxx
         TPCClusterFinder/GPUTPCClusterFinder.cxx
@@ -195,15 +195,18 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2" OR CONFIG_O2_EXTENSIONS)
         TPCClusterFinder/GPUTPCCFMCLabelFlattener.cxx
         TPCClusterFinder/GPUTPCCFDecodeZS.cxx
         TPCClusterFinder/GPUTPCCFGather.cxx
+        Refit/GPUTrackingRefit.cxx
+        Refit/GPUTrackingRefitKernel.cxx
+        Merger/GPUTPCGMO2Output.cxx)
+
+    set(SRCS_DATATYPES
+        ${SRCS_DATATYPES}
         DataTypes/TPCPadGainCalib.cxx
         DataTypes/TPCPadBitMap.cxx
         DataTypes/TPCZSLinkMapping.cxx
         DataTypes/CalibdEdxContainer.cxx
         DataTypes/CalibdEdxTrackTopologyPol.cxx
-        DataTypes/CalibdEdxTrackTopologySpline.cxx
-        Refit/GPUTrackingRefit.cxx
-        Refit/GPUTrackingRefitKernel.cxx
-        Merger/GPUTPCGMO2Output.cxx)
+        DataTypes/CalibdEdxTrackTopologySpline.cxx)
 
     set(SRCS_NO_H ${SRCS_NO_H}
         TPCClusterFinder/GPUTPCClusterFinderDump.cxx)
@@ -216,10 +219,13 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2" OR CONFIG_O2_EXTENSIONS)
                      TPCClusterFinder/CfUtils.h
                      TPCClusterFinder/ChargePos.h
                      Definitions/clusterFinderDefs.h
-                     TPCClusterFinder/GPUTPCClusterFinderKernels.h
                      TPCClusterFinder/PackedCharge.h
                      TPCClusterFinder/GPUTPCCFChainContext.h)
 endif()
+
+set(SRCS_O2_DATATYPES
+    ${SRCS_DATATYPES}
+    Interface/GPUO2InterfaceConfigurableParam.cxx)
 
 # Sources only for AliRoot
 if(ALIGPU_BUILD_TYPE STREQUAL "ALIROOT")
@@ -246,6 +252,14 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly)
 file(GENERATE
      OUTPUT include_gpu_onthefly/GPUReconstructionKernels.h
      INPUT Base/GPUReconstructionKernels.template.h
+)
+file(GENERATE
+     OUTPUT include_gpu_onthefly/GPUReconstructionKernelIncludes.h
+     INPUT Base/GPUReconstructionKernelIncludes.template.h
+)
+file(GENERATE
+     OUTPUT include_gpu_onthefly/GPUReconstructionIncludesDeviceAll.h
+     INPUT Base/GPUReconstructionIncludesDeviceAll.template.h
 )
 if(NOT ALIGPU_BUILD_TYPE STREQUAL "O2")
   include_directories(${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly)
@@ -474,6 +488,7 @@ endif()
 set_source_files_properties(DataCompression/GPUTPCCompressionTrackModel.cxx
                             DataCompression/GPUTPCCompressionKernels.cxx
                             DataCompression/TPCClusterDecompressor.cxx
+                            DataCompression/GPUTPCDecompressionKernels.cxx
                             TARGET_DIRECTORY ${targetName}
                             PROPERTIES
                             COMPILE_FLAGS "${GPUCA_CXX_NO_FAST_MATH_FLAGS}"

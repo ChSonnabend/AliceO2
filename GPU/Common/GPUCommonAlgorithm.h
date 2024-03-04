@@ -221,7 +221,7 @@ typedef GPUCommonAlgorithm CAAlgo;
 } // namespace gpu
 } // namespace GPUCA_NAMESPACE
 
-#if (((defined(__CUDACC__) && !defined(__clang__)) || defined(__HIPCC__))) && !defined(GPUCA_GPUCODE_COMPILEKERNELS) && !defined(GPUCA_GPUCODE_HOSTONLY)
+#if (((defined(__CUDACC__) && !defined(__clang__)) || defined(__HIPCC__))) && !defined(GPUCA_GPUCODE_GENRTC) && !defined(GPUCA_GPUCODE_HOSTONLY)
 
 #include "GPUCommonAlgorithmThrust.h"
 
@@ -245,11 +245,7 @@ GPUdi() void GPUCommonAlgorithm::sortDeviceDynamic(T* begin, T* end)
 template <class T, class S>
 GPUdi() void GPUCommonAlgorithm::sortDeviceDynamic(T* begin, T* end, const S& comp)
 {
-#ifndef GPUCA_GPUCODE
   GPUCommonAlgorithm::sort(begin, end, comp);
-#else
-  GPUCommonAlgorithm::sortInBlock(begin, end, comp);
-#endif
 }
 
 } // namespace gpu

@@ -328,6 +328,15 @@
   #ifndef GPUCA_LB_GPUTPCCompressionKernels_step1unattached
     #define GPUCA_LB_GPUTPCCompressionKernels_step1unattached 256
   #endif
+  #ifndef GPUCA_LB_GPUTPCDecompressionKernels_step0attached
+    #define GPUCA_LB_GPUTPCDecompressionKernels_step0attached 256
+  #endif
+  #ifndef GPUCA_LB_GPUTPCDecompressionKernels_step1unattached
+    #define GPUCA_LB_GPUTPCDecompressionKernels_step1unattached 256
+  #endif
+  #ifndef GPUCA_LB_GPUTPCDecompressionUtilKernels_sortPerSectorRow
+    #define GPUCA_LB_GPUTPCDecompressionUtilKernels_sortPerSectorRow 256
+  #endif
   #ifndef GPUCA_LB_GPUTPCCFDecodeZS
     #define GPUCA_LB_GPUTPCCFDecodeZS 128, 4
   #endif
@@ -433,8 +442,8 @@
   #ifndef GPUCA_LB_GPUTPCGMO2Output_output
     #define GPUCA_LB_GPUTPCGMO2Output_output 256
   #endif
-  #ifndef GPUCA_LB_GPUITSFitterKernel
-    #define GPUCA_LB_GPUITSFitterKernel 256
+  #ifndef GPUCA_LB_GPUITSFitterKernels
+    #define GPUCA_LB_GPUITSFitterKernels 256
   #endif
   #ifndef GPUCA_LB_GPUTPCStartHitsFinder
     #define GPUCA_LB_GPUTPCStartHitsFinder 256
@@ -553,6 +562,12 @@
 #endif
 #ifndef GPUCA_MERGER_INTERPOLATION_ERROR_TYPE
 #define GPUCA_MERGER_INTERPOLATION_ERROR_TYPE float
+#endif
+#ifdef GPUCA_NO_FAST_MATH
+#undef GPUCA_MERGER_INTERPOLATION_ERROR_TYPE
+#define GPUCA_MERGER_INTERPOLATION_ERROR_TYPE float
+#undef GPUCA_DEDX_STORAGE_TYPE
+#define GPUCA_DEDX_STORAGE_TYPE float
 #endif
 
 #ifndef GPUCA_WARP_SIZE

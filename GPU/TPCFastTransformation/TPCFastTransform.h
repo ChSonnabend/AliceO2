@@ -358,7 +358,7 @@ GPUdi() void TPCFastTransform::convPadTimeToUV(int slice, int row, float pad, fl
   const TPCFastTransformGeo::SliceInfo& sliceInfo = getGeometry().getSliceInfo(slice);
 
   float x = rowInfo.x;
-  u = (pad - 0.5 * rowInfo.maxPad) * rowInfo.padWidth;
+  u = (pad - 0.5f * rowInfo.maxPad) * rowInfo.padWidth;
 
   float y = sideC ? -u : u; // pads are mirrorred on C-side
   float yLab = y * sliceInfo.cosAlpha + x * sliceInfo.sinAlpha;
@@ -379,7 +379,7 @@ GPUdi() void TPCFastTransform::convTimeToVinTimeFrame(int slice, float time, flo
 GPUdi() void TPCFastTransform::convPadTimeToUVinTimeFrame(int slice, int row, float pad, float time, float& u, float& v, float maxTimeBin) const
 {
   const TPCFastTransformGeo::RowInfo& rowInfo = getGeometry().getRowInfo(row);
-  u = (pad - 0.5 * rowInfo.maxPad) * rowInfo.padWidth;
+  u = (pad - 0.5f * rowInfo.maxPad) * rowInfo.padWidth;
   convTimeToVinTimeFrame(slice, time, v, maxTimeBin);
 }
 
@@ -408,7 +408,7 @@ GPUdi() void TPCFastTransform::convUVtoPadTime(int slice, int row, float u, floa
   const TPCFastTransformGeo::RowInfo& rowInfo = getGeometry().getRowInfo(row);
   const TPCFastTransformGeo::SliceInfo& sliceInfo = getGeometry().getSliceInfo(slice);
 
-  pad = u / rowInfo.padWidth + 0.5 * rowInfo.maxPad;
+  pad = u / rowInfo.padWidth + 0.5f * rowInfo.maxPad;
 
   float x = rowInfo.x;
   float y = sideC ? -u : u; // pads are mirrorred on C-side
@@ -430,7 +430,7 @@ GPUdi() void TPCFastTransform::convUVtoPadTimeInTimeFrame(int slice, int row, fl
     v -= getGeometry().getTPCzLengthC();
   }
   const TPCFastTransformGeo::RowInfo& rowInfo = getGeometry().getRowInfo(row);
-  pad = u / rowInfo.padWidth + 0.5 * rowInfo.maxPad;
+  pad = u / rowInfo.padWidth + 0.5f * rowInfo.maxPad;
   time = mT0 + maxTimeBin + (v - mLdriftCorr) / mVdrift;
 }
 
@@ -484,7 +484,7 @@ GPUdi() void TPCFastTransform::TransformInternal(int slice, int row, float& u, f
             dv = dvRef * scale + dv;
           }
         }
-        if (ref2) {
+        if (ref2 && (scale2 != 0)) {
           float dxRef, duRef, dvRef;
           ref2->mCorrection.getCorrection(slice, row, u, v, dxRef, duRef, dvRef);
           dx = dxRef * scale2 + dx;
@@ -674,7 +674,7 @@ GPUdi() void TPCFastTransform::TransformIdeal(int slice, int row, float pad, flo
   const TPCFastTransformGeo::RowInfo& rowInfo = getGeometry().getRowInfo(row);
 
   x = rowInfo.x;
-  float u = (pad - 0.5 * rowInfo.maxPad) * rowInfo.padWidth;
+  float u = (pad - 0.5f * rowInfo.maxPad) * rowInfo.padWidth;
   float v = (time - mT0 - vertexTime) * mVdrift; // drift length cm
 
   getGeometry().convUVtoLocal(slice, u, v, y, z);
@@ -749,7 +749,7 @@ GPUdi() float TPCFastTransform::getMaxDriftTime(int slice, int row, float pad) c
   const TPCFastTransformGeo::SliceInfo& sliceInfo = getGeometry().getSliceInfo(slice);
 
   float x = rowInfo.x;
-  float u = (pad - 0.5 * rowInfo.maxPad) * rowInfo.padWidth;
+  float u = (pad - 0.5f * rowInfo.maxPad) * rowInfo.padWidth;
 
   float y = sideC ? -u : u; // pads are mirrorred on C-side
   float yLab = y * sliceInfo.cosAlpha + x * sliceInfo.sinAlpha;
@@ -795,7 +795,7 @@ GPUdi() void TPCFastTransform::InverseTransformYZtoX(int slice, int row, float y
     if (ref2 && (scale2 != 0)) {
       float xr;
       ref2->mCorrection.getCorrectionInvCorrectedX(slice, row, u, v, xr);
-      x = (xr - getGeometry().getRowInfo(row).x) * scale + x; // xr=mGeo.getRowInfo(row).x + dx;
+      x = (xr - getGeometry().getRowInfo(row).x) * scale2 + x; // xr=mGeo.getRowInfo(row).x + dx;
     }
   } else {
     x = mCorrection.getGeometry().getRowInfo(row).x; // corrections are disabled
@@ -833,11 +833,11 @@ GPUdi() void TPCFastTransform::InverseTransformYZtoNominalYZ(int slice, int row,
         un = (unr - u) * scale + un; // unr = u - duv[0];
         vn = (vnr - v) * scale + vn;
       }
-      if (ref2 && (scale != 0)) {
+      if (ref2 && (scale2 != 0)) {
         float unr = 0, vnr = 0;
         ref2->mCorrection.getCorrectionInvUV(slice, row, u, v, unr, vnr);
-        un = (unr - u) * scale + un; // unr = u - duv[0];
-        vn = (vnr - v) * scale + vn;
+        un = (unr - u) * scale2 + un; // unr = u - duv[0];
+        vn = (vnr - v) * scale2 + vn;
       }
     }
   } else {

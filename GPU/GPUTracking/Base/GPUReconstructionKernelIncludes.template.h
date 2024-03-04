@@ -9,22 +9,10 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file GPUTPCClusterFinderKernels.h
+/// \file GPUReconstructionKernelIncludes.h
 /// \author David Rohr
 
-#ifndef O2_GPU_GPUTPCCLUSTERFINDERKERNEL_H
-#define O2_GPU_GPUTPCCLUSTERFINDERKERNEL_H
-
-#include "clusterFinderDefs.h"
-#include "GPUTPCCFChargeMapFiller.h"
-#include "GPUTPCCFPeakFinder.h"
-#include "GPUTPCCFNoiseSuppression.h"
-#include "GPUTPCCFDeconvolution.h"
-#include "GPUTPCCFStreamCompaction.h"
-#include "GPUTPCCFClusterizer.h"
-#include "GPUTPCCFMCLabelFlattener.h"
-#include "GPUTPCCFCheckPadBaseline.h"
-#include "GPUTPCCFDecodeZS.h"
-#include "GPUTPCCFGather.h"
-
-#endif
+// clang-format off
+$<JOIN:$<LIST:TRANSFORM,$<LIST:TRANSFORM,$<LIST:REMOVE_DUPLICATES,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_INCLUDES>>,APPEND,.h">,PREPEND,#include ">,
+>
+// clang-format on

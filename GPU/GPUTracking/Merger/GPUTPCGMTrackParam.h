@@ -116,7 +116,7 @@ class GPUTPCGMTrackParam
   GPUd() float GetChi2() const { return mChi2; }
   GPUd() int GetNDF() const { return mNDF; }
 
-  GPUd() float GetCosPhi() const { return sqrt(float(1.f) - GetSinPhi() * GetSinPhi()); }
+  GPUd() float GetCosPhi() const { return CAMath::Sqrt(float(1.f) - GetSinPhi() * GetSinPhi()); }
 
   GPUd() float GetErr2Y() const { return mC[0]; }
   GPUd() float GetErr2Z() const { return mC[2]; }
@@ -145,7 +145,7 @@ class GPUTPCGMTrackParam
 
   GPUd() bool Fit(GPUTPCGMMerger* merger, int iTrk, GPUTPCGMMergedTrackHit* clusters, GPUTPCGMMergedTrackHitXYZ* clustersXYZ, int& N, int& NTolerated, float& Alpha, int attempt = 0, float maxSinPhi = GPUCA_MAX_SIN_PHI, gputpcgmmergertypes::GPUTPCOuterParam* outerParam = nullptr);
   GPUd() void MoveToReference(GPUTPCGMPropagator& prop, const GPUParam& param, float& alpha);
-  GPUd() void MirrorTo(GPUTPCGMPropagator& prop, float toY, float toZ, bool inFlyDirection, const GPUParam& param, unsigned char row, unsigned char clusterState, bool mirrorParameters, bool cSide);
+  GPUd() void MirrorTo(GPUTPCGMPropagator& prop, float toY, float toZ, bool inFlyDirection, const GPUParam& param, unsigned char row, unsigned char clusterState, bool mirrorParameters, char sector);
   GPUd() int MergeDoubleRowClusters(int& ihit, int wayDirection, GPUTPCGMMergedTrackHit* clusters, GPUTPCGMMergedTrackHitXYZ* clustersXYZ, const GPUTPCGMMerger* merger, GPUTPCGMPropagator& prop, float& xx, float& yy, float& zz, int maxN, float clAlpha, unsigned char& clusterState, bool rejectChi2);
 
   GPUd() void AttachClustersPropagate(const GPUTPCGMMerger* GPUrestrict() Merger, int slice, int lastRow, int toRow, int iTrack, bool goodLeg, GPUTPCGMPropagator& prop, bool inFlyDirection, float maxSinPhi = GPUCA_MAX_SIN_PHI);
@@ -290,7 +290,7 @@ GPUdi() float GPUTPCGMTrackParam::GetMirroredY(float Bz) const
   if (cosPhi2 < 0.f) {
     cosPhi2 = 0.f;
   }
-  return GetY() - 2.f * sqrt(cosPhi2) / qptBz;
+  return GetY() - 2.f * CAMath::Sqrt(cosPhi2) / qptBz;
 }
 } // namespace gpu
 } // namespace GPUCA_NAMESPACE
