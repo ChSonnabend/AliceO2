@@ -169,6 +169,13 @@ endif()
 
 find_package(FastJet)
 
+find_package(Torch REQUIRED)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")# ${TORCH_CXX_FLAGS}")
+target_link_libraries(torch INTERFACE "${TORCH_LIBRARIES}")
+# target_compile_features(torch INTERFACE cxx_std_17)
+set_property(TARGET torch PROPERTY CXX_STANDARD 20)
+add_library(Torch::Torch ALIAS torch)
+
 find_package(FFTW3f CONFIG)
 set_package_properties(FFTW3f PROPERTIES TYPE REQUIRED)
 

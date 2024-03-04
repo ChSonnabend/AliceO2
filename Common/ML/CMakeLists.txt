@@ -14,3 +14,9 @@ o2_add_library(ML
                TARGETVARNAME targetName
                PUBLIC_LINK_LIBRARIES O2::Framework ONNXRuntime::ONNXRuntime
 )
+
+o2_add_library(Torch
+               SOURCES src/torch_interface.cxx
+               TARGETVARNAME targetName
+               PUBLIC_LINK_LIBRARIES O2::Framework Torch::Torch
+)
