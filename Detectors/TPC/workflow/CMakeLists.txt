@@ -82,7 +82,7 @@ o2_add_executable(qa-clusters
 o2_add_executable(torch
                   COMPONENT_NAME test
                   SOURCES test/test_torch_model_inference.cxx
-                  PUBLIC_LINK_LIBRARIES O2::TPCWorkflow O2::SimulationDataFormat O2::TPCQC O2::DataFormatsTPC O2::TPCBase Boost::thread O2::GPUTracking O2::Torch)
+                  PUBLIC_LINK_LIBRARIES O2::Torch O2::TPCWorkflow O2::SimulationDataFormat O2::TPCQC O2::DataFormatsTPC O2::TPCBase Boost::thread O2::GPUTracking)
 
 # o2_add_executable(qa-clusters-old
 #                   COMPONENT_NAME tpc

@@ -29,31 +29,31 @@ void TorchModel::init(const std::string filepath, const bool autodetect){
     setDevice(autodetect, torch::kCPU);
     modelpath = filepath;
     model = torch::jit::load(filepath, device);
-    std::cout << "(TORCH) Model " << filepath << " loaded" << std::endl;
+    LOG(info) << "(TORCH) Model " << filepath << " loaded";
 }
 
 void TorchModel::printModel(){
-    std::cout << "--- Model ---" << std::endl;
+    LOG(info) << "(TORCH) --- Model ---";
     model.dump(false, false, false);
 }
 
 void TorchModel::printAvailDevices(){
-    std::cout << "(TORCH) --- Printing available devices ---" << std::endl;
+    LOG(info) << "(TORCH) --- Printing available devices ---";
     // // Print available GPUs
     // int num_gpus = torch::cuda::device_count();
-    // std::cout << "Available GPUs:" << std::endl;
+    // LOG(info) << "Available GPUs:";
     // for (int i = 0; i < num_gpus; ++i) {
     //     torch::cuda::device(i);
     //     auto gpu = torch::cuda::current_device();
-    //     std::cout << "GPU " << i << ": " << gpu.name() << std::endl;
-    //     std::cout << "    Device ID: " << gpu.index() << std::endl;
-    //     std::cout << "    Compute Capability: " << gpu.major() << "." << gpu.minor() << std::endl;
-    //     std::cout << "    Total Memory: " << gpu.total_memory() << " bytes" << std::endl;
+    //     LOG(info) << "GPU " << i << ": " << gpu.name();
+    //     LOG(info) << "    Device ID: " << gpu.index();
+    //     LOG(info) << "    Compute Capability: " << gpu.major() << "." << gpu.minor();
+    //     LOG(info) << "    Total Memory: " << gpu.total_memory() << " bytes";
     // }
 // 
     // // Print CPU specifications
-    // std::cout << "CPU Specifications:" << std::endl;
-    // std::cout << "    Number of threads: " << torch::get_num_threads() << std::endl;
+    // LOG(info) << "CPU Specifications:";
+    // LOG(info) << "    Number of threads: " << torch::get_num_threads();
 }
 
 // Getters
@@ -65,41 +65,41 @@ torch::Device TorchModel::getDevice(){
 void TorchModel::setDevice(const bool autodetect, const torch::Device dev){
     std::string string_device = "CPU";
     if(autodetect) {
-        std::cout << "(TORCH) Device auto-detection enabled!" << std::endl;
+        LOG(info) << "(TORCH) Device auto-detection enabled!";
         if (torch::cuda::is_available()) {
-            std::cout << "(TORCH) GPU detected on system";
+            LOG(info) << "(TORCH) GPU detected on system";
             // int dev_id = torch::cuda::current_device();
-            // std::cout << "Found device: " << dev_id << ", name: " << torch::cuda::get_device_name(dev_id);
+            // LOG(info) << "Found device: " << dev_id << ", name: " << torch::cuda::get_device_name(dev_id);
             device = torch::kCUDA;
             at::Device d(at::kCUDA);
             auto *g = c10::impl::getDeviceGuardImpl(d.type());
-            std::cout << "(TORCH) Device: " << g->getDevice();
+            LOG(info) << "(TORCH) Device: " << g->getDevice();
             string_device = "GPU";
         } else {
-            std::cout << "(TORCH) No GPU detected" << std::endl;
+            LOG(info) << "(TORCH) No GPU detected";
             device = dev;
         }
     } else {
-        std::cout << "(TORCH) Device auto-detection disabled!" << std::endl;
+        LOG(info) << "(TORCH) Device auto-detection disabled!";
         if(dev == torch::kCUDA){
             if(torch::cuda::is_available()){
-                std::cout << "(TORCH) GPU requested as device and found" << std::endl;
+                LOG(info) << "(TORCH) GPU requested as device and found";
                 device = torch::kCUDA;
                 at::Device d(at::kCUDA);
                 auto *g = c10::impl::getDeviceGuardImpl(d.type());
-                std::cout << "(TORCH) Device: " << g->getDevice() << std::endl;
+                LOG(info) << "(TORCH) Device: " << g->getDevice();
                 string_device = "GPU";
             } else {
-                std::cout << "(TORCH) GPU requested as device but not found" << std::endl;
+                LOG(info) << "(TORCH) GPU requested as device but not found";
                 string_device = "CPU";
                 device = torch::kCPU;
             }
         } else {
-            std::cout << "(TORCH) CPU requested as device" << std::endl;
+            LOG(info) << "(TORCH) CPU requested as device";
             device = torch::kCPU;
         }
     }
-    std::cout << "(TORCH) Device set to " << string_device << std::endl;
+    LOG(info) << "(TORCH) Device set to " << string_device;
 }
 
 }

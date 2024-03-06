@@ -20,19 +20,14 @@
 #ifndef GPU_ML_TORCH_INTERFACE_H
 #define GPU_ML_TORCH_INTERFACE_H
 
-// Torch
-#include <torch/script.h>
-#include <torch/torch.h>
-
-// System includes
-#include <iostream>
-#include <math.h>
-#include <cmath>
-#include <memory>
-#include <chrono>
-#include <thread>
+// O2 includes
+// #include "Framework/Logger.h"
 
 #include "Framework/Logger.h"
+
+// Torch includes
+#include <torch/script.h>
+#include <torch/torch.h>
 
 namespace o2
 {
