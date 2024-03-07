@@ -478,18 +478,39 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
       }
     }
     if (fillmode == 1 || fillmode == -1) {
+      std::vector<customCluster> new_ideal_map;
+      int overwrite_index = 0, found_overwrites = 0;
       for (auto idl : ideal_map) {
+        overwrite_index = idl.index - found_overwrites;
         map_ptr = &map2d[0][idl.max_time + global_shift[1]][idl.row + rowOffset(idl.row) + global_shift[2]][idl.max_pad + global_shift[0] + padOffset(idl.row)];
-        if (*map_ptr == -1 || idl.qMax > ideal_map[*map_ptr].qMax) { // Using short-circuiting for second expression
-          if (*map_ptr != -1 && verbose >= 4) {
-            LOG(warning) << "Conflict detected! Current MaxQ : " << ideal_map[*map_ptr].qMax << "; New MaxQ: " << idl.qMax << "; Index " << idl.index << "/" << ideal_map.size();
+        if (*map_ptr != -1) {
+          for(auto& cls : new_ideal_map){
+            if((idl.max_time == cls.max_time) && (idl.max_pad == cls.max_pad)) {
+              cls.cog_pad = (cls.cog_pad*cls.qTot + idl.cog_pad*idl.qTot)/(cls.qTot + idl.qTot);
+              cls.cog_time = (cls.cog_time*cls.qTot + idl.cog_time*idl.qTot)/(cls.qTot + idl.qTot);
+              cls.qTot += idl.qTot;
+              cls.qMax += idl.qMax;
+              overwrite_index = cls.index;
+              found_overwrites++;
+              break;
+            }
           }
-          *map_ptr = idl.index;
+          if(verbose >= 3) {
+            LOG(warning) << "[" << sector << "] Conflict detected! Current MaxQ : " << ideal_map[*map_ptr].qMax << "; New MaxQ: " << idl.qMax << "; Index " << idl.index << "/" << ideal_map.size();
+          }
+        } else {
+          idl.index -= found_overwrites;
+          new_ideal_map.push_back(idl);
+          *map_ptr = overwrite_index;
         }
       }
+      if(ideal_map.size() != new_ideal_map.size() && verbose >= 1){
+        LOG(info) << "[" << sector << "] New ideal map size is " << new_ideal_map.size() << ", old size was " << ideal_map.size();
+      }
+      ideal_map = new_ideal_map;
     }
     if (fillmode < -1 || fillmode > 1) {
-      LOG(info) << "Fillmode unknown! No fill performed!";
+      LOG(info) << "[" << sector << "] Fillmode unknown! No fill performed!";
     }
   } else if (use_max_cog == 1) {
     // Storing the indices
@@ -499,18 +520,39 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
       }
     }
     if (fillmode == 1 || fillmode == -1) {
+      std::vector<customCluster> new_ideal_map;
+      int overwrite_index = 0, found_overwrites = 0;
       for (auto idl : ideal_map) {
+        overwrite_index = idl.index - found_overwrites;
         map_ptr = &map2d[0][round(idl.cog_time) + global_shift[1]][idl.row + rowOffset(idl.row) + global_shift[2]][round(idl.cog_pad) + global_shift[0] + padOffset(idl.row)];
-        if (*map_ptr == -1 || idl.qTot > ideal_map[*map_ptr].qTot) { // Using short-circuiting for second expression
-          if (*map_ptr != -1 && verbose >= 4) {
-            LOG(warning) << "Conflict detected! Current MaxQ : " << ideal_map[*map_ptr].qTot << "; New MaxQ: " << idl.qTot << "; Index " << idl.index << "/" << ideal_map.size();
+        if (*map_ptr != -1) {
+          for(auto& cls : new_ideal_map){
+            if((round(idl.cog_time) == round(cls.cog_time)) && (round(idl.cog_pad) == round(cls.cog_pad))) {
+              cls.cog_pad = (cls.cog_pad*cls.qTot + idl.cog_pad*idl.qTot)/(cls.qTot + idl.qTot);
+              cls.cog_time = (cls.cog_time*cls.qTot + idl.cog_time*idl.qTot)/(cls.qTot + idl.qTot);
+              cls.qTot += idl.qTot;
+              cls.qMax += idl.qMax;
+              overwrite_index = cls.index;
+              found_overwrites++;
+              break;
+            }
           }
-          *map_ptr = idl.index;
+          if(verbose >= 3) {
+            LOG(warning) << "[" << sector << "] Conflict detected! Current MaxQ : " << ideal_map[*map_ptr].qMax << "; New MaxQ: " << idl.qMax << "; Index " << idl.index << "/" << ideal_map.size();
+          }
+        } else {
+          idl.index -= found_overwrites;
+          new_ideal_map.push_back(idl);
+          *map_ptr = overwrite_index;
         }
       }
+      if(ideal_map.size() != new_ideal_map.size() && verbose >= 1){
+        LOG(info) << "[" << sector << "] New ideal map size is " << new_ideal_map.size() << ", old size was " << ideal_map.size();
+      }
+      ideal_map = new_ideal_map;
     }
     if (fillmode < -1 || fillmode > 1) {
-      LOG(info) << "Fillmode unknown! No fill performed!";
+      LOG(info) << "[" << sector << "] Fillmode unknown! No fill performed!";
     }
   }
 }
