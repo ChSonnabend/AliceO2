@@ -329,13 +329,14 @@ void GPUTPCGMMerger::DebugRefitMergedTrack(const GPUTPCGMMergedTrack& track) con
 #endif
 }
 
-std::vector<unsigned short> GPUTPCGMMerger::StreamerOccupancyBin(int iSlice, int iRow, float time) const
+std::vector<unsigned int> GPUTPCGMMerger::StreamerOccupancyBin(int iSlice, int iRow, float time) const
 {
-  std::vector<unsigned short> retVal(5);
+  std::vector<unsigned int> retVal(1 + 2 * Param().rec.tpc.occupancyMapTimeBinsAverage);
 #ifdef DEBUG_STREAMER
   const int bin = CAMath::Max(0.f, time / Param().rec.tpc.occupancyMapTimeBins);
-  for (int i = 0; i < 5; i++) {
-    retVal[i] = (bin - 2 + i >= 0 && bin - 2 + i < GPUTPCClusterOccupancyMapBin::getNBins(Param())) ? Param().occupancyMap[bin - 2 + i].bin[iSlice][iRow] : 0;
+  for (int i = 0; i < 1 + 2 * Param().rec.tpc.occupancyMapTimeBinsAverage; i++) {
+    const int mybin = bin + i - Param().rec.tpc.occupancyMapTimeBinsAverage;
+    retVal[i] = (mybin >= 0 && mybin < (int)GPUTPCClusterOccupancyMapBin::getNBins(Param())) ? Param().occupancyMap[mybin] : 0;
   }
 #endif
   return retVal;
@@ -350,7 +351,7 @@ std::vector<float> GPUTPCGMMerger::StreamerUncorrectedZY(int iSlice, int iRow, c
   return retVal;
 }
 
-void GPUTPCGMMerger::DebugStreamerUpdate(int iTrk, int ihit, float xx, float yy, float zz, const GPUTPCGMMergedTrackHit& cluster, const o2::tpc::ClusterNative& clusterNative, const GPUTPCGMTrackParam& track, const GPUTPCGMPropagator& prop, const gputpcgmmergertypes::InterpolationErrorHit& interpolation, char rejectChi2, bool refit, int retVal) const
+void GPUTPCGMMerger::DebugStreamerUpdate(int iTrk, int ihit, float xx, float yy, float zz, const GPUTPCGMMergedTrackHit& cluster, const o2::tpc::ClusterNative& clusterNative, const GPUTPCGMTrackParam& track, const GPUTPCGMPropagator& prop, const gputpcgmmergertypes::InterpolationErrorHit& interpolation, char rejectChi2, bool refit, int retVal, float avgCharge, float charge) const
 {
 #ifdef DEBUG_STREAMER
   float time = clusterNative.getTime();
@@ -371,14 +372,16 @@ void GPUTPCGMMerger::DebugStreamerUpdate(int iTrk, int ihit, float xx, float yy,
                                                                                     << "retVal=" << retVal
                                                                                     << "occupancyBins=" << occupancyBins
                                                                                     << "trackUncorrectedYZ=" << uncorrectedYZ
+                                                                                    << "avgCharge=" << avgCharge
+                                                                                    << "charge=" << charge
                                                                                     << "\n";
 #endif
 }
 
-void GPUTPCGMMerger::DebugStreamerReject(float mAlpha, int iRow, float posY, float posZ, short clusterState, char rejectChi2, const gputpcgmmergertypes::InterpolationErrorHit& inter, bool refit, int retVal, float err2Y, float err2Z, const GPUTPCGMTrackParam& track, char sector, const GPUParam& param, float time, float avgCharge)
+void GPUTPCGMMerger::DebugStreamerReject(float mAlpha, int iRow, float posY, float posZ, short clusterState, char rejectChi2, const gputpcgmmergertypes::InterpolationErrorHit& inter, bool refit, int retVal, float err2Y, float err2Z, const GPUTPCGMTrackParam& track, const GPUParam& param, float time, float avgCharge, float charge)
 {
 #ifdef DEBUG_STREAMER
-  float scaledMult = (time >= 0.f ? param.GetScaledMult(sector, iRow, time) / param.tpcGeometry.Row2X(iRow) : 0.f);
+  float scaledMult = (time >= 0.f ? param.GetScaledMult(time) / param.tpcGeometry.Row2X(iRow) : 0.f);
   o2::utils::DebugStreamer::instance()->getStreamer("debug_InterpolateReject", "UPDATE") << o2::utils::DebugStreamer::instance()->getUniqueTreeName("tree_InterpolateReject").data()
                                                                                          << "mAlpha=" << mAlpha
                                                                                          << "iRow=" << iRow
@@ -394,6 +397,7 @@ void GPUTPCGMMerger::DebugStreamerReject(float mAlpha, int iRow, float posY, flo
                                                                                          << "track=" << track
                                                                                          << "scaledMultiplicity=" << scaledMult
                                                                                          << "avgCharge=" << avgCharge
+                                                                                         << "charge=" << charge
                                                                                          << "\n";
 #endif
 }
