@@ -1923,21 +1923,23 @@ void qaCluster::runQa(int sector)
     TFile* outputFileNetworkIdeal = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* network_ideal = new TTree("network_ideal", "tree");
 
-    float net_row = 0, net_time = 0, net_pad = 0, net_sigma_time = 0, net_sigma_pad = 0, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, netive_minus_ideal_time = 0, netive_minus_ideal_pad = 0, net_qTot = 0, net_qMax = 0, id_qTot = 0, id_qMax = 0, net_idx = 0, id_idx = 0;
+    float net_row = 0, net_time = 0, net_pad = 0, net_sigma_time = 0, net_sigma_pad = 0, net_qTot = 0, net_qMax = 0, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0, net_idx = 0, id_idx = 0;
     network_ideal->Branch("sector", &sector);
     network_ideal->Branch("network_row", &net_row);
     network_ideal->Branch("network_cog_time", &net_time);
     network_ideal->Branch("network_cog_pad", &net_pad);
     network_ideal->Branch("network_sigma_time", &net_sigma_time);
     network_ideal->Branch("network_sigma_pad", &net_sigma_pad);
+    network_ideal->Branch("network_qMax", &net_qMax);
+    network_ideal->Branch("network_qTot", &net_qTot);
     network_ideal->Branch("network_index", &net_idx);
     network_ideal->Branch("ideal_row", &id_row);
     network_ideal->Branch("ideal_cog_time", &id_time);
     network_ideal->Branch("ideal_cog_pad", &id_pad);
-    network_ideal->Branch("ideal_sigma_time", &id_time);
-    network_ideal->Branch("ideal_sigma_pad", &id_pad);
-    network_ideal->Branch("ideal_qMax", &id_time);
-    network_ideal->Branch("ideal_qTot", &id_pad);
+    network_ideal->Branch("ideal_sigma_time", &id_sigma_time);
+    network_ideal->Branch("ideal_sigma_pad", &id_sigma_pad);
+    network_ideal->Branch("ideal_qMax", &id_qMax);
+    network_ideal->Branch("ideal_qTot", &id_qTot);
     network_ideal->Branch("ideal_index", &id_idx);
 
     // int netive_writer_map_size = netive_writer_map.size();
