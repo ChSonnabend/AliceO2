@@ -1763,20 +1763,22 @@ void qaCluster::runQa(int sector)
     // int native_writer_map_size = native_writer_map.size();
     // native_writer_map.resize(native_writer_map_size + native_ideal_assignemnt.size());
 
-    float nat_row = 0, nat_time = 0, nat_pad = 0, nat_sigma_time = 0, nat_sigma_pad = 0, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, native_minus_ideal_time = 0, native_minus_ideal_pad = 0, nat_qTot = 0, nat_qMax = 0, id_qTot = 0, id_qMax = 0;
+    float nat_row = 0, nat_time = 0, nat_pad = 0, nat_sigma_time = 0, nat_sigma_pad = 0,  nat_qTot = 0, nat_qMax = 0, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0;
     native_ideal->Branch("sector", &sector);
     native_ideal->Branch("native_row", &nat_row);
     native_ideal->Branch("native_cog_time", &nat_time);
     native_ideal->Branch("native_cog_pad", &nat_pad);
     native_ideal->Branch("native_sigma_time", &nat_sigma_time);
     native_ideal->Branch("native_sigma_pad", &nat_sigma_pad);
+    native_ideal->Branch("native_qMax", &nat_qMax);
+    native_ideal->Branch("native_qTot", &nat_qTot);
     native_ideal->Branch("ideal_row", &id_row);
     native_ideal->Branch("ideal_cog_time", &id_time);
     native_ideal->Branch("ideal_cog_pad", &id_pad);
-    native_ideal->Branch("ideal_sigma_time", &id_time);
-    native_ideal->Branch("ideal_sigma_pad", &id_pad);
-    native_ideal->Branch("ideal_qMax", &id_time);
-    native_ideal->Branch("ideal_qTot", &id_pad);
+    native_ideal->Branch("ideal_sigma_time", &id_sigma_time);
+    native_ideal->Branch("ideal_sigma_pad", &id_sigma_pad);
+    native_ideal->Branch("ideal_qMax", &id_qMax);
+    native_ideal->Branch("ideal_qTot", &id_qTot);
 
     int elem_counter = 0;
     for (auto const elem : native_ideal_assignemnt) {
