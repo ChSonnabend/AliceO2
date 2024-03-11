@@ -9,9 +9,9 @@
 # granted to it by virtue of its status as an Intergovernmental Organization
 # or submit itself to any jurisdiction.
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
-# string(STRIP "${PYTHON_LIBRARIES}" PYTHON_LIBRARIES)
-target_link_libraries(torch INTERFACE "${TORCH_LIBRARIES}") # "${PYTHON_LIBRARIES}")
-# target_compile_features(torch INTERFACE cxx_std_17)
-# set_property(TARGET torch PROPERTY CXX_STANDARD 17)
-add_library(Torch::Torch ALIAS torch)
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+# # string(STRIP "${PYTHON_LIBRARIES}" PYTHON_LIBRARIES)
+# target_link_libraries(torch INTERFACE "${TORCH_LIBRARIES}") # "${PYTHON_LIBRARIES}")
+# # target_compile_features(torch INTERFACE cxx_std_17)
+# # set_property(TARGET torch PROPERTY CXX_STANDARD 17)
+# add_library(Torch::Torch ALIAS torch)

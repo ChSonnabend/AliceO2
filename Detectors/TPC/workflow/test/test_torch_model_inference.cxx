@@ -61,35 +61,33 @@
 // #include "ML/torch_interface.h"
 
 using namespace o2;
-using namespace GPUCA_NAMESPACE::gpu;
 using namespace o2::tpc;
 using namespace o2::framework;
-using namespace boost;
 
-namespace o2
-{
-namespace tpc
-{
-class testTorch : public Task
-{
-  public:
-    testTorch(std::unordered_map<std::string, std::string> options_map){};
-    // testTorch(std::unordered_map<std::string, std::string> options_map){
-    //   model_path = options_map["path"];
-    //   o2::ml::TorchModel model;
-    //   model.init(model_path);
-    //   model.printModel();
-    // };
-    void init(InitContext& ic) final {};
-    void run(ProcessingContext& pc) final {
-      pc.services().get<ControlService>().endOfStream();
-      pc.services().get<ControlService>().readyToQuit(QuitRequest::Me);
-    };
-  private:
-    std::string model_path;
-};
-}
-}
+// namespace o2
+// {
+// namespace tpc
+// {
+// class testTorch : public Task
+// {
+//   public:
+//     testTorch(std::unordered_map<std::string, std::string> options_map){};
+//     // testTorch(std::unordered_map<std::string, std::string> options_map){
+//     //   model_path = options_map["path"];
+//     //   o2::ml::TorchModel model;
+//     //   model.init(model_path);
+//     //   model.printModel();
+//     // };
+//     void init(InitContext& ic) final {};
+//     void run(ProcessingContext& pc) final {
+//       pc.services().get<ControlService>().endOfStream();
+//       pc.services().get<ControlService>().readyToQuit(QuitRequest::Me);
+//     };
+//   private:
+//     std::string model_path;
+// };
+// }
+// }
 
 void customize(std::vector<o2::framework::ConfigParamSpec>& workflowOptions)
 {
@@ -102,24 +100,24 @@ void customize(std::vector<o2::framework::ConfigParamSpec>& workflowOptions)
 // ---------------------------------
 #include "Framework/runDataProcessing.h"
 
-DataProcessorSpec testProcess(ConfigContext const& cfgc, std::vector<InputSpec>& inputs, std::vector<OutputSpec>& outputs)
-{
-
-  // A copy of the global workflow options from customize() to pass to the task
-  std::unordered_map<std::string, std::string> options_map{
-    {"path", cfgc.options().get<std::string>("path")},
-  };
-
-  return DataProcessorSpec{
-    "test-torch",
-    inputs,
-    outputs,
-    adaptFromTask<testTorch>(options_map),
-    Options{
-      {"somethingElse", VariantType::String, "", {"Something else"}}
-    }
-  };
-}
+// DataProcessorSpec testProcess(ConfigContext const& cfgc, std::vector<InputSpec>& inputs, std::vector<OutputSpec>& outputs)
+// {
+// 
+//   // A copy of the global workflow options from customize() to pass to the task
+//   std::unordered_map<std::string, std::string> options_map{
+//     {"path", cfgc.options().get<std::string>("path")},
+//   };
+// 
+//   return DataProcessorSpec{
+//     "test-torch",
+//     inputs,
+//     outputs,
+//     adaptFromTask<testTorch>(options_map),
+//     Options{
+//       {"somethingElse", VariantType::String, "", {"Something else"}}
+//     }
+//   };
+// }
 
 WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
 {
@@ -129,7 +127,7 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
   static std::vector<InputSpec> inputs;
   static std::vector<OutputSpec> outputs;
 
-  specs.push_back(testProcess(cfgc, inputs, outputs));
+  // specs.push_back(testProcess(cfgc, inputs, outputs));
 
   return specs;
 }
