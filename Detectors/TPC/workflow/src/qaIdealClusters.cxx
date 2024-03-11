@@ -1094,7 +1094,7 @@ std::tuple<std::vector<float>, std::vector<uint8_t>> qaCluster::create_network_i
             input_vector[internal_idx] = -1;
           } else {
             // (?) array_idx = map2d[1][central_digit[2] + 2 * global_shift[1] + 1 - time][central_digit[0]][central_digit[1] + pad + pad_offset];
-            if (isBoundary(central_digit.row + row + row_offset, central_digit.max_pad + pad + pad_offset)) {
+            if (isBoundary(central_digit.row + row + row_offset - global_shift[2], central_digit.max_pad + pad + pad_offset - global_shift[0])) {
               input_vector[internal_idx] = -1;
             } else {
               int array_idx = map2d[1][central_digit.max_time + time][central_digit.row + row + row_offset][central_digit.max_pad + pad + pad_offset];
@@ -1113,10 +1113,10 @@ std::tuple<std::vector<float>, std::vector<uint8_t>> qaCluster::create_network_i
 
     uint8_t flag = 0;
     // Boundary
-    flag |= isBoundary(central_digit.row + row_offset + 1, central_digit.max_pad + pad_offset + 1) ? o2::tpc::ClusterNative::flagEdge : 0;
-    flag |= isBoundary(central_digit.row + row_offset + 1, central_digit.max_pad + pad_offset - 1) ? o2::tpc::ClusterNative::flagEdge : 0;
-    flag |= isBoundary(central_digit.row + row_offset - 1, central_digit.max_pad + pad_offset + 1) ? o2::tpc::ClusterNative::flagEdge : 0;
-    flag |= isBoundary(central_digit.row + row_offset - 1, central_digit.max_pad + pad_offset - 1) ? o2::tpc::ClusterNative::flagEdge : 0;
+    flag |= isBoundary(central_digit.row + row_offset - global_shift[2] + 1, central_digit.max_pad + pad_offset - global_shift[0] + 1) ? o2::tpc::ClusterNative::flagEdge : 0;
+    flag |= isBoundary(central_digit.row + row_offset - global_shift[2] + 1, central_digit.max_pad + pad_offset - global_shift[0] - 1) ? o2::tpc::ClusterNative::flagEdge : 0;
+    flag |= isBoundary(central_digit.row + row_offset - global_shift[2] - 1, central_digit.max_pad + pad_offset - global_shift[0] + 1) ? o2::tpc::ClusterNative::flagEdge : 0;
+    flag |= isBoundary(central_digit.row + row_offset - global_shift[2] - 1, central_digit.max_pad + pad_offset - global_shift[0] - 1) ? o2::tpc::ClusterNative::flagEdge : 0;
     // Single pad and time
     flag |= ((map2d[1][central_digit.max_time + global_shift[1] + 1][central_digit.row + row_offset + global_shift[2]][central_digit.max_pad + global_shift[0] + pad_offset] == -1 &&
               map2d[1][central_digit.max_time + global_shift[1] - 1][central_digit.row + row_offset + global_shift[2]][central_digit.max_pad + global_shift[0] + pad_offset] == -1) ||
