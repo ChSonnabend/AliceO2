@@ -126,10 +126,10 @@ set_package_properties(libjalienO2 PROPERTIES TYPE REQUIRED PURPOSE "For CCDB AP
 
 find_package(Torch CONFIG)
 set_package_properties(Torch PROPERTIES TYPE REQUIRED PURPOSE "For Pytorch model implementation")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}") # ${TORCH_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 # string(STRIP "${PYTHON_LIBRARIES}" PYTHON_LIBRARIES)
 target_link_libraries(torch INTERFACE "${TORCH_LIBRARIES}") # "${PYTHON_LIBRARIES}")
-# target_compile_features(torch INTERFACE cxx_std_17)
+target_compile_features(torch INTERFACE cxx_std_17)
 # set_property(TARGET torch PROPERTY CXX_STANDARD 17)
 add_library(Torch::Torch ALIAS torch)
 
