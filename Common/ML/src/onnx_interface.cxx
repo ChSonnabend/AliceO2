@@ -78,7 +78,7 @@ void OnnxModel::init(std::string localPath, bool enableOptimizations, int thread
   for (size_t i = 0; i < mOutputNames.size(); i++) {
     LOG(info) << "\t" << mOutputNames[i] << " : " << printShape(mOutputShapes[i]);
   }
-  
+
   LOG(info) << "--- Model initialized! ---";
 }
 
@@ -99,9 +99,9 @@ void OnnxModel::init(std::string localPath, bool enableOptimizations, int thread
 
 // float* OnnxModel::inference(std::vector<float> input, int device_id)
 // {
-// 
+//
 //   // Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_MIGraphX(sessionOptions, device_id));
-// 
+//
 //   int64_t size = input.size();
 //   assert(size % mInputShapes[0][1] == 0);
 //   std::vector<int64_t> inputShape{size / mInputShapes[0][1], mInputShapes[0][1]};

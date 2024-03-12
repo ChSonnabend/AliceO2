@@ -74,8 +74,8 @@ class testTorch : public Task
     // testTorch(std::unordered_map<std::string, std::string> options_map){};
     testTorch(std::unordered_map<std::string, std::string> options_map){
       model_path = options_map["path"];
-      o2::ml::TorchModel model;
       model.init(model_path);
+      model.printAvailDevices();
       model.printModel();
     };
     void init(InitContext& ic) final {};
@@ -85,6 +85,7 @@ class testTorch : public Task
     };
   private:
     std::string model_path;
+    o2::ml::TorchModel model;
 };
 }
 }
