@@ -2372,8 +2372,8 @@ void qaCluster::run(ProcessingContext& pc)
     std::vector<customCluster> track_paths;
     int tabular_data_counter = 0, track_counter = 0;
     float B_field = -5.f; // kiloGauss in z direction
-    std::vector<std::array<float, 10>> misc_track_data;
-    std::vector<std::string> misc_track_data_branch_names = {"NClusters", "Chi2", "hasASideClusters", "hasCSideClusters", "P", "dEdx", "AbsCharge", "Eta", "Phi", "Pt"};
+    std::vector<std::array<float, 11>> misc_track_data;
+    std::vector<std::string> misc_track_data_branch_names = {"NClusters", "Chi2", "hasASideClusters", "hasCSideClusters", "P", "dEdxQtot", "dEdxQmax", "AbsCharge", "Eta", "Phi", "Pt"};
     
     // const auto& tpcClusRefs = data.getTPCTracksClusterRefs();
     // const auto& tpcClusAcc = // get from tpc-native-clsuters the flat array
@@ -2419,10 +2419,11 @@ void qaCluster::run(ProcessingContext& pc)
       misc_track_data[k][3] = track.hasCSideClusters();
       misc_track_data[k][4] = track.getP();
       misc_track_data[k][5] = track.getdEdx().dEdxTotTPC;
-      misc_track_data[k][6] = track.getAbsCharge(); // TPC inner param = P / AbsCharge
-      misc_track_data[k][7] = track.getEta();
-      misc_track_data[k][8] = track.getPhi();
-      misc_track_data[k][9] = track.getPt();
+      misc_track_data[k][6] = track.getdEdx().dEdxMaxTPC;
+      misc_track_data[k][7] = track.getAbsCharge(); // TPC inner param = P / AbsCharge
+      misc_track_data[k][8] = track.getEta();
+      misc_track_data[k][9] = track.getPhi();
+      misc_track_data[k][10] = track.getPt();
 
       // Cluster Reference
       // for (int i = 0; i < track.getNClusters(); i++) {
