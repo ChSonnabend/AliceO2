@@ -2385,7 +2385,7 @@ void qaCluster::run(ProcessingContext& pc)
     LOG(info) << "Loaded " << nTracks << " tracks. Processing...";
 
     // ---| track loop |---
-    for (size_t k = 0; k < nTracks; k++) {
+    for (int k = 0; k < nTracks; k++) {
       auto track = (*tpcTracks)[k];
       for(int cl = 0; cl < track.getNClusters(); cl++){
         uint8_t sector = 0, row = 0;
