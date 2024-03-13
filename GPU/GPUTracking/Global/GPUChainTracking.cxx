@@ -470,7 +470,7 @@ void GPUChainTracking::UpdateGPUCalibObjects(int stream, const GPUCalibObjectsCo
   if (processors()->calibObjects.o2Propagator && (ptrMask == nullptr || ptrMask->o2Propagator)) {
     memcpy((void*)mFlatObjectsShadow.mCalibObjects.o2Propagator, (const void*)processors()->calibObjects.o2Propagator, sizeof(*processors()->calibObjects.o2Propagator));
     mFlatObjectsShadow.mCalibObjects.o2Propagator->setGPUField(&processorsDevice()->param.polynomialField);
-    mFlatObjectsShadow.mCalibObjects.o2Propagator->setBz(param().polynomialField.GetNominalBz());
+    mFlatObjectsShadow.mCalibObjects.o2Propagator->setBz(param().bzkG);
     mFlatObjectsShadow.mCalibObjects.o2Propagator->setMatLUT(mFlatObjectsShadow.mCalibObjects.matLUT);
   }
 #endif
@@ -639,6 +639,24 @@ int GPUChainTracking::DoQueuedUpdates(int stream, bool updateSlave)
   const GPUSettingsProcessing* p = nullptr;
   std::lock_guard lk(mMutexUpdateCalib);
   if (mUpdateNewCalibObjects) {
+    if (mNewCalibValues->newSolenoidField || mNewCalibValues->newContinuousMaxTimeBin) {
+      grp = std::make_unique<GPUSettingsGRP>(mRec->GetGRPSettings());
+      if (mNewCalibValues->newSolenoidField) {
+        grp->solenoidBz = mNewCalibValues->solenoidField;
+      }
+      if (mNewCalibValues->newContinuousMaxTimeBin) {
+        grp->continuousMaxTimeBin = mNewCalibValues->continuousMaxTimeBin;
+      }
+    }
+  }
+  if (GetProcessingSettings().tpcDownscaledEdx != 0) {
+    p = &GetProcessingSettings();
+  }
+  if (grp || p) {
+    mRec->UpdateSettings(grp.get(), p);
+    retVal = 1;
+  }
+  if (mUpdateNewCalibObjects) {
     void* const* pSrc = (void* const*)mNewCalibObjects.get();
     void** pDst = (void**)&processors()->calibObjects;
     for (unsigned int i = 0; i < sizeof(processors()->calibObjects) / sizeof(void*); i++) {
@@ -657,22 +675,6 @@ int GPUChainTracking::DoQueuedUpdates(int stream, bool updateSlave)
       }
       UpdateGPUCalibObjects(stream, ptrsChanged ? nullptr : mNewCalibObjects.get());
     }
-    if (mNewCalibValues->newSolenoidField || mNewCalibValues->newContinuousMaxTimeBin) {
-      grp = std::make_unique<GPUSettingsGRP>(mRec->GetGRPSettings());
-      if (mNewCalibValues->newSolenoidField) {
-        grp->solenoidBz = mNewCalibValues->solenoidField;
-      }
-      if (mNewCalibValues->newContinuousMaxTimeBin) {
-        grp->continuousMaxTimeBin = mNewCalibValues->continuousMaxTimeBin;
-      }
-    }
-  }
-  if (GetProcessingSettings().tpcDownscaledEdx != 0) {
-    p = &GetProcessingSettings();
-  }
-  if (grp || p) {
-    mRec->UpdateSettings(grp.get(), p);
-    retVal = 1;
   }
 
   if ((mUpdateNewCalibObjects || (mRec->slavesExist() && updateSlave)) && mRec->IsGPU()) {
