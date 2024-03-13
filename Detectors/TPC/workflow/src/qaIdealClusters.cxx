@@ -377,6 +377,7 @@ void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customClu
   int total_clusters = 0;
   o2::dataformats::MCLabelContainer mcTruthBuffer;
   custom::fill_nested_container(cluster_sector_counter, 0);
+  o2::MCCompLabel dummyMcLabel(true);
   for (auto const cls : native_writer_map) {
     int sec = cls.sector;
     int row = cls.row;
@@ -387,8 +388,13 @@ void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customClu
     cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].setSigmaPad(cls.sigmaPad);
     cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].qMax = cls.qMax;
     cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].qTot = cls.qTot;
-    mcTruth[sec * o2::tpc::constants::MAXGLOBALPADROW + row].addElement(cluster_sector_counter[sec][row], o2::MCCompLabel(cls.mcTrkId, cls.mcEvId, cls.mcSrcId, false));
-    mcTruthBuffer.addElement(total_clusters, o2::MCCompLabel());
+    if(cls.mcTrkId != -1){
+      mcTruth[sec * o2::tpc::constants::MAXGLOBALPADROW + row].addElement(cluster_sector_counter[sec][row], o2::MCCompLabel(cls.mcTrkId, cls.mcEvId, cls.mcSrcId, false));
+      mcTruthBuffer.addElement(total_clusters, o2::MCCompLabel(cls.mcTrkId, cls.mcEvId, cls.mcSrcId, false));
+    } else {
+      mcTruth[sec * o2::tpc::constants::MAXGLOBALPADROW + row].addElement(cluster_sector_counter[sec][row], dummyMcLabel);
+      mcTruthBuffer.addElement(total_clusters, dummyMcLabel);
+    }
     cluster_sector_counter[sec][row]++;
     total_clusters++;
   }
@@ -472,18 +478,39 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
       }
     }
     if (fillmode == 1 || fillmode == -1) {
+      std::vector<customCluster> new_ideal_map;
+      int overwrite_index = 0, found_overwrites = 0;
       for (auto idl : ideal_map) {
+        overwrite_index = idl.index - found_overwrites;
         map_ptr = &map2d[0][idl.max_time + global_shift[1]][idl.row + rowOffset(idl.row) + global_shift[2]][idl.max_pad + global_shift[0] + padOffset(idl.row)];
-        if (*map_ptr == -1 || idl.qMax > ideal_map[*map_ptr].qMax) { // Using short-circuiting for second expression
-          if (*map_ptr != -1 && verbose >= 4) {
-            LOG(warning) << "Conflict detected! Current MaxQ : " << ideal_map[*map_ptr].qMax << "; New MaxQ: " << idl.qMax << "; Index " << idl.index << "/" << ideal_map.size();
+        if (*map_ptr != -1) {
+          for(auto& cls : new_ideal_map){
+            if((idl.max_time == cls.max_time) && (idl.max_pad == cls.max_pad)) {
+              cls.cog_pad = (cls.cog_pad*cls.qTot + idl.cog_pad*idl.qTot)/(cls.qTot + idl.qTot);
+              cls.cog_time = (cls.cog_time*cls.qTot + idl.cog_time*idl.qTot)/(cls.qTot + idl.qTot);
+              cls.qTot += idl.qTot;
+              cls.qMax += idl.qMax;
+              overwrite_index = cls.index;
+              found_overwrites++;
+              break;
+            }
           }
-          *map_ptr = idl.index;
+          if(verbose >= 3) {
+            LOG(warning) << "[" << sector << "] Conflict detected! Current MaxQ : " << ideal_map[*map_ptr].qMax << "; New MaxQ: " << idl.qMax << "; Index " << idl.index << "/" << ideal_map.size();
+          }
+        } else {
+          idl.index -= found_overwrites;
+          new_ideal_map.push_back(idl);
+          *map_ptr = overwrite_index;
         }
       }
+      if(ideal_map.size() != new_ideal_map.size() && verbose >= 1){
+        LOG(info) << "[" << sector << "] New ideal map size is " << new_ideal_map.size() << ", old size was " << ideal_map.size();
+      }
+      ideal_map = new_ideal_map;
     }
     if (fillmode < -1 || fillmode > 1) {
-      LOG(info) << "Fillmode unknown! No fill performed!";
+      LOG(info) << "[" << sector << "] Fillmode unknown! No fill performed!";
     }
   } else if (use_max_cog == 1) {
     // Storing the indices
@@ -493,18 +520,39 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
       }
     }
     if (fillmode == 1 || fillmode == -1) {
+      std::vector<customCluster> new_ideal_map;
+      int overwrite_index = 0, found_overwrites = 0;
       for (auto idl : ideal_map) {
+        overwrite_index = idl.index - found_overwrites;
         map_ptr = &map2d[0][round(idl.cog_time) + global_shift[1]][idl.row + rowOffset(idl.row) + global_shift[2]][round(idl.cog_pad) + global_shift[0] + padOffset(idl.row)];
-        if (*map_ptr == -1 || idl.qTot > ideal_map[*map_ptr].qTot) { // Using short-circuiting for second expression
-          if (*map_ptr != -1 && verbose >= 4) {
-            LOG(warning) << "Conflict detected! Current MaxQ : " << ideal_map[*map_ptr].qTot << "; New MaxQ: " << idl.qTot << "; Index " << idl.index << "/" << ideal_map.size();
+        if (*map_ptr != -1) {
+          for(auto& cls : new_ideal_map){
+            if((round(idl.cog_time) == round(cls.cog_time)) && (round(idl.cog_pad) == round(cls.cog_pad))) {
+              cls.cog_pad = (cls.cog_pad*cls.qTot + idl.cog_pad*idl.qTot)/(cls.qTot + idl.qTot);
+              cls.cog_time = (cls.cog_time*cls.qTot + idl.cog_time*idl.qTot)/(cls.qTot + idl.qTot);
+              cls.qTot += idl.qTot;
+              cls.qMax += idl.qMax;
+              overwrite_index = cls.index;
+              found_overwrites++;
+              break;
+            }
           }
-          *map_ptr = idl.index;
+          if(verbose >= 3) {
+            LOG(warning) << "[" << sector << "] Conflict detected! Current MaxQ : " << ideal_map[*map_ptr].qMax << "; New MaxQ: " << idl.qMax << "; Index " << idl.index << "/" << ideal_map.size();
+          }
+        } else {
+          idl.index -= found_overwrites;
+          new_ideal_map.push_back(idl);
+          *map_ptr = overwrite_index;
         }
       }
+      if(ideal_map.size() != new_ideal_map.size() && verbose >= 1){
+        LOG(info) << "[" << sector << "] New ideal map size is " << new_ideal_map.size() << ", old size was " << ideal_map.size();
+      }
+      ideal_map = new_ideal_map;
     }
     if (fillmode < -1 || fillmode > 1) {
-      LOG(info) << "Fillmode unknown! No fill performed!";
+      LOG(info) << "[" << sector << "] Fillmode unknown! No fill performed!";
     }
   }
 }
@@ -1251,7 +1299,7 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
             output_network_reg[corresponding_index_output[digit_max_idx] + subclass] = net_cluster;
             digit_idcs.push_back(maxima_digits[digit_max_idx]);
 
-            if(round(net_cluster.cog_pad) > TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] || round(net_cluster.cog_time) > max_time[sector] || round(net_cluster.cog_pad) < 0 || round(net_cluster.cog_time) < 0){
+            if(round(net_cluster.cog_pad) > TPC_GEOM[net_cluster.row][2] || round(net_cluster.cog_time) > max_time[sector] || round(net_cluster.cog_pad) < 0 || round(net_cluster.cog_time) < 0){
               LOG(warning) << "[" << sector << "] Stepping over boundaries! row: " << net_cluster.row << "; pad: " << net_cluster.cog_pad << " / " << TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] << "; time: " << net_cluster.cog_time << " / " << max_time[sector] << ". Resetting cluster center-of-gravity to maximum position.";
               net_cluster.cog_pad = net_cluster.max_pad;
               net_cluster.cog_time = net_cluster.max_time;
@@ -1715,20 +1763,22 @@ void qaCluster::runQa(int sector)
     // int native_writer_map_size = native_writer_map.size();
     // native_writer_map.resize(native_writer_map_size + native_ideal_assignemnt.size());
 
-    float nat_row = 0, nat_time = 0, nat_pad = 0, nat_sigma_time = 0, nat_sigma_pad = 0, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, native_minus_ideal_time = 0, native_minus_ideal_pad = 0, nat_qTot = 0, nat_qMax = 0, id_qTot = 0, id_qMax = 0;
+    float nat_row = 0, nat_time = 0, nat_pad = 0, nat_sigma_time = 0, nat_sigma_pad = 0,  nat_qTot = 0, nat_qMax = 0, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0;
     native_ideal->Branch("sector", &sector);
     native_ideal->Branch("native_row", &nat_row);
     native_ideal->Branch("native_cog_time", &nat_time);
     native_ideal->Branch("native_cog_pad", &nat_pad);
     native_ideal->Branch("native_sigma_time", &nat_sigma_time);
     native_ideal->Branch("native_sigma_pad", &nat_sigma_pad);
+    native_ideal->Branch("native_qMax", &nat_qMax);
+    native_ideal->Branch("native_qTot", &nat_qTot);
     native_ideal->Branch("ideal_row", &id_row);
     native_ideal->Branch("ideal_cog_time", &id_time);
     native_ideal->Branch("ideal_cog_pad", &id_pad);
-    native_ideal->Branch("ideal_sigma_time", &id_time);
-    native_ideal->Branch("ideal_sigma_pad", &id_pad);
-    native_ideal->Branch("ideal_qMax", &id_time);
-    native_ideal->Branch("ideal_qTot", &id_pad);
+    native_ideal->Branch("ideal_sigma_time", &id_sigma_time);
+    native_ideal->Branch("ideal_sigma_pad", &id_sigma_pad);
+    native_ideal->Branch("ideal_qMax", &id_qMax);
+    native_ideal->Branch("ideal_qTot", &id_qTot);
 
     int elem_counter = 0;
     for (auto const elem : native_ideal_assignemnt) {
@@ -1875,21 +1925,23 @@ void qaCluster::runQa(int sector)
     TFile* outputFileNetworkIdeal = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* network_ideal = new TTree("network_ideal", "tree");
 
-    float net_row = 0, net_time = 0, net_pad = 0, net_sigma_time = 0, net_sigma_pad = 0, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, netive_minus_ideal_time = 0, netive_minus_ideal_pad = 0, net_qTot = 0, net_qMax = 0, id_qTot = 0, id_qMax = 0, net_idx = 0, id_idx = 0;
+    float net_row = 0, net_time = 0, net_pad = 0, net_sigma_time = 0, net_sigma_pad = 0, net_qTot = 0, net_qMax = 0, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0, net_idx = 0, id_idx = 0;
     network_ideal->Branch("sector", &sector);
     network_ideal->Branch("network_row", &net_row);
     network_ideal->Branch("network_cog_time", &net_time);
     network_ideal->Branch("network_cog_pad", &net_pad);
     network_ideal->Branch("network_sigma_time", &net_sigma_time);
     network_ideal->Branch("network_sigma_pad", &net_sigma_pad);
+    network_ideal->Branch("network_qMax", &net_qMax);
+    network_ideal->Branch("network_qTot", &net_qTot);
     network_ideal->Branch("network_index", &net_idx);
     network_ideal->Branch("ideal_row", &id_row);
     network_ideal->Branch("ideal_cog_time", &id_time);
     network_ideal->Branch("ideal_cog_pad", &id_pad);
-    network_ideal->Branch("ideal_sigma_time", &id_time);
-    network_ideal->Branch("ideal_sigma_pad", &id_pad);
-    network_ideal->Branch("ideal_qMax", &id_time);
-    network_ideal->Branch("ideal_qTot", &id_pad);
+    network_ideal->Branch("ideal_sigma_time", &id_sigma_time);
+    network_ideal->Branch("ideal_sigma_pad", &id_sigma_pad);
+    network_ideal->Branch("ideal_qMax", &id_qMax);
+    network_ideal->Branch("ideal_qTot", &id_qTot);
     network_ideal->Branch("ideal_index", &id_idx);
 
     // int netive_writer_map_size = netive_writer_map.size();
@@ -2320,8 +2372,8 @@ void qaCluster::run(ProcessingContext& pc)
     std::vector<customCluster> track_paths;
     int tabular_data_counter = 0, track_counter = 0;
     float B_field = -5.f; // kiloGauss in z direction
-    std::vector<std::array<float, 10>> misc_track_data;
-    std::vector<std::string> misc_track_data_branch_names = {"NClusters", "Chi2", "hasASideClusters", "hasCSideClusters", "P", "dEdx", "AbsCharge", "Eta", "Phi", "Pt"};
+    std::vector<std::array<float, 11>> misc_track_data;
+    std::vector<std::string> misc_track_data_branch_names = {"NClusters", "Chi2", "hasASideClusters", "hasCSideClusters", "P", "dEdxQtot", "dEdxQmax", "AbsCharge", "Eta", "Phi", "Pt"};
     
     // const auto& tpcClusRefs = data.getTPCTracksClusterRefs();
     // const auto& tpcClusAcc = // get from tpc-native-clsuters the flat array
@@ -2333,7 +2385,7 @@ void qaCluster::run(ProcessingContext& pc)
     LOG(info) << "Loaded " << nTracks << " tracks. Processing...";
 
     // ---| track loop |---
-    for (size_t k = 0; k < nTracks; k++) {
+    for (int k = 0; k < nTracks; k++) {
       auto track = (*tpcTracks)[k];
       for(int cl = 0; cl < track.getNClusters(); cl++){
         uint8_t sector = 0, row = 0;
@@ -2367,10 +2419,11 @@ void qaCluster::run(ProcessingContext& pc)
       misc_track_data[k][3] = track.hasCSideClusters();
       misc_track_data[k][4] = track.getP();
       misc_track_data[k][5] = track.getdEdx().dEdxTotTPC;
-      misc_track_data[k][6] = track.getAbsCharge(); // TPC inner param = P / AbsCharge
-      misc_track_data[k][7] = track.getEta();
-      misc_track_data[k][8] = track.getPhi();
-      misc_track_data[k][9] = track.getPt();
+      misc_track_data[k][6] = track.getdEdx().dEdxMaxTPC;
+      misc_track_data[k][7] = track.getAbsCharge(); // TPC inner param = P / AbsCharge
+      misc_track_data[k][8] = track.getEta();
+      misc_track_data[k][9] = track.getPhi();
+      misc_track_data[k][10] = track.getPt();
 
       // Cluster Reference
       // for (int i = 0; i < track.getNClusters(); i++) {
