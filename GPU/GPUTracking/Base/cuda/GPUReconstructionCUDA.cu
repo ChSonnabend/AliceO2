@@ -27,7 +27,7 @@
 #if defined(GPUCA_KERNEL_COMPILE_MODE) && GPUCA_KERNEL_COMPILE_MODE == 1
 #include "utils/qGetLdBinarySymbols.h"
 #define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward) QGET_LD_BINARY_SYMBOLS(GPUCA_M_CAT3(cuda_kernel_module_fatbin_krnl_, GPUCA_M_KRNL_NAME(x_class), _fatbin))
-#include "GPUReconstructionKernels.h"
+#include "GPUReconstructionKernelList.h"
 #undef GPUCA_KRNL
 #endif
 
@@ -334,7 +334,7 @@ int GPUReconstructionCUDA::InitDevice_Runtime()
 #define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward)       \
   mInternals->kernelModules.emplace_back(std::make_unique<CUmodule>()); \
   GPUFailedMsg(cuModuleLoadData(mInternals->kernelModules.back().get(), GPUCA_M_CAT3(_binary_cuda_kernel_module_fatbin_krnl_, GPUCA_M_KRNL_NAME(x_class), _fatbin_start)));
-#include "GPUReconstructionKernels.h"
+#include "GPUReconstructionKernelList.h"
 #undef GPUCA_KRNL
       loadKernelModules(true, false);
     }
@@ -458,10 +458,9 @@ size_t GPUReconstructionCUDA::TransferMemoryInternal(GPUMemoryResource* res, int
 
 size_t GPUReconstructionCUDA::WriteToConstantMemory(size_t offset, const void* src, size_t size, int stream, deviceEvent ev)
 {
-  std::unique_ptr<GPUParamRTC> tmpParam;
   for (unsigned int i = 0; i < 1 + mDeviceConstantMemList.size(); i++) {
     void* basePtr = i ? mDeviceConstantMemList[i - 1] : mDeviceConstantMem;
-    if (basePtr == nullptr || i && basePtr == (void*)mDeviceConstantMem) {
+    if (basePtr == nullptr || (i && basePtr == (void*)mDeviceConstantMem)) {
       continue;
     }
     if (stream == -1) {
@@ -597,7 +596,7 @@ int GPUReconstructionCUDA::loadKernelModules(bool perKernel, bool perSingleMulti
   mInternals->kernelFunctions.emplace_back(new CUfunction);                                                   \
   mInternals->kernelNames.emplace_back(GPUCA_M_STR(GPUCA_M_CAT3(krnl_, GPUCA_M_KRNL_NAME(x_class), _multi))); \
   GPUFailedMsg(cuModuleGetFunction(mInternals->kernelFunctions.back().get(), *mInternals->kernelModules[perKernel ? (j += perSingleMulti) : 0], GPUCA_M_STR(GPUCA_M_CAT3(krnl_, GPUCA_M_KRNL_NAME(x_class), _multi))));
-#include "GPUReconstructionKernels.h"
+#include "GPUReconstructionKernelList.h"
 #undef GPUCA_KRNL
 #undef GPUCA_KRNL_LOAD_single
 #undef GPUCA_KRNL_LOAD_multi
