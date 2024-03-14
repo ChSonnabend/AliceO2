@@ -83,6 +83,9 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
   cog_time.clear();
   cog_pad.clear();
   cog_q.clear();
+  cog_q2.clear();
+  var_pad.clear();
+  var_time.clear();
   point_counter.clear();
   mclabel_trackID.clear();
   mclabel_eventID.clear();

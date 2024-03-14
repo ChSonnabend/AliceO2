@@ -445,7 +445,10 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         tmp_max_q = mDigitizer.getMaxQ();
         tmp_cog_time = mDigitizer.getCogTime();
         tmp_cog_pad = mDigitizer.getCogPad();
+        tmp_var_pad = mDigitizer.getVarPad();
+        tmp_var_time = mDigitizer.getVarTime();
         tmp_cog_q = mDigitizer.getCogQ();
+        tmp_cog_q2 = mDigitizer.getCogQ2();
         tmp_mc_labelcounter = mDigitizer.getMcLabelCounter();
         tmp_mc_trackid = mDigitizer.getTrackID();
         tmp_mc_eventid = mDigitizer.getEventID();
@@ -460,6 +463,9 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         cog_time.insert(cog_time.end(), tmp_cog_time.begin(), tmp_cog_time.end());
         cog_pad.insert(cog_pad.end(), tmp_cog_pad.begin(), tmp_cog_pad.end());
         cog_q.insert(cog_q.end(), tmp_cog_q.begin(), tmp_cog_q.end());
+        cog_q2.insert(cog_q2.end(), tmp_cog_q2.begin(), tmp_cog_q2.end());
+        var_pad.insert(var_pad.end(), tmp_var_pad.begin(), tmp_var_pad.end());
+        var_time.insert(var_time.end(), tmp_var_time.begin(), tmp_var_time.end());
         mc_labelcounter.insert(mc_labelcounter.end(), tmp_mc_labelcounter.begin(), tmp_mc_labelcounter.end());
         mc_trackid.insert(mc_trackid.end(), tmp_mc_trackid.begin(), tmp_mc_trackid.end());
         mc_eventid.insert(mc_eventid.end(), tmp_mc_eventid.begin(), tmp_mc_eventid.end());
@@ -478,7 +484,10 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         tmp_max_q = mDigitizer.getMaxQ();
         tmp_cog_time = mDigitizer.getCogTime();
         tmp_cog_pad = mDigitizer.getCogPad();
+        tmp_var_pad = mDigitizer.getVarPad();
+        tmp_var_time = mDigitizer.getVarTime();
         tmp_cog_q = mDigitizer.getCogQ();
+        tmp_cog_q2 = mDigitizer.getCogQ2();
         tmp_mc_labelcounter = mDigitizer.getMcLabelCounter();
         tmp_mc_trackid = mDigitizer.getTrackID();
         tmp_mc_eventid = mDigitizer.getEventID();
@@ -493,6 +502,9 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         cog_time.insert(cog_time.end(), tmp_cog_time.begin(), tmp_cog_time.end());
         cog_pad.insert(cog_pad.end(), tmp_cog_pad.begin(), tmp_cog_pad.end());
         cog_q.insert(cog_q.end(), tmp_cog_q.begin(), tmp_cog_q.end());
+        cog_q2.insert(cog_q2.end(), tmp_cog_q2.begin(), tmp_cog_q2.end());
+        var_pad.insert(var_pad.end(), tmp_var_pad.begin(), tmp_var_pad.end());
+        var_time.insert(var_time.end(), tmp_var_time.begin(), tmp_var_time.end());
         mc_labelcounter.insert(mc_labelcounter.end(), tmp_mc_labelcounter.begin(), tmp_mc_labelcounter.end());
         mc_trackid.insert(mc_trackid.end(), tmp_mc_trackid.begin(), tmp_mc_trackid.end());
         mc_eventid.insert(mc_eventid.end(), tmp_mc_eventid.begin(), tmp_mc_eventid.end());
@@ -677,11 +689,11 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
 
   std::vector<int> tmp_sector_vec, tmp_row_vec, tmp_point_counter, tmp_mc_labelcounter, tmp_mc_trackid, tmp_mc_eventid, tmp_mc_sourceid;
   std::vector<std::vector<int>>  tmp_max_time, tmp_max_pad;
-  std::vector<float> tmp_cog_time, tmp_cog_pad, tmp_cog_q;
+  std::vector<float> tmp_cog_time, tmp_cog_pad, tmp_cog_q, tmp_cog_q2, tmp_var_pad, tmp_var_time;
   std::vector<std::vector<float>> tmp_max_q;
 
   std::vector<int> sector_vec, row_vec, point_counter, mc_labelcounter, mc_trackid, mc_eventid, mc_sourceid;
-  std::vector<float> cog_time, cog_pad, cog_q;
+  std::vector<float> cog_time, cog_pad, cog_q, cog_q2, var_pad, var_time;
   std::vector<std::vector<int>>  max_time, max_pad;
   std::vector<std::vector<float>> max_q;
 

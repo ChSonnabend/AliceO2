@@ -140,6 +140,7 @@ class Digitizer
   std::vector<float> getCogTime(){ return cog_time; }
   std::vector<float> getCogPad(){ return cog_pad; }
   std::vector<float> getCogQ(){ return cog_q; }
+  std::vector<float> getCogQ2(){ return cog_q2; }
   std::vector<float> getVarPad(){ return var_pad; }
   std::vector<float> getVarTime(){ return var_time; }
   std::vector<int> getPointCounter(){ return point_counter; }
