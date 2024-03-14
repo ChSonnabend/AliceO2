@@ -538,15 +538,20 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
     TTree* mcTree = new TTree(tmp.str().c_str(), "MC tree");
 
     int sec=0, r=0, mp=0, mt=0, idx=0, p=0, lab=0, trkid=0, evid=0, srcid=0;
-    float sp=0, st=0, cp=0, ct=0, cq=-1, mq=0;
+    float sp=0, st=0, sfvp = 0, sfvt = 0, srvp = 0, srvt = 0, cp=0, ct=0, cq=-1, cq2=-1, mq=0;
 
     mcTree->Branch("cluster_sector", &sec);
     mcTree->Branch("cluster_row", &r);
     mcTree->Branch("cluster_cog_pad", &cp);
     mcTree->Branch("cluster_cog_time", &ct);
     mcTree->Branch("cluster_cog_q", &cq);
+    mcTree->Branch("cluster_cog_q2", &cq2);
     mcTree->Branch("cluster_sigma_pad", &sp);
     mcTree->Branch("cluster_sigma_time", &st);
+    mcTree->Branch("cluster_sampleFreqVar_pad", &sfvp); // See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Weighted_incremental_algorithm -> Weighted incremental algorithm
+    mcTree->Branch("cluster_sampleFreqVar_time", &sfvt); // See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Weighted_incremental_algorithm -> Weighted incremental algorithm
+    mcTree->Branch("cluster_sampleRelVar_pad", &srvp); // See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Weighted_incremental_algorithm -> Weighted incremental algorithm
+    mcTree->Branch("cluster_sampleRelVar_time", &srvt); // See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Weighted_incremental_algorithm -> Weighted incremental algorithm
     mcTree->Branch("cluster_max_pad", &mp);
     mcTree->Branch("cluster_max_time", &mt);
     mcTree->Branch("cluster_max_q", &mq);
@@ -562,13 +567,14 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
       cp = cog_pad[i];
       ct = cog_time[i];
       cq = cog_q[i];
+      cq2 = cog_q2[i];
       lab = mc_labelcounter[i];
       trkid = mc_trackid[i];
       evid = mc_eventid[i];
       srcid = mc_sourceid[i];
+      sp = std::sqrt(var_pad[i] / cq);
+      st = std::sqrt(var_time[i] / cq);
       for(auto elem : max_q[i]){
-        sp += std::pow(max_pad[i][idx] - cog_pad[i], 2);
-        st += std::pow(max_time[i][idx] - cog_time[i], 2);
         if(elem > mq){
           mp = max_pad[i][idx];
           mt = max_time[i][idx];
@@ -584,12 +590,16 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         idx++;
       }
       if(mq > reject_maxq && cq > reject_cogq){
-        sp = std::sqrt(sp/max_q[i].size());
-        st = std::sqrt(st/max_q[i].size());
+        sfvp = var_pad[i] / (cq - 1.f);
+        sfvt = var_time[i] / (cq - 1.f);
+        if(cq2 != cq){
+          srvp = var_pad[i] / (cq - (cq2 / cq));
+          srvt = var_time[i] / (cq - (cq2 / cq));
+        }
         p = point_counter[i];
         mcTree->Fill();
       }
-      sp = 0; st = 0; mp = 0; mt = 0; mq = 0; idx=0; lab=0, trkid=0, evid=0, srcid=0;
+      sp = 0; st = 0; sfvp = 0; sfvt = 0; srvp = 0; srvt = 0; mp = 0; mt = 0; mq = 0; idx=0; lab=0; trkid=0; evid=0; srcid=0; cq=-1; cq2=-1;
     }
 
     mcTree->Write();
