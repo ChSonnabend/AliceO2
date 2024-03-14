@@ -12,8 +12,8 @@
 /// \file GPUReconstructionCPU.h
 /// \author David Rohr
 
-#ifndef GPURECONSTRUCTIONIMPL_H
-#define GPURECONSTRUCTIONIMPL_H
+#ifndef GPURECONSTRUCTIONICPU_H
+#define GPURECONSTRUCTIONICPU_H
 
 #include "GPUReconstruction.h"
 #include "GPUReconstructionHelpers.h"
@@ -24,6 +24,7 @@
 
 #include "GPUGeneralKernels.h"
 #include "GPUReconstructionKernelIncludes.h"
+#include "GPUReconstructionKernels.h"
 
 namespace GPUCA_NAMESPACE
 {
@@ -38,58 +39,13 @@ class GPUReconstructionCPUBackend : public GPUReconstruction
  protected:
   GPUReconstructionCPUBackend(const GPUSettingsDeviceBackend& cfg) : GPUReconstruction(cfg) {}
   template <class T, int I = 0, typename... Args>
-  int runKernelBackend(krnlSetup& _xyz, const Args&... args);
+  int runKernelBackend(krnlSetup& _xyz, Args... args);
   template <class T, int I>
   krnlProperties getKernelPropertiesBackend();
   unsigned int mNestedLoopOmpFactor = 1;
   static int getOMPThreadNum();
   static int getOMPMaxThreads();
 };
-
-template <class T>
-class GPUReconstructionKernels : public T
-{
- public:
-  using krnlSetup = GPUReconstruction::krnlSetup;
-  template <class X, int Y = 0>
-  using classArgument = GPUReconstruction::classArgument<X, Y>;
-  virtual ~GPUReconstructionKernels() = default; // NOLINT: BUG: Do not declare override in template class! AMD hcc will not create the destructor otherwise.
-  GPUReconstructionKernels(const GPUSettingsDeviceBackend& cfg) : T(cfg) {}
-
- protected:
-#define GPUCA_KRNL(x_class, attributes, x_arguments, x_forward)                                                        \
-  virtual int runKernelImpl(classArgument<GPUCA_M_KRNL_TEMPLATE(x_class)>, krnlSetup& _xyz GPUCA_M_STRIP(x_arguments)) \
-  {                                                                                                                    \
-    return T::template runKernelBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>(_xyz GPUCA_M_STRIP(x_forward));                \
-  }                                                                                                                    \
-  virtual GPUReconstruction::krnlProperties getKernelPropertiesImpl(classArgument<GPUCA_M_KRNL_TEMPLATE(x_class)>)     \
-  {                                                                                                                    \
-    return T::template getKernelPropertiesBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>();                                   \
-  }
-#include "GPUReconstructionKernels.h"
-#undef GPUCA_KRNL
-};
-
-#ifndef GPUCA_GPURECONSTRUCTIONCPU_IMPLEMENTATION
-// Hide the function bodies for all files but GPUReconstructionCPU.cxx, otherwise we get symbol clashes when the compiler inlines
-template <>
-class GPUReconstructionKernels<GPUReconstructionCPUBackend> : public GPUReconstructionCPUBackend
-{
- public:
-  using krnlSetup = GPUReconstruction::krnlSetup;
-  template <class X, int Y = 0>
-  using classArgument = GPUReconstruction::classArgument<X, Y>;
-  virtual ~GPUReconstructionKernels() = default; // NOLINT: Do not declare override in template class! AMD hcc will not create the destructor otherwise.
-  GPUReconstructionKernels(const GPUSettingsDeviceBackend& cfg) : GPUReconstructionCPUBackend(cfg) {}
-
- protected:
-#define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward)                                                       \
-  virtual int runKernelImpl(classArgument<GPUCA_M_KRNL_TEMPLATE(x_class)>, krnlSetup& _xyz GPUCA_M_STRIP(x_arguments)); \
-  virtual krnlProperties getKernelPropertiesImpl(classArgument<GPUCA_M_KRNL_TEMPLATE(x_class)>);
-#include "GPUReconstructionKernels.h"
-#undef GPUCA_KRNL
-};
-#endif
 
 class GPUReconstructionCPU : public GPUReconstructionKernels<GPUReconstructionCPUBackend>
 {
@@ -101,22 +57,12 @@ class GPUReconstructionCPU : public GPUReconstructionKernels<GPUReconstructionCP
   static constexpr krnlRunRange krnlRunRangeNone{0, -1};
   static constexpr krnlEvent krnlEventNone = krnlEvent{nullptr, nullptr, 0};
 
-#ifdef __clang__ // BUG: clang does not accept default parameters before parameter pack
-  template <class S, int I = 0, int J = -1>
-  inline int runKernel(const krnlExec& x, const krnlRunRange& y = krnlRunRangeNone)
-  {
-    return runKernel<S, I, J>(x, y, krnlEventNone);
-  }
-  template <class S, int I = 0, int J = -1, typename... Args>
-  int runKernel(const krnlExec& x, const krnlRunRange& y, const krnlEvent& z, const Args&... args);
-#else
   template <class S, int I = 0, int J = -1, typename... Args>
   int runKernel(const krnlExec& x, const krnlRunRange& y = krnlRunRangeNone, const krnlEvent& z = krnlEventNone, const Args&... args);
-#endif
   template <class S, int I = 0>
   const krnlProperties getKernelProperties()
   {
-    return getKernelPropertiesImpl(GPUReconstruction::template classArgument<S, I>());
+    return getKernelPropertiesImpl(GPUReconstruction::classArgument<S, I>());
   }
 
   template <class T, int I>
@@ -273,11 +219,11 @@ inline int GPUReconstructionCPU::runKernel(const krnlExec& x, const krnlRunRange
   }
   krnlSetup setup{{nBlocks, nThreads, x.stream, x.device, x.step}, y, z, 0.};
   if (cpuFallback) {
-    if (GPUReconstructionCPU::runKernelImpl(classArgument<S, I>(), setup, args...)) {
+    if (GPUReconstructionCPU::runKernelImpl(GPUReconstruction::classArgument<S, I>(), setup, args...)) {
       return 1;
     }
   } else {
-    if (runKernelImpl(classArgument<S, I>(), setup, args...)) {
+    if (runKernelImpl(GPUReconstruction::classArgument<S, I>(), setup, args...)) {
       return 1;
     }
   }
@@ -305,7 +251,7 @@ inline int GPUReconstructionCPU::runKernel(const krnlExec& x, const krnlRunRange
   {                                                                                           \
     return GPUCA_M_STR(GPUCA_M_KRNL_NAME(x_class));                                           \
   }
-#include "GPUReconstructionKernels.h"
+#include "GPUReconstructionKernelList.h"
 #undef GPUCA_KRNL
 
 template <class T>
