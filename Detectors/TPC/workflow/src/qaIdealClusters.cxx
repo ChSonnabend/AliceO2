@@ -1698,10 +1698,7 @@ void qaCluster::runQa(int sector)
 
     for (int max_point = 0; max_point < data_size; max_point++) {
       auto const dig = digit_map[maxima_digits[max_point]];
-      row_offset = rowOffset(dig.row);
-      pad_offset = padOffset(dig.row);
-      map_dig_idx = map2d[1][dig.max_time + global_shift[1]][dig.row + row_offset + global_shift[2]][dig.max_pad + global_shift[0] + pad_offset];
-      if (checkIdx(map_dig_idx)) {
+      if (!digit_tagged[max_point]) {
         check_assignment = 0;
         index_assignment = -1;
         distance_assignment = 100000.f;
@@ -1709,7 +1706,7 @@ void qaCluster::runQa(int sector)
         for (int i = 0; i < 25; i++) {
           // Checks all ideal maxima assigned to one digit maximum by calculating mutual distance
           current_idx_id = assignments_id_to_dig[max_point][i];
-          if (checkIdx(current_idx_id)) {
+          if (checkIdx(current_idx_id) && !ideal_tagged[current_idx_id]) {
             if ((ideal_map[current_idx_id].qTot < threshold_cogq && ideal_map[current_idx_id].qMax < threshold_maxq) || (assigned_ideal[current_idx_id] != 0)) {
               is_min_dist = false;
               break;
@@ -1719,7 +1716,7 @@ void qaCluster::runQa(int sector)
               if (current_distance_dig_to_id < distance_assignment) {
                 for (int j = 0; j < 25; j++) {
                   current_idx_dig = assignments_dig_to_id[current_idx_id][j];
-                  if (checkIdx(current_idx_dig)) {
+                  if (checkIdx(current_idx_dig) && !digit_tagged[current_idx_dig]) {
                     if (assigned_digit[current_idx_dig] == 0) {
                       // calculate mutual distance from current ideal CoG to all assigned digit maxima. Update if and only if distance is minimal. Else do not assign.
                       current_distance_id_to_dig = std::pow((native_map[current_idx_dig].cog_time - ideal_map[current_idx_id].cog_time), 2) + std::pow((native_map[current_idx_dig].cog_pad - ideal_map[current_idx_id].cog_pad), 2);
@@ -1856,8 +1853,7 @@ void qaCluster::runQa(int sector)
 
     for (int max_point = 0; max_point < data_size; max_point++) {
       auto const dig = digit_map[maxima_digits[max_point]];
-      map_dig_idx = map2d[1][dig.max_time + global_shift[1]][dig.row + rowOffset(dig.row) + global_shift[2]][dig.max_pad + global_shift[0] + padOffset(dig.row)];
-      if (checkIdx(map_dig_idx)) {
+      if (!digit_tagged[max_point]) {
         check_assignment = 0;
         index_assignment = -1;
         distance_assignment = 100000.f;
@@ -1865,7 +1861,7 @@ void qaCluster::runQa(int sector)
         for (int i = 0; i < 25; i++) {
           // Checks all ideal maxima assigned to one digit maximum by calculating mutual distance
           current_idx_id = assignments_id_to_dig[max_point][i];
-          if (checkIdx(current_idx_id)) {
+          if (checkIdx(current_idx_id) && !ideal_tagged[current_idx_id]) {
             auto const idl = ideal_map[current_idx_id];
             if ((idl.qTot < threshold_cogq && idl.qMax < threshold_maxq) || (assigned_ideal[current_idx_id] != 0)) {
               is_min_dist = false;
@@ -1876,7 +1872,7 @@ void qaCluster::runQa(int sector)
               if (current_distance_dig_to_id < distance_assignment) {
                 for (int j = 0; j < 25; j++) {
                   current_idx_dig = assignments_dig_to_id[current_idx_id][j];
-                  if (checkIdx(current_idx_dig)) {
+                  if (checkIdx(current_idx_dig) && !digit_tagged[current_idx_dig]) {
                     if (assigned_digit[current_idx_dig] == 0) {
                       // calculate mutual distance from current ideal CoG to all assigned digit maxima. Update if and only if distance is minimal. Else do not assign.
                       current_distance_id_to_dig = std::pow((network_map[current_idx_dig].cog_time - idl.cog_time), 2) + std::pow((network_map[current_idx_dig].cog_pad - idl.cog_pad), 2);
