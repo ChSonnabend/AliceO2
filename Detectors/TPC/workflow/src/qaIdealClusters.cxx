@@ -2055,7 +2055,7 @@ void qaCluster::runQa(int sector)
         for (int row = 0; row < mat_size_row; row++) {
           for (int pad = 0; pad < mat_size_pad; pad++) {
             for (int time = 0; time < mat_size_time; time++) {
-              map_q_idx = map2d[1][dig.max_time + time][dig.row + row + row_offset][dig.max_pad + pad + pad_offset];
+              map_q_idx = map2d[0][dig.max_time + time][dig.row + row + row_offset][dig.max_pad + pad + pad_offset];
               if (map_q_idx == -1) {
                 if (isBoundary(dig.row + row + row_offset - global_shift[2], dig.max_pad + pad + pad_offset - global_shift[0])) {
                   tr_data_X[max_point][row][pad][time] = -1;
