@@ -1295,12 +1295,12 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
             net_cluster.cog_time += out_net[out_net_idx + 1 * class_idx];
             net_cluster.sigmaPad = out_net[out_net_idx + 2 * class_idx];
             net_cluster.sigmaTime = out_net[out_net_idx + 3 * class_idx];
-            net_cluster.qTot = out_net[out_net_idx + 4 * class_idx] * net_cluster.qMax; // Change for normalization mode
+            net_cluster.qTot *= out_net[out_net_idx + 4 * class_idx]; // Change for normalization mode
             output_network_reg[corresponding_index_output[digit_max_idx] + subclass] = net_cluster;
             digit_idcs.push_back(maxima_digits[digit_max_idx]);
 
             if(round(net_cluster.cog_pad) > TPC_GEOM[net_cluster.row][2] || round(net_cluster.cog_time) > max_time[sector] || round(net_cluster.cog_pad) < 0 || round(net_cluster.cog_time) < 0){
-              LOG(warning) << "[" << sector << "] Stepping over boundaries! row: " << net_cluster.row << "; pad: " << net_cluster.cog_pad << " / " << TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] << "; time: " << net_cluster.cog_time << " / " << max_time[sector] << ". Resetting cluster center-of-gravity to maximum position.";
+              LOG(warning) << "[" << sector << "] Stepping over boundaries! row: " << net_cluster.row << "; pad: " << net_cluster.cog_pad << " / " << TPC_GEOM[net_cluster.row][2] << "; time: " << net_cluster.cog_time << " / " << max_time[sector] << ". Resetting cluster center-of-gravity to maximum position.";
               net_cluster.cog_pad = net_cluster.max_pad;
               net_cluster.cog_time = net_cluster.max_time;
               if(verbose >= 5) {
@@ -1894,13 +1894,6 @@ void qaCluster::runQa(int sector)
                   assigned_digit[max_point] += 1;
                   assigned_ideal[current_idx_id] += 1;
                   current_element = {network_map[max_point], ideal_map[current_idx_id]};
-                  if (normalization_mode == 0) {
-                    current_element[1].qMax /= 1024.f;
-                    current_element[1].qTot /= 1024.f;
-                  } else if (normalization_mode == 1) {
-                    current_element[1].qMax /= digit_map[maxima_digits[max_point]].qMax;
-                    current_element[1].qTot /= digit_map[maxima_digits[max_point]].qMax;
-                  }
                 }
               }
             }
