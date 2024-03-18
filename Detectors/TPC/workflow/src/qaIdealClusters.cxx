@@ -1369,6 +1369,51 @@ int qaCluster::test_neighbour(std::array<int, 3> index, std::array<int, 2> nn, t
   }
 }
 
+void qaCluster::momentum_vector_estimator(){
+
+  // Read all clusters from the sectors of interest
+  std::vector<MCCompLabel> trackLabel;
+  std::vector<std::vector<customCluster>> sorted_ideal_map;
+  for(int sector : tpc_sectors){
+    std::vector<customCluster> tmp_ideal_map;
+    read_ideal(sector, tmp_ideal_map);
+    for(auto cls : tmp_ideal_map){
+      const MCCompLabel current_label(cls.mcTrkId, cls.mcEvId, cls.mcSrcId, false);
+      int index_counter = 0;
+      bool track_found = false;
+      for(auto lbl : trackLabel){
+        if(current_label.compare(lbl) == 1){
+          sorted_ideal_map[index_counter].push_back(cls);
+          track_found = true;
+          break;
+        } else {
+          index_counter++;
+        }
+      }
+      if(!track_found){
+        trackLabel.push_back(current_label);
+        sorted_ideal_map.push_back({cls});
+      }
+    }
+  }
+
+  // Time-sorting of clusters per label
+  bool timeClusterSort = [](customCluster cls1, customCluster cls2) { 
+      return (cls1.cog_time < cls2.cog_time);
+  };
+  for(auto& trkIdVector : sorted_ideal_map){
+    std::sort(trkIdVector.begin(), trkIdVector.end(), timeClusterSort);
+  }
+
+  // Momentum vector estimation
+  for(int lbl : trackLabel.size()){
+    float E = std::accumulate(sorted_ideal_map[lbl].begin(), sorted_ideal_map[lbl].end(), 0,
+                              [](int total, const customCluster& cls) {
+                                  return total + cls.qTot;
+                              });
+  }
+}
+
 // ---------------------------------
 void qaCluster::runQa(int sector)
 {
@@ -2186,6 +2231,10 @@ void qaCluster::run(ProcessingContext& pc)
     }
 
     read_kinematics(mctracks);
+
+    if(mode.find(std::string("momentum_vector")) != std::string::npos){
+
+    }
 
     number_of_ideal_max.fill(0);
     number_of_digit_max.fill(0);
