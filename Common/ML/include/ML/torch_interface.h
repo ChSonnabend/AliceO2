@@ -38,7 +38,8 @@ class TorchModel
   ~TorchModel() = default;
 
   // Inferencing
-  void init(const std::string, const bool = true);
+  void load(const std::string);
+  std::vector<float> inference(std::vector<std::vector<float>>);
 
   // Loggers & Printers
   void printAvailDevices();
@@ -48,12 +49,14 @@ class TorchModel
   torch::Device getDevice();
   
   // Setters
-  void setDevice(const bool = 1, const torch::Device = torch::kCPU);
+  void setDevice(const bool, const std::string);
 
  private:
   std::string modelpath;
   torch::jit::script::Module model;
   torch::Device device = torch::kCPU;
+
+  void setDevice(const bool, const torch::Device);
 };
 
 } // namespace ml

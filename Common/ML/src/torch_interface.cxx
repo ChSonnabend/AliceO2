@@ -27,22 +27,35 @@ namespace o2
 namespace ml
 {
 
-void TorchModel::init(const std::string filepath, const bool autodetect){
-    setDevice(autodetect, torch::kCPU);
+// Inferencing
+void TorchModel::load(const std::string filepath){
+    LOG(info) << "(TORCH) >>> Model loader <<<";
     modelpath = filepath;
     model = torch::jit::load(filepath, device);
     LOG(info) << "(TORCH) Model " << filepath << " loaded";
+    LOG(info) << "(TORCH) ------------";
 }
 
+std::vector<float> TorchModel::inference(std::vector<std::vector<float>> in){
+    auto opts = torch::TensorOptions().dtype(torch::kFloat32);
+    torch::Tensor inputs = torch::from_blob(in.data(), {static_cast<long long>(in.size()), static_cast<long long>(in[0].size())}, opts).to(device, torch::kFloat32);
+    at::Tensor output = model.forward(std::vector<torch::jit::IValue>{inputs}).toTensor();
+    auto r_ptr = output.data_ptr<float>();
+    std::vector<float> result{r_ptr, r_ptr + output.size(0)};
+    return result;
+}
+
+// Loggers & Printers
 void TorchModel::printModel(){
-    LOG(info) << "(TORCH) --- Model ---";
+    LOG(info) << "(TORCH) >>> Model <<<";
     model.dump(false, false, false);
 }
 
 void TorchModel::printAvailDevices(){
-    LOG(info) << "(TORCH) --- Printing available devices ---";
+    LOG(info) << "(TORCH) >>> Available devices <<<";
     // Print available GPUs
     if(torch::cuda::is_available()){
+        LOG(info) << "(TORCH) --- CUDA / AMD";
       int num_gpus = torch::cuda::device_count();
       LOG(info) << "(TORCH) Available GPUs:";
       for (int i = 0; i < num_gpus; ++i) {
@@ -58,11 +71,16 @@ void TorchModel::printAvailDevices(){
             // LOG(info) << "    Total Memory: " << d.total_memory() << " bytes";
           }
       }
-    } else {
-      // Print CPU specifications
-      LOG(info) << "(TORCH) CPU Specifications:";
-      LOG(info) << "(TORCH)     Number of threads: " << torch::get_num_threads();
+    } 
+    if(torch::mps::is_available()){
+        LOG(info) << "(TORCH) --- MPS";
+        LOG(info) << "(TORCH) Metal backend detected!";
     }
+    
+    // Print CPU specifications
+    LOG(info) << "(TORCH) --- CPU";
+    LOG(info) << "(TORCH) Number of threads: " << torch::get_num_threads();
+    LOG(info) << "(TORCH) ------------";
 }
 
 // Getters
@@ -71,7 +89,8 @@ torch::Device TorchModel::getDevice(){
 }
 
 // Setters
-void TorchModel::setDevice(const bool autodetect, const torch::Device dev){
+void TorchModel::setDevice(const bool autodetect = true, const torch::Device dev = torch::kCPU){
+    LOG(info) << "(TORCH) >>> Device-setter <<<";
     std::string string_device = "CPU";
     if(autodetect) {
         LOG(info) << "(TORCH) Device auto-detection enabled!";
@@ -84,6 +103,10 @@ void TorchModel::setDevice(const bool autodetect, const torch::Device dev){
             auto *g = c10::impl::getDeviceGuardImpl(d.type());
             LOG(info) << "(TORCH) Device: " << g->getDevice();
             string_device = "GPU";
+        } else if(torch::mps::is_available()){
+            LOG(info) << "(TORCH) MPS detected on system";
+            device = torch::kMPS;
+            string_device = "MPS";
         } else {
             LOG(info) << "(TORCH) No GPU detected";
             device = dev;
@@ -92,23 +115,55 @@ void TorchModel::setDevice(const bool autodetect, const torch::Device dev){
         LOG(info) << "(TORCH) Device auto-detection disabled!";
         if(dev == torch::kCUDA){
             if(torch::cuda::is_available()){
-                LOG(info) << "(TORCH) GPU requested as device and found";
+                LOG(debug) << "(TORCH) GPU requested as device and found";
                 device = torch::kCUDA;
                 at::Device d(at::kCUDA);
                 auto *g = c10::impl::getDeviceGuardImpl(d.type());
-                LOG(info) << "(TORCH) Device: " << g->getDevice();
+                LOG(debug) << "(TORCH) Device: " << g->getDevice();
                 string_device = "GPU";
             } else {
-                LOG(info) << "(TORCH) GPU requested as device but not found";
+                LOG(debug) << "(TORCH) GPU requested as device but not found";
+                string_device = "CPU";
+                device = torch::kCPU;
+            }
+        } else if(dev == torch::kMPS){
+            if(torch::mps::is_available()){
+                LOG(debug) << "(TORCH) MPS requested as device and found";
+                device = torch::kMPS;
+                string_device = "MPS";
+            } else {
+                LOG(debug) << "(TORCH) MPS requested as device but not found";
                 string_device = "CPU";
                 device = torch::kCPU;
             }
         } else {
-            LOG(info) << "(TORCH) CPU requested as device";
+            LOG(debug) << "(TORCH) CPU requested as device";
             device = torch::kCPU;
         }
     }
     LOG(info) << "(TORCH) Device set to " << string_device;
+    LOG(info) << "(TORCH) ------------";
+}
+
+void TorchModel::setDevice(const bool autodetect = true, const std::string dev = "cpu"){
+    
+    std::string tmp_dev = dev;
+    std::transform(tmp_dev.begin(), tmp_dev.end(), tmp_dev.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+
+    if(autodetect) {
+        setDevice(true, torch::kCPU);
+    } else {
+        if(tmp_dev == "cuda"){
+            setDevice(0, torch::kCUDA);
+        } else if(tmp_dev == "mps"){
+            setDevice(0, torch::kMPS);
+        } else if(tmp_dev == "cpu"){
+            setDevice(0, torch::kCPU);
+        } else {
+            LOG(fatal) << "(TORCH) Device '" << tmp_dev << "' unknown! Please use 'cpu', 'cuda' (Nvidia or AMD backend) or 'mps' (Apple Metal GPU backend)";
+        }
+    }
 }
 
 }
