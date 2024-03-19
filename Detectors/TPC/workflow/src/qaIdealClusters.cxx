@@ -1406,11 +1406,13 @@ void qaCluster::momentum_vector_estimator(){
   }
 
   // Momentum vector estimation
+  int lbl_counter = 0;
   for(int lbl : trackLabel.size()){
-    float E = std::accumulate(sorted_ideal_map[lbl].begin(), sorted_ideal_map[lbl].end(), 0,
-                              [](int total, const customCluster& cls) {
-                                  return total + cls.qTot;
-                              });
+    // float E = std::accumulate(sorted_ideal_map[lbl].begin(), sorted_ideal_map[lbl].end(), 0,
+    //                           [](int total, const customCluster& cls) {
+    //                               return total + cls.qTot;
+    //                           });
+    lbl_counter++;
   }
 }
 

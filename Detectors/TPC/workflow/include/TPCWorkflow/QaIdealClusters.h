@@ -280,60 +280,75 @@ class helixFitter(){
 
   public:
     helixFitter() = default;
+    helixFitter(std::vector<float> p){ params = p; };
     ~helixFitter() = default;
 
-    setParams(std::vector<float> p) { initParams = p; };
+    void fit(std::vector<float> points){
 
-  private:
-    // Define helix function
-    double Helix(double t, const double *par) {
-        double x0 = par[0];
-        double y0 = par[1];
-        double z0 = par[2];
-        double px = par[3];
-        double py = par[4];
-        double pz = par[5];
-        double B = par[6];
-        double omega = B / sqrt(px*px + py*py + pz*pz);
-        return x0 + px / omega * (1 - cos(omega * t)) + py / omega * sin(omega * t);
-    }
-
-    // Define chi-square function
-    double ChiSq(const double *par) {
-        double chiSq = 0.0;
-        for (int i = 0; i < nPoints; ++i) {
-            double residual = Helix(tValues[i], par) - yValues[i]; // Assuming yValues are the points to fit
+      float ChiSq = [points](const float* par) {
+        float chiSq = 0.0;
+        for (int i = 0; i < points.size(); ++i) {
+          THelix h(points[i][0], points[i][1], points[i][2], par[3], par[4], par[5], par[6]);
+          for(int j = 0; j < 3; ++j)
+            float residual = h - yValues[i]; // Assuming yValues are the points to fit
             chiSq += residual * residual;
+          }
         }
         return chiSq;
+      }
+
+      TFitter *fitter = new TFitter(nParams);
+      fitter->SetFCN(ChiSq);
+      fitter->SetParameter(0, "x0", initialParams[0], 0.1, 0, 0);
+      fitter->SetParameter(1, "y0", initialParams[1], 0.1, 0, 0);
+      fitter->SetParameter(2, "z0", initialParams[2], 0.1, 0, 0);
+      fitter->SetParameter(3, "px", initialParams[3], 0.1, 0, 0);
+      fitter->SetParameter(4, "py", initialParams[4], 0.1, 0, 0);
+      fitter->SetParameter(5, "pz", initialParams[5], 0.1, 0, 0);
+      fitter->SetParameter(6, "B", initialParams[6], 0.1, 0, 0);
+
+      // Perform the fit
+      fitter->ExecuteCommand("MINIMIZE", 0, 0);
+
+      // Extract the momentum vector components
+      double momentum[3] = {fitter->GetParameter(3), fitter->GetParameter(4), fitter->GetParameter(5)};
+      cout << "Momentum vector components: (" << momentum[0] << ", " << momentum[1] << ", " << momentum[2] << ")" << endl;
+
+      delete fitter;
     }
 
-int main() {
-    // Provide initial parameters for the fit
-    const int nParams = 7;
-    double initialParams[nParams] = {x0_initial, y0_initial, z0_initial, px_initial, py_initial, pz_initial, B_initial};
+    // void FitHelixToPoints(const std::vector<std::vector<float>> points) {
+    //   // Create a TGraph2D object to hold the data points
+    //   TGraph2D *graph = new TGraph2D(points.size(), &points[0][0], &points[1][0], &points[2][0]);
+// 
+    //   // Create a THelix object
+    //   THelix *helix = new THelix();
+    //   helix->Fit(graph);
+// 
+    //   // Get the fitted helix parameters
+    //   double *params = helix->GetParameters();
+// 
+    //   // Extract the momentum vector components
+    //   double px = params[3];
+    //   double py = params[4];
+    //   double pz = params[5];
+// 
+    //   // Output the momentum vector components
+    //   cout << "Momentum vector components: (" << px << ", " << py << ", " << pz << ")" << endl;
+// 
+    //   // Draw the fitted helix
+    //   TCanvas *canvas = new TCanvas("canvas", "Fitted Helix", 800, 600);
+    //   graph->Draw("P");
+    //   helix->Draw("same");
+// 
+    //   delete canvas;
+    //   delete helix;
+    //   delete graph;
+    // }
 
-    // Set up the TFitter object
-    TFitter *fitter = new TFitter(nParams);
-    fitter->SetFCN(ChiSq);
-    fitter->SetParameter(0, "x0", initialParams[0], 0.1, 0, 0);
-    fitter->SetParameter(1, "y0", initialParams[1], 0.1, 0, 0);
-    fitter->SetParameter(2, "z0", initialParams[2], 0.1, 0, 0);
-    fitter->SetParameter(3, "px", initialParams[3], 0.1, 0, 0);
-    fitter->SetParameter(4, "py", initialParams[4], 0.1, 0, 0);
-    fitter->SetParameter(5, "pz", initialParams[5], 0.1, 0, 0);
-    fitter->SetParameter(6, "B", initialParams[6], 0.1, 0, 0);
+  private:
 
-    // Perform the fit
-    fitter->ExecuteCommand("MINIMIZE", 0, 0);
-
-    // Extract the momentum vector components
-    double momentum[3] = {fitter->GetParameter(3), fitter->GetParameter(4), fitter->GetParameter(5)};
-    cout << "Momentum vector components: (" << momentum[0] << ", " << momentum[1] << ", " << momentum[2] << ")" << endl;
-
-    delete fitter;
-    return 0;
-}
+    std::vector<float> params;
 
 }
 
