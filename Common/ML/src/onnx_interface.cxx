@@ -39,6 +39,7 @@ void OnnxModel::init(std::string localPath, bool enableOptimizations, int thread
 {
 
   LOG(info) << "--- ONNX-ML model ---";
+  LOG(info) << "Taking model from: " << localPath;
   modelPath = localPath;
   activeThreads = threads;
 

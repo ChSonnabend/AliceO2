@@ -62,6 +62,7 @@ void qaCluster::init(InitContext& ic)
     int count_net_class = 0;
     for(auto path : network_classification_paths){
       network_classification[count_net_class].init(path, networkOptimizations, networkNumThreads);
+      count_net_class++;
     }
     // network_classification = (OnnxModel*)malloc(sizeof(class_nets));
     // memcpy(network_classification, class_nets, sizeof(network_classification));
@@ -81,6 +82,7 @@ void qaCluster::init(InitContext& ic)
     int count_net_class = 0;
     for(auto path : network_regression_paths){
       network_regression[count_net_class].init(path, networkOptimizations, networkNumThreads);
+      count_net_class++;
     }
     // network_regression = (OnnxModel*)malloc(sizeof(reg_nets));
     // memcpy(network_regression, reg_nets, sizeof(network_regression));
@@ -1198,7 +1200,7 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
         if (num_output_nodes == 1) {
           tmp_class_label = (int)(output_network_class[current_max_idx][0] > networkClassThres);
         } else {
-          tmp_class_label = std::min((int)std::distance(output_network_class[current_max_idx].begin(), std::max_element(output_network_class[current_max_idx].begin(), output_network_class[current_max_idx].end())), (int)network_regression_paths.size());
+          tmp_class_label = std::min((int)std::distance(output_network_class[current_max_idx].begin(), std::max_element(output_network_class[current_max_idx].begin(), output_network_class[current_max_idx].end())), (int)network_regression_paths.size()) - 1;
         }
 
         if (tmp_class_label > 0 && class_label[current_max_idx] > 0) {
@@ -1275,7 +1277,6 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
 
     if(sorted_digit_idx[class_idx].size()>0){
       for(int max_epoch = 0; max_epoch < std::ceil(sorted_digit_idx[class_idx].size() / (float) networkInputSize); max_epoch++){
-        
         std::vector<int> investigate_maxima;
         custom::fill_container_by_range(investigate_maxima, sorted_digit_idx[class_idx], max_epoch * networkInputSize, ((max_epoch + 1) * networkInputSize) - 1);
         for(int& inv_max : investigate_maxima){
@@ -1337,13 +1338,19 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
       }
     }
   }
+  for(int cls_idx = 0; cls_idx < output_network_reg.size(); cls_idx++){
+    output_network_reg[cls_idx].index = cls_idx;
+  }
 
   network_map = output_network_reg;
-  // digit_map = output_network_reg; // -> This causes huge trouble. Not sure why...
   maxima_digits.resize(output_network_reg.size());
-  for(int max = 0; max < maxima_digits.size(); max++){
-    maxima_digits[max] = digit_map[digit_idcs[max]].index;
-  }
+  std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);
+
+  // digit_map = output_network_reg; // -> This causes huge trouble. Not sure why...
+  // maxima_digits.resize(output_network_reg.size());
+  // for(int max = 0; max < maxima_digits.size(); max++){
+  //   maxima_digits[max] = digit_map[digit_idcs[max]].index;
+  // }
 
   LOG(info) << "[" << sector << "] Regression network done!";
 }
@@ -1434,7 +1441,6 @@ void qaCluster::runQa(int sector)
         run_network_regression(sector, map2d, maxima_digits, digit_map, network_map); // classification + regression
       }
       digit_map = network_map;
-      std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);
       num_total_digit_max += maxima_digits.size();
       overwrite_map2d(sector, map2d, digit_map, maxima_digits, 1);
     } else {
