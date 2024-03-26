@@ -1342,9 +1342,11 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
     output_network_reg[cls_idx].index = cls_idx;
   }
 
+  network_map.clear();
   network_map = output_network_reg;
+  maxima_digits.clear();
   maxima_digits.resize(output_network_reg.size());
-  std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);
+  std::iota(maxima_digits.begin(), maxima_digits.end(), 0);
 
   // digit_map = output_network_reg; // -> This causes huge trouble. Not sure why...
   // maxima_digits.resize(output_network_reg.size());
@@ -1440,6 +1442,7 @@ void qaCluster::runQa(int sector)
       if (mode.find(std::string("network_reg")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
         run_network_regression(sector, map2d, maxima_digits, digit_map, network_map); // classification + regression
       }
+      digit_map.clear();
       digit_map = network_map;
       num_total_digit_max += maxima_digits.size();
       overwrite_map2d(sector, map2d, digit_map, maxima_digits, 1);
@@ -1490,8 +1493,8 @@ void qaCluster::runQa(int sector)
         int current_neighbour = test_neighbour({digit_map[maxima_digits[locdigit]].row, (int)round(digit_map[maxima_digits[locdigit]].cog_pad), (int)round(digit_map[maxima_digits[locdigit]].cog_time)}, adj_mat[layer][nn], map2d, 0);
         if (current_neighbour > -1 && current_neighbour < (int)ideal_map.size()) {
           assignments_id_to_dig[locdigit][layer_count + nn] = (assigned_digit[locdigit] == 0 && assigned_ideal[current_neighbour] == 0) ? current_neighbour : -1;
-        } else if(current_neighbour >= (int)ideal_map.size()){
-          LOG(warning) << "[" << sector << "] (assignments_id_to_dig) Invalid map adress at index: " << locdigit << " / " << maxima_digits.size() << ": " << current_neighbour << " (/" << ideal_map.size() << ") - Accessing (row, pad time) = (" << digit_map[maxima_digits[locdigit]].row << ", " << round(digit_map[maxima_digits[locdigit]].cog_pad) << ", " << round(digit_map[maxima_digits[locdigit]].cog_time) << ")";
+        } else {
+          LOG(warning) << "[" << sector << "] (assignments_id_to_dig) Invalid map adress at index: " << locdigit << " / " << maxima_digits.size() << ": " << current_neighbour << " (/" << ideal_map.size() << ") - Accessing (row, pad, time) = (" << digit_map[maxima_digits[locdigit]].row << ", " << round(digit_map[maxima_digits[locdigit]].cog_pad) << ", " << round(digit_map[maxima_digits[locdigit]].cog_time) << ")";
         }
       }
       if (verbose >= 4)
@@ -1502,8 +1505,8 @@ void qaCluster::runQa(int sector)
         int current_neighbour = test_neighbour({ideal_map[locideal].row, (int)round(ideal_map[locideal].cog_pad), (int)round(ideal_map[locideal].cog_time)}, adj_mat[layer][nn], map2d, 1);
         if (current_neighbour > -1 && current_neighbour < digit_map.size()) {
           assignments_dig_to_id[locideal][layer_count + nn] = (assigned_ideal[locideal] == 0 && assigned_digit[current_neighbour] == 0) ? current_neighbour : -1;
-        } else if(current_neighbour >= (int)digit_map.size()){
-          LOG(warning) << "[" << sector << "] (assignments_dig_to_id) Invalid map adress at index: " << locideal << " / " << ideal_map.size() << ": " << current_neighbour << " (/" << digit_map.size() << ") - Accessing (row, pad time) = (" << ideal_map[locideal].row << ", " << round(ideal_map[locideal].cog_pad) << ", " << round(ideal_map[locideal].cog_time) << ")";
+        } else {
+          LOG(warning) << "[" << sector << "] (assignments_dig_to_id) Invalid map adress at index: " << locideal << " / " << ideal_map.size() << ": " << current_neighbour << " (/" << digit_map.size() << ") - Accessing (row, pad, time) = (" << ideal_map[locideal].row << ", " << round(ideal_map[locideal].cog_pad) << ", " << round(ideal_map[locideal].cog_time) << ")";
         }
       }
       if (verbose >= 4)
