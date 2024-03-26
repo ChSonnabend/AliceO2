@@ -1289,15 +1289,16 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
 
         for(int idx = 0; idx < eval_size; idx++){
           int digit_max_idx = sorted_digit_idx[class_idx][max_epoch * networkInputSize + idx];
+          customCluster net_cluster = network_map[digit_max_idx];
           for(int subclass = 0; subclass < class_idx; subclass++){
             int out_net_idx = idx * class_idx * num_output_nodes_regression + subclass;
-            customCluster net_cluster = network_map[digit_max_idx];
-            net_cluster.cog_pad += out_net[out_net_idx + 0 * class_idx];
-            net_cluster.cog_time += out_net[out_net_idx + 1 * class_idx];
-            net_cluster.sigmaPad = out_net[out_net_idx + 2 * class_idx];
-            net_cluster.sigmaTime = out_net[out_net_idx + 3 * class_idx];
-            net_cluster.qTot *= out_net[out_net_idx + 4 * class_idx]; // Change for normalization mode
-            output_network_reg[corresponding_index_output[digit_max_idx] + subclass] = net_cluster;
+            customCluster new_net_cluster = net_cluster;
+            new_net_cluster.cog_pad += out_net[out_net_idx + 0 * class_idx];
+            new_net_cluster.cog_time += out_net[out_net_idx + 1 * class_idx];
+            new_net_cluster.sigmaPad = out_net[out_net_idx + 2 * class_idx];
+            new_net_cluster.sigmaTime = out_net[out_net_idx + 3 * class_idx];
+            new_net_cluster.qTot *= out_net[out_net_idx + 4 * class_idx]; // Change for normalization mode
+            output_network_reg[corresponding_index_output[digit_max_idx] + subclass] = new_net_cluster;
             digit_idcs.push_back(maxima_digits[digit_max_idx]);
 
             if(round(net_cluster.cog_pad) > TPC_GEOM[net_cluster.row][2] || round(net_cluster.cog_time) > max_time[sector] || round(net_cluster.cog_pad) < 0 || round(net_cluster.cog_time) < 0){
@@ -1982,7 +1983,7 @@ void qaCluster::runQa(int sector)
   if (mode.find(std::string("training_data")) != std::string::npos && create_output == 1) {
 
     // Checks if digit is assigned / has non-looper assignments
-    std::vector<int> digit_has_non_looper_assignments(maxima_digits.size(), -1); // -1 = has no assignments, 0 = has 0 non-looper assignments, n = has n non-looper assignments
+    std::vector<int> digit_has_non_looper_assignments(maxima_digits.size(), -1); // -1 = has no assignments, 0 = has assignment but is looper, n = has n non-looper assignments
     std::vector<std::vector<int>> digit_non_looper_assignment_labels(maxima_digits.size());
     for (int dig_max = 0; dig_max < maxima_digits.size(); dig_max++) {
       bool digit_has_assignment = false;
@@ -1996,7 +1997,7 @@ void qaCluster::runQa(int sector)
             }
           }
           if (!is_tagged) {
-            digit_has_non_looper_assignments[dig_max] == -1 ? digit_has_non_looper_assignments[dig_max] += 2 : digit_has_non_looper_assignments[dig_max] += 1;
+            digit_has_non_looper_assignments[dig_max] == -1 ? digit_has_non_looper_assignments[dig_max] = 1 : digit_has_non_looper_assignments[dig_max] += 1;
             digit_non_looper_assignment_labels[dig_max].push_back(ass);
           }
         }
