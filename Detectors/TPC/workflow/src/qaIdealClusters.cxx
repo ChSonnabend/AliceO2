@@ -354,7 +354,7 @@ void qaCluster::read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>
 }
 
 // ---------------------------------
-void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customCluster>& native_writer_map)
+void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customCluster>& native_writer_map, bool perSector)
 {
 
   // using MCLabelContainer = o2::dataformats::MCTruthContainer<o2::MCCompLabel>;
@@ -378,8 +378,11 @@ void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customClu
 
   int total_clusters = 0;
   o2::dataformats::MCLabelContainer mcTruthBuffer;
+  std::vector<o2::dataformats::MCLabelContainer> sorted_mc_labels(36);
+  std::array<int, 36> sector_counter;
+  custom::fill_nested_container(sector_counter, 0);
   custom::fill_nested_container(cluster_sector_counter, 0);
-  o2::MCCompLabel dummyMcLabel(true);
+  o2::MCCompLabel dummyMcLabel(0,0,0,true);
   for (auto const cls : native_writer_map) {
     int sec = cls.sector;
     int row = cls.row;
@@ -392,12 +395,15 @@ void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customClu
     cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].qTot = cls.qTot;
     if(cls.mcTrkId != -1){
       mcTruth[sec * o2::tpc::constants::MAXGLOBALPADROW + row].addElement(cluster_sector_counter[sec][row], o2::MCCompLabel(cls.mcTrkId, cls.mcEvId, cls.mcSrcId, false));
-      mcTruthBuffer.addElement(total_clusters, o2::MCCompLabel(cls.mcTrkId, cls.mcEvId, cls.mcSrcId, false));
+      sorted_mc_labels[sec].addElement(sector_counter[sec], o2::MCCompLabel(cls.mcTrkId, cls.mcEvId, cls.mcSrcId, false));
+      // mcTruthBuffer.addElement(total_clusters, o2::MCCompLabel(cls.mcTrkId, cls.mcEvId, cls.mcSrcId, false));
     } else {
       mcTruth[sec * o2::tpc::constants::MAXGLOBALPADROW + row].addElement(cluster_sector_counter[sec][row], dummyMcLabel);
-      mcTruthBuffer.addElement(total_clusters, dummyMcLabel);
+      sorted_mc_labels[sec].addElement(sector_counter[sec], dummyMcLabel);
+      // mcTruthBuffer.addElement(total_clusters, dummyMcLabel);
     }
     cluster_sector_counter[sec][row]++;
+    sector_counter[sec]++;
     total_clusters++;
   }
 
@@ -405,39 +411,41 @@ void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customClu
   std::unique_ptr<ClusterNativeAccess> clusters = ClusterNativeHelper::createClusterNativeIndex(clusterBuffer, cont, &mcTruthBuffer, &mcTruth);
 
   LOG(info) << "ClusterNativeAccess structure created.";
-  std::vector<char> buffer;
-  mcTruthBuffer.flatten_to(buffer);
-  o2::dataformats::IOMCTruthContainerView tmp_container(buffer);
-  o2::dataformats::ConstMCTruthContainer<o2::MCCompLabel> constMcLabelContainer;
-  tmp_container.copyandflatten(constMcLabelContainer);
-  o2::dataformats::ConstMCTruthContainerView containerView(constMcLabelContainer);
-  clusters.get()->clustersMCTruth = &containerView;
+  // std::vector<char> buffer;
+  // mcTruthBuffer.flatten_to(buffer);
+  // o2::dataformats::IOMCTruthContainerView tmp_container(buffer);
+  // o2::dataformats::ConstMCTruthContainer<o2::MCCompLabel> constMcLabelContainer;
+  // tmp_container.copyandflatten(constMcLabelContainer);
+  // o2::dataformats::ConstMCTruthContainerView containerView(constMcLabelContainer);
+  // clusters.get()->clustersMCTruth = &containerView;
 
   o2::tpc::ClusterNativeAccess const& clusterIndex = *(clusters.get());
 
-  // Clusters are shipped by sector, we are copying into per-sector buffers (anyway only for ROOT output)
-  o2::tpc::TPCSectorHeader clusterOutputSectorHeader{0};
-  for (unsigned int i : tpc_sectors) {
-    unsigned int subspec = i;
-    clusterOutputSectorHeader.sectorBits = (1ul << i);
-    char* buffer = pc.outputs().make<char>({o2::header::gDataOriginTPC, "CLUSTERNATIVE", subspec, {clusterOutputSectorHeader}}, clusterIndex.nClustersSector[i] * sizeof(*clusterIndex.clustersLinear) + sizeof(o2::tpc::ClusterCountIndex)).data();
-    o2::tpc::ClusterCountIndex* outIndex = reinterpret_cast<o2::tpc::ClusterCountIndex*>(buffer);
-    memset(outIndex, 0, sizeof(*outIndex));
-    for (int j = 0; j < o2::tpc::constants::MAXGLOBALPADROW; j++) {
-      outIndex->nClusters[i][j] = clusterIndex.nClusters[i][j];
-    }
-    memcpy(buffer + sizeof(*outIndex), clusterIndex.clusters[i][0], clusterIndex.nClustersSector[i] * sizeof(*clusterIndex.clustersLinear));
-
-    o2::dataformats::MCLabelContainer cont;
-    for (unsigned int j = 0; j < clusterIndex.nClustersSector[i]; j++) {
-      const auto& labels = clusterIndex.clustersMCTruth->getLabels(clusterIndex.clusterOffset[i][0] + j);
-      for (const auto& label : labels) {
-        cont.addElement(j, label);
+  if(perSector){
+    // Clusters are shipped by sector, we are copying into per-sector buffers (anyway only for ROOT output)
+    o2::tpc::TPCSectorHeader clusterOutputSectorHeader{0};
+    for (unsigned int i : tpc_sectors) {
+      unsigned int subspec = i;
+      clusterOutputSectorHeader.sectorBits = (1ul << i);
+      char* buffer = pc.outputs().make<char>({o2::header::gDataOriginTPC, "CLUSTERNATIVE", subspec, {clusterOutputSectorHeader}}, clusterIndex.nClustersSector[i] * sizeof(*clusterIndex.clustersLinear) + sizeof(o2::tpc::ClusterCountIndex)).data();
+      o2::tpc::ClusterCountIndex* outIndex = reinterpret_cast<o2::tpc::ClusterCountIndex*>(buffer);
+      memset(outIndex, 0, sizeof(*outIndex));
+      for (int j = 0; j < o2::tpc::constants::MAXGLOBALPADROW; j++) {
+        outIndex->nClusters[i][j] = clusterIndex.nClusters[i][j];
       }
+      memcpy(buffer + sizeof(*outIndex), clusterIndex.clusters[i][0], clusterIndex.nClustersSector[i] * sizeof(*clusterIndex.clustersLinear));
+
+      // o2::dataformats::MCLabelContainer cont;
+      // for (unsigned int j = 0; j < clusterIndex.nClustersSector[i]; j++) {
+      //   const auto& labels = clusterIndex.clustersMCTruth->getLabels(clusterIndex.clusterOffset[i][0] + j);
+      //   for (const auto& label : labels) {
+      //     cont.addElement(j, label);
+      //   }
+      // }
+      o2::dataformats::ConstMCLabelContainer contflat;
+      sorted_mc_labels[i].flatten_to(contflat);
+      pc.outputs().snapshot({o2::header::gDataOriginTPC, "CLNATIVEMCLBL", subspec, {clusterOutputSectorHeader}}, contflat);
     }
-    o2::dataformats::ConstMCLabelContainer contflat;
-    cont.flatten_to(contflat);
-    pc.outputs().snapshot({o2::header::gDataOriginTPC, "CLNATIVEMCLBL", subspec, {clusterOutputSectorHeader}}, contflat);
   }
 
   LOG(info) << "------- Native clusters structure written -------";
@@ -1297,7 +1305,7 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
             new_net_cluster.cog_time += out_net[out_net_idx + 1 * class_idx];
             new_net_cluster.sigmaPad = out_net[out_net_idx + 2 * class_idx];
             new_net_cluster.sigmaTime = out_net[out_net_idx + 3 * class_idx];
-            new_net_cluster.qTot *= out_net[out_net_idx + 4 * class_idx]; // Change for normalization mode
+            new_net_cluster.qTot = (new_net_cluster.qMax * out_net[out_net_idx + 4 * class_idx]); // Change for normalization mode
             output_network_reg[corresponding_index_output[max_epoch * networkInputSize + idx] + subclass] = new_net_cluster;
             digit_idcs.push_back(maxima_digits[digit_max_idx]);
 
@@ -1664,32 +1672,6 @@ void qaCluster::runQa(int sector)
 
   if (mode.find(std::string("native")) != std::string::npos && create_output == 1) {
 
-    m.lock();
-    if (write_native_file) {
-      int native_writer_map_size = native_writer_map.size();
-      int cluster_counter = 0, total_counter = 0;
-      for(auto const cls : native_map){
-        if(!digit_tagged[total_counter]){
-          cluster_counter++;
-        }
-        total_counter++;
-      }
-      native_writer_map.resize(native_writer_map_size + cluster_counter);
-      cluster_counter = 0;
-      total_counter = 0;
-      for(auto const cls : native_map){
-        if(!digit_tagged[total_counter]){
-          native_writer_map[native_writer_map_size + cluster_counter] = cls;
-          GlobalPosition2D conv_pos = custom::convertSecRowPadToXY(cls.sector, cls.row, cls.cog_pad);
-          native_writer_map[native_writer_map_size + cluster_counter].X = conv_pos.X();
-          native_writer_map[native_writer_map_size + cluster_counter].Y = conv_pos.Y();
-          cluster_counter++;
-        }
-        total_counter++;
-      }
-    }
-    m.unlock();
-
     if (verbose >= 3)
       LOG(info) << "Native-Ideal assignment...";
 
@@ -1748,6 +1730,9 @@ void qaCluster::runQa(int sector)
                   // Adding an assignment in order to avoid duplication
                   assigned_digit[max_point] += 1;
                   assigned_ideal[current_idx_id] += 1;
+                  native_map[max_point].mcTrkId = ideal_map[current_idx_id].mcTrkId;
+                  native_map[max_point].mcEvId = ideal_map[current_idx_id].mcEvId;
+                  native_map[max_point].mcSrcId = ideal_map[current_idx_id].mcSrcId;
                   current_element = {native_map[max_point], ideal_map[current_idx_id]};
                 }
               }
@@ -1815,15 +1800,11 @@ void qaCluster::runQa(int sector)
     native_ideal->Write();
     outputFileNativeIdeal->Close();
 
-  }
-
-  if (mode.find(std::string("network")) != std::string::npos && create_output == 1) {
-
     m.lock();
     if (write_native_file) {
       int native_writer_map_size = native_writer_map.size();
       int cluster_counter = 0, total_counter = 0;
-      for(auto const cls : network_map){
+      for(auto const cls : native_map){
         if(!digit_tagged[total_counter]){
           cluster_counter++;
         }
@@ -1832,7 +1813,7 @@ void qaCluster::runQa(int sector)
       native_writer_map.resize(native_writer_map_size + cluster_counter);
       cluster_counter = 0;
       total_counter = 0;
-      for(auto const cls : network_map){
+      for(auto const cls : native_map){
         if(!digit_tagged[total_counter]){
           native_writer_map[native_writer_map_size + cluster_counter] = cls;
           GlobalPosition2D conv_pos = custom::convertSecRowPadToXY(cls.sector, cls.row, cls.cog_pad);
@@ -1844,6 +1825,10 @@ void qaCluster::runQa(int sector)
       }
     }
     m.unlock();
+
+  }
+
+  if (mode.find(std::string("network")) != std::string::npos && create_output == 1) {
 
     if (verbose >= 3)
       LOG(info) << "[" << sector << "] Network-Ideal assignment...";
@@ -1904,6 +1889,9 @@ void qaCluster::runQa(int sector)
                   // Adding an assignment in order to avoid duplication
                   assigned_digit[max_point] += 1;
                   assigned_ideal[current_idx_id] += 1;
+                  network_map[max_point].mcTrkId = ideal_map[current_idx_id].mcTrkId;
+                  network_map[max_point].mcEvId = ideal_map[current_idx_id].mcEvId;
+                  network_map[max_point].mcSrcId = ideal_map[current_idx_id].mcSrcId;
                   current_element = {network_map[max_point], ideal_map[current_idx_id]};
                 }
               }
@@ -1978,6 +1966,32 @@ void qaCluster::runQa(int sector)
 
     network_ideal->Write();
     outputFileNetworkIdeal->Close();
+
+    m.lock();
+    if (write_native_file) {
+      int native_writer_map_size = native_writer_map.size();
+      int cluster_counter = 0, total_counter = 0;
+      for(auto const cls : network_map){
+        if(!digit_tagged[total_counter]){
+          cluster_counter++;
+        }
+        total_counter++;
+      }
+      native_writer_map.resize(native_writer_map_size + cluster_counter);
+      cluster_counter = 0;
+      total_counter = 0;
+      for(auto const cls : network_map){
+        if(!digit_tagged[total_counter]){
+          native_writer_map[native_writer_map_size + cluster_counter] = cls;
+          GlobalPosition2D conv_pos = custom::convertSecRowPadToXY(cls.sector, cls.row, cls.cog_pad);
+          native_writer_map[native_writer_map_size + cluster_counter].X = conv_pos.X();
+          native_writer_map[native_writer_map_size + cluster_counter].Y = conv_pos.Y();
+          cluster_counter++;
+        }
+        total_counter++;
+      }
+    }
+    m.unlock();
 
   }
 

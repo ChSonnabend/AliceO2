@@ -291,7 +291,7 @@ class qaCluster : public Task
   void read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>&);
 
   // Writers
-  void write_custom_native(ProcessingContext&, std::vector<customCluster>&);
+  void write_custom_native(ProcessingContext&, std::vector<customCluster>&, bool = true);
   void write_tabular_data();
 
   tpc2d init_map2d(int);
