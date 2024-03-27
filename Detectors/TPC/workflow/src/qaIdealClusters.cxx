@@ -1298,7 +1298,7 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
             new_net_cluster.sigmaPad = out_net[out_net_idx + 2 * class_idx];
             new_net_cluster.sigmaTime = out_net[out_net_idx + 3 * class_idx];
             new_net_cluster.qTot *= out_net[out_net_idx + 4 * class_idx]; // Change for normalization mode
-            output_network_reg[corresponding_index_output[digit_max_idx] + subclass] = new_net_cluster;
+            output_network_reg[corresponding_index_output[max_epoch * networkInputSize + idx] + subclass] = new_net_cluster;
             digit_idcs.push_back(maxima_digits[digit_max_idx]);
 
             if(round(net_cluster.cog_pad) > TPC_GEOM[net_cluster.row][2] || round(net_cluster.cog_time) > max_time[sector] || round(net_cluster.cog_pad) < 0 || round(net_cluster.cog_time) < 0){
@@ -1348,6 +1348,9 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
   maxima_digits.clear();
   maxima_digits.resize(output_network_reg.size());
   std::iota(maxima_digits.begin(), maxima_digits.end(), 0);
+  
+  digit_map.clear();
+  digit_map = output_network_reg;
 
   // digit_map = output_network_reg; // -> This causes huge trouble. Not sure why...
   // maxima_digits.resize(output_network_reg.size());
@@ -1443,8 +1446,6 @@ void qaCluster::runQa(int sector)
       if (mode.find(std::string("network_reg")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
         run_network_regression(sector, map2d, maxima_digits, digit_map, network_map); // classification + regression
       }
-      digit_map.clear();
-      digit_map = network_map;
       num_total_digit_max += maxima_digits.size();
       overwrite_map2d(sector, map2d, digit_map, maxima_digits, 1);
     } else {
