@@ -1279,7 +1279,7 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
       tmp_idx++;
     }
   }
-  std::vector<customCluster> output_network_reg(total_num_points);
+  std::vector<customCluster> output_network_reg;
 
   for(int class_idx = 1; class_idx < num_output_classes + 1; class_idx++){
 
@@ -1306,13 +1306,13 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
             new_net_cluster.sigmaPad = out_net[out_net_idx + 2 * class_idx];
             new_net_cluster.sigmaTime = out_net[out_net_idx + 3 * class_idx];
             new_net_cluster.qTot = (new_net_cluster.qMax * out_net[out_net_idx + 4 * class_idx]); // Change for normalization mode
-            output_network_reg[corresponding_index_output[max_epoch * networkInputSize + idx] + subclass] = new_net_cluster;
+            output_network_reg.push_back(new_net_cluster);
             digit_idcs.push_back(maxima_digits[digit_max_idx]);
 
-            if(round(net_cluster.cog_pad) > TPC_GEOM[net_cluster.row][2] || round(net_cluster.cog_time) > max_time[sector] || round(net_cluster.cog_pad) < 0 || round(net_cluster.cog_time) < 0){
-              LOG(warning) << "[" << sector << "] Stepping over boundaries! row: " << net_cluster.row << "; pad: " << net_cluster.cog_pad << " / " << TPC_GEOM[net_cluster.row][2] << "; time: " << net_cluster.cog_time << " / " << max_time[sector] << ". Resetting cluster center-of-gravity to maximum position.";
-              net_cluster.cog_pad = net_cluster.max_pad;
-              net_cluster.cog_time = net_cluster.max_time;
+            if(round(new_net_cluster.cog_pad) > TPC_GEOM[new_net_cluster.row][2] || round(new_net_cluster.cog_time) > max_time[sector] || round(new_net_cluster.cog_pad) < 0 || round(new_net_cluster.cog_time) < 0){
+              LOG(warning) << "[" << sector << "] Stepping over boundaries! row: " << new_net_cluster.row << "; pad: " << new_net_cluster.cog_pad << " / " << TPC_GEOM[new_net_cluster.row][2] << "; time: " << new_net_cluster.cog_time << " / " << max_time[sector] << ". Resetting cluster center-of-gravity to maximum position.";
+              new_net_cluster.cog_pad = new_net_cluster.max_pad;
+              new_net_cluster.cog_time = new_net_cluster.max_time;
               if(verbose >= 5) {
                 std::cout << "Corresponding network input:" << std::endl;
                 std::cout << "([" << std::endl;
