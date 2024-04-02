@@ -2386,7 +2386,7 @@ void qaCluster::run(ProcessingContext& pc)
     std::vector<customCluster> track_paths;
     int tabular_data_counter = 0, track_counter = 0;
     float B_field = -5.f; // kiloGauss in z direction
-    std::vector<std::array<float, 11>> misc_track_data;
+    std::vector<std::array<float, 12>> misc_track_data;
     std::vector<std::string> misc_track_data_branch_names = {"NClusters", "Chi2", "hasASideClusters", "hasCSideClusters", "P", "dEdxQtot", "dEdxQmax", "AbsCharge", "Eta", "Phi", "Pt"};
     
     // const auto& tpcClusRefs = data.getTPCTracksClusterRefs();
@@ -2405,28 +2405,30 @@ void qaCluster::run(ProcessingContext& pc)
         uint8_t sector = 0, row = 0;
         const auto cluster = track.getCluster(*mCluRefVecInp, cl, clusterIndex, sector, row); // ClusterNative instance
         GlobalPosition2D conv_pos = mapper.LocalToGlobal(custom::convertSecRowPadToXY((int)sector, (int)row, cluster.getPad()), Sector((int)sector));
-        track_paths.push_back(customCluster{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, k, 0.f, conv_pos.X(), conv_pos.Y()});
+        bool ok = true;
+        auto point = track.getXYZGloAt(conv_pos.X(), B_field, ok);
+        track_paths.push_back(customCluster{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, k, 0.f, point.X(), point.Y(), point.Z()});
       }
 
       // linear projection of the track to the (pad, time) dimention -> This needs improvement!!!
-      for(int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++){ // this needs to be defined -> x = x_coordinate of row.
-        float x=0, y=0, z=0, p=0, t=0;
-        int sector=0;
-        x = tpcmap.Row2X(row);
-        bool ok = 1;
-        auto point = track.getXYZGloAt(x, B_field, ok);
-        float phi = std::atan2(point.Y(), point.X());
-        if (phi < 0.) {
-          phi += TWOPI;
-          // if(point.Z() < tpcmap.GetTimeBoundary()){
-          //   sector += 18;
-          // }
-        }
-        sector += std::floor(phi / SECPHIWIDTH);
-        // GlobalPosition2D conv_pos = mapper.LocalToGlobal(custom::convertSecRowPadToXY(sector, row, tpcmap.LinearY2Pad(sector, row, y)), Sector(sector));
-        // track_paths[tabular_data_counter] = customCluster{sector, row, tpcmap.LinearY2Pad(sector, row, point.Y()), tpcmap.LinearZ2Time(sector, point.Z()), tpcmap.LinearY2Pad(sector, row, point.Y()), tpcmap.LinearZ2Time(sector, point.Z()), -1, -1, 10000, 10000, 1, -1, -1, -1, k, -1, point.X(), point.Y(), 0.f, 0.f, 0.f, 0.f, track.getdEdx()};
-        tabular_data_counter++; 
-      }
+      // for(int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++){ // this needs to be defined -> x = x_coordinate of row.
+      //   float x=0, y=0, z=0, p=0, t=0;
+      //   int sector=0;
+      //   x = tpcmap.Row2X(row);
+      //   bool ok = 1;
+      //   auto point = track.getXYZGloAt(x, B_field, ok);
+      //   float phi = std::atan2(point.Y(), point.X());
+      //   if (phi < 0.) {
+      //     phi += TWOPI;
+      //     // if(point.Z() < tpcmap.GetTimeBoundary()){
+      //     //   sector += 18;
+      //     // }
+      //   }
+      //   sector += std::floor(phi / SECPHIWIDTH);
+      //   // GlobalPosition2D conv_pos = mapper.LocalToGlobal(custom::convertSecRowPadToXY(sector, row, tpcmap.LinearY2Pad(sector, row, y)), Sector(sector));
+      //   // track_paths[tabular_data_counter] = customCluster{sector, row, tpcmap.LinearY2Pad(sector, row, point.Y()), tpcmap.LinearZ2Time(sector, point.Z()), tpcmap.LinearY2Pad(sector, row, point.Y()), tpcmap.LinearZ2Time(sector, point.Z()), -1, -1, 10000, 10000, 1, -1, -1, -1, k, -1, point.X(), point.Y(), 0.f, 0.f, 0.f, 0.f, track.getdEdx()};
+      //   tabular_data_counter++; 
+      // }
       misc_track_data[k][0] = track.getNClusters();
       misc_track_data[k][1] = track.getChi2();
       misc_track_data[k][2] = track.hasASideClusters();

@@ -94,6 +94,7 @@ struct customCluster {
   float label = 0.f; // holds e.g. the network class label / classification score
   float X = -1.f;
   float Y = -1.f;
+  float Z = -1.f;
 
   ~customCluster(){}
 
@@ -116,7 +117,8 @@ struct customCluster {
       {"index", typeid(index).name()},
       {"label", typeid(label).name()},
       {"X", typeid(X).name()},
-      {"Y", typeid(Y).name()}
+      {"Y", typeid(Y).name()},
+      {"Z", typeid(Z).name()}
     };
   }
 };
@@ -266,8 +268,8 @@ class TPCMap
     const std::vector<float> mPadWidth = {.416f, .420f, .420f, .436f, .6f, .6f, .608f, .588f, .604f, .607f};
 
     const float T_BOUNDARY = 0.f;
-    const float FACTOR_T2Z = 1.f; // 250.f / 512.f;
-    const float FACTOR_Z2T = 1.f; // 1.f / FACTOR_T2Z;
+    const float FACTOR_T2Z = 250.f / 512.f;
+    const float FACTOR_Z2T = 1.f / FACTOR_T2Z;
 };
 
 class qaCluster : public Task
@@ -671,6 +673,7 @@ std::vector<std::string> splitString(const std::string& input, const std::string
       tree.Branch("label", &cls.label);
       tree.Branch("X", &cls.X);
       tree.Branch("Y", &cls.Y);
+      tree.Branch("Z", &cls.Z);
 
       // Fill the tree with the data
       for (const auto& item : data) {
