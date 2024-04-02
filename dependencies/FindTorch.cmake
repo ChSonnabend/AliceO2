@@ -9,13 +9,7 @@
 # granted to it by virtue of its status as an Intergovernmental Organization
 # or submit itself to any jurisdiction.
 
-add_subdirectory(Constants)
-add_subdirectory(MathUtils)
-add_subdirectory(Field)
-add_subdirectory(Types)
-add_subdirectory(Utils)
-add_subdirectory(SimConfig)
-add_subdirectory(DCAFitter)
-add_subdirectory(ML)
-
-o2_data_file(COPY maps DESTINATION Common)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+target_link_libraries(torch INTERFACE "${TORCH_LIBRARIES}")
+target_compile_features(torch INTERFACE cxx_std_17)
+add_library(Torch::Torch ALIAS torch)

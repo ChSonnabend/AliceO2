@@ -124,6 +124,13 @@ set_package_properties(XRootD PROPERTIES TYPE RECOMMENDED)
 find_package(libjalienO2 MODULE)
 set_package_properties(libjalienO2 PROPERTIES TYPE REQUIRED PURPOSE "For CCDB API")
 
+find_package(Torch CONFIG)
+set_package_properties(Torch PROPERTIES TYPE REQUIRED PURPOSE "For Pytorch model implementation")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+target_link_libraries(torch INTERFACE "${TORCH_LIBRARIES}")
+target_compile_features(torch INTERFACE cxx_std_17)
+add_library(Torch::Torch ALIAS torch)
+
 # MC specific packages
 message(STATUS "Input BUILD_SIMULATION=${BUILD_SIMULATION}")
 include("${CMAKE_CURRENT_LIST_DIR}/O2SimulationDependencies.cmake")
