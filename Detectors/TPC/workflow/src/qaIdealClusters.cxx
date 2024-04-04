@@ -47,6 +47,10 @@ void qaCluster::init(InitContext& ic)
     custom::fill_nested_container(max_time, 0);
   }
 
+  if(ic.options().get<int>("network-threshold-sigmoid-trafo") == 1){
+    networkClassThres = (float)std::log(networkClassThres/(1.f-networkClassThres));
+  }
+
   ROOT::EnableThreadSafety();
 
   // LOG(info) << "Testing networks!";
@@ -1077,14 +1081,16 @@ void qaCluster::remove_loopers_ideal(int sector, std::vector<std::vector<std::ve
 }
 
 // ---------------------------------
-std::tuple<std::vector<float>, std::vector<uint8_t>> qaCluster::create_network_input(int sector, tpc2d& map2d, std::vector<int>& maxima_digits, std::vector<customCluster>& digit_map)
+std::tuple<std::vector<float>, std::vector<uint8_t>> qaCluster::create_network_input(int sector, tpc2d& map2d, std::vector<int>& maxima_digits, std::vector<customCluster>& digit_map, int network_input_size)
 {
 
   int index_shift_global = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), index_shift_row = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), index_shift_pad = (2 * global_shift[1] + 1);
-  std::vector<float> input_vector(maxima_digits.size() * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), 0.f);
+
+  std::vector<float> input_vector(maxima_digits.size() * network_input_size, 0.f);
   std::vector<float> central_charges(maxima_digits.size(), 0.f);
   std::vector<uint8_t> flags(maxima_digits.size(), 0.f);
 
+  int internal_idx = 0;
   for (unsigned int max = 0; max < maxima_digits.size(); max++) {
     auto const central_digit = digit_map[maxima_digits[max]];
     int row_offset = rowOffset(central_digit.row);
@@ -1099,7 +1105,7 @@ std::tuple<std::vector<float>, std::vector<uint8_t>> qaCluster::create_network_i
       for (int pad = 0; pad < 2 * global_shift[0] + 1; pad++) {
         for (int time = 0; time < 2 * global_shift[1] + 1; time++) {
           // int internal_idx = max * index_shift_global + time * index_shift_row + row * index_shift_pad + pad; // FIXME: THIS NEEDS TO BE CHANGED!!!
-          int internal_idx = max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time;
+          // int internal_idx = max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time;
           if (compromised_charge) {
             input_vector[internal_idx] = -1;
           } else {
@@ -1117,8 +1123,15 @@ std::tuple<std::vector<float>, std::vector<uint8_t>> qaCluster::create_network_i
               }
             }
           }
+          internal_idx++;
         }
       }
+    }
+    if(network_input_size > index_shift_global){
+      input_vector[internal_idx] = central_digit.sector / o2::tpc::constants::MAXSECTOR;
+      input_vector[internal_idx + 1] = central_digit.row / o2::tpc::constants::MAXGLOBALPADROW;
+      input_vector[internal_idx + 2] = central_digit.max_pad / TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] + 1;
+      internal_idx+=3;
     }
 
     uint8_t flag = 0;
@@ -1154,18 +1167,26 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
   for(int net_counter = 0; net_counter < network_classification_paths.size(); net_counter++){
 
     network_class_size = 0;
-    size_t num_output_nodes = network_classification[net_counter].getNumOutputNodes();
+    size_t num_output_nodes = network_classification[net_counter].getNumOutputNodes()[0][1];
     std::vector<std::vector<float>> output_network_class;
     custom::resize_nested_container(output_network_class, std::vector<size_t>{maxima_digits.size(), num_output_nodes});
+
+    int network_input_size = 1;
+    for(auto v1 : network_classification[net_counter].getNumInputNodes()){
+      for(auto v2 : v1){
+        if(v2 > 0)
+          network_input_size*=v2;
+      }
+    }
 
     for (int max_epoch = 0; max_epoch < std::ceil(maxima_digits.size() / (float)networkInputSize); max_epoch++) {
 
       std::vector<int> investigate_maxima;
       custom::fill_container_by_range(investigate_maxima, maxima_digits, max_epoch * networkInputSize, ((max_epoch + 1) * networkInputSize) - 1);
-      auto [input_vector, flags] = create_network_input(sector, map2d, investigate_maxima, digit_map);
+      auto [input_vector, flags] = create_network_input(sector, map2d, investigate_maxima, digit_map, network_input_size);
       custom::append_to_container(flags_memory, flags);
 
-      int eval_size = input_vector.size() / index_shift_global;
+      int eval_size = input_vector.size() / network_input_size;
       std::vector<float> out_net = network_classification[net_counter].inference_vector(input_vector, eval_size);
 
       for (int idx = 0; idx < eval_size; idx++) {
@@ -1182,7 +1203,7 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
             for (int pad = 0; pad < 2 * global_shift[0] + 1; pad++) {
               std::cout << "[";
               for (int time = 0; time < 2 * global_shift[1] + 1; time++) {
-                std::cout << input_vector[idx*index_shift_global + row*index_shift_row + pad*index_shift_pad + time];
+                std::cout << input_vector[idx*network_input_size + row*index_shift_row + pad*index_shift_pad + time];
                 if(time != 2 * global_shift[1]){
                   std::cout << ", ";
                 } else if((row+1)*(pad+1)*(time+1) == index_shift_global){
@@ -1284,15 +1305,24 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
   for(int class_idx = 1; class_idx < num_output_classes + 1; class_idx++){
 
     if(sorted_digit_idx[class_idx].size()>0){
+
+      int network_input_size = 1;
+      for(auto v1 : network_regression[class_idx-1].getNumInputNodes()){
+        for(auto v2 : v1){
+          if(v2 > 0)
+            network_input_size*=v2;
+        }
+      }
+
       for(int max_epoch = 0; max_epoch < std::ceil(sorted_digit_idx[class_idx].size() / (float) networkInputSize); max_epoch++){
         std::vector<int> investigate_maxima;
         custom::fill_container_by_range(investigate_maxima, sorted_digit_idx[class_idx], max_epoch * networkInputSize, ((max_epoch + 1) * networkInputSize) - 1);
         for(int& inv_max : investigate_maxima){
           inv_max = maxima_digits[inv_max];
         }
-        auto [input_vector, flags] = create_network_input(sector, map2d, investigate_maxima, digit_map);
+        auto [input_vector, flags] = create_network_input(sector, map2d, investigate_maxima, digit_map, network_input_size);
 
-        int eval_size = input_vector.size() / index_shift_global;
+        int eval_size = input_vector.size() / network_input_size;
         std::vector<float> out_net = network_regression[class_idx-1].inference_vector(input_vector, eval_size);
 
         for(int idx = 0; idx < eval_size; idx++){
@@ -1320,7 +1350,7 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
                   for (int pad = 0; pad < 2 * global_shift[0] + 1; pad++) {
                     std::cout << "[";
                     for (int time = 0; time < 2 * global_shift[1] + 1; time++) {
-                      std::cout << input_vector[idx*index_shift_global + row*index_shift_row + pad*index_shift_pad + time];
+                      std::cout << input_vector[idx*network_input_size + row*index_shift_row + pad*index_shift_pad + time];
                       if(time != 2 * global_shift[1]){
                         std::cout << ", ";
                       } else if((row+1)*(pad+1)*(time+1) == index_shift_global){
@@ -2549,6 +2579,7 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
       {"network-class-threshold", VariantType::Float, 0.5f, {"Threshold for classification network: Keep or reject maximum (default: 0.5)"}},
       {"enable-network-optimizations", VariantType::Bool, true, {"Enable ONNX network optimizations"}},
       {"network-num-threads", VariantType::Int, 1, {"Set the number of CPU threads for network execution"}},
+      {"network-threshold-sigmoid-trafo", VariantType::Int, 0, {"If 1, convert network-class-threshold to sigmoid^-1(threshold)"}},
       {"remove-individual-files", VariantType::Int, 0, {"Remove sector-individual files that are created during the task and only keep merged files"}}}};
 }
 

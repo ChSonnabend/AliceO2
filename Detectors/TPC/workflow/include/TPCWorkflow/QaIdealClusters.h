@@ -311,7 +311,7 @@ class qaCluster : public Task
   void remove_loopers_native(int, std::vector<std::vector<std::vector<int>>>&, std::vector<customCluster>&, std::vector<int>&);
   void remove_loopers_ideal(int, std::vector<std::vector<std::vector<int>>>&, std::vector<customCluster>&);
 
-  std::tuple<std::vector<float>, std::vector<uint8_t>> create_network_input(int, tpc2d&, std::vector<int>&, std::vector<customCluster>&);
+  std::tuple<std::vector<float>, std::vector<uint8_t>> create_network_input(int, tpc2d&, std::vector<int>&, std::vector<customCluster>&, int);
   void run_network_classification(int, tpc2d&, std::vector<int>&, std::vector<customCluster>&, std::vector<customCluster>&);
   void run_network_regression(int, tpc2d&, std::vector<int>&, std::vector<customCluster>&, std::vector<customCluster>&);
   void overwrite_map2d(int, tpc2d&, std::vector<customCluster>&, std::vector<int>&, int = 0);
