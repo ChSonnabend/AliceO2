@@ -26,6 +26,9 @@
 using namespace GPUCA_NAMESPACE::gpu;
 using namespace GPUCA_NAMESPACE::gpu::tpccf;
 
+unsigned long totalPeaks = 0;
+std::vector<std::vector<int>> maxima;
+
 void GPUTPCClusterFinder::DumpDigits(std::ostream& out)
 {
   out << "\nClusterer - Digits - Slice " << mISlice << " - Fragment " << mPmemory->fragment.index << ": " << mPmemory->counters.nPositions << "\n";
