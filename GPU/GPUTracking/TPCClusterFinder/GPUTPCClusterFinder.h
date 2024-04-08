@@ -19,7 +19,6 @@
 #include "GPUProcessor.h"
 #include "GPUDataTypes.h"
 #include "CfFragment.h"
-#include <vector>
 
 namespace o2
 {
@@ -139,9 +138,6 @@ class GPUTPCClusterFinder : public GPUProcessor
   short mZSId = -1;
   short mZSOffsetId = -1;
   short mOutputId = -1;
-
-  unsigned long totalPeaks = 0;
-  std::vector<std::vector<int>> maxima;
 
 #ifndef GPUCA_GPUCODE
   void DumpDigits(std::ostream& out);
