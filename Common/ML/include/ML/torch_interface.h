@@ -50,11 +50,13 @@ class TorchModel
   
   // Setters
   void setDevice(const bool, const std::string);
+  void setDType(const c10::ScalarType);
 
  private:
   std::string modelpath;
   torch::jit::script::Module model;
   torch::Device device = torch::kCPU;
+  c10::ScalarType dtype = torch::kFloat32;
 
   void setDevice(const bool, const torch::Device);
 };

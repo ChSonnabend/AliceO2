@@ -38,8 +38,8 @@ void TorchModel::load(const std::string filepath){
 
 std::vector<float> TorchModel::inference(std::vector<std::vector<float>> in){
     auto opts = torch::TensorOptions().dtype(torch::kFloat32);
-    torch::Tensor inputs = torch::from_blob(in.data(), {static_cast<long long>(in.size()), static_cast<long long>(in[0].size())}, opts).to(device, torch::kFloat32);
-    at::Tensor output = model.forward(std::vector<torch::jit::IValue>{inputs}).toTensor();
+    torch::Tensor inputs = torch::from_blob(in.data(), {static_cast<long long>(in.size()), static_cast<long long>(in[0].size())}, opts).to(device, dtype);
+    at::Tensor output = model.forward(std::vector<torch::jit::IValue>{inputs}).toTensor().cpu();
     auto r_ptr = output.data_ptr<float>();
     std::vector<float> result{r_ptr, r_ptr + output.size(0)};
     return result;
@@ -164,6 +164,10 @@ void TorchModel::setDevice(const bool autodetect = true, const std::string dev =
             LOG(fatal) << "(TORCH) Device '" << tmp_dev << "' unknown! Please use 'cpu', 'cuda' (Nvidia or AMD backend) or 'mps' (Apple Metal GPU backend)";
         }
     }
+}
+
+void TorchModel::setDType(const c10::ScalarType set_dtype = torch::kFloat32){
+    dtype = set_dtype;
 }
 
 }

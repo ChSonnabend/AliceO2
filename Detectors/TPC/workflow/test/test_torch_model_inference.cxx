@@ -18,6 +18,7 @@
 #include <iostream>
 #include <type_traits>
 #include <tuple>
+#include <chrono>
 
 #include "Algorithm/RangeTokenizer.h"
 
@@ -82,20 +83,37 @@ class testTorch : public Task
       } else {
         model.setDevice(true, "cpu");
       }
-      
       model.load(model_path);
       model.printModel();
+      model.setDType(torch::kFloat32);
     };
     void init(InitContext& ic) final {};
     void run(ProcessingContext& pc) final {
-      std::vector<std::vector<float>> test(1);
-      test[0] = std::vector<float>(7*7*7, 1.f);
-      std::vector<float> output = model.inference(test);
-      for(auto out : output){
-        LOG(info) << "Test output: " << out;
+      
+      size_t test_size_iter = 100, test_size_tensor = 10000, epochs_measure = 5;
+      double time = 0;
+      
+      for(int i = 0; i < test_size_iter; i++){
+        std::vector<std::vector<float>> test(test_size_tensor);
+        for(int j = 0; j < test_size_tensor; j++){
+          test[j] = std::vector<float>(7*7*7, 1.f);
+        }
+        auto start_network_eval = std::chrono::high_resolution_clock::now();
+        std::vector<float> output = model.inference(test);
+        auto end_network_eval = std::chrono::high_resolution_clock::now();
+        time += std::chrono::duration<double, std::ratio<1, (unsigned long)1e9>>(end_network_eval - start_network_eval).count();
+        if((i % epochs_measure == 0) && (i != 0)){
+          LOG(info) << "Timing: " << int(test_size_tensor*epochs_measure/(time/1e9)) << " elements / s";
+          time = 0;
+        }
       }
+      
+      // for(auto out : output){
+      //   LOG(info) << "Test output: " << out;
+      // }
       pc.services().get<ControlService>().endOfStream();
       pc.services().get<ControlService>().readyToQuit(QuitRequest::Me);
+    
     };
   private:
     std::string model_path, device;
