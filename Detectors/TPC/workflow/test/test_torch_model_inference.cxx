@@ -95,16 +95,18 @@ class testTorch : public Task
     void init(InitContext& ic) final {};
     void run(ProcessingContext& pc) final {
       
-      size_t test_size_iter = 100, test_size_tensor = 100000, epochs_measure = 5;
+      size_t test_size_iter = 100, test_size_tensor = 10000, epochs_measure = 10;
       double time = 0;
       
       for(int i = 0; i < test_size_iter; i++){
-        std::vector<std::vector<float>> test(test_size_tensor);
-        for(int j = 0; j < test_size_tensor; j++){
-          test[j] = std::vector<float>(7*7*7, 1.f);
-        }
+        // std::vector<std::vector<float>> test(test_size_tensor);
+        // for(int j = 0; j < test_size_tensor; j++){
+        //   test[j] = std::vector<float>(7*7*7, 1.f);
+        // }
+        torch::Tensor test = torch::ones((10000,7*7*7));
         auto start_network_eval = std::chrono::high_resolution_clock::now();
-        std::vector<float> output = model.inference(test);
+        auto output = model.inference(test);
+        // std::vector<float> output = model.inference(test);
         auto end_network_eval = std::chrono::high_resolution_clock::now();
         time += std::chrono::duration<double, std::ratio<1, (unsigned long)1e9>>(end_network_eval - start_network_eval).count();
         if((i % epochs_measure == 0) && (i != 0)){

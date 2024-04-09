@@ -40,6 +40,7 @@ class TorchModel
   // Inferencing
   void load(const std::string);
   std::vector<float> inference(std::vector<std::vector<float>>);
+  at::Tensor inference(torch::Tensor);
 
   // Loggers & Printers
   void printAvailDevices();

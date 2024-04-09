@@ -42,7 +42,14 @@ std::vector<float> TorchModel::inference(std::vector<std::vector<float>> in){
     at::Tensor output = model.forward(std::vector<torch::jit::IValue>{inputs}).toTensor().to(torch::kCPU, torch::kFloat32);
     auto r_ptr = output.data_ptr<float>();
     std::vector<float> result{r_ptr, r_ptr + output.size(0)};
+    torch::cuda::synchronize();
     return result;
+}
+
+at::Tensor TorchModel::inference(torch::Tensor in){
+    at::Tensor output = model.forward(std::vector<torch::jit::IValue>{in.to(device, dtype)}).toTensor().to(torch::kCPU, torch::kFloat32);
+    torch::cuda::synchronize();
+    return output;
 }
 
 // Loggers & Printers
