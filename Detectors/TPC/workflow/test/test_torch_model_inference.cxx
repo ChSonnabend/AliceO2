@@ -77,6 +77,11 @@ class testTorch : public Task
       model_path = options_map["path"];
       device = options_map["device"];
       dtype = options_map["dtype"];
+      std::stringstream(options_map["num-iter"]) >> test_size_iter;
+      std::stringstream(options_map["size-tensor"]) >> test_size_tensor;
+      std::stringstream(options_map["measure-cycle"]) >> epochs_measure;
+
+      LOG(info) << "Number of iterations: " << test_size_iter << ", size of the test tensor: " << test_size_tensor << ", measuring every " << epochs_measure << " cycles";
 
       model.printAvailDevices();
       if(device.find(std::string("-")) == std::string::npos) {
@@ -88,14 +93,14 @@ class testTorch : public Task
       model.printModel();
       if(dtype.find(std::string("half")) != std::string::npos || dtype.find(std::string("FP16")) != std::string::npos) {
         model.setDType(torch::kFloat16);
+        dtype_scalar = torch::kFloat16;
       } else {
         model.setDType(torch::kFloat32);
+        dtype_scalar = torch::kFloat32;
       }
     };
     void init(InitContext& ic) final {};
     void run(ProcessingContext& pc) final {
-      
-      size_t test_size_iter = 100, test_size_tensor = 10000, epochs_measure = 10;
       double time = 0;
       
       for(int i = 0; i < test_size_iter; i++){
@@ -103,14 +108,15 @@ class testTorch : public Task
         // for(int j = 0; j < test_size_tensor; j++){
         //   test[j] = std::vector<float>(7*7*7, 1.f);
         // }
-        torch::Tensor test = torch::ones((10000,7*7*7));
+        torch::Tensor test = torch::ones({test_size_tensor,7*7*7}, dtype_scalar);
         auto start_network_eval = std::chrono::high_resolution_clock::now();
         auto output = model.inference(test);
         // std::vector<float> output = model.inference(test);
         auto end_network_eval = std::chrono::high_resolution_clock::now();
         time += std::chrono::duration<double, std::ratio<1, (unsigned long)1e9>>(end_network_eval - start_network_eval).count();
         if((i % epochs_measure == 0) && (i != 0)){
-          LOG(info) << "Timing: " << int(test_size_tensor*epochs_measure/(time/1e9)) << " elements / s";
+          time /= 1e9;
+          LOG(info) << "Total time: " << time << "s. Timing: " << uint64_t((double)test_size_tensor*epochs_measure/time) << " elements / s";
           time = 0;
         }
       }
@@ -124,7 +130,9 @@ class testTorch : public Task
     };
   private:
     std::string model_path, device, dtype;
+    c10::ScalarType dtype_scalar;
     o2::ml::TorchModel model;
+    size_t test_size_iter, test_size_tensor, epochs_measure;
 };
 }
 }
@@ -134,7 +142,10 @@ void customize(std::vector<o2::framework::ConfigParamSpec>& workflowOptions)
   std::vector<ConfigParamSpec> options{
     {"path", VariantType::String, "./model.pt", {"Path to PyTorch model"}},
     {"device", VariantType::String, "-", {"Device on which the PyTorch model is run"}},
-    {"dtype", VariantType::String, "-", {"Dtype in which the PyTorch model is run (FP16 or FP32)"}}
+    {"dtype", VariantType::String, "-", {"Dtype in which the PyTorch model is run (FP16 or FP32)"}},
+    {"size-tensor", VariantType::Int, 100000, {"Size tensor"}},
+    {"num-iter", VariantType::Int, 100, {"Number of iterations"}},
+    {"measure-cycle", VariantType::Int, 10, {"Epochs in which to measure"}},
   };
   std::swap(workflowOptions, options);
 }
@@ -150,6 +161,9 @@ DataProcessorSpec testProcess(ConfigContext const& cfgc, std::vector<InputSpec>&
     {"path", cfgc.options().get<std::string>("path")},
     {"device", cfgc.options().get<std::string>("device")},
     {"dtype", cfgc.options().get<std::string>("dtype")},
+    {"size-tensor", std::to_string(cfgc.options().get<int>("size-tensor"))},
+    {"num-iter", std::to_string(cfgc.options().get<int>("num-iter"))},
+    {"measure-cycle", std::to_string(cfgc.options().get<int>("measure-cycle"))},
   };
 
   return DataProcessorSpec{
