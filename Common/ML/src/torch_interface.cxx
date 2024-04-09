@@ -37,9 +37,9 @@ void TorchModel::load(const std::string filepath){
 }
 
 std::vector<float> TorchModel::inference(std::vector<std::vector<float>> in){
-    auto opts = torch::TensorOptions().dtype(torch::kFloat32);
+    auto opts = torch::TensorOptions().dtype(dtype);
     torch::Tensor inputs = torch::from_blob(in.data(), {static_cast<long long>(in.size()), static_cast<long long>(in[0].size())}, opts).to(device, dtype);
-    at::Tensor output = model.forward(std::vector<torch::jit::IValue>{inputs}).toTensor().cpu();
+    at::Tensor output = model.forward(std::vector<torch::jit::IValue>{inputs}).toTensor().to(torch::kCPU, torch::kFloat32);
     auto r_ptr = output.data_ptr<float>();
     std::vector<float> result{r_ptr, r_ptr + output.size(0)};
     return result;

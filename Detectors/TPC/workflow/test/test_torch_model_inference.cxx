@@ -76,6 +76,7 @@ class testTorch : public Task
     testTorch(std::unordered_map<std::string, std::string> options_map){
       model_path = options_map["path"];
       device = options_map["device"];
+      dtype = options_map["dtype"];
 
       model.printAvailDevices();
       if(device.find(std::string("-")) == std::string::npos) {
@@ -85,12 +86,16 @@ class testTorch : public Task
       }
       model.load(model_path);
       model.printModel();
-      model.setDType(torch::kFloat32);
+      if(dtype.find(std::string("half")) != std::string::npos || dtype.find(std::string("FP16")) != std::string::npos) {
+        model.setDType(torch::kFloat16);
+      } else {
+        model.setDType(torch::kFloat32);
+      }
     };
     void init(InitContext& ic) final {};
     void run(ProcessingContext& pc) final {
       
-      size_t test_size_iter = 100, test_size_tensor = 10000, epochs_measure = 5;
+      size_t test_size_iter = 100, test_size_tensor = 100000, epochs_measure = 5;
       double time = 0;
       
       for(int i = 0; i < test_size_iter; i++){
@@ -116,7 +121,7 @@ class testTorch : public Task
     
     };
   private:
-    std::string model_path, device;
+    std::string model_path, device, dtype;
     o2::ml::TorchModel model;
 };
 }
@@ -126,7 +131,8 @@ void customize(std::vector<o2::framework::ConfigParamSpec>& workflowOptions)
 {
   std::vector<ConfigParamSpec> options{
     {"path", VariantType::String, "./model.pt", {"Path to PyTorch model"}},
-    {"device", VariantType::String, "-", {"Device on which the PyTorch model is run"}}
+    {"device", VariantType::String, "-", {"Device on which the PyTorch model is run"}},
+    {"dtype", VariantType::String, "-", {"Dtype in which the PyTorch model is run (FP16 or FP32)"}}
   };
   std::swap(workflowOptions, options);
 }
@@ -141,6 +147,7 @@ DataProcessorSpec testProcess(ConfigContext const& cfgc, std::vector<InputSpec>&
   std::unordered_map<std::string, std::string> options_map{
     {"path", cfgc.options().get<std::string>("path")},
     {"device", cfgc.options().get<std::string>("device")},
+    {"dtype", cfgc.options().get<std::string>("dtype")},
   };
 
   return DataProcessorSpec{
