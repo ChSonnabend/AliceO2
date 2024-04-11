@@ -324,7 +324,7 @@ class qaCluster : public Task
  private:
   TPCMap tpcmap;
 
-  std::vector<int> tpc_sectors; // The TPC sectors for which processing should be started
+  std::vector<int> tpc_sectors;              // The TPC sectors for which processing should be started
   std::vector<int> global_shift = {5, 5, 0}; // shifting digits to select windows easier, (pad, time, row)
   int charge_limits[2] = {2, 1024};          // upper and lower charge limits
   int verbose = 0;                           // chunk_size in time direction
@@ -333,6 +333,7 @@ class qaCluster : public Task
   int networkInputSize = 1000;               // vector input size for neural network
   float networkClassThres = 0.5f;            // Threshold where network decides to keep / reject digit maximum
   int networkNumThreads = 1;                 // Future: Add Cuda and CoreML Execution providers to run on CPU
+  bool networkSplitIrocOroc = 0;             // Whether or not to split the used networks for IROC and OROC's
   int numThreads = 1;                        // Number of cores for multithreading
   int use_max_cog = 1;                       // 0 = use ideal maxima position; 1 = use ideal CoG position (rounded) for assignment
   float threshold_cogq = 5.f;                // Threshold for ideal cluster to be findable (Q_tot)
@@ -384,7 +385,7 @@ class qaCluster : public Task
 
 namespace custom
 {
-std::vector<std::string> splitString(const std::string& input, const std::string& delimiter) {
+  std::vector<std::string> splitString(const std::string& input, const std::string& delimiter) {
     std::vector<std::string> tokens;
     std::size_t pos = 0;
     std::size_t found;
@@ -628,6 +629,9 @@ std::vector<std::string> splitString(const std::string& input, const std::string
     const auto& mapper = Mapper::instance();
 
     int firstRegion = 0, lastRegion = 10;
+    if(row > o2::tpc::constants::MAXGLOBALPADROW){
+      LOG(warning) << "Stepping over boundary: " << row << " / " << o2::tpc::constants::MAXGLOBALPADROW;
+    }
     if (row < 63) {
       firstRegion = 0;
       lastRegion = 4;
@@ -639,7 +643,7 @@ std::vector<std::string> splitString(const std::string& input, const std::string
     GlobalPosition2D pos = mapper.getPadCentre(PadSecPos(sector, row, pad));
     float fractionalPad = 0;
     if(int(pad) != pad){
-      fractionalPad = mapper.getPadRegionInfo(firstRegion).getPadWidth()*(pad - int(pad));
+      fractionalPad = mapper.getPadRegionInfo(firstRegion).getPadWidth()*(pad - int(pad) - 0.5);
     }
     return GlobalPosition2D(pos.X() + fractionalPad, pos.Y());
   }
