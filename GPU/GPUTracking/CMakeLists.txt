@@ -10,10 +10,11 @@
 # or submit itself to any jurisdiction.
 
 set(MODULE GPUTracking)
+cmake_minimum_required(VERSION 3.27 FATAL_ERROR)
 
-# set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE}} -O0") # to uncomment if needed, tired of typing this...
+# set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} -O0") # to uncomment if needed, tired of typing this...
 
-if(NOT ${GPUCA_NO_FAST_MATH} AND NOT CMAKE_BUILD_TYPE STREQUAL "DEBUG")
+if(NOT "${GPUCA_NO_FAST_MATH}" AND NOT CMAKE_BUILD_TYPE_UPPER STREQUAL "DEBUG")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffast-math")
 endif()
 
@@ -21,9 +22,10 @@ include(cmake/helpers.cmake)
 
 if(ALIGPU_BUILD_TYPE STREQUAL "ALIROOT")
   if(ENABLE_CUDA OR ENABLE_OPENCL1 OR ENABLE_OPENCL2 OR ENABLE_HIP)
-    cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
     include(FeatureSummary)
     find_package(O2GPU)
+  else()
+    include("cmake/kernel_helpers.cmake")
   endif()
 else()
   if((ALIGPU_BUILD_TYPE STREQUAL "Standalone" AND BUILD_EVENT_DISPLAY) OR (ALIGPU_BUILD_TYPE STREQUAL "O2" AND NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND TARGET AliceO2::DebugGUI AND OPENGL_FOUND AND GLFW_FOUND))
@@ -453,6 +455,7 @@ if(ALIGPU_BUILD_TYPE STREQUAL "ALIROOT")
                      ${SRCS_NO_CINT}
                      ${SRCS_NO_H}
                      ${SRCS_DATATYPES}
+                     ${SRCS_DATATYPE_HEADERS}
                      G__Ali${MODULE}.cxx)
   target_link_libraries(Ali${MODULE} ${LIBDEPS})
 
@@ -479,7 +482,7 @@ endif()
 
 # Main CMake part for Standalone
 if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
-  add_library(${MODULE} SHARED ${SRCS} ${SRCS_NO_CINT} ${SRCS_NO_H} ${SRCS_DATATYPES})
+  add_library(${MODULE} SHARED ${SRCS} ${SRCS_NO_CINT} ${SRCS_NO_H} ${SRCS_DATATYPES} ${SRCS_DATATYPE_HEADERS})
   set(targetName ${MODULE})
   add_library(O2::${MODULE} ALIAS ${MODULE})
   install(TARGETS ${MODULE})
