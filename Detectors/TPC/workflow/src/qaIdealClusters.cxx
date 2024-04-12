@@ -1376,7 +1376,7 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
               new_net_cluster.index = out_net_idx;
 
               if(round(new_net_cluster.cog_pad) > TPC_GEOM[new_net_cluster.row][2] || round(new_net_cluster.cog_time) > max_time[sector] || round(new_net_cluster.cog_pad) < 0 || round(new_net_cluster.cog_time) < 0){
-                LOG(warning) << "[" << sector << "] Stepping over boundaries! row: " << new_net_cluster.row << "; pad: " << new_net_cluster.cog_pad << " (net: " << out_net[out_net_idx + 0 * class_idx] << ") / " << TPC_GEOM[new_net_cluster.row][2] << "; time: " << new_net_cluster.cog_time << " (net: " << out_net[out_net_idx + 1 * class_idx] << ") / " << max_time[sector] << ". Resetting cluster center-of-gravity to maximum position.";
+                LOG(warning) << "[" << sector << "] Stepping over boundaries! row: " << new_net_cluster.row << "; pad: " << new_net_cluster.cog_pad << " (net: " << out_net[net_idx + 0 * class_idx] << ") / " << TPC_GEOM[new_net_cluster.row][2] << "; time: " << new_net_cluster.cog_time << " (net: " << out_net[net_idx + 1 * class_idx] << ") / " << max_time[sector] << ". Resetting cluster center-of-gravity to maximum position.";
                 new_net_cluster.cog_pad = new_net_cluster.max_pad;
                 new_net_cluster.cog_time = new_net_cluster.max_time;
                 if(verbose >= 5) {
@@ -1399,11 +1399,11 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
                   }
                   std::cout << "])" << std::endl;
                   std::cout << "Corresponding network output to data above was: ";
-                  for(int i = 0; i < 5; i++){
-                    if(i != 4){
-                      std::cout << out_net[out_net_idx + i * class_idx] << ", ";
+                  for(int i = 0; i < num_output_nodes_regression; i++){
+                    if(i != num_output_nodes_regression-1){
+                      std::cout << out_net[net_idx + i * class_idx] << ", ";
                     } else {
-                      std::cout << out_net[out_net_idx + i * class_idx] << std::endl;
+                      std::cout << out_net[net_idx + i * class_idx] << std::endl;
                     }
                   }
                 }
