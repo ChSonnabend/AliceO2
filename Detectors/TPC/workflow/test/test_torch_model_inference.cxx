@@ -109,6 +109,7 @@ class testTorch : public Task
         //   test[j] = std::vector<float>(7*7*7, 1.f);
         // }
         torch::Tensor test = torch::ones({test_size_tensor,7*7*7}, dtype_scalar);
+        test = test.to(model.getDevice(), model.getDType());
         auto start_network_eval = std::chrono::high_resolution_clock::now();
         auto output = model.inference(test);
         // std::vector<float> output = model.inference(test);
