@@ -47,7 +47,7 @@ std::vector<float> TorchModel::inference(std::vector<std::vector<float>> in){
 }
 
 at::Tensor TorchModel::inference(torch::Tensor in){
-    at::Tensor output = model.forward(std::vector<torch::jit::IValue>{in.to(device, dtype)}).toTensor().to(torch::kCPU, torch::kFloat32);
+    at::Tensor output = model.forward({(torch::jit::IValue)in}).toTensor().to(torch::kCPU, torch::kFloat32);
     torch::cuda::synchronize();
     return output;
 }
@@ -93,6 +93,10 @@ void TorchModel::printAvailDevices(){
 // Getters
 torch::Device TorchModel::getDevice(){
     return device;
+}
+
+c10::ScalarType TorchModel::getDType(){
+    return dtype;
 }
 
 // Setters

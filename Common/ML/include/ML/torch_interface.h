@@ -48,6 +48,7 @@ class TorchModel
 
   // Getters
   torch::Device getDevice();
+  c10::ScalarType getDType();
   
   // Setters
   void setDevice(const bool, const std::string);
