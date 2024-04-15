@@ -11,8 +11,6 @@
 
 #include "Algorithm/RangeTokenizer.h"
 
-#include "DetectorsRaw/HBFUtils.h"
-
 #include "DataFormatsTPC/WorkflowHelper.h"
 #include "DataFormatsTPC/ClusterNativeHelper.h"
 #include "DataFormatsTPC/ClusterNative.h"
@@ -22,8 +20,14 @@
 #include "DataFormatsGlobalTracking/TrackTuneParams.h"
 #include "DataFormatsTPC/Defs.h"
 
+#include "DetectorsRaw/HBFUtils.h"
+#include "DetectorsBase/GRPGeomHelper.h"
+
 #include "DPLUtils/RootTreeReader.h"
 #include "DPLUtils/MakeRootTreeWriterSpec.h"
+
+#include "GPUO2Interface.h"
+#include "GPUO2InterfaceUtils.h"
 
 #include "SimulationDataFormat/MCCompLabel.h"
 #include "SimulationDataFormat/ConstMCTruthContainer.h"
@@ -63,6 +67,7 @@ using namespace GPUCA_NAMESPACE::gpu;
 using namespace o2::tpc;
 using namespace o2::framework;
 using namespace o2::ml;
+using namespace o2::base;
 using namespace boost;
 
 template <typename T>
@@ -323,6 +328,7 @@ class qaCluster : public Task
 
  private:
   TPCMap tpcmap;
+  std::shared_ptr<o2::base::GRPGeomRequest> grp_geom;
 
   std::vector<int> tpc_sectors;              // The TPC sectors for which processing should be started
   std::vector<int> global_shift = {5, 5, 0}; // shifting digits to select windows easier, (pad, time, row)

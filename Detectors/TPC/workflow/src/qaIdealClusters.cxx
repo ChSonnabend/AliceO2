@@ -2455,8 +2455,14 @@ void qaCluster::run(ProcessingContext& pc)
     }
 
     std::vector<customCluster> track_paths;
+    std::vector<std::array<float, 3>> clusterMomenta;
     int tabular_data_counter = 0, track_counter = 0;
-    float B_field = -5.f; // kiloGauss in z direction
+    
+    // GRPGeomHelper::instance().setRequest(grp_geom);
+    // o2::base::GRPGeomHelper::instance().finaliseCCDB(matcher, obj);
+    float B_field = -5.00668; //GPUO2InterfaceUtils::getNominalGPUBz(*GRPGeomHelper::instance().getGRPMagField());
+    LOG(info) << "Updating solenoid field " << B_field;
+    
     std::vector<std::array<float, 12>> misc_track_data;
     std::vector<std::string> misc_track_data_branch_names = {"NClusters", "Chi2", "hasASideClusters", "hasCSideClusters", "P", "dEdxQtot", "dEdxQmax", "AbsCharge", "Eta", "Phi", "Pt"};
     
@@ -2476,10 +2482,13 @@ void qaCluster::run(ProcessingContext& pc)
         uint8_t sector = 0, row = 0;
         const auto cluster = track.getCluster(*mCluRefVecInp, cl, clusterIndex, sector, row); // ClusterNative instance
         LocalPosition2D conv_pos = mapper.GlobalToLocal(custom::convertSecRowPadToXY((int)sector, (int)row, cluster.getPad()), Sector((int)sector));
-        bool ok = true;
+        std::array<float, 3> momentum_after_propagation;
+        bool ok = track.propagateTo(conv_pos.X(), B_field); // Is that necessary?
         auto point = track.getXYZGloAt(conv_pos.X(), B_field, ok); // track.getXYZGloAt(conv_pos.X(), B_field, ok);
+        ok = ok && track.getPxPyPzGlo(momentum_after_propagation); // This probabyl needs the propagation
         if(ok){
           track_paths.push_back(customCluster{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, k, 0.f, point.X(), point.Y(), point.Z()});
+          clusterMomenta.push_back(momentum_after_propagation);
         }
       }
 
@@ -2524,6 +2533,7 @@ void qaCluster::run(ProcessingContext& pc)
 
     std::string outfile = custom::splitString(outFileCustomClusters, ".root")[0];
     custom::writeStructToRootFile(outputPath + "/" + outfile + "_tracks.root", "data", track_paths);
+    custom::writeTabularToRootFile({"momentum_X", "momentum_Y", "momentum_Z"}, clusterMomenta, outputPath + "/" + outfile + "_momenta.root", "momenta", "Momentum infromation from tracking.");
     LOG(info) << "Clusters of tracks written!";
 
     custom::writeTabularToRootFile(misc_track_data_branch_names, misc_track_data, outputPath + "/tpc_tracks_tabular_information.root", "tpc_tracks_info", "TPC track information");
