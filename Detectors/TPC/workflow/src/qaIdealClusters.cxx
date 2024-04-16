@@ -2425,7 +2425,7 @@ void qaCluster::run(ProcessingContext& pc)
 
     read_kinematics(mctracks);
 
-    if(mode.find(std::string("training_data_mom")) != std::string::npos){
+    if(mode.find(std::string("training_data_mom")) != std::string::npos || mode.find(std::string("track_cluster")) != std::string::npos){
       read_tracking_clusters();
     }
 
