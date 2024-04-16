@@ -1562,6 +1562,7 @@ void qaCluster::runQa(int sector)
   std::vector<std::array<float, 3>> digit_clusterizer_map;
   std::vector<customCluster> digit_map, ideal_map, network_map, native_map;
   std::vector<std::vector<std::vector<std::vector<int>>>> tagger_maps(looper_tagger_granularity.size());
+  std::vector<int> track_cluster_to_ideal_assignment; // First is digit_max index, then 5 possible assignemts of track_clusters
 
   LOG(info) << "--- Starting process for sector " << sector << " ---";
 
@@ -2161,6 +2162,28 @@ void qaCluster::runQa(int sector)
 
   if (mode.find(std::string("training_data")) != std::string::npos && create_output == 1) {
 
+    // If momentum data is present assign momenta of tracking clusters to respective ideal clusters in map2d
+    bool addMomentumData = (mode.find(std::string("training_data_mom")) != std::string::npos);
+
+    if(addMomentumData){
+      float precision = 1.f/64; // Defined by ClusterNative.h: unpackPad and unpackTime: scalePadPacked = scaleTimePacked = 64
+      track_cluster_to_ideal_assignment.resize(ideal_map.size());
+      custom::fill_nested_container(track_cluster_to_ideal_assignment, -1);
+      int cluster_counter = -1; // Starting at -1 due to continue statement in the following loop
+      for(auto cls : tracking_clusters[sector]){
+        int idl_idx = map2d[0][round(cls.cog_time) + global_shift[1]][cls.row + global_shift[2] + rowOffset(cls.row)][round(cls.cog_pad) + global_shift[0] + padOffset(cls.row)];
+        cluster_counter++;
+        if(idl_idx == -1){
+          continue;
+        }
+        if ((cls.row != ideal_map[idl_idx].row) || ((cls.cog_time - ideal_map[idl_idx].cog_time) < precision) || ((cls.cog_pad - ideal_map[idl_idx].cog_pad) < precision)){
+          track_cluster_to_ideal_assignment[idl_idx] = cluster_counter;
+        } else {
+          LOG(warning) << "Ideal cluster at same index (ideal) (sector: " << ideal_map[idl_idx].sector << "; row: " << ideal_map[idl_idx].row << "; pad: " << ideal_map[idl_idx].cog_pad << "; time: " << ideal_map[idl_idx].cog_time << ") ; (tracking) (sector: " << cls.sector << "; row: " << cls.row << "; pad: " << cls.cog_pad << "; time: " << cls.cog_time << ")";
+        }
+      }
+    }
+
     // Checks if digit is assigned / has non-looper assignments
     std::vector<int> digit_has_non_looper_assignments(maxima_digits.size(), -1); // -1 = has no assignments, 0 = has assignment but is looper, n = has n non-looper assignments
     std::vector<std::vector<int>> digit_non_looper_assignment_labels(maxima_digits.size());
@@ -2211,9 +2234,6 @@ void qaCluster::runQa(int sector)
     }
 
     std::fill(tr_data_X.begin(), tr_data_X.end(), atomic_unit);
-
-    // Is momentum data present?
-    bool addMomentumData = (mode.find(std::string("training_data_mom")) != std::string::npos);
 
     o2::MCTrack current_track;
     std::vector<float> cluster_pT(data_size, -1), cluster_eta(data_size, -1), cluster_mass(data_size, -1), cluster_p(data_size, -1);
@@ -2295,20 +2315,10 @@ void qaCluster::runQa(int sector)
             }
 
             if(addMomentumData){
-              int cluster_counter = -1;
-              for(auto cls : tracking_clusters[sector]){
-                cluster_counter++;
-                if(cls.row != idl.row){
-                  continue;
-                } else if(cls.cog_pad - idl.cog_pad > 1e-7){
-                  continue;
-                } else if(cls.cog_time - idl.cog_time > 1e-7){
-                  continue;
-                } else {
-                  tr_data_Y_reg[max_point][counter][5] = momentum_vectors[sector][cluster_counter][0];
-                  tr_data_Y_reg[max_point][counter][6] = momentum_vectors[sector][cluster_counter][1];
-                  tr_data_Y_reg[max_point][counter][7] = momentum_vectors[sector][cluster_counter][2];
-                }
+              if(track_cluster_to_ideal_assignment[ideal_idx] != -1){
+                tr_data_Y_reg[max_point][counter][5] = momentum_vectors[sector][track_cluster_to_ideal_assignment[ideal_idx]][0];
+                tr_data_Y_reg[max_point][counter][6] = momentum_vectors[sector][track_cluster_to_ideal_assignment[ideal_idx]][1];
+                tr_data_Y_reg[max_point][counter][7] = momentum_vectors[sector][track_cluster_to_ideal_assignment[ideal_idx]][2];
               }
             }
           }
@@ -2395,7 +2405,7 @@ void qaCluster::runQa(int sector)
       cluster_counter = 0;
       total_counter = 0;
       for(auto const cls : ideal_map){
-        if(!digit_tagged[total_counter]){
+        if(!ideal_tagged[total_counter]){
           native_writer_map[native_writer_map_size + cluster_counter] = cls;
           GlobalPosition2D conv_pos = custom::convertSecRowPadToXY(cls.sector, cls.row, cls.cog_pad);
           native_writer_map[native_writer_map_size + cluster_counter].X = conv_pos.X();
