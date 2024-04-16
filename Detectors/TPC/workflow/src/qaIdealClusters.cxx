@@ -326,6 +326,99 @@ void qaCluster::read_ideal(int sector, std::vector<customCluster>& ideal_map)
 }
 
 // ---------------------------------
+void qaCluster::read_tracking_clusters(){
+  // --- tracking clusters & momentum association ---
+  const auto& mapper = Mapper::instance();
+  auto file = TFile::Open((outputPath + "/" + inFileTracks).c_str());
+  auto tree = (TTree*)file->Get("tpcrec");
+  if (tree == nullptr) {
+    std::cout << "Error getting tree\n";
+  }
+  std::vector<TrackTPC>* tpcTracks = nullptr;
+  std::vector<o2::tpc::TPCClRefElem>* mCluRefVecInp = nullptr; // index to clusters linear structure in ClusterNativeAccess
+  std::vector<o2::MCCompLabel>* mMCTruthInp = nullptr;
+  tree->SetBranchAddress("TPCTracks", &tpcTracks);
+  tree->SetBranchAddress("ClusRefs", &mCluRefVecInp);
+  tree->SetBranchAddress("TPCTracksMCTruth", &mMCTruthInp);
+
+  // Getting the native clusters
+  ClusterNativeHelper::Reader tpcClusterReader;
+  tpcClusterReader.init((outputPath + "/" + inFileNative).c_str());
+  ClusterNativeAccess clusterIndex;
+  std::unique_ptr<ClusterNative[]> clusterBuffer;
+  memset(&clusterIndex, 0, sizeof(clusterIndex));
+  o2::tpc::ClusterNativeHelper::ConstMCLabelContainerViewWithBuffer clusterMCBuffer;
+  qc::Clusters clusters;
+  for (unsigned long i = 0; i < tpcClusterReader.getTreeSize(); ++i) {
+    tpcClusterReader.read(i);
+    tpcClusterReader.fillIndex(clusterIndex, clusterBuffer, clusterMCBuffer);
+  }
+
+  std::vector<customCluster> track_paths;
+  std::vector<std::array<float, 3>> clusterMomenta;
+  int tabular_data_counter = 0, track_counter = 0;
+  
+  // GRPGeomHelper::instance().setRequest(grp_geom);
+  // o2::base::GRPGeomHelper::instance().finaliseCCDB(matcher, obj);
+  float B_field = -5.00668; //GPUO2InterfaceUtils::getNominalGPUBz(*GRPGeomHelper::instance().getGRPMagField());
+  LOG(info) << "Updating solenoid field " << B_field;
+  
+  std::vector<std::array<float, 12>> misc_track_data;
+  std::vector<std::string> misc_track_data_branch_names = {"NClusters", "Chi2", "hasASideClusters", "hasCSideClusters", "P", "dEdxQtot", "dEdxQmax", "AbsCharge", "Eta", "Phi", "Pt"};
+  
+  // const auto& tpcClusRefs = data.getTPCTracksClusterRefs();
+  // const auto& tpcClusAcc = // get from tpc-native-clsuters the flat array
+
+  tree->GetEntry(0);
+  size_t nTracks = tpcTracks->size();
+  // track_paths.resize(track_paths.size() + nTracks*o2::tpc::constants::MAXGLOBALPADROW);
+  misc_track_data.resize(nTracks);
+  LOG(info) << "Loaded " << nTracks << " tracks. Processing...";
+
+  // ---| track loop |---
+  int cluster_counter = 0;
+  for (int k = 0; k < nTracks; k++) {
+    auto track = (*tpcTracks)[k];
+    for(int cl = 0; cl < track.getNClusters(); cl++){
+      uint8_t sector = 0, row = 0;
+      const auto cluster = track.getCluster(*mCluRefVecInp, cl, clusterIndex, sector, row); // ClusterNative instance
+      LocalPosition2D conv_pos = mapper.GlobalToLocal(custom::convertSecRowPadToXY((int)sector, (int)row, cluster.getPad()), Sector((int)sector));
+      std::array<float, 3> momentum_after_propagation;
+      bool ok = track.propagateTo(conv_pos.X(), B_field); // Is that necessary?
+      auto point = track.getXYZGloAt(conv_pos.X(), B_field, ok); // track.getXYZGloAt(conv_pos.X(), B_field, ok);
+      ok = ok && track.getPxPyPzGlo(momentum_after_propagation); // This probabyl needs the propagation
+      if(ok){
+        customCluster trk_cls{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, point.X(), point.Y(), point.Z()};
+        track_paths.push_back(trk_cls);
+        clusterMomenta.push_back(momentum_after_propagation);
+        momentum_vectors[sector].push_back(momentum_after_propagation);
+        tracking_clusters[sector].push_back(trk_cls);
+        cluster_counter++;
+      }
+    }
+
+    misc_track_data[k][0] = track.getNClusters();
+    misc_track_data[k][1] = track.getChi2();
+    misc_track_data[k][2] = track.hasASideClusters();
+    misc_track_data[k][3] = track.hasCSideClusters();
+    misc_track_data[k][4] = track.getP();
+    misc_track_data[k][5] = track.getdEdx().dEdxTotTPC;
+    misc_track_data[k][6] = track.getdEdx().dEdxMaxTPC;
+    misc_track_data[k][7] = track.getAbsCharge(); // TPC inner param = P / AbsCharge
+    misc_track_data[k][8] = track.getEta();
+    misc_track_data[k][9] = track.getPhi();
+    misc_track_data[k][10] = track.getPt();
+  }
+
+  // Writing some data in between
+  std::string outfile = custom::splitString(outFileCustomClusters, ".root")[0];
+  custom::writeStructToRootFile(outputPath + "/" + outfile + "_tracks.root", "data", track_paths);
+  custom::writeTabularToRootFile({"momentum_X", "momentum_Y", "momentum_Z"}, clusterMomenta, outputPath + "/" + outfile + "_momenta.root", "momenta", "Momentum infromation from tracking.");
+  custom::writeTabularToRootFile(misc_track_data_branch_names, misc_track_data, outputPath + "/tpc_tracks_tabular_information.root", "tpc_tracks_info", "TPC track information");
+  LOG(info) << "Clusters of tracks written!";
+}
+
+// ---------------------------------
 void qaCluster::read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>& tracks)
 {
 
@@ -2119,10 +2212,13 @@ void qaCluster::runQa(int sector)
 
     std::fill(tr_data_X.begin(), tr_data_X.end(), atomic_unit);
 
+    // Is momentum data present?
+    bool addMomentumData = (mode.find(std::string("training_data_mom")) != std::string::npos);
+
     o2::MCTrack current_track;
     std::vector<float> cluster_pT(data_size, -1), cluster_eta(data_size, -1), cluster_mass(data_size, -1), cluster_p(data_size, -1);
     std::vector<int> tr_data_Y_class(data_size, -1), cluster_isPrimary(data_size, -1), cluster_isTagged(data_size, -1);
-    std::vector<std::array<std::array<float, 5>, 5>> tr_data_Y_reg(data_size); // for each data element: for all possible assignments: {trY_time, trY_pad, trY_sigma_pad, trY_sigma_time, trY_q}
+    std::vector<std::array<std::array<float, 8>, 5>> tr_data_Y_reg(data_size); // for each data element: for all possible assignments: {trY_time, trY_pad, trY_sigma_pad, trY_sigma_time, trY_q}
     custom::fill_nested_container(tr_data_Y_reg, -1);
 
     std::fill(assigned_ideal.begin(), assigned_ideal.end(), 0);
@@ -2197,6 +2293,24 @@ void qaCluster::runQa(int sector)
               cluster_p[max_point] = current_track.GetP();
               cluster_isPrimary[max_point] = (int)current_track.isPrimary();
             }
+
+            if(addMomentumData){
+              int cluster_counter = -1;
+              for(auto cls : tracking_clusters[sector]){
+                cluster_counter++;
+                if(cls.row != idl.row){
+                  continue;
+                } else if(cls.cog_pad - idl.cog_pad > 1e-7){
+                  continue;
+                } else if(cls.cog_time - idl.cog_time > 1e-7){
+                  continue;
+                } else {
+                  tr_data_Y_reg[max_point][counter][5] = momentum_vectors[sector][cluster_counter][0];
+                  tr_data_Y_reg[max_point][counter][6] = momentum_vectors[sector][cluster_counter][1];
+                  tr_data_Y_reg[max_point][counter][7] = momentum_vectors[sector][cluster_counter][2];
+                }
+              }
+            }
           }
         }
       }
@@ -2219,10 +2333,10 @@ void qaCluster::runQa(int sector)
         }
       }
     }
-    std::array<std::array<float, 5>, 5> trY; // [branch][data]; data = {trY_time, trY_pad, trY_sigma_pad, trY_sigma_time, trY_q}
+    std::array<std::array<float, 8>, 5> trY; // [branch][data]; data = {trY_time, trY_pad, trY_sigma_pad, trY_sigma_time, trY_q}
     custom::fill_nested_container(trY, -1);
-    std::array<std::string, 5> branches{"out_reg_pad", "out_reg_time", "out_reg_sigma_pad", "out_reg_sigma_time", "out_reg_qTotOverqMax"};
-    for (int reg_br = 0; reg_br < 5; reg_br++) {
+    std::array<std::string, 8> branches{"out_reg_pad", "out_reg_time", "out_reg_sigma_pad", "out_reg_sigma_time", "out_reg_qTotOverqMax", "momentumX", "momentumY", "momentumZ"};
+    for (int reg_br = 0; reg_br < 8; reg_br++) {
       for (int reg_data = 0; reg_data < 5; reg_data++) {
         std::stringstream current_branch;
         current_branch << branches[reg_br] << "_" << reg_data;
@@ -2266,6 +2380,34 @@ void qaCluster::runQa(int sector)
 
   }
 
+  if (mode.find(std::string("write_ideal")) != std::string::npos && create_output == 1) {
+    m.lock();
+    if (write_native_file) {
+      int native_writer_map_size = native_writer_map.size();
+      int cluster_counter = 0, total_counter = 0;
+      for(auto const cls : ideal_map){
+        if(!ideal_tagged[total_counter]){
+          cluster_counter++;
+        }
+        total_counter++;
+      }
+      native_writer_map.resize(native_writer_map_size + cluster_counter);
+      cluster_counter = 0;
+      total_counter = 0;
+      for(auto const cls : ideal_map){
+        if(!digit_tagged[total_counter]){
+          native_writer_map[native_writer_map_size + cluster_counter] = cls;
+          GlobalPosition2D conv_pos = custom::convertSecRowPadToXY(cls.sector, cls.row, cls.cog_pad);
+          native_writer_map[native_writer_map_size + cluster_counter].X = conv_pos.X();
+          native_writer_map[native_writer_map_size + cluster_counter].Y = conv_pos.Y();
+          cluster_counter++;
+        }
+        total_counter++;
+      }
+    }
+    m.unlock();
+  }
+
   LOG(info) << "--- Done with sector " << sector << " ---\n";
 
 }
@@ -2282,6 +2424,10 @@ void qaCluster::run(ProcessingContext& pc)
     }
 
     read_kinematics(mctracks);
+
+    if(mode.find(std::string("training_data_mom")) != std::string::npos){
+      read_tracking_clusters();
+    }
 
     number_of_ideal_max.fill(0);
     number_of_digit_max.fill(0);
@@ -2407,10 +2553,7 @@ void qaCluster::run(ProcessingContext& pc)
 
     if (create_output == 1 && write_native_file == 1) {
       custom::writeStructToRootFile(outputPath + "/" + outFileCustomClusters, "data", native_writer_map);
-      if (mode.find(std::string("network")) != std::string::npos) {
-        write_custom_native(pc, native_writer_map);
-      }
-      if (mode.find(std::string("native")) != std::string::npos) {
+      if ((mode.find(std::string("network")) != std::string::npos) || (mode.find(std::string("native")) != std::string::npos) || (mode.find(std::string("write_ideal")) != std::string::npos)) {
         write_custom_native(pc, native_writer_map);
       }
     }
@@ -2424,119 +2567,6 @@ void qaCluster::run(ProcessingContext& pc)
       gSystem->Exec((command.str() + "/native_ideal_*.root").c_str());
       gSystem->Exec((command.str() + "/network_ideal_*.root").c_str());
     }
-  }
-
-  if(mode.find(std::string("track_clusters")) != std::string::npos) {
-    const auto& mapper = Mapper::instance();
-
-    auto file = TFile::Open((outputPath + "/" + inFileTracks).c_str());
-    auto tree = (TTree*)file->Get("tpcrec");
-    if (tree == nullptr) {
-      std::cout << "Error getting tree\n";
-    }
-    std::vector<TrackTPC>* tpcTracks = nullptr;
-    std::vector<o2::tpc::TPCClRefElem>* mCluRefVecInp = nullptr; // index to clusters linear structure in ClusterNativeAccess
-    std::vector<o2::MCCompLabel>* mMCTruthInp = nullptr;
-    tree->SetBranchAddress("TPCTracks", &tpcTracks);
-    tree->SetBranchAddress("ClusRefs", &mCluRefVecInp);
-    tree->SetBranchAddress("TPCTracksMCTruth", &mMCTruthInp);
-
-    // Getting the native clusters
-    ClusterNativeHelper::Reader tpcClusterReader;
-    tpcClusterReader.init((outputPath + "/" + inFileNative).c_str());
-    ClusterNativeAccess clusterIndex;
-    std::unique_ptr<ClusterNative[]> clusterBuffer;
-    memset(&clusterIndex, 0, sizeof(clusterIndex));
-    o2::tpc::ClusterNativeHelper::ConstMCLabelContainerViewWithBuffer clusterMCBuffer;
-    qc::Clusters clusters;
-    for (unsigned long i = 0; i < tpcClusterReader.getTreeSize(); ++i) {
-      tpcClusterReader.read(i);
-      tpcClusterReader.fillIndex(clusterIndex, clusterBuffer, clusterMCBuffer);
-    }
-
-    std::vector<customCluster> track_paths;
-    std::vector<std::array<float, 3>> clusterMomenta;
-    int tabular_data_counter = 0, track_counter = 0;
-    
-    // GRPGeomHelper::instance().setRequest(grp_geom);
-    // o2::base::GRPGeomHelper::instance().finaliseCCDB(matcher, obj);
-    float B_field = -5.00668; //GPUO2InterfaceUtils::getNominalGPUBz(*GRPGeomHelper::instance().getGRPMagField());
-    LOG(info) << "Updating solenoid field " << B_field;
-    
-    std::vector<std::array<float, 12>> misc_track_data;
-    std::vector<std::string> misc_track_data_branch_names = {"NClusters", "Chi2", "hasASideClusters", "hasCSideClusters", "P", "dEdxQtot", "dEdxQmax", "AbsCharge", "Eta", "Phi", "Pt"};
-    
-    // const auto& tpcClusRefs = data.getTPCTracksClusterRefs();
-    // const auto& tpcClusAcc = // get from tpc-native-clsuters the flat array
-
-    tree->GetEntry(0);
-    size_t nTracks = tpcTracks->size();
-    // track_paths.resize(track_paths.size() + nTracks*o2::tpc::constants::MAXGLOBALPADROW);
-    misc_track_data.resize(nTracks);
-    LOG(info) << "Loaded " << nTracks << " tracks. Processing...";
-
-    // ---| track loop |---
-    for (int k = 0; k < nTracks; k++) {
-      auto track = (*tpcTracks)[k];
-      for(int cl = 0; cl < track.getNClusters(); cl++){
-        uint8_t sector = 0, row = 0;
-        const auto cluster = track.getCluster(*mCluRefVecInp, cl, clusterIndex, sector, row); // ClusterNative instance
-        LocalPosition2D conv_pos = mapper.GlobalToLocal(custom::convertSecRowPadToXY((int)sector, (int)row, cluster.getPad()), Sector((int)sector));
-        std::array<float, 3> momentum_after_propagation;
-        bool ok = track.propagateTo(conv_pos.X(), B_field); // Is that necessary?
-        auto point = track.getXYZGloAt(conv_pos.X(), B_field, ok); // track.getXYZGloAt(conv_pos.X(), B_field, ok);
-        ok = ok && track.getPxPyPzGlo(momentum_after_propagation); // This probabyl needs the propagation
-        if(ok){
-          track_paths.push_back(customCluster{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, k, 0.f, point.X(), point.Y(), point.Z()});
-          clusterMomenta.push_back(momentum_after_propagation);
-        }
-      }
-
-      // linear projection of the track to the (pad, time) dimention -> This needs improvement!!!
-      // for(int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++){ // this needs to be defined -> x = x_coordinate of row.
-      //   float x=0, y=0, z=0, p=0, t=0;
-      //   int sector=0;
-      //   x = tpcmap.Row2X(row);
-      //   bool ok = 1;
-      //   auto point = track.getXYZGloAt(x, B_field, ok);
-      //   float phi = std::atan2(point.Y(), point.X());
-      //   if (phi < 0.) {
-      //     phi += TWOPI;
-      //     // if(point.Z() < tpcmap.GetTimeBoundary()){
-      //     //   sector += 18;
-      //     // }
-      //   }
-      //   sector += std::floor(phi / SECPHIWIDTH);
-      //   // GlobalPosition2D conv_pos = mapper.LocalToGlobal(custom::convertSecRowPadToXY(sector, row, tpcmap.LinearY2Pad(sector, row, y)), Sector(sector));
-      //   // track_paths[tabular_data_counter] = customCluster{sector, row, tpcmap.LinearY2Pad(sector, row, point.Y()), tpcmap.LinearZ2Time(sector, point.Z()), tpcmap.LinearY2Pad(sector, row, point.Y()), tpcmap.LinearZ2Time(sector, point.Z()), -1, -1, 10000, 10000, 1, -1, -1, -1, k, -1, point.X(), point.Y(), 0.f, 0.f, 0.f, 0.f, track.getdEdx()};
-      //   tabular_data_counter++; 
-      // }
-      misc_track_data[k][0] = track.getNClusters();
-      misc_track_data[k][1] = track.getChi2();
-      misc_track_data[k][2] = track.hasASideClusters();
-      misc_track_data[k][3] = track.hasCSideClusters();
-      misc_track_data[k][4] = track.getP();
-      misc_track_data[k][5] = track.getdEdx().dEdxTotTPC;
-      misc_track_data[k][6] = track.getdEdx().dEdxMaxTPC;
-      misc_track_data[k][7] = track.getAbsCharge(); // TPC inner param = P / AbsCharge
-      misc_track_data[k][8] = track.getEta();
-      misc_track_data[k][9] = track.getPhi();
-      misc_track_data[k][10] = track.getPt();
-
-      // Cluster Reference
-      // for (int i = 0; i < track.getNClusters(); i++) {
-      //   o2::tpc::TrackTPC::getClusterReference(tpcClusRefs, i, sectorIndex, rowIndex, clusterIndex, track.getClusterRef());
-      //   unsigned int absoluteIndex = tpcClusAcc.clusterOffset[sectorIndex][rowIndex] + clusterIndex;
-      //   
-      // }
-    }
-
-    std::string outfile = custom::splitString(outFileCustomClusters, ".root")[0];
-    custom::writeStructToRootFile(outputPath + "/" + outfile + "_tracks.root", "data", track_paths);
-    custom::writeTabularToRootFile({"momentum_X", "momentum_Y", "momentum_Z"}, clusterMomenta, outputPath + "/" + outfile + "_momenta.root", "momenta", "Momentum infromation from tracking.");
-    LOG(info) << "Clusters of tracks written!";
-
-    custom::writeTabularToRootFile(misc_track_data_branch_names, misc_track_data, outputPath + "/tpc_tracks_tabular_information.root", "tpc_tracks_info", "TPC track information");
   }
 
   if(mode.find(std::string("tpc_geometry")) != std::string::npos) {

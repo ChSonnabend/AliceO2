@@ -296,6 +296,7 @@ class qaCluster : public Task
   void read_ideal(int, std::vector<customCluster>&);
   void read_native(int, std::vector<customCluster>&, std::vector<customCluster>&);
   void read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>&);
+  void read_tracking_clusters();
 
   // Writers
   void write_custom_native(ProcessingContext&, std::vector<customCluster>&, bool = true);
@@ -387,6 +388,9 @@ class qaCluster : public Task
   std::vector<customCluster> native_writer_map;
   std::mutex m;
 
+  // Training data -> Momentum vector assignment
+  std::array<std::vector<std::array<float,3>>, o2::tpc::constants::MAXSECTOR> momentum_vectors;
+  std::array<std::vector<customCluster>, o2::tpc::constants::MAXSECTOR> tracking_clusters;
 };
 
 namespace custom
