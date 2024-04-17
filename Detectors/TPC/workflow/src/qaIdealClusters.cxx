@@ -2172,6 +2172,24 @@ void qaCluster::runQa(int sector)
       int cluster_counter = -1; // Starting at -1 due to continue statement in the following loop
       for(auto cls : tracking_clusters[sector]){
         int idl_idx = map2d[0][round(cls.cog_time) + global_shift[1]][cls.row + global_shift[2] + rowOffset(cls.row)][round(cls.cog_pad) + global_shift[0] + padOffset(cls.row)];
+        if(idl_idx == -1 && (std::abs(std::abs(cls.cog_pad - (int)cls.cog_pad) - 0.5) < precision || std::abs(std::abs(cls.cog_time - (int)cls.cog_time) - 0.5) < precision)){
+          int check_pad = round(cls.cog_pad), check_time = round(cls.cog_time);
+          if(std::abs(std::abs(round(cls.cog_pad) - cls.cog_pad) - 0.5) < precision){
+            if((round(cls.cog_pad) - cls.cog_pad) < 0){
+              check_pad = round(cls.cog_pad) - 1;
+            } else {
+              check_pad = round(cls.cog_pad) + 1;
+            }
+          }
+          if(std::abs(std::abs(round(cls.cog_time) - cls.cog_time) - 0.5) < precision){
+            if((round(cls.cog_time) - cls.cog_time) < 0){
+              check_time = round(cls.cog_time) - 1;
+            } else {
+              check_time = round(cls.cog_time) + 1;
+            }
+          }
+          idl_idx = map2d[0][check_time + global_shift[1]][cls.row + global_shift[2] + rowOffset(cls.row)][check_pad + global_shift[0] + padOffset(cls.row)];
+        }
         cluster_counter++;
         if(idl_idx == -1){
           continue;
