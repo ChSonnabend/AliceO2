@@ -1389,7 +1389,7 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
 {
 
   int index_shift_global = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), index_shift_row = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), index_shift_pad = (2 * global_shift[1] + 1);
-  int num_output_classes = (int)(network_regression_paths.size() / (networkSplitIrocOroc == 0 ? 1 : 2)), num_output_nodes_regression = 5; // Expects regression networks to be sorted by class output and have 5 outputs -> [pad1, pad2, ..., time1, time2, ..., sigma_pad1, ..., sigma_time1, ..., qRatio1, ...]
+  int num_output_classes = (int)(network_regression_paths.size() / (networkSplitIrocOroc == 0 ? 1 : 2)), num_output_nodes_regression = network_regression[0].getNumOutputNodes()[0][1]; // Expects regression networks to be sorted by class output and have 5 outputs -> [pad1, pad2, ..., time1, time2, ..., sigma_pad1, ..., sigma_time1, ..., qRatio1, ...]
   std::vector<int> digit_idcs;
 
   int index_iroc_oroc_shift = 0;
