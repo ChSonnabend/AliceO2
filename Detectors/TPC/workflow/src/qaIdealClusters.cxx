@@ -354,7 +354,7 @@ void qaCluster::read_tracking_clusters(){
     tpcClusterReader.fillIndex(clusterIndex, clusterBuffer, clusterMCBuffer);
   }
 
-  std::vector<customCluster> track_paths;
+  std::vector<customCluster> track_paths, track_clusters;
   std::vector<std::array<float, 3>> clusterMomenta;
   int tabular_data_counter = 0, track_counter = 0;
   
@@ -382,18 +382,21 @@ void qaCluster::read_tracking_clusters(){
     for(int cl = 0; cl < track.getNClusters(); cl++){
       uint8_t sector = 0, row = 0;
       const auto cluster = track.getCluster(*mCluRefVecInp, cl, clusterIndex, sector, row); // ClusterNative instance
-      LocalPosition2D conv_pos = mapper.GlobalToLocal(custom::convertSecRowPadToXY((int)sector, (int)row, cluster.getPad(), tpcmap), (int)sector);
+      GlobalPosition2D glo_pos = custom::convertSecRowPadToXY((int)sector, (int)row, cluster.getPad(), tpcmap);
+      LocalPosition2D loc_pos = mapper.GlobalToLocal(glo_pos, Sector((int)sector));
       float z_pos = tpcmap.LinearTime2Z((int)sector, cluster.getTime());
       std::array<float, 3> momentum_after_propagation;
-      bool ok = track.propagateTo(conv_pos.X(), B_field); // Is that necessary?
-      auto point = track.getXYZGloAt(conv_pos.X(), B_field, ok); // track.getXYZGloAt(conv_pos.X(), B_field, ok);
-      ok = ok && track.getPxPyPzGlo(momentum_after_propagation); // This probabyl needs the propagation
+      bool ok = track.propagateTo(loc_pos.X(), B_field);
+      auto point = track.getXYZGloAt(loc_pos.X(), B_field, ok);
+      ok = ok && track.getPxPyPzGlo(momentum_after_propagation);
       if(ok){
-        customCluster trk_cls{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, conv_pos.X(), conv_pos.Y(), z_pos};
-        track_paths.push_back(trk_cls);
+        customCluster trk_cls{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, glo_pos.X(), glo_pos.Y(), z_pos};
+        customCluster trk_path{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, point.X(), point.Y(), point.Z()};
+        track_paths.push_back(trk_path);
+        track_clusters.push_back(trk_cls);
+        tracking_clusters[sector].push_back(trk_cls);
         clusterMomenta.push_back(momentum_after_propagation);
         momentum_vectors[sector].push_back(momentum_after_propagation);
-        tracking_clusters[sector].push_back(trk_cls);
         cluster_counter++;
       }
     }
@@ -413,7 +416,8 @@ void qaCluster::read_tracking_clusters(){
 
   // Writing some data in between
   std::string outfile = custom::splitString(outFileCustomClusters, ".root")[0];
-  custom::writeStructToRootFile(outputPath + "/" + outfile + "_tracks.root", "data", track_paths);
+  custom::writeStructToRootFile(outputPath + "/" + outfile + "_track_paths.root", "data", track_paths);
+  custom::writeStructToRootFile(outputPath + "/" + outfile + "_track_clusters.root", "data", track_clusters);
   custom::writeTabularToRootFile({"momentum_X", "momentum_Y", "momentum_Z"}, clusterMomenta, outputPath + "/" + outfile + "_momenta.root", "momenta", "Momentum infromation from tracking.");
   custom::writeTabularToRootFile(misc_track_data_branch_names, misc_track_data, outputPath + "/tpc_tracks_tabular_information.root", "tpc_tracks_info", "TPC track information");
   LOG(info) << "Clusters of tracks written!";
