@@ -272,7 +272,7 @@ class TPCMap
     const std::vector<float> mPadHeight = {.75f, .75f, .75f, .75f, 1.f, 1.f, 1.2f, 1.2f, 1.5f, 1.5f};
     const std::vector<float> mPadWidth = {.416f, .420f, .420f, .436f, .6f, .6f, .608f, .588f, .604f, .607f};
 
-    const float T_BOUNDARY = 0.f;
+    const float T_BOUNDARY = 250.f;
     const float FACTOR_T2Z = 250.f / 512.f;
     const float FACTOR_Z2T = 1.f / FACTOR_T2Z;
 };
@@ -634,26 +634,18 @@ namespace custom
     }
   }
 
-  GlobalPosition2D convertSecRowPadToXY(int sector, int row, float pad){
+  GlobalPosition2D convertSecRowPadToXY(int sector, int row, float pad, TPCMap tpcmap){
 
     const auto& mapper = Mapper::instance();
 
-    int firstRegion = 0, lastRegion = 10;
-    if(row > o2::tpc::constants::MAXGLOBALPADROW){
-      LOG(warning) << "Stepping over boundary: " << row << " / " << o2::tpc::constants::MAXGLOBALPADROW;
-    }
-    if (row < 63) {
-      firstRegion = 0;
-      lastRegion = 4;
-    } else {
-      firstRegion = 4;
-      lastRegion = 10;
+    if(row > o2::tpc::constants::MAXGLOBALPADROW || sector > o2::tpc::constants::MAXSECTOR){
+      LOG(warning) << "Stepping over boundary: " << sector << " / " << o2::tpc::constants::MAXSECTOR << ", " << row << " / " << o2::tpc::constants::MAXGLOBALPADROW;
     }
 
     GlobalPosition2D pos = mapper.getPadCentre(PadSecPos(sector, row, pad));
     float fractionalPad = 0;
-    if(int(pad) != pad){
-      fractionalPad = mapper.getPadRegionInfo(firstRegion).getPadWidth()*(pad - int(pad) - 0.5);
+    if(int(pad) != float(pad)){
+      fractionalPad = mapper.getPadRegionInfo(tpcmap.GetRegion(row)).getPadWidth()*(pad - int(pad) - 0.5);
     }
     return GlobalPosition2D(pos.X() + fractionalPad, pos.Y());
   }

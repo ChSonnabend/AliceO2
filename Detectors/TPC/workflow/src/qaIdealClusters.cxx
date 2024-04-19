@@ -382,13 +382,14 @@ void qaCluster::read_tracking_clusters(){
     for(int cl = 0; cl < track.getNClusters(); cl++){
       uint8_t sector = 0, row = 0;
       const auto cluster = track.getCluster(*mCluRefVecInp, cl, clusterIndex, sector, row); // ClusterNative instance
-      LocalPosition2D conv_pos = mapper.GlobalToLocal(custom::convertSecRowPadToXY((int)sector, (int)row, cluster.getPad()), Sector((int)sector));
+      LocalPosition2D conv_pos = mapper.GlobalToLocal(custom::convertSecRowPadToXY((int)sector, (int)row, cluster.getPad(), tpcmap), (int)sector);
+      float z_pos = tpcmap.LinearTime2Z((int)sector, cluster.getTime());
       std::array<float, 3> momentum_after_propagation;
       bool ok = track.propagateTo(conv_pos.X(), B_field); // Is that necessary?
       auto point = track.getXYZGloAt(conv_pos.X(), B_field, ok); // track.getXYZGloAt(conv_pos.X(), B_field, ok);
       ok = ok && track.getPxPyPzGlo(momentum_after_propagation); // This probabyl needs the propagation
       if(ok){
-        customCluster trk_cls{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, point.X(), point.Y(), point.Z()};
+        customCluster trk_cls{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, conv_pos.X(), conv_pos.Y(), z_pos};
         track_paths.push_back(trk_cls);
         clusterMomenta.push_back(momentum_after_propagation);
         momentum_vectors[sector].push_back(momentum_after_propagation);
@@ -1981,7 +1982,7 @@ void qaCluster::runQa(int sector)
       for(auto const cls : native_map){
         if(!digit_tagged[total_counter]){
           native_writer_map[native_writer_map_size + cluster_counter] = cls;
-          GlobalPosition2D conv_pos = custom::convertSecRowPadToXY(cls.sector, cls.row, cls.cog_pad);
+          GlobalPosition2D conv_pos = custom::convertSecRowPadToXY(cls.sector, cls.row, cls.cog_pad, tpcmap);
           native_writer_map[native_writer_map_size + cluster_counter].X = conv_pos.X();
           native_writer_map[native_writer_map_size + cluster_counter].Y = conv_pos.Y();
           cluster_counter++;
@@ -2148,7 +2149,7 @@ void qaCluster::runQa(int sector)
       for(auto const cls : network_map){
         if(!digit_tagged[total_counter]){
           native_writer_map[native_writer_map_size + cluster_counter] = cls;
-          GlobalPosition2D conv_pos = custom::convertSecRowPadToXY(cls.sector, cls.row, cls.cog_pad);
+          GlobalPosition2D conv_pos = custom::convertSecRowPadToXY(cls.sector, cls.row, cls.cog_pad, tpcmap);
           native_writer_map[native_writer_map_size + cluster_counter].X = conv_pos.X();
           native_writer_map[native_writer_map_size + cluster_counter].Y = conv_pos.Y();
           cluster_counter++;
@@ -2425,7 +2426,7 @@ void qaCluster::runQa(int sector)
       for(auto const cls : ideal_map){
         if(!ideal_tagged[total_counter]){
           native_writer_map[native_writer_map_size + cluster_counter] = cls;
-          GlobalPosition2D conv_pos = custom::convertSecRowPadToXY(cls.sector, cls.row, cls.cog_pad);
+          GlobalPosition2D conv_pos = custom::convertSecRowPadToXY(cls.sector, cls.row, cls.cog_pad, tpcmap);
           native_writer_map[native_writer_map_size + cluster_counter].X = conv_pos.X();
           native_writer_map[native_writer_map_size + cluster_counter].Y = conv_pos.Y();
           cluster_counter++;
