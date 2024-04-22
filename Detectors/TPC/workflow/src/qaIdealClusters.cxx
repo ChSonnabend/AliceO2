@@ -329,7 +329,7 @@ void qaCluster::read_ideal(int sector, std::vector<customCluster>& ideal_map)
 void qaCluster::read_tracking_clusters(){
   // --- tracking clusters & momentum association ---
   const auto& mapper = Mapper::instance();
-  auto file = TFile::Open((outputPath + "/" + inFileTracks).c_str());
+  auto file = TFile::Open((simulationPath + "/" + inFileTracks).c_str());
   auto tree = (TTree*)file->Get("tpcrec");
   if (tree == nullptr) {
     std::cout << "Error getting tree\n";
@@ -343,7 +343,7 @@ void qaCluster::read_tracking_clusters(){
 
   // Getting the native clusters
   ClusterNativeHelper::Reader tpcClusterReader;
-  tpcClusterReader.init((outputPath + "/" + inFileNative).c_str());
+  tpcClusterReader.init((simulationPath + "/" + inFileNative).c_str());
   ClusterNativeAccess clusterIndex;
   std::unique_ptr<ClusterNative[]> clusterBuffer;
   memset(&clusterIndex, 0, sizeof(clusterIndex));
@@ -1385,7 +1385,7 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
 }
 
 // ---------------------------------
-void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int>& maxima_digits, std::vector<customCluster>& digit_map, std::vector<customCluster>& network_map)
+void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int>& maxima_digits, std::vector<customCluster>& digit_map, std::vector<customCluster>& network_map, std::vector<std::array<float,3>>& momentum_vector_map)
 {
 
   int index_shift_global = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), index_shift_row = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), index_shift_pad = (2 * global_shift[1] + 1);
@@ -1472,6 +1472,10 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
               new_net_cluster.sigmaTime = out_net[net_idx + 3 * class_idx];
               new_net_cluster.qTot = (new_net_cluster.qMax * out_net[net_idx + 4 * class_idx]); // Change for normalization mode
               new_net_cluster.index = out_net_idx;
+
+              if(num_output_nodes_regression == 8){
+                momentum_vector_map.push_back({out_net[net_idx + 5 * class_idx], out_net[net_idx + 6 * class_idx], out_net[net_idx + 7 * class_idx]});
+              }
 
               if(round(new_net_cluster.cog_pad) > TPC_GEOM[new_net_cluster.row][2] || round(new_net_cluster.cog_time) > max_time[sector] || round(new_net_cluster.cog_pad) < 0 || round(new_net_cluster.cog_time) < 0){
                 LOG(warning) << "[" << sector << "] Stepping over boundaries! row: " << new_net_cluster.row << "; pad: " << new_net_cluster.cog_pad << " (net: " << out_net[net_idx + 0 * class_idx] << ") / " << TPC_GEOM[new_net_cluster.row][2] << "; time: " << new_net_cluster.cog_time << " (net: " << out_net[net_idx + 1 * class_idx] << ") / " << max_time[sector] << ". Resetting cluster center-of-gravity to maximum position.";
@@ -1564,7 +1568,7 @@ void qaCluster::runQa(int sector)
 {
 
   std::vector<int> maxima_digits; // , digit_isNoise, digit_isQED, digit_isValid;
-  std::vector<std::array<float, 3>> digit_clusterizer_map;
+  std::vector<std::array<float, 3>> digit_clusterizer_map, momentum_vector_map;
   std::vector<customCluster> digit_map, ideal_map, network_map, native_map;
   std::vector<std::vector<std::vector<std::vector<int>>>> tagger_maps(looper_tagger_granularity.size());
   std::vector<int> track_cluster_to_ideal_assignment; // First is digit_max index, then 5 possible assignemts of track_clusters
@@ -1622,7 +1626,7 @@ void qaCluster::runQa(int sector)
         // }
       } 
       if (mode.find(std::string("network_reg")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
-        run_network_regression(sector, map2d, maxima_digits, digit_map, network_map); // classification + regression
+        run_network_regression(sector, map2d, maxima_digits, digit_map, network_map, momentum_vector_map); // classification + regression
       }
       num_total_digit_max += maxima_digits.size();
       overwrite_map2d(sector, map2d, digit_map, maxima_digits, 1);
@@ -2003,6 +2007,43 @@ void qaCluster::runQa(int sector)
     if (verbose >= 3)
       LOG(info) << "[" << sector << "] Network-Ideal assignment...";
 
+    bool addMomentumData = (mode.find(std::string("track_cluster")) != std::string::npos);
+
+    if(addMomentumData){
+      float precision = 1.f/64; // Defined by ClusterNative.h: unpackPad and unpackTime: scalePadPacked = scaleTimePacked = 64
+      track_cluster_to_ideal_assignment.resize(ideal_map.size());
+      custom::fill_nested_container(track_cluster_to_ideal_assignment, -1);
+      int cluster_counter = -1; // Starting at -1 due to continue statement in the following loop
+      for(auto cls : tracking_clusters[sector]){
+        int idl_idx = map2d[0][round(cls.cog_time) + global_shift[1]][cls.row + global_shift[2] + rowOffset(cls.row)][round(cls.cog_pad) + global_shift[0] + padOffset(cls.row)];
+        if(idl_idx == -1 && (std::abs(std::abs(cls.cog_pad - (int)cls.cog_pad) - 0.5) < precision || std::abs(std::abs(cls.cog_time - (int)cls.cog_time) - 0.5) < precision)){
+          int check_pad = round(cls.cog_pad), check_time = round(cls.cog_time);
+          if(std::abs(std::abs(round(cls.cog_pad) - cls.cog_pad) - 0.5) < precision){
+            if((round(cls.cog_pad) - cls.cog_pad) < 0){
+              check_pad = round(cls.cog_pad) - 1;
+            } else {
+              check_pad = round(cls.cog_pad) + 1;
+            }
+          }
+          if(std::abs(std::abs(round(cls.cog_time) - cls.cog_time) - 0.5) < precision){
+            if((round(cls.cog_time) - cls.cog_time) < 0){
+              check_time = round(cls.cog_time) - 1;
+            } else {
+              check_time = round(cls.cog_time) + 1;
+            }
+          }
+          idl_idx = map2d[0][check_time + global_shift[1]][cls.row + global_shift[2] + rowOffset(cls.row)][check_pad + global_shift[0] + padOffset(cls.row)];
+        }
+        cluster_counter++;
+        if(idl_idx == -1){
+          continue;
+        }
+        if ((cls.row != ideal_map[idl_idx].row) || ((cls.cog_time - ideal_map[idl_idx].cog_time) < precision) || ((cls.cog_pad - ideal_map[idl_idx].cog_pad) < precision)){
+          track_cluster_to_ideal_assignment[idl_idx] = cluster_counter;
+        }
+      }
+    }
+
     // creating training data for the neural network
     int data_size = maxima_digits.size();
 
@@ -2083,7 +2124,7 @@ void qaCluster::runQa(int sector)
     TFile* outputFileNetworkIdeal = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* network_ideal = new TTree("network_ideal", "tree");
 
-    float net_row = 0, net_time = 0, net_pad = 0, net_sigma_time = 0, net_sigma_pad = 0, net_qTot = 0, net_qMax = 0, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0, net_idx = 0, id_idx = 0;
+    float net_row = 0, net_time = 0, net_pad = 0, net_sigma_time = 0, net_sigma_pad = 0, net_qTot = 0, net_qMax = 0, net_momX = 1000, net_momY = 1000, net_momZ = 1000, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0, net_idx = 0, id_idx = 0, id_momX = 1000, id_momY = 1000, id_momZ = 1000;
     network_ideal->Branch("sector", &sector);
     network_ideal->Branch("network_row", &net_row);
     network_ideal->Branch("network_cog_time", &net_time);
@@ -2093,6 +2134,9 @@ void qaCluster::runQa(int sector)
     network_ideal->Branch("network_qMax", &net_qMax);
     network_ideal->Branch("network_qTot", &net_qTot);
     network_ideal->Branch("network_index", &net_idx);
+    network_ideal->Branch("network_momentumX", &net_momX);
+    network_ideal->Branch("network_momentumY", &net_momY);
+    network_ideal->Branch("network_momentumZ", &net_momZ);
     network_ideal->Branch("ideal_row", &id_row);
     network_ideal->Branch("ideal_cog_time", &id_time);
     network_ideal->Branch("ideal_cog_pad", &id_pad);
@@ -2101,10 +2145,14 @@ void qaCluster::runQa(int sector)
     network_ideal->Branch("ideal_qMax", &id_qMax);
     network_ideal->Branch("ideal_qTot", &id_qTot);
     network_ideal->Branch("ideal_index", &id_idx);
+    network_ideal->Branch("ideal_momentumX", &id_momX);
+    network_ideal->Branch("ideal_momentumY", &id_momY);
+    network_ideal->Branch("ideal_momentumZ", &id_momZ);
 
     // int netive_writer_map_size = netive_writer_map.size();
     // netive_writer_map.resize(native_writer_map_size + network_ideal_assignment.size());
 
+    bool momentum_vector_estimate = network_regression[0].getNumOutputNodes()[0][1] == 8;
     int elem_counter = 0;
     for (auto elem : network_ideal_assignment) {
       net_row = elem[0].row;
@@ -2123,6 +2171,14 @@ void qaCluster::runQa(int sector)
       id_qTot = elem[1].qTot;
       id_qMax = elem[1].qMax;
       id_idx = elem[1].index;
+      if(momentum_vector_estimate){
+        net_momX = momentum_vector_map[net_idx][0];
+        net_momY = momentum_vector_map[net_idx][1];
+        net_momZ = momentum_vector_map[net_idx][2];
+        id_momX = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][0];
+        id_momY = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][1];
+        id_momZ = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][2];
+      }
       network_ideal->Fill();
 
       // if (write_native_file) {
