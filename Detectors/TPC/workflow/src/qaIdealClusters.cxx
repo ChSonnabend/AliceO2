@@ -2505,18 +2505,19 @@ void qaCluster::runQa(int sector)
 void qaCluster::run(ProcessingContext& pc)
 {
 
+  if (mode.find(std::string("looper_tagger")) != std::string::npos) {
+    for (int i = 0; i < looper_tagger_granularity.size(); i++) {
+      LOG(info) << "Looper tagger active, settings: granularity " << looper_tagger_granularity[i] << ", time-window: " << looper_tagger_timewindow[i] << ", pad-window: " << looper_tagger_padwindow[i] << ", threshold (num. points): " << looper_tagger_threshold_num[i] << ", threshold (Q): " << looper_tagger_threshold_q[i] << ", operational mode: " << looper_tagger_opmode;
+    }
+  }
+
+  read_kinematics(mctracks);
+
+  if(mode.find(std::string("training_data_mom")) != std::string::npos || mode.find(std::string("track_cluster")) != std::string::npos){
+    read_tracking_clusters();
+  }
+
   if (mode.find(std::string("matcher")) != std::string::npos){
-    if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-      for (int i = 0; i < looper_tagger_granularity.size(); i++) {
-        LOG(info) << "Looper tagger active, settings: granularity " << looper_tagger_granularity[i] << ", time-window: " << looper_tagger_timewindow[i] << ", pad-window: " << looper_tagger_padwindow[i] << ", threshold (num. points): " << looper_tagger_threshold_num[i] << ", threshold (Q): " << looper_tagger_threshold_q[i] << ", operational mode: " << looper_tagger_opmode;
-      }
-    }
-
-    read_kinematics(mctracks);
-
-    if(mode.find(std::string("training_data_mom")) != std::string::npos || mode.find(std::string("track_cluster")) != std::string::npos){
-      read_tracking_clusters();
-    }
 
     number_of_ideal_max.fill(0);
     number_of_digit_max.fill(0);
