@@ -387,7 +387,7 @@ void qaCluster::read_tracking_clusters(){
       float z_pos = tpcmap.LinearTime2Z((int)sector, cluster.getTime());
       std::array<float, 3> momentum_after_propagation;
       bool ok = track.propagateTo(loc_pos.X(), B_field);
-      auto point = track.getXYZGloAt(loc_pos.X(), B_field, ok);
+      auto point = track.getXYZGlo();
       ok = ok && track.getPxPyPzGlo(momentum_after_propagation);
       if(ok){
         customCluster trk_cls{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, glo_pos.X(), glo_pos.Y(), z_pos};
@@ -398,6 +398,9 @@ void qaCluster::read_tracking_clusters(){
         clusterMomenta.push_back(momentum_after_propagation);
         momentum_vectors[sector].push_back(momentum_after_propagation);
         cluster_counter++;
+        if(std::sqrt(std::pow(point.X(), 2) + std::pow(point.Y(), 2)) > 250){
+          LOG(warning) << "[" << (int)sector << "] Found TPC track cluster extrapolated outside the TPC boundaries! Track path (XYZ): (" << point.X() << ", " << point.Y() << ", " << point.Z() << "), Cluster position (XYZ): (" << glo_pos.X() << ", " << glo_pos.Y() << ", " << z_pos << ").";
+        }
       }
     }
 
@@ -1222,7 +1225,7 @@ std::tuple<std::vector<float>, std::vector<uint8_t>> qaCluster::create_network_i
     if(network_input_size > index_shift_global){
       input_vector[internal_idx] = central_digit.sector / o2::tpc::constants::MAXSECTOR;
       input_vector[internal_idx + 1] = central_digit.row / o2::tpc::constants::MAXGLOBALPADROW;
-      input_vector[internal_idx + 2] = central_digit.max_pad / TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] + 1;
+      input_vector[internal_idx + 2] = central_digit.max_pad / TPC_GEOM[central_digit.row][2];
       internal_idx+=3;
     }
 
@@ -2038,7 +2041,7 @@ void qaCluster::runQa(int sector)
         if(idl_idx == -1){
           continue;
         }
-        if ((cls.row != ideal_map[idl_idx].row) || ((cls.cog_time - ideal_map[idl_idx].cog_time) < precision) || ((cls.cog_pad - ideal_map[idl_idx].cog_pad) < precision)){
+        if ((cls.row == ideal_map[idl_idx].row) && ((cls.cog_time - ideal_map[idl_idx].cog_time) < precision) && ((cls.cog_pad - ideal_map[idl_idx].cog_pad) < precision)){
           track_cluster_to_ideal_assignment[idl_idx] = cluster_counter;
         }
       }
@@ -2255,7 +2258,7 @@ void qaCluster::runQa(int sector)
         if(idl_idx == -1){
           continue;
         }
-        if ((cls.row != ideal_map[idl_idx].row) || ((cls.cog_time - ideal_map[idl_idx].cog_time) < precision) || ((cls.cog_pad - ideal_map[idl_idx].cog_pad) < precision)){
+        if ((cls.row == ideal_map[idl_idx].row) && ((cls.cog_time - ideal_map[idl_idx].cog_time) < precision) && ((cls.cog_pad - ideal_map[idl_idx].cog_pad) < precision)){
           track_cluster_to_ideal_assignment[idl_idx] = cluster_counter;
         } else {
           LOG(warning) << "Ideal cluster at same index (ideal) (sector: " << ideal_map[idl_idx].sector << "; row: " << ideal_map[idl_idx].row << "; pad: " << ideal_map[idl_idx].cog_pad << "; time: " << ideal_map[idl_idx].cog_time << ") ; (tracking) (sector: " << cls.sector << "; row: " << cls.row << "; pad: " << cls.cog_pad << "; time: " << cls.cog_time << ")";

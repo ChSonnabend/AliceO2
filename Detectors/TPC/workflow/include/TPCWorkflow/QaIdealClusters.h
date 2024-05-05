@@ -22,6 +22,7 @@
 
 #include "DetectorsRaw/HBFUtils.h"
 #include "DetectorsBase/GRPGeomHelper.h"
+#include "MathUtils/Utils.h"
 
 #include "DPLUtils/RootTreeReader.h"
 #include "DPLUtils/MakeRootTreeWriterSpec.h"
@@ -647,7 +648,23 @@ namespace custom
     if(int(pad) != float(pad)){
       fractionalPad = mapper.getPadRegionInfo(tpcmap.GetRegion(row)).getPadWidth()*(pad - int(pad) - 0.5);
     }
-    return GlobalPosition2D(pos.X() + fractionalPad, pos.Y());
+    return GlobalPosition2D(pos.X(), pos.Y());
+  }
+
+  GlobalPosition3D convertSecRowPadToXY(int sector, int row, float pad, float z, TPCMap tpcmap){
+
+    const auto& mapper = Mapper::instance();
+
+    if(row > o2::tpc::constants::MAXGLOBALPADROW || sector > o2::tpc::constants::MAXSECTOR){
+      LOG(warning) << "Stepping over boundary: " << sector << " / " << o2::tpc::constants::MAXSECTOR << ", " << row << " / " << o2::tpc::constants::MAXGLOBALPADROW;
+    }
+
+    GlobalPosition2D pos = mapper.getPadCentre(PadSecPos(sector, row, pad));
+    float fractionalPad = 0;
+    if(int(pad) != float(pad)){
+      fractionalPad = mapper.getPadRegionInfo(tpcmap.GetRegion(row)).getPadWidth()*(pad - int(pad) - 0.5);
+    }
+    return GlobalPosition3D(pos.X(), pos.Y(), z);
   }
 
   // Write function for vector of customCluster
