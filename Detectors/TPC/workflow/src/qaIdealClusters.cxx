@@ -390,6 +390,9 @@ void qaCluster::read_tracking_clusters(){
       auto point = track.getXYZGlo();
       ok = ok && track.getPxPyPzGlo(momentum_after_propagation);
       if(ok){
+        GlobalPosition3D tmp_mom_vec(momentum_after_propagation[0], momentum_after_propagation[1], momentum_after_propagation[2]);
+        tmp_mom_vec = mapper.GlobalToLocal(tmp_mom_vec, Sector((int)sector));
+        momentum_after_propagation = {tmp_mom_vec.X(), tmp_mom_vec.Y(), tmp_mom_vec.Z()};
         customCluster trk_cls{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, glo_pos.X(), glo_pos.Y(), z_pos};
         customCluster trk_path{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, point.X(), point.Y(), point.Z()};
         track_paths.push_back(trk_path);
@@ -2018,6 +2021,7 @@ void qaCluster::runQa(int sector)
       custom::fill_nested_container(track_cluster_to_ideal_assignment, -1);
       int cluster_counter = -1; // Starting at -1 due to continue statement in the following loop
       for(auto cls : tracking_clusters[sector]){
+        cluster_counter++;
         int idl_idx = map2d[0][round(cls.cog_time) + global_shift[1]][cls.row + global_shift[2] + rowOffset(cls.row)][round(cls.cog_pad) + global_shift[0] + padOffset(cls.row)];
         if(idl_idx == -1 && (std::abs(std::abs(cls.cog_pad - (int)cls.cog_pad) - 0.5) < precision || std::abs(std::abs(cls.cog_time - (int)cls.cog_time) - 0.5) < precision)){
           int check_pad = round(cls.cog_pad), check_time = round(cls.cog_time);
@@ -2037,7 +2041,6 @@ void qaCluster::runQa(int sector)
           }
           idl_idx = map2d[0][check_time + global_shift[1]][cls.row + global_shift[2] + rowOffset(cls.row)][check_pad + global_shift[0] + padOffset(cls.row)];
         }
-        cluster_counter++;
         if(idl_idx == -1){
           continue;
         }
@@ -2127,7 +2130,7 @@ void qaCluster::runQa(int sector)
     TFile* outputFileNetworkIdeal = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* network_ideal = new TTree("network_ideal", "tree");
 
-    float net_row = 0, net_time = 0, net_pad = 0, net_sigma_time = 0, net_sigma_pad = 0, net_qTot = 0, net_qMax = 0, net_momX = 1000, net_momY = 1000, net_momZ = 1000, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0, net_idx = 0, id_idx = 0, id_momX = 1000, id_momY = 1000, id_momZ = 1000;
+    float net_row = 0, net_time = 0, net_pad = 0, net_sigma_time = 0, net_sigma_pad = 0, net_qTot = 0, net_qMax = 0, net_momX = 1000, net_momY = 1000, net_momZ = 1000, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0, net_idx = 0, id_idx = 0, id_momX = 1000, id_momY = 1000, id_momZ = 1000, id_mom = 1000;
     network_ideal->Branch("sector", &sector);
     network_ideal->Branch("network_row", &net_row);
     network_ideal->Branch("network_cog_time", &net_time);
@@ -2148,6 +2151,7 @@ void qaCluster::runQa(int sector)
     network_ideal->Branch("ideal_qMax", &id_qMax);
     network_ideal->Branch("ideal_qTot", &id_qTot);
     network_ideal->Branch("ideal_index", &id_idx);
+    network_ideal->Branch("ideal_momentum", &id_mom);
     network_ideal->Branch("ideal_momentumX", &id_momX);
     network_ideal->Branch("ideal_momentumY", &id_momY);
     network_ideal->Branch("ideal_momentumZ", &id_momZ);
@@ -2178,9 +2182,10 @@ void qaCluster::runQa(int sector)
         net_momX = momentum_vector_map[net_idx][0];
         net_momY = momentum_vector_map[net_idx][1];
         net_momZ = momentum_vector_map[net_idx][2];
-        id_momX = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][0];
-        id_momY = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][1];
-        id_momZ = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][2];
+        id_mom = std::sqrt(std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][0],2) + std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][1],2) + std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][2],2));
+        id_momX = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][0] / id_mom;
+        id_momY = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][1] / id_mom;
+        id_momZ = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][2] / id_mom;
       }
       network_ideal->Fill();
 
