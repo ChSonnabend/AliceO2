@@ -320,7 +320,7 @@ class qaCluster : public Task
 
   std::tuple<std::vector<float>, std::vector<uint8_t>> create_network_input(int, tpc2d&, std::vector<int>&, std::vector<customCluster>&, int);
   void run_network_classification(int, tpc2d&, std::vector<int>&, std::vector<customCluster>&, std::vector<customCluster>&);
-  void run_network_regression(int, tpc2d&, std::vector<int>&, std::vector<customCluster>&, std::vector<customCluster>&, std::vector<std::array<float,3>>&);
+  void run_network_regression(int, tpc2d&, std::vector<int>&, std::vector<customCluster>&, std::vector<customCluster>&, std::vector<std::array<float,2>>&);
   void overwrite_map2d(int, tpc2d&, std::vector<customCluster>&, std::vector<int>&, int = 0);
 
   int test_neighbour(std::array<int, 3>, std::array<int, 2>, tpc2d&, int = 1);
