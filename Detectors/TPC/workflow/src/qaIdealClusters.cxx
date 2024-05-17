@@ -1479,7 +1479,7 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
               new_net_cluster.qTot = (new_net_cluster.qMax * out_net[net_idx + 4 * class_idx]); // Change for normalization mode
               new_net_cluster.index = out_net_idx;
 
-              if(num_output_nodes_regression == 8){
+              if(num_output_nodes_regression > 5){
                 momentum_vector_map.push_back({out_net[net_idx + 5 * class_idx], out_net[net_idx + 6 * class_idx]}); //, out_net[net_idx + 7 * class_idx]});
               }
 
@@ -2162,7 +2162,7 @@ void qaCluster::runQa(int sector)
     // int netive_writer_map_size = netive_writer_map.size();
     // netive_writer_map.resize(native_writer_map_size + network_ideal_assignment.size());
 
-    bool momentum_vector_estimate = network_regression[0].getNumOutputNodes()[0][1] == 8;
+    bool momentum_vector_estimate = network_regression[0].getNumOutputNodes()[0][1] > 5;
     int elem_counter = 0;
     for (auto elem : network_ideal_assignment) {
       net_row = elem[0].row;
