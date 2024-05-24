@@ -119,6 +119,7 @@ void DataRequest::requestTPCTracks(bool mc)
   addInput({"trackTPCClRefs", "TPC", "CLUSREFS", 0, Lifetime::Timeframe});
   if (requestMap.find("clusTPC") != requestMap.end()) {
     addInput({"clusTPCshmap", "TPC", "CLSHAREDMAP", 0, Lifetime::Timeframe});
+    addInput({"clusTPCoccmap", "TPC", "TPCOCCUPANCYMAP", 0, Lifetime::Timeframe});
   }
   if (mc) {
     addInput({"trackTPCMCTR", "TPC", "TRACKSMCLBL", 0, Lifetime::Timeframe});
@@ -255,6 +256,7 @@ void DataRequest::requestTPCClusters(bool mc)
   }
   if (requestMap.find("trackTPC") != requestMap.end()) {
     addInput({"clusTPCshmap", "TPC", "CLSHAREDMAP", 0, Lifetime::Timeframe});
+    addInput({"clusTPCoccmap", "TPC", "TPCOCCUPANCYMAP", 0, Lifetime::Timeframe});
   }
   if (mc) {
     addInput({"clusTPCMC", ConcreteDataTypeMatcher{"TPC", "CLNATIVEMCLBL"}, Lifetime::Timeframe});
@@ -378,7 +380,7 @@ void DataRequest::requestCoscmicTracks(bool mc)
   requestMap["Cosmics"] = mc;
 }
 
-void DataRequest::requestPrimaryVertertices(bool mc)
+void DataRequest::requestPrimaryVertices(bool mc)
 {
   addInput({"pvtx", "GLO", "PVTX", 0, Lifetime::Timeframe});
   addInput({"pvtx_trmtc", "GLO", "PVTX_TRMTC", 0, Lifetime::Timeframe});    // global ids of associated tracks
@@ -389,7 +391,7 @@ void DataRequest::requestPrimaryVertertices(bool mc)
   requestMap["PVertex"] = mc;
 }
 
-void DataRequest::requestPrimaryVerterticesTMP(bool mc) // primary vertices before global vertex-track matching
+void DataRequest::requestPrimaryVerticesTMP(bool mc) // primary vertices before global vertex-track matching
 {
   addInput({"pvtx", "GLO", "PVTX", 0, Lifetime::Timeframe});
   addInput({"pvtx_cont", "GLO", "PVTX_CONTID", 0, Lifetime::Timeframe});        // global ids of contributors
@@ -678,7 +680,8 @@ void RecoContainer::collectData(ProcessingContext& pc, const DataRequest& reques
 
   req = reqMap.find("clusTPC");
   if (req != reqMap.end()) {
-    addTPCClusters(pc, req->second, reqMap.find("trackTPC") != reqMap.end());
+    auto tracksON = reqMap.find("trackTPC") != reqMap.end();
+    addTPCClusters(pc, req->second, tracksON, tracksON);
   }
 
   req = reqMap.find("trigTPC");
@@ -1060,11 +1063,14 @@ void RecoContainer::addMFTClusters(ProcessingContext& pc, bool mc)
 }
 
 //__________________________________________________________
-void RecoContainer::addTPCClusters(ProcessingContext& pc, bool mc, bool shmap)
+void RecoContainer::addTPCClusters(ProcessingContext& pc, bool mc, bool shmap, bool occmap)
 {
   inputsTPCclusters = o2::tpc::getWorkflowTPCInput(pc, 0, mc);
   if (shmap) {
     clusterShMapTPC = pc.inputs().get<gsl::span<unsigned char>>("clusTPCshmap");
+  }
+  if (occmap) {
+    occupancyMapTPC = pc.inputs().get<gsl::span<unsigned int>>("clusTPCoccmap");
   }
 }
 
@@ -1485,8 +1491,8 @@ void RecoContainer::getTrackTimeITSTPCTRDTOF(GTrackID gid, float& t, float& tErr
 {
   const auto& match = getITSTPCTRDTOFMatches()[gid];
   auto gidx = match.getTrackRef(); // this should be corresponding ITS-TPC-TRD track
-  const auto& tofCl = getTOFClusters()[match.getTOFClIndex()];
-  t = (tofCl.getTime() - match.getLTIntegralOut().getTOF(o2::track::PID::Pion)) * PS2MUS; // tof time in \mus, FIXME: account for time of flight to R TOF
+  //  const auto& tofCl = getTOFClusters()[match.getTOFClIndex()];
+  t = (match.getSignal() - match.getLTIntegralOut().getTOF(o2::track::PID::Pion)) * PS2MUS; // tof time in \mus, FIXME: account for time of flight to R TOF
   tErr = 0.010f;
 }
 
@@ -1495,8 +1501,8 @@ void RecoContainer::getTrackTimeTPCTRDTOF(GTrackID gid, float& t, float& tErr) c
 {
   const auto& match = getTPCTRDTOFMatches()[gid];
   auto gidx = match.getTrackRef(); // this should be corresponding ITS-TPC-TRD track
-  const auto& tofCl = getTOFClusters()[match.getTOFClIndex()];
-  t = (tofCl.getTime() - match.getLTIntegralOut().getTOF(o2::track::PID::Pion)) * PS2MUS; // tof time in \mus, FIXME: account for time of flight to R TOF
+  //  const auto& tofCl = getTOFClusters()[match.getTOFClIndex()];
+  t = (match.getSignal() - match.getLTIntegralOut().getTOF(o2::track::PID::Pion)) * PS2MUS; // tof time in \mus, FIXME: account for time of flight to R TOF
   tErr = 0.010f;
 }
 
@@ -1505,8 +1511,8 @@ void RecoContainer::getTrackTimeITSTPCTOF(GTrackID gid, float& t, float& tErr) c
 {
   const auto& match = getITSTPCTOFMatches()[gid];
   auto gidx = match.getTrackRef(); // this should be corresponding ITS-TPC track
-  const auto& tofCl = getTOFClusters()[match.getTOFClIndex()];
-  t = (tofCl.getTime() - match.getLTIntegralOut().getTOF(o2::track::PID::Pion)) * PS2MUS; // tof time in \mus, FIXME: account for time of flight to R TOF
+  //  const auto& tofCl = getTOFClusters()[match.getTOFClIndex()];
+  t = (match.getSignal() - match.getLTIntegralOut().getTOF(o2::track::PID::Pion)) * PS2MUS; // tof time in \mus, FIXME: account for time of flight to R TOF
   tErr = 0.010f;
 }
 

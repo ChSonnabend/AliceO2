@@ -33,6 +33,10 @@ o2_add_dpl_workflow(diamond-workflow
                   SOURCES src/o2DiamondWorkflow.cxx
                   COMPONENT_NAME TestWorkflows)
 
+o2_add_dpl_workflow(analysis-histograms
+                  SOURCES src/o2TestHistograms.cxx
+                  COMPONENT_NAME TestWorkflows)
+
 o2_add_dpl_workflow(two-timers
                   SOURCES src/o2TwoTimers.cxx
                   COMPONENT_NAME TestWorkflows)
@@ -126,6 +130,11 @@ o2_add_dpl_workflow(test-ccdb-fetcher
                     SOURCES src/test_CCDBFetcher.cxx
                     PUBLIC_LINK_LIBRARIES O2::DataFormatsTOF O2::Framework
                     COMPONENT_NAME TestWorkflows)
+
+o2_add_executable(fairmq-header-size-test
+                  SOURCES src/o2FairMQHeaderSizeTest.cxx
+                  PUBLIC_LINK_LIBRARIES O2::Framework
+                  COMPONENT_NAME TestWorkflows)
 
 add_executable(o2-test-deadlock src/o2DeadlockReproducer.cxx)
 target_link_libraries(o2-test-deadlock PUBLIC FairMQ::FairMQ)

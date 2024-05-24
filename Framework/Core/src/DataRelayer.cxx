@@ -54,6 +54,8 @@ using DataHeader = o2::header::DataHeader;
 using DataProcessingHeader = o2::framework::DataProcessingHeader;
 using Verbosity = o2::monitoring::Verbosity;
 
+O2_DECLARE_DYNAMIC_LOG(data_relayer);
+
 namespace o2::framework
 {
 
@@ -258,7 +260,8 @@ void sendVariableContextMetrics(VariableContext& context, TimesliceSlot slot, Da
 
   context.publish([](VariableContext const& variables, TimesliceSlot slot, void* context) {
     auto& states = *static_cast<DataProcessingStates*>(context);
-    std::string state = "";
+    static std::string state = "";
+    state.clear();
     for (size_t i = 0; i < MAX_MATCHING_VARIABLE; ++i) {
       auto var = variables.get(i);
       if (auto pval = std::get_if<uint64_t>(&var)) {
@@ -369,6 +372,8 @@ void DataRelayer::pruneCache(TimesliceSlot slot, OnDropCallback onDrop)
       }
       bool anyDropped = std::any_of(dropped.begin(), dropped.end(), [](auto& m) { return m.size(); });
       if (anyDropped) {
+        O2_SIGNPOST_ID_GENERATE(aid, data_relayer);
+        O2_SIGNPOST_EVENT_EMIT(data_relayer, aid, "pruneCache", "Dropping stuff from slot %zu %zu", slot.index, oldestPossibleTimeslice.timeslice.value);
         onDrop(slot, dropped, oldestPossibleTimeslice);
       }
     }
@@ -390,6 +395,7 @@ void DataRelayer::pruneCache(TimesliceSlot slot, OnDropCallback onDrop)
 DataRelayer::RelayChoice
   DataRelayer::relay(void const* rawHeader,
                      std::unique_ptr<fair::mq::Message>* messages,
+                     InputInfo const& info,
                      size_t nMessages,
                      size_t nPayloads,
                      std::function<void(TimesliceSlot, std::vector<MessageSet>&, TimesliceIndex::OldestOutputInfo)> onDrop)
@@ -439,7 +445,13 @@ DataRelayer::RelayChoice
                      &nMessages,
                      &nPayloads,
                      &cache = mCache,
-                     numInputTypes = mDistinctRoutesIndex.size()](TimesliceId timeslice, int input, TimesliceSlot slot) {
+                     &services = mContext,
+                     numInputTypes = mDistinctRoutesIndex.size()](TimesliceId timeslice, int input, TimesliceSlot slot, InputInfo const& info) {
+    O2_SIGNPOST_ID_GENERATE(aid, data_relayer);
+    O2_SIGNPOST_EVENT_EMIT(data_relayer, aid, "saveInSlot", "saving %{public}s@%zu in slot %zu from %{public}s",
+                           fmt::format("{:x}", *o2::header::get<DataHeader*>(messages[0]->GetData())).c_str(),
+                           timeslice.value, slot.index,
+                           info.index.value == ChannelIndex::INVALID ? "invalid" : services.get<FairMQDeviceProxy>().getInputChannel(info.index)->GetName().c_str());
     auto cacheIdx = numInputTypes * slot.index + input;
     MessageSet& target = cache[cacheIdx];
     cachedStateMetrics[cacheIdx] = CacheEntryStatus::PENDING;
@@ -529,7 +541,7 @@ DataRelayer::RelayChoice
       this->pruneCache(slot, onDrop);
       mPruneOps.erase(std::remove_if(mPruneOps.begin(), mPruneOps.end(), [slot](const auto& x) { return x.slot == slot; }), mPruneOps.end());
     }
-    saveInSlot(timeslice, input, slot);
+    saveInSlot(timeslice, input, slot, info);
     index.publishSlot(slot);
     index.markAsDirty(slot, true);
     stats.updateStats({static_cast<short>(ProcessingStatsId::RELAYED_MESSAGES), DataProcessingStats::Op::Add, (int)1});
@@ -573,8 +585,14 @@ DataRelayer::RelayChoice
     return RelayChoice{.type = RelayChoice::Type::Invalid, .timeslice = timeslice};
   }
 
+  O2_SIGNPOST_ID_GENERATE(aid, data_relayer);
   TimesliceIndex::ActionTaken action;
   std::tie(action, slot) = index.replaceLRUWith(pristineContext, timeslice);
+  uint64_t const* debugTimestamp = std::get_if<uint64_t>(&pristineContext.get(0));
+  if (action != TimesliceIndex::ActionTaken::Wait) {
+    O2_SIGNPOST_EVENT_EMIT(data_relayer, aid, "saveInSlot",
+                           "Slot %zu updated with %zu using action %d, %" PRIu64, slot.index, timeslice.value, (int)action, *debugTimestamp);
+  }
 
   updateStatistics(action);
 
@@ -605,7 +623,7 @@ DataRelayer::RelayChoice
       // cache still holds the old data, so we prune it.
       this->pruneCache(slot, onDrop);
       mPruneOps.erase(std::remove_if(mPruneOps.begin(), mPruneOps.end(), [slot](const auto& x) { return x.slot == slot; }), mPruneOps.end());
-      saveInSlot(timeslice, input, slot);
+      saveInSlot(timeslice, input, slot, info);
       index.publishSlot(slot);
       index.markAsDirty(slot, true);
       return RelayChoice{.type = RelayChoice::Type::WillRelay};

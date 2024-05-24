@@ -241,8 +241,8 @@ struct DataRequest {
 
   void requestCoscmicTracks(bool mc);
 
-  void requestPrimaryVertertices(bool mc);
-  void requestPrimaryVerterticesTMP(bool mc);
+  void requestPrimaryVertices(bool mc);
+  void requestPrimaryVerticesTMP(bool mc);
   void requestSecondaryVertices(bool mc);
   void requestStrangeTracks(bool mc);
 
@@ -340,6 +340,7 @@ struct RecoContainer {
   o2::ctp::LumiInfo mCTPLumi;
 
   gsl::span<const unsigned char> clusterShMapTPC; ///< externally set TPC clusters sharing map
+  gsl::span<const unsigned int> occupancyMapTPC;  ///< externally set TPC clusters occupancy map
 
   std::unique_ptr<o2::tpc::internal::getWorkflowTPCInput_ret> inputsTPCclusters; // special struct for TPC clusters access
   std::unique_ptr<o2::trd::RecoInputContainer> inputsTRD;                        // special struct for TRD tracklets, trigger records
@@ -371,7 +372,7 @@ struct RecoContainer {
 
   void addITSClusters(o2::framework::ProcessingContext& pc, bool mc);
   void addMFTClusters(o2::framework::ProcessingContext& pc, bool mc);
-  void addTPCClusters(o2::framework::ProcessingContext& pc, bool mc, bool shmap);
+  void addTPCClusters(o2::framework::ProcessingContext& pc, bool mc, bool shmap, bool occmap);
   void addTPCTriggers(o2::framework::ProcessingContext& pc);
   void addTOFClusters(o2::framework::ProcessingContext& pc, bool mc);
   void addHMPClusters(o2::framework::ProcessingContext& pc, bool mc);

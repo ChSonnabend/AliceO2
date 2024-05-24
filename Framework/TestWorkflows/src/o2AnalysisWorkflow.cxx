@@ -15,8 +15,8 @@
 
 #include "Framework/runDataProcessing.h"
 #include "Framework/AnalysisTask.h"
+#include "Framework/AnalysisDataModel.h"
 #include <TH2F.h>
-#include <cmath>
 
 using namespace o2;
 using namespace o2::framework;
@@ -49,7 +49,14 @@ struct EtaAndClsHistograms {
 
 WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
 {
-  return WorkflowSpec{
-    adaptAnalysisTask<EtaAndClsHistograms>(cfgc),
-  };
+  // For the sake of running without an option, we do not throw an exception
+  // in case the option is not present.
+  if (cfgc.options().hasOption("aod-metadata-Run") == false ||
+      cfgc.options().get<std::string>("aod-metadata-Run") == "2") {
+    return WorkflowSpec{
+      adaptAnalysisTask<EtaAndClsHistograms>(cfgc),
+    };
+  } else {
+    throw std::runtime_error("Unsupported run type");
+  }
 }
