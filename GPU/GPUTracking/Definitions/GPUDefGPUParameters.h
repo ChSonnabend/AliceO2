@@ -71,6 +71,8 @@
   #define GPUCA_LB_GPUTPCGMMergerFinalize_2 256
   #define GPUCA_LB_GPUTPCCompressionKernels_step0attached 64, 2
   #define GPUCA_LB_GPUTPCCompressionKernels_step1unattached 512, 2
+  #define GPUCA_LB_GPUTPCDecompressionKernels_step0attached 128, 2
+  #define GPUCA_LB_GPUTPCDecompressionKernels_step1unattached 64, 2
   #define GPUCA_LB_GPUTPCCFCheckPadBaseline 64
   #define GPUCA_LB_GPUTPCCFChargeMapFiller_fillIndexMap 512
   #define GPUCA_LB_GPUTPCCFChargeMapFiller_fillFromDigits 512
@@ -79,6 +81,7 @@
   #define GPUCA_LB_GPUTPCCFNoiseSuppression 512
   #define GPUCA_LB_GPUTPCCFDeconvolution 512
   #define GPUCA_LB_GPUTPCCFClusterizer 448
+  #define GPUCA_LB_GPUTPCNNClusterizer 448
   #define GPUCA_LB_COMPRESSION_GATHER 1024
   #define GPUCA_NEIGHBOURS_FINDER_MAX_NNEIGHUP 5
   #define GPUCA_TRACKLET_SELECTOR_HITS_REG_SIZE 20
@@ -135,6 +138,8 @@
   #define GPUCA_LB_GPUTPCGMMergerFinalize_2 256
   #define GPUCA_LB_GPUTPCCompressionKernels_step0attached 192, 2
   #define GPUCA_LB_GPUTPCCompressionKernels_step1unattached 512, 2
+  #define GPUCA_LB_GPUTPCDecompressionKernels_step0attached 128, 2
+  #define GPUCA_LB_GPUTPCDecompressionKernels_step1unattached 64, 2
   #define GPUCA_LB_GPUTPCCFCheckPadBaseline 64
   #define GPUCA_LB_GPUTPCCFChargeMapFiller_fillIndexMap 512
   #define GPUCA_LB_GPUTPCCFChargeMapFiller_fillFromDigits 512
@@ -143,6 +148,7 @@
   #define GPUCA_LB_GPUTPCCFNoiseSuppression 512
   #define GPUCA_LB_GPUTPCCFDeconvolution 512
   #define GPUCA_LB_GPUTPCCFClusterizer 512
+  #define GPUCA_LB_GPUTPCNNClusterizer 512
   #define GPUCA_LB_COMPRESSION_GATHER 1024
   #define GPUCA_NEIGHBOURS_FINDER_MAX_NNEIGHUP 5
   #define GPUCA_TRACKLET_SELECTOR_HITS_REG_SIZE 20
@@ -199,6 +205,8 @@
   #define GPUCA_LB_GPUTPCGMMergerFinalize_2 256
   #define GPUCA_LB_GPUTPCCompressionKernels_step0attached 64, 2
   #define GPUCA_LB_GPUTPCCompressionKernels_step1unattached 512, 3
+  #define GPUCA_LB_GPUTPCDecompressionKernels_step0attached 32, 1
+  #define GPUCA_LB_GPUTPCDecompressionKernels_step1unattached 32, 1
   #define GPUCA_LB_GPUTPCCFCheckPadBaseline 64,8
   #define GPUCA_LB_GPUTPCCFChargeMapFiller_fillIndexMap 448
   #define GPUCA_LB_GPUTPCCFChargeMapFiller_fillFromDigits 448
@@ -207,6 +215,7 @@
   #define GPUCA_LB_GPUTPCCFNoiseSuppression 448
   #define GPUCA_LB_GPUTPCCFDeconvolution 384
   #define GPUCA_LB_GPUTPCCFClusterizer 448
+  #define GPUCA_LB_GPUTPCNNClusterizer 448
   #define GPUCA_LB_COMPRESSION_GATHER 1024
   #define GPUCA_NEIGHBOURS_FINDER_MAX_NNEIGHUP 4
   #define GPUCA_TRACKLET_SELECTOR_HITS_REG_SIZE 20
@@ -263,6 +272,8 @@
   #define GPUCA_LB_GPUTPCGMMergerFinalize_2 256
   #define GPUCA_LB_GPUTPCCompressionKernels_step0attached 128
   #define GPUCA_LB_GPUTPCCompressionKernels_step1unattached 512, 2
+  #define GPUCA_LB_GPUTPCDecompressionKernels_step0attached 32, 1
+  #define GPUCA_LB_GPUTPCDecompressionKernels_step1unattached 32, 1
   #define GPUCA_LB_COMPRESSION_GATHER 1024
   #define GPUCA_NEIGHBOURS_FINDER_MAX_NNEIGHUP 4
   #define GPUCA_TRACKLET_SELECTOR_HITS_REG_SIZE 20
@@ -474,6 +485,9 @@
   #endif
   #ifndef GPUCA_LB_GPUTPCCFClusterizer
     #define GPUCA_LB_GPUTPCCFClusterizer 512
+  #endif
+  #ifndef GPUCA_LB_GPUTPCNNClusterizer
+    #define GPUCA_LB_GPUTPCNNClusterizer 512
   #endif
   #ifndef GPUCA_LB_GPUTrackingRefitKernel_mode0asGPU
     #define GPUCA_LB_GPUTrackingRefitKernel_mode0asGPU 256

@@ -17,11 +17,15 @@
 /// \brief    A general-purpose class for ONNX models
 ///
 
-#ifndef GPU_ML_ONNX_INTERFACE_H
-#define GPU_ML_ONNX_INTERFACE_H
+#ifndef COMMON_ML_ONNX_INTERFACE_H
+#define COMMON_ML_ONNX_INTERFACE_H
 
 // C++ and system includes
-#include <onnxruntime/core/session/experimental_onnxruntime_cxx_api.h>
+#if __has_include(<onnxruntime/core/session/onnxruntime_cxx_api.h>)
+#include <onnxruntime/core/session/onnxruntime_cxx_api.h>
+#else
+#include <onnxruntime_cxx_api.h>
+#endif
 #include <vector>
 #include <string>
 #include <memory>
@@ -39,10 +43,9 @@ namespace ml
 
 class OnnxModel
 {
-
  public:
-  OnnxModel() = default;
-  ~OnnxModel() = default;
+  OnnxModel() : mMemoryInfo(Ort::MemoryInfo::CreateCpu(OrtAllocatorType, OrtMemType)) {};
+  virtual ~OnnxModel() = default;
 
   // Inferencing
   void init(std::string, bool = false, int = 0);
@@ -52,19 +55,24 @@ class OnnxModel
   template<class T> std::vector<float> inference_vector(T input, unsigned int size);
 
   // Reset session
-  void resetSession() { mSession.reset(new Ort::Experimental::Session{*mEnv, modelPath, sessionOptions}); }
-
-  // Getters & Setters
   Ort::SessionOptions* getSessionOptions() { return &sessionOptions; } // For optimizations in post
-  std::shared_ptr<Ort::Experimental::Session> getSession() { return mSession; }
+  #if __has_include(<onnxruntime/core/session/experimental_onnxruntime_cxx_api.h>)
+    std::shared_ptr<Ort::Experimental::Session> getSession() { return mSession; }
+  #else
+    std::shared_ptr<Ort::Session> getSession() { return mSession; }
+  #endif
+>>>>>>> gpu_clusterizer
   std::vector<std::vector<int64_t>> getNumInputNodes() const { return mInputShapes; }
   std::vector<std::vector<int64_t>> getNumOutputNodes() const { return mOutputShapes; }
   void setActiveThreads(int);
 
  private:
   // Environment variables for the ONNX runtime
-  std::shared_ptr<Ort::Env> mEnv = nullptr;
   std::shared_ptr<Ort::Experimental::Session> mSession = nullptr;
+=======
+  std::shared_ptr<Ort::Session> mSession = nullptr; ///< ONNX session
+  Ort::MemoryInfo mMemoryInfo;
+>>>>>>> gpu_clusterizer
   Ort::SessionOptions sessionOptions;
 
   // Input & Output specifications of the loaded network
@@ -85,4 +93,4 @@ class OnnxModel
 
 } // namespace GPUCA_NAMESPACE
 
-#endif // GPU_ML_ONNX_INTERFACE_H
+#endif // COMMON_ML_ONNX_INTERFACE_H

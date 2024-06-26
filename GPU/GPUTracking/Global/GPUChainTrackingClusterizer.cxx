@@ -837,8 +837,14 @@ int GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         if (clusterer.mPmemory->counters.nPeaks == 0) {
           continue;
         }
-        runKernel<GPUTPCCFNoiseSuppression, GPUTPCCFNoiseSuppression::noiseSuppression>({GetGrid(clusterer.mPmemory->counters.nPeaks, lane), {iSlice}});
-        runKernel<GPUTPCCFNoiseSuppression, GPUTPCCFNoiseSuppression::updatePeaks>({GetGrid(clusterer.mPmemory->counters.nPeaks, lane), {iSlice}});
+        if(!GetProcessingSettings().applyNNclusterizer){
+          runKernel<GPUTPCCFNoiseSuppression, GPUTPCCFNoiseSuppression::noiseSuppression>({GetGrid(clusterer.mPmemory->counters.nPeaks, lane), {iSlice}});
+          runKernel<GPUTPCCFNoiseSuppression, GPUTPCCFNoiseSuppression::updatePeaks>({GetGrid(clusterer.mPmemory->counters.nPeaks, lane), {iSlice}});
+        } else {
+          // FIXME: This needs to be removed when I actually apply the NN! For now its onyl to make the code work
+          runKernel<GPUTPCCFNoiseSuppression, GPUTPCCFNoiseSuppression::noiseSuppression>({GetGrid(clusterer.mPmemory->counters.nPeaks, lane), {iSlice}});
+          runKernel<GPUTPCCFNoiseSuppression, GPUTPCCFNoiseSuppression::updatePeaks>({GetGrid(clusterer.mPmemory->counters.nPeaks, lane), {iSlice}});
+        }
         if (DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 3, clusterer, &GPUTPCClusterFinder::DumpSuppressedPeaks, *mDebugFile)) {
           clusterer.DumpPeakMap(*mDebugFile, "Suppressed Peaks");
         }
@@ -868,13 +874,31 @@ int GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSlice}});
         DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 4, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
 
-        runKernel<GPUTPCCFClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane), {iSlice}}, 0);
+        if(GetProcessingSettings().applyNNclusterizer){
+          clusterer.model_class.init(GetProcessingSettings().nnClassificationPath, 1, 1, GetProcessingSettings().nnClusterizerVerbosity);
+          clusterer.model_reg.init(GetProcessingSettings().nnRegressionPath, 1, 1, GetProcessingSettings().nnClusterizerVerbosity);
+          clusterer.nnSizeInputRow = GetProcessingSettings().nnSizeInputRow;
+          clusterer.nnSizeInputPad = GetProcessingSettings().nnSizeInputPad;
+          clusterer.nnSizeInputTime = GetProcessingSettings().nnSizeInputTime;
+          clusterer.nnAddIndexData = GetProcessingSettings().nnAddIndexData;
+          clusterer.nnClassThreshold = GetProcessingSettings().nnClassThreshold;
+          clusterer.nnSigmoidTrafoThreshold = GetProcessingSettings().nnSigmoidTrafoThreshold;
+          clusterer.nnClusterizerVerbosity = GetProcessingSettings().nnClusterizerVerbosity;
+          runKernel<GPUTPCNNClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 0);
+        } else {
+          runKernel<GPUTPCCFClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 0);
+        }
+
         if (doGPU && propagateMCLabels) {
           TransferMemoryResourceLinkToHost(RecoStep::TPCClusterFinding, clusterer.mScratchId, lane);
           if (doGPU) {
             SynchronizeStream(lane);
           }
-          runKernel<GPUTPCCFClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 1);
+          if(!GetProcessingSettings().applyNNclusterizer){
+            runKernel<GPUTPCCFClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 1);
+          } else {
+            runKernel<GPUTPCNNClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 1);
+          }
         }
         if (GetProcessingSettings().debugLevel >= 3) {
           GPUInfo("Sector %02d Fragment %02d Lane %d: Found clusters: digits %u peaks %u clusters %u", iSlice, fragment.index, lane, (int)clusterer.mPmemory->counters.nPositions, (int)clusterer.mPmemory->counters.nPeaks, (int)clusterer.mPmemory->counters.nClusters);
