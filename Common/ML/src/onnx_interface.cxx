@@ -43,14 +43,11 @@ void OnnxModel::init(std::string localPath, bool enableOptimizations, int thread
   modelPath = localPath;
   activeThreads = threads;
 
-<<<<<<< HEAD
-=======
 #if __has_include(<onnxruntime/core/session/experimental_onnxruntime_cxx_api.h>)
 #else
   mMemoryInfo = Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtArenaAllocator, OrtMemType::OrtMemTypeDefault);
 #endif
 
->>>>>>> gpu_clusterizer
   /// Enableing optimizations
   if(threads != 0){
     // sessionOptions.SetInterOpNumThreads(1);
@@ -71,14 +68,6 @@ void OnnxModel::init(std::string localPath, bool enableOptimizations, int thread
   }
 
   mEnv = std::make_shared<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "onnx-model");
-<<<<<<< HEAD
-  mSession = std::make_shared<Ort::Experimental::Session>(*mEnv, modelPath, sessionOptions);
-
-  mInputNames = mSession->GetInputNames();
-  mInputShapes = mSession->GetInputShapes();
-  mOutputNames = mSession->GetOutputNames();
-  mOutputShapes = mSession->GetOutputShapes();
-=======
   #if __has_include(<onnxruntime/core/session/experimental_onnxruntime_cxx_api.h>)
     mSession = std::make_shared<Ort::Experimental::Session>(*mEnv, modelPath, sessionOptions);
     mInputNames = mSession->GetInputNames();
@@ -101,7 +90,6 @@ void OnnxModel::init(std::string localPath, bool enableOptimizations, int thread
       mOutputShapes.emplace_back(mSession->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
     }
   #endif
->>>>>>> gpu_clusterizer
 
   LOG(info) << "Input Nodes:";
   for (size_t i = 0; i < mInputNames.size(); i++) {
@@ -161,10 +149,10 @@ float* OnnxModel::inference(T input, unsigned int size)
   for(auto elem : inputShape){
     mem_size*=elem;
   }
-<<<<<<< HEAD
+#if __has_include(<onnxruntime/core/session/experimental_onnxruntime_cxx_api.h>)
   inputTensors.emplace_back(Ort::Experimental::Value::CreateTensor<float>(input.data(), mem_size, inputShape));
-  // LOG(info) << "Input tensors created, memory size: " << mem_size*sizeof(float)/1e6 << "MB";
   try {
+      auto outputTensors = mSession->Run(mInputNames, inputTensors, mOutputNames);
       inputTensors.clear();
       float* outputValues = outputTensors[0].GetTensorMutableData<float>();
       return outputValues;
@@ -185,16 +173,12 @@ float* OnnxModel::inference(T input, unsigned int size)
     }
 #endif
   // LOG(info) << "Input tensors created, memory size: " << mem_size*sizeof(float)/1e6 << "MB";
->>>>>>> gpu_clusterizer
   return nullptr;
 }
 
+template<class T>
 std::vector<float> OnnxModel::inference_vector(T input, unsigned int size)
 {
-<<<<<<< HEAD
-
-=======
->>>>>>> gpu_clusterizer
   std::vector<int64_t> inputShape = mInputShapes[0];
   inputShape[0] = size;
   std::vector<Ort::Value> inputTensors;
@@ -203,26 +187,29 @@ std::vector<float> OnnxModel::inference_vector(T input, unsigned int size)
   for(auto elem : inputShape){
     mem_size*=elem;
   }
-<<<<<<< HEAD
-  inputTensors.emplace_back(Ort::Experimental::Value::CreateTensor<float>(input.data(), mem_size, inputShape));
-  // LOG(info) << "Input tensors created, memory size: " << mem_size*sizeof(float)/1e6 << "MB";
-  try {
-    //   for(int o = 0; o < mOutputShapes[0][1]; o++){
-    //     outputValues.push_back(tmp_output_values[s*(int)mOutputShapes[0][1] + o]);
-    //   }
-    // }
-    return outputVector;
-  } catch (const Ort::Exception& exception) {
-    LOG(error) << "Error running model inference: " << exception.what();
-  }
-=======
 #if __has_include(<onnxruntime/core/session/experimental_onnxruntime_cxx_api.h>)
   inputTensors.emplace_back(Ort::Experimental::Value::CreateTensor<float>(input.data(), mem_size, inputShape));
   try {
+      auto outputTensors = mSession->Run(mInputNames, inputTensors, mOutputNames);
+      inputTensors.clear();
+      float* outputValues = outputTensors[0].GetTensorMutableData<float>();
+      return std::vector<float>{outputValues, outputValues + size * mOutputShapes[0][1]};
+    } catch (const Ort::Exception& exception) {
+      LOG(error) << "Error running model inference: " << exception.what();
+    }
+#else
+  std::vector<const char*> tmpInputs;
+  std::vector<const char*> tmpOutputs;
+  inputTensors.emplace_back(Ort::Value::CreateTensor<float>(input.data(), mem_size, inputShape));
+  try {
+      auto outputTensors = mSession->Run(mInputNames, inputTensors, mOutputNames);
+      inputTensors.clear();
+      float* outputValues = outputTensors[0].GetTensorMutableData<float>();
+      return std::vector<float>{outputValues, outputValues + size * mOutputShapes[0][1]};
+    } catch (const Ort::Exception& exception) {
       LOG(error) << "Error running model inference: " << exception.what();
     }
 #endif
->>>>>>> gpu_clusterizer
   return std::vector<float>{};
 }
 
@@ -236,8 +223,4 @@ template std::vector<float> OnnxModel::inference_vector(std::vector<float>, unsi
 
 } // namespace gpu
 
-<<<<<<< HEAD
 } // namespace GPUCA_NAMESPACE
-=======
-} // namespace GPUCA_NAMESPACE
->>>>>>> gpu_clusterizer
