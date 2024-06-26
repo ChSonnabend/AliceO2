@@ -44,7 +44,7 @@ namespace ml
 class OnnxModel
 {
  public:
-  OnnxModel() : mMemoryInfo(Ort::MemoryInfo::CreateCpu(OrtAllocatorType, OrtMemType)) {};
+  OnnxModel() : mMemoryInfo(Ort::MemoryInfo::CreateCpu(OrtAllocatorType(), OrtMemType())) {};
   virtual ~OnnxModel() = default;
 
   // Inferencing
@@ -55,24 +55,28 @@ class OnnxModel
   template<class T> std::vector<float> inference_vector(T input, unsigned int size);
 
   // Reset session
+  #if __has_include(<onnxruntime/core/session/experimental_onnxruntime_cxx_api.h>)
+    void resetSession() { mSession.reset(new Ort::Experimental::Session{*mEnv, modelPath, sessionOptions}); };
+  #else
+    void resetSession() { mSession.reset(new Ort::Session{*mEnv, modelPath.c_str(), sessionOptions}); };
+  #endif
+
+  // Getters & Setters
   Ort::SessionOptions* getSessionOptions() { return &sessionOptions; } // For optimizations in post
   #if __has_include(<onnxruntime/core/session/experimental_onnxruntime_cxx_api.h>)
     std::shared_ptr<Ort::Experimental::Session> getSession() { return mSession; }
   #else
     std::shared_ptr<Ort::Session> getSession() { return mSession; }
   #endif
->>>>>>> gpu_clusterizer
   std::vector<std::vector<int64_t>> getNumInputNodes() const { return mInputShapes; }
   std::vector<std::vector<int64_t>> getNumOutputNodes() const { return mOutputShapes; }
   void setActiveThreads(int);
 
  private:
   // Environment variables for the ONNX runtime
-  std::shared_ptr<Ort::Experimental::Session> mSession = nullptr;
-=======
+  std::shared_ptr<Ort::Env> mEnv = nullptr;
   std::shared_ptr<Ort::Session> mSession = nullptr; ///< ONNX session
   Ort::MemoryInfo mMemoryInfo;
->>>>>>> gpu_clusterizer
   Ort::SessionOptions sessionOptions;
 
   // Input & Output specifications of the loaded network
