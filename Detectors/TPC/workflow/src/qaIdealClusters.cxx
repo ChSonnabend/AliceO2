@@ -30,6 +30,7 @@ void qaCluster::init(InitContext& ic)
   networkDataOutput = ic.options().get<std::string>("network-data-output");
   networkInputSize = ic.options().get<int>("network-input-size");
   networkClassThres = ic.options().get<float>("network-class-threshold");
+  networkSplitIrocOroc = ic.options().get<float>("network-split-iroc-oroc");
   networkOptimizations = ic.options().get<bool>("enable-network-optimizations");
   networkNumThreads = ic.options().get<int>("network-num-threads");
   normalization_mode = ic.options().get<int>("normalization-mode");
@@ -40,11 +41,16 @@ void qaCluster::init(InitContext& ic)
   looper_tagger_threshold_q = ic.options().get<std::vector<float>>("looper-tagger-threshold-q");
   looper_tagger_opmode = ic.options().get<std::string>("looper-tagger-opmode");
   remove_individual_files = ic.options().get<int>("remove-individual-files");
+  
   if (ic.options().get<int>("max-time") > 0) {
     custom::fill_nested_container(max_time, ic.options().get<int>("max-time"));
     overwrite_max_time = false;
   } else {
     custom::fill_nested_container(max_time, 0);
+  }
+
+  if(ic.options().get<int>("network-threshold-sigmoid-trafo") == 1){
+    networkClassThres = (float)std::log(networkClassThres/(1.f-networkClassThres));
   }
 
   ROOT::EnableThreadSafety();
@@ -60,40 +66,34 @@ void qaCluster::init(InitContext& ic)
   if (mode.find(std::string("network_class")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
     network_classification_paths = custom::splitString(ic.options().get<std::string>("network-classification-paths"), ";");
     int count_net_class = 0;
-    for(auto path : network_classification_paths){
-      network_classification[count_net_class].init(path, networkOptimizations, networkNumThreads);
+    if(networkSplitIrocOroc){
+      for(auto path : network_classification_paths){
+        network_classification[count_net_class].init(path, networkOptimizations, networkNumThreads);
+        count_net_class++;
+      }
+    } else {
+      for(auto path : network_classification_paths){
+        network_classification[count_net_class].init(path, networkOptimizations, networkNumThreads);
+        network_classification[count_net_class + 1].init(path, networkOptimizations, networkNumThreads);
+        count_net_class+=2;
+      }
     }
-    // network_classification = (OnnxModel*)malloc(sizeof(class_nets));
-    // memcpy(network_classification, class_nets, sizeof(network_classification));
-    // if (network_classification == NULL) {
-    //     printf("Memory not allocated.\n");
-    //     exit(0);
-    // }
-    // network_classification.resize(network_paths.size());
-    // int counter = 0;
-    // for(auto path : network_paths){
-    //   network_classification[counter].init(path, networkOptimizations, networkNumThreads);
-    //   counter++;
-    // }
   }
   if (mode.find(std::string("network_reg")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
     network_regression_paths = custom::splitString(ic.options().get<std::string>("network-regression-paths"), ";");
-    int count_net_class = 0;
-    for(auto path : network_regression_paths){
-      network_regression[count_net_class].init(path, networkOptimizations, networkNumThreads);
+    int count_net_reg = 0;
+    if(networkSplitIrocOroc){
+      for(auto path : network_regression_paths){
+        network_regression[count_net_reg].init(path, networkOptimizations, networkNumThreads);
+        count_net_reg++;
+      }
+    } else {
+      for(auto path : network_regression_paths){
+        network_regression[count_net_reg].init(path, networkOptimizations, networkNumThreads);
+        network_regression[count_net_reg + 1].init(path, networkOptimizations, networkNumThreads);
+        count_net_reg+=2;
+      }
     }
-    // network_regression = (OnnxModel*)malloc(sizeof(reg_nets));
-    // memcpy(network_regression, reg_nets, sizeof(network_regression));
-    // if (network_regression == NULL) {
-    //     printf("Memory not allocated.\n");
-    //     exit(0);
-    // }
-    // network_regression.resize(network_paths.size());
-    // int counter = 0;
-    // for(auto path : network_paths){
-    //   network_regression[counter].init(path, networkOptimizations, networkNumThreads);
-    //   counter++;
-    // }
   }
 
   const char* aliceO2env = std::getenv("O2_ROOT");
@@ -326,6 +326,110 @@ void qaCluster::read_ideal(int sector, std::vector<customCluster>& ideal_map)
 }
 
 // ---------------------------------
+void qaCluster::read_tracking_clusters(){
+  // --- tracking clusters & momentum association ---
+  const auto& mapper = Mapper::instance();
+  auto file = TFile::Open((simulationPath + "/" + inFileTracks).c_str());
+  auto tree = (TTree*)file->Get("tpcrec");
+  if (tree == nullptr) {
+    std::cout << "Error getting tree\n";
+  }
+  std::vector<TrackTPC>* tpcTracks = nullptr;
+  std::vector<o2::tpc::TPCClRefElem>* mCluRefVecInp = nullptr; // index to clusters linear structure in ClusterNativeAccess
+  std::vector<o2::MCCompLabel>* mMCTruthInp = nullptr;
+  tree->SetBranchAddress("TPCTracks", &tpcTracks);
+  tree->SetBranchAddress("ClusRefs", &mCluRefVecInp);
+  tree->SetBranchAddress("TPCTracksMCTruth", &mMCTruthInp);
+
+  // Getting the native clusters
+  ClusterNativeHelper::Reader tpcClusterReader;
+  tpcClusterReader.init((simulationPath + "/" + inFileNative).c_str());
+  ClusterNativeAccess clusterIndex;
+  std::unique_ptr<ClusterNative[]> clusterBuffer;
+  memset(&clusterIndex, 0, sizeof(clusterIndex));
+  o2::tpc::ClusterNativeHelper::ConstMCLabelContainerViewWithBuffer clusterMCBuffer;
+  qc::Clusters clusters;
+  for (unsigned long i = 0; i < tpcClusterReader.getTreeSize(); ++i) {
+    tpcClusterReader.read(i);
+    tpcClusterReader.fillIndex(clusterIndex, clusterBuffer, clusterMCBuffer);
+  }
+
+  std::vector<customCluster> track_paths, track_clusters;
+  std::vector<std::array<float, 3>> clusterMomenta;
+  int tabular_data_counter = 0, track_counter = 0;
+  
+  // GRPGeomHelper::instance().setRequest(grp_geom);
+  // o2::base::GRPGeomHelper::instance().finaliseCCDB(matcher, obj);
+  float B_field = -5.00668; //GPUO2InterfaceUtils::getNominalGPUBz(*GRPGeomHelper::instance().getGRPMagField());
+  LOG(info) << "Updating solenoid field " << B_field;
+  
+  std::vector<std::array<float, 12>> misc_track_data;
+  std::vector<std::string> misc_track_data_branch_names = {"NClusters", "Chi2", "hasASideClusters", "hasCSideClusters", "P", "dEdxQtot", "dEdxQmax", "AbsCharge", "Eta", "Phi", "Pt"};
+  
+  // const auto& tpcClusRefs = data.getTPCTracksClusterRefs();
+  // const auto& tpcClusAcc = // get from tpc-native-clsuters the flat array
+
+  tree->GetEntry(0);
+  size_t nTracks = tpcTracks->size();
+  // track_paths.resize(track_paths.size() + nTracks*o2::tpc::constants::MAXGLOBALPADROW);
+  misc_track_data.resize(nTracks);
+  LOG(info) << "Loaded " << nTracks << " tracks. Processing...";
+
+  // ---| track loop |---
+  int cluster_counter = 0;
+  for (int k = 0; k < nTracks; k++) {
+    auto track = (*tpcTracks)[k];
+    for(int cl = 0; cl < track.getNClusters(); cl++){
+      uint8_t sector = 0, row = 0;
+      const auto cluster = track.getCluster(*mCluRefVecInp, cl, clusterIndex, sector, row); // ClusterNative instance
+      GlobalPosition2D glo_pos = custom::convertSecRowPadToXY((int)sector, (int)row, cluster.getPad(), tpcmap);
+      LocalPosition2D loc_pos = mapper.GlobalToLocal(glo_pos, Sector((int)sector));
+      float z_pos = tpcmap.LinearTime2Z((int)sector, cluster.getTime());
+      std::array<float, 3> momentum_after_propagation;
+      bool ok = track.propagateTo(loc_pos.X(), B_field);
+      auto point = track.getXYZGlo();
+      ok = ok && track.getPxPyPzGlo(momentum_after_propagation);
+      if(ok){
+        GlobalPosition3D tmp_mom_vec(momentum_after_propagation[0], momentum_after_propagation[1], momentum_after_propagation[2]);
+        tmp_mom_vec = mapper.GlobalToLocal(tmp_mom_vec, Sector((int)sector));
+        momentum_after_propagation = {tmp_mom_vec.X(), tmp_mom_vec.Y(), tmp_mom_vec.Z()};
+        customCluster trk_cls{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, glo_pos.X(), glo_pos.Y(), z_pos};
+        customCluster trk_path{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, point.X(), point.Y(), point.Z()};
+        track_paths.push_back(trk_path);
+        track_clusters.push_back(trk_cls);
+        tracking_clusters[sector].push_back(trk_cls);
+        clusterMomenta.push_back(momentum_after_propagation);
+        momentum_vectors[sector].push_back(momentum_after_propagation);
+        cluster_counter++;
+        if(std::sqrt(std::pow(point.X(), 2) + std::pow(point.Y(), 2)) > 250){
+          LOG(warning) << "[" << (int)sector << "] Found TPC track cluster extrapolated outside the TPC boundaries! Track path (XYZ): (" << point.X() << ", " << point.Y() << ", " << point.Z() << "), Cluster position (XYZ): (" << glo_pos.X() << ", " << glo_pos.Y() << ", " << z_pos << ").";
+        }
+      }
+    }
+
+    misc_track_data[k][0] = track.getNClusters();
+    misc_track_data[k][1] = track.getChi2();
+    misc_track_data[k][2] = track.hasASideClusters();
+    misc_track_data[k][3] = track.hasCSideClusters();
+    misc_track_data[k][4] = track.getP();
+    misc_track_data[k][5] = track.getdEdx().dEdxTotTPC;
+    misc_track_data[k][6] = track.getdEdx().dEdxMaxTPC;
+    misc_track_data[k][7] = track.getAbsCharge(); // TPC inner param = P / AbsCharge
+    misc_track_data[k][8] = track.getEta();
+    misc_track_data[k][9] = track.getPhi();
+    misc_track_data[k][10] = track.getPt();
+  }
+
+  // Writing some data in between
+  std::string outfile = custom::splitString(outFileCustomClusters, ".root")[0];
+  custom::writeStructToRootFile(outputPath + "/" + outfile + "_track_paths.root", "data", track_paths);
+  custom::writeStructToRootFile(outputPath + "/" + outfile + "_track_clusters.root", "data", track_clusters);
+  custom::writeTabularToRootFile({"momentum_X", "momentum_Y", "momentum_Z"}, clusterMomenta, outputPath + "/" + outfile + "_momenta.root", "momenta", "Momentum infromation from tracking.");
+  custom::writeTabularToRootFile(misc_track_data_branch_names, misc_track_data, outputPath + "/tpc_tracks_tabular_information.root", "tpc_tracks_info", "TPC track information");
+  LOG(info) << "Clusters of tracks written!";
+}
+
+// ---------------------------------
 void qaCluster::read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>& tracks)
 {
 
@@ -352,7 +456,7 @@ void qaCluster::read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>
 }
 
 // ---------------------------------
-void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customCluster>& native_writer_map)
+void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customCluster>& native_writer_map, bool perSector)
 {
 
   // using MCLabelContainer = o2::dataformats::MCTruthContainer<o2::MCCompLabel>;
@@ -376,8 +480,11 @@ void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customClu
 
   int total_clusters = 0;
   o2::dataformats::MCLabelContainer mcTruthBuffer;
+  std::vector<o2::dataformats::MCLabelContainer> sorted_mc_labels(36);
+  std::array<int, 36> sector_counter;
+  custom::fill_nested_container(sector_counter, 0);
   custom::fill_nested_container(cluster_sector_counter, 0);
-  o2::MCCompLabel dummyMcLabel(true);
+  o2::MCCompLabel dummyMcLabel(0,0,0,true);
   for (auto const cls : native_writer_map) {
     int sec = cls.sector;
     int row = cls.row;
@@ -390,12 +497,15 @@ void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customClu
     cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].qTot = cls.qTot;
     if(cls.mcTrkId != -1){
       mcTruth[sec * o2::tpc::constants::MAXGLOBALPADROW + row].addElement(cluster_sector_counter[sec][row], o2::MCCompLabel(cls.mcTrkId, cls.mcEvId, cls.mcSrcId, false));
-      mcTruthBuffer.addElement(total_clusters, o2::MCCompLabel(cls.mcTrkId, cls.mcEvId, cls.mcSrcId, false));
+      sorted_mc_labels[sec].addElement(sector_counter[sec], o2::MCCompLabel(cls.mcTrkId, cls.mcEvId, cls.mcSrcId, false));
+      // mcTruthBuffer.addElement(total_clusters, o2::MCCompLabel(cls.mcTrkId, cls.mcEvId, cls.mcSrcId, false));
     } else {
       mcTruth[sec * o2::tpc::constants::MAXGLOBALPADROW + row].addElement(cluster_sector_counter[sec][row], dummyMcLabel);
-      mcTruthBuffer.addElement(total_clusters, dummyMcLabel);
+      sorted_mc_labels[sec].addElement(sector_counter[sec], dummyMcLabel);
+      // mcTruthBuffer.addElement(total_clusters, dummyMcLabel);
     }
     cluster_sector_counter[sec][row]++;
+    sector_counter[sec]++;
     total_clusters++;
   }
 
@@ -403,39 +513,41 @@ void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customClu
   std::unique_ptr<ClusterNativeAccess> clusters = ClusterNativeHelper::createClusterNativeIndex(clusterBuffer, cont, &mcTruthBuffer, &mcTruth);
 
   LOG(info) << "ClusterNativeAccess structure created.";
-  std::vector<char> buffer;
-  mcTruthBuffer.flatten_to(buffer);
-  o2::dataformats::IOMCTruthContainerView tmp_container(buffer);
-  o2::dataformats::ConstMCTruthContainer<o2::MCCompLabel> constMcLabelContainer;
-  tmp_container.copyandflatten(constMcLabelContainer);
-  o2::dataformats::ConstMCTruthContainerView containerView(constMcLabelContainer);
-  clusters.get()->clustersMCTruth = &containerView;
+  // std::vector<char> buffer;
+  // mcTruthBuffer.flatten_to(buffer);
+  // o2::dataformats::IOMCTruthContainerView tmp_container(buffer);
+  // o2::dataformats::ConstMCTruthContainer<o2::MCCompLabel> constMcLabelContainer;
+  // tmp_container.copyandflatten(constMcLabelContainer);
+  // o2::dataformats::ConstMCTruthContainerView containerView(constMcLabelContainer);
+  // clusters.get()->clustersMCTruth = &containerView;
 
   o2::tpc::ClusterNativeAccess const& clusterIndex = *(clusters.get());
 
-  // Clusters are shipped by sector, we are copying into per-sector buffers (anyway only for ROOT output)
-  o2::tpc::TPCSectorHeader clusterOutputSectorHeader{0};
-  for (unsigned int i : tpc_sectors) {
-    unsigned int subspec = i;
-    clusterOutputSectorHeader.sectorBits = (1ul << i);
-    char* buffer = pc.outputs().make<char>({o2::header::gDataOriginTPC, "CLUSTERNATIVE", subspec, {clusterOutputSectorHeader}}, clusterIndex.nClustersSector[i] * sizeof(*clusterIndex.clustersLinear) + sizeof(o2::tpc::ClusterCountIndex)).data();
-    o2::tpc::ClusterCountIndex* outIndex = reinterpret_cast<o2::tpc::ClusterCountIndex*>(buffer);
-    memset(outIndex, 0, sizeof(*outIndex));
-    for (int j = 0; j < o2::tpc::constants::MAXGLOBALPADROW; j++) {
-      outIndex->nClusters[i][j] = clusterIndex.nClusters[i][j];
-    }
-    memcpy(buffer + sizeof(*outIndex), clusterIndex.clusters[i][0], clusterIndex.nClustersSector[i] * sizeof(*clusterIndex.clustersLinear));
-
-    o2::dataformats::MCLabelContainer cont;
-    for (unsigned int j = 0; j < clusterIndex.nClustersSector[i]; j++) {
-      const auto& labels = clusterIndex.clustersMCTruth->getLabels(clusterIndex.clusterOffset[i][0] + j);
-      for (const auto& label : labels) {
-        cont.addElement(j, label);
+  if(perSector){
+    // Clusters are shipped by sector, we are copying into per-sector buffers (anyway only for ROOT output)
+    o2::tpc::TPCSectorHeader clusterOutputSectorHeader{0};
+    for (unsigned int i : tpc_sectors) {
+      unsigned int subspec = i;
+      clusterOutputSectorHeader.sectorBits = (1ul << i);
+      char* buffer = pc.outputs().make<char>({o2::header::gDataOriginTPC, "CLUSTERNATIVE", subspec, {clusterOutputSectorHeader}}, clusterIndex.nClustersSector[i] * sizeof(*clusterIndex.clustersLinear) + sizeof(o2::tpc::ClusterCountIndex)).data();
+      o2::tpc::ClusterCountIndex* outIndex = reinterpret_cast<o2::tpc::ClusterCountIndex*>(buffer);
+      memset(outIndex, 0, sizeof(*outIndex));
+      for (int j = 0; j < o2::tpc::constants::MAXGLOBALPADROW; j++) {
+        outIndex->nClusters[i][j] = clusterIndex.nClusters[i][j];
       }
+      memcpy(buffer + sizeof(*outIndex), clusterIndex.clusters[i][0], clusterIndex.nClustersSector[i] * sizeof(*clusterIndex.clustersLinear));
+
+      // o2::dataformats::MCLabelContainer cont;
+      // for (unsigned int j = 0; j < clusterIndex.nClustersSector[i]; j++) {
+      //   const auto& labels = clusterIndex.clustersMCTruth->getLabels(clusterIndex.clusterOffset[i][0] + j);
+      //   for (const auto& label : labels) {
+      //     cont.addElement(j, label);
+      //   }
+      // }
+      o2::dataformats::ConstMCLabelContainer contflat;
+      sorted_mc_labels[i].flatten_to(contflat);
+      pc.outputs().snapshot({o2::header::gDataOriginTPC, "CLNATIVEMCLBL", subspec, {clusterOutputSectorHeader}}, contflat);
     }
-    o2::dataformats::ConstMCLabelContainer contflat;
-    cont.flatten_to(contflat);
-    pc.outputs().snapshot({o2::header::gDataOriginTPC, "CLNATIVEMCLBL", subspec, {clusterOutputSectorHeader}}, contflat);
   }
 
   LOG(info) << "------- Native clusters structure written -------";
@@ -1067,14 +1179,16 @@ void qaCluster::remove_loopers_ideal(int sector, std::vector<std::vector<std::ve
 }
 
 // ---------------------------------
-std::tuple<std::vector<float>, std::vector<uint8_t>> qaCluster::create_network_input(int sector, tpc2d& map2d, std::vector<int>& maxima_digits, std::vector<customCluster>& digit_map)
+std::tuple<std::vector<float>, std::vector<uint8_t>> qaCluster::create_network_input(int sector, tpc2d& map2d, std::vector<int>& maxima_digits, std::vector<customCluster>& digit_map, int network_input_size)
 {
 
   int index_shift_global = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), index_shift_row = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), index_shift_pad = (2 * global_shift[1] + 1);
-  std::vector<float> input_vector(maxima_digits.size() * (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), 0.f);
+
+  std::vector<float> input_vector(maxima_digits.size() * network_input_size, 0.f);
   std::vector<float> central_charges(maxima_digits.size(), 0.f);
   std::vector<uint8_t> flags(maxima_digits.size(), 0.f);
 
+  int internal_idx = 0;
   for (unsigned int max = 0; max < maxima_digits.size(); max++) {
     auto const central_digit = digit_map[maxima_digits[max]];
     int row_offset = rowOffset(central_digit.row);
@@ -1089,7 +1203,7 @@ std::tuple<std::vector<float>, std::vector<uint8_t>> qaCluster::create_network_i
       for (int pad = 0; pad < 2 * global_shift[0] + 1; pad++) {
         for (int time = 0; time < 2 * global_shift[1] + 1; time++) {
           // int internal_idx = max * index_shift_global + time * index_shift_row + row * index_shift_pad + pad; // FIXME: THIS NEEDS TO BE CHANGED!!!
-          int internal_idx = max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time;
+          // int internal_idx = max * index_shift_global + row * index_shift_row + pad * index_shift_pad + time;
           if (compromised_charge) {
             input_vector[internal_idx] = -1;
           } else {
@@ -1107,8 +1221,15 @@ std::tuple<std::vector<float>, std::vector<uint8_t>> qaCluster::create_network_i
               }
             }
           }
+          internal_idx++;
         }
       }
+    }
+    if(network_input_size > index_shift_global){
+      input_vector[internal_idx] = central_digit.sector / o2::tpc::constants::MAXSECTOR;
+      input_vector[internal_idx + 1] = central_digit.row / o2::tpc::constants::MAXGLOBALPADROW;
+      input_vector[internal_idx + 2] = central_digit.max_pad / TPC_GEOM[central_digit.row][2];
+      internal_idx+=3;
     }
 
     uint8_t flag = 0;
@@ -1139,28 +1260,56 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
   std::vector<int> class_label(maxima_digits.size(), 10000); // some dummy label -> Should lead to segfault for network regression if not changed
 
   int index_shift_global = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), index_shift_row = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), index_shift_pad = (2 * global_shift[1] + 1);
-  int network_class_size = 0;
+  int network_class_size = 0, index_iroc_oroc_shift = 0;
 
-  for(int net_counter = 0; net_counter < network_classification_paths.size(); net_counter++){
+  std::sort(maxima_digits.begin(), maxima_digits.end(), [&](int a, int b) { return digit_map[a].row < digit_map[b].row; });
+  for(auto max : maxima_digits){
+    index_iroc_oroc_shift++; // First index at which the row crosses the IROC - OROC1 boundary
+    if(digit_map[max].row > 62){
+      break;
+    }
+  }
 
-    network_class_size = 0;
-    size_t num_output_nodes = network_classification[net_counter].getNumOutputNodes();
+  int current_max_idx = 0;
+
+  for(int net_counter = 0; net_counter < (networkSplitIrocOroc == 0 ? 2 : 1)*network_classification_paths.size(); net_counter++){
+
+    std::vector<int> eval_idcs;
+    if(net_counter % 2 == 0){
+      for(int idx = 0; idx < index_iroc_oroc_shift + 1; idx++){
+        eval_idcs.push_back(maxima_digits[idx]);
+      }
+    } else {
+      for(int idx = index_iroc_oroc_shift + 1; idx < maxima_digits.size(); idx++){
+        eval_idcs.push_back(maxima_digits[idx]);
+      }
+    }
+
+    size_t num_output_nodes = network_classification[net_counter].getNumOutputNodes()[0][1];
     std::vector<std::vector<float>> output_network_class;
     custom::resize_nested_container(output_network_class, std::vector<size_t>{maxima_digits.size(), num_output_nodes});
 
-    for (int max_epoch = 0; max_epoch < std::ceil(maxima_digits.size() / (float)networkInputSize); max_epoch++) {
+    int network_input_size = 1;
+    for(auto v1 : network_classification[net_counter].getNumInputNodes()){
+      for(auto v2 : v1){
+        if(v2 > 0)
+          network_input_size*=v2;
+      }
+    }
+
+    for (int max_epoch = 0; max_epoch < std::ceil(eval_idcs.size() / (float)networkInputSize); max_epoch++) {
 
       std::vector<int> investigate_maxima;
-      custom::fill_container_by_range(investigate_maxima, maxima_digits, max_epoch * networkInputSize, ((max_epoch + 1) * networkInputSize) - 1);
-      auto [input_vector, flags] = create_network_input(sector, map2d, investigate_maxima, digit_map);
+      custom::fill_container_by_range(investigate_maxima, eval_idcs, max_epoch * networkInputSize, ((max_epoch + 1) * networkInputSize) - 1);
+      auto [input_vector, flags] = create_network_input(sector, map2d, investigate_maxima, digit_map, network_input_size);
       custom::append_to_container(flags_memory, flags);
 
-      int eval_size = input_vector.size() / index_shift_global;
+      int eval_size = input_vector.size() / network_input_size;
       std::vector<float> out_net = network_classification[net_counter].inference_vector(input_vector, eval_size);
 
       for (int idx = 0; idx < eval_size; idx++) {
 
-        int current_max_idx = max_epoch * networkInputSize + idx;
+        // int current_max_idx = max_epoch * networkInputSize + idx;
         for (int s = 0; s < num_output_nodes; s++) {
           output_network_class[current_max_idx][s] = out_net[idx * num_output_nodes + s];
         }
@@ -1172,7 +1321,7 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
             for (int pad = 0; pad < 2 * global_shift[0] + 1; pad++) {
               std::cout << "[";
               for (int time = 0; time < 2 * global_shift[1] + 1; time++) {
-                std::cout << input_vector[idx*index_shift_global + row*index_shift_row + pad*index_shift_pad + time];
+                std::cout << input_vector[idx*network_input_size + row*index_shift_row + pad*index_shift_pad + time];
                 if(time != 2 * global_shift[1]){
                   std::cout << ", ";
                 } else if((row+1)*(pad+1)*(time+1) == index_shift_global){
@@ -1186,19 +1335,16 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
           std::cout << "])" << std::endl;
           std::cout << "Corresponding network output to data above was: ";
           for (int i = 0; i < num_output_nodes; i++) {
-            if(i != 4){
-              std::cout << output_network_class[current_max_idx][i] << ", ";
-            } else {
-              std::cout << output_network_class[current_max_idx][i] << std::endl;
-            }
+            std::cout << output_network_class[current_max_idx][i] << ", ";
           }
+          std::cout << std::endl;
         }
 
         float tmp_class_label = -1;
         if (num_output_nodes == 1) {
           tmp_class_label = (int)(output_network_class[current_max_idx][0] > networkClassThres);
         } else {
-          tmp_class_label = std::min((int)std::distance(output_network_class[current_max_idx].begin(), std::max_element(output_network_class[current_max_idx].begin(), output_network_class[current_max_idx].end())), (int)network_regression_paths.size());
+          tmp_class_label = std::min((int)std::distance(output_network_class[current_max_idx].begin(), std::max_element(output_network_class[current_max_idx].begin(), output_network_class[current_max_idx].end())), (int)network_regression_paths.size()) - 1;
         }
 
         if (tmp_class_label > 0 && class_label[current_max_idx] > 0) {
@@ -1212,6 +1358,7 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
           digit_map[maxima_digits[current_max_idx]].label = 0;
         }
 
+        current_max_idx++;
       }
     }
   }
@@ -1244,106 +1391,159 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
 }
 
 // ---------------------------------
-void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int>& maxima_digits, std::vector<customCluster>& digit_map, std::vector<customCluster>& network_map)
+void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int>& maxima_digits, std::vector<customCluster>& digit_map, std::vector<customCluster>& network_map, std::vector<std::array<float,2>>& momentum_vector_map)
 {
 
   int index_shift_global = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), index_shift_row = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), index_shift_pad = (2 * global_shift[1] + 1);
-  int num_output_classes = network_regression_paths.size(), num_output_nodes_regression = 5; // Expects regression networks to be sorted by class output and have 5 outputs -> [pad1, pad2, ..., time1, time2, ..., sigma_pad1, ..., sigma_time1, ..., qRatio1, ...]
+  int num_output_classes = (int)(network_regression_paths.size() / (networkSplitIrocOroc == 0 ? 1 : 2)), num_output_nodes_regression = network_regression[0].getNumOutputNodes()[0][1]; // Expects regression networks to be sorted by class output and have 5 outputs -> [pad1, pad2, ..., time1, time2, ..., sigma_pad1, ..., sigma_time1, ..., qRatio1, ...]
   std::vector<int> digit_idcs;
 
-  int total_num_points = 0;
-  std::vector<std::vector<int>> sorted_digit_idx(6); // maybe good to change this once to a fixed number of possible classes
-  for(int max = 0; max < maxima_digits.size(); max++){
-    if(network_map[max].label > 0){
-      total_num_points++;
-      sorted_digit_idx[network_map[max].label].push_back(max);
+  int index_iroc_oroc_shift = 0;
+  for(auto max : maxima_digits){
+    index_iroc_oroc_shift++; // First index at which the row crosses the IROC - OROC1 boundary; Expects sorting from classificaiton network function
+    if(digit_map[max].row > 62){
+      break;
     }
   }
-  std::vector<int> corresponding_index_output(total_num_points, 0);
-  total_num_points = 0;
-  int tmp_idx = 0;
-  for(int max = 0; max < maxima_digits.size(); max++){
-    total_num_points += network_map[max].label;
-    if(max < (maxima_digits.size()-1) && network_map[max].label > 0){
-      corresponding_index_output[tmp_idx+1] = corresponding_index_output[tmp_idx] + network_map[max].label;
-      tmp_idx++;
+  
+  int out_net_idx = 0, idx_offset = 0;
+  std::vector<customCluster> output_network_reg;
+  for(int split_counter = 0; split_counter < 2; split_counter++){
+
+    std::vector<int> eval_idcs;
+    if(split_counter % 2 == 0){
+      for(int idx = 0; idx < index_iroc_oroc_shift + 1; idx++){
+        eval_idcs.push_back(maxima_digits[idx]);
+      }
+      idx_offset = 0;
+    } else {
+      for(int idx = index_iroc_oroc_shift + 1; idx < maxima_digits.size(); idx++){
+        eval_idcs.push_back(maxima_digits[idx]);
+      }
+      idx_offset = index_iroc_oroc_shift + 1;
     }
-  }
-  std::vector<customCluster> output_network_reg(total_num_points);
 
-  for(int class_idx = 1; class_idx < num_output_classes + 1; class_idx++){
+    int total_num_points = 0;
+    std::vector<std::vector<int>> sorted_digit_idx(6); // maybe good to change this once to a fixed number of possible classes
+    for(int max = 0; max < eval_idcs.size(); max++){
+      if(network_map[max + idx_offset].label > 0){
+        total_num_points++;
+        sorted_digit_idx[network_map[max + idx_offset].label].push_back(max);
+      }
+    }
 
-    if(sorted_digit_idx[class_idx].size()>0){
-      for(int max_epoch = 0; max_epoch < std::ceil(sorted_digit_idx[class_idx].size() / (float) networkInputSize); max_epoch++){
-        
-        std::vector<int> investigate_maxima;
-        custom::fill_container_by_range(investigate_maxima, sorted_digit_idx[class_idx], max_epoch * networkInputSize, ((max_epoch + 1) * networkInputSize) - 1);
-        for(int& inv_max : investigate_maxima){
-          inv_max = maxima_digits[inv_max];
+    // std::vector<int> corresponding_index_output(total_num_points, 0);
+    // total_num_points = 0;
+    // int tmp_idx = 0;
+    // for(int max = 0; max < eval_idcs.size(); max++){
+    //   total_num_points += network_map[max + idx_offset].label;
+    //   if(max < (eval_idcs.size()-1) && network_map[max + idx_offset].label > 0){
+    //     corresponding_index_output[tmp_idx+1] = corresponding_index_output[tmp_idx] + network_map[max + idx_offset].label;
+    //     tmp_idx++;
+    //   }
+    // }
+
+    for(int class_idx = 1; class_idx < num_output_classes + 1; class_idx++){
+
+      if(sorted_digit_idx[class_idx].size()>0){
+
+        int network_input_size = 1;
+        for(auto v1 : network_regression[2*(class_idx-1) + split_counter].getNumInputNodes()){
+          for(auto v2 : v1){
+            if(v2 > 0)
+              network_input_size*=v2;
+          }
         }
-        auto [input_vector, flags] = create_network_input(sector, map2d, investigate_maxima, digit_map);
 
-        int eval_size = input_vector.size() / index_shift_global;
-        std::vector<float> out_net = network_regression[class_idx-1].inference_vector(input_vector, eval_size);
+        for(int max_epoch = 0; max_epoch < std::ceil(sorted_digit_idx[class_idx].size() / (float) networkInputSize); max_epoch++){
+          std::vector<int> investigate_maxima;
+          custom::fill_container_by_range(investigate_maxima, sorted_digit_idx[class_idx], max_epoch * networkInputSize, ((max_epoch + 1) * networkInputSize) - 1);
+          for(int& inv_max : investigate_maxima){
+            inv_max = eval_idcs[inv_max];
+          }
+          auto [input_vector, flags] = create_network_input(sector, map2d, investigate_maxima, digit_map, network_input_size);
 
-        for(int idx = 0; idx < eval_size; idx++){
-          int digit_max_idx = sorted_digit_idx[class_idx][max_epoch * networkInputSize + idx];
-          for(int subclass = 0; subclass < class_idx; subclass++){
-            int out_net_idx = idx * class_idx * num_output_nodes_regression + subclass;
-            customCluster net_cluster = network_map[digit_max_idx];
-            net_cluster.cog_pad += out_net[out_net_idx + 0 * class_idx];
-            net_cluster.cog_time += out_net[out_net_idx + 1 * class_idx];
-            net_cluster.sigmaPad = out_net[out_net_idx + 2 * class_idx];
-            net_cluster.sigmaTime = out_net[out_net_idx + 3 * class_idx];
-            net_cluster.qTot = out_net[out_net_idx + 4 * class_idx] * net_cluster.qMax; // Change for normalization mode
-            output_network_reg[corresponding_index_output[digit_max_idx] + subclass] = net_cluster;
-            digit_idcs.push_back(maxima_digits[digit_max_idx]);
+          int eval_size = input_vector.size() / network_input_size;
+          std::vector<float> out_net = network_regression[2*(class_idx-1) + split_counter].inference_vector(input_vector, eval_size);
 
-            if(round(net_cluster.cog_pad) > TPC_GEOM[net_cluster.row][2] || round(net_cluster.cog_time) > max_time[sector] || round(net_cluster.cog_pad) < 0 || round(net_cluster.cog_time) < 0){
-              LOG(warning) << "[" << sector << "] Stepping over boundaries! row: " << net_cluster.row << "; pad: " << net_cluster.cog_pad << " / " << TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] << "; time: " << net_cluster.cog_time << " / " << max_time[sector] << ". Resetting cluster center-of-gravity to maximum position.";
-              net_cluster.cog_pad = net_cluster.max_pad;
-              net_cluster.cog_time = net_cluster.max_time;
-              if(verbose >= 5) {
-                std::cout << "Corresponding network input:" << std::endl;
-                std::cout << "([" << std::endl;
-                for (int row = 0; row < 2 * global_shift[2] + 1; row++) {
-                  for (int pad = 0; pad < 2 * global_shift[0] + 1; pad++) {
-                    std::cout << "[";
-                    for (int time = 0; time < 2 * global_shift[1] + 1; time++) {
-                      std::cout << input_vector[idx*index_shift_global + row*index_shift_row + pad*index_shift_pad + time];
-                      if(time != 2 * global_shift[1]){
-                        std::cout << ", ";
-                      } else if((row+1)*(pad+1)*(time+1) == index_shift_global){
-                        std::cout << "]" << std::endl;
-                      } else {
-                        std::cout << "]," << std::endl;
+          for(int idx = 0; idx < eval_size; idx++){
+            int digit_max_idx = sorted_digit_idx[class_idx][max_epoch * networkInputSize + idx];
+            customCluster net_cluster = network_map[digit_max_idx + idx_offset];
+            for(int subclass = 0; subclass < class_idx; subclass++){
+              int net_idx = idx * class_idx * num_output_nodes_regression + subclass;
+              customCluster new_net_cluster = net_cluster;
+              new_net_cluster.cog_pad += out_net[net_idx + 0 * class_idx];
+              new_net_cluster.cog_time += out_net[net_idx + 1 * class_idx];
+              new_net_cluster.sigmaPad = out_net[net_idx + 2 * class_idx];
+              new_net_cluster.sigmaTime = out_net[net_idx + 3 * class_idx];
+              new_net_cluster.qTot = (new_net_cluster.qMax * out_net[net_idx + 4 * class_idx]); // Change for normalization mode
+              new_net_cluster.index = out_net_idx;
+
+              if(num_output_nodes_regression > 5){
+                momentum_vector_map.push_back({out_net[net_idx + 5 * class_idx], out_net[net_idx + 6 * class_idx]}); //, out_net[net_idx + 7 * class_idx]});
+              }
+
+              if(round(new_net_cluster.cog_pad) > TPC_GEOM[new_net_cluster.row][2] || round(new_net_cluster.cog_time) > max_time[sector] || round(new_net_cluster.cog_pad) < 0 || round(new_net_cluster.cog_time) < 0){
+                LOG(warning) << "[" << sector << "] Stepping over boundaries! row: " << new_net_cluster.row << "; pad: " << new_net_cluster.cog_pad << " (net: " << out_net[net_idx + 0 * class_idx] << ") / " << TPC_GEOM[new_net_cluster.row][2] << "; time: " << new_net_cluster.cog_time << " (net: " << out_net[net_idx + 1 * class_idx] << ") / " << max_time[sector] << ". Resetting cluster center-of-gravity to maximum position.";
+                new_net_cluster.cog_pad = new_net_cluster.max_pad;
+                new_net_cluster.cog_time = new_net_cluster.max_time;
+                if(verbose >= 5) {
+                  std::cout << "Corresponding network input:" << std::endl;
+                  std::cout << "([" << std::endl;
+                  for (int row = 0; row < 2 * global_shift[2] + 1; row++) {
+                    for (int pad = 0; pad < 2 * global_shift[0] + 1; pad++) {
+                      std::cout << "[";
+                      for (int time = 0; time < 2 * global_shift[1] + 1; time++) {
+                        std::cout << input_vector[idx*network_input_size + row*index_shift_row + pad*index_shift_pad + time];
+                        if(time != 2 * global_shift[1]){
+                          std::cout << ", ";
+                        } else if((row+1)*(pad+1)*(time+1) == index_shift_global){
+                          std::cout << "]" << std::endl;
+                        } else {
+                          std::cout << "]," << std::endl;
+                        }
                       }
                     }
                   }
-                }
-                std::cout << "])" << std::endl;
-                std::cout << "Corresponding network output to data above was: ";
-                for(int i = 0; i < 5; i++){
-                  if(i != 4){
-                    std::cout << out_net[out_net_idx + i * class_idx] << ", ";
-                  } else {
-                    std::cout << out_net[out_net_idx + i * class_idx] << std::endl;
+                  std::cout << "])" << std::endl;
+                  std::cout << "Corresponding network output to data above was: ";
+                  for(int i = 0; i < num_output_nodes_regression; i++){
+                    if(i != num_output_nodes_regression-1){
+                      std::cout << out_net[net_idx + i * class_idx] << ", ";
+                    } else {
+                      std::cout << out_net[net_idx + i * class_idx] << std::endl;
+                    }
                   }
                 }
               }
+
+              output_network_reg.push_back(new_net_cluster);
+              digit_idcs.push_back(eval_idcs[digit_max_idx]);
+              out_net_idx++;
             }
           }
         }
       }
     }
   }
-
-  network_map = output_network_reg;
-  // digit_map = output_network_reg; // -> This causes huge trouble. Not sure why...
-  maxima_digits.resize(output_network_reg.size());
-  for(int max = 0; max < maxima_digits.size(); max++){
-    maxima_digits[max] = digit_map[digit_idcs[max]].index;
+  for(int cls_idx = 0; cls_idx < output_network_reg.size(); cls_idx++){
+    output_network_reg[cls_idx].index = cls_idx;
   }
+
+  network_map.clear();
+  network_map = output_network_reg;
+  maxima_digits.clear();
+  maxima_digits.resize(output_network_reg.size());
+  std::iota(maxima_digits.begin(), maxima_digits.end(), 0);
+  
+  digit_map.clear();
+  digit_map = output_network_reg;
+
+  // digit_map = output_network_reg; // -> This causes huge trouble. Not sure why...
+  // maxima_digits.resize(output_network_reg.size());
+  // for(int max = 0; max < maxima_digits.size(); max++){
+  //   maxima_digits[max] = digit_map[digit_idcs[max]].index;
+  // }
 
   LOG(info) << "[" << sector << "] Regression network done!";
 }
@@ -1362,7 +1562,7 @@ void qaCluster::overwrite_map2d(int sector, tpc2d& map2d, std::vector<customClus
 // ---------------------------------
 int qaCluster::test_neighbour(std::array<int, 3> index, std::array<int, 2> nn, tpc2d& map2d, int mode)
 {
-  if(index[0] < o2::tpc::constants::MAXGLOBALPADROW && index[1] + nn[0] <= TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2]){
+  if(index[0] < o2::tpc::constants::MAXGLOBALPADROW && index[1] + nn[0] <= TPC_GEOM[index[0]][2]){
     return map2d[mode][index[2] + global_shift[1] + nn[1]][index[0] + rowOffset(index[0]) + global_shift[2]][index[1] + padOffset(index[0]) + global_shift[0] + nn[0]];
   } else {
     return -1;
@@ -1375,8 +1575,10 @@ void qaCluster::runQa(int sector)
 
   std::vector<int> maxima_digits; // , digit_isNoise, digit_isQED, digit_isValid;
   std::vector<std::array<float, 3>> digit_clusterizer_map;
+  std::vector<std::array<float,2>> momentum_vector_map;
   std::vector<customCluster> digit_map, ideal_map, network_map, native_map;
   std::vector<std::vector<std::vector<std::vector<int>>>> tagger_maps(looper_tagger_granularity.size());
+  std::vector<int> track_cluster_to_ideal_assignment; // First is digit_max index, then 5 possible assignemts of track_clusters
 
   LOG(info) << "--- Starting process for sector " << sector << " ---";
 
@@ -1431,10 +1633,8 @@ void qaCluster::runQa(int sector)
         // }
       } 
       if (mode.find(std::string("network_reg")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
-        run_network_regression(sector, map2d, maxima_digits, digit_map, network_map); // classification + regression
+        run_network_regression(sector, map2d, maxima_digits, digit_map, network_map, momentum_vector_map); // classification + regression
       }
-      digit_map = network_map;
-      std::iota(std::begin(maxima_digits), std::end(maxima_digits), 0);
       num_total_digit_max += maxima_digits.size();
       overwrite_map2d(sector, map2d, digit_map, maxima_digits, 1);
     } else {
@@ -1485,7 +1685,7 @@ void qaCluster::runQa(int sector)
         if (current_neighbour > -1 && current_neighbour < (int)ideal_map.size()) {
           assignments_id_to_dig[locdigit][layer_count + nn] = (assigned_digit[locdigit] == 0 && assigned_ideal[current_neighbour] == 0) ? current_neighbour : -1;
         } else if(current_neighbour >= (int)ideal_map.size()){
-          LOG(warning) << "[" << sector << "] (assignments_id_to_dig) Invalid map adress at index: " << locdigit << " / " << maxima_digits.size() << ": " << current_neighbour << " (/" << ideal_map.size() << ") - Accessing (row, pad time) = (" << digit_map[maxima_digits[locdigit]].row << ", " << round(digit_map[maxima_digits[locdigit]].cog_pad) << ", " << round(digit_map[maxima_digits[locdigit]].cog_time) << ")";
+          LOG(warning) << "[" << sector << "] (assignments_id_to_dig) Invalid map adress at index: " << locdigit << " / " << maxima_digits.size() << ": " << current_neighbour << " (/" << ideal_map.size() << ") - Accessing (row, pad, time) = (" << digit_map[maxima_digits[locdigit]].row << ", " << round(digit_map[maxima_digits[locdigit]].cog_pad) << ", " << round(digit_map[maxima_digits[locdigit]].cog_time) << ")";
         }
       }
       if (verbose >= 4)
@@ -1497,7 +1697,7 @@ void qaCluster::runQa(int sector)
         if (current_neighbour > -1 && current_neighbour < digit_map.size()) {
           assignments_dig_to_id[locideal][layer_count + nn] = (assigned_ideal[locideal] == 0 && assigned_digit[current_neighbour] == 0) ? current_neighbour : -1;
         } else if(current_neighbour >= (int)digit_map.size()){
-          LOG(warning) << "[" << sector << "] (assignments_dig_to_id) Invalid map adress at index: " << locideal << " / " << ideal_map.size() << ": " << current_neighbour << " (/" << digit_map.size() << ") - Accessing (row, pad time) = (" << ideal_map[locideal].row << ", " << round(ideal_map[locideal].cog_pad) << ", " << round(ideal_map[locideal].cog_time) << ")";
+          LOG(warning) << "[" << sector << "] (assignments_dig_to_id) Invalid map adress at index: " << locideal << " / " << ideal_map.size() << ": " << current_neighbour << " (/" << digit_map.size() << ") - Accessing (row, pad, time) = (" << ideal_map[locideal].row << ", " << round(ideal_map[locideal].cog_pad) << ", " << round(ideal_map[locideal].cog_time) << ")";
         }
       }
       if (verbose >= 4)
@@ -1653,32 +1853,6 @@ void qaCluster::runQa(int sector)
 
   if (mode.find(std::string("native")) != std::string::npos && create_output == 1) {
 
-    m.lock();
-    if (write_native_file) {
-      int native_writer_map_size = native_writer_map.size();
-      int cluster_counter = 0, total_counter = 0;
-      for(auto const cls : native_map){
-        if(!digit_tagged[total_counter]){
-          cluster_counter++;
-        }
-        total_counter++;
-      }
-      native_writer_map.resize(native_writer_map_size + cluster_counter);
-      cluster_counter = 0;
-      total_counter = 0;
-      for(auto const cls : native_map){
-        if(!digit_tagged[total_counter]){
-          native_writer_map[native_writer_map_size + cluster_counter] = cls;
-          GlobalPosition2D conv_pos = custom::convertSecRowPadToXY(cls.sector, cls.row, cls.cog_pad);
-          native_writer_map[native_writer_map_size + cluster_counter].X = conv_pos.X();
-          native_writer_map[native_writer_map_size + cluster_counter].Y = conv_pos.Y();
-          cluster_counter++;
-        }
-        total_counter++;
-      }
-    }
-    m.unlock();
-
     if (verbose >= 3)
       LOG(info) << "Native-Ideal assignment...";
 
@@ -1698,10 +1872,7 @@ void qaCluster::runQa(int sector)
 
     for (int max_point = 0; max_point < data_size; max_point++) {
       auto const dig = digit_map[maxima_digits[max_point]];
-      row_offset = rowOffset(dig.row);
-      pad_offset = padOffset(dig.row);
-      map_dig_idx = map2d[1][dig.max_time + global_shift[1]][dig.row + row_offset + global_shift[2]][dig.max_pad + global_shift[0] + pad_offset];
-      if (checkIdx(map_dig_idx)) {
+      if (!digit_tagged[max_point]) {
         check_assignment = 0;
         index_assignment = -1;
         distance_assignment = 100000.f;
@@ -1709,7 +1880,7 @@ void qaCluster::runQa(int sector)
         for (int i = 0; i < 25; i++) {
           // Checks all ideal maxima assigned to one digit maximum by calculating mutual distance
           current_idx_id = assignments_id_to_dig[max_point][i];
-          if (checkIdx(current_idx_id)) {
+          if (checkIdx(current_idx_id) && !ideal_tagged[current_idx_id]) {
             if ((ideal_map[current_idx_id].qTot < threshold_cogq && ideal_map[current_idx_id].qMax < threshold_maxq) || (assigned_ideal[current_idx_id] != 0)) {
               is_min_dist = false;
               break;
@@ -1719,7 +1890,7 @@ void qaCluster::runQa(int sector)
               if (current_distance_dig_to_id < distance_assignment) {
                 for (int j = 0; j < 25; j++) {
                   current_idx_dig = assignments_dig_to_id[current_idx_id][j];
-                  if (checkIdx(current_idx_dig)) {
+                  if (checkIdx(current_idx_dig) && !digit_tagged[current_idx_dig]) {
                     if (assigned_digit[current_idx_dig] == 0) {
                       // calculate mutual distance from current ideal CoG to all assigned digit maxima. Update if and only if distance is minimal. Else do not assign.
                       current_distance_id_to_dig = std::pow((native_map[current_idx_dig].cog_time - ideal_map[current_idx_id].cog_time), 2) + std::pow((native_map[current_idx_dig].cog_pad - ideal_map[current_idx_id].cog_pad), 2);
@@ -1740,6 +1911,9 @@ void qaCluster::runQa(int sector)
                   // Adding an assignment in order to avoid duplication
                   assigned_digit[max_point] += 1;
                   assigned_ideal[current_idx_id] += 1;
+                  native_map[max_point].mcTrkId = ideal_map[current_idx_id].mcTrkId;
+                  native_map[max_point].mcEvId = ideal_map[current_idx_id].mcEvId;
+                  native_map[max_point].mcSrcId = ideal_map[current_idx_id].mcSrcId;
                   current_element = {native_map[max_point], ideal_map[current_idx_id]};
                 }
               }
@@ -1807,15 +1981,11 @@ void qaCluster::runQa(int sector)
     native_ideal->Write();
     outputFileNativeIdeal->Close();
 
-  }
-
-  if (mode.find(std::string("network")) != std::string::npos && create_output == 1) {
-
     m.lock();
     if (write_native_file) {
       int native_writer_map_size = native_writer_map.size();
       int cluster_counter = 0, total_counter = 0;
-      for(auto const cls : network_map){
+      for(auto const cls : native_map){
         if(!digit_tagged[total_counter]){
           cluster_counter++;
         }
@@ -1824,10 +1994,10 @@ void qaCluster::runQa(int sector)
       native_writer_map.resize(native_writer_map_size + cluster_counter);
       cluster_counter = 0;
       total_counter = 0;
-      for(auto const cls : network_map){
+      for(auto const cls : native_map){
         if(!digit_tagged[total_counter]){
           native_writer_map[native_writer_map_size + cluster_counter] = cls;
-          GlobalPosition2D conv_pos = custom::convertSecRowPadToXY(cls.sector, cls.row, cls.cog_pad);
+          GlobalPosition2D conv_pos = custom::convertSecRowPadToXY(cls.sector, cls.row, cls.cog_pad, tpcmap);
           native_writer_map[native_writer_map_size + cluster_counter].X = conv_pos.X();
           native_writer_map[native_writer_map_size + cluster_counter].Y = conv_pos.Y();
           cluster_counter++;
@@ -1837,8 +2007,49 @@ void qaCluster::runQa(int sector)
     }
     m.unlock();
 
+  }
+
+  if (mode.find(std::string("network")) != std::string::npos && create_output == 1) {
+
     if (verbose >= 3)
       LOG(info) << "[" << sector << "] Network-Ideal assignment...";
+
+    bool addMomentumData = (mode.find(std::string("track_cluster")) != std::string::npos);
+
+    if(addMomentumData){
+      float precision = 1.f/64; // Defined by ClusterNative.h: unpackPad and unpackTime: scalePadPacked = scaleTimePacked = 64
+      track_cluster_to_ideal_assignment.resize(ideal_map.size());
+      custom::fill_nested_container(track_cluster_to_ideal_assignment, -1);
+      int cluster_counter = -1; // Starting at -1 due to continue statement in the following loop
+      for(auto cls : tracking_clusters[sector]){
+        cluster_counter++;
+        int idl_idx = map2d[0][round(cls.cog_time) + global_shift[1]][cls.row + global_shift[2] + rowOffset(cls.row)][round(cls.cog_pad) + global_shift[0] + padOffset(cls.row)];
+        if(idl_idx == -1 && (std::abs(std::abs(cls.cog_pad - (int)cls.cog_pad) - 0.5) < precision || std::abs(std::abs(cls.cog_time - (int)cls.cog_time) - 0.5) < precision)){
+          int check_pad = round(cls.cog_pad), check_time = round(cls.cog_time);
+          if(std::abs(std::abs(round(cls.cog_pad) - cls.cog_pad) - 0.5) < precision){
+            if((round(cls.cog_pad) - cls.cog_pad) < 0){
+              check_pad = round(cls.cog_pad) - 1;
+            } else {
+              check_pad = round(cls.cog_pad) + 1;
+            }
+          }
+          if(std::abs(std::abs(round(cls.cog_time) - cls.cog_time) - 0.5) < precision){
+            if((round(cls.cog_time) - cls.cog_time) < 0){
+              check_time = round(cls.cog_time) - 1;
+            } else {
+              check_time = round(cls.cog_time) + 1;
+            }
+          }
+          idl_idx = map2d[0][check_time + global_shift[1]][cls.row + global_shift[2] + rowOffset(cls.row)][check_pad + global_shift[0] + padOffset(cls.row)];
+        }
+        if(idl_idx == -1){
+          continue;
+        }
+        if ((cls.row == ideal_map[idl_idx].row) && ((cls.cog_time - ideal_map[idl_idx].cog_time) < precision) && ((cls.cog_pad - ideal_map[idl_idx].cog_pad) < precision)){
+          track_cluster_to_ideal_assignment[idl_idx] = cluster_counter;
+        }
+      }
+    }
 
     // creating training data for the neural network
     int data_size = maxima_digits.size();
@@ -1856,8 +2067,7 @@ void qaCluster::runQa(int sector)
 
     for (int max_point = 0; max_point < data_size; max_point++) {
       auto const dig = digit_map[maxima_digits[max_point]];
-      map_dig_idx = map2d[1][dig.max_time + global_shift[1]][dig.row + rowOffset(dig.row) + global_shift[2]][dig.max_pad + global_shift[0] + padOffset(dig.row)];
-      if (checkIdx(map_dig_idx)) {
+      if (!digit_tagged[max_point]) {
         check_assignment = 0;
         index_assignment = -1;
         distance_assignment = 100000.f;
@@ -1865,7 +2075,7 @@ void qaCluster::runQa(int sector)
         for (int i = 0; i < 25; i++) {
           // Checks all ideal maxima assigned to one digit maximum by calculating mutual distance
           current_idx_id = assignments_id_to_dig[max_point][i];
-          if (checkIdx(current_idx_id)) {
+          if (checkIdx(current_idx_id) && !ideal_tagged[current_idx_id]) {
             auto const idl = ideal_map[current_idx_id];
             if ((idl.qTot < threshold_cogq && idl.qMax < threshold_maxq) || (assigned_ideal[current_idx_id] != 0)) {
               is_min_dist = false;
@@ -1876,7 +2086,7 @@ void qaCluster::runQa(int sector)
               if (current_distance_dig_to_id < distance_assignment) {
                 for (int j = 0; j < 25; j++) {
                   current_idx_dig = assignments_dig_to_id[current_idx_id][j];
-                  if (checkIdx(current_idx_dig)) {
+                  if (checkIdx(current_idx_dig) && !digit_tagged[current_idx_dig]) {
                     if (assigned_digit[current_idx_dig] == 0) {
                       // calculate mutual distance from current ideal CoG to all assigned digit maxima. Update if and only if distance is minimal. Else do not assign.
                       current_distance_id_to_dig = std::pow((network_map[current_idx_dig].cog_time - idl.cog_time), 2) + std::pow((network_map[current_idx_dig].cog_pad - idl.cog_pad), 2);
@@ -1897,14 +2107,10 @@ void qaCluster::runQa(int sector)
                   // Adding an assignment in order to avoid duplication
                   assigned_digit[max_point] += 1;
                   assigned_ideal[current_idx_id] += 1;
+                  network_map[max_point].mcTrkId = ideal_map[current_idx_id].mcTrkId;
+                  network_map[max_point].mcEvId = ideal_map[current_idx_id].mcEvId;
+                  network_map[max_point].mcSrcId = ideal_map[current_idx_id].mcSrcId;
                   current_element = {network_map[max_point], ideal_map[current_idx_id]};
-                  if (normalization_mode == 0) {
-                    current_element[1].qMax /= 1024.f;
-                    current_element[1].qTot /= 1024.f;
-                  } else if (normalization_mode == 1) {
-                    current_element[1].qMax /= digit_map[maxima_digits[max_point]].qMax;
-                    current_element[1].qTot /= digit_map[maxima_digits[max_point]].qMax;
-                  }
                 }
               }
             }
@@ -1925,7 +2131,7 @@ void qaCluster::runQa(int sector)
     TFile* outputFileNetworkIdeal = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* network_ideal = new TTree("network_ideal", "tree");
 
-    float net_row = 0, net_time = 0, net_pad = 0, net_sigma_time = 0, net_sigma_pad = 0, net_qTot = 0, net_qMax = 0, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0, net_idx = 0, id_idx = 0;
+    float net_row = 0, net_time = 0, net_pad = 0, net_sigma_time = 0, net_sigma_pad = 0, net_qTot = 0, net_qMax = 0, net_momX = 1000, net_momY = 1000, net_momZ = 1000, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0, net_idx = 0, id_idx = 0, id_momX = 1000, id_momY = 1000, id_momZ = 1000, id_mom = 1000, net_momY_X = 1000, net_momZ_X = 1000;
     network_ideal->Branch("sector", &sector);
     network_ideal->Branch("network_row", &net_row);
     network_ideal->Branch("network_cog_time", &net_time);
@@ -1935,6 +2141,11 @@ void qaCluster::runQa(int sector)
     network_ideal->Branch("network_qMax", &net_qMax);
     network_ideal->Branch("network_qTot", &net_qTot);
     network_ideal->Branch("network_index", &net_idx);
+    // network_ideal->Branch("network_momentumX", &net_momX);
+    // network_ideal->Branch("network_momentumY", &net_momY);
+    // network_ideal->Branch("network_momentumZ", &net_momZ);
+    network_ideal->Branch("network_momentumY_X", &net_momY_X);
+    network_ideal->Branch("network_momentumZ_X", &net_momZ_X);
     network_ideal->Branch("ideal_row", &id_row);
     network_ideal->Branch("ideal_cog_time", &id_time);
     network_ideal->Branch("ideal_cog_pad", &id_pad);
@@ -1943,10 +2154,15 @@ void qaCluster::runQa(int sector)
     network_ideal->Branch("ideal_qMax", &id_qMax);
     network_ideal->Branch("ideal_qTot", &id_qTot);
     network_ideal->Branch("ideal_index", &id_idx);
+    network_ideal->Branch("ideal_momentum", &id_mom);
+    network_ideal->Branch("ideal_momentumX", &id_momX);
+    network_ideal->Branch("ideal_momentumY", &id_momY);
+    network_ideal->Branch("ideal_momentumZ", &id_momZ);
 
     // int netive_writer_map_size = netive_writer_map.size();
     // netive_writer_map.resize(native_writer_map_size + network_ideal_assignment.size());
 
+    bool momentum_vector_estimate = network_regression[0].getNumOutputNodes()[0][1] > 5;
     int elem_counter = 0;
     for (auto elem : network_ideal_assignment) {
       net_row = elem[0].row;
@@ -1965,6 +2181,17 @@ void qaCluster::runQa(int sector)
       id_qTot = elem[1].qTot;
       id_qMax = elem[1].qMax;
       id_idx = elem[1].index;
+      if(momentum_vector_estimate){
+        // net_momX = momentum_vector_map[net_idx][0];
+        // net_momY = momentum_vector_map[net_idx][1];
+        // net_momZ = momentum_vector_map[net_idx][2];
+        net_momY_X = momentum_vector_map[net_idx][0];
+        net_momZ_X = momentum_vector_map[net_idx][1];
+        id_mom = std::sqrt(std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][0],2) + std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][1],2) + std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][2],2));
+        id_momX = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][0] / id_mom;
+        id_momY = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][1] / id_mom;
+        id_momZ = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][2] / id_mom;
+      }
       network_ideal->Fill();
 
       // if (write_native_file) {
@@ -1979,12 +2206,78 @@ void qaCluster::runQa(int sector)
     network_ideal->Write();
     outputFileNetworkIdeal->Close();
 
+    m.lock();
+    if (write_native_file) {
+      int native_writer_map_size = native_writer_map.size();
+      int cluster_counter = 0, total_counter = 0;
+      for(auto const cls : network_map){
+        if(!digit_tagged[total_counter]){
+          cluster_counter++;
+        }
+        total_counter++;
+      }
+      native_writer_map.resize(native_writer_map_size + cluster_counter);
+      cluster_counter = 0;
+      total_counter = 0;
+      for(auto const cls : network_map){
+        if(!digit_tagged[total_counter]){
+          native_writer_map[native_writer_map_size + cluster_counter] = cls;
+          GlobalPosition2D conv_pos = custom::convertSecRowPadToXY(cls.sector, cls.row, cls.cog_pad, tpcmap);
+          native_writer_map[native_writer_map_size + cluster_counter].X = conv_pos.X();
+          native_writer_map[native_writer_map_size + cluster_counter].Y = conv_pos.Y();
+          cluster_counter++;
+        }
+        total_counter++;
+      }
+    }
+    m.unlock();
+
   }
 
   if (mode.find(std::string("training_data")) != std::string::npos && create_output == 1) {
 
+    // If momentum data is present assign momenta of tracking clusters to respective ideal clusters in map2d
+    bool addMomentumData = (mode.find(std::string("training_data_mom")) != std::string::npos);
+
+    if(addMomentumData){
+      float precision = 1.f/64; // Defined by ClusterNative.h: unpackPad and unpackTime: scalePadPacked = scaleTimePacked = 64
+      track_cluster_to_ideal_assignment.resize(ideal_map.size());
+      custom::fill_nested_container(track_cluster_to_ideal_assignment, -1);
+      int cluster_counter = -1; // Starting at -1 due to continue statement in the following loop
+      for(auto cls : tracking_clusters[sector]){
+        int idl_idx = map2d[0][round(cls.cog_time) + global_shift[1]][cls.row + global_shift[2] + rowOffset(cls.row)][round(cls.cog_pad) + global_shift[0] + padOffset(cls.row)];
+        if(idl_idx == -1 && (std::abs(std::abs(cls.cog_pad - (int)cls.cog_pad) - 0.5) < precision || std::abs(std::abs(cls.cog_time - (int)cls.cog_time) - 0.5) < precision)){
+          int check_pad = round(cls.cog_pad), check_time = round(cls.cog_time);
+          if(std::abs(std::abs(round(cls.cog_pad) - cls.cog_pad) - 0.5) < precision){
+            if((round(cls.cog_pad) - cls.cog_pad) < 0){
+              check_pad = round(cls.cog_pad) - 1;
+            } else {
+              check_pad = round(cls.cog_pad) + 1;
+            }
+          }
+          if(std::abs(std::abs(round(cls.cog_time) - cls.cog_time) - 0.5) < precision){
+            if((round(cls.cog_time) - cls.cog_time) < 0){
+              check_time = round(cls.cog_time) - 1;
+            } else {
+              check_time = round(cls.cog_time) + 1;
+            }
+          }
+          idl_idx = map2d[0][check_time + global_shift[1]][cls.row + global_shift[2] + rowOffset(cls.row)][check_pad + global_shift[0] + padOffset(cls.row)];
+        }
+        cluster_counter++;
+        if(idl_idx == -1){
+          continue;
+        }
+        if ((cls.row == ideal_map[idl_idx].row) && ((cls.cog_time - ideal_map[idl_idx].cog_time) < precision) && ((cls.cog_pad - ideal_map[idl_idx].cog_pad) < precision)){
+          track_cluster_to_ideal_assignment[idl_idx] = cluster_counter;
+        } else {
+          LOG(warning) << "Ideal cluster at same index (ideal) (sector: " << ideal_map[idl_idx].sector << "; row: " << ideal_map[idl_idx].row << "; pad: " << ideal_map[idl_idx].cog_pad << "; time: " << ideal_map[idl_idx].cog_time << ") ; (tracking) (sector: " << cls.sector << "; row: " << cls.row << "; pad: " << cls.cog_pad << "; time: " << cls.cog_time << ")";
+        }
+      }
+    }
+
     // Checks if digit is assigned / has non-looper assignments
-    std::vector<int> digit_has_non_looper_assignments(maxima_digits.size(), -1); // -1 = has no assignments, 0 = has 0 non-looper assignments, n = has n non-looper assignments
+    std::vector<int> digit_has_non_looper_assignments(maxima_digits.size(), -1); // -1 = has no assignments, 0 = has assignment but is looper, n = has n non-looper assignments
     std::vector<std::vector<int>> digit_non_looper_assignment_labels(maxima_digits.size());
     for (int dig_max = 0; dig_max < maxima_digits.size(); dig_max++) {
       bool digit_has_assignment = false;
@@ -1998,7 +2291,7 @@ void qaCluster::runQa(int sector)
             }
           }
           if (!is_tagged) {
-            digit_has_non_looper_assignments[dig_max] == -1 ? digit_has_non_looper_assignments[dig_max] += 2 : digit_has_non_looper_assignments[dig_max] += 1;
+            digit_has_non_looper_assignments[dig_max] == -1 ? digit_has_non_looper_assignments[dig_max] = 1 : digit_has_non_looper_assignments[dig_max] += 1;
             digit_non_looper_assignment_labels[dig_max].push_back(ass);
           }
         }
@@ -2037,7 +2330,7 @@ void qaCluster::runQa(int sector)
     o2::MCTrack current_track;
     std::vector<float> cluster_pT(data_size, -1), cluster_eta(data_size, -1), cluster_mass(data_size, -1), cluster_p(data_size, -1);
     std::vector<int> tr_data_Y_class(data_size, -1), cluster_isPrimary(data_size, -1), cluster_isTagged(data_size, -1);
-    std::vector<std::array<std::array<float, 5>, 5>> tr_data_Y_reg(data_size); // for each data element: for all possible assignments: {trY_time, trY_pad, trY_sigma_pad, trY_sigma_time, trY_q}
+    std::vector<std::array<std::array<float, 8>, 5>> tr_data_Y_reg(data_size); // for each data element: for all possible assignments: {trY_time, trY_pad, trY_sigma_pad, trY_sigma_time, trY_q}
     custom::fill_nested_container(tr_data_Y_reg, -1);
 
     std::fill(assigned_ideal.begin(), assigned_ideal.end(), 0);
@@ -2059,7 +2352,7 @@ void qaCluster::runQa(int sector)
         for (int row = 0; row < mat_size_row; row++) {
           for (int pad = 0; pad < mat_size_pad; pad++) {
             for (int time = 0; time < mat_size_time; time++) {
-              map_q_idx = map2d[1][dig.max_time + time][dig.row + row + row_offset][dig.max_pad + pad + pad_offset];
+              map_q_idx = map2d[0][dig.max_time + time][dig.row + row + row_offset][dig.max_pad + pad + pad_offset];
               if (map_q_idx == -1) {
                 if (isBoundary(dig.row + row + row_offset - global_shift[2], dig.max_pad + pad + pad_offset - global_shift[0])) {
                   tr_data_X[max_point][row][pad][time] = -1;
@@ -2112,6 +2405,14 @@ void qaCluster::runQa(int sector)
               cluster_p[max_point] = current_track.GetP();
               cluster_isPrimary[max_point] = (int)current_track.isPrimary();
             }
+
+            if(addMomentumData){
+              if(track_cluster_to_ideal_assignment[ideal_idx] != -1){
+                tr_data_Y_reg[max_point][counter][5] = momentum_vectors[sector][track_cluster_to_ideal_assignment[ideal_idx]][0];
+                tr_data_Y_reg[max_point][counter][6] = momentum_vectors[sector][track_cluster_to_ideal_assignment[ideal_idx]][1];
+                tr_data_Y_reg[max_point][counter][7] = momentum_vectors[sector][track_cluster_to_ideal_assignment[ideal_idx]][2];
+              }
+            }
           }
         }
       }
@@ -2134,10 +2435,10 @@ void qaCluster::runQa(int sector)
         }
       }
     }
-    std::array<std::array<float, 5>, 5> trY; // [branch][data]; data = {trY_time, trY_pad, trY_sigma_pad, trY_sigma_time, trY_q}
+    std::array<std::array<float, 8>, 5> trY; // [branch][data]; data = {trY_time, trY_pad, trY_sigma_pad, trY_sigma_time, trY_q}
     custom::fill_nested_container(trY, -1);
-    std::array<std::string, 5> branches{"out_reg_pad", "out_reg_time", "out_reg_sigma_pad", "out_reg_sigma_time", "out_reg_qTotOverqMax"};
-    for (int reg_br = 0; reg_br < 5; reg_br++) {
+    std::array<std::string, 8> branches{"out_reg_pad", "out_reg_time", "out_reg_sigma_pad", "out_reg_sigma_time", "out_reg_qTotOverqMax", "momentumX", "momentumY", "momentumZ"};
+    for (int reg_br = 0; reg_br < 8; reg_br++) {
       for (int reg_data = 0; reg_data < 5; reg_data++) {
         std::stringstream current_branch;
         current_branch << branches[reg_br] << "_" << reg_data;
@@ -2181,6 +2482,34 @@ void qaCluster::runQa(int sector)
 
   }
 
+  if (mode.find(std::string("write_ideal")) != std::string::npos && create_output == 1) {
+    m.lock();
+    if (write_native_file) {
+      int native_writer_map_size = native_writer_map.size();
+      int cluster_counter = 0, total_counter = 0;
+      for(auto const cls : ideal_map){
+        if(!ideal_tagged[total_counter]){
+          cluster_counter++;
+        }
+        total_counter++;
+      }
+      native_writer_map.resize(native_writer_map_size + cluster_counter);
+      cluster_counter = 0;
+      total_counter = 0;
+      for(auto const cls : ideal_map){
+        if(!ideal_tagged[total_counter]){
+          native_writer_map[native_writer_map_size + cluster_counter] = cls;
+          GlobalPosition2D conv_pos = custom::convertSecRowPadToXY(cls.sector, cls.row, cls.cog_pad, tpcmap);
+          native_writer_map[native_writer_map_size + cluster_counter].X = conv_pos.X();
+          native_writer_map[native_writer_map_size + cluster_counter].Y = conv_pos.Y();
+          cluster_counter++;
+        }
+        total_counter++;
+      }
+    }
+    m.unlock();
+  }
+
   LOG(info) << "--- Done with sector " << sector << " ---\n";
 
 }
@@ -2189,14 +2518,19 @@ void qaCluster::runQa(int sector)
 void qaCluster::run(ProcessingContext& pc)
 {
 
-  if (mode.find(std::string("matcher")) != std::string::npos){
-    if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-      for (int i = 0; i < looper_tagger_granularity.size(); i++) {
-        LOG(info) << "Looper tagger active, settings: granularity " << looper_tagger_granularity[i] << ", time-window: " << looper_tagger_timewindow[i] << ", pad-window: " << looper_tagger_padwindow[i] << ", threshold (num. points): " << looper_tagger_threshold_num[i] << ", threshold (Q): " << looper_tagger_threshold_q[i] << ", operational mode: " << looper_tagger_opmode;
-      }
+  if (mode.find(std::string("looper_tagger")) != std::string::npos) {
+    for (int i = 0; i < looper_tagger_granularity.size(); i++) {
+      LOG(info) << "Looper tagger active, settings: granularity " << looper_tagger_granularity[i] << ", time-window: " << looper_tagger_timewindow[i] << ", pad-window: " << looper_tagger_padwindow[i] << ", threshold (num. points): " << looper_tagger_threshold_num[i] << ", threshold (Q): " << looper_tagger_threshold_q[i] << ", operational mode: " << looper_tagger_opmode;
     }
+  }
 
-    read_kinematics(mctracks);
+  read_kinematics(mctracks);
+
+  if(mode.find(std::string("training_data_mom")) != std::string::npos || mode.find(std::string("track_cluster")) != std::string::npos){
+    read_tracking_clusters();
+  }
+
+  if (mode.find(std::string("matcher")) != std::string::npos){
 
     number_of_ideal_max.fill(0);
     number_of_digit_max.fill(0);
@@ -2322,10 +2656,7 @@ void qaCluster::run(ProcessingContext& pc)
 
     if (create_output == 1 && write_native_file == 1) {
       custom::writeStructToRootFile(outputPath + "/" + outFileCustomClusters, "data", native_writer_map);
-      if (mode.find(std::string("network")) != std::string::npos) {
-        write_custom_native(pc, native_writer_map);
-      }
-      if (mode.find(std::string("native")) != std::string::npos) {
+      if ((mode.find(std::string("network")) != std::string::npos) || (mode.find(std::string("native")) != std::string::npos) || (mode.find(std::string("write_ideal")) != std::string::npos)) {
         write_custom_native(pc, native_writer_map);
       }
     }
@@ -2339,105 +2670,6 @@ void qaCluster::run(ProcessingContext& pc)
       gSystem->Exec((command.str() + "/native_ideal_*.root").c_str());
       gSystem->Exec((command.str() + "/network_ideal_*.root").c_str());
     }
-  }
-
-  if(mode.find(std::string("track_clusters")) != std::string::npos) {
-    const auto& mapper = Mapper::instance();
-
-    auto file = TFile::Open((outputPath + "/" + inFileTracks).c_str());
-    auto tree = (TTree*)file->Get("tpcrec");
-    if (tree == nullptr) {
-      std::cout << "Error getting tree\n";
-    }
-    std::vector<TrackTPC>* tpcTracks = nullptr;
-    std::vector<o2::tpc::TPCClRefElem>* mCluRefVecInp = nullptr; // index to clusters linear structure in ClusterNativeAccess
-    std::vector<o2::MCCompLabel>* mMCTruthInp = nullptr;
-    tree->SetBranchAddress("TPCTracks", &tpcTracks);
-    tree->SetBranchAddress("ClusRefs", &mCluRefVecInp);
-    tree->SetBranchAddress("TPCTracksMCTruth", &mMCTruthInp);
-
-    // Getting the native clusters
-    ClusterNativeHelper::Reader tpcClusterReader;
-    tpcClusterReader.init((outputPath + "/" + inFileNative).c_str());
-    ClusterNativeAccess clusterIndex;
-    std::unique_ptr<ClusterNative[]> clusterBuffer;
-    memset(&clusterIndex, 0, sizeof(clusterIndex));
-    o2::tpc::ClusterNativeHelper::ConstMCLabelContainerViewWithBuffer clusterMCBuffer;
-    qc::Clusters clusters;
-    for (unsigned long i = 0; i < tpcClusterReader.getTreeSize(); ++i) {
-      tpcClusterReader.read(i);
-      tpcClusterReader.fillIndex(clusterIndex, clusterBuffer, clusterMCBuffer);
-    }
-
-    std::vector<customCluster> track_paths;
-    int tabular_data_counter = 0, track_counter = 0;
-    float B_field = -5.f; // kiloGauss in z direction
-    std::vector<std::array<float, 11>> misc_track_data;
-    std::vector<std::string> misc_track_data_branch_names = {"NClusters", "Chi2", "hasASideClusters", "hasCSideClusters", "P", "dEdxQtot", "dEdxQmax", "AbsCharge", "Eta", "Phi", "Pt"};
-    
-    // const auto& tpcClusRefs = data.getTPCTracksClusterRefs();
-    // const auto& tpcClusAcc = // get from tpc-native-clsuters the flat array
-
-    tree->GetEntry(0);
-    size_t nTracks = tpcTracks->size();
-    // track_paths.resize(track_paths.size() + nTracks*o2::tpc::constants::MAXGLOBALPADROW);
-    misc_track_data.resize(nTracks);
-    LOG(info) << "Loaded " << nTracks << " tracks. Processing...";
-
-    // ---| track loop |---
-    for (int k = 0; k < nTracks; k++) {
-      auto track = (*tpcTracks)[k];
-      for(int cl = 0; cl < track.getNClusters(); cl++){
-        uint8_t sector = 0, row = 0;
-        const auto cluster = track.getCluster(*mCluRefVecInp, cl, clusterIndex, sector, row); // ClusterNative instance
-        GlobalPosition2D conv_pos = mapper.LocalToGlobal(custom::convertSecRowPadToXY((int)sector, (int)row, cluster.getPad()), Sector((int)sector));
-        track_paths.push_back(customCluster{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, k, 0.f, conv_pos.X(), conv_pos.Y()});
-      }
-
-      // linear projection of the track to the (pad, time) dimention -> This needs improvement!!!
-      for(int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++){ // this needs to be defined -> x = x_coordinate of row.
-        float x=0, y=0, z=0, p=0, t=0;
-        int sector=0;
-        x = tpcmap.Row2X(row);
-        bool ok = 1;
-        auto point = track.getXYZGloAt(x, B_field, ok);
-        float phi = std::atan2(point.Y(), point.X());
-        if (phi < 0.) {
-          phi += TWOPI;
-          // if(point.Z() < tpcmap.GetTimeBoundary()){
-          //   sector += 18;
-          // }
-        }
-        sector += std::floor(phi / SECPHIWIDTH);
-        // GlobalPosition2D conv_pos = mapper.LocalToGlobal(custom::convertSecRowPadToXY(sector, row, tpcmap.LinearY2Pad(sector, row, y)), Sector(sector));
-        // track_paths[tabular_data_counter] = customCluster{sector, row, tpcmap.LinearY2Pad(sector, row, point.Y()), tpcmap.LinearZ2Time(sector, point.Z()), tpcmap.LinearY2Pad(sector, row, point.Y()), tpcmap.LinearZ2Time(sector, point.Z()), -1, -1, 10000, 10000, 1, -1, -1, -1, k, -1, point.X(), point.Y(), 0.f, 0.f, 0.f, 0.f, track.getdEdx()};
-        tabular_data_counter++; 
-      }
-      misc_track_data[k][0] = track.getNClusters();
-      misc_track_data[k][1] = track.getChi2();
-      misc_track_data[k][2] = track.hasASideClusters();
-      misc_track_data[k][3] = track.hasCSideClusters();
-      misc_track_data[k][4] = track.getP();
-      misc_track_data[k][5] = track.getdEdx().dEdxTotTPC;
-      misc_track_data[k][6] = track.getdEdx().dEdxMaxTPC;
-      misc_track_data[k][7] = track.getAbsCharge(); // TPC inner param = P / AbsCharge
-      misc_track_data[k][8] = track.getEta();
-      misc_track_data[k][9] = track.getPhi();
-      misc_track_data[k][10] = track.getPt();
-
-      // Cluster Reference
-      // for (int i = 0; i < track.getNClusters(); i++) {
-      //   o2::tpc::TrackTPC::getClusterReference(tpcClusRefs, i, sectorIndex, rowIndex, clusterIndex, track.getClusterRef());
-      //   unsigned int absoluteIndex = tpcClusAcc.clusterOffset[sectorIndex][rowIndex] + clusterIndex;
-      //   
-      // }
-    }
-
-    std::string outfile = custom::splitString(outFileCustomClusters, ".root")[0];
-    custom::writeStructToRootFile(outputPath + "/" + outfile + "_tracks.root", "data", track_paths);
-    LOG(info) << "Clusters of tracks written!";
-
-    custom::writeTabularToRootFile(misc_track_data_branch_names, misc_track_data, outputPath + "/tpc_tracks_tabular_information.root", "tpc_tracks_info", "TPC track information");
   }
 
   if(mode.find(std::string("tpc_geometry")) != std::string::npos) {
@@ -2529,10 +2761,12 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
       // {"network-classification-paths", VariantType::ArrayString, std::vector<std::string>{""}, {"Absolute path(s) to the network file(s) (cluster classification)"}}, // Change to array
       {"network-regression-paths", VariantType::String, "", {"Absolute path(s) to the network file(s) (cluster regression), semicolon-delimited"}}, // Change to array
       {"network-classification-paths", VariantType::String, "", {"Absolute path(s) to the network file(s) (cluster classification), semicolon-delimited"}}, // Change to array
+      {"network-split-iroc-oroc", VariantType::Int, 0, {"Whether to use different networks for IROC and OROC's. If 1: network-path = network_iroc1;network_oroc1;network_iroc2;network_oroc2; ..."}},
       {"network-input-size", VariantType::Int, 1000, {"Size of the vector to be fed through the neural network"}},
       {"network-class-threshold", VariantType::Float, 0.5f, {"Threshold for classification network: Keep or reject maximum (default: 0.5)"}},
       {"enable-network-optimizations", VariantType::Bool, true, {"Enable ONNX network optimizations"}},
       {"network-num-threads", VariantType::Int, 1, {"Set the number of CPU threads for network execution"}},
+      {"network-threshold-sigmoid-trafo", VariantType::Int, 0, {"If 1, convert network-class-threshold to sigmoid^-1(threshold)"}},
       {"remove-individual-files", VariantType::Int, 0, {"Remove sector-individual files that are created during the task and only keep merged files"}}}};
 }
 

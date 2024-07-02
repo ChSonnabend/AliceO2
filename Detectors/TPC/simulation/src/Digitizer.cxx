@@ -83,6 +83,9 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
   cog_time.clear();
   cog_pad.clear();
   cog_q.clear();
+  cog_q2.clear();
+  var_pad.clear();
+  var_time.clear();
   point_counter.clear();
   mclabel_trackID.clear();
   mclabel_eventID.clear();
@@ -202,7 +205,7 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
               //   max_pad[label_counter] = currentPadPos;
               // }
 
-              for(auto elem : max_q[label_counter]){
+              for(auto const elem : max_q[label_counter]){
                 if((max_time[label_counter][max_idx] == currentTimeBin) && (max_pad[label_counter][max_idx] == currentPadPos)){
                   max_q[label_counter][max_idx] += currentSignal;
                   max_idx_found = true;
@@ -220,10 +223,21 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
                 max_q[label_counter].push_back(currentSignal);
               }
 
-              /// On-the-fly center-of-gravity calculation
-              cog_time[label_counter] = (cog_time[label_counter]*cog_q[label_counter] + currentTimeBin*currentSignal)/(cog_q[label_counter] + currentSignal);
-              cog_pad[label_counter] = (cog_pad[label_counter]*cog_q[label_counter] + currentPadPos*currentSignal)/(cog_q[label_counter] + currentSignal);
+              /// On-the-fly center-of-gravity and variance calculation: Weighted welford online algorithm
+              // See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Weighted_incremental_algorithm -> Weighted incremental algorithm
               cog_q[label_counter] += currentSignal;
+              cog_q2[label_counter] += std::pow(currentSignal,2);
+              const float cog_t_old = cog_time[label_counter], cog_p_old = cog_pad[label_counter], charge_ratio = currentSignal/cog_q[label_counter];
+              const float time_diff = (float)currentTimeBin - cog_t_old, pad_diff = (float)currentPadPos - cog_p_old;
+              cog_time[label_counter] += (charge_ratio * time_diff);
+              cog_pad[label_counter] += (charge_ratio * pad_diff);
+              var_time[label_counter] += (currentSignal * time_diff * ((float)currentTimeBin - cog_time[label_counter]));
+              var_pad[label_counter] += (currentSignal * pad_diff * ((float)currentPadPos - cog_pad[label_counter]));
+
+              // LEGACY
+              // cog_time[label_counter] = (cog_time[label_counter]*cog_q[label_counter] + currentTimeBin*currentSignal)/(cog_q[label_counter] + currentSignal);
+              // cog_pad[label_counter] = (cog_pad[label_counter]*cog_q[label_counter] + currentPadPos*currentSignal)/(cog_q[label_counter] + currentSignal);
+              // cog_q[label_counter] += currentSignal;
 
               /// Point counter
               point_counter[label_counter] += 1;
@@ -243,6 +257,9 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
               cog_time.push_back(currentTimeBin);
               cog_pad.push_back(currentPadPos);
               cog_q.push_back(currentSignal);
+              cog_q2.push_back(std::pow(currentSignal,2));
+              var_time.push_back(0);
+              var_pad.push_back(0);
               point_counter.push_back(1);
               mclabel.push_back(label);
               mclabel_trackID.push_back(label.getTrackID());

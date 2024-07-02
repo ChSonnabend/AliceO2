@@ -11,8 +11,6 @@
 
 #include "Algorithm/RangeTokenizer.h"
 
-#include "DetectorsRaw/HBFUtils.h"
-
 #include "DataFormatsTPC/WorkflowHelper.h"
 #include "DataFormatsTPC/ClusterNativeHelper.h"
 #include "DataFormatsTPC/ClusterNative.h"
@@ -22,8 +20,15 @@
 #include "DataFormatsGlobalTracking/TrackTuneParams.h"
 #include "DataFormatsTPC/Defs.h"
 
+#include "DetectorsRaw/HBFUtils.h"
+#include "DetectorsBase/GRPGeomHelper.h"
+#include "MathUtils/Utils.h"
+
 #include "DPLUtils/RootTreeReader.h"
 #include "DPLUtils/MakeRootTreeWriterSpec.h"
+
+#include "GPUO2Interface.h"
+#include "GPUO2InterfaceUtils.h"
 
 #include "SimulationDataFormat/MCCompLabel.h"
 #include "SimulationDataFormat/ConstMCTruthContainer.h"
@@ -63,6 +68,7 @@ using namespace GPUCA_NAMESPACE::gpu;
 using namespace o2::tpc;
 using namespace o2::framework;
 using namespace o2::ml;
+using namespace o2::base;
 using namespace boost;
 
 template <typename T>
@@ -94,6 +100,7 @@ struct customCluster {
   float label = 0.f; // holds e.g. the network class label / classification score
   float X = -1.f;
   float Y = -1.f;
+  float Z = -1.f;
 
   ~customCluster(){}
 
@@ -116,7 +123,8 @@ struct customCluster {
       {"index", typeid(index).name()},
       {"label", typeid(label).name()},
       {"X", typeid(X).name()},
-      {"Y", typeid(Y).name()}
+      {"Y", typeid(Y).name()},
+      {"Z", typeid(Z).name()}
     };
   }
 };
@@ -265,9 +273,9 @@ class TPCMap
     const std::vector<float> mPadHeight = {.75f, .75f, .75f, .75f, 1.f, 1.f, 1.2f, 1.2f, 1.5f, 1.5f};
     const std::vector<float> mPadWidth = {.416f, .420f, .420f, .436f, .6f, .6f, .608f, .588f, .604f, .607f};
 
-    const float T_BOUNDARY = 0.f;
-    const float FACTOR_T2Z = 1.f; // 250.f / 512.f;
-    const float FACTOR_Z2T = 1.f; // 1.f / FACTOR_T2Z;
+    const float T_BOUNDARY = 250.f;
+    const float FACTOR_T2Z = 250.f / 512.f;
+    const float FACTOR_Z2T = 1.f / FACTOR_T2Z;
 };
 
 class qaCluster : public Task
@@ -289,9 +297,10 @@ class qaCluster : public Task
   void read_ideal(int, std::vector<customCluster>&);
   void read_native(int, std::vector<customCluster>&, std::vector<customCluster>&);
   void read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>&);
+  void read_tracking_clusters();
 
   // Writers
-  void write_custom_native(ProcessingContext&, std::vector<customCluster>&);
+  void write_custom_native(ProcessingContext&, std::vector<customCluster>&, bool = true);
   void write_tabular_data();
 
   tpc2d init_map2d(int);
@@ -309,9 +318,9 @@ class qaCluster : public Task
   void remove_loopers_native(int, std::vector<std::vector<std::vector<int>>>&, std::vector<customCluster>&, std::vector<int>&);
   void remove_loopers_ideal(int, std::vector<std::vector<std::vector<int>>>&, std::vector<customCluster>&);
 
-  std::tuple<std::vector<float>, std::vector<uint8_t>> create_network_input(int, tpc2d&, std::vector<int>&, std::vector<customCluster>&);
+  std::tuple<std::vector<float>, std::vector<uint8_t>> create_network_input(int, tpc2d&, std::vector<int>&, std::vector<customCluster>&, int);
   void run_network_classification(int, tpc2d&, std::vector<int>&, std::vector<customCluster>&, std::vector<customCluster>&);
-  void run_network_regression(int, tpc2d&, std::vector<int>&, std::vector<customCluster>&, std::vector<customCluster>&);
+  void run_network_regression(int, tpc2d&, std::vector<int>&, std::vector<customCluster>&, std::vector<customCluster>&, std::vector<std::array<float,2>>&);
   void overwrite_map2d(int, tpc2d&, std::vector<customCluster>&, std::vector<int>&, int = 0);
 
   int test_neighbour(std::array<int, 3>, std::array<int, 2>, tpc2d&, int = 1);
@@ -321,8 +330,9 @@ class qaCluster : public Task
 
  private:
   TPCMap tpcmap;
+  std::shared_ptr<o2::base::GRPGeomRequest> grp_geom;
 
-  std::vector<int> tpc_sectors; // The TPC sectors for which processing should be started
+  std::vector<int> tpc_sectors;              // The TPC sectors for which processing should be started
   std::vector<int> global_shift = {5, 5, 0}; // shifting digits to select windows easier, (pad, time, row)
   int charge_limits[2] = {2, 1024};          // upper and lower charge limits
   int verbose = 0;                           // chunk_size in time direction
@@ -331,6 +341,7 @@ class qaCluster : public Task
   int networkInputSize = 1000;               // vector input size for neural network
   float networkClassThres = 0.5f;            // Threshold where network decides to keep / reject digit maximum
   int networkNumThreads = 1;                 // Future: Add Cuda and CoreML Execution providers to run on CPU
+  bool networkSplitIrocOroc = 0;             // Whether or not to split the used networks for IROC and OROC's
   int numThreads = 1;                        // Number of cores for multithreading
   int use_max_cog = 1;                       // 0 = use ideal maxima position; 1 = use ideal CoG position (rounded) for assignment
   float threshold_cogq = 5.f;                // Threshold for ideal cluster to be findable (Q_tot)
@@ -378,11 +389,14 @@ class qaCluster : public Task
   std::vector<customCluster> native_writer_map;
   std::mutex m;
 
+  // Training data -> Momentum vector assignment
+  std::array<std::vector<std::array<float,3>>, o2::tpc::constants::MAXSECTOR> momentum_vectors;
+  std::array<std::vector<customCluster>, o2::tpc::constants::MAXSECTOR> tracking_clusters;
 };
 
 namespace custom
 {
-std::vector<std::string> splitString(const std::string& input, const std::string& delimiter) {
+  std::vector<std::string> splitString(const std::string& input, const std::string& delimiter) {
     std::vector<std::string> tokens;
     std::size_t pos = 0;
     std::size_t found;
@@ -621,25 +635,36 @@ std::vector<std::string> splitString(const std::string& input, const std::string
     }
   }
 
-  GlobalPosition2D convertSecRowPadToXY(int sector, int row, float pad){
+  GlobalPosition2D convertSecRowPadToXY(int sector, int row, float pad, TPCMap tpcmap){
 
     const auto& mapper = Mapper::instance();
 
-    int firstRegion = 0, lastRegion = 10;
-    if (row < 63) {
-      firstRegion = 0;
-      lastRegion = 4;
-    } else {
-      firstRegion = 4;
-      lastRegion = 10;
+    if(row > o2::tpc::constants::MAXGLOBALPADROW || sector > o2::tpc::constants::MAXSECTOR){
+      LOG(warning) << "Stepping over boundary: " << sector << " / " << o2::tpc::constants::MAXSECTOR << ", " << row << " / " << o2::tpc::constants::MAXGLOBALPADROW;
     }
 
     GlobalPosition2D pos = mapper.getPadCentre(PadSecPos(sector, row, pad));
     float fractionalPad = 0;
-    if(int(pad) != pad){
-      fractionalPad = mapper.getPadRegionInfo(firstRegion).getPadWidth()*(pad - int(pad));
+    if(int(pad) != float(pad)){
+      fractionalPad = mapper.getPadRegionInfo(tpcmap.GetRegion(row)).getPadWidth()*(pad - int(pad) - 0.5);
     }
-    return GlobalPosition2D(pos.X() + fractionalPad, pos.Y());
+    return GlobalPosition2D(pos.X(), pos.Y());
+  }
+
+  GlobalPosition3D convertSecRowPadToXY(int sector, int row, float pad, float z, TPCMap tpcmap){
+
+    const auto& mapper = Mapper::instance();
+
+    if(row > o2::tpc::constants::MAXGLOBALPADROW || sector > o2::tpc::constants::MAXSECTOR){
+      LOG(warning) << "Stepping over boundary: " << sector << " / " << o2::tpc::constants::MAXSECTOR << ", " << row << " / " << o2::tpc::constants::MAXGLOBALPADROW;
+    }
+
+    GlobalPosition2D pos = mapper.getPadCentre(PadSecPos(sector, row, pad));
+    float fractionalPad = 0;
+    if(int(pad) != float(pad)){
+      fractionalPad = mapper.getPadRegionInfo(tpcmap.GetRegion(row)).getPadWidth()*(pad - int(pad) - 0.5);
+    }
+    return GlobalPosition3D(pos.X(), pos.Y(), z);
   }
 
   // Write function for vector of customCluster
@@ -671,6 +696,7 @@ std::vector<std::string> splitString(const std::string& input, const std::string
       tree.Branch("label", &cls.label);
       tree.Branch("X", &cls.X);
       tree.Branch("Y", &cls.Y);
+      tree.Branch("Z", &cls.Z);
 
       // Fill the tree with the data
       for (const auto& item : data) {

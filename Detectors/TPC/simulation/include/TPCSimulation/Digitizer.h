@@ -140,6 +140,9 @@ class Digitizer
   std::vector<float> getCogTime(){ return cog_time; }
   std::vector<float> getCogPad(){ return cog_pad; }
   std::vector<float> getCogQ(){ return cog_q; }
+  std::vector<float> getCogQ2(){ return cog_q2; }
+  std::vector<float> getVarPad(){ return var_pad; }
+  std::vector<float> getVarTime(){ return var_time; }
   std::vector<int> getPointCounter(){ return point_counter; }
   std::vector<MCCompLabel> getMcLabels(){ return mclabel; }
   std::vector<int> getMcLabelCounter(){ return mclabel_assigned; }
@@ -178,7 +181,7 @@ class Digitizer
   /// OWN IMPLEMENTATION
   int64_t elem_counter = 0;
   std::vector<int> sector, row, point_counter;
-  std::vector<float> cog_time, cog_pad, cog_q;
+  std::vector<float> cog_time, cog_pad, cog_q, cog_q2, var_pad, var_time;
 
   std::vector<std::vector<int>> max_time, max_pad;
   std::vector<std::vector<float>> max_q;

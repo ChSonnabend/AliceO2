@@ -445,7 +445,10 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         tmp_max_q = mDigitizer.getMaxQ();
         tmp_cog_time = mDigitizer.getCogTime();
         tmp_cog_pad = mDigitizer.getCogPad();
+        tmp_var_pad = mDigitizer.getVarPad();
+        tmp_var_time = mDigitizer.getVarTime();
         tmp_cog_q = mDigitizer.getCogQ();
+        tmp_cog_q2 = mDigitizer.getCogQ2();
         tmp_mc_labelcounter = mDigitizer.getMcLabelCounter();
         tmp_mc_trackid = mDigitizer.getTrackID();
         tmp_mc_eventid = mDigitizer.getEventID();
@@ -460,6 +463,9 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         cog_time.insert(cog_time.end(), tmp_cog_time.begin(), tmp_cog_time.end());
         cog_pad.insert(cog_pad.end(), tmp_cog_pad.begin(), tmp_cog_pad.end());
         cog_q.insert(cog_q.end(), tmp_cog_q.begin(), tmp_cog_q.end());
+        cog_q2.insert(cog_q2.end(), tmp_cog_q2.begin(), tmp_cog_q2.end());
+        var_pad.insert(var_pad.end(), tmp_var_pad.begin(), tmp_var_pad.end());
+        var_time.insert(var_time.end(), tmp_var_time.begin(), tmp_var_time.end());
         mc_labelcounter.insert(mc_labelcounter.end(), tmp_mc_labelcounter.begin(), tmp_mc_labelcounter.end());
         mc_trackid.insert(mc_trackid.end(), tmp_mc_trackid.begin(), tmp_mc_trackid.end());
         mc_eventid.insert(mc_eventid.end(), tmp_mc_eventid.begin(), tmp_mc_eventid.end());
@@ -478,7 +484,10 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         tmp_max_q = mDigitizer.getMaxQ();
         tmp_cog_time = mDigitizer.getCogTime();
         tmp_cog_pad = mDigitizer.getCogPad();
+        tmp_var_pad = mDigitizer.getVarPad();
+        tmp_var_time = mDigitizer.getVarTime();
         tmp_cog_q = mDigitizer.getCogQ();
+        tmp_cog_q2 = mDigitizer.getCogQ2();
         tmp_mc_labelcounter = mDigitizer.getMcLabelCounter();
         tmp_mc_trackid = mDigitizer.getTrackID();
         tmp_mc_eventid = mDigitizer.getEventID();
@@ -493,6 +502,9 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         cog_time.insert(cog_time.end(), tmp_cog_time.begin(), tmp_cog_time.end());
         cog_pad.insert(cog_pad.end(), tmp_cog_pad.begin(), tmp_cog_pad.end());
         cog_q.insert(cog_q.end(), tmp_cog_q.begin(), tmp_cog_q.end());
+        cog_q2.insert(cog_q2.end(), tmp_cog_q2.begin(), tmp_cog_q2.end());
+        var_pad.insert(var_pad.end(), tmp_var_pad.begin(), tmp_var_pad.end());
+        var_time.insert(var_time.end(), tmp_var_time.begin(), tmp_var_time.end());
         mc_labelcounter.insert(mc_labelcounter.end(), tmp_mc_labelcounter.begin(), tmp_mc_labelcounter.end());
         mc_trackid.insert(mc_trackid.end(), tmp_mc_trackid.begin(), tmp_mc_trackid.end());
         mc_eventid.insert(mc_eventid.end(), tmp_mc_eventid.begin(), tmp_mc_eventid.end());
@@ -538,15 +550,20 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
     TTree* mcTree = new TTree(tmp.str().c_str(), "MC tree");
 
     int sec=0, r=0, mp=0, mt=0, idx=0, p=0, lab=0, trkid=0, evid=0, srcid=0;
-    float sp=0, st=0, cp=0, ct=0, cq=-1, mq=0;
+    float sp=0, st=0, sfvp = 0, sfvt = 0, srvp = 0, srvt = 0, cp=0, ct=0, cq=-1, cq2=-1, mq=0;
 
     mcTree->Branch("cluster_sector", &sec);
     mcTree->Branch("cluster_row", &r);
     mcTree->Branch("cluster_cog_pad", &cp);
     mcTree->Branch("cluster_cog_time", &ct);
     mcTree->Branch("cluster_cog_q", &cq);
+    mcTree->Branch("cluster_cog_q2", &cq2);
     mcTree->Branch("cluster_sigma_pad", &sp);
     mcTree->Branch("cluster_sigma_time", &st);
+    mcTree->Branch("cluster_sampleFreqVar_pad", &sfvp); // See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Weighted_incremental_algorithm -> Weighted incremental algorithm
+    mcTree->Branch("cluster_sampleFreqVar_time", &sfvt); // See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Weighted_incremental_algorithm -> Weighted incremental algorithm
+    mcTree->Branch("cluster_sampleRelVar_pad", &srvp); // See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Weighted_incremental_algorithm -> Weighted incremental algorithm
+    mcTree->Branch("cluster_sampleRelVar_time", &srvt); // See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Weighted_incremental_algorithm -> Weighted incremental algorithm
     mcTree->Branch("cluster_max_pad", &mp);
     mcTree->Branch("cluster_max_time", &mt);
     mcTree->Branch("cluster_max_q", &mq);
@@ -562,13 +579,14 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
       cp = cog_pad[i];
       ct = cog_time[i];
       cq = cog_q[i];
+      cq2 = cog_q2[i];
       lab = mc_labelcounter[i];
       trkid = mc_trackid[i];
       evid = mc_eventid[i];
       srcid = mc_sourceid[i];
+      sp = std::sqrt(var_pad[i] / cq);
+      st = std::sqrt(var_time[i] / cq);
       for(auto elem : max_q[i]){
-        sp += std::pow(max_pad[i][idx] - cog_pad[i], 2);
-        st += std::pow(max_time[i][idx] - cog_time[i], 2);
         if(elem > mq){
           mp = max_pad[i][idx];
           mt = max_time[i][idx];
@@ -584,12 +602,16 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         idx++;
       }
       if(mq > reject_maxq && cq > reject_cogq){
-        sp = std::sqrt(sp/max_q[i].size());
-        st = std::sqrt(st/max_q[i].size());
+        sfvp = var_pad[i] / (cq - 1.f);
+        sfvt = var_time[i] / (cq - 1.f);
+        if(cq2 != cq){
+          srvp = var_pad[i] / (cq - (cq2 / cq));
+          srvt = var_time[i] / (cq - (cq2 / cq));
+        }
         p = point_counter[i];
         mcTree->Fill();
       }
-      sp = 0; st = 0; mp = 0; mt = 0; mq = 0; idx=0; lab=0, trkid=0, evid=0, srcid=0;
+      sp = 0; st = 0; sfvp = 0; sfvt = 0; srvp = 0; srvt = 0; mp = 0; mt = 0; mq = 0; idx=0; lab=0; trkid=0; evid=0; srcid=0; cq=-1; cq2=-1;
     }
 
     mcTree->Write();
@@ -667,11 +689,11 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
 
   std::vector<int> tmp_sector_vec, tmp_row_vec, tmp_point_counter, tmp_mc_labelcounter, tmp_mc_trackid, tmp_mc_eventid, tmp_mc_sourceid;
   std::vector<std::vector<int>>  tmp_max_time, tmp_max_pad;
-  std::vector<float> tmp_cog_time, tmp_cog_pad, tmp_cog_q;
+  std::vector<float> tmp_cog_time, tmp_cog_pad, tmp_cog_q, tmp_cog_q2, tmp_var_pad, tmp_var_time;
   std::vector<std::vector<float>> tmp_max_q;
 
   std::vector<int> sector_vec, row_vec, point_counter, mc_labelcounter, mc_trackid, mc_eventid, mc_sourceid;
-  std::vector<float> cog_time, cog_pad, cog_q;
+  std::vector<float> cog_time, cog_pad, cog_q, cog_q2, var_pad, var_time;
   std::vector<std::vector<int>>  max_time, max_pad;
   std::vector<std::vector<float>> max_q;
 
