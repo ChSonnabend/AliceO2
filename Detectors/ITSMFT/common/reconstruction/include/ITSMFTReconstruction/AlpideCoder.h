@@ -180,10 +180,7 @@ class AlpideCoder
         continue;
       }
 
-      // ---------- chip info ?
-      uint8_t dataCM = dataC & (~MaskChipID);
-      //
-      if ((expectInp & ExpectChipEmpty) && dataCM == CHIPEMPTY) { // empty chip was expected
+      if ((expectInp & ExpectChipEmpty) && isChipEmpty(dataC)) { // empty chip was expected
         uint16_t chipIDGlo = cidGetter(dataC & MaskChipID);
         if (chipIDGlo == 0xffff) {
           chipData.setChipID(chipIDGlo);
@@ -207,7 +204,7 @@ class AlpideCoder
         continue;
       }
 
-      if ((expectInp & ExpectChipHeader) && dataCM == CHIPHEADER) { // chip header was expected
+      if ((expectInp & ExpectChipHeader) && isChipHeader(dataC)) { // chip header was expected
         uint16_t chipIDGlo = cidGetter(dataC & MaskChipID);
         if (chipIDGlo == 0xffff) {
           chipData.setChipID(chipIDGlo);
@@ -237,7 +234,7 @@ class AlpideCoder
         continue;
       }
 
-      if ((expectInp & ExpectChipTrailer) && dataCM == CHIPTRAILER) { // chip trailer was expected
+      if ((expectInp & ExpectChipTrailer) && isChipTrailer(dataC)) { // chip trailer was expected
         expectInp = ExpectNextChip;
         chipData.setROFlags(dataC & MaskROFlags);
 #ifdef ALPIDE_DECODING_STAT
@@ -396,7 +393,7 @@ class AlpideCoder
       }
 
       // in case of BUSY VIOLATION the Trailer may come directly after the Header
-      if ((expectInp & ExpectRegion) && (dataCM == CHIPTRAILER) && (dataC & MaskROFlags)) {
+      if ((expectInp & ExpectRegion) && isChipTrailer(dataC) && (dataC & MaskROFlags)) {
         expectInp = ExpectNextChip;
         chipData.setROFlags(dataC & MaskROFlags);
         roErrHandler(dataC & MaskROFlags);
@@ -480,9 +477,6 @@ class AlpideCoder
       ChipPixelData currentChip;
       int localID = lidGetter(ID);
       if (seenChips.count(ID)) {
-        if (seenChips[ID]->isErrorSet()) {
-          continue;
-        }
         currentChip = *seenChips[ID];
       }
       AlpideCoder encoder;
@@ -495,6 +489,13 @@ class AlpideCoder
       reconstructedData.fill(0x00,
                              buffer.getSize() - reconstructedData.getSize());
 
+    auto hexToString = [](uint8_t v) {
+      std::stringstream ss;
+      ss << "0x" << std::setfill('0') << std::setw(2) << std::hex
+         << std::uppercase << (0xFF & v);
+      return ss.str();
+    };
+
     auto reportError = [&](std::string message) {
       LOG(error) << "Error during decoder verification: " << message;
       LOG(debug) << "Raw Data:";
@@ -502,17 +503,13 @@ class AlpideCoder
       uint8_t dataC = 0;
       int index = 1;
       while (buffer.next(dataC)) {
-        LOG(debug) << index << ". 0x" << std::setfill('0') << std::setw(2)
-                   << std::hex << std::uppercase << (0xFF & dataC);
-        ++index;
+        LOG(debug) << index++ << ". " << hexToString(dataC);
       }
       LOG(debug) << "Reconstructed Data:";
       reconstructedData.rewind();
       index = 1;
       while (reconstructedData.next(dataC)) {
-        LOG(debug) << index << ". 0x" << std::setfill('0') << std::setw(2)
-                   << std::hex << std::uppercase << (0xFF & dataC);
-        ++index;
+        LOG(debug) << index++ << ". " << hexToString(dataC);
       }
     };
 
@@ -525,6 +522,9 @@ class AlpideCoder
     // 2. Bunch counter for frame: the reconstructed buffer does contain the
     //    corresponding words, but has a dummy value.
 
+    ChipPixelData* currentChip = nullptr;
+    if (seenChipIDs.size())
+      currentChip = seenChips[seenChipIDs[0]];
     buffer.rewind();
     while (true) {
       uint8_t dataRec = 0;
@@ -552,8 +552,13 @@ class AlpideCoder
       reconstructedData.current(dataRec);
       buffer.current(dataRaw);
       if (dataRaw == dataRec) {
-        if ((dataRaw & (~MaskChipID)) == CHIPHEADER ||
-            (dataRaw & (~MaskChipID)) == CHIPEMPTY) {
+        if (isChipHeaderOrEmpty(dataRaw)) {
+          uint16_t ID = cidGetter(dataRaw & MaskChipID);
+          if (seenChips.count(ID)) {
+            currentChip = seenChips[ID];
+          } else {
+            currentChip = nullptr;
+          }
           // If the data correspond to the CHIPHEADER or CHIPEMPTY data words,
           // skip the next byte that represent bunch counters.
           buffer.next(dataRaw);
@@ -570,47 +575,112 @@ class AlpideCoder
         buffer.next(dataRaw);
         continue;
       }
-      if ((dataRaw & ERROR_MASK) == ERROR_MASK) {
-        // Placement of error triggers is arbitrary and we cannot guarantee
-        // the decoder to have processed the rest of the stream.
-        return false;
-      }
 
-      if ((dataRaw & (~MaskChipID)) == CHIPHEADER) {
-        // If we encounter a mismatch when the raw data is at the beginning
-        // of the next chip, it might indicate the fact that an error occured
-        // during the decoding of this chip. In this case, we cannot continue
-        // the byte stream verification after this point.
-        uint16_t ID = cidGetter(dataRaw & MaskChipID);
-        if (seenChips.count(ID) && seenChips[ID]->isErrorSet()) {
-          LOG(warning) << "Chip " << ID
-                       << " could not be verified due to set errors: "
-                       << ChipStat::reportErrors(*seenChips[ID]);
-          // TODO: Instead of returning, we can skip the part of the buffer
-          // that describes this chip and continue with the verification of
-          // the next one.
+      VerifierMismatchResult res =
+        handleVerifierMismatch(buffer, reconstructedData, currentChip);
+      switch (res) {
+        case VerifierMismatchResult::RESOLVED:
+          LOG(debug) << "Mismatch " << hexToString(dataRaw) << " / "
+                     << hexToString(dataRec)
+                     << " was resolved, able to continue verification";
+          continue;
+        case VerifierMismatchResult::EXPECTED_MISMATCH:
+          LOG(debug) << "Mismatch " << hexToString(dataRaw) << " / "
+                     << hexToString(dataRec)
+                     << " was expected, aborting the verification";
           return true;
+        case VerifierMismatchResult::UNEXPECTED_MISMATCH: {
+          // If the read bytes is not related to the special cases, report
+          // error.
+          std::stringstream errorStream;
+          errorStream
+            << "Unexpected byte mismatch during decoder verification. "
+               "Expected: "
+            << hexToString(dataRaw)
+            << ", Reconstructed: " << hexToString(dataRec);
+          reportError(errorStream.str());
         }
       }
-
-      // If the read bytes is not related to the special cases, report error.
-      std::stringstream errorStream;
-      errorStream << "Unexpected byte mismatch during decoder verification. "
-                     "Expected: 0x"
-                  << std::hex << std::uppercase << std::setfill('0')
-                  << std::setw(2) << (0xFF & dataRaw) << ", Reconstructed: 0x"
-                  << std::setfill('0') << std::setw(2) << (0xFF & dataRec);
-      reportError(errorStream.str());
       return false;
     }
     return true;
   }
 
+  enum VerifierMismatchResult {
+    UNEXPECTED_MISMATCH, // Genuine mismatch, stop verification
+    EXPECTED_MISMATCH,   // Mismatch expected, need to abort verification
+    RESOLVED             // Mismatch resolved, can continue
+  };
+
+  static VerifierMismatchResult handleVerifierMismatch(
+    PayLoadCont& buffer, PayLoadCont& reconstructedData,
+    ChipPixelData* currentChip)
+  {
+    VerifierMismatchResult res = VerifierMismatchResult::UNEXPECTED_MISMATCH;
+    uint8_t dataRec = 0;
+    uint8_t dataRaw = 0;
+    reconstructedData.current(dataRec);
+    buffer.current(dataRaw);
+    auto inner = [&](int errIdx) {
+      if (res != VerifierMismatchResult::UNEXPECTED_MISMATCH ||
+          dataRaw == dataRec) {
+        // The mismatch was resolved, no need to check the rest of the errors
+        return;
+      }
+      switch (errIdx) {
+        case ChipStat::BusyViolation:
+        case ChipStat::DataOverrun:
+        case ChipStat::Fatal:
+        case ChipStat::BusyOn:
+        case ChipStat::BusyOff:
+        case ChipStat::TruncatedChipEmpty:
+        case ChipStat::TruncatedChipHeader:
+        case ChipStat::TruncatedRegion:
+        case ChipStat::TruncatedLondData:
+        case ChipStat::WrongDataLongPattern:
+        case ChipStat::NoDataFound:
+        case ChipStat::UnknownWord:
+        case ChipStat::RepeatingPixel:
+        case ChipStat::WrongRow:
+        case ChipStat::APE_STRIP_START:
+        case ChipStat::APE_ILLEGAL_CHIPID:
+        case ChipStat::APE_DET_TIMEOUT:
+        case ChipStat::APE_OOT:
+        case ChipStat::APE_PROTOCOL_ERROR:
+        case ChipStat::APE_LANE_FIFO_OVERFLOW_ERROR:
+        case ChipStat::APE_FSM_ERROR:
+        case ChipStat::APE_PENDING_DETECTOR_EVENT_LIMIT:
+        case ChipStat::APE_PENDING_LANE_EVENT_LIMIT:
+        case ChipStat::APE_O2N_ERROR:
+        case ChipStat::APE_RATE_MISSING_TRG_ERROR:
+        case ChipStat::APE_PE_DATA_MISSING:
+        case ChipStat::APE_OOT_DATA_MISSING:
+        case ChipStat::WrongDColOrder:
+        case ChipStat::InterleavedChipData:
+        case ChipStat::TruncatedBuffer:
+        case ChipStat::TrailerAfterHeader:
+        case ChipStat::FlushedIncomplete:
+        case ChipStat::StrobeExtended:
+        case ChipStat::WrongAlpideChipID:
+          break;
+        default:
+          LOG(error) << "Unknown error set by chip during verifier mismatch";
+      }
+    };
+    if (currentChip) {
+      currentChip->forEachSetError(inner);
+    }
+    return res;
+  }
+
+  static bool isChipEmpty(uint8_t v) { return (v & (~MaskChipID)) == CHIPEMPTY; }
+  static bool isChipHeader(uint8_t v) { return (v & (~MaskChipID)) == CHIPHEADER; }
+  static bool isChipTrailer(uint8_t v) { return (v & (~MaskChipID)) == CHIPTRAILER; }
+
   /// check if the byte corresponds to chip_header or chip_empty flag
   static bool isChipHeaderOrEmpty(uint8_t v)
   {
-    v &= (~MaskChipID);
-    return (v == CHIPEMPTY) || (v == CHIPHEADER);
+    return isChipHeader(v) || isChipEmpty(v);
   }
   // methods to use for data encoding
 
