@@ -71,7 +71,7 @@ bool GPUTPCNNClusterizer::isBoundary(int row, int pad, int global_shift)
   std::vector<int> pad_row_max{
     65, 65, 65, 67, 67, 67, 69, 69, 69, 71, 71, 71, 73, 73, 73, 73, 75, 75, 75, 75, 77, 77, 77, 79, 79, 79, 81, 81, 81, 83, 83, 83, 85, 85, 85, 87, 87, 87, 89, 89, 89, 89, 91, 91, 91, 93, 93, 93, 91, 91, 91, 93, 93, 93, 95, 95, 95, 97, 97, 97, 99, 99, 99, 75, 75, 75, 75, 77, 77, 77, 79, 79, 79, 79, 81, 81, 81, 83, 83, 83, 83, 85, 85, 85, 87, 87, 87, 89, 89, 89, 89, 91, 91, 91, 93, 93, 93, 93, 95, 95, 95, 97, 97, 97, 99, 99, 101, 101, 101, 103, 103, 103, 105, 109, 109, 111, 111, 111, 113, 113, 113, 115, 115, 115, 117, 117, 117, 117, 117, 119, 119, 121, 121, 123, 123, 123, 125, 125, 127, 127, 127, 129, 129, 131, 131, 131, 133, 133, 135, 135, 137, 137
   };
-  if (row < 0 || pad < 0) {
+  if (pad < 0 || row < 0) { // Faster short-circuit
     return true;
   } else if (row <= 62) {
     // if (pad < (pad_row_max[o2::tpc::constants::MAXGLOBALPADROW-1] - pad_row_max[row]) / 2 || pad > (pad_row_max[o2::tpc::constants::MAXGLOBALPADROW-1] + pad_row_max[row]) / 2) {
@@ -97,10 +97,8 @@ bool GPUTPCNNClusterizer::isBoundary(int row, int pad, int global_shift)
     } else {
       return false;
     }
-  } else if (row > o2::tpc::constants::MAXGLOBALPADROW-1 + global_shift) {
-    return true;
   } else {
-    return false;
+    return true;
   }
 }
 
@@ -146,7 +144,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
           continue;
         } else {
           // unsigned int loc_idx = (row + r) * (2*in_pad + 1) * (2*in_time + 1) + (pad + p) * (2*in_time + 1) + (time + t);
-          ChargePos tmp_pos(row + r, pad + p + offset, time + t);
+          ChargePos tmp_pos(row + r, pad + p - offset, time + t);
           input_data[write_idx] = (chargeMap[tmp_pos].unpack() / central_charge);
           write_idx++;
         }
