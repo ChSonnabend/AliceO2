@@ -875,8 +875,8 @@ int GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 4, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
 
         if(GetProcessingSettings().applyNNclusterizer){
-          clusterer.model_class.init(GetProcessingSettings().nnClassificationPath, 1, 1, GetProcessingSettings().nnClusterizerVerbosity);
-          clusterer.model_reg.init(GetProcessingSettings().nnRegressionPath, 1, 1, GetProcessingSettings().nnClusterizerVerbosity);
+          clusterer.model_class.init(GetProcessingSettings().nnClassificationPath, 1, GetProcessingSettings().nnClusterizerThreadsPerNN, GetProcessingSettings().nnClusterizerVerbosity);
+          clusterer.model_reg.init(GetProcessingSettings().nnRegressionPath, 1, GetProcessingSettings().nnClusterizerThreadsPerNN, GetProcessingSettings().nnClusterizerVerbosity);
           clusterer.nnSizeInputRow = GetProcessingSettings().nnSizeInputRow;
           clusterer.nnSizeInputPad = GetProcessingSettings().nnSizeInputPad;
           clusterer.nnSizeInputTime = GetProcessingSettings().nnSizeInputTime;
@@ -884,6 +884,7 @@ int GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           clusterer.nnClassThreshold = GetProcessingSettings().nnClassThreshold;
           clusterer.nnSigmoidTrafoThreshold = GetProcessingSettings().nnSigmoidTrafoThreshold;
           clusterer.nnClusterizerVerbosity = GetProcessingSettings().nnClusterizerVerbosity;
+          clusterer.nnUseCFregression = GetProcessingSettings().nnUseCFregression;
           runKernel<GPUTPCNNClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 0);
         } else {
           runKernel<GPUTPCCFClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 0);
