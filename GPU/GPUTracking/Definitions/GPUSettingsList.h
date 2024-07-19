@@ -294,6 +294,7 @@ AddOption(nnSizeInputRow, int, 3, "", 0, "Size of the input to the NN (currently
 AddOption(nnSizeInputPad, int, 3, "", 0, "Size of the input to the NN (currently calcualted as (length-1)/2")
 AddOption(nnSizeInputTime, int, 3, "", 0, "Size of the input to the NN (currently calcualted as (length-1)/2")
 AddOption(nnUseCFregression, int, 0, "", 0, "If true, use the regression from the native clusterizer and not the NN")
+AddOption(nnBatchedMode, int, 1, "", 0, "If >1, the NN is evaluated on batched input of size specified in this variable")
 AddVariable(eventDisplay, GPUCA_NAMESPACE::gpu::GPUDisplayFrontendInterface*, nullptr)
 AddSubConfig(GPUSettingsProcessingRTC, rtc)
 AddSubConfig(GPUSettingsProcessingParam, param)

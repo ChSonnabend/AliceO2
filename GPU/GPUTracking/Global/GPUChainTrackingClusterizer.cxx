@@ -875,14 +875,22 @@ int GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 4, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
 
         if(GetProcessingSettings().applyNNclusterizer){
+          // Settings for the neural network evaluation
           clusterer.model_class.init(GetProcessingSettings().nnClassificationPath, 1, GetProcessingSettings().nnClusterizerThreadsPerNN, GetProcessingSettings().nnClusterizerVerbosity);
           clusterer.model_reg.init(GetProcessingSettings().nnRegressionPath, 1, GetProcessingSettings().nnClusterizerThreadsPerNN, GetProcessingSettings().nnClusterizerVerbosity);
           clusterer.nnSizeInputRow = GetProcessingSettings().nnSizeInputRow;
           clusterer.nnSizeInputPad = GetProcessingSettings().nnSizeInputPad;
           clusterer.nnSizeInputTime = GetProcessingSettings().nnSizeInputTime;
           clusterer.nnAddIndexData = GetProcessingSettings().nnAddIndexData;
+          clusterer.nnElementSize = ((2*clusterer.nnSizeInputRow + 1) * (2*clusterer.nnSizeInputPad + 1) * (2*clusterer.nnSizeInputTime + 1)) + (clusterer.nnAddIndexData ? 3 : 0);
+
+          clusterer.nnBatchedMode = GetProcessingSettings().nnBatchedMode;
+
           clusterer.nnClassThreshold = GetProcessingSettings().nnClassThreshold;
           clusterer.nnSigmoidTrafoThreshold = GetProcessingSettings().nnSigmoidTrafoThreshold;
+          if(clusterer.nnSigmoidTrafoThreshold){
+            clusterer.nnClassThreshold = (float)std::log(clusterer.nnClassThreshold/(1.f-clusterer.nnClassThreshold));
+          }
           clusterer.nnClusterizerVerbosity = GetProcessingSettings().nnClusterizerVerbosity;
           clusterer.nnUseCFregression = GetProcessingSettings().nnUseCFregression;
           runKernel<GPUTPCNNClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 0);

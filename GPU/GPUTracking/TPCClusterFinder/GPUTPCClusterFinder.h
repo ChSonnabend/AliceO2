@@ -147,11 +147,13 @@ class GPUTPCClusterFinder : public GPUProcessor
   int nnSizeInputRow = 3;
   int nnSizeInputPad = 3;
   int nnSizeInputTime = 3;
+  int nnElementSize = -1;
   bool nnAddIndexData = true;
   float nnClassThreshold = 0.16;
   bool nnSigmoidTrafoThreshold = 1;
   int nnClusterizerVerbosity = 1;
   int nnUseCFregression = 0;
+  int nnBatchedMode = 1;
 
   OnnxModel model_class, model_reg;
 

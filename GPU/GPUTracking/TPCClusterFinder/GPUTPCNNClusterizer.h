@@ -76,8 +76,21 @@ class GPUTPCNNClusterizer : public GPUKernelTemplate
                               uint,
                               uint*,
                               tpc::ClusterNative*,
+                              uint*);
+
+  static GPUd() void nn_clusterizer_batched(int, int, int, int,
+                              processorType&,
+                              const CfFragment&,
+                              GPUSharedMemory&,
+                              const Array2D<PackedCharge>&,
+                              const ChargePos*,
+                              const GPUSettingsRec&,
+                              MCLabelAccumulator*,
+                              uint,
+                              uint,
                               uint*,
-                              int = 3, int = 3, int = 3, bool = 1, float = 0.16, bool = true, int = 1, int = 0);
+                              tpc::ClusterNative*,
+                              uint*);
 
  private:
   // ---------------------------------
