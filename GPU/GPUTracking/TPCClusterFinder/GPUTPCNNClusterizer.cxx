@@ -309,7 +309,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer_batched(int nBlocks, int nThread
 
   if(!clusterer.nnUseCFregression) {
 
-    std::vector<float> out_reg = clusterer.model_reg.inference_vector(input_data, 1);
+    std::vector<float> out_reg = clusterer.model_reg.inference_vector(input_data, clusterer.nnBatchedMode);
     int num_outputs = clusterer.model_reg.getNumOutputNodes()[0][1];
 
     if((clusterer.nnClusterizerVerbosity > 4) && idx == 100){
@@ -322,6 +322,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer_batched(int nBlocks, int nThread
       if(out_class[element] > clusterer.nnClassThreshold) {
         ClusterAccumulator pc;
         pc.setFull(central_charges[element] * out_reg[model_output_index + 4], peak_positions[element].pad() + out_reg[model_output_index + 0], out_reg[model_output_index + 2], fragment.start + peak_positions[element].time() + out_reg[model_output_index + 1], out_reg[model_output_index + 3], 0, 0);
+        // LOG(info) << "Example: " << num_outputs << " " << out_reg.size() << ";; " << out_reg[model_output_index + 4] << "; " << out_reg[model_output_index + 0] << "; " << out_reg[model_output_index + 2] << "; " << out_reg[model_output_index + 1] << "; " << out_reg[model_output_index + 3];
         tpc::ClusterNative myCluster;
         bool rejectCluster = !pc.toNative(peak_positions[element], central_charges[element], myCluster, clusterer.Param());
         if ((clusterer.nnClusterizerVerbosity > 3) && rejectCluster) {
