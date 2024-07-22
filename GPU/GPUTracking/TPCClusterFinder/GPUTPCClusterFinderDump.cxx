@@ -23,9 +23,6 @@
 
 #include <vector>
 
-unsigned long totalPeaks = 0;
-std::vector<std::vector<int>> maxima;
-
 using namespace GPUCA_NAMESPACE::gpu;
 using namespace GPUCA_NAMESPACE::gpu::tpccf;
 

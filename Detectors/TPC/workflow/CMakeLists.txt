@@ -81,11 +81,13 @@ if(OpenMP_CXX_FOUND)
   target_link_libraries(${mergertargetName} PRIVATE OpenMP::OpenMP_CXX)
 endif()
 
+set_source_files_properties(src/qaIdealClusters.cxx PROPERTIES COMPILE_FLAGS -std=c++20)
 o2_add_executable(qa-clusters
                   COMPONENT_NAME tpc
                   SOURCES src/qaIdealClusters.cxx
                   PUBLIC_LINK_LIBRARIES O2::TPCWorkflow O2::SimulationDataFormat O2::TPCQC O2::DataFormatsTPC O2::TPCBase O2::ML ONNXRuntime::ONNXRuntime Boost::thread O2::GPUTracking O2::Torch)
 
+set_source_files_properties(test/test_torch_model_inference.cxx PROPERTIES COMPILE_FLAGS -std=c++20)
 o2_add_executable(torch
                   COMPONENT_NAME test
                   SOURCES test/test_torch_model_inference.cxx

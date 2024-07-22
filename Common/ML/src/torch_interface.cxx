@@ -79,10 +79,10 @@ void TorchModel::printAvailDevices(){
           }
       }
     } 
-    if(torch::mps::is_available()){
-        LOG(info) << "(TORCH) --- MPS";
-        LOG(info) << "(TORCH) Metal backend detected!";
-    }
+    // if(torch::mps::is_available()){
+    //     LOG(info) << "(TORCH) --- MPS";
+    //     LOG(info) << "(TORCH) Metal backend detected!";
+    // }
     
     // Print CPU specifications
     LOG(info) << "(TORCH) --- CPU";
@@ -114,11 +114,13 @@ void TorchModel::setDevice(const bool autodetect = true, const torch::Device dev
             auto *g = c10::impl::getDeviceGuardImpl(d.type());
             LOG(info) << "(TORCH) Device: " << g->getDevice();
             string_device = "GPU";
-        } else if(torch::mps::is_available()){
-            LOG(info) << "(TORCH) MPS detected on system";
-            device = torch::kMPS;
-            string_device = "MPS";
-        } else {
+        }
+        // else if(torch::mps::is_available()){
+        //     LOG(info) << "(TORCH) MPS detected on system";
+        //     device = torch::kMPS;
+        //     string_device = "MPS";
+        // }
+        else {
             LOG(info) << "(TORCH) No GPU detected";
             device = dev;
         }
@@ -137,17 +139,19 @@ void TorchModel::setDevice(const bool autodetect = true, const torch::Device dev
                 string_device = "CPU";
                 device = torch::kCPU;
             }
-        } else if(dev == torch::kMPS){
-            if(torch::mps::is_available()){
-                LOG(debug) << "(TORCH) MPS requested as device and found";
-                device = torch::kMPS;
-                string_device = "MPS";
-            } else {
-                LOG(debug) << "(TORCH) MPS requested as device but not found";
-                string_device = "CPU";
-                device = torch::kCPU;
-            }
-        } else {
+        }
+        // else if(dev == torch::kMPS){
+        //     if(torch::mps::is_available()){
+        //         LOG(debug) << "(TORCH) MPS requested as device and found";
+        //         device = torch::kMPS;
+        //         string_device = "MPS";
+        //     } else {
+        //         LOG(debug) << "(TORCH) MPS requested as device but not found";
+        //         string_device = "CPU";
+        //         device = torch::kCPU;
+        //     }
+        // }
+        else {
             LOG(debug) << "(TORCH) CPU requested as device";
             device = torch::kCPU;
         }
