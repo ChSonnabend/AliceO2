@@ -174,4 +174,10 @@ set_package_properties(absl PROPERTIES TYPE REQUIRED)
 find_package(Vtune)
 set_package_properties(Vtune PROPERTIES TYPE OPTIONAL)
 
+find_package(migraphx REQUIRED)
+include_directories(${migraphx_INCLUDE_DIRS})
+
+# find_package(MIOpen CONFIG)
+# target_link_libraries(MIOpen INTERFACE ${HIP_LIBRARIES} ${miopen_LIBRARIES})
+
 feature_summary(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES)
