@@ -18,6 +18,7 @@ void qaCluster::init(InitContext& ic)
 {
   verbose = ic.options().get<int>("verbose");
   mode = ic.options().get<std::string>("mode");
+  realData = ic.options().get<int>("real-data");
   use_max_cog = ic.options().get<int>("use-max-cog");
   global_shift[0] = (int)((ic.options().get<int>("size-pad") - 1.f) / 2.f);
   global_shift[1] = (int)((ic.options().get<int>("size-time") - 1.f) / 2.f);
@@ -2524,7 +2525,9 @@ void qaCluster::run(ProcessingContext& pc)
     }
   }
 
-  read_kinematics(mctracks);
+  if(!realData){
+    read_kinematics(mctracks);
+  }
 
   if(mode.find(std::string("training_data_mom")) != std::string::npos || mode.find(std::string("track_cluster")) != std::string::npos){
     read_tracking_clusters();
@@ -2739,6 +2742,7 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
     Options{
       {"verbose", VariantType::Int, 0, {"Verbosity level"}},
       {"mode", VariantType::String, "matcher,training_data", {"Enables different settings (e.g. creation of training data for NN, running with tpc-native clusters). Options are: training_data, native, network_classification, network_regression, network_full, clusterizer"}},
+      {"real-data", VariantType::Int, 0, {"If real data is used. MC kinematics will not be read then"}},
       {"normalization-mode", VariantType::Int, 1, {"Normalization: 0 = normalization by 1024.f; 1 = normalization by q_center"}},
       {"use-max-cog", VariantType::Int, 1, {"Use maxima for assignment = 0, use CoG's = 1"}},
       {"max-time", VariantType::Int, -1, {"Maximum time allowed for reading data."}},

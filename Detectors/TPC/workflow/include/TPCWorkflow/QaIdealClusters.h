@@ -361,6 +361,7 @@ class qaCluster : public Task
   bool overwrite_max_time = true;
   std::array<int, o2::tpc::constants::MAXSECTOR> max_time;
   std::string mode = "training_data";
+  int realData = 0;
   std::string simulationPath = ".";
   std::string outputPath = ".";
   std::string inFileDigits = "tpcdigits.root";
