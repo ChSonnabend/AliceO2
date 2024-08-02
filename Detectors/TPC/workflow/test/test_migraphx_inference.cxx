@@ -108,23 +108,31 @@ class testMIGraphX : public Task
 
     void runMIGraphXModel() {
       // Load the ONNX model
-      // read_file(model_path);
+      read_file(model_path);
 
       // hipChooseDevice(0);
 
       // Create MIGraphX program
       migraphx::onnx_options onnx_opts;
-      migraphx::program p = migraphx::parse_onnx(model_path.c_str());
+      migraphx::program p = migraphx::parse_onnx_buffer(model_buffer.data(), model_buffer.size(), onnx_opts);
 
       p.print();
 
       LOG(info) << "Model parsed, buffer filled.";
 
-      LOG(info) << "Test";
       migraphx::compile_options comp_opts;
-      LOG(info) << "Test";
       comp_opts.set_offload_copy();
-      p.compile(migraphx::target("gpu"), comp_opts);
+
+      LOG(info) << "Targeting GPU...";
+      migraphx::target gpu_target;
+      try {
+          gpu_target = migraphx::target("gpu");
+      } catch (const std::exception& e) {
+          LOG(error) << "Failed to acquire GPU target: " << e.what();
+          return;
+      }
+      LOG(info) << "GPU target aquired.";
+      p.compile(gpu_target, comp_opts);
 
       p.print();
 
