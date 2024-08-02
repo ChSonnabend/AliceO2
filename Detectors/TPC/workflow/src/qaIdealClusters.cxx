@@ -1589,7 +1589,11 @@ void qaCluster::runQa(int sector)
     read_digits(sector, digit_map);
   }
 
-  read_ideal(sector, ideal_map);
+  if(realData){
+    ideal_map = native_map;
+  } else {
+    read_ideal(sector, ideal_map);
+  }
 
   num_total_ideal_max += ideal_map.size();
 
