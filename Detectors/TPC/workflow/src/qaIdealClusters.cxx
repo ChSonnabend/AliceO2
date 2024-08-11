@@ -42,7 +42,9 @@ void qaCluster::init(InitContext& ic)
   looper_tagger_threshold_q = ic.options().get<std::vector<float>>("looper-tagger-threshold-q");
   looper_tagger_opmode = ic.options().get<std::string>("looper-tagger-opmode");
   remove_individual_files = ic.options().get<int>("remove-individual-files");
-  
+  training_data_distance_cluster_path = ic.options().get<float>("training-data-distance-cluster-path");
+  training_data_distance_cluster_path = std::pow(training_data_distance_cluster_path, 2); // Just to avoid multiple computations and sqrt's later
+
   if (ic.options().get<int>("max-time") > 0) {
     custom::fill_nested_container(max_time, ic.options().get<int>("max-time"));
     overwrite_max_time = false;
@@ -327,7 +329,7 @@ void qaCluster::read_ideal(int sector, std::vector<customCluster>& ideal_map)
 }
 
 // ---------------------------------
-void qaCluster::read_tracking_clusters(){
+void qaCluster::read_tracking_clusters(bool mc){
   // --- tracking clusters & momentum association ---
   const auto& mapper = Mapper::instance();
   auto file = TFile::Open((simulationPath + "/" + inFileTracks).c_str());
@@ -340,7 +342,10 @@ void qaCluster::read_tracking_clusters(){
   std::vector<o2::MCCompLabel>* mMCTruthInp = nullptr;
   tree->SetBranchAddress("TPCTracks", &tpcTracks);
   tree->SetBranchAddress("ClusRefs", &mCluRefVecInp);
-  tree->SetBranchAddress("TPCTracksMCTruth", &mMCTruthInp);
+
+  if(mc){
+    tree->SetBranchAddress("TPCTracksMCTruth", &mMCTruthInp);
+  }
 
   // Getting the native clusters
   ClusterNativeHelper::Reader tpcClusterReader;
@@ -380,24 +385,48 @@ void qaCluster::read_tracking_clusters(){
   int cluster_counter = 0;
   for (int k = 0; k < nTracks; k++) {
     auto track = (*tpcTracks)[k];
+    std::vector<ClusterNative> assigned_clusters;
+    std::vector<int> sectors, rows;
+    std::vector<GlobalPosition2D> global_positions;
+    std::vector<LocalPosition2D> local_positions;
     for(int cl = 0; cl < track.getNClusters(); cl++){
       uint8_t sector = 0, row = 0;
       const auto cluster = track.getCluster(*mCluRefVecInp, cl, clusterIndex, sector, row); // ClusterNative instance
-      GlobalPosition2D glo_pos = custom::convertSecRowPadToXY((int)sector, (int)row, cluster.getPad(), tpcmap);
-      LocalPosition2D loc_pos = mapper.GlobalToLocal(glo_pos, Sector((int)sector));
-      float z_pos = tpcmap.LinearTime2Z((int)sector, cluster.getTime());
+      assigned_clusters.push_back(cluster);
+      sectors.push_back((int)sector);
+      rows.push_back((int)row);
+      global_positions.push_back(custom::convertSecRowPadToXY((int)sector, (int)row, cluster.getPad(), tpcmap));
+      local_positions.push_back(mapper.GlobalToLocal(global_positions[cl], Sector((int)sector)));
+    }
+
+    // Sorting for local X to improve propagation
+    std::vector<int> index_loc_pos(local_positions.size());
+    std::iota(index_loc_pos.begin(), index_loc_pos.end(), 0); // Fill with 0, 1, ..., local_positions.size()-1
+    std::sort(index_loc_pos.begin(), index_loc_pos.end(), [&local_positions](int i1, int i2) {
+        return local_positions[i1].X() < local_positions[i2].X();
+    });
+
+    for(int cl = 0; cl < track.getNClusters(); cl++){
+      int idx = index_loc_pos[cl];
+      const auto cluster = assigned_clusters[idx];
+      int sector = sectors[idx], row = rows[idx];
+      auto loc_pos = local_positions[idx];
+      auto glo_pos = global_positions[idx];
+
+      float z_pos = tpcmap.LinearTime2Z(sector, cluster.getTime());
       std::array<float, 3> momentum_after_propagation;
-      bool ok = track.propagateTo(loc_pos.X(), B_field);
+      bool propagation_ok = track.propagateTo(loc_pos.X(), B_field);
       auto point = track.getXYZGlo();
-      ok = ok && track.getPxPyPzGlo(momentum_after_propagation);
-      if(ok){
+      propagation_ok = propagation_ok && track.getPxPyPzGlo(momentum_after_propagation);
+      if(propagation_ok){
         GlobalPosition3D tmp_mom_vec(momentum_after_propagation[0], momentum_after_propagation[1], momentum_after_propagation[2]);
-        tmp_mom_vec = mapper.GlobalToLocal(tmp_mom_vec, Sector((int)sector));
+        tmp_mom_vec = mapper.GlobalToLocal(tmp_mom_vec, Sector(sector));
         momentum_after_propagation = {tmp_mom_vec.X(), tmp_mom_vec.Y(), tmp_mom_vec.Z()};
-        customCluster trk_cls{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, glo_pos.X(), glo_pos.Y(), z_pos};
-        customCluster trk_path{(int)sector, (int)row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, point.X(), point.Y(), point.Z()};
+        customCluster trk_cls{sector, row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, glo_pos.X(), glo_pos.Y(), z_pos};
+        customCluster trk_path{sector, row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, point.X(), point.Y(), point.Z()};
         track_paths.push_back(trk_path);
         track_clusters.push_back(trk_cls);
+        tracking_paths[sector].push_back(trk_path);
         tracking_clusters[sector].push_back(trk_cls);
         clusterMomenta.push_back(momentum_after_propagation);
         momentum_vectors[sector].push_back(momentum_after_propagation);
@@ -405,7 +434,10 @@ void qaCluster::read_tracking_clusters(){
         if(std::sqrt(std::pow(point.X(), 2) + std::pow(point.Y(), 2)) > 250){
           LOG(warning) << "[" << (int)sector << "] Found TPC track cluster extrapolated outside the TPC boundaries! Track path (XYZ): (" << point.X() << ", " << point.Y() << ", " << point.Z() << "), Cluster position (XYZ): (" << glo_pos.X() << ", " << glo_pos.Y() << ", " << z_pos << ").";
         }
-      }
+      } 
+      // else {
+      //   LOG(warning) << "[" << (int)sector << "] Propagation failed for track " << k << ", cluster " << cl << " (sector " << sector << ", row " << row << ")!";
+      // }
     }
 
     misc_track_data[k][0] = track.getNClusters();
@@ -1590,7 +1622,11 @@ void qaCluster::runQa(int sector)
   }
 
   if(realData){
-    ideal_map = native_map;
+    std::vector<customCluster> tracking_clusters_sector = tracking_clusters[sector];
+    for(int counter = 0; counter < tracking_clusters_sector.size(); counter++){
+      tracking_clusters_sector[counter].index = counter;
+    }
+    ideal_map = tracking_clusters_sector;
   } else {
     read_ideal(sector, ideal_map);
   }
@@ -2332,19 +2368,32 @@ void qaCluster::runQa(int sector)
 
     std::fill(tr_data_X.begin(), tr_data_X.end(), atomic_unit);
 
-    o2::MCTrack current_track;
-    std::vector<float> cluster_pT(data_size, -1), cluster_eta(data_size, -1), cluster_mass(data_size, -1), cluster_p(data_size, -1);
-    std::vector<int> tr_data_Y_class(data_size, -1), cluster_isPrimary(data_size, -1), cluster_isTagged(data_size, -1);
+    std::vector<int> tr_data_Y_class(data_size, -1);
     std::vector<std::array<std::array<float, 8>, 5>> tr_data_Y_reg(data_size); // for each data element: for all possible assignments: {trY_time, trY_pad, trY_sigma_pad, trY_sigma_time, trY_q}
     custom::fill_nested_container(tr_data_Y_reg, -1);
 
     std::fill(assigned_ideal.begin(), assigned_ideal.end(), 0);
     std::fill(assigned_digit.begin(), assigned_digit.end(), 0);
 
+    // For MC info, only if MC data is used
+    o2::MCTrack current_track;
+    std::vector<float> cluster_pT, cluster_eta, cluster_mass, cluster_p;
+    std::vector<int> cluster_isPrimary, cluster_isTagged;
+
+    if(!realData){
+      cluster_pT.resize(data_size, -1);
+      cluster_eta.resize(data_size, -1);
+      cluster_mass.resize(data_size, -1);
+      cluster_p.resize(data_size, -1);
+      cluster_isPrimary.resize(data_size, -1);
+      cluster_isTagged.resize(data_size, -1);
+    }
+
     // Some useful variables
     int map_dig_idx = 0, map_q_idx = 0, check_assignment = 0, index_assignment = -1, current_idx_id = -1, current_idx_dig = -1, row_offset = 0, pad_offset = 0, class_label = 0;
     float distance_assignment = 100000.f, current_distance_dig_to_id = 0, current_distance_id_to_dig = 0;
-    bool is_min_dist = true, is_tagged = false;
+    bool is_min_dist = true, is_tagged = false, find_track_path = (mode.find(std::string("training_data_mom_path")) != std::string::npos);
+    float distance_cluster_track_path_2 = -1.f;
 
     for (int max_point = 0; max_point < data_size; max_point++) {
       // is_tagged = (bool)digit_tagged[max_point];
@@ -2376,15 +2425,24 @@ void qaCluster::runQa(int sector)
         }
 
         tr_data_Y_class[max_point] = digit_has_non_looper_assignments[max_point];
-        cluster_isTagged[max_point] = (bool)digit_tagged[max_point];
+
+        if(!realData){
+          cluster_isTagged[max_point] = (bool)digit_tagged[max_point];
+        }
 
         std::vector<int> sorted_idcs;
         if (digit_has_non_looper_assignments[max_point] > 0) {
-          customCluster idl;
+          customCluster idl, track_path;
           std::vector<float> distance_array(digit_has_non_looper_assignments[max_point], -1);
           for (int counter = 0; counter < digit_has_non_looper_assignments[max_point]; counter++) {
             int ideal_idx = digit_non_looper_assignment_labels[max_point][counter];
             idl = ideal_map[ideal_idx];
+            if(find_track_path && track_cluster_to_ideal_assignment[ideal_idx] != -1){
+              track_path = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]];
+              distance_cluster_track_path_2 = std::pow(idl.X - track_path.X, 2) + std::pow(idl.Y - track_path.Y, 2);
+            } else {
+              track_path = idl;
+            }
             distance_array[counter] = std::pow((dig.max_time - idl.cog_time), 2) + std::pow((dig.max_pad - idl.cog_pad), 2);
           }
 
@@ -2392,8 +2450,8 @@ void qaCluster::runQa(int sector)
           for (int counter = 0; counter < digit_has_non_looper_assignments[max_point]; counter++) {
             int ideal_idx = digit_non_looper_assignment_labels[max_point][sorted_idcs[counter]];
             idl = ideal_map[ideal_idx];
-            tr_data_Y_reg[max_point][counter][0] = idl.cog_pad - dig.max_pad;   // pad
-            tr_data_Y_reg[max_point][counter][1] = idl.cog_time - dig.max_time; // time
+            tr_data_Y_reg[max_point][counter][0] = track_path.cog_pad - dig.max_pad;   // pad
+            tr_data_Y_reg[max_point][counter][1] = track_path.cog_time - dig.max_time; // time
             tr_data_Y_reg[max_point][counter][2] = idl.sigmaPad;                // sigma pad
             tr_data_Y_reg[max_point][counter][3] = idl.sigmaTime;               // sigma time
             if (normalization_mode == 0) {
@@ -2402,7 +2460,7 @@ void qaCluster::runQa(int sector)
               tr_data_Y_reg[max_point][counter][4] = idl.qTot / q_max;
             }
 
-            if (counter == 0) {
+            if (counter == 0 && !realData) {
               current_track = mctracks[idl.mcSrcId][idl.mcEvId][idl.mcTrkId];
               cluster_pT[max_point] = current_track.GetPt();
               cluster_eta[max_point] = current_track.GetEta();
@@ -2412,7 +2470,7 @@ void qaCluster::runQa(int sector)
             }
 
             if(addMomentumData){
-              if(track_cluster_to_ideal_assignment[ideal_idx] != -1){
+              if(track_cluster_to_ideal_assignment[ideal_idx] != -1 && distance_cluster_track_path_2 < training_data_distance_cluster_path){ // Distance measurement to check if track path is even close to assigned track cluster
                 tr_data_Y_reg[max_point][counter][5] = momentum_vectors[sector][track_cluster_to_ideal_assignment[ideal_idx]][0];
                 tr_data_Y_reg[max_point][counter][6] = momentum_vectors[sector][track_cluster_to_ideal_assignment[ideal_idx]][1];
                 tr_data_Y_reg[max_point][counter][7] = momentum_vectors[sector][track_cluster_to_ideal_assignment[ideal_idx]][2];
@@ -2458,12 +2516,15 @@ void qaCluster::runQa(int sector)
     tr_data->Branch("out_idx_row", &idx_row);
     tr_data->Branch("out_idx_pad", &idx_pad);
     tr_data->Branch("out_idx_time", &idx_time);
-    tr_data->Branch("cluster_pT", &pT);
-    tr_data->Branch("cluster_eta", &eta);
-    tr_data->Branch("cluster_mass", &mass);
-    tr_data->Branch("cluster_p", &p);
-    tr_data->Branch("cluster_isPrimary", &isPrimary);
-    tr_data->Branch("cluster_isTagged", &isTagged);
+
+    if(!realData){
+      tr_data->Branch("cluster_pT", &pT);
+      tr_data->Branch("cluster_eta", &eta);
+      tr_data->Branch("cluster_mass", &mass);
+      tr_data->Branch("cluster_p", &p);
+      tr_data->Branch("cluster_isPrimary", &isPrimary);
+      tr_data->Branch("cluster_isTagged", &isTagged);
+    }
 
     // Filling elements
     for (int element = 0; element < data_size; element++) {
@@ -2474,12 +2535,14 @@ void qaCluster::runQa(int sector)
       idx_row = digit_map[maxima_digits[element]].row;
       idx_pad = digit_map[maxima_digits[element]].max_pad;
       idx_time = digit_map[maxima_digits[element]].max_time;
-      pT = cluster_pT[element];
-      eta = cluster_eta[element];
-      mass = cluster_mass[element];
-      p = cluster_p[element];
-      isPrimary = cluster_isPrimary[element];
-      isTagged = cluster_isTagged[element];
+      if(!realData){
+        pT = cluster_pT[element];
+        eta = cluster_eta[element];
+        mass = cluster_mass[element];
+        p = cluster_p[element];
+        isPrimary = cluster_isPrimary[element];
+        isTagged = cluster_isTagged[element];
+      }
       tr_data->Fill();
     }
     tr_data->Write();
@@ -2533,8 +2596,8 @@ void qaCluster::run(ProcessingContext& pc)
     read_kinematics(mctracks);
   }
 
-  if(mode.find(std::string("training_data_mom")) != std::string::npos || mode.find(std::string("track_cluster")) != std::string::npos){
-    read_tracking_clusters();
+  if(mode.find(std::string("training_data_mom")) != std::string::npos || mode.find(std::string("track_cluster")) != std::string::npos || realData){
+    read_tracking_clusters(!realData);
   }
 
   if (mode.find(std::string("matcher")) != std::string::npos){
@@ -2775,7 +2838,8 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
       {"enable-network-optimizations", VariantType::Bool, true, {"Enable ONNX network optimizations"}},
       {"network-num-threads", VariantType::Int, 1, {"Set the number of CPU threads for network execution"}},
       {"network-threshold-sigmoid-trafo", VariantType::Int, 0, {"If 1, convert network-class-threshold to sigmoid^-1(threshold)"}},
-      {"remove-individual-files", VariantType::Int, 0, {"Remove sector-individual files that are created during the task and only keep merged files"}}}};
+      {"remove-individual-files", VariantType::Int, 0, {"Remove sector-individual files that are created during the task and only keep merged files"}},
+      {"training-data-distance-cluster-path", VariantType::Float, 2.f, {"When creating the training data with momentum information, this defines the distance between an assigned (native) cluster and the track path until which a momentum vector is used. If track is too far away, no momentum vector infromation is written"}}}};
 }
 
 WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)

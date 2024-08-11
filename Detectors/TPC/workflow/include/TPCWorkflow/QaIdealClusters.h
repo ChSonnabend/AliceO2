@@ -297,7 +297,7 @@ class qaCluster : public Task
   void read_ideal(int, std::vector<customCluster>&);
   void read_native(int, std::vector<customCluster>&, std::vector<customCluster>&);
   void read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>&);
-  void read_tracking_clusters();
+  void read_tracking_clusters(bool = true);
 
   // Writers
   void write_custom_native(ProcessingContext&, std::vector<customCluster>&, bool = true);
@@ -357,6 +357,7 @@ class qaCluster : public Task
   std::vector<int> looper_tagger_threshold_num = {5};    // Threshold of number of clusters over which rejection takes place
   std::vector<float> looper_tagger_threshold_q = {70.f}; // Threshold of charge-per-cluster that should be rejected
   std::string looper_tagger_opmode = "digit";            // Operational mode of the looper tagger
+  float training_data_distance_cluster_path = 2.f;
 
   bool overwrite_max_time = true;
   std::array<int, o2::tpc::constants::MAXSECTOR> max_time;
@@ -392,7 +393,8 @@ class qaCluster : public Task
 
   // Training data -> Momentum vector assignment
   std::array<std::vector<std::array<float,3>>, o2::tpc::constants::MAXSECTOR> momentum_vectors;
-  std::array<std::vector<customCluster>, o2::tpc::constants::MAXSECTOR> tracking_clusters;
+  std::array<std::vector<customCluster>, o2::tpc::constants::MAXSECTOR> tracking_clusters, tracking_paths;
+  // std::array<std::vector<int>, o2::tpc::constants::MAXSECTOR> track_cluster_to_ideal_assignment; // index vector: track_cluster_to_ideal_assignment[ideal_idx] = track_cluster_idx
 };
 
 namespace custom
