@@ -434,10 +434,9 @@ void qaCluster::read_tracking_clusters(bool mc){
         if(std::sqrt(std::pow(point.X(), 2) + std::pow(point.Y(), 2)) > 250){
           LOG(warning) << "[" << (int)sector << "] Found TPC track cluster extrapolated outside the TPC boundaries! Track path (XYZ): (" << point.X() << ", " << point.Y() << ", " << point.Z() << "), Cluster position (XYZ): (" << glo_pos.X() << ", " << glo_pos.Y() << ", " << z_pos << ").";
         }
-      } 
-      // else {
-      //   LOG(warning) << "[" << (int)sector << "] Propagation failed for track " << k << ", cluster " << cl << " (sector " << sector << ", row " << row << ")!";
-      // }
+      } else if(verbose > 3) {
+        LOG(warning) << "[" << (int)sector << "] Propagation failed for track " << k << ", cluster " << cl << " (sector " << sector << ", row " << row << ")!";
+      }
     }
 
     misc_track_data[k][0] = track.getNClusters();
