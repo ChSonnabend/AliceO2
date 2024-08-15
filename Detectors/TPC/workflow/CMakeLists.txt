@@ -86,11 +86,6 @@ o2_add_executable(migraphx
                   SOURCES test/test_migraphx_inference.cxx
                   PUBLIC_LINK_LIBRARIES O2::TPCWorkflow O2::SimulationDataFormat O2::TPCQC O2::DataFormatsTPC O2::TPCBase ONNXRuntime::ONNXRuntime Boost::thread O2::GPUTracking migraphx::migraphx migraphx::c)
 
-o2_add_executable(onnx-gpu
-                  COMPONENT_NAME test
-                  SOURCES test/test_onnx_gpu_inference.cxx
-                  PUBLIC_LINK_LIBRARIES O2::TPCWorkflow O2::SimulationDataFormat O2::TPCQC O2::DataFormatsTPC O2::TPCBase ONNXRuntime::ONNXRuntime Boost::thread O2::GPUTracking ONNXRuntime::ONNXRuntime)
-
 o2_add_executable(reco-workflow
                   COMPONENT_NAME tpc
                   SOURCES src/tpc-reco-workflow.cxx
