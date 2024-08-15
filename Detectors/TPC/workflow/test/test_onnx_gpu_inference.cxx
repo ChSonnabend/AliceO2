@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
+#include <thread>
 #include <onnxruntime_cxx_api.h>
 
 #include <cmath>
@@ -67,23 +68,39 @@ class onnxGPUinference : public Task
 {
   public:
 
-    onnxGPUinference(std::unordered_map<std::string, std::string> options_map) : env(ORT_LOGGING_LEVEL_WARNING, "onnx_model_inference") {
+    onnxGPUinference(std::unordered_map<std::string, std::string> options_map) {
         model_path = options_map["path"];
         device = options_map["device"];
         dtype = options_map["dtype"];
         std::stringstream(options_map["device-id"]) >> device_id;
         std::stringstream(options_map["num-iter"]) >> test_size_iter;
+        std::stringstream(options_map["execution-threads"]) >> execution_threads;
+        std::stringstream(options_map["threads-per-session-cpu"]) >> threads_per_session_cpu;
+        std::stringstream(options_map["num-tensors"]) >> test_num_tensors;
         std::stringstream(options_map["size-tensor"]) >> test_size_tensor;
         std::stringstream(options_map["measure-cycle"]) >> epochs_measure;
+        std::stringstream(options_map["logging-level"]) >> logging_level;
+        std::stringstream(options_map["enable-optimizations"]) >> enable_optimizations;
 
         LOG(info) << "Options loaded";
+
+        execution_threads = std::min((int)execution_threads, (int)boost::thread::hardware_concurrency());
 
         // Set the environment variable to use ROCm execution provider
         if(device=="GPU"){
           Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_ROCM(session_options, device_id));
           LOG(info) << "ROCM execution provider set";
         } else if(device=="CPU"){
-          LOG(info) << "CPU execution";
+          session_options.SetIntraOpNumThreads(threads_per_session_cpu);
+          if(threads_per_session_cpu > 0){
+            LOG(info) << "CPU execution provider set with " << threads_per_session_cpu << " threads";
+          } else {
+            threads_per_session_cpu = 0;
+            LOG(info) << "CPU execution provider set with default number of threads";
+          }
+          if(threads_per_session_cpu > 1){
+            session_options.SetExecutionMode(ExecutionMode::ORT_PARALLEL);
+          }
         } else {
           LOG(fatal) << "Device not recognized";
         }
@@ -92,24 +109,35 @@ class onnxGPUinference : public Task
         //   LOG(info) << "Using execution provider: " << provider << std::endl;
         // }
         
-        session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+        if((int)enable_profiling){
+          session_options.EnableProfiling((options_map["profiling-output-path"] + "/ORT_LOG_").c_str());
+        }
+        if(enable_optimizations){
+          session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+        }
+        session_options.SetLogSeverityLevel(logging_level);
 
-        session.reset(new Ort::Session{env, model_path.c_str(), session_options});
-        LOG(info) << "Session created";
+        env.resize(execution_threads);
+        session.resize(execution_threads);
+        for(int s = 0; s < execution_threads; s++){
+          env[s] = Ort::Env(ORT_LOGGING_LEVEL_VERBOSE, "onnx_model_inference");
+          session[s].reset(new Ort::Session{env[s], model_path.c_str(), session_options});
+        }
+        LOG(info) << "Sessions created";
 
-        LOG(info) << "Number of iterations: " << test_size_iter << ", size of the test tensor: " << test_size_tensor << ", measuring every " << epochs_measure << " cycles";
+        LOG(info) << "Number of iterations: " << test_size_iter << ", size of the test tensor: " << test_size_tensor << ", measuring every " << epochs_measure << " cycles, number of tensors: " << test_num_tensors << ", execution threads: " << execution_threads;
       
-        for (size_t i = 0; i < session->GetInputCount(); ++i) {
-            mInputNames.push_back(session->GetInputNameAllocated(i, allocator).get());
+        for (size_t i = 0; i < session[0]->GetInputCount(); ++i) {
+            mInputNames.push_back(session[0]->GetInputNameAllocated(i, allocator).get());
         }
-        for (size_t i = 0; i < session->GetInputCount(); ++i) {
-            mInputShapes.emplace_back(session->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
+        for (size_t i = 0; i < session[0]->GetInputCount(); ++i) {
+            mInputShapes.emplace_back(session[0]->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
         }
-        for (size_t i = 0; i < session->GetOutputCount(); ++i) {
-            mOutputNames.push_back(session->GetOutputNameAllocated(i, allocator).get());
+        for (size_t i = 0; i < session[0]->GetOutputCount(); ++i) {
+            mOutputNames.push_back(session[0]->GetOutputNameAllocated(i, allocator).get());
         }
-        for (size_t i = 0; i < session->GetOutputCount(); ++i) {
-            mOutputShapes.emplace_back(session->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
+        for (size_t i = 0; i < session[0]->GetOutputCount(); ++i) {
+            mOutputShapes.emplace_back(session[0]->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
         }
 
         LOG(info) << "Initializing ONNX names and sizes";
@@ -132,8 +160,16 @@ class onnxGPUinference : public Task
         }
     };
 
-    void runONNXGPUModel(std::vector<Ort::Value>& input) {
-        auto outputTensors = session->Run(runOptions, inputNamesChar.data(), input.data(), 1, outputNamesChar.data(), outputNamesChar.size());
+    void runONNXGPUModel(std::vector<std::vector<Ort::Value>>& input) {
+      std::vector<std::thread> threads(execution_threads);
+      for (int thrd = 0; thrd < execution_threads; thrd++) {
+        threads[thrd] = std::thread([&, thrd] {
+          auto outputTensors = session[thrd]->Run(runOptions, inputNamesChar.data(), input[thrd].data(), input[thrd].size(), outputNamesChar.data(), outputNamesChar.size());
+        });
+      }
+      for (auto& thread : threads) {
+        thread.join();
+      }
     };
 
     void init(InitContext& ic) final {};
@@ -145,24 +181,24 @@ class onnxGPUinference : public Task
         std::vector<int64_t> inputShape{test_size_tensor, mInputShapes[0][1]};
 
         LOG(info) << "Creating memory info";
-        // std::string device_type_onnx;
-        // if(device=="CPU"){
-        //   device_type_onnx = "Cpu";
-        // } else if(device=="GPU"){
-        //   device_type_onnx = "Rocm";
-        // } else {
-        //   LOG(fatal) << "Device not recognized";
-        // }
-        Ort::MemoryInfo mem_info("Cpu", OrtAllocatorType::OrtArenaAllocator, device_id, OrtMemType::OrtMemTypeDefault);
+        Ort::MemoryInfo mem_info("Cpu", OrtAllocatorType::OrtDeviceAllocator, device_id, OrtMemType::OrtMemTypeDefault);
 
         LOG(info) << "Creating ONNX tensor";
-        std::vector<Ort::Value> input_tensor;
+        std::vector<std::vector<Ort::Value>> input_tensor(execution_threads);
         if(dtype=="FP16"){
           std::vector<Ort::Float16_t> input_data(mInputShapes[0][1] * test_size_tensor, (Ort::Float16_t)1.f);  // Example input
-          input_tensor.emplace_back(Ort::Value::CreateTensor<Ort::Float16_t>(mem_info, input_data.data(), input_data.size(), inputShape.data(), inputShape.size())); 
+          for(int i = 0; i < execution_threads; i++){
+            for(int j = 0; j < test_num_tensors; j++){
+              input_tensor[i].emplace_back(Ort::Value::CreateTensor<Ort::Float16_t>(mem_info, input_data.data(), input_data.size(), inputShape.data(), inputShape.size()));
+            }
+          }
         } else {
           std::vector<float> input_data(mInputShapes[0][1] * test_size_tensor, 1.0f);  // Example input
-          input_tensor.emplace_back(Ort::Value::CreateTensor<float>(mem_info, input_data.data(), input_data.size(), inputShape.data(), inputShape.size())); 
+          for(int i = 0; i < execution_threads; i++){
+            for(int j = 0; j < test_num_tensors; j++){
+              input_tensor[i].emplace_back(Ort::Value::CreateTensor<float>(mem_info, input_data.data(), input_data.size(), inputShape.data(), inputShape.size()));
+            }
+          }
         }
 
         LOG(info) << "Starting inference";
@@ -174,7 +210,7 @@ class onnxGPUinference : public Task
           time += std::chrono::duration<double, std::ratio<1, (unsigned long)1e9>>(end_network_eval - start_network_eval).count();
           if((i % epochs_measure == 0) && (i != 0)){
               time /= 1e9;
-              LOG(info) << "Total time: " << time << "s. Timing: " << uint64_t((double)test_size_tensor*epochs_measure/time) << " elements / s";
+              LOG(info) << "Total time: " << time << "s. Timing: " << uint64_t((double)test_size_tensor*epochs_measure*execution_threads*test_num_tensors/time) << " elements / s";
               time = 0;
           }
         }
@@ -190,12 +226,12 @@ class onnxGPUinference : public Task
     
     std::vector<char> model_buffer;
     std::string model_path, device, dtype;
-    int device_id;
-    size_t test_size_iter, test_size_tensor, epochs_measure;
+    int device_id, execution_threads, threads_per_session_cpu, enable_profiling, logging_level, enable_optimizations;
+    size_t test_size_iter, test_size_tensor, epochs_measure, test_num_tensors;
     
     Ort::RunOptions runOptions;
-    Ort::Env env;
-    std::shared_ptr<Ort::Session> session = nullptr;
+    std::vector<Ort::Env> env;
+    std::vector<std::shared_ptr<Ort::Session>> session;
     Ort::SessionOptions session_options;
     Ort::AllocatorWithDefaultOptions allocator;
 
@@ -224,9 +260,16 @@ void customize(std::vector<o2::framework::ConfigParamSpec>& workflowOptions)
     {"device", VariantType::String, "CPU", {"Device on which the ONNX model is run"}},
     {"device-id", VariantType::Int, 0, {"Device ID on which the ONNX model is run"}},
     {"dtype", VariantType::String, "-", {"Dtype in which the ONNX model is run (FP16 or FP32)"}},
-    {"size-tensor", VariantType::Int, 100000, {"Size tensor"}},
+    {"size-tensor", VariantType::Int, 100, {"Size of the input tensor"}},
+    {"execution-threads", VariantType::Int, 1, {"If > 1 will run session->Run() with multiple threads as execution providers"}},
+    {"threads-per-session-cpu", VariantType::Int, 0, {"Number of threads per session for CPU execution provider"}},
+    {"num-tensors", VariantType::Int, 1, {"Number of tensors on which execution is being performed"}},
     {"num-iter", VariantType::Int, 100, {"Number of iterations"}},
     {"measure-cycle", VariantType::Int, 10, {"Epochs in which to measure"}},
+    {"enable-profiling", VariantType::Int, 0, {"Enable profiling"}},
+    {"profiling-output-path", VariantType::String, "/scratch/csonnabe/O2_new", {"Path to save profiling output"}},
+    {"logging-level", VariantType::Int, 0, {"Logging level"}},
+    {"enable-optimizations", VariantType::Int, 0, {"Enable optimizations"}}
   };
   std::swap(workflowOptions, options);
 }
@@ -244,8 +287,15 @@ DataProcessorSpec testProcess(ConfigContext const& cfgc, std::vector<InputSpec>&
     {"device-id", std::to_string(cfgc.options().get<int>("device-id"))},
     {"dtype", cfgc.options().get<std::string>("dtype")},
     {"size-tensor", std::to_string(cfgc.options().get<int>("size-tensor"))},
+    {"execution-threads", std::to_string(cfgc.options().get<int>("execution-threads"))},
+    {"threads-per-session-cpu", std::to_string(cfgc.options().get<int>("threads-per-session-cpu"))},
+    {"num-tensors", std::to_string(cfgc.options().get<int>("num-tensors"))},
     {"num-iter", std::to_string(cfgc.options().get<int>("num-iter"))},
     {"measure-cycle", std::to_string(cfgc.options().get<int>("measure-cycle"))},
+    {"enable-profiling", std::to_string(cfgc.options().get<int>("enable-profiling"))},
+    {"profiling-output-path", cfgc.options().get<std::string>("profiling-output-path")},
+    {"logging-level", std::to_string(cfgc.options().get<int>("logging-level"))},
+    {"enable-optimizations", std::to_string(cfgc.options().get<int>("enable-optimizations"))}
   };
 
   return DataProcessorSpec{
