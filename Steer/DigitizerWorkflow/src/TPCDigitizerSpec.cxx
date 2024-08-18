@@ -120,6 +120,9 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
 
     mWithMCTruth = o2::conf::DigiParams::Instance().mctruth;
     auto triggeredMode = ic.options().get<bool>("TPCtriggered");
+    mRecalcDistortions = !(ic.options().get<bool>("do-not-recalculate-distortions"));
+    const int nthreadsDist = ic.options().get<int>("n-threads-distortions");
+    SC::setNThreads(nthreadsDist);
     mUseCalibrationsFromCCDB = ic.options().get<bool>("TPCuseCCDB");
     window_size = std::vector<int>{ic.options().get<int>("ideal-clusterizer-timesize"), ic.options().get<int>("ideal-clusterizer-padsize")};
     reject_maxq = ic.options().get<int>("ideal-clusterizer-reject-maxq");
@@ -230,6 +233,9 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
       if (mDistortionType == 2) {
         pc.inputs().get<SC*>("tpcdistortionsderiv");
         mDigitizer.setLumiScaleFactor();
+        if (mRecalcDistortions) {
+          mDigitizer.recalculateDistortions();
+        }
       }
     }
 
@@ -701,6 +707,7 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
   int mDistortionType = 0;
   float mMeanLumiDistortions = -1;
   float mMeanLumiDistortionsDerivative = -1;
+  bool mRecalcDistortions = false;
 };
 
 o2::framework::DataProcessorSpec getTPCDigitizerSpec(int channel, bool writeGRP, bool mctruth, bool internalwriter, int distortionType)
@@ -743,6 +750,8 @@ o2::framework::DataProcessorSpec getTPCDigitizerSpec(int channel, bool writeGRP,
       {"ideal-clusterizer-reject-cogq", VariantType::Int, 3, {"Rejection for ideal clusters: CoGQ"}},
       {"meanLumiDistortions", VariantType::Float, -1.f, {"override lumi of distortion object if >=0"}},
       {"meanLumiDistortionsDerivative", VariantType::Float, -1.f, {"override lumi of derivative distortion object if >=0"}},
+      {"do-not-recalculate-distortions", VariantType::Bool, false, {"Do not recalculate the distortions"}},
+      {"n-threads-distortions", VariantType::Int, 4, {"Number of threads used for the calculation of the distortions"}},
     }};
 }
 

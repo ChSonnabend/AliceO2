@@ -320,7 +320,7 @@ if has_detector_calib PHS && workflow_has_parameter CALIB; then
   PHS_CONFIG+=" --fullclu-output"
 fi
 
-[[ ${O2_GPU_DOUBLE_PIPELINE:-$EPNSYNCMODE} == 1 ]] && GPU_CONFIG+=" --enableDoublePipeline"
+[[ ${O2_GPU_DOUBLE_PIPELINE:-$EPNSYNCMODE} == 1 && $GPUTYPE != "CPU" ]] && GPU_CONFIG+=" --enableDoublePipeline"
 [[ ${O2_GPU_RTC:-0} == 1 ]] && GPU_CONFIG_KEY+="GPU_proc_rtc.enable=1;GPU_proc_rtc.cacheOutput=1;GPU_proc.RTCcacheFolder=/var/tmp/o2_gpu_rtc_cache;"
 
 ( workflow_has_parameter AOD || [[ -z "$DISABLE_ROOT_OUTPUT" ]] || needs_root_output o2-emcal-cell-writer-workflow ) && has_detector EMC && RAW_EMC_SUBSPEC=" --subspecification 1 "
@@ -335,10 +335,10 @@ if has_processing_step MUON_SYNC_RECO; then
   [[ -z ${ARGS_EXTRA_PROCESS_o2_mid_reco_workflow:-} ]] && ARGS_EXTRA_PROCESS_o2_mid_reco_workflow="--mid-tracker-keep-best"
   [[ -z ${ARGS_EXTRA_PROCESS_o2_mch_reco_workflow:-} ]] && ARGS_EXTRA_PROCESS_o2_mch_reco_workflow="--digits"
   if [[ -z ${CONFIG_EXTRA_PROCESS_o2_mch_reco_workflow:-} ]]; then
-    if [[ $RUNTYPE == "PHYSICS" || $RUNTYPE == "COSMICS" ]]; then
-      CONFIG_EXTRA_PROCESS_o2_mch_reco_workflow="MCHTracking.chamberResolutionX=0.4;MCHTracking.chamberResolutionY=0.4;MCHTracking.sigmaCutForTracking=7.;MCHDigitFilter.timeOffset=126;MCHTracking.sigmaCutForImprovement=6.;MCHTracking.maxCandidates=20000;"
+    if [[ $RUNTYPE == "PHYSICS" && $BEAMTYPE == "pp" ]] || [[ $RUNTYPE == "COSMICS" ]]; then
+      CONFIG_EXTRA_PROCESS_o2_mch_reco_workflow="MCHTracking.chamberResolutionX=0.4;MCHTracking.chamberResolutionY=0.4;MCHTracking.sigmaCutForTracking=7.;MCHTracking.sigmaCutForImprovement=6.;"
     elif [[ $RUNTYPE == "SYNTHETIC" ]]; then
-      CONFIG_EXTRA_PROCESS_o2_mch_reco_workflow="MCHTimeClusterizer.peakSearchSignalOnly=false;MCHDigitFilter.rejectBackground=false;MCHTracking.chamberResolutionX=0.4;MCHTracking.chamberResolutionY=0.4;MCHTracking.sigmaCutForTracking=7.;MCHTracking.sigmaCutForImprovement=6.;"
+      CONFIG_EXTRA_PROCESS_o2_mch_reco_workflow="MCHTimeClusterizer.peakSearchSignalOnly=false;MCHDigitFilter.rejectBackground=false;"
     fi
     has_detector_reco ITS && [[ $RUNTYPE != "COSMICS" ]] && CONFIG_EXTRA_PROCESS_o2_mch_reco_workflow+="MCHTimeClusterizer.irFramesOnly=true;"
     [[ ! -z ${CUT_RANDOM_FRACTION_MCH:-} ]] && CONFIG_EXTRA_PROCESS_o2_mch_reco_workflow+="MCHTimeClusterizer.rofRejectionFraction=$CUT_RANDOM_FRACTION_MCH;"
