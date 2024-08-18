@@ -1621,11 +1621,15 @@ void qaCluster::runQa(int sector)
   }
 
   if(realData){
-    std::vector<customCluster> tracking_clusters_sector = tracking_clusters[sector];
-    for(int counter = 0; counter < tracking_clusters_sector.size(); counter++){
-      tracking_clusters_sector[counter].index = counter;
+    if(mode.find(std::string("paths")) != std::string::npos){
+      std::vector<customCluster> tracking_clusters_sector = tracking_clusters[sector];
+      for(int counter = 0; counter < tracking_clusters_sector.size(); counter++){
+        tracking_clusters_sector[counter].index = counter;
+      }
+      ideal_map = tracking_clusters_sector;
+    } else {
+      read_native(sector, native_map, ideal_map);
     }
-    ideal_map = tracking_clusters_sector;
   } else {
     read_ideal(sector, ideal_map);
   }
