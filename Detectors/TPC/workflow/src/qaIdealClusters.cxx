@@ -1304,17 +1304,21 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
 
   int current_max_idx = 0;
 
-  for(int net_counter = 0; net_counter < (networkSplitIrocOroc == 0 ? 2 : 1)*network_classification_paths.size(); net_counter++){
+  for(int net_counter = 0; net_counter < (networkSplitIrocOroc == 0 ? 1 : 2)*network_classification_paths.size(); net_counter++){
 
     std::vector<int> eval_idcs;
-    if(net_counter % 2 == 0){
-      for(int idx = 0; idx < index_iroc_oroc_shift + 1; idx++){
-        eval_idcs.push_back(maxima_digits[idx]);
+    if(networkSplitIrocOroc){
+      if(net_counter % 2 == 0){
+        for(int idx = 0; idx < index_iroc_oroc_shift + 1; idx++){
+          eval_idcs.push_back(maxima_digits[idx]);
+        }
+      } else {
+        for(int idx = index_iroc_oroc_shift + 1; idx < maxima_digits.size(); idx++){
+          eval_idcs.push_back(maxima_digits[idx]);
+        }
       }
     } else {
-      for(int idx = index_iroc_oroc_shift + 1; idx < maxima_digits.size(); idx++){
-        eval_idcs.push_back(maxima_digits[idx]);
-      }
+      eval_idcs = maxima_digits;
     }
 
     size_t num_output_nodes = network_classification[net_counter].getNumOutputNodes()[0][1];
@@ -1337,6 +1341,7 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
       custom::append_to_container(flags_memory, flags);
 
       int eval_size = input_vector.size() / network_input_size;
+
       std::vector<float> out_net = network_classification[net_counter].inference_vector(input_vector, eval_size);
 
       for (int idx = 0; idx < eval_size; idx++) {
@@ -2206,7 +2211,7 @@ void qaCluster::runQa(int sector)
     // int netive_writer_map_size = netive_writer_map.size();
     // netive_writer_map.resize(native_writer_map_size + network_ideal_assignment.size());
 
-    bool momentum_vector_estimate = network_regression[0].getNumOutputNodes()[0][1] > 5;
+    bool momentum_vector_estimate = (network_regression[0].getNumOutputNodes()[0][1] > 5);
     int elem_counter = 0;
     for (auto elem : network_ideal_assignment) {
       net_row = elem[0].row;
@@ -2226,11 +2231,13 @@ void qaCluster::runQa(int sector)
       id_qMax = elem[1].qMax;
       id_idx = elem[1].index;
       if(momentum_vector_estimate){
+        net_momY_X = momentum_vector_map[net_idx][0];
+        net_momZ_X = momentum_vector_map[net_idx][1];
+      }
+      if(momentum_vector_estimate && addMomentumData){
         // net_momX = momentum_vector_map[net_idx][0];
         // net_momY = momentum_vector_map[net_idx][1];
         // net_momZ = momentum_vector_map[net_idx][2];
-        net_momY_X = momentum_vector_map[net_idx][0];
-        net_momZ_X = momentum_vector_map[net_idx][1];
         id_mom = std::sqrt(std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][0],2) + std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][1],2) + std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][2],2));
         id_momX = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][0] / id_mom;
         id_momY = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][1] / id_mom;

@@ -160,11 +160,17 @@ float* OnnxModel::inference(T input, unsigned int size)
       LOG(error) << "Error running model inference: " << exception.what();
     }
 #else
-  std::vector<const char*> tmpInputs;
-  std::vector<const char*> tmpOutputs;
+  Ort::RunOptions runOptions;
+  std::vector<const char*> inputNamesChar(mInputNames.size(), nullptr);
+  std::transform(std::begin(mInputNames), std::end(mInputNames), std::begin(inputNamesChar),
+                  [&](const std::string& str) { return str.c_str(); });
+
+  std::vector<const char*> outputNamesChar(mOutputNames.size(), nullptr);
+  std::transform(std::begin(mOutputNames), std::end(mOutputNames), std::begin(outputNamesChar),
+                  [&](const std::string& str) { return str.c_str(); });
   inputTensors.emplace_back(Ort::Value::CreateTensor<float>(mMemoryInfo, input.data(), input.size(), inputShape.data(), 1));
   try {
-      auto outputTensors = mSession->Run(Ort::RunOptions{nullptr}, tmpInputs.data(), inputTensors.data(), inputTensors.size(), tmpOutputs.data(), mOutputNames.size());
+      auto outputTensors = mSession->Run(runOptions, inputNamesChar.data(), inputTensors.data(), inputTensors.size(), outputNamesChar.data(), mOutputNames.size());
       inputTensors.clear();
       float* outputValues = outputTensors[0].GetTensorMutableData<float>();
       return outputValues;
@@ -198,11 +204,17 @@ std::vector<float> OnnxModel::inference_vector(T input, unsigned int size)
       LOG(error) << "Error running model inference: " << exception.what();
     }
 #else
-  std::vector<const char*> tmpInputs;
-  std::vector<const char*> tmpOutputs;
-  inputTensors.emplace_back(Ort::Value::CreateTensor<float>(mMemoryInfo, input.data(), input.size(), inputShape.data(), 1));
+  Ort::RunOptions runOptions;
+  std::vector<const char*> inputNamesChar(mInputNames.size(), nullptr);
+  std::transform(std::begin(mInputNames), std::end(mInputNames), std::begin(inputNamesChar),
+                  [&](const std::string& str) { return str.c_str(); });
+
+  std::vector<const char*> outputNamesChar(mOutputNames.size(), nullptr);
+  std::transform(std::begin(mOutputNames), std::end(mOutputNames), std::begin(outputNamesChar),
+                  [&](const std::string& str) { return str.c_str(); });
+  inputTensors.emplace_back(Ort::Value::CreateTensor<float>(mMemoryInfo, input.data(), input.size(), inputShape.data(), inputShape.size()));
   try {
-      auto outputTensors = mSession->Run(Ort::RunOptions{nullptr}, tmpInputs.data(), inputTensors.data(), inputTensors.size(), tmpOutputs.data(), mOutputNames.size());
+      auto outputTensors = mSession->Run(runOptions, inputNamesChar.data(), inputTensors.data(), inputTensors.size(), outputNamesChar.data(), mOutputNames.size());
       inputTensors.clear();
       float* outputValues = outputTensors[0].GetTensorMutableData<float>();
       return std::vector<float>{outputValues, outputValues + size * mOutputShapes[0][1]};

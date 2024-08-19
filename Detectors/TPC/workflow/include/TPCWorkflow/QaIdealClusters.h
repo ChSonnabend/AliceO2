@@ -333,7 +333,7 @@ class qaCluster : public Task
   std::shared_ptr<o2::base::GRPGeomRequest> grp_geom;
 
   std::vector<int> tpc_sectors;              // The TPC sectors for which processing should be started
-  std::vector<int> global_shift = {5, 5, 0}; // shifting digits to select windows easier, (pad, time, row)
+  std::vector<int> global_shift = {3, 3, 3}; // shifting digits to select windows easier, (pad, time, row)
   int charge_limits[2] = {2, 1024};          // upper and lower charge limits
   int verbose = 0;                           // chunk_size in time direction
   int create_output = 1;                     // Create output files specific for any mode
