@@ -129,9 +129,9 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
     }
   }
   if(clusterer.nnAddIndexData){
-    input_data[input_data.size()-3] = 1;
-    input_data[input_data.size()-2] = (float)peak.row() / 152.f;
-    input_data[input_data.size()-1] = (float)peak.pad() / 138.f;
+    input_data[input_data.size()-3] = clusterer.mISlice / 36.f;
+    input_data[input_data.size()-2] = peak.row() / 152.f;
+    input_data[input_data.size()-1] = peak.pad() / 138.f;
     // if(idx == 100){
     //   LOG(info) << "[" << input_data[input_data.size()-3] << ", " << input_data[input_data.size()-2] << ", " << input_data[input_data.size()-1] << "]";
     // }
@@ -262,75 +262,139 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer_batched(int nBlocks, int nThread
                                           tpc::ClusterNative* clusterByRow,
                                           uint* clusterPosInRow){
 
-  uint idx = get_global_id(0) * clusterer.nnBatchedMode;
-  std::vector<float> input_data(clusterer.nnElementSize * clusterer.nnBatchedMode, -1.f), central_charges(clusterer.nnBatchedMode, -1.f);
-  std::vector<ChargePos> peak_positions(clusterer.nnBatchedMode);
-
-  for(int batch_counter = 0; batch_counter < clusterer.nnBatchedMode; batch_counter++){
-
-    uint cls = CAMath::Min(idx + batch_counter, clusternum - 1);
-    
-    ChargePos peak = clusterer.mPfilteredPeakPositions[cls];
-    int row = peak.row(), pad = peak.pad(), time = peak.time();
-    float central_charge = chargeMap[peak].unpack();
-    CPU_ONLY(labelAcc->collect(peak, central_charge));
-
-    peak_positions[batch_counter] = peak;
-    central_charges[batch_counter] = central_charge;
-
+  if((get_global_id(0) % clusterer.nnBatchedMode) == 0){
+    uint idx = get_global_id(0);
+    std::vector<float> input_data(clusterer.nnElementSize * clusterer.nnBatchedMode, -1.f), central_charges(clusterer.nnBatchedMode, -1.f);
+    std::vector<ChargePos> peak_positions(clusterer.nnBatchedMode);
     unsigned int write_idx = 0;
-    unsigned int batch_offset = batch_counter * clusterer.nnElementSize;
-    for(int r = -clusterer.nnSizeInputRow; r <= clusterer.nnSizeInputRow; r++){
-      for(int p = -clusterer.nnSizeInputPad; p <= clusterer.nnSizeInputPad; p++){
-        for(int t = -clusterer.nnSizeInputTime; t <= clusterer.nnSizeInputTime; t++){
-          int offset = GPUTPCNNClusterizer::padOffset(row, row + r);
-          if(GPUTPCNNClusterizer::isBoundary(row + r, pad + p, clusterer.nnSizeInputRow)){
-            continue;
-          } else {
-            ChargePos tmp_pos(row + r, pad + p - offset, time + t);
-            input_data[batch_offset + write_idx] = (chargeMap[tmp_pos].unpack() / central_charge);
-            write_idx++;
+
+    for(int batch_counter = 0; batch_counter < clusterer.nnBatchedMode; batch_counter++){
+
+      uint cls = CAMath::Min(idx + batch_counter, clusternum - 1);
+      
+      ChargePos peak = clusterer.mPfilteredPeakPositions[cls];
+      int row = peak.row(), pad = peak.pad(), time = peak.time();
+      float central_charge = chargeMap[peak].unpack();
+      CPU_ONLY(labelAcc->collect(peak, central_charge));
+
+      peak_positions[batch_counter] = peak;
+      central_charges[batch_counter] = central_charge;
+
+      // unsigned int batch_offset = batch_counter * clusterer.nnElementSize;
+      for(int r = -clusterer.nnSizeInputRow; r <= clusterer.nnSizeInputRow; r++){
+        for(int p = -clusterer.nnSizeInputPad; p <= clusterer.nnSizeInputPad; p++){
+          for(int t = -clusterer.nnSizeInputTime; t <= clusterer.nnSizeInputTime; t++){
+            int offset = GPUTPCNNClusterizer::padOffset(row, row + r);
+            if(GPUTPCNNClusterizer::isBoundary(row + r, pad + p, clusterer.nnSizeInputRow)){
+              continue;
+            } else {
+              ChargePos tmp_pos(row + r, pad + p - offset, time + t);
+              input_data[write_idx] = (chargeMap[tmp_pos].unpack() / central_charge);
+              write_idx++;
+            }
           }
         }
       }
-    }
-    if(clusterer.nnAddIndexData){
-      input_data[write_idx + 1] = 1;
-      input_data[write_idx + 2] = (float)peak.row() / 152.f;
-      input_data[write_idx + 3] = (float)peak.pad() / 138.f;
-      write_idx+=3;
-      // if(idx == 100){
-      //   LOG(info) << "[" << input_data[input_data.size()-3] << ", " << input_data[input_data.size()-2] << ", " << input_data[input_data.size()-1] << "]";
-      // }
-    }
-  }
-
-  std::vector<float> out_class = clusterer.model_class.inference_vector(input_data, clusterer.nnBatchedMode);
-
-  if(!clusterer.nnUseCFregression) {
-
-    std::vector<float> out_reg = clusterer.model_reg.inference_vector(input_data, clusterer.nnBatchedMode);
-    int num_outputs = clusterer.model_reg.getNumOutputNodes()[0][1];
-
-    if((clusterer.nnClusterizerVerbosity > 4) && idx == 100){
-      LOG(info) << "Classification model: " << out_class[0] << " (>? " << clusterer.nnClassThreshold << ")";
-      LOG(info) << "Regression model: " << out_reg[0] << "; " << out_reg[1] << "; " << out_reg[2] << "; " << out_reg[3] << "; " << out_reg[4];
+      if(clusterer.nnAddIndexData){
+        input_data[write_idx + 1] = clusterer.mISlice / 36.f;
+        input_data[write_idx + 2] = peak.row() / 152.f;
+        input_data[write_idx + 3] = peak.pad() / 138.f;
+        write_idx+=3;
+        // if(idx == 100){
+        //   LOG(info) << "[" << input_data[input_data.size()-3] << ", " << input_data[input_data.size()-2] << ", " << input_data[input_data.size()-1] << "]";
+        // }
+      }
     }
 
-    for(int element = 0; element < clusterer.nnBatchedMode; element++) {
-      int model_output_index = element*num_outputs;
-      if(out_class[element] > clusterer.nnClassThreshold) {
+    std::vector<float> out_class = clusterer.model_class.inference_vector(input_data, clusterer.nnBatchedMode);
+
+    if(!clusterer.nnUseCFregression) {
+
+      std::vector<float> out_reg = clusterer.model_reg.inference_vector(input_data, clusterer.nnBatchedMode);
+      int num_outputs = clusterer.model_reg.getNumOutputNodes()[0][1];
+
+      if((clusterer.nnClusterizerVerbosity > 4) && idx == 100){
+        LOG(info) << "Classification model: " << out_class[0] << " (>? " << clusterer.nnClassThreshold << ")";
+        LOG(info) << "Regression model: " << out_reg[0] << "; " << out_reg[1] << "; " << out_reg[2] << "; " << out_reg[3] << "; " << out_reg[4];
+      }
+
+      for(int element = 0; element < clusterer.nnBatchedMode; element++) {
+
+        if (idx + element >= clusternum) {
+          return;
+        }
+        
+        int model_output_index = element*num_outputs;
+        if(out_class[element] > clusterer.nnClassThreshold) {
+          ClusterAccumulator pc;
+          pc.setFull(central_charges[element] * out_reg[model_output_index + 4], peak_positions[element].pad() + out_reg[model_output_index + 0], out_reg[model_output_index + 2], fragment.start + peak_positions[element].time() + out_reg[model_output_index + 1], out_reg[model_output_index + 3], 0, 0);
+          // LOG(info) << "Example: " << num_outputs << " " << out_reg.size() << ";; " << out_reg[model_output_index + 4] << "; " << out_reg[model_output_index + 0] << "; " << out_reg[model_output_index + 2] << "; " << out_reg[model_output_index + 1] << "; " << out_reg[model_output_index + 3];
+          tpc::ClusterNative myCluster;
+          bool rejectCluster = !pc.toNative(peak_positions[element], central_charges[element], myCluster, clusterer.Param());
+          if ((clusterer.nnClusterizerVerbosity > 3) && rejectCluster) {
+            LOG(warning) << "Cluster rejected!";
+            if (clusterPosInRow) {
+              clusterPosInRow[idx + element] = maxClusterPerRow;
+            }
+            continue;
+          }
+
+          uint rowIndex = 0;
+          if (clusterByRow != nullptr) {
+            rowIndex = sortIntoBuckets(
+              clusterer,
+              myCluster,
+              peak_positions[element].row(),
+              maxClusterPerRow,
+              clusterInRow,
+              clusterByRow);
+            if (clusterPosInRow != nullptr) {
+              clusterPosInRow[idx + element] = rowIndex;
+            }
+          } else if (clusterPosInRow) {
+            rowIndex = clusterPosInRow[idx + element];
+            continue;
+          }
+          CPU_ONLY(labelAcc->commit(peak_positions[element].row(), rowIndex, maxClusterPerRow));
+        }
+      }
+
+    } else {
+
+      for(int element = 0; element < clusterer.nnBatchedMode; element++) {
+        if (idx + element >= clusternum) {
+          return;
+        }
+        
         ClusterAccumulator pc;
-        pc.setFull(central_charges[element] * out_reg[model_output_index + 4], peak_positions[element].pad() + out_reg[model_output_index + 0], out_reg[model_output_index + 2], fragment.start + peak_positions[element].time() + out_reg[model_output_index + 1], out_reg[model_output_index + 3], 0, 0);
-        // LOG(info) << "Example: " << num_outputs << " " << out_reg.size() << ";; " << out_reg[model_output_index + 4] << "; " << out_reg[model_output_index + 0] << "; " << out_reg[model_output_index + 2] << "; " << out_reg[model_output_index + 1] << "; " << out_reg[model_output_index + 3];
-        tpc::ClusterNative myCluster;
-        bool rejectCluster = !pc.toNative(peak_positions[element], central_charges[element], myCluster, clusterer.Param());
-        if ((clusterer.nnClusterizerVerbosity > 3) && rejectCluster) {
-          LOG(warning) << "Cluster rejected!";
+        CPU_ONLY(labelAcc->collect(peak_positions[element], central_charges[element]));
+
+        buildCluster(
+          calib,
+          chargeMap,
+          peak_positions[element],
+          smem.posBcast,
+          smem.buf,
+          smem.innerAboveThreshold,
+          &pc,
+          labelAcc);
+
+        if (fragment.isOverlap(peak_positions[element].time())) {
           if (clusterPosInRow) {
             clusterPosInRow[idx + element] = maxClusterPerRow;
           }
-          return;
+          continue;
+        }
+        pc.finalize(peak_positions[element], central_charges[element], fragment.start, clusterer.Param().tpcGeometry);
+
+        tpc::ClusterNative myCluster;
+        bool rejectCluster = !pc.toNative(peak_positions[element], central_charges[element], myCluster, clusterer.Param());
+
+        if (rejectCluster) {
+          if (clusterPosInRow) {
+            clusterPosInRow[idx + element] = maxClusterPerRow;
+          }
+          continue;
         }
 
         uint rowIndex = 0;
@@ -347,72 +411,16 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer_batched(int nBlocks, int nThread
           }
         } else if (clusterPosInRow) {
           rowIndex = clusterPosInRow[idx + element];
-          return;
+          continue;
         }
+
         CPU_ONLY(labelAcc->commit(peak_positions[element].row(), rowIndex, maxClusterPerRow));
       }
     }
 
-  } else {
-
-    for(int element = 0; element < clusterer.nnBatchedMode; element++) {
-      ClusterAccumulator pc;
-      CPU_ONLY(labelAcc->collect(peak_positions[element], central_charges[element]));
-
-      buildCluster(
-        calib,
-        chargeMap,
-        peak_positions[element],
-        smem.posBcast,
-        smem.buf,
-        smem.innerAboveThreshold,
-        &pc,
-        labelAcc);
-
-      if (idx + element >= clusternum) {
-        return;
-      }
-      if (fragment.isOverlap(peak_positions[element].time())) {
-        if (clusterPosInRow) {
-          clusterPosInRow[idx + element] = maxClusterPerRow;
-        }
-        return;
-      }
-      pc.finalize(peak_positions[element], central_charges[element], fragment.start, clusterer.Param().tpcGeometry);
-
-      tpc::ClusterNative myCluster;
-      bool rejectCluster = !pc.toNative(peak_positions[element], central_charges[element], myCluster, clusterer.Param());
-
-      if (rejectCluster) {
-        if (clusterPosInRow) {
-          clusterPosInRow[idx + element] = maxClusterPerRow;
-        }
-        return;
-      }
-
-      uint rowIndex = 0;
-      if (clusterByRow != nullptr) {
-        rowIndex = sortIntoBuckets(
-          clusterer,
-          myCluster,
-          peak_positions[element].row(),
-          maxClusterPerRow,
-          clusterInRow,
-          clusterByRow);
-        if (clusterPosInRow != nullptr) {
-          clusterPosInRow[idx + element] = rowIndex;
-        }
-      } else if (clusterPosInRow) {
-        rowIndex = clusterPosInRow[idx + element];
-        return;
-      }
-
-      CPU_ONLY(labelAcc->commit(peak_positions[element].row(), rowIndex, maxClusterPerRow));
+    if(clusterer.nnClusterizerVerbosity > 4){
+      LOG(info) << "Clusterization done!";
     }
-  }
-
-  if(clusterer.nnClusterizerVerbosity > 4){
-    LOG(info) << "Clusterization done!";
   }
 }
 

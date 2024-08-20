@@ -877,7 +877,9 @@ int GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         if(GetProcessingSettings().applyNNclusterizer){
           // Settings for the neural network evaluation
           clusterer.model_class.init(GetProcessingSettings().nnClassificationPath, 1, GetProcessingSettings().nnClusterizerThreadsPerNN, GetProcessingSettings().nnClusterizerVerbosity);
-          clusterer.model_reg.init(GetProcessingSettings().nnRegressionPath, 1, GetProcessingSettings().nnClusterizerThreadsPerNN, GetProcessingSettings().nnClusterizerVerbosity);
+          if(!clusterer.nnUseCFregression){
+            clusterer.model_reg.init(GetProcessingSettings().nnRegressionPath, 1, GetProcessingSettings().nnClusterizerThreadsPerNN, GetProcessingSettings().nnClusterizerVerbosity);
+          }
           clusterer.nnSizeInputRow = GetProcessingSettings().nnSizeInputRow;
           clusterer.nnSizeInputPad = GetProcessingSettings().nnSizeInputPad;
           clusterer.nnSizeInputTime = GetProcessingSettings().nnSizeInputTime;
