@@ -323,7 +323,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer_batched(int nBlocks, int nThread
         if (idx + element >= clusternum) {
           return;
         }
-        
+
         int model_output_index = element*num_outputs;
         if(out_class[element] > clusterer.nnClassThreshold) {
           ClusterAccumulator pc;
@@ -365,56 +365,59 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer_batched(int nBlocks, int nThread
         if (idx + element >= clusternum) {
           return;
         }
+
+        if(out_class[element] > clusterer.nnClassThreshold) {
         
-        ClusterAccumulator pc;
-        CPU_ONLY(labelAcc->collect(peak_positions[element], central_charges[element]));
+          ClusterAccumulator pc;
+          CPU_ONLY(labelAcc->collect(peak_positions[element], central_charges[element]));
 
-        buildCluster(
-          calib,
-          chargeMap,
-          peak_positions[element],
-          smem.posBcast,
-          smem.buf,
-          smem.innerAboveThreshold,
-          &pc,
-          labelAcc);
+          buildCluster(
+            calib,
+            chargeMap,
+            peak_positions[element],
+            smem.posBcast,
+            smem.buf,
+            smem.innerAboveThreshold,
+            &pc,
+            labelAcc);
 
-        if (fragment.isOverlap(peak_positions[element].time())) {
-          if (clusterPosInRow) {
-            clusterPosInRow[idx + element] = maxClusterPerRow;
+          if (fragment.isOverlap(peak_positions[element].time())) {
+            if (clusterPosInRow) {
+              clusterPosInRow[idx + element] = maxClusterPerRow;
+            }
+            continue;
           }
-          continue;
-        }
-        pc.finalize(peak_positions[element], central_charges[element], fragment.start, clusterer.Param().tpcGeometry);
+          pc.finalize(peak_positions[element], central_charges[element], fragment.start, clusterer.Param().tpcGeometry);
 
-        tpc::ClusterNative myCluster;
-        bool rejectCluster = !pc.toNative(peak_positions[element], central_charges[element], myCluster, clusterer.Param());
+          tpc::ClusterNative myCluster;
+          bool rejectCluster = !pc.toNative(peak_positions[element], central_charges[element], myCluster, clusterer.Param());
 
-        if (rejectCluster) {
-          if (clusterPosInRow) {
-            clusterPosInRow[idx + element] = maxClusterPerRow;
+          if (rejectCluster) {
+            if (clusterPosInRow) {
+              clusterPosInRow[idx + element] = maxClusterPerRow;
+            }
+            continue;
           }
-          continue;
-        }
 
-        uint rowIndex = 0;
-        if (clusterByRow != nullptr) {
-          rowIndex = sortIntoBuckets(
-            clusterer,
-            myCluster,
-            peak_positions[element].row(),
-            maxClusterPerRow,
-            clusterInRow,
-            clusterByRow);
-          if (clusterPosInRow != nullptr) {
-            clusterPosInRow[idx + element] = rowIndex;
+          uint rowIndex = 0;
+          if (clusterByRow != nullptr) {
+            rowIndex = sortIntoBuckets(
+              clusterer,
+              myCluster,
+              peak_positions[element].row(),
+              maxClusterPerRow,
+              clusterInRow,
+              clusterByRow);
+            if (clusterPosInRow != nullptr) {
+              clusterPosInRow[idx + element] = rowIndex;
+            }
+          } else if (clusterPosInRow) {
+            rowIndex = clusterPosInRow[idx + element];
+            continue;
           }
-        } else if (clusterPosInRow) {
-          rowIndex = clusterPosInRow[idx + element];
-          continue;
-        }
 
-        CPU_ONLY(labelAcc->commit(peak_positions[element].row(), rowIndex, maxClusterPerRow));
+          CPU_ONLY(labelAcc->commit(peak_positions[element].row(), rowIndex, maxClusterPerRow));
+        }
       }
     }
 
