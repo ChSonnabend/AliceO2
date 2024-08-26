@@ -166,6 +166,7 @@ void repro::read_native(int sector, std::vector<customCluster>& native_map)
         current_pad = cl.getPad();
         current_time = cl.getTime();
         native_map[count_clusters] = customCluster{sector, irow, (int)round(current_pad), (int)round(current_time), current_pad, current_time, cl.getSigmaPad(), cl.getSigmaTime(), (float)cl.getQmax(), (float)cl.getQtot(), cl.getFlags(), -1, -1, -1, count_clusters, 0.f};
+        count_clusters++;
       }
     }
   }
@@ -197,7 +198,10 @@ void repro::write_custom_native(ProcessingContext& pc, std::vector<customCluster
   o2::dataformats::MCLabelContainer mcTruthBuffer;
   std::vector<o2::dataformats::MCLabelContainer> sorted_mc_labels(36);
   std::vector<int> sector_counter(36, 0);
-  o2::MCCompLabel dummyMcLabel(0,0,0,true); // This is the dummy label for which the QA fails
+  cluster_sector_counter.clear();
+  cluster_sector_counter.resize(o2::tpc::constants::MAXSECTOR);
+  std::fill(cluster_sector_counter.begin(), cluster_sector_counter.end(), std::vector<int>(o2::tpc::constants::MAXGLOBALPADROW, 0));
+  o2::MCCompLabel dummyMcLabel(true); // This is the dummy label for which the QA fails
   for (auto const cls : native_map) {
     int sec = cls.sector;
     int row = cls.row;
@@ -271,6 +275,7 @@ void repro::run(ProcessingContext& pc)
       total_counter++;
     }
     native_map.clear();
+    LOG(info) << "Clusters for sector " << s << " done!";
 	}
 
 	write_custom_native(pc, native_writer_map);
