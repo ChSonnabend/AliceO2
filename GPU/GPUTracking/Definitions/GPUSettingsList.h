@@ -198,6 +198,7 @@ EndConfig()
 BeginSubConfig(GPUSettingsProcessingRTC, rtc, configStandalone.proc, "RTC", 0, "Processing settings", proc_rtc)
 AddOption(cacheOutput, bool, false, "", 0, "Cache RTC compilation results")
 AddOption(optConstexpr, bool, true, "", 0, "Replace constant variables by static constexpr expressions")
+AddOption(optSpecialCode, signed char, -1, "", 0, "Insert GPUCA_RTC_SPECIAL_CODE special code during RTC")
 AddOption(compilePerKernel, bool, true, "", 0, "Run one RTC compilation per kernel")
 AddOption(enable, bool, false, "", 0, "Use RTC to optimize GPU code")
 AddOption(runTest, int, 0, "", 0, "Do not run the actual benchmark, but just test RTC compilation (1 full test, 2 test only compilation)")
@@ -221,7 +222,7 @@ AddOption(globalInitMutex, bool, false, "", 0, "Use global mutex to synchronize 
 AddOption(stuckProtection, int, 0, "", 0, "Timeout in us, When AMD GPU is stuck, just continue processing and skip tracking, do not crash or stall the chain")
 AddOption(trdNCandidates, int, 3, "", 0, "Number of branching track candidates for single input track during propagation")
 AddOption(trdTrackModelO2, bool, false, "", 0, "Use O2 track model instead of GPU track model for TRD tracking")
-AddOption(debugLevel, int, -1, "debug", 'd', "Set debug level (-1 = silent)")
+AddOption(debugLevel, int, -1, "debug", 'd', "Set debug level (-2 = silent, -1 = autoselect (-2 for O2, 0 for standalone))")
 AddOption(allocDebugLevel, int, 0, "allocDebug", 0, "Some debug output for memory allocations (without messing with normal debug level)")
 AddOption(debugMask, int, 262143, "", 0, "Mask for debug output dumps to file")
 AddOption(checkKernelFailures, bool, false, "", 0, "Synchronize after each kernel call and identify failing kernels")
@@ -272,6 +273,7 @@ AddOption(ignoreNonFatalGPUErrors, bool, false, "", 0, "Continue running after h
 AddOption(tpcIncreasedMinClustersPerRow, unsigned int, 0, "", 0, "Impose a minimum buffer size for the clustersPerRow during TPC clusterization")
 AddOption(noGPUMemoryRegistration, bool, false, "", 0, "Do not register input / output memory for GPU dma transfer")
 AddOption(o2PropagatorUseGPUField, bool, true, "", 0, "Makes the internal O2 propagator use the fast GPU polynomial b field approximation")
+AddOption(willProvideO2PropagatorLate, bool, false, "", 0, "Disable check for availability of o2 propagator at initialization")
 AddOption(calibObjectsExtraMemorySize, unsigned int, 10u * 1024 * 1024, "", 0, "Extra spare memory added for calibration object buffer, to allow fow updates with larger objects")
 AddOption(fastTransformObjectsMinMemorySize, unsigned int, 400u * 1024 * 1024, "", 0, "Extra spare memory added for calibration object buffer, to allow fow updates with larger objects")
 AddOption(lateO2MatLutProvisioningSize, unsigned int, 0u, "", 0, "Memory size to reserve for late provisioning of matlut table")
@@ -295,6 +297,8 @@ AddOption(nnSizeInputPad, int, 3, "", 0, "Size of the input to the NN (currently
 AddOption(nnSizeInputTime, int, 3, "", 0, "Size of the input to the NN (currently calcualted as (length-1)/2")
 AddOption(nnUseCFregression, int, 0, "", 0, "If true, use the regression from the native clusterizer and not the NN")
 AddOption(nnBatchedMode, int, 1, "", 0, "If >1, the NN is evaluated on batched input of size specified in this variable")
+AddOption(RTCprependCommand, std::string, "", "", 0, "Prepend RTC compilation commands by this string")
+AddOption(RTCoverrideArchitecture, std::string, "", "", 0, "Override arhcitecture part of RTC compilation command line")
 AddOption(printSettings, bool, false, "", 0, "Print all settings when initializing")
 AddVariable(eventDisplay, GPUCA_NAMESPACE::gpu::GPUDisplayFrontendInterface*, nullptr)
 AddSubConfig(GPUSettingsProcessingRTC, rtc)
@@ -468,7 +472,7 @@ EndConfig()
 BeginConfig(GPUSettingsStandalone, configStandalone)
 AddOption(runGPU, bool, true, "", 'g', "Use GPU for processing", message("GPU processing: %s"))
 AddOptionSet(runGPU, bool, false, "", 'c', "Use CPU for processing", message("CPU enabled"))
-AddOption(gpuType, std::string, "AUTO", "", 0, "GPU type (CUDA / HIP / OCL / OCL2)")
+AddOption(gpuType, std::string, "AUTO", "", 0, "GPU type (CUDA / HIP / OCL / OCL2) or CPU or AUTO")
 AddOption(runGPUforce, bool, true, "", 0, "Force usage of the specified GPU device type, no CPU fallback")
 AddOption(noprompt, bool, true, "", 0, "Do prompt for keypress before exiting")
 AddOption(continueOnError, bool, false, "", 0, "Continue processing after an error")
@@ -575,7 +579,6 @@ AddVariableRTC(dAlpha, float, 0.f)           // angular size
 AddVariableRTC(assumeConstantBz, signed char, 0)    // Assume a constant magnetic field
 AddVariableRTC(toyMCEventsFlag, signed char, 0)     // events were build with home-made event generator
 AddVariableRTC(continuousTracking, signed char, 0)  // Continuous tracking, estimate bz and errors for abs(z) = 125cm during seeding
-AddVariableRTC(resetTimers, signed char, 0)         // Reset benchmark timers before event processing
 AddVariableRTC(dodEdx, signed char, 0)              // Do dEdx computation
 AddVariableRTC(earlyTpcTransform, signed char, 0)   // do Early TPC transformation
 AddVariableRTC(debugLevel, signed char, 0)          // Debug level
