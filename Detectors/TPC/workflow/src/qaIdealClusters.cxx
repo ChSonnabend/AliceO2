@@ -406,39 +406,45 @@ void qaCluster::read_tracking_clusters(bool mc){
         return local_positions[i1].X() < local_positions[i2].X();
     });
 
+    // track.invert();
+    bool track_rotated = track.rotate(track.getAlpha());
+    // bool track_rotated = true;
     for(int cl = 0; cl < track.getNClusters(); cl++){
-      int idx = index_loc_pos[cl];
-      const auto cluster = assigned_clusters[idx];
-      int sector = sectors[idx], row = rows[idx];
-      auto loc_pos = local_positions[idx];
-      auto glo_pos = global_positions[idx];
+      if(track_rotated){
+        int idx = index_loc_pos[cl];
+        const auto cluster = assigned_clusters[idx];
+        int sector = sectors[idx], row = rows[idx];
+        auto loc_pos = local_positions[idx];
+        auto glo_pos = global_positions[idx];
 
-      float z_pos = tpcmap.LinearTime2Z(sector, cluster.getTime());
-      std::array<float, 3> momentum_after_propagation;
-      bool propagation_ok = track.propagateTo(loc_pos.X(), B_field);
-      auto point = track.getXYZGlo();
-      propagation_ok = propagation_ok && track.getPxPyPzGlo(momentum_after_propagation);
-      if(propagation_ok){
-        GlobalPosition3D tmp_mom_vec(momentum_after_propagation[0], momentum_after_propagation[1], momentum_after_propagation[2]);
-        tmp_mom_vec = mapper.GlobalToLocal(tmp_mom_vec, Sector(sector));
-        momentum_after_propagation = {tmp_mom_vec.X(), tmp_mom_vec.Y(), tmp_mom_vec.Z()};
-        customCluster trk_cls{sector, row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, glo_pos.X(), glo_pos.Y(), z_pos};
-        customCluster trk_path{sector, row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, point.X(), point.Y(), point.Z()};
-        track_paths.push_back(trk_path);
-        track_clusters.push_back(trk_cls);
-        tracking_paths[sector].push_back(trk_path);
-        tracking_clusters[sector].push_back(trk_cls);
-        clusterMomenta.push_back(momentum_after_propagation);
-        momentum_vectors[sector].push_back(momentum_after_propagation);
-        cluster_counter++;
-        if(std::sqrt(std::pow(point.X(), 2) + std::pow(point.Y(), 2)) > 250){
-          LOG(warning) << "[" << (int)sector << "] Found TPC track cluster extrapolated outside the TPC boundaries! Track path (XYZ): (" << point.X() << ", " << point.Y() << ", " << point.Z() << "), Cluster position (XYZ): (" << glo_pos.X() << ", " << glo_pos.Y() << ", " << z_pos << ").";
+        float z_pos = tpcmap.LinearTime2Z(sector, cluster.getTime());
+        std::array<float, 3> momentum_after_propagation;
+        bool propagation_ok = track.propagateTo(loc_pos.X(), B_field);
+        auto point = track.getXYZGlo();
+        propagation_ok = propagation_ok && track.getPxPyPzGlo(momentum_after_propagation);
+        if(propagation_ok){
+          GlobalPosition3D tmp_mom_vec(momentum_after_propagation[0], momentum_after_propagation[1], momentum_after_propagation[2]);
+          tmp_mom_vec = mapper.GlobalToLocal(tmp_mom_vec, Sector(sector));
+          momentum_after_propagation = {tmp_mom_vec.X(), tmp_mom_vec.Y(), tmp_mom_vec.Z()};
+          customCluster trk_cls{sector, row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, glo_pos.X(), glo_pos.Y(), z_pos};
+          customCluster trk_path{sector, row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, point.X(), point.Y(), point.Z()};
+          track_paths.push_back(trk_path);
+          track_clusters.push_back(trk_cls);
+          tracking_paths[sector].push_back(trk_path);
+          tracking_clusters[sector].push_back(trk_cls);
+          clusterMomenta.push_back(momentum_after_propagation);
+          momentum_vectors[sector].push_back(momentum_after_propagation);
+          cluster_counter++;
+          if(std::sqrt(std::pow(point.X(), 2) + std::pow(point.Y(), 2)) > 250){
+            LOG(warning) << "[" << (int)sector << "] Found TPC track cluster extrapolated outside the TPC boundaries! Track path (XYZ): (" << point.X() << ", " << point.Y() << ", " << point.Z() << "), Cluster position (XYZ): (" << glo_pos.X() << ", " << glo_pos.Y() << ", " << z_pos << ").";
+          }
+        } else if(verbose > 3) {
+          LOG(warning) << "[" << (int)sector << "] Propagation failed for track " << k << ", cluster " << cl << " (sector " << sector << ", row " << row << ")!";
         }
-      } else if(verbose > 3) {
-        LOG(warning) << "[" << (int)sector << "] Propagation failed for track " << k << ", cluster " << cl << " (sector " << sector << ", row " << row << ")!";
+      } else {
+        LOG(warning) << "Track rotation failed!";
       }
     }
-
     misc_track_data[k][0] = track.getNClusters();
     misc_track_data[k][1] = track.getChi2();
     misc_track_data[k][2] = track.hasASideClusters();
