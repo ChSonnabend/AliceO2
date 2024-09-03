@@ -397,9 +397,6 @@ void qaCluster::read_tracking_clusters(bool mc){
       rows[cl] = (int)row;
       global_positions[cl] = custom::convertSecRowPadToXY((int)sector, (int)row, cluster.getPad(), tpcmap);
       local_positions[cl] = mapper.GlobalToLocal(global_positions[cl], Sector((int)sector));
-      if(cl % 100 == 0){
-        LOG(info) << global_positions[cl].X() << " " << global_positions[cl].Y() << " " << local_positions[cl].X() << " " << local_positions[cl].Y();
-      }
     }
 
     // Sorting for local X to improve propagation
