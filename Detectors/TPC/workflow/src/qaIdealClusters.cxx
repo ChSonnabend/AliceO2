@@ -385,18 +385,21 @@ void qaCluster::read_tracking_clusters(bool mc){
   int cluster_counter = 0;
   for (int k = 0; k < nTracks; k++) {
     auto track = (*tpcTracks)[k];
-    std::vector<ClusterNative> assigned_clusters;
-    std::vector<int> sectors, rows;
-    std::vector<GlobalPosition2D> global_positions;
-    std::vector<LocalPosition2D> local_positions;
+    std::vector<ClusterNative> assigned_clusters(track.getNClusters());
+    std::vector<int> sectors(track.getNClusters()), rows(track.getNClusters());
+    std::vector<GlobalPosition2D> global_positions(track.getNClusters());
+    std::vector<LocalPosition2D> local_positions(track.getNClusters());
     for(int cl = 0; cl < track.getNClusters(); cl++){
       uint8_t sector = 0, row = 0;
       const auto cluster = track.getCluster(*mCluRefVecInp, cl, clusterIndex, sector, row); // ClusterNative instance
-      assigned_clusters.push_back(cluster);
-      sectors.push_back((int)sector);
-      rows.push_back((int)row);
-      global_positions.push_back(custom::convertSecRowPadToXY((int)sector, (int)row, cluster.getPad(), tpcmap));
-      local_positions.push_back(mapper.GlobalToLocal(global_positions[cl], Sector((int)sector)));
+      assigned_clusters[cl] = cluster;
+      sectors[cl] = (int)sector;
+      rows[cl] = (int)row;
+      global_positions[cl] = custom::convertSecRowPadToXY((int)sector, (int)row, cluster.getPad(), tpcmap);
+      local_positions[cl] = mapper.GlobalToLocal(global_positions[cl], Sector((int)sector));
+      if(cl % 100 == 0){
+        LOG(info) << global_positions[cl].X() << " " << global_positions[cl].Y() << " " << local_positions[cl].X() << " " << local_positions[cl].Y();
+      }
     }
 
     // Sorting for local X to improve propagation
@@ -424,7 +427,7 @@ void qaCluster::read_tracking_clusters(bool mc){
         propagation_ok = propagation_ok && track.getPxPyPzGlo(momentum_after_propagation);
         if(propagation_ok){
           GlobalPosition3D tmp_mom_vec(momentum_after_propagation[0], momentum_after_propagation[1], momentum_after_propagation[2]);
-          tmp_mom_vec = mapper.GlobalToLocal(tmp_mom_vec, Sector(sector));
+          // tmp_mom_vec = mapper.GlobalToLocal(tmp_mom_vec, Sector(sector));
           momentum_after_propagation = {tmp_mom_vec.X(), tmp_mom_vec.Y(), tmp_mom_vec.Z()};
           customCluster trk_cls{sector, row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, glo_pos.X(), glo_pos.Y(), z_pos};
           customCluster trk_path{sector, row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), -1, -1, -1, cluster_counter, 0.f, point.X(), point.Y(), point.Z()};
