@@ -645,13 +645,12 @@ namespace custom
     if(row > o2::tpc::constants::MAXGLOBALPADROW || sector > o2::tpc::constants::MAXSECTOR){
       LOG(warning) << "Stepping over boundary: " << sector << " / " << o2::tpc::constants::MAXSECTOR << ", " << row << " / " << o2::tpc::constants::MAXGLOBALPADROW;
     }
-
-    GlobalPosition2D pos = mapper.getPadCentre(PadSecPos(sector, row, pad));
     float fractionalPad = 0;
-    if(int(pad) != float(pad)){
+    if(std::abs(int(pad) - float(pad)) > 0.00001){
       fractionalPad = mapper.getPadRegionInfo(tpcmap.GetRegion(row)).getPadWidth()*(pad - int(pad) - 0.5);
     }
-    return GlobalPosition2D(pos.X(), pos.Y());
+    GlobalPosition2D pos = mapper.getPadCentre(PadSecPos(sector, row, pad));
+    return GlobalPosition2D(pos.X(), pos.Y() + fractionalPad);
   }
 
   GlobalPosition3D convertSecRowPadToXY(int sector, int row, float pad, float z, TPCMap tpcmap){
@@ -662,12 +661,12 @@ namespace custom
       LOG(warning) << "Stepping over boundary: " << sector << " / " << o2::tpc::constants::MAXSECTOR << ", " << row << " / " << o2::tpc::constants::MAXGLOBALPADROW;
     }
 
-    GlobalPosition2D pos = mapper.getPadCentre(PadSecPos(sector, row, pad));
     float fractionalPad = 0;
-    if(int(pad) != float(pad)){
+    if(std::abs(int(pad) - float(pad)) > 0.00001){
       fractionalPad = mapper.getPadRegionInfo(tpcmap.GetRegion(row)).getPadWidth()*(pad - int(pad) - 0.5);
     }
-    return GlobalPosition3D(pos.X(), pos.Y(), z);
+    GlobalPosition2D pos = mapper.getPadCentre(PadSecPos(sector, row, pad));
+    return GlobalPosition3D(pos.X(), pos.Y() + fractionalPad, z);
   }
 
   // Write function for vector of customCluster
