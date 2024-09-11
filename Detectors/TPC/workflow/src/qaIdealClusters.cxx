@@ -446,9 +446,6 @@ void qaCluster::read_tracking_clusters(bool mc){
         customCluster trk_cls{sector, row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), mcTrackIDs[0], mcTrackIDs[1], mcTrackIDs[2], cluster_counter, 0.f, glo_pos.X(), glo_pos.Y(), tpcmap.LinearTime2Z(sector, cluster.getTime())};
         customCluster trk_path{sector, row, (int)round(tpcmap.LinearY2Pad(sector, row, loc_point.Y())), (int)round(tpcmap.LinearZ2Time(sector, loc_point.Z())), tpcmap.LinearY2Pad(sector, row, loc_point.Y()), tpcmap.LinearZ2Time(sector, loc_point.Z()), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), mcTrackIDs[0], mcTrackIDs[1], mcTrackIDs[2], cluster_counter, 0.f, track_point[idx][0], track_point[idx][1], track_point[idx][2] + z_shift};
         // LOG(info) << sector << " " << row << " " << tpcmap.LinearY2Pad(sector, row, track_point[idx][1]) << " " << tpcmap.LinearY2Pad(sector, row, loc_point.Y()) << " " << loc_point.Y() << " " << track_point[idx][1];
-        if(std::abs(momentum_after_propagation[idx][1] / momentum_after_propagation[idx][0]) > 1){ // 1 = tan(45°)
-          trk_path.flag = -999; // Don't use this track for training
-        }
         track_paths.push_back(trk_path);
         track_clusters.push_back(trk_cls);
         tracking_paths[sector].push_back(trk_path);
