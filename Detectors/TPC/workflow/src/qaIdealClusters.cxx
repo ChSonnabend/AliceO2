@@ -136,7 +136,7 @@ void qaCluster::read_digits(int sector, std::vector<customCluster>& digit_map)
     LOG(info) << "[" << sector << "] Reading the digits...";
 
   // reading in the raw digit information
-  TFile* digitFile = TFile::Open((simulationPath + "/" + inFileDigits).c_str());
+  TFile* digitFile = TFile::Open((inFileDigits).c_str());
   TTree* digitTree = (TTree*)digitFile->Get("o2sim");
 
   std::vector<o2::tpc::Digit>* digits = nullptr;
@@ -190,7 +190,7 @@ void qaCluster::read_native(int sector, std::vector<customCluster>& digit_map, s
 {
 
   ClusterNativeHelper::Reader tpcClusterReader;
-  tpcClusterReader.init((simulationPath + "/" + inFileNative).c_str());
+  tpcClusterReader.init((inFileNative).c_str());
 
   ClusterNativeAccess clusterIndex;
   std::unique_ptr<ClusterNative[]> clusterBuffer;
@@ -332,7 +332,7 @@ void qaCluster::read_ideal(int sector, std::vector<customCluster>& ideal_map)
 void qaCluster::read_tracking_clusters(bool mc){
   // --- tracking clusters & momentum association ---
   const auto& mapper = Mapper::instance();
-  auto file = TFile::Open((simulationPath + "/" + inFileTracks).c_str());
+  auto file = TFile::Open((inFileTracks).c_str());
   auto tree = (TTree*)file->Get("tpcrec");
   if (tree == nullptr) {
     std::cout << "Error getting tree\n";
@@ -351,7 +351,7 @@ void qaCluster::read_tracking_clusters(bool mc){
 
   // Getting the native clusters
   ClusterNativeHelper::Reader tpcClusterReader;
-  tpcClusterReader.init((simulationPath + "/" + inFileNative).c_str());
+  tpcClusterReader.init((inFileNative).c_str());
   ClusterNativeAccess clusterIndex;
   std::unique_ptr<ClusterNative[]> clusterBuffer;
   memset(&clusterIndex, 0, sizeof(clusterIndex));
