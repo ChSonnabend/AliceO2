@@ -418,7 +418,8 @@ void qaCluster::read_tracking_clusters(bool mc){
       const auto cluster = assigned_clusters[idx];
       int sector = sectors[idx], row = rows[idx];
       auto loc_pos = local_positions[idx];
-      propagation_status[idx] = track.rotate(Sector(sector).phi()); // Needed for tracks that cross the sector boundaries
+      // propagation_status[idx] = track.rotate(Sector(sector).phi()); // Needed for tracks that cross the sector boundaries
+      propagation_status[idx] = track.rotate(constants::math::PI - math::atan(global_positions.Y() / global_positions.X())); // Needed for tracks that cross the sector boundaries
       
       if(propagation_status[idx]){
         propagation_status[idx] = track.propagateTo(loc_pos.X(), B_field);
@@ -2485,7 +2486,7 @@ void qaCluster::runQa(int sector)
             } else {
               idl = ideal_map[ideal_idx];
             }
-            tr_data_Y_reg[max_point][counter][0] = idl.cog_pad - dig.max_pad - 0.5;   // pad (my coordinate system starts at 0. The offical one starts at pad = -0.5)
+            tr_data_Y_reg[max_point][counter][0] = idl.cog_pad - dig.max_pad;         // pad
             tr_data_Y_reg[max_point][counter][1] = idl.cog_time - dig.max_time;       // time
             tr_data_Y_reg[max_point][counter][2] = idl.sigmaPad;                      // sigma pad
             tr_data_Y_reg[max_point][counter][3] = idl.sigmaTime;                     // sigma time
