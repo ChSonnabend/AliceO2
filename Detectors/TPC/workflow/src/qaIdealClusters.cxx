@@ -418,8 +418,8 @@ void qaCluster::read_tracking_clusters(bool mc){
       const auto cluster = assigned_clusters[idx];
       int sector = sectors[idx], row = rows[idx];
       auto loc_pos = local_positions[idx];
-      // propagation_status[idx] = track.rotate(Sector(sector).phi()); // Needed for tracks that cross the sector boundaries
-      propagation_status[idx] = track.rotate(constants::math::PI - math::atan(global_positions.Y() / global_positions.X())); // Needed for tracks that cross the sector boundaries
+      propagation_status[idx] = track.rotate(Sector(sector).phi()); // Needed for tracks that cross the sector boundaries
+      // propagation_status[idx] = track.rotate(constants::math::PI - math::atan(global_positions.Y() / global_positions.X())); // Needed for tracks that cross the sector boundaries
       
       if(propagation_status[idx]){
         propagation_status[idx] = track.propagateTo(loc_pos.X(), B_field);
