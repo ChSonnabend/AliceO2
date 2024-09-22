@@ -647,7 +647,7 @@ namespace custom
     }
     float fractionalPad = 0;
     if(std::abs(int(pad) - float(pad)) > 0.00001){
-      fractionalPad = mapper.getPadRegionInfo(tpcmap.GetRegion(row)).getPadWidth()*(pad - int(pad) - 0.5);
+      fractionalPad = mapper.getPadRegionInfo(tpcmap.GetRegion(row)).getPadWidth()*(pad - int(pad)); // - 0.5);
     }
     GlobalPosition2D pos = mapper.getPadCentre(PadSecPos(sector, row, pad));
     return GlobalPosition2D(pos.X(), pos.Y() + fractionalPad);
@@ -663,7 +663,7 @@ namespace custom
 
     float fractionalPad = 0;
     if(std::abs(int(pad) - float(pad)) > 0.00001){
-      fractionalPad = mapper.getPadRegionInfo(tpcmap.GetRegion(row)).getPadWidth()*(pad - int(pad) - 0.5);
+      fractionalPad = mapper.getPadRegionInfo(tpcmap.GetRegion(row)).getPadWidth()*(pad - int(pad)); // - 0.5);
     }
     GlobalPosition2D pos = mapper.getPadCentre(PadSecPos(sector, row, pad));
     return GlobalPosition3D(pos.X(), pos.Y() + fractionalPad, z);
