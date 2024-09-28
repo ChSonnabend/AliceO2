@@ -47,7 +47,8 @@
 
 #include "Headers/DataHeader.h"
 
-#include "ML/onnx_interface.h"
+#include "ML/ort_interface.h"
+#include "ML/3rdparty/GPUORTFloat16.h"
 
 #include "Steer/MCKinematicsReader.h"
 
@@ -381,7 +382,7 @@ class qaCluster : public Task
 
   int networkOptimizations = 1;
   std::vector<std::string> network_classification_paths, network_regression_paths;
-  OnnxModel network_classification[5], network_regression[5];
+  OrtModel network_classification[5], network_regression[5];
 
   int num_total_ideal_max = 0, num_total_digit_max = 0;
   std::vector<std::vector<std::vector<o2::MCTrack>>> mctracks; // mc_track = mctracks[sourceId][eventId][trackId]

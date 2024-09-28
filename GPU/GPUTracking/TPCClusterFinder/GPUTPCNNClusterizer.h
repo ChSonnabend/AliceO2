@@ -62,23 +62,11 @@ class GPUTPCNNClusterizer : public GPUKernelTemplate
   static GPUd() void computeClustersImpl(int, int, int, int, processorType&, const CfFragment&, GPUSharedMemory&, const Array2D<PackedCharge>&, const ChargePos*, const GPUSettingsRec&, MCLabelAccumulator*, uint, uint, uint*, tpc::ClusterNative*, uint*);
 
   static GPUd() void exec(int, int, int, int, GPUSharedMemory&, processorType&, char);
-  static int padOffset(int, int);
-  static bool isBoundary(int, int, int);
-  static GPUd() void nn_clusterizer(int, int, int, int,
-                              processorType&,
-                              const CfFragment&,
-                              GPUSharedMemory&,
-                              const Array2D<PackedCharge>&,
-                              const ChargePos*,
-                              const GPUSettingsRec&,
-                              MCLabelAccumulator*,
-                              uint,
-                              uint,
-                              uint*,
-                              tpc::ClusterNative*,
-                              uint*);
+  static int padOffset(int, int, std::vector<int>);
+  static bool isBoundary(int, int, int, std::vector<int>);
 
-  static GPUd() void nn_clusterizer_batched(int, int, int, int,
+  template<class T>
+  static GPUd() void nn_clusterizer(int, int, int, int,
                               processorType&,
                               const CfFragment&,
                               GPUSharedMemory&,

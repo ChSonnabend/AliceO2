@@ -19,7 +19,8 @@
 #include "GPUProcessor.h"
 #include "GPUDataTypes.h"
 #include "CfFragment.h"
-#include "ML/onnx_interface.h"
+#include "ML/ort_interface.h"
+#include "ML/3rdparty/GPUORTFloat16.h"
 
 using namespace o2::ml;
 
@@ -144,18 +145,19 @@ class GPUTPCClusterFinder : public GPUProcessor
   short mZSOffsetId = -1;
   short mOutputId = -1;
 
-  int nnSizeInputRow = 3;
-  int nnSizeInputPad = 3;
-  int nnSizeInputTime = 3;
-  int nnElementSize = -1;
-  bool nnAddIndexData = true;
+  int nnClusterizerSizeInputRow = 3;
+  int nnClusterizerSizeInputPad = 3;
+  int nnClusterizerSizeInputTime = 3;
+  int nnClusterizerElementSize = -1;
+  bool nnClusterizerAddIndexData = true;
   float nnClassThreshold = 0.16;
-  bool nnSigmoidTrafoThreshold = 1;
-  int nnClusterizerVerbosity = 1;
-  int nnUseCFregression = 0;
-  int nnBatchedMode = 1;
+  bool nnSigmoidTrafoClassThreshold = 1;
+  int nnClusterizerUseCFregression = 0;
+  int nnClusterizerBatchedMode = 1;
+  int nnClusterizerVerbosity = 0;
 
-  OnnxModel model_class, model_reg;
+  std::unordered_map<std::string, std::string> OrtOptions;
+  OrtModel model_class, model_reg_1, model_reg_2; // For splitting clusters
 
 #ifndef GPUCA_GPUCODE
   void DumpDigits(std::ostream& out);

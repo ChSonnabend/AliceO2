@@ -84,27 +84,12 @@ endif()
 o2_add_executable(qa-clusters
                   COMPONENT_NAME tpc
                   SOURCES src/qaIdealClusters.cxx
-                  PUBLIC_LINK_LIBRARIES O2::TPCWorkflow O2::SimulationDataFormat O2::TPCQC O2::DataFormatsTPC O2::TPCBase O2::ML ONNXRuntime::ONNXRuntime Boost::thread O2::GPUTracking)
-
-o2_add_executable(reproducer
-                  COMPONENT_NAME tpc
-                  SOURCES src/reproducer_noMClabels.cxx
-                  PUBLIC_LINK_LIBRARIES O2::TPCWorkflow O2::SimulationDataFormat O2::TPCQC O2::DataFormatsTPC O2::TPCBase O2::ML ONNXRuntime::ONNXRuntime Boost::thread O2::GPUTracking)
-
-                  # o2_add_executable(qa-clusters-old
-#                   COMPONENT_NAME tpc
-#                   SOURCES src/qaIdealDigitizer.cxx
-#                   PUBLIC_LINK_LIBRARIES O2::TPCWorkflow O2::SimulationDataFormat O2::TPCQC O2::DataFormatsTPC O2::TPCBase O2::ML ONNXRuntime::ONNXRuntime Boost::thread)
+                  PUBLIC_LINK_LIBRARIES O2::TPCWorkflow O2::SimulationDataFormat O2::TPCQC O2::DataFormatsTPC O2::TPCBase O2::ML Boost::thread O2::GPUTracking)
 
 o2_add_executable(mc-labels
                   COMPONENT_NAME tpc
                   SOURCES src/readMCtoTree.cxx
                   PUBLIC_LINK_LIBRARIES O2::TPCWorkflow O2::SimulationDataFormat O2::TPCQC O2::DataFormatsTPC O2::TPCBase)
-
-o2_add_executable(onnx-inference
-                  COMPONENT_NAME tpc
-                  SOURCES src/RunOnnxInference.cxx
-                  PUBLIC_LINK_LIBRARIES O2::Framework O2::TPCWorkflow O2::ML)
 
 o2_add_executable(reco-workflow
                   COMPONENT_NAME tpc

@@ -63,7 +63,6 @@ set(SRCS
     Merger/GPUTPCGlobalDebugSortKernels.cxx
     Merger/GPUTPCGMPhysicalTrackModel.cxx
     Merger/GPUTPCGMPolynomialFieldManager.cxx
-    ML/onnx_interface.cxx
     DataTypes/GPUTRDTrack.cxx
     TRDTracking/GPUTRDTracker.cxx
     TRDTracking/GPUTRDTrackletWord.cxx

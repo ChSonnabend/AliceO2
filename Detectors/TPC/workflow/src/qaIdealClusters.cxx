@@ -66,18 +66,31 @@ void qaCluster::init(InitContext& ic)
   //   LOG(info) << "Output of classification network (" << "): " << out_net_class[i];
   // }
 
+  std::unordered_map<std::string, std::string> OrtOptions{
+    {"device",  ic.options().get<std::string>("network-device")},
+    {"device-id", "0"},
+    {"allocate-device-memory", "0"},
+    {"dtype", ic.options().get<std::string>("network-dtype")},
+    {"intra-op-num-threads", std::to_string(networkNumThreads)},
+    {"enable-optimizations", std::to_string((int)networkOptimizations)},
+    {"enable-profiling", "0"},
+    {"profiling-output-path", ""},
+    {"logging-level", 0}
+  };
   if (mode.find(std::string("network_class")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
     network_classification_paths = custom::splitString(ic.options().get<std::string>("network-classification-paths"), ";");
     int count_net_class = 0;
     if(networkSplitIrocOroc){
       for(auto path : network_classification_paths){
-        network_classification[count_net_class].init(path, networkOptimizations, networkNumThreads);
+        OrtOptions["model-path"] = path;
+        network_classification[count_net_class].init(OrtOptions);
         count_net_class++;
       }
     } else {
       for(auto path : network_classification_paths){
-        network_classification[count_net_class].init(path, networkOptimizations, networkNumThreads);
-        network_classification[count_net_class + 1].init(path, networkOptimizations, networkNumThreads);
+        OrtOptions["model-path"] = path;
+        network_classification[count_net_class].init(OrtOptions);
+        network_classification[count_net_class + 1].init(OrtOptions);
         count_net_class+=2;
       }
     }
@@ -87,13 +100,15 @@ void qaCluster::init(InitContext& ic)
     int count_net_reg = 0;
     if(networkSplitIrocOroc){
       for(auto path : network_regression_paths){
-        network_regression[count_net_reg].init(path, networkOptimizations, networkNumThreads);
+        OrtOptions["model-path"] = path;
+        network_regression[count_net_reg].init(OrtOptions);
         count_net_reg++;
       }
     } else {
       for(auto path : network_regression_paths){
-        network_regression[count_net_reg].init(path, networkOptimizations, networkNumThreads);
-        network_regression[count_net_reg + 1].init(path, networkOptimizations, networkNumThreads);
+        OrtOptions["model-path"] = path;
+        network_regression[count_net_reg].init(OrtOptions);
+        network_regression[count_net_reg + 1].init(OrtOptions);
         count_net_reg+=2;
       }
     }
@@ -1366,7 +1381,7 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
 
       int eval_size = input_vector.size() / network_input_size;
 
-      std::vector<float> out_net = network_classification[net_counter].inference_vector(input_vector, eval_size);
+      std::vector<float> out_net = network_classification[net_counter].inference<float, float>(input_vector);
 
       for (int idx = 0; idx < eval_size; idx++) {
 
@@ -1525,7 +1540,7 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
           auto [input_vector, flags] = create_network_input(sector, map2d, investigate_maxima, digit_map, network_input_size);
 
           int eval_size = input_vector.size() / network_input_size;
-          std::vector<float> out_net = network_regression[2*(class_idx-1) + split_counter].inference_vector(input_vector, eval_size);
+          std::vector<float> out_net = network_regression[2*(class_idx-1) + split_counter].inference<float, float>(input_vector);
 
           for(int idx = 0; idx < eval_size; idx++){
             int digit_max_idx = sorted_digit_idx[class_idx][max_epoch * networkInputSize + idx];
@@ -2878,6 +2893,8 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
       {"network-split-iroc-oroc", VariantType::Int, 0, {"Whether to use different networks for IROC and OROC's. If 1: network-path = network_iroc1;network_oroc1;network_iroc2;network_oroc2; ..."}},
       {"network-input-size", VariantType::Int, 1000, {"Size of the vector to be fed through the neural network"}},
       {"network-class-threshold", VariantType::Float, 0.5f, {"Threshold for classification network: Keep or reject maximum (default: 0.5)"}},
+      {"network-device", VariantType::String, "cpu", {"Device on which to execute the NNs"}},
+      {"network-dtype", VariantType::String, "FP32", {"Dtype for which the execution is done (FP32, FP16)"}},
       {"enable-network-optimizations", VariantType::Bool, true, {"Enable ONNX network optimizations"}},
       {"network-num-threads", VariantType::Int, 1, {"Set the number of CPU threads for network execution"}},
       {"network-threshold-sigmoid-trafo", VariantType::Int, 0, {"If 1, convert network-class-threshold to sigmoid^-1(threshold)"}},
