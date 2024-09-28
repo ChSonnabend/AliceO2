@@ -44,7 +44,7 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap){
     LOG(fatal) << "(ORT) Model path cannot be empty!";
   }
   modelPath = optionsMap["model-path"];
-  device = (optionsMap.contains("device") ? optionsMap["device"] : "cpu");
+  device = (optionsMap.contains("device") ? optionsMap["device"] : "CPU");
   dtype = (optionsMap.contains("dtype") ? optionsMap["dtype"] : "float");
   deviceId = (optionsMap.contains("device-id") ? std::stoi(optionsMap["device-id"]) : 0);
   allocateDeviceMemory = (optionsMap.contains("allocate-device-memory") ? std::stoi(optionsMap["allocate-device-memory"]) : 0);
@@ -55,19 +55,19 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap){
 
   std::string dev_mem_str = "Hip";
 #ifdef ORT_ROCM_BUILD
-  if(device == "rocm") {
+  if(device == "ROCM") {
     Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_ROCM(pImplOrt->sessionOptions, deviceId));
     LOG(info) << "(ORT) ROCM execution provider set";
   }
 #endif
 #ifdef ORT_MIGRAPHX_BUILD
-  if(device == "migraphx") {
+  if(device == "MIGRAPHX") {
     Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_MIGraphX(pImplOrt->sessionOptions, deviceId));
     LOG(info) << "(ORT) MIGraphX execution provider set";
   }
 #endif
 #ifdef ORT_CUDA_BUILD
-  if(device == "cuda") {
+  if(device == "CUDA") {
     Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CUDA(pImplOrt->sessionOptions, deviceId));
     LOG(info) << "(ORT) CUDA execution provider set";
     dev_mem_str = "Cuda";
@@ -79,7 +79,7 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap){
     LOG(info) << "(ORT) Memory info set to on-device memory";
   }
 
-  if(device == "cpu") {
+  if(device == "CPU") {
     (pImplOrt->sessionOptions).SetIntraOpNumThreads(intraOpNumThreads);
     if(intraOpNumThreads > 1){
       (pImplOrt->sessionOptions).SetExecutionMode(ExecutionMode::ORT_PARALLEL);
