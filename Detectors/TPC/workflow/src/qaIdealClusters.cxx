@@ -1807,22 +1807,26 @@ void qaCluster::runQa(int sector)
   std::vector<std::vector<int>> ideal_tag_label((int)ideal_map.size(), std::vector<int>((int)tagger_maps.size(), -1)), digit_tag_label((int)maxima_digits.size(), std::vector<int>((int)tagger_maps.size(), -1));
 
   if (mode.find(std::string("looper_tagger")) != std::string::npos) {
-    int tm_counter = 0;
+    int tm_counter = 0, remove_ideal = 0, remove_digit = 0;
     for (auto tm : tagger_maps) {
       int counter = 0;
       for (auto idl : ideal_map) {
         ideal_tag_label[counter][tm_counter] = tm[round(idl.cog_time)][idl.row][round(idl.cog_pad)];
         ideal_tagged[counter] = (int)(((bool)ideal_tagged[counter]) || (tm[round(idl.cog_time)][idl.row][round(idl.cog_pad)] > -1));
+        remove_ideal += ideal_tagged[counter];
         counter += 1;
       }
       counter = 0;
       for (int idx_dig : maxima_digits) {
         digit_tag_label[counter][tm_counter] = tm[digit_map[idx_dig].max_time][digit_map[idx_dig].row][digit_map[idx_dig].max_pad];
         digit_tagged[counter] = (int)(((bool)digit_tagged[counter]) || (tm[digit_map[idx_dig].max_time][digit_map[idx_dig].row][digit_map[idx_dig].max_pad] > -1));
+        remove_digit += digit_tagged[counter];
         counter += 1;
       }
       tm_counter += 1;
     }
+    num_total_ideal_max -= remove_ideal;
+    num_total_digit_max -= remove_digit;
   }
 
   // Checks the number of assignments that have been made with the above loops
@@ -2118,9 +2122,12 @@ void qaCluster::runQa(int sector)
         if(idl_idx == -1){
           continue;
         }
-        if ((cls.row == ideal_map[idl_idx].row) && (std::abs(cls.cog_time - ideal_map[idl_idx].cog_time) < precision) && (std::abs(cls.cog_pad - ideal_map[idl_idx].cog_pad) < precision)){
-          track_cluster_to_ideal_assignment[idl_idx] = cluster_counter;
+        if(ideal_map[idl_idx].index!=-1){
+          track_cluster_to_ideal_assignment[ideal_map[idl_idx].index] = cluster_counter;
         }
+        //if ((cls.row == ideal_map[idl_idx].row) && (std::abs(cls.cog_time - ideal_map[idl_idx].cog_time) < precision) && (std::abs(cls.cog_pad - ideal_map[idl_idx].cog_pad) < precision)){
+        //  track_cluster_to_ideal_assignment[idl_idx] = cluster_counter;
+        //}
       }
     }
 
@@ -2263,9 +2270,9 @@ void qaCluster::runQa(int sector)
         // net_momY = momentum_vector_map[net_idx][1];
         // net_momZ = momentum_vector_map[net_idx][2];
         id_mom = std::sqrt(std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][0],2) + std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][1],2) + std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][2],2));
-        id_momX = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][0] / id_mom;
-        id_momY = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][1] / id_mom;
-        id_momZ = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][2] / id_mom;
+        id_momX = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][0];
+        id_momY = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][1];
+        id_momZ = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][2];
       }
       network_ideal->Fill();
 
@@ -2487,7 +2494,7 @@ void qaCluster::runQa(int sector)
             } else {
               idl = ideal_map[ideal_idx];
             }
-            tr_data_Y_reg[max_point][counter][0] = idl.cog_pad - dig.max_pad + cog_tr_pad_offset;       // pad: Matching is done on integers, but track paths are offset by 0.5 (center of pad)
+            tr_data_Y_reg[max_point][counter][0] = idl.cog_pad - dig.max_pad + cog_tr_pad_offset;       // pad: Matching is done on integers for digit maxima, but track paths and clusters are offset by 0.5 (center of pad)
             tr_data_Y_reg[max_point][counter][1] = idl.cog_time - dig.max_time;                         // time
             tr_data_Y_reg[max_point][counter][2] = idl.sigmaPad;                                        // sigma pad
             tr_data_Y_reg[max_point][counter][3] = idl.sigmaTime;                                       // sigma time
@@ -2678,11 +2685,10 @@ void qaCluster::run(ProcessingContext& pc)
     custom::sum_nested_container(fractional_clones, fractional_clones_sum);
 
     LOG(info) << "------- RESULTS -------\n";
-    LOG(info) << "Number of digit maxima (before exclusions): " << num_total_digit_max;
-    LOG(info) << "Number of ideal maxima (before exclusions): " << num_total_ideal_max << "\n";
-    LOG(info) << "Number of digit maxima: " << number_of_digit_max_sum;
-    LOG(info) << "Number of ideal maxima: " << number_of_ideal_max_sum;
-    LOG(info) << "Number of ideal maxima (findable): " << number_of_ideal_max_findable_sum << "\n";
+    LOG(info) << "Number of digit maxima (after exclusions): " << num_total_digit_max;
+    LOG(info) << "Number of ideal maxima (after exclusions): " << num_total_ideal_max << "\n";
+    LOG(info) << "Number of digit maxima: (before exclusion): " << number_of_digit_max_sum;
+    LOG(info) << "Number of ideal maxima: (before exclusion): " << number_of_ideal_max_sum;
 
     unsigned int efficiency_normal = 0;
     unsigned int efficiency_findable = 0;
@@ -2726,12 +2732,12 @@ void qaCluster::run(ProcessingContext& pc)
       fakes_id += assignments_ideal[s][0];
     }
 
-    LOG(info) << "Efficiency - Number of assigned (ideal -> digit) clusters: " << efficiency_normal << " (" << (float)efficiency_normal * 100 / (float)number_of_ideal_max_sum << "% of ideal maxima)";
+    LOG(info) << "Efficiency - Number of assigned (ideal -> digit) clusters: " << efficiency_normal << " (" << (float)efficiency_normal * 100 / (float)num_total_ideal_max << "% of ideal maxima)";
     LOG(info) << "Efficiency (findable) - Number of assigned (ideal -> digit) clusters: " << efficiency_findable << " (" << (float)efficiency_findable * 100 / (float)number_of_ideal_max_findable_sum << "% of ideal maxima)";
-    LOG(info) << "Clones (Int, clone-order >= 2 for ideal cluster): " << clones_sum << " (" << (float)clones_sum * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
-    LOG(info) << "Clones (Float, fractional clone-order): " << fractional_clones_sum << " (" << (float)fractional_clones_sum * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
-    LOG(info) << "Fakes for digits (number of digit hits that can't be assigned to any ideal hit): " << fakes_dig << " (" << (float)fakes_dig * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
-    LOG(info) << "Fakes for ideal (number of ideal hits that can't be assigned to any digit hit): " << fakes_id << " (" << (float)fakes_id * 100 / (float)number_of_ideal_max_sum << "% of ideal maxima)";
+    LOG(info) << "Clones (Int, clone-order >= 2 for ideal cluster): " << clones_sum << " (" << (float)clones_sum * 100 / (float)num_total_digit_max << "% of digit maxima)";
+    LOG(info) << "Clones (Float, fractional clone-order): " << fractional_clones_sum << " (" << (float)fractional_clones_sum * 100 / (float)num_total_digit_max << "% of digit maxima)";
+    LOG(info) << "Fakes for digits (number of digit hits that can't be assigned to any ideal hit): " << fakes_dig << " (" << (float)fakes_dig * 100 / (float)num_total_digit_max << "% of digit maxima)";
+    LOG(info) << "Fakes for ideal (number of ideal hits that can't be assigned to any digit hit): " << fakes_id << " (" << (float)fakes_id * 100 / (float)num_total_ideal_max << "% of ideal maxima)";
 
     if (mode.find(std::string("looper_tagger")) != std::string::npos && create_output == 1) {
       LOG(info) << "------- Merging looper tagger regions -------";
