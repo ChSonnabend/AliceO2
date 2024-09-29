@@ -32,7 +32,7 @@ void qaCluster::init(InitContext& ic)
   networkInputSize = ic.options().get<int>("network-input-size");
   networkClassThres = ic.options().get<float>("network-class-threshold");
   networkSplitIrocOroc = ic.options().get<float>("network-split-iroc-oroc");
-  networkOptimizations = ic.options().get<bool>("enable-network-optimizations");
+  networkOptimizations = ic.options().get<int>("enable-network-optimizations");
   networkNumThreads = ic.options().get<int>("network-num-threads");
   normalization_mode = ic.options().get<int>("normalization-mode");
   looper_tagger_granularity = ic.options().get<std::vector<int>>("looper-tagger-granularity");
@@ -74,9 +74,10 @@ void qaCluster::init(InitContext& ic)
     {"intra-op-num-threads", std::to_string(networkNumThreads)},
     {"enable-optimizations", std::to_string((int)networkOptimizations)},
     {"enable-profiling", "0"},
-    {"profiling-output-path", ""},
-    {"logging-level", 0}
+    {"profiling-output-path", "."},
+    {"logging-level", "0"}
   };
+
   if (mode.find(std::string("network_class")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
     network_classification_paths = custom::splitString(ic.options().get<std::string>("network-classification-paths"), ";");
     int count_net_class = 0;
@@ -2895,7 +2896,7 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
       {"network-class-threshold", VariantType::Float, 0.5f, {"Threshold for classification network: Keep or reject maximum (default: 0.5)"}},
       {"network-device", VariantType::String, "cpu", {"Device on which to execute the NNs"}},
       {"network-dtype", VariantType::String, "FP32", {"Dtype for which the execution is done (FP32, FP16)"}},
-      {"enable-network-optimizations", VariantType::Bool, true, {"Enable ONNX network optimizations"}},
+      {"enable-network-optimizations", VariantType::Int, 1, {"Enable ONNX network optimizations"}},
       {"network-num-threads", VariantType::Int, 1, {"Set the number of CPU threads for network execution"}},
       {"network-threshold-sigmoid-trafo", VariantType::Int, 0, {"If 1, convert network-class-threshold to sigmoid^-1(threshold)"}},
       {"remove-individual-files", VariantType::Int, 0, {"Remove sector-individual files that are created during the task and only keep merged files"}},
