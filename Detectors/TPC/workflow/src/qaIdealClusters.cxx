@@ -444,9 +444,11 @@ void qaCluster::read_tracking_clusters(bool mc){
           z_shift += (tpcmap.LinearTime2Z(sector, cluster.getTime()) - track_point[idx][2]);
           propagation_status[idx] = propagation_status[idx] && track.getPxPyPzGlo(momentum_after_propagation[idx]);
         } else {
-          LOG(warning) << "Track propagation failed! (Track " << k << ", cluster " << cl << ")";
+          if(verbose > 2) {
+            LOG(warning) << "Track propagation failed! (Track " << k << ", cluster " << cl << ")";
+          }
         }
-      } else {
+      } else if(verbose > 2) {
         LOG(warning) << "Track rotation failed! (Track " << k << ", cluster " << cl << ")";
       }
     }
@@ -1544,7 +1546,11 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
           std::vector<float> out_net = network_regression[2*(class_idx-1) + split_counter].inference<float, float>(input_vector);
 
           for(int idx = 0; idx < eval_size; idx++){
-            int digit_max_idx = sorted_digit_idx[class_idx][max_epoch * networkInputSize + idx];
+            int digit_idx = max_epoch * networkInputSize + idx;
+            if(digit_idx >= sorted_digit_idx[class_idx].size()){
+              break;
+            }
+            int digit_max_idx = sorted_digit_idx[class_idx][digit_idx];
             customCluster net_cluster = network_map[digit_max_idx + idx_offset];
             for(int subclass = 0; subclass < class_idx; subclass++){
               int net_idx = idx * class_idx * num_output_nodes_regression + subclass;
@@ -2653,10 +2659,12 @@ void qaCluster::run(ProcessingContext& pc)
   }
 
   if(!realData){
+    LOG(info) << "Reading kinematics information...";
     read_kinematics(mctracks);
   }
 
   if(mode.find(std::string("training_data_mom")) != std::string::npos || mode.find(std::string("track_cluster")) != std::string::npos || realData){
+    LOG(info) << "Reading tracking information...";
     read_tracking_clusters(!realData);
   }
 
