@@ -117,7 +117,6 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
       ChargePos peak = clusterer.mPfilteredPeakPositions[cls];
       int row = peak.row(), pad = peak.pad(), time = peak.time();
       float central_charge = chargeMap[peak].unpack();
-      CPU_ONLY(labelAcc->collect(peak, central_charge));
 
       peak_positions[batch_counter] = peak;
       central_charges[batch_counter] = central_charge;
@@ -199,6 +198,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
         int model_output_index = element*num_outputs_1;
         if(out_class[element] > clusterer.nnClassThreshold) {
           if((num_output_classes == 1) || ((num_output_classes > 1) && (out_class[element] < 2))) {
+            CPU_ONLY(labelAcc->collect(peak_positions[element], central_charges[element]));
             ClusterAccumulator pc;
             pc.setFull(central_charges[element] * out_reg[model_output_index + 4], peak_positions[element].pad() + out_reg[model_output_index + 0], out_reg[model_output_index + 2], fragment.start + peak_positions[element].time() + out_reg[model_output_index + 1], out_reg[model_output_index + 3], 0, 0);
             // LOG(info) << "Example: " << num_outputs_1 << " " << out_reg.size() << ";; " << out_reg[model_output_index + 4] << "; " << out_reg[model_output_index + 0] << "; " << out_reg[model_output_index + 2] << "; " << out_reg[model_output_index + 1] << "; " << out_reg[model_output_index + 3];
@@ -232,7 +232,9 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
           } else {
             model_output_index = index_class_2[counter_class_2_idcs]*num_outputs_2;
             counter_class_2_idcs++;
+
             // Cluster 1
+            CPU_ONLY(labelAcc->collect(peak_positions[element], central_charges[element]));
             ClusterAccumulator pc;
             pc.setFull(central_charges[element] * tmp_out_reg_2[model_output_index + 8], peak_positions[element].pad() + tmp_out_reg_2[model_output_index + 4], tmp_out_reg_2[model_output_index + 2], fragment.start + peak_positions[element].time() + tmp_out_reg_2[model_output_index + 2], tmp_out_reg_2[model_output_index + 6], 0, 0);
             // LOG(info) << "Example: " << num_outputs_2 << " " << out_reg.size() << ";; " << out_reg[model_output_index + 4] << "; " << out_reg[model_output_index + 0] << "; " << out_reg[model_output_index + 2] << "; " << out_reg[model_output_index + 1] << "; " << out_reg[model_output_index + 3];
@@ -265,6 +267,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
             CPU_ONLY(labelAcc->commit(peak_positions[element].row(), rowIndex, maxClusterPerRow));
 
             // Cluster 2
+            CPU_ONLY(labelAcc->collect(peak_positions[element], central_charges[element]));
             pc.setFull(central_charges[element] * tmp_out_reg_2[model_output_index + 9], peak_positions[element].pad() + tmp_out_reg_2[model_output_index + 1], tmp_out_reg_2[model_output_index + 5], fragment.start + peak_positions[element].time() + tmp_out_reg_2[model_output_index + 3], tmp_out_reg_2[model_output_index + 7], 0, 0);
             // LOG(info) << "Example: " << num_outputs_2 << " " << out_reg.size() << ";; " << out_reg[model_output_index + 4] << "; " << out_reg[model_output_index + 0] << "; " << out_reg[model_output_index + 2] << "; " << out_reg[model_output_index + 1] << "; " << out_reg[model_output_index + 3];
             rejectCluster = !pc.toNative(peak_positions[element], central_charges[element], myCluster, clusterer.Param());
