@@ -926,7 +926,7 @@ int GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             // Inverse sigmoid transformation
             clusterer.nnClassThreshold = (float)std::log(clusterer.nnClassThreshold/(1.f-clusterer.nnClassThreshold));
           }
-          runKernel<GPUTPCNNClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 0);
+          runKernel<GPUTPCNNClusterizer>({GetGrid(std::ceil(clusterer.mPmemory->counters.nClusters / (float)clusterer.nnClusterizerBatchedMode), lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 0);
         } else {
           runKernel<GPUTPCCFClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 0);
         }
@@ -939,7 +939,7 @@ int GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           if(!GetProcessingSettings().applyNNclusterizer){
             runKernel<GPUTPCCFClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 1);
           } else {
-            runKernel<GPUTPCNNClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 1);
+            runKernel<GPUTPCNNClusterizer>({GetGrid(std::ceil(clusterer.mPmemory->counters.nClusters / (float)clusterer.nnClusterizerBatchedMode), lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 1);
           }
         }
         if (GetProcessingSettings().debugLevel >= 3) {

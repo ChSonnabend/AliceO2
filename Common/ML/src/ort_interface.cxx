@@ -129,14 +129,16 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap){
       [&](const std::string& str) { return str.c_str(); });
 
   // Print names
-  LOG(info) << "Input Nodes:";
-  for (size_t i = 0; i < mInputNames.size(); i++) {
-    LOG(info) << "\t" << mInputNames[i] << " : " << printShape(mInputShapes[i]);
-  }
+  if(loggingLevel > 1) {
+    LOG(info) << "Input Nodes:";
+    for (size_t i = 0; i < mInputNames.size(); i++) {
+      LOG(info) << "\t" << mInputNames[i] << " : " << printShape(mInputShapes[i]);
+    }
 
-  LOG(info) << "Output Nodes:";
-  for (size_t i = 0; i < mOutputNames.size(); i++) {
-    LOG(info) << "\t" << mOutputNames[i] << " : " << printShape(mOutputShapes[i]);
+    LOG(info) << "Output Nodes:";
+    for (size_t i = 0; i < mOutputNames.size(); i++) {
+      LOG(info) << "\t" << mOutputNames[i] << " : " << printShape(mOutputShapes[i]);
+    }
   }
 }
 
@@ -164,8 +166,9 @@ std::vector<O> OrtModel::inference(std::vector<I>& input){
   // input.clear();
   auto outputTensors = (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), inputTensor.data(), inputTensor.size(), outputNamesChar.data(), outputNamesChar.size());
   O* outputValues = reinterpret_cast<O*>(outputTensors[0].template GetTensorMutableData<O>());
+  std::vector<O> outputValuesVec{outputValues, outputValues + inputShape[0] * mOutputShapes[0][1]};
   outputTensors.clear();
-  return std::vector<O>{outputValues, outputValues + inputShape[0] * mOutputShapes[0][1]};
+  return outputValuesVec;
 }
 
 template<class I, class O> // class I is the input data type, e.g. float, class O is the output data type, e.g. O2::gpu::OrtDataType::Float16_t from O2/GPU/GPUTracking/ML/convert_float16.h
@@ -178,8 +181,9 @@ std::vector<O> OrtModel::inference(std::vector<std::vector<I>>& input){
   // input.clear();
   auto outputTensors = (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), inputTensor.data(), inputTensor.size(), outputNamesChar.data(), outputNamesChar.size());
   O* outputValues = reinterpret_cast<O*>(outputTensors[0].template GetTensorMutableData<O>());
+  std::vector<O> outputValuesVec{outputValues, outputValues + inputTensor.size() / mInputShapes[0][1] * mOutputShapes[0][1]};
   outputTensors.clear();
-  return std::vector<O>{outputValues, outputValues + inputTensor.size() / mInputShapes[0][1] * mOutputShapes[0][1]};
+  return outputValuesVec;
 }
 
 std::string OrtModel::printShape(const std::vector<int64_t>& v)
@@ -198,8 +202,9 @@ template <> std::vector<float> OrtModel::inference<float, float>(std::vector<flo
   // input.clear();
   auto outputTensors = (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), inputTensor.data(), inputTensor.size(), outputNamesChar.data(), outputNamesChar.size());
   float* outputValues = outputTensors[0].template GetTensorMutableData<float>();
+  std::vector<float> outputValuesVec{outputValues, outputValues + inputShape[0] * mOutputShapes[0][1]};
   outputTensors.clear();
-  return std::vector<float>{outputValues, outputValues + inputShape[0] * mOutputShapes[0][1]};
+  return outputValuesVec;
 }
 
 template <> std::vector<float> OrtModel::inference<OrtDataType::Float16_t, float>(std::vector<OrtDataType::Float16_t>& input) {
@@ -209,8 +214,9 @@ template <> std::vector<float> OrtModel::inference<OrtDataType::Float16_t, float
   // input.clear();
   auto outputTensors = (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), inputTensor.data(), inputTensor.size(), outputNamesChar.data(), outputNamesChar.size());
   float* outputValues = outputTensors[0].template GetTensorMutableData<float>();
+  std::vector<float> outputValuesVec{outputValues, outputValues + inputShape[0] * mOutputShapes[0][1]};
   outputTensors.clear();
-  return std::vector<float>{outputValues, outputValues + inputShape[0] * mOutputShapes[0][1]};
+  return outputValuesVec;
 }
 
 template <> std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(std::vector<OrtDataType::Float16_t>& input) {
@@ -220,8 +226,9 @@ template <> std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType:
   // input.clear();
   auto outputTensors = (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), inputTensor.data(), inputTensor.size(), outputNamesChar.data(), outputNamesChar.size());
   OrtDataType::Float16_t* outputValues = reinterpret_cast<OrtDataType::Float16_t*>(outputTensors[0].template GetTensorMutableData<Ort::Float16_t>());
+  std::vector<OrtDataType::Float16_t> outputValuesVec{outputValues, outputValues + inputShape[0] * mOutputShapes[0][1]};
   outputTensors.clear();
-  return std::vector<OrtDataType::Float16_t>{outputValues, outputValues + inputShape[0] * mOutputShapes[0][1]};
+  return outputValuesVec;
 }
 
 template <> std::vector<OrtDataType::Float16_t> OrtModel::inference<float, OrtDataType::Float16_t>(std::vector<float>& input) {
@@ -231,8 +238,9 @@ template <> std::vector<OrtDataType::Float16_t> OrtModel::inference<float, OrtDa
   // input.clear();
   auto outputTensors = (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), inputTensor.data(), inputTensor.size(), outputNamesChar.data(), outputNamesChar.size());
   OrtDataType::Float16_t* outputValues = reinterpret_cast<OrtDataType::Float16_t*>(outputTensors[0].template GetTensorMutableData<Ort::Float16_t>());
+  std::vector<OrtDataType::Float16_t> outputValuesVec{outputValues, outputValues + inputShape[0] * mOutputShapes[0][1]};
   outputTensors.clear();
-  return std::vector<OrtDataType::Float16_t>{outputValues, outputValues + inputShape[0] * mOutputShapes[0][1]};
+  return outputValuesVec;
 }
 
 template <> std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(std::vector<std::vector<OrtDataType::Float16_t>>& input) {
@@ -244,8 +252,9 @@ template <> std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType:
   // input.clear();
   auto outputTensors = (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), inputTensor.data(), inputTensor.size(), outputNamesChar.data(), outputNamesChar.size());
   OrtDataType::Float16_t* outputValues = reinterpret_cast<OrtDataType::Float16_t*>(outputTensors[0].template GetTensorMutableData<Ort::Float16_t>());
+  std::vector<OrtDataType::Float16_t> outputValuesVec{outputValues, outputValues + inputTensor.size() / mInputShapes[0][1] * mOutputShapes[0][1]};
   outputTensors.clear();
-  return std::vector<OrtDataType::Float16_t>{outputValues, outputValues + inputTensor.size() / mInputShapes[0][1] * mOutputShapes[0][1]};
+  return outputValuesVec;
 }
 
 } // namespace ml
