@@ -2267,6 +2267,10 @@ void qaCluster::runQa(int sector)
     bool momentum_vector_estimate = (network_regression[0].getNumOutputNodes()[0][1] > 5);
     int elem_counter = 0;
     for (auto elem : network_ideal_assignment) {
+      id_mom = 1000;
+      id_momX = 1000;
+      id_momY = 1000;
+      id_momZ = 1000;
       net_row = elem[0].row;
       net_pad = elem[0].cog_pad;
       net_time = elem[0].cog_time;
@@ -2287,14 +2291,16 @@ void qaCluster::runQa(int sector)
         net_momY_X = momentum_vector_map[net_idx][0];
         net_momZ_X = momentum_vector_map[net_idx][1];
       }
-      if(momentum_vector_estimate && addMomentumData){
+      if(momentum_vector_estimate && addMomentumData && (id_idx != -1)){
         // net_momX = momentum_vector_map[net_idx][0];
         // net_momY = momentum_vector_map[net_idx][1];
         // net_momZ = momentum_vector_map[net_idx][2];
-        id_mom = std::sqrt(std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][0],2) + std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][1],2) + std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][2],2));
-        id_momX = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][0];
-        id_momY = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][1];
-        id_momZ = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][2];
+        if(track_cluster_to_ideal_assignment[id_idx] != -1){
+          id_mom = std::sqrt(std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][0],2) + std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][1],2) + std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][2],2));
+          id_momX = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][0];
+          id_momY = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][1];
+          id_momZ = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][2];
+        }
       }
       network_ideal->Fill();
 
