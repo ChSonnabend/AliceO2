@@ -178,6 +178,8 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
         tmp_out_reg_2 = clusterer.model_reg_2.inference<T,float>(input_data);
       }
 
+      input_data.clear();
+
       if((clusterer.nnClusterizerVerbosity >= 4) && glo_idx == 0){
         LOG(info) << "Classification model: " << out_class[0] << " (>? " << clusterer.nnClassThreshold << ")";
         LOG(info) << "Regression model: " << out_reg[0] << "; " << out_reg[1] << "; " << out_reg[2] << "; " << out_reg[3] << "; " << out_reg[4];
@@ -302,6 +304,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
 
     } else {
 
+      input_data.clear();
       for(int element = 0; element < clusterer.nnClusterizerBatchedMode; element++) {
         if (glo_idx + element >= clusternum) {
           return;
