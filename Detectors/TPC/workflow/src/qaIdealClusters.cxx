@@ -2162,6 +2162,31 @@ void qaCluster::runQa(int sector)
     std::fill(assigned_ideal.begin(), assigned_ideal.end(), 0);
     std::fill(assigned_digit.begin(), assigned_digit.end(), 0);
 
+    // Checks if digit is assigned / has non-looper assignments
+    std::vector<int> digit_has_non_looper_assignments(maxima_digits.size(), -1); // -1 = has no assignments, 0 = has assignment but is looper, n = has n non-looper assignments
+    std::vector<std::vector<int>> digit_non_looper_assignment_labels(maxima_digits.size());
+    for (int dig_max = 0; dig_max < maxima_digits.size(); dig_max++) {
+      bool digit_has_assignment = false;
+      for (int ass : assignments_id_to_dig[dig_max]) {
+        if (ass != -1) {
+          digit_has_assignment = true;
+          bool is_tagged = false;
+          if (ideal_tagged[ass]) {
+            for (int lbl : ideal_tag_label[ass]) {
+              is_tagged |= (lbl != -1 ? (ideal_map[ass].mcTrkId == lbl) : false);
+            }
+          }
+          if (!is_tagged) {
+            digit_has_non_looper_assignments[dig_max] == -1 ? digit_has_non_looper_assignments[dig_max] = 1 : digit_has_non_looper_assignments[dig_max] += 1;
+            digit_non_looper_assignment_labels[dig_max].push_back(ass);
+          }
+        }
+      }
+      if (digit_has_non_looper_assignments[dig_max] == -1 && digit_has_assignment) {
+        digit_has_non_looper_assignments[dig_max] = 0;
+      }
+    }
+
     // Some useful variables
     int map_dig_idx = 0, map_q_idx = 0, check_assignment = 0, index_assignment = -1, current_idx_id = -1, current_idx_dig = -1;
     float distance_assignment = 100000.f, current_distance_dig_to_id = 0, current_distance_id_to_dig = 0;
@@ -2233,7 +2258,7 @@ void qaCluster::runQa(int sector)
     TFile* outputFileNetworkIdeal = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* network_ideal = new TTree("network_ideal", "tree");
 
-    float sec = sector, net_row = 0, net_time = 0, net_pad = 0, net_sigma_time = 0, net_sigma_pad = 0, net_qTot = 0, net_qMax = 0, net_momX = 1000, net_momY = 1000, net_momZ = 1000, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0, net_idx = 0, id_idx = 0, id_momX = 1000, id_momY = 1000, id_momZ = 1000, id_mom = 1000, net_momY_X = 1000, net_momZ_X = 1000;
+    float sec = sector, id_class = -999, net_row = 0, net_time = 0, net_pad = 0, net_sigma_time = 0, net_sigma_pad = 0, net_qTot = 0, net_qMax = 0, net_momX = 1000, net_momY = 1000, net_momZ = 1000, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0, net_idx = 0, id_idx = 0, id_momX = 1000, id_momY = 1000, id_momZ = 1000, id_mom = 1000, net_momY_X = 1000, net_momZ_X = 1000;
     network_ideal->Branch("sector", &sec);
     network_ideal->Branch("network_row", &net_row);
     network_ideal->Branch("network_cog_time", &net_time);
@@ -2248,6 +2273,7 @@ void qaCluster::runQa(int sector)
     // network_ideal->Branch("network_momentumZ", &net_momZ);
     network_ideal->Branch("network_momentumY_X", &net_momY_X);
     network_ideal->Branch("network_momentumZ_X", &net_momZ_X);
+    network_ideal->Branch("ideal_class", &id_class);
     network_ideal->Branch("ideal_row", &id_row);
     network_ideal->Branch("ideal_cog_time", &id_time);
     network_ideal->Branch("ideal_cog_pad", &id_pad);
@@ -2271,6 +2297,7 @@ void qaCluster::runQa(int sector)
       id_momX = 1000;
       id_momY = 1000;
       id_momZ = 1000;
+      id_class = -999;
       net_row = elem[0].row;
       net_pad = elem[0].cog_pad;
       net_time = elem[0].cog_time;
@@ -2279,6 +2306,7 @@ void qaCluster::runQa(int sector)
       net_qTot = elem[0].qTot;
       net_qMax = elem[0].qMax;
       net_idx = elem[0].index;
+      id_class = elem[1].mcTrkId;
       id_row = elem[1].row;
       id_pad = elem[1].cog_pad;
       id_time = elem[1].cog_time;
@@ -2287,6 +2315,7 @@ void qaCluster::runQa(int sector)
       id_qTot = elem[1].qTot;
       id_qMax = elem[1].qMax;
       id_idx = elem[1].index;
+      id_class = digit_has_non_looper_assignments[elem[0].index];
       if(momentum_vector_estimate){
         net_momY_X = momentum_vector_map[net_idx][0];
         net_momZ_X = momentum_vector_map[net_idx][1];
