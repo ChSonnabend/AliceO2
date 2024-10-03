@@ -1615,9 +1615,6 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
 
   network_map.clear();
   network_map = output_network_reg;
-  maxima_digits.clear();
-  maxima_digits.resize(output_network_reg.size());
-  std::iota(maxima_digits.begin(), maxima_digits.end(), 0);
   
   digit_map.clear();
   digit_map = output_network_reg;
@@ -1730,6 +1727,10 @@ void qaCluster::runQa(int sector)
       if (mode.find(std::string("network_reg")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
         run_network_regression(sector, map2d, maxima_digits, digit_map, network_map, momentum_vector_map); // classification + regression
       }
+      maxima_digits.clear();
+      maxima_digits.resize(output_network_reg.size());
+      std::iota(maxima_digits.begin(), maxima_digits.end(), 0);
+      
       num_total_digit_max += maxima_digits.size();
       overwrite_map2d(sector, map2d, digit_map, maxima_digits, 1);
     } else {
