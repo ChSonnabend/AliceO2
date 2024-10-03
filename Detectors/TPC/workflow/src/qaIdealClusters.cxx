@@ -1728,7 +1728,7 @@ void qaCluster::runQa(int sector)
         run_network_regression(sector, map2d, maxima_digits, digit_map, network_map, momentum_vector_map); // classification + regression
       }
       maxima_digits.clear();
-      maxima_digits.resize(output_network_reg.size());
+      maxima_digits.resize(network_map.size());
       std::iota(maxima_digits.begin(), maxima_digits.end(), 0);
       
       num_total_digit_max += maxima_digits.size();
