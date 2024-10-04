@@ -207,8 +207,17 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
           if((num_output_classes == 1) || ((num_output_classes > 1) && (out_class[element] < 2))) {
             CPU_ONLY(labelAcc->collect(peak_positions[element], central_charges[element]));
             ClusterAccumulator pc;
+
+            if (fragment.isOverlap(peak_positions[element].time())) {
+              if (clusterPosInRow) {
+                clusterPosInRow[glo_idx + element] = maxClusterPerRow;
+              }
+              continue;
+            }
+
             pc.setFull(central_charges[element] * out_reg[model_output_index + 4], peak_positions[element].pad() + out_reg[model_output_index + 0], out_reg[model_output_index + 2], fragment.start + peak_positions[element].time() + out_reg[model_output_index + 1], out_reg[model_output_index + 3], 0, 0);
             // LOG(info) << "Example: " << num_outputs_1 << " " << out_reg.size() << ";; " << out_reg[model_output_index + 4] << "; " << out_reg[model_output_index + 0] << "; " << out_reg[model_output_index + 2] << "; " << out_reg[model_output_index + 1] << "; " << out_reg[model_output_index + 3];
+
             tpc::ClusterNative myCluster;
             bool rejectCluster = !pc.toNative(peak_positions[element], central_charges[element], myCluster, clusterer.Param());
             if (rejectCluster) {
@@ -235,7 +244,6 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
               }
             } else if (clusterPosInRow) {
               rowIndex = clusterPosInRow[glo_idx + element];
-              continue;
             }
             CPU_ONLY(labelAcc->commit(peak_positions[element].row(), rowIndex, maxClusterPerRow));
           } else {
@@ -245,8 +253,17 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
             // Cluster 1
             CPU_ONLY(labelAcc->collect(peak_positions[element], central_charges[element]));
             ClusterAccumulator pc;
+
+            if (fragment.isOverlap(peak_positions[element].time())) {
+              if (clusterPosInRow) {
+                clusterPosInRow[glo_idx + element] = maxClusterPerRow;
+              }
+              continue;
+            }
+
             pc.setFull(central_charges[element] * tmp_out_reg_2[model_output_index + 8], peak_positions[element].pad() + tmp_out_reg_2[model_output_index + 4], tmp_out_reg_2[model_output_index + 2], fragment.start + peak_positions[element].time() + tmp_out_reg_2[model_output_index + 2], tmp_out_reg_2[model_output_index + 6], 0, 0);
             // LOG(info) << "Example: " << num_outputs_2 << " " << out_reg.size() << ";; " << out_reg[model_output_index + 4] << "; " << out_reg[model_output_index + 0] << "; " << out_reg[model_output_index + 2] << "; " << out_reg[model_output_index + 1] << "; " << out_reg[model_output_index + 3];
+
             tpc::ClusterNative myCluster;
             bool rejectCluster = !pc.toNative(peak_positions[element], central_charges[element], myCluster, clusterer.Param());
             if (rejectCluster) {
@@ -273,7 +290,6 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
               }
             } else if (clusterPosInRow) {
               rowIndex = clusterPosInRow[glo_idx + element];
-              continue;
             }
             CPU_ONLY(labelAcc->commit(peak_positions[element].row(), rowIndex, maxClusterPerRow));
 
@@ -306,7 +322,6 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
               }
             } else if (clusterPosInRow) {
               rowIndex = clusterPosInRow[glo_idx + element];
-              continue;
             }
             CPU_ONLY(labelAcc->commit(peak_positions[element].row(), rowIndex, maxClusterPerRow));
           }
@@ -371,7 +386,6 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
             }
           } else if (clusterPosInRow) {
             rowIndex = clusterPosInRow[glo_idx + element];
-            continue;
           }
 
           CPU_ONLY(labelAcc->commit(peak_positions[element].row(), rowIndex, maxClusterPerRow));
