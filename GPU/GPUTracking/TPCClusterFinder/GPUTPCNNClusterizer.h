@@ -63,6 +63,7 @@ class GPUTPCNNClusterizer : public GPUKernelTemplate
 
   static GPUd() void exec(int, int, int, int, GPUSharedMemory&, processorType&, char);
   static int padOffset(int, int, const GPUTPCGeometry&);
+  static int rowOffset(int, int);
   static bool isBoundary(int, int, int, const GPUTPCGeometry&);
 
   template<class T>
