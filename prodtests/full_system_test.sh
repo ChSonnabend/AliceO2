@@ -61,6 +61,7 @@ FST_TPC_ZSVERSION=${FST_TPC_ZSVERSION:-4}
 TPC_SLOW_REALISITC_FULL_SIM=${TPC_SLOW_REALISITC_FULL_SIM:-0}
 IDEAL_CLUSTERIZER_PADSIZE=${IDEAL_CLUSTERIZER_PADSIZE:-4}
 IDEAL_CLUSTERIZER_TIMESIZE=${IDEAL_CLUSTERIZER_TIMESIZE:-6}
+DISTORTIONS_TYPE=${DISTORTIONS_TYPE:-0}
 if [[ $BEAMTYPE == "PbPb" ]]; then
   FST_GENERATOR=${FST_GENERATOR:-pythia8hi}
   FST_COLRATE=${FST_COLRATE:-50000}
@@ -142,8 +143,8 @@ taskwrapper sim.log o2-sim ${FST_BFIELD+--field=}${FST_BFIELD} --seed $O2SIMSEED
 if [[ $DO_EMBEDDING == 1 ]]; then
   taskwrapper embed.log o2-sim ${FST_BFIELD+--field=}${FST_BFIELD} -j $NJOBS --run ${RUNNUMBER} -n $NEvents -g pythia8pp -e ${FST_MC_ENGINE} -o sig --configKeyValues ${FST_EMBEDDING_CONFIG} --embedIntoFile o2sim_Kine.root
 fi
-taskwrapper digi.log o2-sim-digitizer-workflow -n $NEvents ${DIGIQED} ${NOMCLABELS} --sims ${SIM_SOURCES} --tpc-lanes $((NJOBS < 36 ? NJOBS : 36)) --shm-segment-size $SHMSIZE ${GLOBALDPLOPT} ${DIGITOPT} --configKeyValues "\"${DIGITOPTKEY}\"" --interactionRate $FST_COLRATE --early-forward-policy always --ideal-clusterizer-padsize $IDEAL_CLUSTERIZER_PADSIZE --ideal-clusterizer-timesize $IDEAL_CLUSTERIZER_TIMESIZE
-[[ $SPLITTRDDIGI == "1" ]] && taskwrapper digiTRD.log o2-sim-digitizer-workflow -n $NEvents ${NOMCLABELS} --sims ${SIM_SOURCES} --onlyDet TRD --trd-digit-downscaling ${DIGITDOWNSCALINGTRD} --shm-segment-size $SHMSIZE ${GLOBALDPLOPT} --incontext collisioncontext.root --configKeyValues "\"${DIGITOPTKEYTRD}\"" --early-forward-policy always --ideal-clusterizer-padsize $IDEAL_CLUSTERIZER_PADSIZE --ideal-clusterizer-timesize $IDEAL_CLUSTERIZER_TIMESIZE
+taskwrapper digi.log o2-sim-digitizer-workflow -n $NEvents ${DIGIQED} ${NOMCLABELS} --sims ${SIM_SOURCES} --tpc-lanes $((NJOBS < 36 ? NJOBS : 36)) --shm-segment-size $SHMSIZE ${GLOBALDPLOPT} ${DIGITOPT} --configKeyValues "\"${DIGITOPTKEY}\"" --interactionRate $FST_COLRATE --early-forward-policy always --ideal-clusterizer-padsize $IDEAL_CLUSTERIZER_PADSIZE --ideal-clusterizer-timesize $IDEAL_CLUSTERIZER_TIMESIZE --tpc-distortion-type $DISTORTIONS_TYPE
+[[ $SPLITTRDDIGI == "1" ]] && taskwrapper digiTRD.log o2-sim-digitizer-workflow -n $NEvents ${NOMCLABELS} --sims ${SIM_SOURCES} --onlyDet TRD --trd-digit-downscaling ${DIGITDOWNSCALINGTRD} --shm-segment-size $SHMSIZE ${GLOBALDPLOPT} --incontext collisioncontext.root --configKeyValues "\"${DIGITOPTKEYTRD}\"" --early-forward-policy always --ideal-clusterizer-padsize $IDEAL_CLUSTERIZER_PADSIZE --ideal-clusterizer-timesize $IDEAL_CLUSTERIZER_TIMESIZE --tpc-distortion-type $DISTORTIONS_TYPE
 touch digiTRD.log_done
 
 if [[ "0$GENERATE_ITSMFT_DICTIONARIES" == "01" ]]; then
