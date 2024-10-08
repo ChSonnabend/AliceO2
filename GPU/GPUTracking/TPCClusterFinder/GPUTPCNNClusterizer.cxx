@@ -128,6 +128,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
 
       // unsigned int batch_offset = batch_counter * clusterer.nnClusterizerElementSize;
       for(int r = -clusterer.nnClusterizerSizeInputRow; r <= clusterer.nnClusterizerSizeInputRow; r++){
+        bool middle_row = (r == 0);
         for(int p = -clusterer.nnClusterizerSizeInputPad; p <= clusterer.nnClusterizerSizeInputPad; p++){
           for(int t = -clusterer.nnClusterizerSizeInputTime; t <= clusterer.nnClusterizerSizeInputTime; t++){
             int pad_offset = GPUTPCNNClusterizer::padOffset(row, row + r, clusterer.Param().tpcGeometry);
@@ -136,6 +137,11 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
               ChargePos tmp_pos(row + r, pad + p + pad_offset, time + t);
               input_data[write_idx] = (T)(chargeMap[tmp_pos].unpack() / central_charge);
             }
+            // if(middle_row){
+            //   Delta2 d = {p, t};
+            //   ChargePos neighbour = peak.delta(d);
+            //   CPU_ONLY(labelAcc->collect(neighbour, chargeMap[neighbour].unpack()));
+            // }
             write_idx++;
           }
         }
@@ -205,8 +211,22 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
         int model_output_index = element*num_outputs_1;
         if(out_class[element] > clusterer.nnClassThreshold) {
           if((num_output_classes == 1) || ((num_output_classes > 1) && (out_class[element] < 2))) {
-            CPU_ONLY(labelAcc->collect(peak_positions[element], central_charges[element]));
+            // CPU_ONLY(labelAcc->collect(peak_positions[element], central_charges[element]));
             ClusterAccumulator pc;
+
+            ClusterAccumulator dummy_pc;
+            CPU_ONLY(labelAcc->collect(peak_positions[element], central_charges[element]));
+
+            // Dummy build to push MC labels
+            buildCluster(
+              calib,
+              chargeMap,
+              peak_positions[element],
+              smem.posBcast,
+              smem.buf,
+              smem.innerAboveThreshold,
+              &dummy_pc,
+              labelAcc);
 
             if (fragment.isOverlap(peak_positions[element].time())) {
               if (clusterPosInRow) {
