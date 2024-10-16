@@ -325,6 +325,7 @@ class qaCluster : public Task
   void overwrite_map2d(int, tpc2d&, std::vector<customCluster>&, std::vector<int>&, int = 0);
 
   int test_neighbour(std::array<int, 3>, std::array<int, 2>, tpc2d&, int = 1);
+  std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXGLOBALPADROW> cluster_overlap(int);
 
   void runQa(int);
   void run(ProcessingContext&) final;

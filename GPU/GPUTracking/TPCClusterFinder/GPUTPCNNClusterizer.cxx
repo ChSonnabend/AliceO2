@@ -128,20 +128,22 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
 
       // unsigned int batch_offset = batch_counter * clusterer.nnClusterizerElementSize;
       for(int r = -clusterer.nnClusterizerSizeInputRow; r <= clusterer.nnClusterizerSizeInputRow; r++){
-        bool middle_row = (r == 0);
+        bool push_mc_label = (r == 0);
+        int pad_offset = GPUTPCNNClusterizer::padOffset(row, row + r, clusterer.Param().tpcGeometry);
+        int row_offset = GPUTPCNNClusterizer::rowOffset(row, clusterer.nnClusterizerSizeInputRow);
         for(int p = -clusterer.nnClusterizerSizeInputPad; p <= clusterer.nnClusterizerSizeInputPad; p++){
+          push_mc_label &= (std::abs(p) < 2); // Use inner 5x5 window
+          bool is_boundary = GPUTPCNNClusterizer::isBoundary(row + r + row_offset, pad + p + pad_offset, clusterer.nnClusterizerSizeInputRow, clusterer.Param().tpcGeometry);
           for(int t = -clusterer.nnClusterizerSizeInputTime; t <= clusterer.nnClusterizerSizeInputTime; t++){
-            int pad_offset = GPUTPCNNClusterizer::padOffset(row, row + r, clusterer.Param().tpcGeometry);
-            int row_offset = GPUTPCNNClusterizer::rowOffset(row, clusterer.nnClusterizerSizeInputRow);
-            if(!GPUTPCNNClusterizer::isBoundary(row + r + row_offset, pad + p + pad_offset, clusterer.nnClusterizerSizeInputRow, clusterer.Param().tpcGeometry)){
+            push_mc_label &= (std::abs(t) < 2); // Use inner 5x5 window
+            if(!is_boundary){
               ChargePos tmp_pos(row + r, pad + p + pad_offset, time + t);
               input_data[write_idx] = (T)(chargeMap[tmp_pos].unpack() / central_charge);
+              if(push_mc_label){
+                ChargePos tmp_pos_mc(row, pad + p, time + t);
+                CPU_ONLY(labelAcc->collect(tmp_pos, chargeMap[tmp_pos_mc].unpack()));
+              }
             }
-            // if(middle_row){
-            //   Delta2 d = {p, t};
-            //   ChargePos neighbour = peak.delta(d);
-            //   CPU_ONLY(labelAcc->collect(neighbour, chargeMap[neighbour].unpack()));
-            // }
             write_idx++;
           }
         }

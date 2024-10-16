@@ -872,9 +872,6 @@ int GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           continue;
         }
 
-        runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSlice}});
-        DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 4, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
-
         if(GetProcessingSettings().applyNNclusterizer){
           // Settings for the clusterizer
           clusterer.nnClusterizerUseCFregression = GetProcessingSettings().nnClusterizerUseCFregression;
@@ -920,6 +917,9 @@ int GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
                 clusterer.model_reg_2.init(clusterer.OrtOptions);
               }
             }
+          } else {
+            runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSlice}});
+            DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 4, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
           }
 
           if(clusterer.nnSigmoidTrafoClassThreshold){
