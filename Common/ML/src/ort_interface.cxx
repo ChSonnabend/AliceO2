@@ -25,7 +25,7 @@ namespace o2
 namespace ml
 {
 
-struct OrtModel::OrtVariables {  // The actual implementation is hidden in the .cxx file
+struct OrtModel::OrtVariables { // The actual implementation is hidden in the .cxx file
   // ORT runtime objects
   Ort::RunOptions runOptions;
   std::shared_ptr<Ort::Env> env = nullptr;
@@ -35,12 +35,13 @@ struct OrtModel::OrtVariables {  // The actual implementation is hidden in the .
   Ort::MemoryInfo memoryInfo = Ort::MemoryInfo("Cpu", OrtAllocatorType::OrtDeviceAllocator, 0, OrtMemType::OrtMemTypeDefault);
 };
 
-void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap){
+void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
+{
 
   pImplOrt = new OrtVariables();
 
   // Load from options map
-  if(!optionsMap.contains("model-path")){
+  if (!optionsMap.contains("model-path")) {
     LOG(fatal) << "(ORT) Model path cannot be empty!";
   }
   modelPath = optionsMap["model-path"];
@@ -48,42 +49,42 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap){
   dtype = (optionsMap.contains("dtype") ? optionsMap["dtype"] : "float");
   deviceId = (optionsMap.contains("device-id") ? std::stoi(optionsMap["device-id"]) : 0);
   allocateDeviceMemory = (optionsMap.contains("allocate-device-memory") ? std::stoi(optionsMap["allocate-device-memory"]) : 0);
-  intraOpNumThreads = (optionsMap.contains("intra-op-num-threads") ?  std::stoi(optionsMap["intra-op-num-threads"]) : 0);
+  intraOpNumThreads = (optionsMap.contains("intra-op-num-threads") ? std::stoi(optionsMap["intra-op-num-threads"]) : 0);
   loggingLevel = (optionsMap.contains("logging-level") ? std::stoi(optionsMap["logging-level"]) : 0);
   enableProfiling = (optionsMap.contains("enable-profiling") ? std::stoi(optionsMap["enable-profiling"]) : 0);
   enableOptimizations = (optionsMap.contains("enable-optimizations") ? std::stoi(optionsMap["enable-optimizations"]) : 0);
 
   std::string dev_mem_str = "Hip";
 #ifdef ORT_ROCM_BUILD
-  if(device == "ROCM") {
+  if (device == "ROCM") {
     Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_ROCM(pImplOrt->sessionOptions, deviceId));
     LOG(info) << "(ORT) ROCM execution provider set";
   }
 #endif
 #ifdef ORT_MIGRAPHX_BUILD
-  if(device == "MIGRAPHX") {
+  if (device == "MIGRAPHX") {
     Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_MIGraphX(pImplOrt->sessionOptions, deviceId));
     LOG(info) << "(ORT) MIGraphX execution provider set";
   }
 #endif
 #ifdef ORT_CUDA_BUILD
-  if(device == "CUDA") {
+  if (device == "CUDA") {
     Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CUDA(pImplOrt->sessionOptions, deviceId));
     LOG(info) << "(ORT) CUDA execution provider set";
     dev_mem_str = "Cuda";
   }
 #endif
 
-  if(allocateDeviceMemory){
+  if (allocateDeviceMemory) {
     pImplOrt->memoryInfo = Ort::MemoryInfo(dev_mem_str.c_str(), OrtAllocatorType::OrtDeviceAllocator, deviceId, OrtMemType::OrtMemTypeDefault);
     LOG(info) << "(ORT) Memory info set to on-device memory";
   }
 
-  if(device == "CPU") {
+  if (device == "CPU") {
     (pImplOrt->sessionOptions).SetIntraOpNumThreads(intraOpNumThreads);
-    if(intraOpNumThreads > 1){
+    if (intraOpNumThreads > 1) {
       (pImplOrt->sessionOptions).SetExecutionMode(ExecutionMode::ORT_PARALLEL);
-    } else if(intraOpNumThreads == 1){
+    } else if (intraOpNumThreads == 1) {
       (pImplOrt->sessionOptions).SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
     }
     LOG(info) << "(ORT) CPU execution provider set with " << intraOpNumThreads << " threads";
@@ -92,8 +93,8 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap){
   (pImplOrt->sessionOptions).DisableMemPattern();
   (pImplOrt->sessionOptions).DisableCpuMemArena();
 
-  if(enableProfiling){
-    if(optionsMap.contains("profiling-output-path")){
+  if (enableProfiling) {
+    if (optionsMap.contains("profiling-output-path")) {
       (pImplOrt->sessionOptions).EnableProfiling((optionsMap["profiling-output-path"] + "/ORT_LOG_").c_str());
     } else {
       LOG(warning) << "(ORT) If profiling is enabled, optionsMap[\"profiling-output-path\"] should be set. Disabling profiling for now.";
@@ -109,27 +110,27 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap){
   (pImplOrt->session).reset(new Ort::Session{*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions});
 
   for (size_t i = 0; i < (pImplOrt->session)->GetInputCount(); ++i) {
-      mInputNames.push_back((pImplOrt->session)->GetInputNameAllocated(i, pImplOrt->allocator).get());
+    mInputNames.push_back((pImplOrt->session)->GetInputNameAllocated(i, pImplOrt->allocator).get());
   }
   for (size_t i = 0; i < (pImplOrt->session)->GetInputCount(); ++i) {
-      mInputShapes.emplace_back((pImplOrt->session)->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
+    mInputShapes.emplace_back((pImplOrt->session)->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
   }
   for (size_t i = 0; i < (pImplOrt->session)->GetOutputCount(); ++i) {
-      mOutputNames.push_back((pImplOrt->session)->GetOutputNameAllocated(i, pImplOrt->allocator).get());
+    mOutputNames.push_back((pImplOrt->session)->GetOutputNameAllocated(i, pImplOrt->allocator).get());
   }
   for (size_t i = 0; i < (pImplOrt->session)->GetOutputCount(); ++i) {
-      mOutputShapes.emplace_back((pImplOrt->session)->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
+    mOutputShapes.emplace_back((pImplOrt->session)->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
   }
 
   inputNamesChar.resize(mInputNames.size(), nullptr);
   std::transform(std::begin(mInputNames), std::end(mInputNames), std::begin(inputNamesChar),
-      [&](const std::string& str) { return str.c_str(); });
+                 [&](const std::string& str) { return str.c_str(); });
   outputNamesChar.resize(mOutputNames.size(), nullptr);
   std::transform(std::begin(mOutputNames), std::end(mOutputNames), std::begin(outputNamesChar),
-      [&](const std::string& str) { return str.c_str(); });
+                 [&](const std::string& str) { return str.c_str(); });
 
   // Print names
-  if(loggingLevel > 1) {
+  if (loggingLevel > 1) {
     LOG(info) << "Input Nodes:";
     for (size_t i = 0; i < mInputNames.size(); i++) {
       LOG(info) << "\t" << mInputNames[i] << " : " << printShape(mInputShapes[i]);
@@ -142,24 +143,28 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap){
   }
 }
 
-void OrtModel::resetSession() { 
+void OrtModel::resetSession()
+{
   (pImplOrt->session).reset(new Ort::Session{*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions});
 }
 
-template<class I, class O>
-std::vector<O> OrtModel::v2v(std::vector<I>& input, bool clearInput) {
-  if constexpr (std::is_same_v<I,O>){
+template <class I, class O>
+std::vector<O> OrtModel::v2v(std::vector<I>& input, bool clearInput)
+{
+  if constexpr (std::is_same_v<I, O>) {
     return input;
   } else {
     std::vector<O> output(input.size());
     std::transform(std::begin(input), std::end(input), std::begin(output), [](I f) { return O(f); });
-    if(clearInput) input.clear();
+    if (clearInput)
+      input.clear();
     return output;
   }
 }
 
-template<class I, class O> // class I is the input data type, e.g. float, class O is the output data type, e.g. O2::gpu::OrtDataType::Float16_t from O2/GPU/GPUTracking/ML/convert_float16.h
-std::vector<O> OrtModel::inference(std::vector<I>& input){
+template <class I, class O> // class I is the input data type, e.g. float, class O is the output data type, e.g. O2::gpu::OrtDataType::Float16_t from O2/GPU/GPUTracking/ML/convert_float16.h
+std::vector<O> OrtModel::inference(std::vector<I>& input)
+{
   std::vector<int64_t> inputShape{(int64_t)(input.size() / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
   std::vector<Ort::Value> inputTensor;
   inputTensor.emplace_back(Ort::Value::CreateTensor<O>(pImplOrt->memoryInfo, (reinterpret_cast<O*>(input)).data(), input.size(), inputShape.data(), inputShape.size()));
@@ -171,10 +176,11 @@ std::vector<O> OrtModel::inference(std::vector<I>& input){
   return outputValuesVec;
 }
 
-template<class I, class O> // class I is the input data type, e.g. float, class O is the output data type, e.g. O2::gpu::OrtDataType::Float16_t from O2/GPU/GPUTracking/ML/convert_float16.h
-std::vector<O> OrtModel::inference(std::vector<std::vector<I>>& input){
+template <class I, class O> // class I is the input data type, e.g. float, class O is the output data type, e.g. O2::gpu::OrtDataType::Float16_t from O2/GPU/GPUTracking/ML/convert_float16.h
+std::vector<O> OrtModel::inference(std::vector<std::vector<I>>& input)
+{
   std::vector<Ort::Value> inputTensor;
-  for(auto i : input){
+  for (auto i : input) {
     std::vector<int64_t> inputShape{(int64_t)(i.size() / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
     inputTensor.emplace_back(Ort::Value::CreateTensor<O>(pImplOrt->memoryInfo, (reinterpret_cast<O*>(i)).data(), i.size(), inputShape.data(), inputShape.size()));
   }
@@ -195,7 +201,9 @@ std::string OrtModel::printShape(const std::vector<int64_t>& v)
   return ss.str();
 }
 
-template <> std::vector<float> OrtModel::inference<float, float>(std::vector<float>& input) {
+template <>
+std::vector<float> OrtModel::inference<float, float>(std::vector<float>& input)
+{
   std::vector<int64_t> inputShape{(int64_t)(input.size() / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
   std::vector<Ort::Value> inputTensor;
   inputTensor.emplace_back(Ort::Value::CreateTensor<float>(pImplOrt->memoryInfo, input.data(), input.size(), inputShape.data(), inputShape.size()));
@@ -207,7 +215,9 @@ template <> std::vector<float> OrtModel::inference<float, float>(std::vector<flo
   return outputValuesVec;
 }
 
-template <> std::vector<float> OrtModel::inference<OrtDataType::Float16_t, float>(std::vector<OrtDataType::Float16_t>& input) {
+template <>
+std::vector<float> OrtModel::inference<OrtDataType::Float16_t, float>(std::vector<OrtDataType::Float16_t>& input)
+{
   std::vector<int64_t> inputShape{(int64_t)(input.size() / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
   std::vector<Ort::Value> inputTensor;
   inputTensor.emplace_back(Ort::Value::CreateTensor<Ort::Float16_t>(pImplOrt->memoryInfo, reinterpret_cast<Ort::Float16_t*>(input.data()), input.size(), inputShape.data(), inputShape.size()));
@@ -219,7 +229,9 @@ template <> std::vector<float> OrtModel::inference<OrtDataType::Float16_t, float
   return outputValuesVec;
 }
 
-template <> std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(std::vector<OrtDataType::Float16_t>& input) {
+template <>
+std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(std::vector<OrtDataType::Float16_t>& input)
+{
   std::vector<int64_t> inputShape{(int64_t)(input.size() / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
   std::vector<Ort::Value> inputTensor;
   inputTensor.emplace_back(Ort::Value::CreateTensor<Ort::Float16_t>(pImplOrt->memoryInfo, reinterpret_cast<Ort::Float16_t*>(input.data()), input.size(), inputShape.data(), inputShape.size()));
@@ -231,7 +243,9 @@ template <> std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType:
   return outputValuesVec;
 }
 
-template <> std::vector<OrtDataType::Float16_t> OrtModel::inference<float, OrtDataType::Float16_t>(std::vector<float>& input) {
+template <>
+std::vector<OrtDataType::Float16_t> OrtModel::inference<float, OrtDataType::Float16_t>(std::vector<float>& input)
+{
   std::vector<int64_t> inputShape{(int64_t)(input.size() / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
   std::vector<Ort::Value> inputTensor;
   inputTensor.emplace_back(Ort::Value::CreateTensor<Ort::Float16_t>(pImplOrt->memoryInfo, reinterpret_cast<Ort::Float16_t*>(input.data()), input.size(), inputShape.data(), inputShape.size()));
@@ -243,9 +257,11 @@ template <> std::vector<OrtDataType::Float16_t> OrtModel::inference<float, OrtDa
   return outputValuesVec;
 }
 
-template <> std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(std::vector<std::vector<OrtDataType::Float16_t>>& input) {
+template <>
+std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(std::vector<std::vector<OrtDataType::Float16_t>>& input)
+{
   std::vector<Ort::Value> inputTensor;
-  for(auto i : input){
+  for (auto i : input) {
     std::vector<int64_t> inputShape{(int64_t)(i.size() / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
     inputTensor.emplace_back(Ort::Value::CreateTensor<Ort::Float16_t>(pImplOrt->memoryInfo, reinterpret_cast<Ort::Float16_t*>(i.data()), i.size(), inputShape.data(), inputShape.size()));
   }

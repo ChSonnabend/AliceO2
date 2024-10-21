@@ -158,7 +158,7 @@ class GPUTPCClusterFinder : public GPUProcessor
 
   std::unordered_map<std::string, std::string> OrtOptions;
   OrtModel model_class, model_reg_1, model_reg_2; // For splitting clusters
-  
+
 #ifndef GPUCA_GPUCODE
   void DumpDigits(std::ostream& out);
   void DumpChargeMap(std::ostream& out, std::string_view);
