@@ -1650,7 +1650,8 @@ int qaCluster::test_neighbour(std::array<int, 3> index, std::array<int, 2> nn, t
 }
 
 // ---------------------------------
-std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXGLOBALPADROW> qaCluster::cluster_overlap(int sector) {
+void qaCluster::cluster_overlap(int sector, std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXGLOBALPADROW>& overlap_info, std::array<std::unordered_map<int, int>, o2::tpc::constants::MAXGLOBALPADROW>& overlap_info_trkid_map) {
+  
   std::stringstream tmp_file;
   tmp_file << simulationPath << "/mclabels_ideal_full_" << sector << ".root";
   auto inputFile = TFile::Open(tmp_file.str().c_str());
@@ -1674,75 +1675,76 @@ std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXGLOBALPADROW>
   int max_track_id = 0;
   for (unsigned int j = 0; j < mcFullInfo->GetEntries(); j++) {
     mcFullInfo->GetEntry(j);
-    if(sec == sector){
+    if(sec == sector && maxp < TPC_GEOM[row][2] + 1 && maxt < (max_time[sector] + 1)){
       customCluster tmp_cluster;
       tmp_cluster.row = row;
       tmp_cluster.max_pad = maxp;
       tmp_cluster.max_time = maxt;
 
-      mcFullInfo_vec.push_back(customCluster(row, maxp, maxt, charge, lbl, trkid, evid, srcid));
-      if(trkid > max_track_id){
-        max_track_id = trkid;
+      // std::cout << std::bitset<64>(trkid) << std::endl;
+
+      mcFullInfo_vec.push_back(customCluster(sector, row, maxp, maxt, maxp, maxt, 0, 0, charge, charge, 0, trkid, evid, srcid, -1, lbl));
+      overlap_info_trkid_map[row][trkid] = 1;
+    }
+  }
+
+  std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXGLOBALPADROW> misc_track_id_info; // 0: Number of bins covered by this cluster; 1: total charge of that cluster in the padrow
+  for(int padrow = 0; padrow < o2::tpc::constants::MAXGLOBALPADROW; padrow++){
+    int counter = 0;
+    misc_track_id_info[padrow].resize(overlap_info_trkid_map[padrow].size(), std::vector<float>(2, 0));
+    for (const auto& pair : overlap_info_trkid_map[padrow]) {
+      overlap_info_trkid_map[padrow][pair.first] = counter;
+      counter++;
+    }
+  }
+
+  for (unsigned int j = 0; j < mcFullInfo_vec.size(); j++) {
+    int r = mcFullInfo_vec[j].row;
+    if(mcFullInfo_vec[j].max_pad < (TPC_GEOM[r][2] + 1) && mcFullInfo_vec[j].max_time < (max_time[sector] + 1)){
+      misc_track_id_info[r][overlap_info_trkid_map[r][mcFullInfo_vec[j].mcTrkId]][0] += 1;
+      misc_track_id_info[r][overlap_info_trkid_map[r][mcFullInfo_vec[j].mcTrkId]][1] += mcFullInfo_vec[j].qMax;
+    }
+  }
+
+  for(int padrow = 0; padrow < o2::tpc::constants::MAXGLOBALPADROW; padrow++){
+    std::vector<std::vector<std::vector<int>>> tmp_map;
+    tmp_map.resize(max_time[sector] + 1);
+    for (int time_size = 0; time_size < (max_time[sector] + 1); time_size++) {
+      tmp_map[time_size].resize(TPC_GEOM[padrow][2] + 1);
+    };
+    for (int counter = 0; counter < mcFullInfo_vec.size(); counter++) {
+      if(mcFullInfo_vec[counter].row == padrow){
+        customCluster tmp_cluster = mcFullInfo_vec[counter];
+        if(tmp_cluster.max_pad < TPC_GEOM[padrow][2] + 1 && tmp_cluster.max_time < (max_time[sector] + 1)){
+          tmp_map[tmp_cluster.max_time][tmp_cluster.max_pad].push_back(counter);
+        }
       }
     }
-  }
 
-  std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXGLOBALPADROW> misc_track_id_info; // 0: Number of bins covered by this cluster; 1: total charge of that cluster in the row
-  for(int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++){
-    misc_track_id_info[row].resize(max_track_id + 1, std::vector<float>(2, 0));
-  }
-  for (unsigned int j = 0; j < mcFullInfo->GetEntries(); j++) {
-    mcFullInfo->GetEntry(j);
-    if(sec == sector){
-      misc_track_id_info[mcFullInfo_vec[j].row][mcFullInfo_vec[j].mcTrkId][0] += 1;
-      misc_track_id_info[mcFullInfo_vec[j].row][mcFullInfo_vec[j].mcTrkId][1] += mcFullInfo_vec[j].qMax;
-    }
-  }
-
-  std::vector<std::vector<std::vector<std::vector<int>>>> tmp_map;
-  tmp_map.resize(max_time[sector] + 1);
-  for (int time_size = 0; time_size < (max_time[sector] + 1); time_size++) {
-    tmp_map[time_size].resize(o2::tpc::constants::MAXGLOBALPADROW);
-    for (int row = 0; row < (o2::tpc::constants::MAXGLOBALPADROW); row++) {
-      tmp_map[time_size][row].resize(TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] + 1);
-    }
-  };
-  for (int counter = 0; counter < mcFullInfo_vec.size(); counter++) {
-    customCluster tmp_cluster = mcFullInfo_vec[counter];
-    tmp_map[tmp_cluster.max_time][tmp_cluster.row][tmp_cluster.max_pad].push_back(counter);
-  }
-
-  std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXGLOBALPADROW> overlap_info;
-  for(int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++){
-    overlap_info[row].resize(max_track_id + 1, std::vector<float>(3, 0)); // 0: How many other MC labels overlap; 1: Percentage of area with overlap of other MC labels; 2: Fraction of charge overlapped with other MC clusters (as a fraction of the total charge of the cluster)
-  }
-
-  for (int time = 0; time < (max_time[sector] + 1); time++) {
-    for (int row = 0; row < (o2::tpc::constants::MAXGLOBALPADROW); row++) {
-      for (int pad = 0; pad < (TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] + 1); pad++) {
-        if(tmp_map[time][row][pad].size() > 1){
-          for(int counter : tmp_map[time][row][pad]){
-            customCluster tmp_cluster = mcFullInfo_vec[tmp_map[time][row][pad][counter]];
-            overlap_info[row][tmp_cluster.mcTrkId][0] = (tmp_map[time][row][pad].size() > overlap_info[row][tmp_cluster.mcTrkId][0]) ? tmp_map[time][row][pad].size() : overlap_info[row][tmp_cluster.mcTrkId][0];
-            overlap_info[row][tmp_cluster.mcTrkId][1] += 1;
-            overlap_info[row][tmp_cluster.mcTrkId][2] += tmp_cluster.qMax;
+    overlap_info[padrow].resize(overlap_info_trkid_map[padrow].size(), std::vector<float>(5, 0)); // 0: How many other MC labels overlap; 1: Percentage of area with overlap of other MC labels; 2: Fraction of charge overlapped with other MC clusters (as a fraction of the total charge of the cluster); 3: Absolute area; 4: Absolute charge
+    for (int time = 0; time < (max_time[sector] + 1); time++) {
+      for (int pad = 0; pad < (TPC_GEOM[padrow][2] + 1); pad++) {
+        if(tmp_map[time][pad].size() > 1){
+          for(int counter : tmp_map[time][pad]){
+            customCluster tmp_cluster = mcFullInfo_vec[counter];
+            int map_trkid = overlap_info_trkid_map[padrow][tmp_cluster.mcTrkId];
+            overlap_info[padrow][map_trkid][0] = tmp_map[time][pad].size() > overlap_info[padrow][map_trkid][0] ? tmp_map[time][pad].size() : overlap_info[padrow][map_trkid][0];
+            overlap_info[padrow][map_trkid][1] += 1;
+            overlap_info[padrow][map_trkid][2] += tmp_cluster.qMax;
           }
         }
       }
     }
-  }
 
-  for(int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++){
-    for(int track_id = 0; track_id < max_track_id + 1; track_id++){
-      if(misc_track_id_info[row][track_id][0] > 0){
-        overlap_info[row][track_id][1] /= misc_track_id_info[row][track_id][0];
-        overlap_info[row][track_id][2] /= misc_track_id_info[row][track_id][1];
+    for(int track_id = 0; track_id < overlap_info_trkid_map[padrow].size(); track_id++){
+      if(misc_track_id_info[padrow][track_id][0] > 0){
+        overlap_info[padrow][track_id][1] /= misc_track_id_info[padrow][track_id][0];
+        overlap_info[padrow][track_id][2] /= misc_track_id_info[padrow][track_id][1];
+        overlap_info[padrow][track_id][3] = misc_track_id_info[padrow][track_id][0];
+        overlap_info[padrow][track_id][4] = misc_track_id_info[padrow][track_id][1];
       }
     }
   }
-
-  return overlap_info;
-
 }
 
 
@@ -1756,7 +1758,9 @@ void qaCluster::runQa(int sector)
   std::vector<customCluster> digit_map, ideal_map, network_map, native_map;
   std::vector<std::vector<std::vector<std::vector<int>>>> tagger_maps(looper_tagger_granularity.size());
   std::vector<int> track_cluster_to_ideal_assignment; // First is digit_max index, then 5 possible assignemts of track_clusters
+  
   std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXGLOBALPADROW> overlap_info;
+  std::array<std::unordered_map<int, int>, o2::tpc::constants::MAXGLOBALPADROW> overlap_info_trkid_map;
 
   LOG(info) << "--- Starting process for sector " << sector << " ---";
 
@@ -1766,8 +1770,21 @@ void qaCluster::runQa(int sector)
     read_digits(sector, digit_map);
   }
 
-  if(!realData){
-    overlap_info = cluster_overlap(sector);
+  if(!realData && (mode.find(std::string("overlap")) != std::string::npos || mode.find(std::string("training_data")) != std::string::npos)){
+    m.lock();
+    cluster_overlap(sector, overlap_info, overlap_info_trkid_map);
+    for(int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++){
+      for(auto elem : overlap_info[r]){
+        std::vector<float> tmp_elem = {(float)sector, (float)r};
+        if(elem[0] != 0){
+          for(auto overlap : elem){
+            tmp_elem.push_back(overlap);
+          }
+          all_cluster_overlap.push_back(tmp_elem);
+        }
+      }
+    }
+    m.unlock();
   }
 
   if(mode.find(std::string("path")) != std::string::npos){
@@ -2674,9 +2691,9 @@ void qaCluster::runQa(int sector)
               cluster_mass[max_point] = current_track.GetMass();
               cluster_p[max_point] = current_track.GetP();
               cluster_isPrimary[max_point] = (int)current_track.isPrimary();
-              cluster_overlap_num_other_mc[max_point] = overlap_info[idl.row][idl.mcTrkId][0];
-              cluster_overlap_area_fraction[max_point] = overlap_info[idl.row][idl.mcTrkId][1];
-              cluster_overlap_charge_fraction[max_point] = overlap_info[idl.row][idl.mcTrkId][2];
+              cluster_overlap_num_other_mc[max_point] = overlap_info[idl.row][overlap_info_trkid_map[idl.row][idl.mcTrkId]][0];
+              cluster_overlap_area_fraction[max_point] = overlap_info[idl.row][overlap_info_trkid_map[idl.row][idl.mcTrkId]][1];
+              cluster_overlap_charge_fraction[max_point] = overlap_info[idl.row][overlap_info_trkid_map[idl.row][idl.mcTrkId]][2];
             }
 
             if(addMomentumData){
@@ -2849,6 +2866,10 @@ void qaCluster::run(ProcessingContext& pc)
       }
     }
     LOG(info) << "Per sector QA done. Creating ECF values.";
+
+    if(!realData && (mode.find(std::string("overlap")) != std::string::npos || mode.find(std::string("training_data")) != std::string::npos)){
+      custom::writeTabularToRootFile({"sector", "row", "track_id", "num_other_mclabels_overlap", "overlap_area", "overlap_charge"}, all_cluster_overlap, outputPath + "/cluster_overlap.root", "clusterOverlap", "Cluster overlap");
+    }
 
     unsigned int number_of_ideal_max_sum = 0, number_of_digit_max_sum = 0, number_of_ideal_max_findable_sum = 0;
     float clones_sum = 0, fractional_clones_sum = 0;

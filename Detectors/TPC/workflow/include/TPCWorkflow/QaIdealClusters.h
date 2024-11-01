@@ -325,7 +325,7 @@ class qaCluster : public Task
   void overwrite_map2d(int, tpc2d&, std::vector<customCluster>&, std::vector<int>&, int = 0);
 
   int test_neighbour(std::array<int, 3>, std::array<int, 2>, tpc2d&, int = 1);
-  std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXGLOBALPADROW> cluster_overlap(int);
+  void cluster_overlap(int, std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXGLOBALPADROW>&, std::array<std::unordered_map<int, int>, o2::tpc::constants::MAXGLOBALPADROW>&);
 
   void runQa(int);
   void run(ProcessingContext&) final;
@@ -388,6 +388,7 @@ class qaCluster : public Task
   int num_total_ideal_max = 0, num_total_digit_max = 0;
   std::vector<std::vector<std::vector<o2::MCTrack>>> mctracks; // mc_track = mctracks[sourceId][eventId][trackId]
   std::array<std::array<unsigned int, 25>, o2::tpc::constants::MAXSECTOR> assignments_ideal, assignments_digit, assignments_ideal_findable, assignments_digit_findable;
+  std::vector<std::vector<float>> all_cluster_overlap;
   std::array<unsigned int, o2::tpc::constants::MAXSECTOR> number_of_ideal_max, number_of_digit_max, number_of_ideal_max_findable;
   std::array<float, o2::tpc::constants::MAXSECTOR> clones, fractional_clones;
   std::vector<customCluster> native_writer_map;
