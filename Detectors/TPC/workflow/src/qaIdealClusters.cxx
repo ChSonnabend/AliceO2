@@ -1672,17 +1672,9 @@ void qaCluster::cluster_overlap(int sector, std::array<std::vector<std::vector<f
   mcFullInfo->SetBranchAddress("cluster_sourceid", &srcid);
 
   std::vector<customCluster> mcFullInfo_vec;
-  int max_track_id = 0;
   for (unsigned int j = 0; j < mcFullInfo->GetEntries(); j++) {
     mcFullInfo->GetEntry(j);
     if(sec == sector && maxp < TPC_GEOM[row][2] + 1 && maxt < (max_time[sector] + 1)){
-      customCluster tmp_cluster;
-      tmp_cluster.row = row;
-      tmp_cluster.max_pad = maxp;
-      tmp_cluster.max_time = maxt;
-
-      // std::cout << std::bitset<64>(trkid) << std::endl;
-
       mcFullInfo_vec.push_back(customCluster(sector, row, maxp, maxt, maxp, maxt, 0, 0, charge, charge, 0, trkid, evid, srcid, -1, lbl));
       overlap_info_trkid_map[row][trkid] = 1;
     }
@@ -1701,8 +1693,9 @@ void qaCluster::cluster_overlap(int sector, std::array<std::vector<std::vector<f
   for (unsigned int j = 0; j < mcFullInfo_vec.size(); j++) {
     int r = mcFullInfo_vec[j].row;
     if(mcFullInfo_vec[j].max_pad < (TPC_GEOM[r][2] + 1) && mcFullInfo_vec[j].max_time < (max_time[sector] + 1)){
-      misc_track_id_info[r][overlap_info_trkid_map[r][mcFullInfo_vec[j].mcTrkId]][0] += 1;
-      misc_track_id_info[r][overlap_info_trkid_map[r][mcFullInfo_vec[j].mcTrkId]][1] += mcFullInfo_vec[j].qMax;
+      int mcid = overlap_info_trkid_map[r][mcFullInfo_vec[j].mcTrkId];
+      misc_track_id_info[r][mcid][0] += 1;
+      misc_track_id_info[r][mcid][1] += mcFullInfo_vec[j].qMax;
     }
   }
 
@@ -1721,14 +1714,14 @@ void qaCluster::cluster_overlap(int sector, std::array<std::vector<std::vector<f
       }
     }
 
-    overlap_info[padrow].resize(overlap_info_trkid_map[padrow].size(), std::vector<float>(5, 0)); // 0: How many other MC labels overlap; 1: Percentage of area with overlap of other MC labels; 2: Fraction of charge overlapped with other MC clusters (as a fraction of the total charge of the cluster); 3: Absolute area; 4: Absolute charge
+    overlap_info[padrow].resize(overlap_info_trkid_map[padrow].size(), std::vector<float>(5, 0)); // 0: MC track ID; 1: Percentage of area with overlap of other MC labels; 2: Fraction of charge overlapped with other MC clusters (as a fraction of the total charge of the cluster); 3: Absolute area; 4: Absolute charge
     for (int time = 0; time < (max_time[sector] + 1); time++) {
       for (int pad = 0; pad < (TPC_GEOM[padrow][2] + 1); pad++) {
         if(tmp_map[time][pad].size() > 1){
           for(int counter : tmp_map[time][pad]){
             customCluster tmp_cluster = mcFullInfo_vec[counter];
             int map_trkid = overlap_info_trkid_map[padrow][tmp_cluster.mcTrkId];
-            overlap_info[padrow][map_trkid][0] = tmp_map[time][pad].size() > overlap_info[padrow][map_trkid][0] ? tmp_map[time][pad].size() : overlap_info[padrow][map_trkid][0];
+            overlap_info[padrow][map_trkid][0] = tmp_cluster.mcTrkId;
             overlap_info[padrow][map_trkid][1] += 1;
             overlap_info[padrow][map_trkid][2] += tmp_cluster.qMax;
           }
@@ -2868,7 +2861,7 @@ void qaCluster::run(ProcessingContext& pc)
     LOG(info) << "Per sector QA done. Creating ECF values.";
 
     if(!realData && (mode.find(std::string("overlap")) != std::string::npos || mode.find(std::string("training_data")) != std::string::npos)){
-      custom::writeTabularToRootFile({"sector", "row", "track_id", "num_other_mclabels_overlap", "overlap_area", "overlap_charge"}, all_cluster_overlap, outputPath + "/cluster_overlap.root", "clusterOverlap", "Cluster overlap");
+      custom::writeTabularToRootFile({"sector", "row", "track_id", "fraction_overlap_area", "fraction_overlap_charge", "abs_area", "abs_charge"}, all_cluster_overlap, outputPath + "/cluster_overlap.root", "clusterOverlap", "Cluster overlap");
     }
 
     unsigned int number_of_ideal_max_sum = 0, number_of_digit_max_sum = 0, number_of_ideal_max_findable_sum = 0;
