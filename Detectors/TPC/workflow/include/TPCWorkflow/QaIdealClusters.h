@@ -352,6 +352,7 @@ class qaCluster : public Task
   int remove_individual_files = 0;           // Remove sector-individual files after task is done
   bool write_native_file = 1;                // Whether or not to write a custom file with native clsuters
   bool native_file_single_branch = 1;        // Whether the native clusters should be written into a single branch
+  bool overlap_study = false;                // Whether or not to perform the cluster overlap study
 
   std::vector<int> looper_tagger_granularity = {5};      // Granularity of looper tagger (time bins in which loopers are excluded in rectangular areas)
   std::vector<int> looper_tagger_timewindow = {20};      // Total time-window size of the looper tagger for evaluating if a region is looper or not

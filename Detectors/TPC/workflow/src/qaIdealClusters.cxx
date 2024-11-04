@@ -44,6 +44,7 @@ void qaCluster::init(InitContext& ic)
   remove_individual_files = ic.options().get<int>("remove-individual-files");
   training_data_distance_cluster_path = ic.options().get<float>("training-data-distance-cluster-path");
   training_data_distance_cluster_path = std::pow(training_data_distance_cluster_path, 2); // Just to avoid multiple computations and sqrt's later
+  overlap_study = (!realData && (mode.find(std::string("overlap")) != std::string::npos || mode.find(std::string("training_data")) != std::string::npos || mode.find(std::string("network")) != std::string::npos));
 
   if (ic.options().get<int>("max-time") > 0) {
     custom::fill_nested_container(max_time, ic.options().get<int>("max-time"));
@@ -1331,7 +1332,7 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
   // Loading the data
   std::vector<int> new_max_dig = maxima_digits;
   std::vector<uint8_t> flags_memory;
-  std::vector<int> class_label(maxima_digits.size(), 10000); // some dummy label -> Should lead to segfault for network regression if not changed
+  std::vector<float> class_label(maxima_digits.size(), 10000); // some dummy label -> Should lead to segfault for network regression if not changed
 
   int index_shift_global = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1) * (2 * global_shift[2] + 1), index_shift_row = (2 * global_shift[0] + 1) * (2 * global_shift[1] + 1), index_shift_pad = (2 * global_shift[1] + 1);
   int network_class_size = 0, index_iroc_oroc_shift = 0;
@@ -1421,13 +1422,13 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
 
         float tmp_class_label = -1;
         if (num_output_nodes == 1) {
-          tmp_class_label = (int)(output_network_class[current_max_idx][0] > networkClassThres);
+          tmp_class_label = output_network_class[current_max_idx][0];
         } else {
           tmp_class_label = std::min((int)std::distance(output_network_class[current_max_idx].begin(), std::max_element(output_network_class[current_max_idx].begin(), output_network_class[current_max_idx].end())), (int)network_regression_paths.size()) - 1;
         }
 
-        if (tmp_class_label > 0 && class_label[current_max_idx] > 0) {
-          class_label[current_max_idx] = (int)tmp_class_label;
+        if (tmp_class_label > networkClassThres && class_label[current_max_idx] > 0) {
+          class_label[current_max_idx] = tmp_class_label;
           new_max_dig[current_max_idx] = maxima_digits[current_max_idx];
           digit_map[maxima_digits[current_max_idx]].label = (int)tmp_class_label;
           network_class_size++;
@@ -1763,9 +1764,9 @@ void qaCluster::runQa(int sector)
     read_digits(sector, digit_map);
   }
 
-  if(!realData && (mode.find(std::string("overlap")) != std::string::npos || mode.find(std::string("training_data")) != std::string::npos)){
-    m.lock();
+  if(overlap_study){
     cluster_overlap(sector, overlap_info, overlap_info_trkid_map);
+    m.lock();
     for(int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++){
       for(auto elem : overlap_info[r]){
         std::vector<float> tmp_elem = {(float)sector, (float)r};
@@ -2371,7 +2372,7 @@ void qaCluster::runQa(int sector)
     TFile* outputFileNetworkIdeal = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* network_ideal = new TTree("network_ideal", "tree");
 
-    float sec = sector, id_class = -999, net_row = 0, net_time = 0, net_pad = 0, net_sigma_time = 0, net_sigma_pad = 0, net_qTot = 0, net_qMax = 0, net_momX = 1000, net_momY = 1000, net_momZ = 1000, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0, net_idx = 0, id_idx = 0, id_momX = 1000, id_momY = 1000, id_momZ = 1000, id_mom = 1000, net_momY_X = 1000, net_momZ_X = 1000;
+    float sec = sector, id_class = -999, net_row = 0, net_time = 0, net_pad = 0, net_sigma_time = 0, net_sigma_pad = 0, net_qTot = 0, net_qMax = 0, net_momX = 1000, net_momY = 1000, net_momZ = 1000, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0, net_idx = 0, net_lbl = 0, id_idx = 0, id_momX = 1000, id_momY = 1000, id_momZ = 1000, id_mom = 1000, net_momY_X = 1000, net_momZ_X = 1000, area_overlap = 0, charge_overlap = 0, tot_area = 0, tot_charge = 0;
     network_ideal->Branch("sector", &sec);
     network_ideal->Branch("network_row", &net_row);
     network_ideal->Branch("network_cog_time", &net_time);
@@ -2381,6 +2382,7 @@ void qaCluster::runQa(int sector)
     network_ideal->Branch("network_qMax", &net_qMax);
     network_ideal->Branch("network_qTot", &net_qTot);
     network_ideal->Branch("network_index", &net_idx);
+    network_ideal->Branch("network_label", &net_lbl);
     // network_ideal->Branch("network_momentumX", &net_momX);
     // network_ideal->Branch("network_momentumY", &net_momY);
     // network_ideal->Branch("network_momentumZ", &net_momZ);
@@ -2399,6 +2401,13 @@ void qaCluster::runQa(int sector)
     network_ideal->Branch("ideal_momentumX", &id_momX);
     network_ideal->Branch("ideal_momentumY", &id_momY);
     network_ideal->Branch("ideal_momentumZ", &id_momZ);
+
+    if(overlap_study){
+      network_ideal->Branch("fraction_charge_overlap", &charge_overlap);
+      network_ideal->Branch("fraction_area_overlap", &area_overlap);
+      network_ideal->Branch("total_charge", &tot_charge);
+      network_ideal->Branch("total_area", &tot_area);
+    }
 
     // int netive_writer_map_size = netive_writer_map.size();
     // netive_writer_map.resize(native_writer_map_size + network_ideal_assignment.size());
@@ -2419,6 +2428,7 @@ void qaCluster::runQa(int sector)
       net_qTot = elem[0].qTot;
       net_qMax = elem[0].qMax;
       net_idx = elem[0].index;
+      net_lbl = elem[0].label;
       id_class = elem[1].mcTrkId;
       id_row = elem[1].row;
       id_pad = elem[1].cog_pad;
@@ -2429,6 +2439,14 @@ void qaCluster::runQa(int sector)
       id_qMax = elem[1].qMax;
       id_idx = elem[1].index;
       id_class = digit_has_non_looper_assignments[elem[0].index];
+
+      if(overlap_study){
+        area_overlap = overlap_info[id_row][overlap_info_trkid_map[id_row][elem[1].mcTrkId]][1];
+        charge_overlap = overlap_info[id_row][overlap_info_trkid_map[id_row][elem[1].mcTrkId]][2];
+        tot_area = overlap_info[id_row][overlap_info_trkid_map[id_row][elem[1].mcTrkId]][3];
+        tot_charge = overlap_info[id_row][overlap_info_trkid_map[id_row][elem[1].mcTrkId]][4];
+      }
+      
       if(momentum_vector_estimate){
         net_momY_X = momentum_vector_map[net_idx][0];
         net_momZ_X = momentum_vector_map[net_idx][1];
@@ -2589,7 +2607,7 @@ void qaCluster::runQa(int sector)
 
     // For MC info, only if MC data is used
     o2::MCTrack current_track;
-    std::vector<float> cluster_pT, cluster_eta, cluster_mass, cluster_p, cluster_overlap_area_fraction, cluster_overlap_charge_fraction, cluster_overlap_num_other_mc;
+    std::vector<float> cluster_pT, cluster_eta, cluster_mass, cluster_p, cluster_overlap_area_fraction, cluster_overlap_charge_fraction;
     std::vector<int> cluster_isPrimary, cluster_isTagged;
 
     if(!realData){
@@ -2599,7 +2617,6 @@ void qaCluster::runQa(int sector)
       cluster_p.resize(data_size, -1);
       cluster_isPrimary.resize(data_size, -1);
       cluster_isTagged.resize(data_size, -1);
-      cluster_overlap_num_other_mc.resize(data_size, -1);
       cluster_overlap_area_fraction.resize(data_size, -1);
       cluster_overlap_charge_fraction.resize(data_size, -1);
     }
@@ -2684,7 +2701,6 @@ void qaCluster::runQa(int sector)
               cluster_mass[max_point] = current_track.GetMass();
               cluster_p[max_point] = current_track.GetP();
               cluster_isPrimary[max_point] = (int)current_track.isPrimary();
-              cluster_overlap_num_other_mc[max_point] = overlap_info[idl.row][overlap_info_trkid_map[idl.row][idl.mcTrkId]][0];
               cluster_overlap_area_fraction[max_point] = overlap_info[idl.row][overlap_info_trkid_map[idl.row][idl.mcTrkId]][1];
               cluster_overlap_charge_fraction[max_point] = overlap_info[idl.row][overlap_info_trkid_map[idl.row][idl.mcTrkId]][2];
             }
@@ -2744,9 +2760,8 @@ void qaCluster::runQa(int sector)
       tr_data->Branch("cluster_p", &p);
       tr_data->Branch("cluster_isPrimary", &isPrimary);
       tr_data->Branch("cluster_isTagged", &isTagged);
-      tr_data->Branch("cluster_overlap_num_other_mc", &overlap_num_other_mc);
       tr_data->Branch("cluster_overlap_area_fraction", &overlap_area_fraction);
-      tr_data->Branch("cluster_overlap_chrage_fraction", &overlap_charge_fraction);
+      tr_data->Branch("cluster_overlap_charge_fraction", &overlap_charge_fraction);
     }
 
     // Filling elements
@@ -2765,7 +2780,6 @@ void qaCluster::runQa(int sector)
         p = cluster_p[element];
         isPrimary = cluster_isPrimary[element];
         isTagged = cluster_isTagged[element];
-        overlap_num_other_mc = cluster_overlap_num_other_mc[element];
         overlap_area_fraction = cluster_overlap_area_fraction[element];
         overlap_charge_fraction = cluster_overlap_charge_fraction[element];
       }
@@ -2860,7 +2874,7 @@ void qaCluster::run(ProcessingContext& pc)
     }
     LOG(info) << "Per sector QA done. Creating ECF values.";
 
-    if(!realData && (mode.find(std::string("overlap")) != std::string::npos || mode.find(std::string("training_data")) != std::string::npos)){
+    if(overlap_study){
       custom::writeTabularToRootFile({"sector", "row", "track_id", "fraction_overlap_area", "fraction_overlap_charge", "abs_area", "abs_charge"}, all_cluster_overlap, outputPath + "/cluster_overlap.root", "clusterOverlap", "Cluster overlap");
     }
 
