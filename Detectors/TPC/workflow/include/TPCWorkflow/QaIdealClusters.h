@@ -344,6 +344,8 @@ class qaCluster : public Task
   float networkClassThres = 0.5f;            // Threshold where network decides to keep / reject digit maximum
   int networkNumThreads = 1;                 // Future: Add Cuda and CoreML Execution providers to run on CPU
   bool networkSplitIrocOroc = 0;             // Whether or not to split the used networks for IROC and OROC's
+  bool networkSigmoidTrafo = 1;              // Whether or not to apply sigmoid transformation to the network output
+  bool networkUseFloatLabel = 1;             // Whether or not to use float labels (customCluster.label) after classification NN evaluation
   int numThreads = 1;                        // Number of cores for multithreading
   int use_max_cog = 1;                       // 0 = use ideal maxima position; 1 = use ideal CoG position (rounded) for assignment
   float threshold_cogq = 5.f;                // Threshold for ideal cluster to be findable (Q_tot)
