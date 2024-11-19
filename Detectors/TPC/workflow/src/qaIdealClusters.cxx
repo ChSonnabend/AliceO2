@@ -1435,7 +1435,7 @@ void qaCluster::run_network_classification(int sector, tpc2d& map2d, std::vector
             tmp_class_label = (int)(output_network_class[current_max_idx][0] > networkClassThres);
           }
         } else {
-          tmp_class_label = std::min((int)std::distance(output_network_class[current_max_idx].begin(), std::max_element(output_network_class[current_max_idx].begin(), output_network_class[current_max_idx].end())), (int)network_regression_paths.size()) - 1;
+          tmp_class_label = (int)std::distance(output_network_class[current_max_idx].begin(), std::max_element(output_network_class[current_max_idx].begin(), output_network_class[current_max_idx].end()));
         }
 
         if (tmp_class_label > networkClassThres && class_label[current_max_idx] > 0) {
@@ -2458,7 +2458,7 @@ void qaCluster::runQa(int sector)
     // int netive_writer_map_size = netive_writer_map.size();
     // netive_writer_map.resize(native_writer_map_size + network_ideal_assignment.size());
 
-    bool momentum_vector_estimate = (network_regression[0].getNumOutputNodes()[0][1] > 5);
+    bool momentum_vector_estimate = (mode.find(std::string("network_full")) != std::string::npos) && (network_regression[0].getNumOutputNodes()[0][1] > 5);
     int elem_counter = 0;
     for (auto elem : network_ideal_assignment) {
       id_mom = 1000;
