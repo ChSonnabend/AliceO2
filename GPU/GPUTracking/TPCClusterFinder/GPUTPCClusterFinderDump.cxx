@@ -12,14 +12,14 @@
 /// \file GPUTPCClusterFinderDump.cxx
 /// \author David Rohr
 
+#include "TFile.h"
+#include "TTree.h"
+
 #include "GPUTPCClusterFinder.h"
 #include "GPUReconstruction.h"
 #include "Array2D.h"
 #include "DataFormatsTPC/Digit.h"
 #include "clusterFinderDefs.h"
-
-#include "TFile.h"
-#include "TTree.h"
 
 #include <vector>
 

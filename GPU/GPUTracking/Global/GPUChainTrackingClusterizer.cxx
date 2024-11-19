@@ -12,6 +12,8 @@
 /// \file GPUChainTrackingClusterizer.cxx
 /// \author David Rohr
 
+#include <CommonUtils/StringUtils.h>
+
 #include "GPUChainTracking.h"
 #include "GPUChainTrackingDefs.h"
 #include "GPULogging.h"
@@ -37,7 +39,6 @@
 #endif
 
 #include "utils/strtag.h"
-#include <CommonUtils/StringUtils.h>
 
 #ifndef GPUCA_NO_VC
 #include <Vc/Vc>
