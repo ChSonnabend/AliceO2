@@ -88,7 +88,7 @@ std::vector<BinningIndex> groupTable(const T& table, const BP<Cs...>& binningPol
     return groupedIndices;
   }
 
-  if constexpr (soa::is_soa_filtered_v<T>) {
+  if constexpr (soa::is_filtered_table<T>) {
     selectedRows = table.getSelectedRows(); // vector<int64_t>
   }
 
@@ -111,7 +111,7 @@ std::vector<BinningIndex> groupTable(const T& table, const BP<Cs...>& binningPol
       }
     });
 
-    if constexpr (soa::is_soa_filtered_v<T>) {
+    if constexpr (soa::is_filtered_table<T>) {
       if (selectedRows[ind] >= selInd + chunkLength) {
         selInd += chunkLength;
         continue; // Go to the next chunk, no value selected in this chunk
@@ -120,7 +120,7 @@ std::vector<BinningIndex> groupTable(const T& table, const BP<Cs...>& binningPol
 
     uint64_t ai = 0;
     while (ai < chunkLength) {
-      if constexpr (soa::is_soa_filtered_v<T>) {
+      if constexpr (soa::is_filtered_table<T>) {
         ai += selectedRows[ind] - selInd;
         selInd = selectedRows[ind];
       }
@@ -132,7 +132,7 @@ std::vector<BinningIndex> groupTable(const T& table, const BP<Cs...>& binningPol
       }
       ind++;
 
-      if constexpr (soa::is_soa_filtered_v<T>) {
+      if constexpr (soa::is_filtered_table<T>) {
         if (ind >= selectedRows.size()) {
           break;
         }
@@ -141,7 +141,7 @@ std::vector<BinningIndex> groupTable(const T& table, const BP<Cs...>& binningPol
       }
     }
 
-    if constexpr (soa::is_soa_filtered_v<T>) {
+    if constexpr (soa::is_filtered_table<T>) {
       if (ind == selectedRows.size()) {
         break;
       }
@@ -1348,7 +1348,7 @@ auto combinations(const BP& binningPolicy, int categoryNeighbours, const T1& out
   }
 }
 
-template <typename... T2s>
+template <soa::is_table... T2s>
 auto combinations(const o2::framework::expressions::Filter& filter, const T2s&... tables)
 {
   if constexpr (isSameType<T2s...>()) {
@@ -1366,7 +1366,7 @@ CombinationsGenerator<P2<T2s...>> combinations(const P2<T2s...>& policy)
   return CombinationsGenerator<P2<T2s...>>(policy);
 }
 
-template <template <typename...> typename P2, typename... T2s>
+template <template <typename...> typename P2, soa::is_table... T2s>
 CombinationsGenerator<P2<Filtered<T2s>...>> combinations(P2<T2s...>&&, const o2::framework::expressions::Filter& filter, const T2s&... tables)
 {
   return CombinationsGenerator<P2<Filtered<T2s>...>>(P2<Filtered<T2s>...>(tables.select(filter)...));

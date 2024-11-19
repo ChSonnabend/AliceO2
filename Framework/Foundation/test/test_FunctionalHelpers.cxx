@@ -37,10 +37,10 @@ TEST_CASE("TestOverride")
   static_assert(has_type_conditional_v<std::is_same, double, pack<int, float>> == false, "double should not be in the pack");
 
   pack<float, char, int, bool> pck;
-  static_assert(has_type_at<int>(pck) == 2, "int should be at 2");
-  static_assert(has_type_at<double>(pck) == pack_size(pck) + 1, "double is not in the pack so the function returns size + 1");
-  static_assert(has_type_at_conditional<std::is_same, bool>(pack<int, float, bool>()) == 2, "bool should be at 2");
-  static_assert(has_type_at_conditional<std::is_same, bool>(pack<int, float, double>()) == 3 + 1, "bool is not in the pack so the function returns size + 1");
+  static_assert(has_type_at_v<int>(pck) == 2, "int should be at 2");
+  static_assert(has_type_at_v<double>(pck) == pack_size(pck) + 1, "double is not in the pack so the function returns size + 1");
+  static_assert(has_type_at_conditional_v<std::is_same, bool>(pack<int, float, bool>()) == 2, "bool should be at 2");
+  static_assert(has_type_at_conditional_v<std::is_same, bool>(pack<int, float, double>()) == 3 + 1, "bool is not in the pack so the function returns size + 1");
 
   static_assert(std::is_same_v<selected_pack<is_int_t, int, float, char>, pack<int>>, "selector should select int");
   static_assert(std::is_same_v<selected_pack<is_int_t, int, int, float, char>, pack<int, int>>, "selector should select int");

@@ -69,7 +69,7 @@ struct GroupSlicer {
     template <typename T>
     auto extractingFunction(T&& table)
     {
-      if constexpr (soa::is_soa_filtered_v<std::decay_t<T>>) {
+      if constexpr (soa::is_filtered_table<std::decay_t<T>>) {
         constexpr auto index = framework::has_type_at_v<std::decay_t<T>>(associated_pack_t{});
         selections[index] = &table.getSelectedRows();
         starts[index] = selections[index]->begin();
@@ -84,7 +84,7 @@ struct GroupSlicer {
         position{0},
         mSlices{&slices}
     {
-      if constexpr (soa::is_soa_filtered_v<std::decay_t<G>>) {
+      if constexpr (soa::is_filtered_table<std::decay_t<G>>) {
         groupSelection = mGt->getSelectedRows();
       }
 
@@ -159,7 +159,7 @@ struct GroupSlicer {
 
       if constexpr (o2::soa::relatedByIndex<std::decay_t<G>, std::decay_t<A1>>()) {
         uint64_t pos;
-        if constexpr (soa::is_soa_filtered_v<std::decay_t<G>>) {
+        if constexpr (soa::is_filtered_table<std::decay_t<G>>) {
           pos = groupSelection[position];
         } else {
           pos = position;
@@ -173,7 +173,7 @@ struct GroupSlicer {
           auto oc = sliceInfos[index].getSliceFor(pos);
           uint64_t offset = oc.first;
           auto count = oc.second;
-          if constexpr (soa::is_soa_filtered_v<std::decay_t<A1>>) {
+          if constexpr (soa::is_filtered_table<std::decay_t<A1>>) {
             auto groupedElementsTable = originalTable.asArrowTable()->Slice(offset, count);
             if (count == 0) {
               return std::decay_t<A1>{{groupedElementsTable}, soa::SelectionVector{}};
@@ -200,7 +200,7 @@ struct GroupSlicer {
           }
         } else {
           // generic split
-          if constexpr (soa::is_soa_filtered_v<std::decay_t<A1>>) {
+          if constexpr (soa::is_filtered_table<std::decay_t<A1>>) {
             auto selection = sliceInfosUnsorted[index].getSliceFor(pos);
             // intersect selections
             o2::soa::SelectionVector s;

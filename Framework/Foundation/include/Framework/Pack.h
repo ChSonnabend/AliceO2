@@ -33,7 +33,7 @@ constexpr std::size_t pack_size(pack<Ts...> const&)
 template <std::size_t I, typename T>
 struct pack_element;
 
-#ifdef __clang__
+#if __has_builtin(__type_pack_element)
 template <std::size_t I, typename... Ts>
 struct pack_element<I, pack<Ts...>> {
   using type = __type_pack_element<I, Ts...>;
@@ -224,74 +224,30 @@ bool consteval has_type_conditional(framework::pack<Us...>)
 template <template <typename, typename> typename Condition, typename T, typename P>
 inline constexpr bool has_type_conditional_v = has_type_conditional<Condition, T>(P{});
 
-template <typename T>
-constexpr size_t has_type_at(pack<> const&)
+template <typename T, typename... Ts>
+consteval size_t has_type_at_v(pack<Ts...>)
 {
-  return static_cast<size_t>(-1);
-}
-
-template <typename T, typename T1, typename... Ts>
-constexpr size_t has_type_at(pack<T1, Ts...> const&)
-{
-  if constexpr (std::is_same_v<T, T1>) {
-    return 0;
-  } else if constexpr (has_type<T>(pack<Ts...>{})) {
-    return 1 + has_type_at<T>(pack<Ts...>{});
+  constexpr size_t size = sizeof...(Ts);
+  constexpr bool found[size] = {std::same_as<T, Ts>...};
+  for (size_t i = 0; i < size; ++i) {
+    if (found[i]) {
+      return i;
+    }
   }
-  return sizeof...(Ts) + 2;
+  return size + 1;
 }
 
-template <template <typename, typename> typename Condition, typename T>
-constexpr size_t has_type_at_conditional(pack<>&&)
+template <template <typename, typename> typename Condition, typename T, typename... Ts>
+consteval size_t has_type_at_conditional_v(pack<Ts...>)
 {
-  return static_cast<size_t>(-1);
-}
-
-template <template <typename, typename> typename Condition, typename T, typename T1, typename... Ts>
-constexpr size_t has_type_at_conditional(pack<T1, Ts...>&&)
-{
-  if constexpr (Condition<T, T1>::value) {
-    return 0;
-  } else if constexpr (has_type_conditional_v<Condition, T, pack<Ts...>>) {
-    return 1 + has_type_at_conditional<Condition, T>(pack<Ts...>{});
+  constexpr size_t size = sizeof...(Ts);
+  constexpr bool found[size] = {Condition<T, Ts>::value...};
+  for (size_t i = 0; i < size; ++i) {
+    if (found[i]) {
+      return i;
+    }
   }
-  return sizeof...(Ts) + 2;
-}
-
-namespace
-{
-template <std::size_t I, typename T>
-struct indexed {
-  using type = T;
-  constexpr static std::size_t index = I;
-};
-
-template <typename Is, typename... Ts>
-struct indexer;
-
-template <std::size_t... Is, typename... Ts>
-struct indexer<std::index_sequence<Is...>, Ts...>
-  : indexed<Is, Ts>... {
-};
-
-template <typename T, std::size_t I>
-indexed<I, T> select(indexed<I, T>);
-
-template <typename W, typename... Ts>
-constexpr std::size_t has_type_at_t = decltype(select<W>(
-  indexer<std::index_sequence_for<Ts...>, Ts...>{}))::index;
-} // namespace
-
-template <typename W>
-constexpr std::size_t has_type_at_v(o2::framework::pack<>)
-{
-  return -1;
-}
-
-template <typename W, typename... Ts>
-constexpr std::size_t has_type_at_v(o2::framework::pack<Ts...>)
-{
-  return has_type_at_t<W, Ts...>;
+  return size + 1;
 }
 
 /// Intersect two packs
@@ -345,6 +301,12 @@ constexpr auto concatenate_pack_unique(pack<Args1...>, pack<Args2...>)
 {
   using p1 = typename subtract_pack<pack<Args1...>, pack<Args2...>>::type;
   return concatenate_pack(p1{}, pack<Args2...>{});
+}
+
+template <typename P1>
+constexpr auto concatenate_pack_unique(P1 p1)
+{
+  return p1;
 }
 
 template <typename P1, typename P2, typename... Ps>

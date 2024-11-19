@@ -39,12 +39,17 @@
 
 #define DECLARE_SOA_ITERATOR_METADATA()                                       \
   template <typename IT>                                                      \
-  requires(o2::soa::is_soa_iterator_v<IT>) struct MetadataTrait<IT> {         \
+    requires(o2::soa::is_iterator<IT>)                                        \
+  struct MetadataTrait<IT> {                                                  \
     using metadata = typename MetadataTrait<typename IT::parent_t>::metadata; \
   };
 
 namespace o2::framework
 {
+using ListVector = std::vector<std::vector<int64_t>>;
+
+std::string cutString(std::string&& str);
+
 struct OriginEnc {
   static constexpr size_t size = 4;
   uint32_t value;
@@ -107,6 +112,56 @@ DECLARE_SOA_METADATA();
 
 namespace o2::soa
 {
+/// special case for the template with origin
+template <typename T, template <o2::framework::OriginEnc, typename...> class Ref>
+struct is_specialization_origin : std::false_type {
+};
+
+template <template <o2::framework::OriginEnc, typename...> class Ref, o2::framework::OriginEnc ORIGIN, typename... Args>
+struct is_specialization_origin<Ref<ORIGIN, Args...>, Ref> : std::true_type {
+};
+
+template <typename T, template <o2::framework::OriginEnc, typename...> class Ref>
+inline constexpr bool is_specialization_origin_v = is_specialization_origin<T, Ref>::value;
+
+template <template <o2::framework::OriginEnc, typename...> class base, typename derived>
+struct is_base_of_template_origin_impl {
+  template <o2::framework::OriginEnc ORIGIN, typename... Ts>
+  static constexpr std::true_type test(const base<ORIGIN, Ts...>*);
+  static constexpr std::false_type test(...);
+  using type = decltype(test(std::declval<derived*>()));
+};
+
+template <template <o2::framework::OriginEnc, typename...> class base, typename derived>
+using is_base_of_template_origin = typename is_base_of_template_origin_impl<base, derived>::type;
+
+template <template <o2::framework::OriginEnc, typename...> class base, typename derived>
+inline constexpr bool is_base_of_template_origin_v = is_base_of_template_origin<base, derived>::value;
+
+template <typename T>
+concept not_void = !std::same_as<T, void>;
+
+// column identification concepts
+template <typename C>
+concept is_persistent_column = requires(C c) { c.mColumnIterator; };
+
+template <typename C>
+using is_persistent_t = std::conditional_t<is_persistent_column<C>, std::true_type, std::false_type>;
+
+template <typename C>
+static constexpr bool is_persistent_v = is_persistent_column<C>;
+
+template <typename C>
+concept is_index_column = not_void<typename C::binding_t>;
+
+template <typename C>
+using is_external_index_t = typename std::conditional_t<is_index_column<C>, std::true_type, std::false_type>;
+
+template <typename C>
+concept is_self_index_column = requires { typename C::self_index_t{}; };
+
+template <typename C>
+using is_self_index_t = typename std::conditional_t<is_self_index_column<C>, std::true_type, std::false_type>;
 
 struct Binding {
   void const* ptr = nullptr;
@@ -141,11 +196,8 @@ auto createFieldsFromColumns(framework::pack<C...>)
 
 using SelectionVector = std::vector<int64_t>;
 
-template <typename, typename = void>
-inline constexpr bool is_index_column_v = false;
-
 template <typename T>
-inline constexpr bool is_index_column_v<T, std::void_t<decltype(sizeof(typename T::binding_t))>> = true;
+inline constexpr bool is_index_column_v = is_index_column<T>;
 
 template <typename, typename = void>
 inline constexpr bool is_type_with_originals_v = false;
@@ -153,53 +205,26 @@ inline constexpr bool is_type_with_originals_v = false;
 template <typename T>
 inline constexpr bool is_type_with_originals_v<T, std::void_t<decltype(sizeof(typename T::originals))>> = true;
 
-template <typename T, typename = void>
-inline constexpr bool is_type_with_parent_v = false;
+template <typename T>
+concept has_parent_t = not_void<typename T::parent_t>;
+
+template <typename INHERIT>
+class TableMetadata;
 
 template <typename T>
-inline constexpr bool is_type_with_parent_v<T, std::void_t<decltype(sizeof(typename T::parent_t))>> = true;
-
-template <typename, typename = void>
-inline constexpr bool is_type_with_metadata_v = false;
+concept is_metadata = framework::base_of_template<TableMetadata, T>;
 
 template <typename T>
-inline constexpr bool is_type_with_metadata_v<T, std::void_t<decltype(sizeof(typename T::metadata))>> = true;
-
-template <typename, typename = void>
-inline constexpr bool is_type_with_binding_v = false;
+concept is_metadata_trait = framework::specialization_of_template<aod::MetadataTrait, T>;
 
 template <typename T>
-inline constexpr bool is_type_with_binding_v<T, std::void_t<decltype(sizeof(typename T::binding_t))>> = true;
-
-template <typename, typename = void>
-inline constexpr bool is_type_spawnable_v = false;
+concept has_metadata = is_metadata_trait<T> && not_void<typename T::metadata>;
 
 template <typename T>
-inline constexpr bool is_type_spawnable_v<T, std::void_t<decltype(sizeof(typename T::spawnable_t))>> = true;
-
-template <typename, typename = void>
-inline constexpr bool is_soa_extension_table_v = false;
+concept has_sources = is_metadata<T> && not_void<typename T::sources>;
 
 template <typename T>
-inline constexpr bool is_soa_extension_table_v<T, std::void_t<decltype(sizeof(typename T::expression_pack_t))>> = true;
-
-template <typename T, typename = void>
-inline constexpr bool is_index_table_v = false;
-
-template <typename T>
-inline constexpr bool is_index_table_v<T, std::void_t<decltype(sizeof(typename T::indexing_t))>> = true;
-
-template <typename, typename = void>
-inline constexpr bool is_self_index_column_v = false;
-
-template <typename T>
-inline constexpr bool is_self_index_column_v<T, std::void_t<decltype(sizeof(typename T::self_index_t))>> = true;
-
-template <typename, typename = void>
-inline constexpr bool is_with_base_table_v = false;
-
-template <typename T>
-inline constexpr bool is_with_base_table_v<T, std::void_t<decltype(sizeof(typename T::base_table_t))>> = true;
+concept is_spawnable_column = std::is_same_v<typename T::spawnable_t, std::true_type>;
 
 template <typename B, typename E>
 struct EquivalentIndex {
@@ -234,7 +259,7 @@ consteval decltype(auto) make_originals_from_type()
       return typename decayed::originals{};
     } else if constexpr (is_type_with_originals_v<typename decayed::table_t>) {
       return typename decayed::table_t::originals{};
-    } else if constexpr (is_type_with_parent_v<decayed>) {
+    } else if constexpr (soa::has_parent_t<decayed>) {
       return make_originals_from_type<typename decayed::parent_t>();
     } else {
       return framework::pack<decayed>{};
@@ -608,45 +633,19 @@ struct Index : o2::soa::IndexColumn<Index<START, END>> {
 };
 
 template <typename T>
-using is_dynamic_t = framework::is_specialization<typename T::base, DynamicColumn>;
-
-namespace persistent_type_helper
-{
-// This checks both for the existence of the ::persistent member in the class T as well as the value returned stored in it.
-// Hack: a pointer to any field of type int inside persistent. Both true_type and false_type do not have any int field, but anyways we pass nullptr.
-// The compiler picks the version with exact number of arguments when only it can, i.e., when T::persistent is defined.
-template <class T>
-typename T::persistent test(int T::persistent::*);
-
-template <class>
-std::false_type test(...);
-} // namespace persistent_type_helper
+concept is_dynamic_column = framework::is_base_of_template_v<soa::DynamicColumn, T>;
 
 template <typename T>
-using is_persistent_t = decltype(persistent_type_helper::test<T>(nullptr));
+using is_dynamic_t = std::conditional_t<is_dynamic_column<T>, std::true_type, std::false_type>;
 
 template <typename T>
-constexpr auto is_persistent_v = is_persistent_t<T>::value;
+concept is_indexing_column = framework::is_base_of_template_v<soa::IndexColumn, T>;
 
 template <typename T>
-constexpr auto is_dynamic_v = is_dynamic_t<T>::value;
+concept is_column = framework::is_base_of_template_v<soa::Column, T> || is_dynamic_column<T> || is_indexing_column<T> || framework::is_base_of_template_v<soa::MarkerColumn, T>;
 
 template <typename T>
-using is_external_index_t = typename std::conditional<is_index_column_v<T>, std::true_type, std::false_type>::type;
-
-template <typename T>
-using is_self_index_t = typename std::conditional<is_self_index_column_v<T>, std::true_type, std::false_type>::type;
-
-template <typename T, template <auto...> class Ref>
-struct is_index : std::false_type {
-};
-
-template <template <auto...> class Ref, auto... Args>
-struct is_index<Ref<Args...>, Ref> : std::true_type {
-};
-
-template <typename T>
-using is_index_t = is_index<T, Index>;
+using is_indexing_t = std::conditional_t<is_indexing_column<T>, std::true_type, std::false_type>;
 
 struct IndexPolicyBase {
   /// Position inside the current table
@@ -842,6 +841,9 @@ struct DefaultIndexPolicy : IndexPolicyBase {
 template <o2::framework::OriginEnc ORIGIN, typename... C>
 class Table;
 
+template <typename T>
+concept is_table = soa::is_specialization_origin_v<T, soa::Table> || soa::is_base_of_template_origin_v<soa::Table, T>;
+
 /// Similar to a pair but not a pair, to avoid
 /// exposing the second type everywhere.
 template <typename C>
@@ -851,7 +853,7 @@ struct ColumnDataHolder {
 };
 
 template <typename T, typename B>
-concept CanBind = requires(T&& t) {
+concept can_bind = requires(T&& t) {
   { t.B::mColumnIterator };
 };
 
@@ -862,7 +864,7 @@ struct RowViewCore : public IP, C... {
   using table_t = o2::soa::Table<ORIGIN, C...>;
   using all_columns = framework::pack<C...>;
   using persistent_columns_t = framework::selected_pack<is_persistent_t, C...>;
-  using index_columns_t = framework::selected_pack<is_index_t, C...>;
+  using index_columns_t = framework::selected_pack<is_indexing_t, C...>;
   constexpr inline static bool has_index_v = framework::pack_size(index_columns_t{}) > 0;
   using external_index_columns_t = framework::selected_pack<is_external_index_t, C...>;
   using internal_index_columns_t = framework::selected_pack<is_self_index_t, C...>;
@@ -1023,11 +1025,15 @@ struct RowViewCore : public IP, C... {
   void bind()
   {
     using namespace o2::soa;
-    auto f = framework::overloaded  {
-      [this]<typename T>(T*) -> void requires is_persistent_v<T> { T::mColumnIterator.mCurrentPos = &this->mRowIndex; },
-      [this]<typename T>(T*) -> void requires is_dynamic_v<T> { bindDynamicColumn<T>(typename T::bindings_t{});},
+    auto f = framework::overloaded{
+      [this]<typename T>(T*) -> void
+        requires is_persistent_column<T>
+                 { T::mColumnIterator.mCurrentPos = &this->mRowIndex; },
+                 [this]<typename T>(T*) -> void
+                   requires is_dynamic_column<T>
+      { bindDynamicColumn<T>(typename T::bindings_t{}); },
       [this]<typename T>(T*) -> void {},
-};
+      };
     (f(static_cast<C*>(nullptr)), ...);
     if constexpr (has_index_v) {
       this->setIndices(this->getIndices());
@@ -1047,7 +1053,7 @@ struct RowViewCore : public IP, C... {
   // error if constructor for the table or any other thing involving a missing
   // binding is preinstanciated.
   template <typename B>
-    requires(CanBind<typename table_t::iterator, B>)
+    requires(can_bind<typename table_t::iterator, B>)
   decltype(auto) getDynamicBinding()
   {
     static_assert(std::is_same_v<decltype(&(static_cast<B*>(this)->mColumnIterator)), std::decay_t<decltype(B::mColumnIterator)>*>, "foo");
@@ -1062,6 +1068,9 @@ struct RowViewCore : public IP, C... {
   }
 };
 
+template <typename T>
+concept is_iterator = soa::is_base_of_template_origin_v<RowViewCore, T> || soa::is_specialization_origin_v<T, RowViewCore>;
+
 template <typename, typename = void>
 constexpr bool is_type_with_policy_v = false;
 
@@ -1072,6 +1081,9 @@ struct ArrowHelpers {
   static std::shared_ptr<arrow::Table> joinTables(std::vector<std::shared_ptr<arrow::Table>>&& tables);
   static std::shared_ptr<arrow::Table> concatTables(std::vector<std::shared_ptr<arrow::Table>>&& tables);
 };
+
+template <typename T>
+concept with_base_table = not_void<typename aod::MetadataTrait<T>::metadata::base_table_t>;
 
 template <typename... T>
 using originals_pack_t = decltype(make_originals_from_type(framework::pack<T...>{}));
@@ -1096,22 +1108,19 @@ template <typename T, typename B>
 struct is_binding_compatible : std::conditional_t<is_binding_compatible_v<T, typename B::binding_t>(), std::true_type, std::false_type> {
 };
 
+template <o2::framework::OriginEnc ORIGIN, typename Key, typename H, typename... Ts>
+struct IndexTable;
+
 template <typename T>
+concept is_index_table = soa::is_specialization_origin_v<T, o2::soa::IndexTable>;
+
+template <soa::is_table T>
+  requires(!soa::is_index_table<T>)
 static constexpr std::string getLabelFromType()
 {
-  if constexpr (soa::is_index_table_v<std::decay_t<T>>) {
-    using TT = typename std::decay_t<T>::first_t;
-    if constexpr (soa::is_type_with_originals_v<std::decay_t<TT>>) {
-      using O = typename framework::pack_head_t<typename std::decay_t<TT>::originals>;
-      using groupingMetadata = typename aod::MetadataTrait<O>::metadata;
-      return std::string{groupingMetadata::tableLabel()};
-    } else {
-      using groupingMetadata = typename aod::MetadataTrait<TT>::metadata;
-      return std::string{groupingMetadata::tableLabel()};
-    }
-  } else if constexpr (soa::is_type_with_originals_v<std::decay_t<T>>) {
+  if constexpr (soa::is_type_with_originals_v<std::decay_t<T>>) {
     using TT = typename framework::pack_head_t<typename std::decay_t<T>::originals>;
-    if constexpr (soa::is_with_base_table_v<typename aod::MetadataTrait<TT>::metadata>) {
+    if constexpr (soa::with_base_table<typename aod::MetadataTrait<TT>::metadata>) {
       using TTT = typename aod::MetadataTrait<TT>::metadata::base_table_t;
       return getLabelFromType<TTT>();
     } else {
@@ -1119,7 +1128,44 @@ static constexpr std::string getLabelFromType()
       return std::string{groupingMetadata::tableLabel()};
     }
   } else {
-    if constexpr (soa::is_with_base_table_v<typename aod::MetadataTrait<T>::metadata>) {
+    if constexpr (soa::with_base_table<typename aod::MetadataTrait<T>::metadata>) {
+      using TT = typename aod::MetadataTrait<T>::metadata::base_table_t;
+      return getLabelFromType<TT>();
+    } else {
+      using groupingMetadata = typename aod::MetadataTrait<std::decay_t<T>>::metadata;
+      return std::string{groupingMetadata::tableLabel()};
+    }
+  }
+}
+
+template <soa::is_index_table T>
+static constexpr std::string getLabelFromType()
+{
+  using TT = typename std::decay_t<T>::first_t;
+  if constexpr (soa::is_type_with_originals_v<std::decay_t<TT>>) {
+    using O = typename framework::pack_head_t<typename std::decay_t<TT>::originals>;
+    using groupingMetadata = typename aod::MetadataTrait<O>::metadata;
+    return std::string{groupingMetadata::tableLabel()};
+  } else {
+    using groupingMetadata = typename aod::MetadataTrait<TT>::metadata;
+    return std::string{groupingMetadata::tableLabel()};
+  }
+}
+
+template <soa::is_iterator T>
+static constexpr std::string getLabelFromType()
+{
+  if constexpr (soa::is_type_with_originals_v<std::decay_t<T>>) {
+    using TT = typename framework::pack_head_t<typename std::decay_t<T>::originals>;
+    if constexpr (soa::with_base_table<typename aod::MetadataTrait<TT>::metadata>) {
+      using TTT = typename aod::MetadataTrait<TT>::metadata::base_table_t;
+      return getLabelFromType<TTT>();
+    } else {
+      using groupingMetadata = typename aod::MetadataTrait<TT>::metadata;
+      return std::string{groupingMetadata::tableLabel()};
+    }
+  } else {
+    if constexpr (soa::with_base_table<typename aod::MetadataTrait<T>::metadata>) {
       using TT = typename aod::MetadataTrait<T>::metadata::base_table_t;
       return getLabelFromType<TT>();
     } else {
@@ -1276,50 +1322,6 @@ using PresliceOptional = PresliceBase<T, true, true>;
 
 namespace o2::soa
 {
-/// special case for the template with origin
-template <typename T, template <o2::framework::OriginEnc, typename...> class Ref>
-struct is_specialization_origin : std::false_type {
-};
-
-template <template <o2::framework::OriginEnc, typename...> class Ref, o2::framework::OriginEnc ORIGIN, typename... Args>
-struct is_specialization_origin<Ref<ORIGIN, Args...>, Ref> : std::true_type {
-};
-
-template <typename T, template <o2::framework::OriginEnc, typename...> class Ref>
-inline constexpr bool is_specialization_origin_v = is_specialization_origin<T, Ref>::value;
-
-template <template <o2::framework::OriginEnc, typename...> class base, typename derived>
-struct is_base_of_template_origin_impl {
-  template <o2::framework::OriginEnc ORIGIN, typename... Ts>
-  static constexpr std::true_type test(const base<ORIGIN, Ts...>*);
-  static constexpr std::false_type test(...);
-  using type = decltype(test(std::declval<derived*>()));
-};
-
-template <template <o2::framework::OriginEnc, typename...> class base, typename derived>
-using is_base_of_template_origin = typename is_base_of_template_origin_impl<base, derived>::type;
-
-template <template <o2::framework::OriginEnc, typename...> class base, typename derived>
-inline constexpr bool is_base_of_template_origin_v = is_base_of_template_origin<base, derived>::value;
-
-//! Helper to check if a type T is an iterator
-template <typename T>
-inline constexpr bool is_soa_iterator_v = soa::is_base_of_template_origin_v<RowViewCore, T> || soa::is_specialization_origin_v<T, RowViewCore>;
-
-template <typename T>
-inline consteval bool is_soa_filtered_iterator_v()
-{
-  if constexpr (!is_soa_iterator_v<T>) {
-    return false;
-  } else {
-    if constexpr (std::is_same_v<typename T::policy_t, soa::FilteredIndexPolicy>) {
-      return true;
-    } else {
-      return false;
-    }
-  }
-}
-
 template <typename T>
 using is_soa_table_t = typename soa::is_specialization_origin<T, soa::Table>;
 
@@ -1333,6 +1335,21 @@ class Filtered;
 
 template <typename T>
 inline constexpr bool is_soa_filtered_v = framework::is_base_of_template_v<soa::FilteredBase, T>;
+
+template <typename T>
+concept has_filtered_policy = not_void<typename T::policy_t> && std::same_as<typename T::policy_t, soa::FilteredIndexPolicy>;
+
+template <typename T>
+concept is_filtered_table = framework::is_base_of_template_v<soa::FilteredBase, T>;
+
+template <typename T>
+concept is_not_filtered_table = is_table<T> && !is_filtered_table<T>;
+
+template <typename T>
+concept is_filtered_iterator = is_iterator<T> && has_filtered_policy<T>;
+
+template <typename T>
+concept is_filtered = is_filtered_table<T> || is_filtered_iterator<T>;
 
 /// Helper function to extract bound indices
 template <typename... Is>
@@ -1361,7 +1378,7 @@ auto doSliceBy(T const* table, o2::framework::PresliceBase<C, OPT, SORTED> const
       return t;
     } else {
       auto selection = container.getSliceFor(value);
-      if constexpr (soa::is_soa_filtered_v<T>) {
+      if constexpr (soa::is_filtered_table<T>) {
         auto t = soa::Filtered<typename T::base_t>({table->asArrowTable()}, selection);
         table->copyIndexBindings(t);
         t.bindInternalIndicesTo(table);
@@ -1387,7 +1404,7 @@ template <typename T>
 auto prepareFilteredSlice(T const* table, std::shared_ptr<arrow::Table> slice, uint64_t offset)
 {
   if (offset >= static_cast<uint64_t>(table->tableSize())) {
-    if constexpr (soa::is_soa_filtered_v<T>) {
+    if constexpr (soa::is_filtered_table<T>) {
       Filtered<typename T::base_t> fresult{{{slice}}, SelectionVector{}, 0};
       table->copyIndexBindings(fresult);
       return fresult;
@@ -1407,7 +1424,7 @@ auto prepareFilteredSlice(T const* table, std::shared_ptr<arrow::Table> slice, u
                  [&start](int64_t idx) {
                    return idx - static_cast<int64_t>(start);
                  });
-  if constexpr (soa::is_soa_filtered_v<T>) {
+  if constexpr (soa::is_filtered_table<T>) {
     Filtered<typename T::base_t> fresult{{{slice}}, std::move(slicedSelection), start};
     table->copyIndexBindings(fresult);
     return fresult;
@@ -1458,7 +1475,7 @@ template <typename T>
 auto doSliceByCachedUnsorted(T const* table, framework::expressions::BindingNode const& node, int value, o2::framework::SliceCache& cache)
 {
   auto localCache = cache.ptr->getCacheUnsortedFor({o2::soa::getLabelFromTypeForKey<T>(node.name), node.name});
-  if constexpr (soa::is_soa_filtered_v<T>) {
+  if constexpr (soa::is_filtered_table<T>) {
     auto t = typename T::self_t({table->asArrowTable()}, localCache.getSliceFor(value));
     t.intersectWithSelection(table->getSelectedRows());
     table->copyIndexBindings(t);
@@ -1592,7 +1609,7 @@ class Table
         return framework::pack_element_t<idx, external_index_columns_t>::getId();
       } else if constexpr (std::is_same_v<decayed, Parent>) { // self index
         return this->globalIndex();
-      } else if constexpr (is_index_t<decayed>::value && decayed::mLabel == "Index") { // soa::Index<>
+      } else if constexpr (is_indexing_column<decayed>) { // soa::Index<>
         return this->globalIndex();
       } else {
         return static_cast<int32_t>(-1);
@@ -1689,8 +1706,8 @@ class Table
   inline arrow::ChunkedArray* getIndexToKey()
   {
     if constexpr (framework::has_type_conditional<is_binding_compatible, Key>(external_index_columns_t{})) {
-      using IC = framework::pack_element_t<framework::has_type_at_conditional<is_binding_compatible, Key>(external_index_columns_t{}), external_index_columns_t>;
-      return mColumnChunks[framework::has_type_at<IC>(persistent_columns_t{})];
+      using IC = framework::pack_element_t<framework::has_type_at_conditional_v<is_binding_compatible, Key>(external_index_columns_t{}), external_index_columns_t>;
+      return mColumnChunks[framework::has_type_at_v<IC>(persistent_columns_t{})];
     } else if constexpr (std::is_same_v<table_t, Key>) {
       return nullptr;
     } else {
@@ -1853,7 +1870,7 @@ class Table
   template <typename T>
   arrow::ChunkedArray* lookupColumn()
   {
-    if constexpr (T::persistent::value) {
+    if constexpr (soa::is_persistent_column<T>) {
       auto label = T::columnLabel();
       return getIndexFromLabel(mTable.get(), label);
     } else {
@@ -1925,22 +1942,20 @@ void notBoundTable(const char* tableName);
 
 namespace row_helpers
 {
-template <typename... Cs>
+template <soa::is_persistent_column... Cs>
 std::array<arrow::ChunkedArray*, sizeof...(Cs)> getArrowColumns(arrow::Table* table, framework::pack<Cs...>)
 {
-  static_assert(std::conjunction_v<typename Cs::persistent...>, "Arrow columns: only persistent columns accepted (not dynamic and not index ones");
   return std::array<arrow::ChunkedArray*, sizeof...(Cs)>{o2::soa::getIndexFromLabel(table, Cs::columnLabel())...};
 }
 
-template <typename... Cs>
+template <soa::is_persistent_column... Cs>
 std::array<std::shared_ptr<arrow::Array>, sizeof...(Cs)> getChunks(arrow::Table* table, framework::pack<Cs...>, uint64_t ci)
 {
-  static_assert(std::conjunction_v<typename Cs::persistent...>, "Arrow chunks: only persistent columns accepted (not dynamic and not index ones");
   return std::array<std::shared_ptr<arrow::Array>, sizeof...(Cs)>{o2::soa::getIndexFromLabel(table, Cs::columnLabel())->chunk(ci)...};
 }
 
-template <typename T, typename C>
-typename C::type getSingleRowPersistentData(arrow::Table* table, T& rowIterator, uint64_t ci = std::numeric_limits<uint64_t>::max(), uint64_t ai = std::numeric_limits<uint64_t>::max())
+template <typename T, soa::is_persistent_column C>
+typename C::type getSingleRowData(arrow::Table* table, T& rowIterator, uint64_t ci = std::numeric_limits<uint64_t>::max(), uint64_t ai = std::numeric_limits<uint64_t>::max(), uint64_t globalIndex = std::numeric_limits<uint64_t>::max())
 {
   if (ci == std::numeric_limits<uint64_t>::max() || ai == std::numeric_limits<uint64_t>::max()) {
     auto colIterator = static_cast<C>(rowIterator).getIterator();
@@ -1950,8 +1965,8 @@ typename C::type getSingleRowPersistentData(arrow::Table* table, T& rowIterator,
   return std::static_pointer_cast<o2::soa::arrow_array_for_t<typename C::type>>(o2::soa::getIndexFromLabel(table, C::columnLabel())->chunk(ci))->raw_values()[ai];
 }
 
-template <typename T, typename C>
-typename C::type getSingleRowDynamicData(T& rowIterator, uint64_t globalIndex = std::numeric_limits<uint64_t>::max())
+template <typename T, soa::is_dynamic_column C>
+typename C::type getSingleRowData(arrow::Table*, T& rowIterator, uint64_t ci = std::numeric_limits<uint64_t>::max(), uint64_t ai = std::numeric_limits<uint64_t>::max(), uint64_t globalIndex = std::numeric_limits<uint64_t>::max())
 {
   if (globalIndex != std::numeric_limits<uint64_t>::max() && globalIndex != *std::get<0>(rowIterator.getIndices())) {
     rowIterator.setCursor(globalIndex);
@@ -1959,28 +1974,13 @@ typename C::type getSingleRowDynamicData(T& rowIterator, uint64_t globalIndex = 
   return rowIterator.template getDynamicColumn<C>();
 }
 
-template <typename T, typename C>
-typename C::type getSingleRowIndexData(T& rowIterator, uint64_t globalIndex = std::numeric_limits<uint64_t>::max())
+template <typename T, soa::is_index_column C>
+typename C::type getSingleRowData(arrow::Table*, T& rowIterator, uint64_t ci = std::numeric_limits<uint64_t>::max(), uint64_t ai = std::numeric_limits<uint64_t>::max(), uint64_t globalIndex = std::numeric_limits<uint64_t>::max())
 {
   if (globalIndex != std::numeric_limits<uint64_t>::max() && globalIndex != *std::get<0>(rowIterator.getIndices())) {
     rowIterator.setCursor(globalIndex);
   }
   return rowIterator.template getId<C>();
-}
-
-template <typename T, typename C>
-typename C::type getSingleRowData(arrow::Table* table, T& rowIterator, uint64_t ci = -1, uint64_t ai = std::numeric_limits<uint64_t>::max(), uint64_t globalIndex = std::numeric_limits<uint64_t>::max())
-{
-  using decayed = std::decay_t<C>;
-  if constexpr (decayed::persistent::value) {
-    return getSingleRowPersistentData<T, C>(table, rowIterator, ci, ai);
-  } else if constexpr (o2::soa::is_dynamic_t<decayed>()) {
-    return getSingleRowDynamicData<T, C>(rowIterator, globalIndex);
-  } else if constexpr (o2::soa::is_index_t<decayed>::value) {
-    return getSingleRowIndexData<T, C>(rowIterator, globalIndex);
-  } else {
-    static_assert(!sizeof(decayed*), "Unrecognized column kind"); // A trick to delay static_assert until we actually instantiate this branch
-  }
 }
 
 template <typename T, typename... Cs>
@@ -2000,7 +2000,7 @@ DECLARE_SOA_ITERATOR_METADATA();
   template <typename T>                                                                             \
   consteval int getVersion()                                                                        \
   {                                                                                                 \
-    if constexpr (o2::soa::is_type_with_metadata_v<MetadataTrait<T>>) {                             \
+    if constexpr (o2::soa::has_metadata<o2::aod::MetadataTrait<T>>) {                               \
       return MetadataTrait<T>::metadata::version();                                                 \
     } else if constexpr (o2::soa::is_type_with_originals_v<T>) {                                    \
       return MetadataTrait<o2::framework::pack_head_t<typename T::originals>>::metadata::version(); \
@@ -2298,7 +2298,7 @@ DECLARE_SOA_ITERATOR_METADATA();
     template <typename T>                                                                                \
     std::vector<typename T::iterator> getFilteredIterators() const                                       \
     {                                                                                                    \
-      if constexpr (o2::soa::is_soa_filtered_v<T>) {                                                     \
+      if constexpr (o2::soa::is_filtered_table<T>) {                                                     \
         auto result = std::vector<typename T::iterator>();                                               \
         for (auto const& i : *mColumnIterator) {                                                         \
           auto pos = mBinding.get<T>()->isInSelectedRows(i);                                             \
@@ -3643,20 +3643,4 @@ struct is_smallgroups_t<SmallGroupsBase<T, F>> {
 template <typename T>
 constexpr bool is_smallgroups_v = is_smallgroups_t<T>::value;
 } // namespace o2::soa
-
-namespace o2::framework
-{
-using ListVector = std::vector<std::vector<int64_t>>;
-
-std::string cutString(std::string&& str);
-
-void sliceByColumnGeneric(
-  char const* key,
-  char const* target,
-  std::shared_ptr<arrow::Table> const& input,
-  int32_t fullSize,
-  ListVector* groups,
-  ListVector* unassigned = nullptr);
-} // namespace o2::framework
-
 #endif // O2_FRAMEWORK_ASOA_H_

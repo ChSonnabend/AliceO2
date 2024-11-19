@@ -884,8 +884,7 @@ void processChildrenOutput(uv_loop_t* loop,
         throw runtime_error("stdout is not supported anymore as a driver backend. Please use ws://");
       } else if (logLevel == LogParsingHelpers::LogLevel::Info && DeviceConfigHelper::parseConfig(token.substr(16), configMatch)) {
         throw runtime_error("stdout is not supported anymore as a driver backend. Please use ws://");
-      } else if (!control.quiet && (token.find(control.logFilter) != std::string::npos) &&
-                 logLevel >= control.logLevel) {
+      } else if (!control.quiet && (token.find(control.logFilter) != std::string::npos) && logLevel >= info.logLevel) {
         assert(info.historyPos >= 0);
         assert(info.historyPos < info.history.size());
         info.history[info.historyPos] = token;
@@ -2125,6 +2124,37 @@ int runStateMachine(DataProcessorSpecs const& workflow,
           uv_timer_start(&metricDumpTimer, dumpMetricsCallback,
                          driverInfo.resourcesMonitoringDumpInterval * 1000,
                          driverInfo.resourcesMonitoringDumpInterval * 1000);
+        }
+        /// Set the value for the severity of displayed logs to the command line value --severity
+        for (const auto& processorInfo : dataProcessorInfos) {
+          const auto& cmdLineArgs = processorInfo.cmdLineArgs;
+          if (std::find(cmdLineArgs.begin(), cmdLineArgs.end(), "--severity") != cmdLineArgs.end()) {
+            for (size_t counter = 0; const auto& spec : runningWorkflow.devices) {
+              if (spec.name.compare(processorInfo.name) == 0) {
+                auto& info = infos[counter];
+                const auto logLevelIt = std::find(cmdLineArgs.begin(), cmdLineArgs.end(), "--severity") + 1;
+                if ((*logLevelIt).compare("debug") == 0) {
+                  info.logLevel = LogParsingHelpers::LogLevel::Debug;
+                } else if ((*logLevelIt).compare("detail") == 0) {
+                  info.logLevel = LogParsingHelpers::LogLevel::Debug;
+                } else if ((*logLevelIt).compare("info") == 0) {
+                  info.logLevel = LogParsingHelpers::LogLevel::Info;
+                } else if ((*logLevelIt).compare("warning") == 0) {
+                  info.logLevel = LogParsingHelpers::LogLevel::Warning;
+                } else if ((*logLevelIt).compare("error") == 0) {
+                  info.logLevel = LogParsingHelpers::LogLevel::Error;
+                } else if ((*logLevelIt).compare("important") == 0) {
+                  info.logLevel = LogParsingHelpers::LogLevel::Info;
+                } else if ((*logLevelIt).compare("alarm") == 0) {
+                  info.logLevel = LogParsingHelpers::LogLevel::Alarm;
+                } else if ((*logLevelIt).compare("fatal") == 0) {
+                  info.logLevel = LogParsingHelpers::LogLevel::Fatal;
+                }
+                break;
+              }
+              ++counter;
+            }
+          }
         }
         LOG(info) << "Redeployment of configuration done.";
       } break;

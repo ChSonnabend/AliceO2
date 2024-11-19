@@ -418,43 +418,6 @@ struct OutputManager<Builds<T>> {
 };
 
 template <typename T>
-class has_instance
-{
-  using one = char;
-  struct two {
-    char x[2];
-  };
-
-  template <typename C>
-  static one test(decltype(&C::instance));
-  template <typename C>
-  static two test(...);
-
- public:
-  enum { value = sizeof(test<T>(nullptr)) == sizeof(char) };
-};
-
-template <typename T>
-class has_end_of_stream
-{
-  using one = char;
-  struct two {
-    char x[2];
-  };
-
-  template <typename C>
-  static one test(decltype(&C::endOfStream));
-  template <typename C>
-  static two test(...);
-
- public:
-  enum { value = sizeof(test<T>(nullptr)) == sizeof(char) };
-};
-
-template <typename T>
-inline constexpr bool has_end_of_stream_v = has_end_of_stream<T>::value;
-
-template <typename T>
 struct ServiceManager {
   template <typename ANY>
   static bool add(std::vector<ServiceSpec>& specs, ANY& any)
@@ -477,7 +440,7 @@ struct ServiceManager {
 
 template <typename T>
 struct ServiceManager<Service<T>> {
-  static bool add(std::vector<ServiceSpec>& specs, Service<T>& service)
+  static bool add(std::vector<ServiceSpec>& specs, Service<T>& /*service*/)
   {
     if constexpr (o2::framework::is_base_of_template_v<LoadableServicePlugin, T>) {
       T p = T{};
@@ -489,7 +452,7 @@ struct ServiceManager<Service<T>> {
 
   static bool prepare(InitContext& context, Service<T>& service)
   {
-    if constexpr (has_instance<T>::value) {
+    if constexpr (requires { &T::instance; }) {
       service.service = &(T::instance()); // Sigh...
       return true;
     } else {
@@ -500,11 +463,11 @@ struct ServiceManager<Service<T>> {
   }
 
   /// If a service has a method endOfStream, it is called at the end of the stream.
-  static bool postRun(EndOfStreamContext& context, Service<T>& service)
+  static bool postRun(EndOfStreamContext& /*context*/, Service<T>& service)
   {
     // FIXME: for the moment we only need endOfStream to be
     // stateless. In the future we might want to pass it EndOfStreamContext
-    if constexpr (has_end_of_stream_v<T>) {
+    if constexpr (requires { &T::endOfStream; }) {
       service.service->endOfStream();
       return true;
     }
@@ -637,7 +600,7 @@ struct SpawnManager {
   static bool requestInputs(std::vector<InputSpec>&, T const&) { return false; }
 };
 
-template <typename TABLE>
+template <soa::is_table TABLE>
 struct SpawnManager<Spawns<TABLE>> {
   static bool requestInputs(std::vector<InputSpec>& inputs, Spawns<TABLE>& spawns)
   {
@@ -656,7 +619,7 @@ struct IndexManager {
   static bool requestInputs(std::vector<InputSpec>&, T const&) { return false; };
 };
 
-template <typename IDX>
+template <soa::is_index_table IDX>
 struct IndexManager<Builds<IDX>> {
   static bool requestInputs(std::vector<InputSpec>& inputs, Builds<IDX>& builds)
   {

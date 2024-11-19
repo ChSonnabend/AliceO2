@@ -54,8 +54,6 @@ void customize(std::vector<o2::framework::ConfigParamSpec>& workflowOptions)
   options.push_back(ConfigParamSpec{"ctf-input", VariantType::String, "none", {"comma-separated list CTF input files"}});
   options.push_back(ConfigParamSpec{"onlyDet", VariantType::String, std::string{DetID::ALL}, {"comma-separated list of detectors to accept. Overrides skipDet"}});
   options.push_back(ConfigParamSpec{"skipDet", VariantType::String, std::string{DetID::NONE}, {"comma-separate list of detectors to skip"}});
-  options.push_back(ConfigParamSpec{"max-tf", VariantType::Int, -1, {"max CTFs to process (<= 0 : infinite)"}});
-  options.push_back(ConfigParamSpec{"max-tf-per-file", VariantType::Int, -1, {"max TFs to process per ctf file (<= 0 : infinite)"}});
   options.push_back(ConfigParamSpec{"loop", VariantType::Int, 0, {"loop N times (infinite for N<0)"}});
   options.push_back(ConfigParamSpec{"delay", VariantType::Float, 0.f, {"delay in seconds between consecutive TFs sending"}});
   options.push_back(ConfigParamSpec{"copy-cmd", VariantType::String, "alien_cp ?src file://?dst", {"copy command for remote files or no-copy to avoid copying"}}); // Use "XrdSecPROTOCOL=sss,unix xrdcp -N root://eosaliceo2.cern.ch/?src ?dst" for direct EOS access
@@ -117,11 +115,6 @@ WorkflowSpec defineDataProcessing(ConfigContext const& configcontext)
   if (ctfInput.delay_us < 0) {
     ctfInput.delay_us = 0;
   }
-  int n = configcontext.options().get<int>("max-tf");
-  ctfInput.maxTFs = n > 0 ? n : 0x7fffffff;
-
-  n = configcontext.options().get<int>("max-tf-per-file");
-  ctfInput.maxTFsPerFile = n > 0 ? n : 0x7fffffff;
 
   ctfInput.maxFileCache = std::max(1, configcontext.options().get<int>("max-cached-files"));
 

@@ -148,6 +148,10 @@ void CTFReaderSpec::init(InitContext& ic)
   mUseLocalTFCounter = ic.options().get<bool>("local-tf-counter");
   mImposeRunStartMS = ic.options().get<int64_t>("impose-run-start-timstamp");
   mInput.checkTFLimitBeforeReading = ic.options().get<bool>("limit-tf-before-reading");
+  mInput.maxTFs = ic.options().get<int>("max-tf");
+  mInput.maxTFs = mInput.maxTFs > 0 ? mInput.maxTFs : 0x7fffffff;
+  mInput.maxTFsPerFile = ic.options().get<int>("max-tf-per-file");
+  mInput.maxTFsPerFile = mInput.maxTFsPerFile > 0 ? mInput.maxTFsPerFile : 0x7fffffff;
   mRunning = true;
   mFileFetcher = std::make_unique<o2::utils::FileFetcher>(mInput.inpdata, mInput.tffileRegex, mInput.remoteRegex, mInput.copyCmd);
   mFileFetcher->setMaxFilesInQueue(mInput.maxFileCache);
@@ -474,6 +478,9 @@ DataProcessorSpec getCTFReaderSpec(const CTFReaderInp& inp)
   options.emplace_back(ConfigParamSpec{"local-tf-counter", VariantType::Bool, false, {"reassign header.tfCounter from local TF counter"}});
   options.emplace_back(ConfigParamSpec{"fetch-failure-threshold", VariantType::Float, 0.f, {"Fail if too many failures( >0: fraction, <0: abs number, 0: no threshold)"}});
   options.emplace_back(ConfigParamSpec{"limit-tf-before-reading", VariantType::Bool, false, {"Check TF limiting before reading new TF, otherwhise before injecting it"}});
+  options.emplace_back(ConfigParamSpec{"max-tf", VariantType::Int, -1, {"max CTFs to process (<= 0 : infinite)"}});
+  options.emplace_back(ConfigParamSpec{"max-tf-per-file", VariantType::Int, -1, {"max TFs to process per ctf file (<= 0 : infinite)"}});
+
   if (!inp.metricChannel.empty()) {
     options.emplace_back(ConfigParamSpec{"channel-config", VariantType::String, inp.metricChannel, {"Out-of-band channel config for TF throttling"}});
   }

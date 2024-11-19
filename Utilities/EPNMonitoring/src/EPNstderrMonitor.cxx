@@ -68,7 +68,8 @@ class EPNMonitor
  private:
   void thread();
   void check_add_file(const std::string& filename);
-  void sendLog(const std::string& file, const std::string& message);
+  void sendLog(const std::string& file, const std::string& message,
+               const InfoLogger::InfoLogger::Severity severity = InfoLogger::InfoLogger::Severity::Error, int level = 3);
 
   bool mInfoLoggerActive;
   volatile bool mTerminate = false;
@@ -76,6 +77,7 @@ class EPNMonitor
   std::unordered_map<std::string, fileMon> mFiles;
   std::string mPath;
   std::vector<std::regex> mFilters;
+  std::unordered_map<std::string, std::pair<InfoLogger::InfoLogger::Severity, int>> mMapRootLogTypes;
   volatile unsigned int mRunNumber;
   std::string mPartition;
   unsigned int nLines = 0;
@@ -87,11 +89,18 @@ class EPNMonitor
 EPNMonitor::EPNMonitor(std::string path, bool infoLogger, int runNumber, std::string partition)
 {
   mFilters.emplace_back("^Info in <");
+  mFilters.emplace_back("^Print in <");
   mFilters.emplace_back("^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{6}");
   mFilters.emplace_back("^Warning in <Fit");
   mFilters.emplace_back("^Warning in <TGraph");
   mFilters.emplace_back("^Warning in <TInterpreter");
   mFilters.emplace_back("Dividing histograms with different labels");
+  mMapRootLogTypes.emplace("Info in <", std::pair<InfoLogger::InfoLogger::Severity, int>{InfoLogger::InfoLogger::Severity::Info, 13});
+  mMapRootLogTypes.emplace("Print in <", std::pair<InfoLogger::InfoLogger::Severity, int>{InfoLogger::InfoLogger::Severity::Info, 13});
+  mMapRootLogTypes.emplace("Warning in <", std::pair<InfoLogger::InfoLogger::Severity, int>{InfoLogger::InfoLogger::Severity::Warning, 11});
+  mMapRootLogTypes.emplace("Error in <", std::pair<InfoLogger::InfoLogger::Severity, int>{InfoLogger::InfoLogger::Severity::Error, 2});
+  mMapRootLogTypes.emplace("Fatal in <", std::pair<InfoLogger::InfoLogger::Severity, int>{InfoLogger::InfoLogger::Severity::Fatal, 1});
+  mMapRootLogTypes.emplace("*** Break ***", std::pair<InfoLogger::InfoLogger::Severity, int>{InfoLogger::InfoLogger::Severity::Fatal, 1});
   mInfoLoggerActive = infoLogger;
   mPath = path;
   mRunNumber = runNumber;
@@ -120,15 +129,15 @@ void EPNMonitor::check_add_file(const std::string& filename)
   }
 }
 
-void EPNMonitor::sendLog(const std::string& file, const std::string& message)
+void EPNMonitor::sendLog(const std::string& file, const std::string& message, const InfoLogger::InfoLogger::Severity severity, int level)
 {
   if (mInfoLoggerActive) {
     mLoggerContext->setField(InfoLogger::InfoLoggerContext::FieldName::Facility, ("stderr/" + file).substr(0, 31));
     mLoggerContext->setField(InfoLogger::InfoLoggerContext::FieldName::Run, mRunNumber != 0 ? std::to_string(mRunNumber) : "unspecified");
-    static const InfoLogger::InfoLogger::InfoLoggerMessageOption opt = {InfoLogger::InfoLogger::Severity::Error, 3, InfoLogger::InfoLogger::undefinedMessageOption.errorCode, InfoLogger::InfoLogger::undefinedMessageOption.sourceFile, InfoLogger::InfoLogger::undefinedMessageOption.sourceLine};
+    static const InfoLogger::InfoLogger::InfoLoggerMessageOption opt = {severity, level, InfoLogger::InfoLogger::undefinedMessageOption.errorCode, InfoLogger::InfoLogger::undefinedMessageOption.sourceFile, InfoLogger::InfoLogger::undefinedMessageOption.sourceLine};
     mLogger->log(opt, *mLoggerContext, "stderr: %s", file == "SYSLOG" ? (std::string("[GLOBAL SYSLOG]: ") + message).c_str() : message.c_str());
   } else {
-    printf("stderr: %s: %s\n", file.c_str(), message.c_str());
+    printf("stderr: [%c] %s: %s\n", severity, file.c_str(), message.c_str());
   }
 }
 
@@ -202,6 +211,16 @@ void EPNMonitor::thread()
             if (filterLine) {
               continue;
             }
+            // assign proper severity / level for remaining ROOT log messages
+            auto severity{InfoLogger::InfoLogger::Severity::Error};
+            int level{3};
+            for (const auto& logType : mMapRootLogTypes) {
+              if (line.find(logType.first) != std::string::npos) {
+                severity = std::get<InfoLogger::InfoLogger::Severity>(logType.second);
+                level = std::get<int>(logType.second);
+                break;
+              }
+            }
             f.nLines++;
             f.nBytes += line.size();
             nLines++;
@@ -214,7 +233,7 @@ void EPNMonitor::thread()
             if (nLines >= MAX_LINES_TOTAL || nBytes >= MAX_BYTES_TOTAL) {
               break;
             }
-            sendLog(f.name, line);
+            sendLog(f.name, line, severity, level);
           }
         } while (!file.eof());
       }

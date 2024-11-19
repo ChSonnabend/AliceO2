@@ -105,7 +105,7 @@ class ColumnToBranch
   arrow::Type::type mFieldType;
   std::vector<uint8_t> cache;
   std::shared_ptr<arrow::Array> mCurrentArray = nullptr;
-  int64_t mChunkLength;
+  int64_t mChunkLength = 0;
   int mFieldSize = 0;
 };
 

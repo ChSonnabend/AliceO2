@@ -45,6 +45,8 @@ struct DeviceInfo {
   size_t historySize;
   /// The maximum log level ever seen by this device
   LogParsingHelpers::LogLevel maxLogLevel;
+  /// The minimum log level for log messages sent/displayed by this device
+  LogParsingHelpers::LogLevel logLevel{LogParsingHelpers::LogLevel::Info};
 
   /// The minimum level after which the device will exit with 0
   LogParsingHelpers::LogLevel minFailureLevel;

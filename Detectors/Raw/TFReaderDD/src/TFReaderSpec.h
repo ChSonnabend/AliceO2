@@ -43,6 +43,7 @@ struct TFReaderInp {
   int64_t delay_us = 0;
   int maxLoops = 0;
   int maxTFs = -1;
+  int maxTFsPerFile = -1;
   bool sendDummyForMissing = true;
   bool sup0xccdb = false;
   std::vector<o2::header::DataHeader> hdVec;

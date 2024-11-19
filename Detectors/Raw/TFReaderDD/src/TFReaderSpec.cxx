@@ -99,6 +99,12 @@ TFReaderSpec::TFReaderSpec(const TFReaderInp& rinp) : mInput(rinp)
 void TFReaderSpec::init(o2f::InitContext& ic)
 {
   mInput.tfIDs = o2::RangeTokenizer::tokenize<int>(ic.options().get<std::string>("select-tf-ids"));
+  mInput.maxTFs = ic.options().get<int>("max-tf");
+  mInput.maxTFs = mInput.maxTFs > 0 ? mInput.maxTFs : 0x7fffffff;
+  mInput.maxTFsPerFile = ic.options().get<int>("max-tf-per-file");
+  mInput.maxTFsPerFile = mInput.maxTFsPerFile > 0 ? mInput.maxTFsPerFile : 0x7fffffff;
+  mInput.maxTFCache = std::max(1, ic.options().get<int>("max-cached-tf"));
+  mInput.maxFileCache = std::max(1, ic.options().get<int>("max-cached-files"));
   mFileFetcher = std::make_unique<o2::utils::FileFetcher>(mInput.inpdata, mInput.tffileRegex, mInput.remoteRegex, mInput.copyCmd);
   mFileFetcher->setMaxFilesInQueue(mInput.maxFileCache);
   mFileFetcher->setMaxLoops(mInput.maxLoops);
@@ -417,13 +423,15 @@ void TFReaderSpec::TFBuilder()
           }
           mTFBuilderCounter++;
         }
-        if (!acceptTF) {
-          continue;
-        }
         if (mRunning && tf) {
-          mWaitSendingLast = true;
-          mTFQueue.push(std::move(tf));
+          if (acceptTF) {
+            mWaitSendingLast = true;
+            mTFQueue.push(std::move(tf));
+          }
         } else {
+          break;
+        }
+        if (mInput.maxTFsPerFile > 0 && mInput.maxTFsPerFile >= locID) { // go to next file
           break;
         }
       }
@@ -527,6 +535,11 @@ o2f::DataProcessorSpec o2::rawdd::getTFReaderSpec(o2::rawdd::TFReaderInp& rinp)
   }
   spec.options.emplace_back(o2f::ConfigParamSpec{"select-tf-ids", o2f::VariantType::String, "", {"comma-separated list TF IDs to inject (from cumulative counter of TFs seen)"}});
   spec.options.emplace_back(o2f::ConfigParamSpec{"fetch-failure-threshold", o2f::VariantType::Float, 0.f, {"Fatil if too many failures( >0: fraction, <0: abs number, 0: no threshold)"}});
+  spec.options.emplace_back(o2f::ConfigParamSpec{"max-tf", o2f::VariantType::Int, -1, {"max TF ID to process (<= 0 : infinite)"}});
+  spec.options.emplace_back(o2f::ConfigParamSpec{"max-tf-per-file", o2f::VariantType::Int, -1, {"max TFs to process per raw-tf file (<= 0 : infinite)"}});
+  spec.options.emplace_back(o2f::ConfigParamSpec{"max-cached-tf", o2f::VariantType::Int, 3, {"max TFs to cache in memory"}});
+  spec.options.emplace_back(o2f::ConfigParamSpec{"max-cached-files", o2f::VariantType::Int, 3, {"max TF files queued (copied for remote source)"}});
+
   spec.algorithm = o2f::adaptFromTask<TFReaderSpec>(rinp);
 
   return spec;

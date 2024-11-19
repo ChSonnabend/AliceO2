@@ -30,7 +30,7 @@ LogLevel LogParsingHelpers::parseTokenLevel(std::string_view const s)
   // Example format: [99:99:99][ERROR] (string begins with that, longest is 17 chars)
   constexpr size_t MAXPREFLEN = 17;
   constexpr size_t LABELPOS = 10;
-  if (s.size() < MAXPREFLEN) {
+  if (s.size() < MAXPREFLEN && s.find("*** Break ***") == std::string::npos && !s.starts_with("[INFO]")) {
     return LogLevel::Unknown;
   }
 
@@ -41,7 +41,17 @@ LogLevel LogParsingHelpers::parseTokenLevel(std::string_view const s)
       (unsigned char)s[1] - '0' > 9 || (unsigned char)s[2] - '0' > 9 ||
       (unsigned char)s[4] - '0' > 9 || (unsigned char)s[5] - '0' > 9 ||
       (unsigned char)s[7] - '0' > 9 || (unsigned char)s[8] - '0' > 9) {
-    return LogLevel::Unknown;
+    if (s.starts_with("Info in <") || s.starts_with("Print in <") || s.starts_with("[INFO]")) {
+      return LogLevel::Info;
+    } else if (s.starts_with("Warning in <")) {
+      return LogLevel::Warning;
+    } else if (s.find("Error in <") != std::string::npos) {
+      return LogLevel::Error;
+    } else if (s.starts_with("Fatal in <") || s.find("*** Break ***") != std::string::npos) {
+      return LogLevel::Fatal;
+    } else {
+      return LogLevel::Unknown;
+    }
   }
 
   if (s.compare(LABELPOS, 8, "[DEBUG] ") == 0) {

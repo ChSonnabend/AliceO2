@@ -93,6 +93,16 @@ class CcdbObjectInfo
   [[nodiscard]] long getEndValidityTimestamp() const { return mEnd; }
   void setEndValidityTimestamp(long end) { mEnd = end; }
 
+  bool operator<(const CcdbObjectInfo& other) const
+  {
+    return mStart < other.mStart;
+  }
+
+  bool operator>(const CcdbObjectInfo& other) const
+  {
+    return mStart > other.mStart;
+  }
+
  private:
   std::string mObjType{};                 // object type (e.g. class)
   std::string mFileName{};                // file name in the CCDB
@@ -106,5 +116,18 @@ class CcdbObjectInfo
 };
 
 } // namespace o2::ccdb
+
+namespace std
+{
+// defining std::hash for InteractionRecord to be used with std containers
+template <>
+struct hash<o2::ccdb::CcdbObjectInfo> {
+ public:
+  size_t operator()(const o2::ccdb::CcdbObjectInfo& info) const
+  {
+    return info.getStartValidityTimestamp();
+  }
+};
+} // namespace std
 
 #endif // O2_CCDB_CCDBOBJECTINFO_H_

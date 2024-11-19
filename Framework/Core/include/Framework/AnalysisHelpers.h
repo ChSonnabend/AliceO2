@@ -87,7 +87,7 @@ struct WritingCursor<soa::Table<ORIGIN, PC...>> {
   template <typename T>
   static decltype(auto) extract(T const& arg)
   {
-    if constexpr (soa::is_soa_iterator_v<T>) {
+    if constexpr (requires(T t) { t.globalIndex(); }) {
       return arg.globalIndex();
     } else {
       static_assert(!framework::has_type<T>(framework::pack<PC...>{}), "Argument type mismatch");
@@ -104,6 +104,7 @@ struct WritingCursor<soa::Table<ORIGIN, PC...>> {
 
 /// Helper to define output for a Table
 template <typename T>
+  requires soa::is_table<T> || soa::is_iterator<T>
 struct OutputForTable {
   using table_t = T;
   using metadata = typename aod::MetadataTrait<table_t>::metadata;
@@ -243,16 +244,15 @@ namespace
 template <typename T, typename Key>
 inline std::shared_ptr<arrow::ChunkedArray> getIndexToKey(arrow::Table* table)
 {
-  using IC = framework::pack_element_t<framework::has_type_at_conditional<soa::is_binding_compatible, Key>(typename T::external_index_columns_t{}), typename T::external_index_columns_t>;
-  return table->column(framework::has_type_at<IC>(typename T::persistent_columns_t{}));
+  using IC = framework::pack_element_t<framework::has_type_at_conditional_v<soa::is_binding_compatible, Key>(typename T::external_index_columns_t{}), typename T::external_index_columns_t>;
+  return table->column(framework::has_type_at_v<IC>(typename T::persistent_columns_t{}));
 }
 
-template <typename C>
+template <soa::is_column C>
 struct ColumnTrait {
-  static_assert(framework::is_base_of_template_v<o2::soa::Column, C>, "Not a column type!");
   using column_t = C;
 
-  static constexpr auto listSize()
+  static consteval auto listSize()
   {
     if constexpr (std::is_same_v<typename C::type, std::vector<int>>) {
       return -1;
@@ -483,14 +483,14 @@ struct Service {
   }
 };
 
-template <typename T>
-auto getTableFromFilter(const T& table, soa::SelectionVector&& selection)
+auto getTableFromFilter(soa::is_filtered_table auto const& table, soa::SelectionVector&& selection)
 {
-  if constexpr (soa::is_soa_filtered_v<std::decay_t<T>>) {
-    return std::make_unique<o2::soa::Filtered<T>>(std::vector{table}, std::forward<soa::SelectionVector>(selection));
-  } else {
-    return std::make_unique<o2::soa::Filtered<T>>(std::vector{table.asArrowTable()}, std::forward<soa::SelectionVector>(selection));
-  }
+  return std::make_unique<o2::soa::Filtered<std::decay_t<decltype(table)>>>(std::vector{table}, std::forward<soa::SelectionVector>(selection));
+}
+
+auto getTableFromFilter(soa::is_not_filtered_table auto const& table, soa::SelectionVector&& selection)
+{
+  return std::make_unique<o2::soa::Filtered<std::decay_t<decltype(table)>>>(std::vector{table.asArrowTable()}, std::forward<soa::SelectionVector>(selection));
 }
 
 void initializePartitionCaches(std::set<uint32_t> const& hashes, std::shared_ptr<arrow::Schema> const& schema, expressions::Filter const& filter, gandiva::NodePtr& tree, gandiva::FilterPtr& gfilter);
@@ -611,20 +611,18 @@ struct Partition {
 namespace o2::soa
 {
 /// On-the-fly adding of expression columns
-template <typename T, typename... Cs>
+template <soa::is_table T, soa::is_spawnable_column... Cs>
 auto Extend(T const& table)
 {
-  static_assert((soa::is_type_spawnable_v<Cs> && ...), "You can only extend a table with expression columns");
   using output_t = Join<T, soa::Table<o2::framework::OriginEnc{"JOIN"}, Cs...>>;
   return output_t{{o2::framework::spawner<o2::framework::OriginEnc{"JOIN"}>(framework::pack<Cs...>{}, {table.asArrowTable()}, "dynamicExtension"), table.asArrowTable()}, 0};
 }
 
 /// Template function to attach dynamic columns on-the-fly (e.g. inside
 /// process() function). Dynamic columns need to be compatible with the table.
-template <typename T, typename... Cs>
+template <soa::is_table T, soa::is_dynamic_column... Cs>
 auto Attach(T const& table)
 {
-  static_assert((framework::is_base_of_template_v<o2::soa::DynamicColumn, Cs> && ...), "You can only attach dynamic columns");
   using output_t = Join<T, o2::soa::Table<o2::framework::OriginEnc{"JOIN"}, Cs...>>;
   return output_t{{table.asArrowTable()}, table.offset()};
 }
