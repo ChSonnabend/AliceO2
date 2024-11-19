@@ -133,6 +133,7 @@ class propagatorInterface<AliTrackerBase> : public AliTrackerBase
 #if defined(GPUCA_HAVE_O2HEADERS) // Interface for O2, build only with O2
 
 #include "DetectorsBase/Propagator.h"
+#include "GPUTRDInterfaceO2Track.h"
 
 namespace GPUCA_NAMESPACE
 {
@@ -300,6 +301,8 @@ class trackInterface<GPUTPCGMTrackParam> : public GPUTPCGMTrackParam
 
  private:
   float mAlpha = 0.f; // rotation along phi wrt global coordinate system
+
+  ClassDefNV(trackInterface, 1);
 };
 
 template <>

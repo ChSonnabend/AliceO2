@@ -14,6 +14,6 @@ o2_add_library(GPUWorkflowHelper
                TARGETVARNAME targetName
                PUBLIC_LINK_LIBRARIES O2::Framework
                                      O2::DataFormatsGlobalTracking
-                                     O2::GPUDataTypeHeaders
+                                     O2::GPUDataTypes
                                      O2::GPUO2Interface
                                      O2::ITStracking)

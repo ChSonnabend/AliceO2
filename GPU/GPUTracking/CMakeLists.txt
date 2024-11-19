@@ -69,10 +69,9 @@ set(SRCS
     TRDTracking/GPUTRDTrackerKernels.cxx
     Base/GPUParam.cxx)
 
-set(SRCS_DATATYPES DataTypes/GPUDataTypes.cxx DataTypes/GPUConfigDump.cxx)
-set(SRCS_DATATYPE_HEADERS DataTypes/GPUTPCGMPolynomialField.cxx)
+set(SRCS_DATATYPES DataTypes/GPUDataTypes.cxx DataTypes/GPUConfigDump.cxx DataTypes/GPUTPCGMPolynomialField.cxx)
 
-set(HDRS_CINT_O2 Merger/GPUTPCGMMergedTrack.h Merger/GPUTPCGMSliceTrack.h Merger/GPUTPCGMBorderTrack.h)
+set(HDRS_CINT_O2 Merger/GPUTPCGMTrackParam.h Merger/GPUTPCGMMergedTrack.h Merger/GPUTPCGMSliceTrack.h Merger/GPUTPCGMBorderTrack.h TRDTracking/GPUTRDInterfaces.h)
 set(HDRS_CINT_DATATYPES DataTypes/GPUTPCGMMergedTrackHit.h)
 set(HDRS_CINT_O2_ADDITIONAL DataTypes/GPUSettings.h Definitions/GPUSettingsList.h DataTypes/GPUDataTypes.h DataTypes/GPUTRDTrack.h DataTypes/CalibdEdxTrackTopologyPol.h DataTypes/CalibdEdxTrackTopologySpline.h) # Manual dependencies for ROOT dictionary generation
 
@@ -215,10 +214,7 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2" OR GPUCA_CONFIG_O2_EXTENSIONS)
         DataTypes/TPCZSLinkMapping.cxx
         DataTypes/CalibdEdxContainer.cxx
         DataTypes/CalibdEdxTrackTopologyPol.cxx
-        DataTypes/CalibdEdxTrackTopologySpline.cxx)
-
-    set(SRCS_DATATYPE_HEADERS
-        ${SRCS_DATATYPE_HEADERS}
+        DataTypes/CalibdEdxTrackTopologySpline.cxx
         DataTypes/GPUTRDTrackO2.cxx)
 
     set(SRCS_NO_H ${SRCS_NO_H}
@@ -299,28 +295,20 @@ string(REPLACE ".cxx" ".h" HDRS_TMP "${SRCS_NO_CINT}")
 set(HDRS_INSTALL ${HDRS_INSTALL} ${HDRS_TMP})
 string(REPLACE ".cxx" ".h" HDRS_TMP "${SRCS_DATATYPES}")
 set(HDRS_CINT_DATATYPES ${HDRS_CINT_DATATYPES} ${HDRS_TMP})
-string(REPLACE ".cxx" ".h" HDRS_TMP "${SRCS_DATATYPE_HEADERS}")
-set(HDRS_INSTALL ${HDRS_INSTALL} ${HDRS_TMP})
 unset(HDRS_TMP)
 
 # Main CMake part for O2
 if(ALIGPU_BUILD_TYPE STREQUAL "O2")
-  o2_add_library(GPUDataTypeHeaders
+  o2_add_library(GPUDataTypes
                  TARGETVARNAME targetName
                  PUBLIC_INCLUDE_DIRECTORIES .
                                             Definitions
                                             DataTypes
-                 PUBLIC_LINK_LIBRARIES O2::GPUCommon
+                 PUBLIC_LINK_LIBRARIES O2::GPUUtils
+                                       O2::GPUCommon
                                        O2::ReconstructionDataFormats
                                        O2::TPCFastTransformation
                                        O2::ML
-                 PRIVATE_LINK_LIBRARIES O2::DataFormatsTPC
-                 SOURCES ${SRCS_DATATYPE_HEADERS})
-  target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2 GPUCA_HAVE_O2HEADERS)
-
-  o2_add_library(GPUDataTypes
-                 TARGETVARNAME targetName
-                 PUBLIC_LINK_LIBRARIES O2::GPUDataTypeHeaders O2::GPUUtils
                  PRIVATE_LINK_LIBRARIES O2::DataFormatsTPC
                  SOURCES ${SRCS_DATATYPES})
   target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2 GPUCA_HAVE_O2HEADERS)
@@ -463,7 +451,6 @@ if(ALIGPU_BUILD_TYPE STREQUAL "ALIROOT")
                      ${SRCS_NO_CINT}
                      ${SRCS_NO_H}
                      ${SRCS_DATATYPES}
-                     ${SRCS_DATATYPE_HEADERS}
                      G__Ali${MODULE}.cxx)
   target_link_libraries(Ali${MODULE} ${LIBDEPS})
 
@@ -490,7 +477,7 @@ endif()
 
 # Main CMake part for Standalone
 if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
-  add_library(${MODULE} SHARED ${SRCS} ${SRCS_NO_CINT} ${SRCS_NO_H} ${SRCS_DATATYPES} ${SRCS_DATATYPE_HEADERS})
+  add_library(${MODULE} SHARED ${SRCS} ${SRCS_NO_CINT} ${SRCS_NO_H} ${SRCS_DATATYPES})
   set(targetName ${MODULE})
   add_library(O2::${MODULE} ALIAS ${MODULE})
   install(TARGETS ${MODULE})

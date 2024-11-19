@@ -472,10 +472,10 @@ o2::framework::ServiceSpec ArrowSupport::arrowBackendSpec()
         }
         std::sort(ac.requestedDYNs.begin(), ac.requestedDYNs.end(), inputSpecLessThan);
         std::sort(ac.providedDYNs.begin(), ac.providedDYNs.end(), outputSpecLessThan);
-        std::vector<InputSpec> spawnerInputs;
+        ac.spawnerInputs.clear();
         for (auto& input : ac.requestedDYNs) {
           if (std::none_of(ac.providedDYNs.begin(), ac.providedDYNs.end(), [&input](auto const& x) { return DataSpecUtils::match(input, x); })) {
-            spawnerInputs.emplace_back(input);
+            ac.spawnerInputs.emplace_back(input);
           }
         }
         // recreate inputs and outputs
@@ -483,8 +483,8 @@ o2::framework::ServiceSpec ArrowSupport::arrowBackendSpec()
         spawner->inputs.clear();
         // replace AlgorithmSpec
         // FIXME: it should be made more generic, so it does not need replacement...
-        spawner->algorithm = readers::AODReaderHelpers::aodSpawnerCallback(spawnerInputs);
-        AnalysisSupportHelpers::addMissingOutputsToSpawner({}, spawnerInputs, ac.requestedAODs, *spawner);
+        spawner->algorithm = readers::AODReaderHelpers::aodSpawnerCallback(ac.spawnerInputs);
+        AnalysisSupportHelpers::addMissingOutputsToSpawner({}, ac.spawnerInputs, ac.requestedAODs, *spawner);
       }
 
       if (writer != workflow.end()) {
