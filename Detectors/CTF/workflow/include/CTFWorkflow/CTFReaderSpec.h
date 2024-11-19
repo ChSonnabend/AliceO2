@@ -40,6 +40,7 @@ struct CTFReaderInp {
   int64_t delay_us = 0;
   int maxLoops = 0;
   int maxTFs = -1;
+  int maxTFsPerFile = -1;
   unsigned int subspec = 0;
   unsigned int decSSpecEMC = 0;
   int tfRateLimit = -999;

@@ -25,7 +25,7 @@
 #include "GPUO2InterfaceUtils.h"
 #include "GPUParam.h"
 #include "DataFormatsTPC/ClusterNative.h"
-#include "TPCClusterDecompressor.inc"
+#include "TPCClusterDecompressionCore.inc"
 #include "GPUTPCCompressionKernels.inc"
 #include "TPCCalibration/VDriftHelper.h"
 #include "DetectorsBase/GRPGeomHelper.h"
@@ -92,7 +92,7 @@ void EntropyEncoderSpec::run(ProcessingContext& pc)
       LOG(fatal) << "configKeyValue tpcTriggeredMode does not match GRP isDetContinuousReadOut(TPC) setting";
     }
 
-    mConfig->configGRP.continuousMaxTimeBin = (GRPGeomHelper::instance().getGRPECS()->getNHBFPerTF() * o2::constants::lhc::LHCMaxBunches + 2 * o2::tpc::constants::LHCBCPERTIMEBIN - 2) / o2::tpc::constants::LHCBCPERTIMEBIN;
+    mConfig->configGRP.grpContinuousMaxTimeBin = GPUO2InterfaceUtils::getTpcMaxTimeBinFromNHbf(GRPGeomHelper::instance().getGRPECS()->getNHBFPerTF());
     mConfig->configGRP.solenoidBzNominalGPU = GPUO2InterfaceUtils::getNominalGPUBz(*GRPGeomHelper::instance().getGRPMagField());
     mParam->UpdateSettings(&mConfig->configGRP);
 
@@ -183,7 +183,7 @@ void EntropyEncoderSpec::run(ProcessingContext& pc)
         offset += clusters.nTrackClusters[lasti++];
       }
       lasti++;
-      o2::gpu::TPCClusterDecompressor::decompressTrack(&clusters, *mParam, maxTime, i, offset, checker);
+      o2::gpu::TPCClusterDecompressionCore::decompressTrack(clusters, *mParam, maxTime, i, offset, checker);
       const float tMin = o2::tpc::ClusterNative::unpackTime(tMinP), tMax = o2::tpc::ClusterNative::unpackTime(tMaxP);
       const auto chkVal = firstIR + (tMin * constants::LHCBCPERTIMEBIN);
       const auto chkExt = totalT > tMax - tMin ? ((totalT - (tMax - tMin)) * constants::LHCBCPERTIMEBIN + 1) : 0;
@@ -255,7 +255,7 @@ void EntropyEncoderSpec::run(ProcessingContext& pc)
         }
       };
       unsigned int end = offsets[i][j] + clusters.nSliceRowClusters[i * GPUCA_ROW_COUNT + j];
-      o2::gpu::TPCClusterDecompressor::decompressHits(&clusters, offsets[i][j], end, checker);
+      o2::gpu::TPCClusterDecompressionCore::decompressHits(clusters, offsets[i][j], end, checker);
     }
     tmpBuffer[0].first.reserve(clustersFiltered.nUnattachedClusters);
     tmpBuffer[0].second.reserve(clustersFiltered.nUnattachedClusters);

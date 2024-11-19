@@ -17,31 +17,49 @@
 #include "Framework/AnalysisTask.h"
 #include <TH2F.h>
 #include <cmath>
+#include <iostream>
 
 using namespace o2;
 using namespace o2::framework;
 using namespace o2::framework::expressions;
 
+namespace o2::aod
+{
+namespace skimmedExampleTrack
+{
+DECLARE_SOA_COLUMN(Pt, pt, float);   //!
+DECLARE_SOA_COLUMN(Eta, eta, float); //!
+} // namespace skimmedExampleTrack
+
+DECLARE_SOA_TABLE(SkimmedExampleTrack, "AOD", "SKIMEXTRK", //!
+                  skimmedExampleTrack::Pt,
+                  skimmedExampleTrack::Eta);
+} // namespace o2::aod
+
 struct EtaAndClsHistogramsSimple {
   OutputObj<TH2F> etaClsH{TH2F("eta_vs_pt", "#eta vs pT", 102, -2.01, 2.01, 100, 0, 10)};
+  Produces<o2::aod::SkimmedExampleTrack> skimEx;
 
   void process(aod::Tracks const& tracks)
   {
     LOGP(info, "Invoking the simple one");
     for (auto& track : tracks) {
-      etaClsH->Fill(track.eta(), track.pt(), 0);
+      etaClsH->Fill(track.eta(), track.pt());
+      skimEx(track.pt(), track.eta());
     }
   }
 };
 
 struct EtaAndClsHistogramsIUSimple {
   OutputObj<TH2F> etaClsH{TH2F("eta_vs_pt", "#eta vs pT", 102, -2.01, 2.01, 100, 0, 10)};
+  Produces<o2::aod::SkimmedExampleTrack> skimEx;
 
   void process(aod::TracksIU const& tracks)
   {
     LOGP(info, "Invoking the simple one");
     for (auto& track : tracks) {
-      etaClsH->Fill(track.eta(), track.pt(), 0);
+      etaClsH->Fill(track.eta(), track.pt());
+      skimEx(track.pt(), track.eta());
     }
   }
 };

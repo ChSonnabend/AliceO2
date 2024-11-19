@@ -117,6 +117,7 @@ o2_add_library(Framework
                        src/ResourcesMonitoringHelper.cxx
                        src/ResourcePolicy.cxx
                        src/ResourcePolicyHelpers.cxx
+                       src/RootArrowFilesystem.cxx
                        src/SendingPolicy.cxx
                        src/ServiceRegistry.cxx
                        src/ServiceSpec.cxx
@@ -166,6 +167,7 @@ o2_add_library(Framework
                                      O2::X9
                                      RapidJSON::RapidJSON
                                      Arrow::arrow_shared
+                                     ArrowDataset::arrow_dataset_shared
                                      Microsoft.GSL::GSL
                                      O2::FrameworkLogger
                                      Gandiva::gandiva_shared

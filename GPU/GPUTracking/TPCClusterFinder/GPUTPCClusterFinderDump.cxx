@@ -46,7 +46,7 @@ void GPUTPCClusterFinder::DumpDigits(std::ostream& out)
 void GPUTPCClusterFinder::DumpChargeMap(std::ostream& out, std::string_view title)
 {
   out << "\nClusterer - " << title << " - Slice " << mISlice << " - Fragment " << mPmemory->fragment.index << "\n";
-  Array2D<ushort> map(mPchargeMap);
+  Array2D<uint16_t> map(mPchargeMap);
 
   out << std::hex;
 
@@ -54,9 +54,9 @@ void GPUTPCClusterFinder::DumpChargeMap(std::ostream& out, std::string_view titl
   TPCFragmentTime end = TPC_MAX_FRAGMENT_LEN_PADDED(mRec->GetProcessingSettings().overrideClusterizerFragmentLen);
 
   for (TPCFragmentTime i = start; i < end; i++) {
-    int zeros = 0;
+    int32_t zeros = 0;
     for (GlobalPad j = 0; j < TPC_NUM_OF_PADS; j++) {
-      ushort q = map[{j, i}];
+      uint16_t q = map[{j, i}];
       zeros += (q == 0);
       if (q != 0) {
         if (zeros > 0) {
@@ -80,7 +80,7 @@ void GPUTPCClusterFinder::DumpPeakMap(std::ostream& out, std::string_view title)
 {
   out << "\nClusterer - " << title << " - Slice " << mISlice << " - Fragment " << mPmemory->fragment.index << "\n";
 
-  Array2D<uchar> map(mPpeakMap);
+  Array2D<uint8_t> map(mPpeakMap);
 
   out << std::hex;
 
@@ -88,11 +88,11 @@ void GPUTPCClusterFinder::DumpPeakMap(std::ostream& out, std::string_view title)
   TPCFragmentTime end = TPC_MAX_FRAGMENT_LEN_PADDED(mRec->GetProcessingSettings().overrideClusterizerFragmentLen);
 
   for (TPCFragmentTime i = start; i < end; i++) {
-    int zeros = 0;
+    int32_t zeros = 0;
 
     out << i << ":";
     for (GlobalPad j = 0; j < TPC_NUM_OF_PADS; j++) {
-      uchar q = map[{j, i}];
+      uint8_t q = map[{j, i}];
       zeros += (q == 0);
       if (q != 0) {
         if (zeros > 0) {
@@ -100,7 +100,7 @@ void GPUTPCClusterFinder::DumpPeakMap(std::ostream& out, std::string_view title)
           zeros = 0;
         }
 
-        out << " p" << int{q};
+        out << " p" << int32_t{q};
       }
     }
     if (zeros > 0) {
@@ -115,8 +115,8 @@ void GPUTPCClusterFinder::DumpPeakMap(std::ostream& out, std::string_view title)
 void GPUTPCClusterFinder::DumpPeaks(std::ostream& out)
 {
   out << "\nClusterer - Peaks - Slice " << mISlice << " - Fragment " << mPmemory->fragment.index << "\n";
-  for (unsigned int i = 0; i < mPmemory->counters.nPositions; i++) {
-    out << int{mPisPeak[i]};
+  for (uint32_t i = 0; i < mPmemory->counters.nPositions; i++) {
+    out << int32_t{mPisPeak[i]};
     if ((i + 1) % 100 == 0) {
       out << "\n";
     }
@@ -130,7 +130,7 @@ void GPUTPCClusterFinder::DumpPeaksCompacted(std::ostream& out)
   out << "\nClusterer - Compacted Peaks - Slice " << mISlice << " - Fragment " << mPmemory->fragment.index << ": " << nPeaks << "\n";
   for (size_t i = 0; i < nPeaks; i++) {
     const auto& pos = mPpeakPositions[i];
-    out << pos.time() << " " << int{pos.pad()} << " " << int{pos.row()} << "\n";
+    out << pos.time() << " " << int32_t{pos.pad()} << " " << int32_t{pos.row()} << "\n";
   }
 }
 
@@ -178,8 +178,8 @@ void GPUTPCClusterFinder::DumpSuppressedPeaks(std::ostream& out)
   const auto nPeaks = mPmemory->counters.nPeaks;
 
   out << "\nClusterer - NoiseSuppression - Slice " << mISlice << " - Fragment " << fragment.index << mISlice << "\n";
-  for (unsigned int i = 0; i < nPeaks; i++) {
-    out << int{mPisPeak[i]};
+  for (uint32_t i = 0; i < nPeaks; i++) {
+    out << int32_t{mPisPeak[i]};
     if ((i + 1) % 100 == 0) {
       out << "\n";
     }
@@ -194,7 +194,7 @@ void GPUTPCClusterFinder::DumpSuppressedPeaksCompacted(std::ostream& out)
   out << "\nClusterer - Noise Suppression Peaks Compacted - Slice " << mISlice << " - Fragment " << fragment.index << ": " << nPeaks << "\n";
   for (size_t i = 0; i < nPeaks; i++) {
     const auto& peak = mPfilteredPeakPositions[i];
-    out << peak.time() << " " << int{peak.pad()} << " " << int{peak.row()} << "\n";
+    out << peak.time() << " " << int32_t{peak.pad()} << " " << int32_t{peak.row()} << "\n";
   }
 }
 
@@ -202,7 +202,7 @@ void GPUTPCClusterFinder::DumpClusters(std::ostream& out)
 {
   out << "\nClusterer - Clusters - Slice " << mISlice << " - Fragment " << mPmemory->fragment.index << "\n";
 
-  for (int i = 0; i < GPUCA_ROW_COUNT; i++) {
+  for (int32_t i = 0; i < GPUCA_ROW_COUNT; i++) {
     size_t N = mPclusterInRow[i];
     const tpc::ClusterNative* row = &mPclusterByRow[i * mNMaxClusterPerRow];
 
@@ -212,7 +212,7 @@ void GPUTPCClusterFinder::DumpClusters(std::ostream& out)
 
     out << "Row: " << i << ": " << N << "\n";
     for (const auto& cl : sortedCluster) {
-      out << std::hex << cl.timeFlagsPacked << std::dec << " " << cl.padPacked << " " << int{cl.sigmaTimePacked} << " " << int{cl.sigmaPadPacked} << " " << cl.qMax << " " << cl.qTot << "\n";
+      out << std::hex << cl.timeFlagsPacked << std::dec << " " << cl.padPacked << " " << int32_t{cl.sigmaTimePacked} << " " << int32_t{cl.sigmaPadPacked} << " " << cl.qMax << " " << cl.qTot << "\n";
     }
   }
 }

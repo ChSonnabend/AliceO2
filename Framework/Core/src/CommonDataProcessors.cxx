@@ -17,39 +17,26 @@
 #include "Framework/DataProcessingHeader.h"
 #include "Framework/DataDescriptorQueryBuilder.h"
 #include "Framework/DataDescriptorMatcher.h"
-#include "Framework/DataOutputDirector.h"
 #include "Framework/DataProcessorSpec.h"
 #include "Framework/DataProcessingStats.h"
 #include "Framework/DataSpecUtils.h"
-#include "Framework/TableBuilder.h"
-#include "Framework/EndOfStreamContext.h"
 #include "Framework/InitContext.h"
 #include "Framework/InputSpec.h"
-#include "Framework/Logger.h"
-#include "Framework/OutputSpec.h"
 #include "Framework/RawDeviceService.h"
 #include "Framework/TimesliceIndex.h"
 #include "Framework/Variant.h"
-#include "../../../Algorithm/include/Algorithm/HeaderStack.h"
-#include "Framework/OutputObjHeader.h"
-#include "Framework/StringHelpers.h"
 #include "Framework/ChannelSpec.h"
-#include "Framework/ChannelSpecHelpers.h"
 #include "Framework/ExternalFairMQDeviceProxy.h"
 #include "Framework/RuntimeError.h"
 #include "Framework/RateLimiter.h"
 #include "Framework/PluginManager.h"
-#include "Framework/DeviceSpec.h"
-#include "WorkflowHelpers.h"
 #include <Monitoring/Monitoring.h>
 
 #include <fairmq/Device.h>
-#include <chrono>
 #include <fstream>
 #include <functional>
 #include <memory>
 #include <string>
-#include <thread>
 
 using namespace o2::framework::data_matcher;
 

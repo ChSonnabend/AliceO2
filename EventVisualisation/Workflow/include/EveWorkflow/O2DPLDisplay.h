@@ -18,6 +18,7 @@
 
 #include "ReconstructionDataFormats/GlobalTrackID.h"
 #include "DataFormatsGlobalTracking/RecoContainer.h"
+#include "TPCCalibration/VDriftHelper.h"
 #include "DetectorsBase/GRPGeomHelper.h"
 #include "EMCALCalib/CellRecalibrator.h"
 #include "EMCALWorkflow/CalibLoader.h"
@@ -58,14 +59,9 @@ class O2DPLDisplaySpec : public o2::framework::Task
                    std::shared_ptr<o2::base::GRPGeomRequest> gr,
                    std::shared_ptr<o2::emcal::CalibLoader> emcCalibLoader,
                    const std::string& jsonPath, const std::string& ext,
-                   std::chrono::milliseconds timeInterval, int numberOfFiles, int numberOfTracks, int numberOfBytes,
-                   bool eveHostNameMatch, int minITSTracks, int minTracks, bool filterITSROF, bool filterTime,
-                   const EveWorkflowHelper::Bracket& timeBracket, bool removeTPCEta,
-                   const EveWorkflowHelper::Bracket& etaBracket, bool trackSorting, int onlyNthEvent,
-                   bool primaryVertex, int maxPrimaryVertices, bool primaryVertexTriggers,
-                   float primaryVertexMinZ, float primaryVertexMaxZ, float primaryVertexMinX, float primaryVertexMaxX, float primaryVertexMinY, float primaryVertexMaxY,
-                   float maxEMCALCellTime, float minEMCALCellEnergy)
-    : mDisableWrite(disableWrite), mUseMC(useMC), mTrkMask(trkMask), mClMask(clMask), mDataRequest(dataRequest), mGGCCDBRequest(gr), mEMCALCalibLoader(emcCalibLoader), mJsonPath(jsonPath), mExt(ext), mTimeInterval(timeInterval), mNumberOfFiles(numberOfFiles), mNumberOfTracks(numberOfTracks), mNumberOfBytes(numberOfBytes), mEveHostNameMatch(eveHostNameMatch), mMinITSTracks(minITSTracks), mMinTracks(minTracks), mFilterITSROF(filterITSROF), mFilterTime(filterTime), mTimeBracket(timeBracket), mRemoveTPCEta(removeTPCEta), mEtaBracket(etaBracket), mTrackSorting(trackSorting), mOnlyNthEvent(onlyNthEvent), mPrimaryVertexMode(primaryVertex), mMaxPrimaryVertices(maxPrimaryVertices), mPrimaryVertexTriggers(primaryVertexTriggers), mPrimaryVertexMinZ(primaryVertexMinZ), mPrimaryVertexMaxZ(primaryVertexMaxZ), mPrimaryVertexMinX(primaryVertexMinX), mPrimaryVertexMaxX(primaryVertexMaxX), mPrimaryVertexMinY(primaryVertexMinY), mPrimaryVertexMaxY(primaryVertexMaxY), mEMCALMaxCellTime(maxEMCALCellTime), mEMCALMinCellEnergy(minEMCALCellEnergy), mRunType(o2::parameters::GRPECS::NONE)
+                   std::chrono::milliseconds timeInterval,
+                   bool eveHostNameMatch)
+    : mDisableWrite(disableWrite), mUseMC(useMC), mTrkMask(trkMask), mClMask(clMask), mDataRequest(dataRequest), mGGCCDBRequest(gr), mEMCALCalibLoader(emcCalibLoader), mJsonPath(jsonPath), mExt(ext), mTimeInterval(timeInterval), mEveHostNameMatch(eveHostNameMatch), mRunType(o2::parameters::GRPECS::NONE)
 
   {
     this->mTimeStamp = std::chrono::high_resolution_clock::now() - timeInterval; // first run meets condition
@@ -82,32 +78,10 @@ class O2DPLDisplaySpec : public o2::framework::Task
   bool mDisableWrite = false; // skip writing result (for testing performance)
   bool mUseMC = false;
   bool mEveHostNameMatch;                  // empty or correct hostname
-  int mMinITSTracks;                       // minimum number of ITS tracks to produce a file
-  int mMinTracks;                          // minimum number of all tracks to produce a file
-  bool mFilterITSROF;                      // don't display tracks outside ITS readout frame
-  bool mFilterTime;                        // don't display tracks outside [min, max] range in TF time
-  bool mRemoveTPCEta;                      // don't display TPC tracks inside [min, max] eta range
-  bool mPrimaryVertexMode;                 // produce files per primary vertex
-  EveWorkflowHelper::Bracket mTimeBracket; // [min, max] range in TF time for the filter
-  EveWorkflowHelper::Bracket mEtaBracket;  // [min, max] eta range for the TPC tracks removal
   std::string mJsonPath;                   // folder where files are stored
   std::string mExt;                        // extension of created files (".json" or ".root")
   std::chrono::milliseconds mTimeInterval; // minimal interval between files in milliseconds
-  int mNumberOfFiles;                      // maximum number of files in folder - newer replaces older
-  int mNumberOfTracks;                     // maximum number of track in single file (0 means no limit)
-  int mNumberOfBytes;                      // number of bytes stored in period which causes stopping saving a new file
-  bool mTrackSorting;                      // perform sorting tracks by track time before applying filters
-  int mOnlyNthEvent;                       // process only every nth event.
-  int mMaxPrimaryVertices;                 // max number of primary vertices to draw per time frame
   bool mPrimaryVertexTriggers;             // instead of drawing vertices with tracks (and maybe calorimeter triggers), draw vertices with calorimeter triggers (and maybe tracks)
-  float mPrimaryVertexMinZ;                // minimum z position of the primary vertex
-  float mPrimaryVertexMaxZ;                // maximum z position of the primary vertex
-  float mPrimaryVertexMinX;                // minimum x position of the primary vertex
-  float mPrimaryVertexMaxX;                // maximum x position of the primary vertex
-  float mPrimaryVertexMinY;                // minimum y position of the primary vertex
-  float mPrimaryVertexMaxY;                // maximum y position of the primary vertex
-  float mEMCALMaxCellTime;                 // max abs EMCAL cell time (in ns)
-  float mEMCALMinCellEnergy;               // min EMCAL cell energy (in GeV)
   int mEventCounter = 0;
   std::chrono::time_point<std::chrono::high_resolution_clock> mTimeStamp;
 
@@ -119,6 +93,7 @@ class O2DPLDisplaySpec : public o2::framework::Task
   std::shared_ptr<o2::base::GRPGeomRequest> mGGCCDBRequest;
   std::shared_ptr<o2::emcal::CalibLoader> mEMCALCalibLoader;
   std::unique_ptr<o2::emcal::CellRecalibrator> mEMCALCalibrator;
+  o2::tpc::VDriftHelper mTPCVDriftHelper{};
 };
 
 } // namespace o2::event_visualisation

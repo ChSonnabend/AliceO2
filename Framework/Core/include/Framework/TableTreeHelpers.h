@@ -11,11 +11,14 @@
 #ifndef O2_FRAMEWORK_TABLETREEHELPERS_H_
 #define O2_FRAMEWORK_TABLETREEHELPERS_H_
 
+#include <arrow/record_batch.h>
 #include "TFile.h"
 #include "TTreeReader.h"
 #include "TTreeReaderValue.h"
 #include "TTreeReaderArray.h"
 #include "TableBuilder.h"
+#include <arrow/dataset/file_base.h>
+#include <memory>
 
 // =============================================================================
 namespace o2::framework
@@ -138,6 +141,20 @@ class TreeToTable
   std::shared_ptr<arrow::Table> mTable;
 
   void addReader(TBranch* branch, std::string const& name, bool VLA);
+};
+
+class FragmentToBatch
+{
+ public:
+  FragmentToBatch(arrow::MemoryPool* pool = arrow::default_memory_pool());
+  void setLabel(const char* label);
+  void fill(std::shared_ptr<arrow::dataset::FileFragment>, std::shared_ptr<arrow::Schema> dataSetSchema, std::shared_ptr<arrow::dataset::FileFormat>);
+  std::shared_ptr<arrow::RecordBatch> finalize();
+
+ private:
+  arrow::MemoryPool* mArrowMemoryPool = nullptr;
+  std::string mTableLabel;
+  std::shared_ptr<arrow::RecordBatch> mRecordBatch;
 };
 
 // -----------------------------------------------------------------------------

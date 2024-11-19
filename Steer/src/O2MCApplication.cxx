@@ -9,6 +9,8 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+#include <cstdlib>
+
 #include <Steer/O2MCApplication.h>
 #include <fairmq/Channel.h>
 #include <fairmq/Message.h>
@@ -33,6 +35,8 @@
 #include <filesystem>
 #include <CommonUtils/FileSystemUtils.h>
 #include "SimConfig/GlobalProcessCutSimParam.h"
+#include "DetectorsBase/GeometryManagerParam.h"
+#include <TGeoParallelWorld.h>
 
 namespace o2
 {
@@ -186,6 +190,25 @@ bool O2MCApplicationBase::MisalignGeometry()
   auto alignedgeomfile = o2::base::NameConf::getAlignedGeomFileName(confref.getOutPrefix());
   gGeoManager->Export(alignedgeomfile.c_str());
 
+  auto& param = o2::GeometryManagerParam::Instance();
+
+  // fill parallel world geometry if activated
+  if (param.useParallelWorld) {
+    TGeoParallelWorld* pw = gGeoManager->CreateParallelWorld("priority_sensors");
+    if (param.usePwGeoBVH) {
+      pw->SetAccelerationMode(TGeoParallelWorld::AccelerationMode::kBVH);
+    }
+    if (param.usePwCaching) {
+      TGeoNavigator::SetPWSafetyCaching(true);
+    }
+    for (auto det : listDetectors) {
+      if (dynamic_cast<o2::base::Detector*>(det)) {
+        ((o2::base::Detector*)det)->fillParallelWorld();
+      }
+    }
+    gGeoManager->SetUseParallelWorldNav(true);
+  }
+
   // return original return value of misalignment procedure
   return true;
 }
@@ -280,6 +303,11 @@ void addSpecialParticles()
   //Double Anti-Hyper hydrogen 4
   TVirtualMC::GetMC()->DefineParticle(-1020010040, "DoubleAntiHyperhydrogen4", kPTHadron, 4.106, 1.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
 
+  // Hyper helium 4 sigma
+  TVirtualMC::GetMC()->DefineParticle(1110020040, "Hyperhelium4sigma", kPTHadron, 3.995, 2.0, 8.018e-11, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
+  // Anti-Hyper helium 4 sigma
+  TVirtualMC::GetMC()->DefineParticle(-1110020040, "AntiHyperhelium4sigma", kPTHadron, 3.995, 2.0, 8.018e-11, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
+
   //Lambda-Neutron
   TVirtualMC::GetMC()->DefineParticle(1010000020, "LambdaNeutron", kPTNeutron, 2.054, 0.0, 2.632e-10, "Hadron", 0.0, 0, 1, 0, 0, 0, 0, 0, 2, kFALSE);
 
@@ -360,6 +388,8 @@ void addSpecialParticles()
   // Their life times are not known, so we set them to 1e-24
   // f0(1370) (PDG: width = 200-500 MeV) Spin/Parity might not be correct
   TVirtualMC::GetMC()->DefineParticle(10221, "f0_1370", kPTNeutron, 1.37, 0.0, 1e-24, "Hadron", 0.2, 1, 1, 1, 0, 0, 1, 0, 0, kTRUE);
+  // a2(1320) (PDG: width = 107.8 MeV) (Spin/Parity might not be correct)
+  TVirtualMC::GetMC()->DefineParticle(115, "a2_1320", kPTNeutron, 1.3182, 0.0, 1e-24, "Hadron", 0.1078, 1, 1, 1, 1, 0, 1, 0, 0, kTRUE);
   // f0(1500) (PDG: width = 112 MeV) Spin/Parity might not be correct
   TVirtualMC::GetMC()->DefineParticle(9030221, "f0_1500", kPTNeutron, 1.506, 0.0, 1e-24, "Hadron", 0.112, 0, 1, 1, 0, 0, 1, 0, 0, kTRUE);
   // f0(1710) (PDG: width = 139 MeV) Spin/Parity might not be correct
@@ -724,6 +754,54 @@ void addSpecialParticles()
   amode42[0][1] = 211;         // positive pion
 
   TVirtualMC::GetMC()->SetDecayMode(-1020010040, abratio42, amode42);
+
+  // Define the 2- and 3-body phase space decay for the Hyper Helium 4 sigma
+  Int_t mode4s[6][3];
+  Float_t bratio4s[6];
+
+  for (Int_t kz = 0; kz < 6; kz++) {
+    bratio4s[kz] = 0.;
+    mode4s[kz][0] = 0;
+    mode4s[kz][1] = 0;
+    mode4s[kz][2] = 0;
+  }
+  bratio4s[0] = 20.;
+  mode4s[0][0] = 1000020040; // Helium4
+  mode4s[0][1] = 111;        // pion0
+  bratio4s[1] = 40.;
+  mode4s[1][0] = 1000010030; // tritium
+  mode4s[1][2] = 2212;       // proton
+  mode4s[1][1] = 111;        // pion0
+  bratio4s[2] = 40.;
+  mode4s[2][0] = 1000010030; // tritium
+  mode4s[2][2] = 2212;       // pion+
+  mode4s[2][1] = 2112;       // neutron
+
+  TVirtualMC::GetMC()->SetDecayMode(1110020040, bratio4s, mode4s);
+
+  // Define the 2- and 3-body phase space decay for the Anti Hyper Helium 4 sigma
+  Int_t amode4s[6][3];
+  Float_t abratio4s[6];
+
+  for (Int_t kz = 0; kz < 6; kz++) {
+    abratio4s[kz] = 0.;
+    amode4s[kz][0] = 0;
+    amode4s[kz][1] = 0;
+    amode4s[kz][2] = 0;
+  }
+  abratio4s[0] = 50.;
+  amode4s[0][0] = -1000020040; // anti-Helium4
+  amode4s[0][1] = 111;         // pion0
+  abratio4s[1] = 50.;
+  amode4s[1][0] = -1000010030; // anti-tritium
+  amode4s[1][2] = -2212;       // anti-proton
+  amode4s[1][1] = 111;         // pion0
+  abratio4s[2] = 50.;
+  amode4s[2][0] = -1000010030; // anti-tritium
+  amode4s[2][2] = -211;        // pion-
+  amode4s[2][1] = -2112;       // anti-neutron
+
+  TVirtualMC::GetMC()->SetDecayMode(-1110020040, abratio4s, amode4s);
 
   // Define the 2-body phase space decay for the Lambda-neutron boundstate
   Int_t mode1[6][3];
@@ -1166,6 +1244,7 @@ void addSpecialParticles()
   TVirtualMC::GetMC()->SetDecayMode(335, bratio, mode);     // f2(1525)
   TVirtualMC::GetMC()->SetDecayMode(10331, bratio, mode);   // f0(1710)
   TVirtualMC::GetMC()->SetDecayMode(10221, bratio, mode);   // f0(1370)
+  TVirtualMC::GetMC()->SetDecayMode(115, bratio, mode);     // a2(1320)
 
   // Define the 3-body phase space decay for the resonances: f1(1285), f1(1420)
   for (Int_t kz = 0; kz < 6; kz++) {

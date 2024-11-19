@@ -17,7 +17,7 @@
 
 #include "GPUCommonDef.h"
 
-#if !defined(__OPENCL__) || defined(__OPENCLCPP__)
+#if !defined(__OPENCL1__)
 namespace GPUCA_NAMESPACE::gpu::gpu_common_constants
 {
 static CONSTEXPR const float kCLight = 0.000299792458f;

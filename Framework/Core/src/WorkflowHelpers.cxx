@@ -9,9 +9,10 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 #include "WorkflowHelpers.h"
-#include "AnalysisSupportHelpers.h"
+#include "Framework/AnalysisSupportHelpers.h"
 #include "Framework/AlgorithmSpec.h"
 #include "Framework/AODReaderHelpers.h"
+#include "Framework/ConfigParamSpec.h"
 #include "Framework/ConfigParamsHelper.h"
 #include "Framework/CommonDataProcessors.h"
 #include "Framework/ConfigContext.h"
@@ -27,6 +28,7 @@
 #include "Framework/DefaultsHelpers.h"
 #include "Framework/Signpost.h"
 
+#include "Framework/Variant.h"
 #include "Headers/DataHeader.h"
 #include <algorithm>
 #include <list>
@@ -34,7 +36,6 @@
 #include <utility>
 #include <vector>
 #include <climits>
-#include <thread>
 
 O2_DECLARE_DYNAMIC_LOG(workflow_helpers);
 
@@ -152,7 +153,7 @@ int defaultConditionQueryRateMultiplier()
   return getenv("DPL_CONDITION_QUERY_RATE_MULTIPLIER") ? std::stoi(getenv("DPL_CONDITION_QUERY_RATE_MULTIPLIER")) : 1;
 }
 
-void WorkflowHelpers::injectServiceDevices(WorkflowSpec& workflow, ConfigContext const& ctx)
+void WorkflowHelpers::injectServiceDevices(WorkflowSpec& workflow, ConfigContext& ctx)
 {
   auto fakeCallback = AlgorithmSpec{[](InitContext& ic) {
     LOG(info) << "This is not a real device, merely a placeholder for external inputs";
@@ -213,9 +214,8 @@ void WorkflowHelpers::injectServiceDevices(WorkflowSpec& workflow, ConfigContext
                          aodLifetime}},
     .algorithm = AlgorithmSpec::dummyAlgorithm(),
     .options = {ConfigParamSpec{"aod-file-private", VariantType::String, ctx.options().get<std::string>("aod-file"), {"AOD file"}},
+                ConfigParamSpec{"aod-max-io-rate", VariantType::Float, 0.f, {"Maximum I/O rate in MB/s"}},
                 ConfigParamSpec{"aod-reader-json", VariantType::String, {"json configuration file"}},
-                ConfigParamSpec{"aod-parent-access-level", VariantType::String, {"Allow parent file access up to specified level. Default: no (0)"}},
-                ConfigParamSpec{"aod-parent-base-path-replacement", VariantType::String, {R"(Replace base path of parent files. Syntax: FROM;TO. E.g. "alien:///path/in/alien;/local/path". Enclose in "" on the command line.)"}},
                 ConfigParamSpec{"time-limit", VariantType::Int64, 0ll, {"Maximum run time limit in seconds"}},
                 ConfigParamSpec{"orbit-offset-enumeration", VariantType::Int64, 0ll, {"initial value for the orbit"}},
                 ConfigParamSpec{"orbit-multiplier-enumeration", VariantType::Int64, 0ll, {"multiplier to get the orbit from the counter"}},
@@ -241,7 +241,9 @@ void WorkflowHelpers::injectServiceDevices(WorkflowSpec& workflow, ConfigContext
     aodReader.options.emplace_back(ConfigParamSpec{"channel-config", VariantType::String, rateLimitingChannelConfigInput, {"how many timeframes can be in flight at the same time"}});
   }
 
-  AnalysisContext ac;
+  ctx.services().registerService(ServiceRegistryHelpers::handleForService<AnalysisContext>(new AnalysisContext));
+  auto& ac = ctx.services().get<AnalysisContext>();
+
   std::vector<InputSpec> requestedCCDBs;
   std::vector<OutputSpec> providedCCDBs;
 
@@ -430,7 +432,7 @@ void WorkflowHelpers::injectServiceDevices(WorkflowSpec& workflow, ConfigContext
     auto mctracks2aod = std::find_if(workflow.begin(), workflow.end(), [](auto const& x) { return x.name == "mctracks-to-aod"; });
     if (mctracks2aod == workflow.end()) {
       // add normal reader
-      auto&& algo = PluginManager::loadAlgorithmFromPlugin("O2FrameworkAnalysisSupport", "ROOTFileReader");
+      auto&& algo = PluginManager::loadAlgorithmFromPlugin("O2FrameworkAnalysisSupport", "ROOTFileReader", ctx);
       if (internalRateLimiting) {
         aodReader.algorithm = CommonDataProcessors::wrapWithRateLimiting(algo);
       } else {
@@ -518,7 +520,7 @@ void WorkflowHelpers::injectServiceDevices(WorkflowSpec& workflow, ConfigContext
     }
 
     // Load the CCDB backend from the plugin
-    ccdbBackend.algorithm = PluginManager::loadAlgorithmFromPlugin("O2FrameworkCCDBSupport", "CCDBFetcherPlugin");
+    ccdbBackend.algorithm = PluginManager::loadAlgorithmFromPlugin("O2FrameworkCCDBSupport", "CCDBFetcherPlugin", ctx);
     extraSpecs.push_back(ccdbBackend);
   } else {
     // If there is no CCDB requested, but we still ask for a FLP/DISTSUBTIMEFRAME/0xccdb
@@ -573,7 +575,7 @@ void WorkflowHelpers::injectServiceDevices(WorkflowSpec& workflow, ConfigContext
   // This is to inject a file sink so that any dangling ATSK object is written
   // to a ROOT file.
   if (ac.providedOutputObjHist.empty() == false) {
-    auto rootSink = AnalysisSupportHelpers::getOutputObjHistSink(ac.outObjHistMap, ac.outTskMap);
+    auto rootSink = AnalysisSupportHelpers::getOutputObjHistSink(ctx);
     extraSpecs.push_back(rootSink);
   }
 
@@ -581,37 +583,38 @@ void WorkflowHelpers::injectServiceDevices(WorkflowSpec& workflow, ConfigContext
   extraSpecs.clear();
 
   /// Analyze all ouputs
-  auto [outputsInputs, isDangling] = analyzeOutputs(workflow);
+  auto [outputsInputsTmp, isDanglingTmp] = analyzeOutputs(workflow);
+  ac.isDangling = isDanglingTmp;
+  ac.outputsInputs = outputsInputsTmp;
 
   // create DataOutputDescriptor
-  std::shared_ptr<DataOutputDirector> dod = getDataOutputDirector(ctx.options(), outputsInputs, isDangling);
+  std::shared_ptr<DataOutputDirector> dod = AnalysisSupportHelpers::getDataOutputDirector(ctx);
 
   // select outputs of type AOD which need to be saved
   // ATTENTION: if there are dangling outputs the getGlobalAODSink
   // has to be created in any case!
-  std::vector<InputSpec> outputsInputsAOD;
-  for (auto ii = 0u; ii < outputsInputs.size(); ii++) {
-    if (DataSpecUtils::partialMatch(outputsInputs[ii], extendedAODOrigins)) {
-      auto ds = dod->getDataOutputDescriptors(outputsInputs[ii]);
-      if (ds.size() > 0 || isDangling[ii]) {
-        outputsInputsAOD.emplace_back(outputsInputs[ii]);
+  for (auto ii = 0u; ii < ac.outputsInputs.size(); ii++) {
+    if (DataSpecUtils::partialMatch(ac.outputsInputs[ii], extendedAODOrigins)) {
+      auto ds = dod->getDataOutputDescriptors(ac.outputsInputs[ii]);
+      if (ds.size() > 0 || ac.isDangling[ii]) {
+        ac.outputsInputsAOD.emplace_back(ac.outputsInputs[ii]);
       }
     }
   }
 
   // file sink for any AOD output
-  if (outputsInputsAOD.size() > 0) {
+  if (ac.outputsInputsAOD.size() > 0) {
     // add TFNumber and TFFilename as input to the writer
-    outputsInputsAOD.emplace_back(InputSpec{"tfn", "TFN", "TFNumber"});
-    outputsInputsAOD.emplace_back(InputSpec{"tff", "TFF", "TFFilename"});
-    auto fileSink = AnalysisSupportHelpers::getGlobalAODSink(dod, outputsInputsAOD);
+    ac.outputsInputsAOD.emplace_back(InputSpec{"tfn", "TFN", "TFNumber"});
+    ac.outputsInputsAOD.emplace_back(InputSpec{"tff", "TFF", "TFFilename"});
+    auto fileSink = AnalysisSupportHelpers::getGlobalAODSink(ctx);
     extraSpecs.push_back(fileSink);
 
-    auto it = std::find_if(outputsInputs.begin(), outputsInputs.end(), [](InputSpec& spec) -> bool {
+    auto it = std::find_if(ac.outputsInputs.begin(), ac.outputsInputs.end(), [](InputSpec& spec) -> bool {
       return DataSpecUtils::partialMatch(spec, o2::header::DataOrigin("TFN"));
     });
-    size_t ii = std::distance(outputsInputs.begin(), it);
-    isDangling[ii] = false;
+    size_t ii = std::distance(ac.outputsInputs.begin(), it);
+    ac.isDangling[ii] = false;
   }
 
   workflow.insert(workflow.end(), extraSpecs.begin(), extraSpecs.end());
@@ -619,20 +622,20 @@ void WorkflowHelpers::injectServiceDevices(WorkflowSpec& workflow, ConfigContext
 
   // Select dangling outputs which are not of type AOD
   std::vector<InputSpec> redirectedOutputsInputs;
-  for (auto ii = 0u; ii < outputsInputs.size(); ii++) {
+  for (auto ii = 0u; ii < ac.outputsInputs.size(); ii++) {
     if (ctx.options().get<std::string>("forwarding-policy") == "none") {
       continue;
     }
     // We forward to the output proxy all the inputs only if they are dangling
     // or if the forwarding policy is "proxy".
-    if (!isDangling[ii] && (ctx.options().get<std::string>("forwarding-policy") != "all")) {
+    if (!ac.isDangling[ii] && (ctx.options().get<std::string>("forwarding-policy") != "all")) {
       continue;
     }
     // AODs are skipped in any case.
-    if (DataSpecUtils::partialMatch(outputsInputs[ii], extendedAODOrigins)) {
+    if (DataSpecUtils::partialMatch(ac.outputsInputs[ii], extendedAODOrigins)) {
       continue;
     }
-    redirectedOutputsInputs.emplace_back(outputsInputs[ii]);
+    redirectedOutputsInputs.emplace_back(ac.outputsInputs[ii]);
   }
 
   std::vector<InputSpec> unmatched;
@@ -980,102 +983,6 @@ struct DataMatcherId {
   size_t workflowId;
   size_t id;
 };
-
-std::shared_ptr<DataOutputDirector> WorkflowHelpers::getDataOutputDirector(ConfigParamRegistry const& options, std::vector<InputSpec> const& OutputsInputs, std::vector<bool> const& isDangling)
-{
-  std::shared_ptr<DataOutputDirector> dod = std::make_shared<DataOutputDirector>();
-
-  // analyze options and take actions accordingly
-  // default values
-  std::string rdn, resdir("./");
-  std::string fnb, fnbase("AnalysisResults_trees");
-  float mfs, maxfilesize(-1.);
-  std::string fmo, filemode("RECREATE");
-  int ntfm, ntfmerge = 1;
-
-  // values from json
-  if (options.isSet("aod-writer-json")) {
-    auto fnjson = options.get<std::string>("aod-writer-json");
-    if (!fnjson.empty()) {
-      std::tie(rdn, fnb, fmo, mfs, ntfm) = dod->readJson(fnjson);
-      if (!rdn.empty()) {
-        resdir = rdn;
-      }
-      if (!fnb.empty()) {
-        fnbase = fnb;
-      }
-      if (!fmo.empty()) {
-        filemode = fmo;
-      }
-      if (mfs > 0.) {
-        maxfilesize = mfs;
-      }
-      if (ntfm > 0) {
-        ntfmerge = ntfm;
-      }
-    }
-  }
-
-  // values from command line options, information from json is overwritten
-  if (options.isSet("aod-writer-resdir")) {
-    rdn = options.get<std::string>("aod-writer-resdir");
-    if (!rdn.empty()) {
-      resdir = rdn;
-    }
-  }
-  if (options.isSet("aod-writer-resfile")) {
-    fnb = options.get<std::string>("aod-writer-resfile");
-    if (!fnb.empty()) {
-      fnbase = fnb;
-    }
-  }
-  if (options.isSet("aod-writer-resmode")) {
-    fmo = options.get<std::string>("aod-writer-resmode");
-    if (!fmo.empty()) {
-      filemode = fmo;
-    }
-  }
-  if (options.isSet("aod-writer-maxfilesize")) {
-    mfs = options.get<float>("aod-writer-maxfilesize");
-    if (mfs > 0) {
-      maxfilesize = mfs;
-    }
-  }
-  if (options.isSet("aod-writer-ntfmerge")) {
-    ntfm = options.get<int>("aod-writer-ntfmerge");
-    if (ntfm > 0) {
-      ntfmerge = ntfm;
-    }
-  }
-  // parse the keepString
-  if (options.isSet("aod-writer-keep")) {
-    auto keepString = options.get<std::string>("aod-writer-keep");
-    if (!keepString.empty()) {
-      dod->reset();
-      std::string d("dangling");
-      if (d.find(keepString) == 0) {
-        // use the dangling outputs
-        std::vector<InputSpec> danglingOutputs;
-        for (auto ii = 0u; ii < OutputsInputs.size(); ii++) {
-          if (DataSpecUtils::partialMatch(OutputsInputs[ii], writableAODOrigins) && isDangling[ii]) {
-            danglingOutputs.emplace_back(OutputsInputs[ii]);
-          }
-        }
-        dod->readSpecs(danglingOutputs);
-      } else {
-        // use the keep string
-        dod->readString(keepString);
-      }
-    }
-  }
-  dod->setResultDir(resdir);
-  dod->setFilenameBase(fnbase);
-  dod->setFileMode(filemode);
-  dod->setMaximumFileSize(maxfilesize);
-  dod->setNumberTimeFramesToMerge(ntfmerge);
-
-  return dod;
-}
 
 std::tuple<std::vector<InputSpec>, std::vector<bool>> WorkflowHelpers::analyzeOutputs(WorkflowSpec const& workflow)
 {

@@ -175,6 +175,13 @@ GeneratorFromO2Kine::GeneratorFromO2Kine(const char* name)
   setPositionUnit(1.);
   setTimeUnit(1.);
 
+  if (strncmp(name, "alien:/", 7) == 0) {
+    mAlienInstance = TGrid::Connect("alien");
+    if (!mAlienInstance) {
+      LOG(fatal) << "Could not connect to alien, did you check the alien token?";
+      return;
+    }
+  }
   mEventFile = TFile::Open(name);
   if (mEventFile == nullptr) {
     LOG(fatal) << "EventFile " << name << " not found";
@@ -210,6 +217,12 @@ bool GeneratorFromO2Kine::Init()
   mSkipNonTrackable = param.skipNonTrackable;
   mContinueMode = param.continueMode;
   mRoundRobin = param.roundRobin;
+  mRandomize = param.randomize;
+  mRngSeed = param.rngseed;
+  mRandomPhi = param.randomphi;
+  if (mRandomize) {
+    gRandom->SetSeed(mRngSeed);
+  }
 
   return true;
 }
@@ -228,6 +241,18 @@ bool GeneratorFromO2Kine::importParticles()
   // NOTE: This should be usable with kinematics files without secondaries
   // It might need some adjustment to make it work with secondaries or to continue
   // from a kinematics snapshot
+
+  // Randomize the order of events in the input file
+  if (mRandomize) {
+    mEventCounter = gRandom->Integer(mEventsAvailable);
+  }
+
+  double dPhi = 0.;
+  // Phi rotation
+  if (mRandomPhi) {
+    dPhi = gRandom->Uniform(2 * TMath::Pi());
+    LOG(info) << "Rotating phi by " << dPhi;
+  }
 
   if (mEventCounter < mEventsAvailable) {
     int particlecounter = 0;
@@ -253,6 +278,15 @@ bool GeneratorFromO2Kine::importParticles()
       auto pdg = t.GetPdgCode();
       auto px = t.Px();
       auto py = t.Py();
+      if (mRandomPhi) {
+        // transformation applied through rotation matrix
+        auto cos = TMath::Cos(dPhi);
+        auto sin = TMath::Sin(dPhi);
+        auto newPx = px * cos - py * sin;
+        auto newPy = px * sin + py * cos;
+        px = newPx;
+        py = newPy;
+      }
       auto pz = t.Pz();
       auto vx = t.Vx();
       auto vy = t.Vy();

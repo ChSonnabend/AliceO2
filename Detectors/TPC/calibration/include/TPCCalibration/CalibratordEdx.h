@@ -60,6 +60,7 @@ class CalibratordEdx final : public o2::calibration::TimeSlotCalibration<o2::tpc
   void setApplyCuts(bool apply) { mApplyCuts = apply; }
   void setElectronCut(std::tuple<float, int, float> values) { mElectronCut = values; }
   void setMaterialType(o2::base::Propagator::MatCorrType materialType) { mMatType = materialType; }
+  void setMakeGaussianFits(const bool makeGaussianFits) { mMakeGaussianFits = makeGaussianFits; }
 
   /// \brief Check if there are enough data to compute the calibration.
   /// \return false if any of the histograms has less entries than mMinEntries
@@ -117,6 +118,7 @@ class CalibratordEdx final : public o2::calibration::TimeSlotCalibration<o2::tpc
   std::tuple<float, int, float> mElectronCut{}; ///< Values passed to CalibdEdx::setElectronCut
   TrackCuts mCuts;                              ///< Cut object
   o2::base::Propagator::MatCorrType mMatType{}; ///< material type for track propagation
+  bool mMakeGaussianFits{};                     ///< fit mean of gaussian fits instead of mean dedx
 
   TFinterval mTFIntervals;     ///< start and end time frame IDs of each calibration time slots
   TimeInterval mTimeIntervals; ///< start and end times of each calibration time slots
@@ -124,7 +126,7 @@ class CalibratordEdx final : public o2::calibration::TimeSlotCalibration<o2::tpc
 
   std::unique_ptr<o2::utils::TreeStreamRedirector> mDebugOutputStreamer; ///< Debug output streamer
 
-  ClassDefOverride(CalibratordEdx, 2);
+  ClassDefOverride(CalibratordEdx, 3);
 };
 
 } // namespace o2::tpc

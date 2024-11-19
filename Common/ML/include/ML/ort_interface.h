@@ -35,60 +35,58 @@ namespace ml
 class OrtModel
 {
 
-  public:
-    // Constructor
-    OrtModel() = default;
-    OrtModel(std::unordered_map<std::string, std::string> optionsMap){ reset(optionsMap); }
-    void init(std::unordered_map<std::string, std::string> optionsMap){ reset(optionsMap); }
-    void reset(std::unordered_map<std::string, std::string>);
+ public:
+  // Constructor
+  OrtModel() = default;
+  OrtModel(std::unordered_map<std::string, std::string> optionsMap) { reset(optionsMap); }
+  void init(std::unordered_map<std::string, std::string> optionsMap) { reset(optionsMap); }
+  void reset(std::unordered_map<std::string, std::string>);
 
-    virtual ~OrtModel() = default;
+  virtual ~OrtModel() = default;
 
-    // Conversion
-    template<class I, class O>
-    std::vector<O> v2v(std::vector<I>&, bool = true);
+  // Conversion
+  template <class I, class O>
+  std::vector<O> v2v(std::vector<I>&, bool = true);
 
-    // Inferencing
-    template<class I, class O> // class I is the input data type, e.g. float, class O is the output data type, e.g. OrtDataType::Float16_t from O2/Common/ML/include/ML/GPUORTFloat16.h
-    std::vector<O> inference(std::vector<I>&);
+  // Inferencing
+  template <class I, class O> // class I is the input data type, e.g. float, class O is the output data type, e.g. OrtDataType::Float16_t from O2/Common/ML/include/ML/GPUORTFloat16.h
+  std::vector<O> inference(std::vector<I>&);
 
-    template<class I, class O> // class I is the input data type, e.g. float, class O is the output data type, e.g. O2::gpu::OrtDataType::Float16_t from O2/GPU/GPUTracking/ML/convert_float16.h
-    std::vector<O> inference(std::vector<std::vector<I>>&);
+  template <class I, class O> // class I is the input data type, e.g. float, class O is the output data type, e.g. O2::gpu::OrtDataType::Float16_t from O2/GPU/GPUTracking/ML/convert_float16.h
+  std::vector<O> inference(std::vector<std::vector<I>>&);
 
-    // template<class I, class T, class O> // class I is the input data type, e.g. float, class T the throughput data type and class O is the output data type
-    // std::vector<O> inference(std::vector<I>&);
+  // template<class I, class T, class O> // class I is the input data type, e.g. float, class T the throughput data type and class O is the output data type
+  // std::vector<O> inference(std::vector<I>&);
 
-    // Reset session
-    void resetSession();
+  // Reset session
+  void resetSession();
 
-    std::vector<std::vector<int64_t>> getNumInputNodes() const { return mInputShapes; }
-    std::vector<std::vector<int64_t>> getNumOutputNodes() const { return mOutputShapes; }
-    std::vector<std::string> getInputNames() const { return mInputNames; }
-    std::vector<std::string> getOutputNames() const { return mOutputNames; }
+  std::vector<std::vector<int64_t>> getNumInputNodes() const { return mInputShapes; }
+  std::vector<std::vector<int64_t>> getNumOutputNodes() const { return mOutputShapes; }
+  std::vector<std::string> getInputNames() const { return mInputNames; }
+  std::vector<std::string> getOutputNames() const { return mOutputNames; }
 
-    void setActiveThreads(int threads) { intraOpNumThreads = threads; }
+  void setActiveThreads(int threads) { intraOpNumThreads = threads; }
 
-  private:
+ private:
+  // ORT variables -> need to be hidden as Pimpl
+  struct OrtVariables;
+  OrtVariables* pImplOrt;
 
-    // ORT variables -> need to be hidden as Pimpl
-    struct OrtVariables;
-    OrtVariables* pImplOrt;
+  // Input & Output specifications of the loaded network
+  std::vector<const char*> inputNamesChar, outputNamesChar;
+  std::vector<std::string> mInputNames, mOutputNames;
+  std::vector<std::vector<int64_t>> mInputShapes, mOutputShapes;
 
-    // Input & Output specifications of the loaded network
-    std::vector<const char*> inputNamesChar, outputNamesChar;
-    std::vector<std::string> mInputNames, mOutputNames;
-    std::vector<std::vector<int64_t>> mInputShapes, mOutputShapes;
+  // Environment settings
+  std::string modelPath, device = "cpu", dtype = "float"; // device options should be cpu, rocm, migraphx, cuda
+  int intraOpNumThreads = 0, deviceId = 0, enableProfiling = 0, loggingLevel = 0, allocateDeviceMemory = 0, enableOptimizations = 0;
 
-    // Environment settings
-    std::string modelPath, device = "cpu", dtype = "float"; // device options should be cpu, rocm, migraphx, cuda
-    int intraOpNumThreads = 0, deviceId = 0, enableProfiling = 0, loggingLevel = 0, allocateDeviceMemory = 0, enableOptimizations = 0;
-
-    std::string printShape(const std::vector<int64_t>&);
-
+  std::string printShape(const std::vector<int64_t>&);
 };
 
 } // namespace ml
 
-} // namespace ml
+} // namespace o2
 
 #endif // O2_ML_ORT_INTERFACE_H

@@ -122,7 +122,7 @@ struct DataRefUtils {
         // object only depends on the state at serialization of the original object. However,
         // all objects created during deserialization are new and must be owned by the collection
         // to avoid memory leak. So we call SetOwner if it is available for the type.
-        if constexpr (has_root_setowner<T>::value) {
+        if constexpr (requires(T t) { t.SetOwner(true); }) {
           result->SetOwner(true);
         }
       });
@@ -159,7 +159,7 @@ struct DataRefUtils {
           throw runtime_error_f("Unable to extract class %s", cl == nullptr ? "<name not available>" : cl->GetName());
         }
         // workaround for ROOT feature, see above
-        if constexpr (has_root_setowner<T>::value) {
+        if constexpr (requires(T t) { t.SetOwner(true); }) {
           result->SetOwner(true);
         }
       });
@@ -179,6 +179,7 @@ struct DataRefUtils {
   }
   // Decode a CCDB object using the CcdbApi.
   static void* decodeCCDB(DataRef const& ref, std::type_info const& info);
+  static std::map<std::string, std::string> extractCCDBHeaders(DataRef const& ref);
 
   static o2::header::DataHeader::PayloadSizeType getPayloadSize(const DataRef& ref)
   {

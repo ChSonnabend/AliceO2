@@ -26,6 +26,7 @@
 #include "CalibdEdxTrackTopologyPol.h"
 #include "DataFormatsParameters/GRPMagField.h"
 #include "GPUO2InterfaceUtils.h"
+#include "GPUTPCGMMergedTrackHit.h"
 
 using namespace o2::tpc;
 
@@ -52,7 +53,7 @@ void CalculatedEdx::setRefit(const unsigned int nHbfPerTf)
   mRefit = std::make_unique<o2::gpu::GPUO2InterfaceRefit>(mClusterIndex, &mTPCCorrMapsHelper, mFieldNominalGPUBz, mTPCTrackClIdxVecInput->data(), nHbfPerTf, mTPCRefitterShMap.data(), mTPCRefitterOccMap.data(), mTPCRefitterOccMap.size());
 }
 
-void CalculatedEdx::fillMissingClusters(int missingClusters[4], float minChargeTot, float minChargeMax, int method)
+void CalculatedEdx::fillMissingClusters(int missingClusters[4], float minChargeTot, float minChargeMax, int method, std::array<std::vector<float>, 5>& chargeTotROC, std::array<std::vector<float>, 5>& chargeMaxROC)
 {
   if (method != 0 && method != 1) {
     LOGP(info, "Unrecognized subthreshold cluster treatment. Not adding virtual charges to the track!");
@@ -64,11 +65,11 @@ void CalculatedEdx::fillMissingClusters(int missingClusters[4], float minChargeT
       float chargeTot = (method == 1) ? minChargeTot / 2.f : minChargeTot;
       float chargeMax = (method == 1) ? minChargeMax / 2.f : minChargeMax;
 
-      mChargeTotROC[roc].emplace_back(chargeTot);
-      mChargeTotROC[4].emplace_back(chargeTot);
+      chargeTotROC[roc].emplace_back(chargeTot);
+      chargeTotROC[4].emplace_back(chargeTot);
 
-      mChargeMaxROC[roc].emplace_back(chargeMax);
-      mChargeMaxROC[4].emplace_back(chargeMax);
+      chargeMaxROC[roc].emplace_back(chargeMax);
+      chargeMaxROC[4].emplace_back(chargeMax);
     }
   }
 }
@@ -81,17 +82,13 @@ void CalculatedEdx::calculatedEdx(o2::tpc::TrackTPC& track, dEdxInfo& output, fl
   int nClsROC[4] = {0, 0, 0, 0};
   int nClsSubThreshROC[4] = {0, 0, 0, 0};
 
-  mChargeTotROC[0].clear();
-  mChargeTotROC[1].clear();
-  mChargeTotROC[2].clear();
-  mChargeTotROC[3].clear();
-  mChargeTotROC[4].clear();
-
-  mChargeMaxROC[0].clear();
-  mChargeMaxROC[1].clear();
-  mChargeMaxROC[2].clear();
-  mChargeMaxROC[3].clear();
-  mChargeMaxROC[4].clear();
+  const int nType = 5;
+  std::array<std::vector<float>, nType> chargeTotROC;
+  std::array<std::vector<float>, nType> chargeMaxROC;
+  for (int i = 0; i < nType; ++i) {
+    chargeTotROC[i].reserve(Mapper::PADROWS);
+    chargeMaxROC[i].reserve(Mapper::PADROWS);
+  }
 
   // debug vectors
   std::vector<int> excludeClVector;
@@ -111,9 +108,12 @@ void CalculatedEdx::calculatedEdx(o2::tpc::TrackTPC& track, dEdxInfo& output, fl
   std::vector<float> gainResidualVector;
   std::vector<float> residualCorrTotVector;
   std::vector<float> residualCorrMaxVector;
+  std::vector<float> scCorrVector;
 
   std::vector<o2::tpc::TrackTPC> trackVector;
   std::vector<o2::tpc::ClusterNative> clVector;
+  std::vector<unsigned int> occupancyVector;
+  std::vector<bool> isClusterShared;
 
   if (mDebug) {
     excludeClVector.reserve(nClusters);
@@ -134,6 +134,9 @@ void CalculatedEdx::calculatedEdx(o2::tpc::TrackTPC& track, dEdxInfo& output, fl
     residualCorrMaxVector.reserve(nClusters);
     trackVector.reserve(nClusters);
     clVector.reserve(nClusters);
+    scCorrVector.reserve(nClusters);
+    occupancyVector.reserve(nClusters);
+    isClusterShared.reserve(nClusters);
   }
 
   // for missing clusters
@@ -153,6 +156,10 @@ void CalculatedEdx::calculatedEdx(o2::tpc::TrackTPC& track, dEdxInfo& output, fl
 
     // set sectorIndex, rowIndex, clusterIndexNumb
     track.getClusterReference(*mTPCTrackClIdxVecInput, iCl, sectorIndex, rowIndex, clusterIndexNumb);
+
+    // check if the cluster is shared
+    const unsigned int absoluteIndex = mClusterIndex->clusterOffset[sectorIndex][rowIndex] + clusterIndexNumb;
+    const bool isShared = mRefit ? (mTPCRefitterShMap[absoluteIndex] & GPUCA_NAMESPACE::gpu::GPUTPCGMMergedTrackHit::flagShared) : 0;
 
     // get region, pad, stack and stack ID
     const int region = Mapper::REGION[rowIndex];
@@ -178,6 +185,9 @@ void CalculatedEdx::calculatedEdx(o2::tpc::TrackTPC& track, dEdxInfo& output, fl
     }
     if (((clusterMask & ClusterFlags::ExcludeEdgeCl) == ClusterFlags::ExcludeEdgeCl) && ((flagsCl & ClusterNative::flagEdge) == ClusterNative::flagEdge)) {
       excludeCl += 0b100; // 4 for edge cluster
+    }
+    if (((clusterMask & ClusterFlags::ExcludeSharedCl) == ClusterFlags::ExcludeSharedCl) && isShared) {
+      excludeCl += 0b10000; // for shared cluster
     }
 
     // get the x position of the track
@@ -214,6 +224,8 @@ void CalculatedEdx::calculatedEdx(o2::tpc::TrackTPC& track, dEdxInfo& output, fl
         offsPadVector.emplace_back(offsPad);
         trackVector.emplace_back(track);
         clVector.emplace_back(cl);
+        occupancyVector.emplace_back(getOccupancy(cl));
+        isClusterShared.emplace_back(isShared);
 
         topologyCorrVector.emplace_back(-999.f);
         topologyCorrTotVector.emplace_back(-999.f);
@@ -222,6 +234,7 @@ void CalculatedEdx::calculatedEdx(o2::tpc::TrackTPC& track, dEdxInfo& output, fl
         gainResidualVector.emplace_back(-999.f);
         residualCorrTotVector.emplace_back(-999.f);
         residualCorrMaxVector.emplace_back(-999.f);
+        scCorrVector.emplace_back(-999.f);
       }
       // to avoid counting the skipped cluster as a subthreshold cluster
       rowIndexOld = rowIndex;
@@ -325,26 +338,39 @@ void CalculatedEdx::calculatedEdx(o2::tpc::TrackTPC& track, dEdxInfo& output, fl
       minChargeMax = chargeMax;
     };
 
+    // space-charge dEdx corrections
+    const float time = cl.getTime() - track.getTime0(); // ToDo: get correct time from ITS-TPC track if possible
+    float scCorr = 1.0f;
+    if ((correctionMask & CorrectionFlags::dEdxSC) == CorrectionFlags::dEdxSC) {
+      scCorr = mSCdEdxCorrection.getCorrection(time, sectorIndex, rowIndex, pad);
+      if (scCorr > 0) {
+        chargeTot /= scCorr;
+      };
+      if (corrMax > 0) {
+        chargeMax /= scCorr;
+      };
+    }
+
     if (stack == GEMstack::IROCgem) {
-      mChargeTotROC[0].emplace_back(chargeTot);
-      mChargeMaxROC[0].emplace_back(chargeMax);
+      chargeTotROC[0].emplace_back(chargeTot);
+      chargeMaxROC[0].emplace_back(chargeMax);
       nClsROC[0]++;
     } else if (stack == GEMstack::OROC1gem) {
-      mChargeTotROC[1].emplace_back(chargeTot);
-      mChargeMaxROC[1].emplace_back(chargeMax);
+      chargeTotROC[1].emplace_back(chargeTot);
+      chargeMaxROC[1].emplace_back(chargeMax);
       nClsROC[1]++;
     } else if (stack == GEMstack::OROC2gem) {
-      mChargeTotROC[2].emplace_back(chargeTot);
-      mChargeMaxROC[2].emplace_back(chargeMax);
+      chargeTotROC[2].emplace_back(chargeTot);
+      chargeMaxROC[2].emplace_back(chargeMax);
       nClsROC[2]++;
     } else if (stack == GEMstack::OROC3gem) {
-      mChargeTotROC[3].emplace_back(chargeTot);
-      mChargeMaxROC[3].emplace_back(chargeMax);
+      chargeTotROC[3].emplace_back(chargeTot);
+      chargeMaxROC[3].emplace_back(chargeMax);
       nClsROC[3]++;
     };
 
-    mChargeTotROC[4].emplace_back(chargeTot);
-    mChargeMaxROC[4].emplace_back(chargeMax);
+    chargeTotROC[4].emplace_back(chargeTot);
+    chargeMaxROC[4].emplace_back(chargeMax);
 
     // for debugging
     if (mDebug) {
@@ -359,6 +385,8 @@ void CalculatedEdx::calculatedEdx(o2::tpc::TrackTPC& track, dEdxInfo& output, fl
       offsPadVector.emplace_back(offsPad);
       trackVector.emplace_back(track);
       clVector.emplace_back(cl);
+      occupancyVector.emplace_back(getOccupancy(cl));
+      isClusterShared.emplace_back(isShared);
 
       topologyCorrVector.emplace_back(effectiveLength);
       topologyCorrTotVector.emplace_back(effectiveLengthTot);
@@ -367,6 +395,7 @@ void CalculatedEdx::calculatedEdx(o2::tpc::TrackTPC& track, dEdxInfo& output, fl
       gainResidualVector.emplace_back(gainResidual);
       residualCorrTotVector.emplace_back(corrTot);
       residualCorrMaxVector.emplace_back(corrMax);
+      scCorrVector.emplace_back(scCorr);
     };
   }
 
@@ -385,7 +414,7 @@ void CalculatedEdx::calculatedEdx(o2::tpc::TrackTPC& track, dEdxInfo& output, fl
 
     // fill subthreshold clusters if not excluded
     if (((clusterMask & ClusterFlags::ExcludeSubthresholdCl) == ClusterFlags::None)) {
-      fillMissingClusters(nClsSubThreshROC, minChargeTot, minChargeMax, subthresholdMethod);
+      fillMissingClusters(nClsSubThreshROC, minChargeTot, minChargeMax, subthresholdMethod, chargeTotROC, chargeMaxROC);
     }
   } else {
     output.NHitsIROC = nClsROC[0];
@@ -394,18 +423,22 @@ void CalculatedEdx::calculatedEdx(o2::tpc::TrackTPC& track, dEdxInfo& output, fl
     output.NHitsOROC3 = nClsROC[3];
   }
 
-  // calculate dEdx
-  output.dEdxTotIROC = getTruncMean(mChargeTotROC[0], low, high);
-  output.dEdxTotOROC1 = getTruncMean(mChargeTotROC[1], low, high);
-  output.dEdxTotOROC2 = getTruncMean(mChargeTotROC[2], low, high);
-  output.dEdxTotOROC3 = getTruncMean(mChargeTotROC[3], low, high);
-  output.dEdxTotTPC = getTruncMean(mChargeTotROC[4], low, high);
+  // copy corrected cluster charges
+  auto chargeTotVector = mDebug ? chargeTotROC[4] : std::vector<float>();
+  auto chargeMaxVector = mDebug ? chargeMaxROC[4] : std::vector<float>();
 
-  output.dEdxMaxIROC = getTruncMean(mChargeMaxROC[0], low, high);
-  output.dEdxMaxOROC1 = getTruncMean(mChargeMaxROC[1], low, high);
-  output.dEdxMaxOROC2 = getTruncMean(mChargeMaxROC[2], low, high);
-  output.dEdxMaxOROC3 = getTruncMean(mChargeMaxROC[3], low, high);
-  output.dEdxMaxTPC = getTruncMean(mChargeMaxROC[4], low, high);
+  // calculate dEdx
+  output.dEdxTotIROC = getTruncMean(chargeTotROC[0], low, high);
+  output.dEdxTotOROC1 = getTruncMean(chargeTotROC[1], low, high);
+  output.dEdxTotOROC2 = getTruncMean(chargeTotROC[2], low, high);
+  output.dEdxTotOROC3 = getTruncMean(chargeTotROC[3], low, high);
+  output.dEdxTotTPC = getTruncMean(chargeTotROC[4], low, high);
+
+  output.dEdxMaxIROC = getTruncMean(chargeMaxROC[0], low, high);
+  output.dEdxMaxOROC1 = getTruncMean(chargeMaxROC[1], low, high);
+  output.dEdxMaxOROC2 = getTruncMean(chargeMaxROC[2], low, high);
+  output.dEdxMaxOROC3 = getTruncMean(chargeMaxROC[3], low, high);
+  output.dEdxMaxTPC = getTruncMean(chargeMaxROC[4], low, high);
 
   // for debugging
   if (mDebug) {
@@ -428,6 +461,7 @@ void CalculatedEdx::calculatedEdx(o2::tpc::TrackTPC& track, dEdxInfo& output, fl
                  << "gainResidualVector=" << gainResidualVector
                  << "residualCorrTotVector=" << residualCorrTotVector
                  << "residualCorrMaxVector=" << residualCorrMaxVector
+                 << "scCorrVector=" << scCorrVector
                  << "localXVector=" << localXVector
                  << "localYVector=" << localYVector
                  << "offsPadVector=" << offsPadVector
@@ -436,6 +470,10 @@ void CalculatedEdx::calculatedEdx(o2::tpc::TrackTPC& track, dEdxInfo& output, fl
                  << "minChargeTot=" << minChargeTot
                  << "minChargeMax=" << minChargeMax
                  << "output=" << output
+                 << "occupancy=" << occupancyVector
+                 << "chargeTotVector=" << chargeTotVector
+                 << "chargeMaxVector=" << chargeMaxVector
+                 << "isClusterShared=" << isClusterShared
                  << "\n";
   }
 }
@@ -492,7 +530,7 @@ float CalculatedEdx::getTrackTopologyCorrectionPol(const o2::tpc::TrackTPC& trac
   return effectiveLength;
 }
 
-void CalculatedEdx::loadCalibsFromCCDB(long runNumberOrTimeStamp)
+void CalculatedEdx::loadCalibsFromCCDB(long runNumberOrTimeStamp, const bool isMC)
 {
   // setup CCDB manager
   auto& cm = o2::ccdb::BasicCCDBManager::instance();
@@ -542,6 +580,15 @@ void CalculatedEdx::loadCalibsFromCCDB(long runNumberOrTimeStamp)
   auto propagator = o2::base::Propagator::Instance();
   const o2::base::MatLayerCylSet* matLut = o2::base::MatLayerCylSet::rectifyPtrFromFile(cm.get<o2::base::MatLayerCylSet>("GLO/Param/MatLUT"));
   propagator->setMatLUT(matLut);
+
+  // load sc correction maps
+  auto avgMap = isMC ? cm.getForTimeStamp<o2::gpu::TPCFastTransform>(o2::tpc::CDBTypeMap.at(o2::tpc::CDBType::CalCorrMapMC), tRun) : cm.getForTimeStamp<o2::gpu::TPCFastTransform>(o2::tpc::CDBTypeMap.at(o2::tpc::CDBType::CalCorrMap), tRun);
+  avgMap->rectifyAfterReadingFromFile();
+
+  auto derMap = isMC ? cm.getForTimeStamp<o2::gpu::TPCFastTransform>(o2::tpc::CDBTypeMap.at(o2::tpc::CDBType::CalCorrDerivMapMC), tRun) : cm.getForTimeStamp<o2::gpu::TPCFastTransform>(o2::tpc::CDBTypeMap.at(o2::tpc::CDBType::CalCorrDerivMap), tRun);
+  derMap->rectifyAfterReadingFromFile();
+
+  mSCdEdxCorrection.setCorrectionMaps(avgMap, derMap);
 }
 
 void CalculatedEdx::loadCalibsFromLocalCCDBFolder(const char* localCCDBFolder)
@@ -624,4 +671,12 @@ void CalculatedEdx::setPropagatorFromFile(const char* folder, const char* file, 
     o2::base::MatLayerCylSet* matLut = o2::base::MatLayerCylSet::rectifyPtrFromFile((o2::base::MatLayerCylSet*)matLutFile->Get(object));
     propagator->setMatLUT(matLut);
   }
+}
+
+unsigned int CalculatedEdx::getOccupancy(const o2::tpc::ClusterNative& cl) const
+{
+  const int nTimeBinsPerOccupBin = 16;
+  const int iBinOcc = cl.getTime() / nTimeBinsPerOccupBin + 2;
+  const unsigned int occupancy = mTPCRefitterOccMap.empty() ? -1 : mTPCRefitterOccMap[iBinOcc];
+  return occupancy;
 }

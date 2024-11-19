@@ -91,8 +91,8 @@ class CalibdEdxCorrection
 
   void clear();
 
-  void writeToFile(std::string_view fileName) const;
-  void loadFromFile(std::string_view fileName);
+  void writeToFile(std::string_view fileName, std::string_view objName = "CalibdEdxCorrection") const;
+  void loadFromFile(std::string_view fileName, std::string_view objName = "CalibdEdxCorrection");
 
   /// \param outFileName name of the output file
   void dumpToTree(const char* outFileName = "calib_dedx.root") const;

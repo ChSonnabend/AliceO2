@@ -18,13 +18,21 @@
 
 #include <ROOT/RDataFrame.hxx>
 #include <ROOT/RArrowDS.hxx>
+#include <TBufferFile.h>
+#include <TClass.h>
+#include <TMemFile.h>
+#include <TDirectory.h>
 #include <TTree.h>
 #include <TRandom.h>
+#include <TFile.h>
+
+#include <arrow/dataset/scanner.h>
 #include <arrow/table.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/io/memory.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/ipc/reader.h>
+#include "Framework/RootArrowFilesystem.h"
 
 using namespace o2::framework;
 
@@ -180,4 +188,174 @@ TEST_CASE("RootTree2TableViaASoA")
     REQUIRE(row.ij()[0] == row.ij()[1] - 1);
     REQUIRE(row.ij()[1] == row.ev());
   }
+}
+
+TEST_CASE("RootTree2Fragment")
+{
+  using namespace o2::framework;
+  /// A directory holding a tree
+
+  /// Create a simple TTree
+  TBufferFile* file = new TBufferFile(TBuffer::kWrite);
+
+  TTree t1("t1", "a simple Tree with simple variables");
+  Float_t xyz[3];
+  Int_t ij[2];
+  Float_t px = 0, py = 1, pz = 2;
+  Double_t random;
+  Int_t ev;
+  t1.Branch("px", &px, "px/F");
+  t1.Branch("py", &py, "py/F");
+  t1.Branch("pz", &pz, "pz/F");
+  t1.Branch("random", &random, "random/D");
+  t1.Branch("ev", &ev, "ev/I");
+  t1.Branch("xyz", xyz, "xyz[3]/F");
+  t1.Branch("ij", ij, "ij[2]/I");
+  // fill the tree
+  for (Int_t i = 0; i < 1000; i++) {
+    xyz[0] = 1;
+    xyz[1] = 2;
+    xyz[2] = 3;
+    gRandom->Rannor(px, py);
+    pz = px * px + py * py;
+    xyz[2] = i + 1;
+    ij[0] = i;
+    ij[1] = i + 1;
+    random = gRandom->Rndm();
+    ev = i + 1;
+    t1.Fill();
+  }
+  file->WriteObjectAny(&t1, t1.Class());
+  auto* fileRead = new TBufferFile(TBuffer::kRead, file->BufferSize(), file->Buffer(), false, nullptr);
+
+  size_t totalSizeCompressed = 0;
+  size_t totalSizeUncompressed = 0;
+  auto format = std::make_shared<TTreeFileFormat>(totalSizeCompressed, totalSizeUncompressed);
+  auto fs = std::make_shared<TBufferFileFS>(fileRead);
+
+  arrow::dataset::FileSource source("p", fs);
+  REQUIRE(format->IsSupported(source) == true);
+  auto schemaOpt = format->Inspect(source);
+  REQUIRE(schemaOpt.ok());
+  auto schema = *schemaOpt;
+  REQUIRE(schema->num_fields() == 7);
+  REQUIRE(schema->field(0)->type()->id() == arrow::float32()->id());
+  REQUIRE(schema->field(1)->type()->id() == arrow::float32()->id());
+  REQUIRE(schema->field(2)->type()->id() == arrow::float32()->id());
+  REQUIRE(schema->field(3)->type()->id() == arrow::float64()->id());
+  REQUIRE(schema->field(4)->type()->id() == arrow::int32()->id());
+  REQUIRE(schema->field(5)->type()->id() == arrow::fixed_size_list(arrow::float32(), 3)->id());
+  REQUIRE(schema->field(6)->type()->id() == arrow::fixed_size_list(arrow::int32(), 2)->id());
+  auto fragment = format->MakeFragment(source, {}, schema);
+  REQUIRE(fragment.ok());
+  auto options = std::make_shared<arrow::dataset::ScanOptions>();
+  options->dataset_schema = schema;
+  auto scanner = format->ScanBatchesAsync(options, *fragment);
+  REQUIRE(scanner.ok());
+  auto batches = (*scanner)();
+  auto result = batches.result();
+  REQUIRE(result.ok());
+  REQUIRE((*result)->columns().size() == 7);
+  REQUIRE((*result)->num_rows() == 1000);
+}
+
+TEST_CASE("RootTree2Dataset")
+{
+  using namespace o2::framework;
+  /// A directory holding a tree
+  // auto *f = new TFile("Foo.root", "RECREATE");
+  auto* f = new TMemFile("foo", "RECREATE");
+  f->mkdir("DF_1");
+  f->mkdir("DF_2");
+
+  f->cd("DF_1");
+  auto* t = new TTree("tracks", "a simple Tree with simple variables");
+  {
+    Float_t xyz[3];
+    Int_t ij[2];
+    Float_t px = 0, py = 1, pz = 2;
+    Double_t random;
+    Int_t ev;
+    t->Branch("px", &px, "px/F");
+    t->Branch("py", &py, "py/F");
+    t->Branch("pz", &pz, "pz/F");
+    t->Branch("random", &random, "random/D");
+    t->Branch("ev", &ev, "ev/I");
+    t->Branch("xyz", xyz, "xyz[3]/F");
+    t->Branch("ij", ij, "ij[2]/I");
+    // fill the tree
+    for (Int_t i = 0; i < 1000; i++) {
+      xyz[0] = 1;
+      xyz[1] = 2;
+      xyz[2] = 3;
+      gRandom->Rannor(px, py);
+      pz = px * px + py * py;
+      xyz[2] = i + 1;
+      ij[0] = i;
+      ij[1] = i + 1;
+      random = gRandom->Rndm();
+      ev = i + 1;
+      t->Fill();
+    }
+  }
+
+  f->cd("DF_2");
+  t = new TTree("tracks", "a simple Tree with simple variables");
+  {
+    Float_t xyz[3];
+    Int_t ij[2];
+    Float_t px = 0, py = 1, pz = 2;
+    Double_t random;
+    Int_t ev;
+    t->Branch("px", &px, "px/F");
+    t->Branch("py", &py, "py/F");
+    t->Branch("pz", &pz, "pz/F");
+    t->Branch("random", &random, "random/D");
+    t->Branch("ev", &ev, "ev/I");
+    t->Branch("xyz", xyz, "xyz[3]/F");
+    t->Branch("ij", ij, "ij[2]/I");
+    // fill the tree
+    for (Int_t i = 0; i < 100; i++) {
+      xyz[0] = 1;
+      xyz[1] = 2;
+      xyz[2] = 3;
+      gRandom->Rannor(px, py);
+      pz = px * px + py * py;
+      xyz[2] = i + 1;
+      ij[0] = i;
+      ij[1] = i + 1;
+      random = gRandom->Rndm();
+      ev = i + 1;
+      t->Fill();
+    }
+  }
+
+  size_t totalSizeCompressed = 0;
+  size_t totalSizeUncompressed = 0;
+  auto format = std::make_shared<TTreeFileFormat>(totalSizeCompressed, totalSizeUncompressed);
+  auto fs = std::make_shared<TFileFileSystem>(f, 50 * 1024 * 1024);
+  arrow::dataset::FileSource source("DF_2/tracks", fs);
+  REQUIRE(format->IsSupported(source) == true);
+  auto schemaOpt = format->Inspect(source);
+  REQUIRE(schemaOpt.ok());
+  auto schema = *schemaOpt;
+  REQUIRE(schema->num_fields() == 7);
+  REQUIRE(schema->field(0)->type()->id() == arrow::float32()->id());
+  REQUIRE(schema->field(1)->type()->id() == arrow::float32()->id());
+  REQUIRE(schema->field(2)->type()->id() == arrow::float32()->id());
+  REQUIRE(schema->field(3)->type()->id() == arrow::float64()->id());
+  REQUIRE(schema->field(4)->type()->id() == arrow::int32()->id());
+  REQUIRE(schema->field(5)->type()->id() == arrow::fixed_size_list(arrow::float32(), 3)->id());
+  REQUIRE(schema->field(6)->type()->id() == arrow::fixed_size_list(arrow::int32(), 2)->id());
+  auto fragment = format->MakeFragment(source, {}, schema);
+  REQUIRE(fragment.ok());
+  auto options = std::make_shared<arrow::dataset::ScanOptions>();
+  options->dataset_schema = schema;
+  auto scanner = format->ScanBatchesAsync(options, *fragment);
+  REQUIRE(scanner.ok());
+  auto batches = (*scanner)();
+  auto result = batches.result();
+  REQUIRE(result.ok());
+  REQUIRE((*result)->columns().size() == 7);
+  REQUIRE((*result)->num_rows() == 100);
 }

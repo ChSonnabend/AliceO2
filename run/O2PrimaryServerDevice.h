@@ -138,7 +138,8 @@ class O2PrimaryServerDevice final : public fair::mq::Device
     mPrimGen->SetEvent(&mEventHeader);
 
     // A good moment to couple to collision context
-    auto collContextFileName = mSimConfig.getConfigData().mFromCollisionContext;
+    auto collContextFileName_PrefixPair = mSimConfig.getCollContextFilenameAndEventPrefix();
+    auto collContextFileName = collContextFileName_PrefixPair.first;
     if (collContextFileName.size() > 0) {
       LOG(info) << "Simulation has collission context";
       mCollissionContext = o2::steer::DigitizationContext::loadFromFile(collContextFileName);
@@ -147,7 +148,7 @@ class O2PrimaryServerDevice final : public fair::mq::Device
         LOG(info) << "We found " << vertices.size() << " vertices included ";
 
         // initialize the eventID to collID mapping
-        const auto source = mCollissionContext->findSimPrefix(mSimConfig.getOutPrefix());
+        const auto source = mCollissionContext->findSimPrefix(collContextFileName_PrefixPair.second);
         if (source == -1) {
           LOG(fatal) << "Wrong simulation prefix";
         }

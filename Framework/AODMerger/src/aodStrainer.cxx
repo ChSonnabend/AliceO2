@@ -39,6 +39,7 @@ int main(int argc, char* argv[])
   double downsampling = 1.0;
   int verbosity = 2;
   int exitCode = 0; // 0: success, >0: failure
+  int compression = 505;
 
   std::random_device rd;  // Seed generator
   std::mt19937 gen(rd()); // Mersenne Twister generator
@@ -51,7 +52,8 @@ int main(int argc, char* argv[])
     {"verbosity", required_argument, nullptr, 2},
     {"tables", required_argument, nullptr, 3},
     {"downsampling", required_argument, nullptr, 4},
-    {"help", no_argument, nullptr, 5},
+    {"compression", required_argument, nullptr, 5},
+    {"help", no_argument, nullptr, 'h'},
     {nullptr, 0, nullptr, 0}};
 
   while (true) {
@@ -69,12 +71,15 @@ int main(int argc, char* argv[])
     } else if (c == 4) {
       downsampling = atof(optarg);
     } else if (c == 5) {
+      compression = atof(optarg);
+    } else if (c == 'h') {
       printf("AO2D strainer tool. Options: \n");
       printf("  --input <%s>      Contains path to files to be merged. Default: %s\n", inputAO2D.c_str(), inputAO2D.c_str());
       printf("  --output <%s>   Target output ROOT file. Default: %s\n", outputFileName.c_str(), outputFileName.c_str());
       printf("  --verbosity <flag>           Verbosity of output (default: %d).\n", verbosity);
       printf("  --tables <list of tables>    Comma separated list of tables (default: %s).\n", tables.c_str());
       printf("  --downsampling <downsample>  Fraction of DF to be kept (default: %f)\n", downsampling);
+      printf("  --compression <root compression id>  Compression algorithm / level to use (default: %d)\n", compression);
       return -1;
     } else {
       return -2;
@@ -95,7 +100,7 @@ int main(int argc, char* argv[])
     listOfTables.push_back(token);
   }
 
-  auto outputFile = TFile::Open(outputFileName.c_str(), "RECREATE", "", 505);
+  auto outputFile = TFile::Open(outputFileName.c_str(), "RECREATE", "", compression);
   TDirectory* outputDir = nullptr;
   TString line(inputAO2D.c_str());
   if (line.BeginsWith("alien://") && !gGrid && !TGrid::Connect("alien:")) {

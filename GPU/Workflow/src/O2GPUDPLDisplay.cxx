@@ -90,7 +90,7 @@ void O2GPUDPLDisplaySpec::init(InitContext& ic)
   mTFSettings->hasSimStartOrbit = 1;
   auto& hbfu = o2::raw::HBFUtils::Instance();
   mTFSettings->simStartOrbit = hbfu.getFirstIRofTF(o2::InteractionRecord(0, hbfu.orbitFirstSampled)).orbit;
-  mAutoContinuousMaxTimeBin = mConfig->configGRP.continuousMaxTimeBin == -1;
+  mAutoContinuousMaxTimeBin = mConfig->configGRP.grpContinuousMaxTimeBin < -1;
 
   mDisplay.reset(new GPUO2InterfaceDisplay(mConfig.get()));
 }
@@ -108,14 +108,14 @@ void O2GPUDPLDisplaySpec::run(ProcessingContext& pc)
   mTFSettings->tfStartOrbit = pc.services().get<o2::framework::TimingInfo>().firstTForbit;
   mTFSettings->hasTfStartOrbit = 1;
   mTFSettings->hasNHBFPerTF = 1;
-  mTFSettings->nHBFPerTF = GRPGeomHelper::instance().getGRPECS()->getNHBFPerTF();
+  mTFSettings->nHBFPerTF = mConfParam->overrideNHbfPerTF ? mConfParam->overrideNHbfPerTF : GRPGeomHelper::instance().getGRPECS()->getNHBFPerTF();
   mTFSettings->hasRunStartOrbit = 0;
 
   if (mGRPGeomUpdated) {
     mGRPGeomUpdated = false;
     mConfig->configGRP.solenoidBzNominalGPU = GPUO2InterfaceUtils::getNominalGPUBz(*GRPGeomHelper::instance().getGRPMagField());
     if (mAutoContinuousMaxTimeBin) {
-      mConfig->configGRP.continuousMaxTimeBin = (mTFSettings->nHBFPerTF * o2::constants::lhc::LHCMaxBunches + 2 * o2::tpc::constants::LHCBCPERTIMEBIN - 2) / o2::tpc::constants::LHCBCPERTIMEBIN;
+      mConfig->configGRP.grpContinuousMaxTimeBin = GPUO2InterfaceUtils::getTpcMaxTimeBinFromNHbf(mTFSettings->nHBFPerTF);
     }
     mDisplay->UpdateGRP(&mConfig->configGRP);
     if (mGeometryCreated == 0) {

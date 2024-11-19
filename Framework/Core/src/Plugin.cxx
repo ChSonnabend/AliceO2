@@ -15,6 +15,7 @@
 #include "Framework/Capability.h"
 #include "Framework/Signpost.h"
 #include "Framework/VariantJSONHelpers.h"
+#include <cstddef>
 #include <string_view>
 
 O2_DECLARE_DYNAMIC_LOG(capabilities);
@@ -47,6 +48,23 @@ auto lookForCommandLineOptions = [](ConfigParamRegistry& registry, int argc, cha
   return false;
 };
 
+auto lookForCommandLineAODOptions = [](ConfigParamRegistry& registry, int argc, char** argv) -> bool {
+  O2_SIGNPOST_ID_GENERATE(sid, capabilities);
+  // If one of the options for aod-writer is specified, we should allow configuring compression.
+  for (size_t i = 0; i < argc; i++) {
+    std::string_view arg = argv[i];
+    if (arg.starts_with("--aod-writer-")) {
+      O2_SIGNPOST_EVENT_EMIT(capabilities, sid, "DiscoverAODOptionsInCommandLineCapability", "AOD options found in arguments. Populating from them.");
+      return true;
+    }
+    if (arg.starts_with("--aod-parent-")) {
+      O2_SIGNPOST_EVENT_EMIT(capabilities, sid, "DiscoverAODOptionsInCommandLineCapability", "AOD options found in arguments. Populating from them.");
+      return true;
+    }
+  }
+  return false;
+};
+
 struct DiscoverMetadataInAODCapability : o2::framework::CapabilityPlugin {
   Capability* create() override
   {
@@ -65,6 +83,16 @@ struct DiscoverMetadataInCommandLineCapability : o2::framework::CapabilityPlugin
       .name = "DiscoverMetadataInCommandLineCapability",
       .checkIfNeeded = lookForCommandLineOptions,
       .requiredPlugin = "O2Framework:DiscoverMetadataInCommandLine"};
+  }
+};
+
+struct DiscoverAODOptionsInCommandLineCapability : o2::framework::CapabilityPlugin {
+  Capability* create() override
+  {
+    return new Capability{
+      .name = "DiscoverAODOptionsInCommandLineCapability",
+      .checkIfNeeded = lookForCommandLineAODOptions,
+      .requiredPlugin = "O2Framework:DiscoverAODOptionsInCommandLine"};
   }
 };
 
@@ -99,9 +127,52 @@ struct DiscoverMetadataInCommandLine : o2::framework::ConfigDiscoveryPlugin {
       }};
   }
 };
+
+struct DiscoverAODOptionsInCommandLine : o2::framework::ConfigDiscoveryPlugin {
+  ConfigDiscovery* create() override
+  {
+    return new ConfigDiscovery{
+      .init = []() {},
+      .discover = [](ConfigParamRegistry& registry, int argc, char** argv) -> std::vector<ConfigParamSpec> {
+        O2_SIGNPOST_ID_GENERATE(sid, capabilities);
+        O2_SIGNPOST_EVENT_EMIT(capabilities, sid, "DiscoverAODOptionsInCommandLine",
+                               "Discovering AOD handling related options in commandline arguments.");
+        std::vector<ConfigParamSpec> results;
+        bool injectOption = true;
+        for (size_t i = 0; i < argc; i++) {
+          std::string_view arg = argv[i];
+          if (!arg.starts_with("--aod-writer-") && !arg.starts_with("--aod-parent-")) {
+            continue;
+          }
+          std::string key = arg.data() + 2;
+          std::string value = argv[i + 1];
+          O2_SIGNPOST_EVENT_EMIT(capabilities, sid, "DiscoverAODOptionsInCommandLine",
+                                 "Found %{public}s with value %{public}s.", key.c_str(), value.c_str());
+          if (key == "aod-writer-compression") {
+            int numericValue = std::stoi(value);
+            results.push_back(ConfigParamSpec{"aod-writer-compression", VariantType::Int, numericValue, {"AOD Compression options"}});
+            injectOption = false;
+          }
+          if (key == "aod-parent-base-path-replacement") {
+            results.push_back(ConfigParamSpec{"aod-parent-base-path-replacement", VariantType::String, value, {R"(Replace base path of parent files. Syntax: FROM;TO. E.g. "alien:///path/in/alien;/local/path". Enclose in "" on the command line.)"}});
+          }
+          if (key == "aod-parent-access-level") {
+            results.push_back(ConfigParamSpec{"aod-parent-access-level", VariantType::String, value, {"Allow parent file access up to specified level. Default: no (0)"}});
+          }
+        }
+        if (injectOption) {
+          results.push_back(ConfigParamSpec{"aod-writer-compression", VariantType::Int, 505, {"AOD Compression options"}});
+        }
+        return results;
+      }};
+  }
+};
+
 DEFINE_DPL_PLUGINS_BEGIN
 DEFINE_DPL_PLUGIN_INSTANCE(DiscoverMetadataInAODCapability, Capability);
 DEFINE_DPL_PLUGIN_INSTANCE(DiscoverMetadataInCommandLineCapability, Capability);
+DEFINE_DPL_PLUGIN_INSTANCE(DiscoverAODOptionsInCommandLineCapability, Capability);
 DEFINE_DPL_PLUGIN_INSTANCE(DiscoverMetadataInCommandLine, ConfigDiscovery);
+DEFINE_DPL_PLUGIN_INSTANCE(DiscoverAODOptionsInCommandLine, ConfigDiscovery);
 DEFINE_DPL_PLUGINS_END
 } // namespace o2::framework

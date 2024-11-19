@@ -21,6 +21,7 @@
 #include "Framework/DeviceController.h"
 #include "Framework/DataProcessingStates.h"
 #include "Framework/Signpost.h"
+#include "InspectorHelpers.h"
 #include <DebugGUI/icons_font_awesome.h>
 
 #include "DebugGUI/imgui.h"
@@ -78,7 +79,7 @@ void deviceStateTable(DataProcessingStates const& states)
   }
 }
 
-void deviceInfoTable(char const* label, ProcessingStateId id, DataProcessingStates const& states, DeviceMetricsInfo const& metrics)
+void deviceInfoTable(char const* label, ProcessingStateId id, DataProcessingStates const& states, std::variant<std::vector<InputRoute>, std::vector<OutputRoute>> routes, DeviceMetricsInfo const& metrics)
 {
   // Find the state spec associated to data_queries
   auto& view = states.statesViews[(int)id];
@@ -94,13 +95,21 @@ void deviceInfoTable(char const* label, ProcessingStateId id, DataProcessingStat
       if ((end - input) == 0) {
         continue;
       }
-      ImGui::Text("%zu: %.*s", i, int(end - input), input);
+      auto getLifetime = [&routes, &i]() -> Lifetime {
+        if (std::get_if<std::vector<InputRoute>>(&routes)) {
+          return std::get<std::vector<InputRoute>>(routes)[i].matcher.lifetime;
+        } else {
+          return std::get<std::vector<OutputRoute>>(routes)[i].matcher.lifetime;
+        }
+      };
+      ImGui::Text("%zu: %.*s (%s)", i, int(end - input), input, InspectorHelpers::getLifeTimeStr(getLifetime()).c_str());
       if (ImGui::IsItemHovered()) {
         ImGui::BeginTooltip();
-        ImGui::Text("%zu: %.*s", i, int(end - input), input);
+        ImGui::Text("%zu: %.*s (%s)", i, int(end - input), input, InspectorHelpers::getLifeTimeStr(getLifetime()).c_str());
         ImGui::EndTooltip();
       }
       input = end + 1;
+      ++i;
     }
   }
 }
@@ -337,8 +346,8 @@ void displayDeviceInspector(DeviceSpec const& spec,
   }
 
   deviceStateTable(states);
-  deviceInfoTable("Inputs:", ProcessingStateId::DATA_QUERIES, states, metrics);
-  deviceInfoTable("Outputs:", ProcessingStateId::OUTPUT_MATCHERS, states, metrics);
+  deviceInfoTable("Inputs:", ProcessingStateId::DATA_QUERIES, states, std::variant<std::vector<InputRoute>, std::vector<OutputRoute>>(spec.inputs), metrics);
+  deviceInfoTable("Outputs:", ProcessingStateId::OUTPUT_MATCHERS, states, std::variant<std::vector<InputRoute>, std::vector<OutputRoute>>(spec.outputs), metrics);
   configurationTable(info.currentConfig, info.currentProvenance);
   optionsTable("Workflow Options", metadata.workflowOptions, control);
   if (ImGui::CollapsingHeader("Labels", ImGuiTreeNodeFlags_DefaultOpen)) {

@@ -300,18 +300,18 @@ void STFDecoder<Mapping>::updateTimeDependentParams(ProcessingContext& pc)
   o2::base::GRPGeomHelper::instance().checkUpdates(pc);
   if (pc.services().get<o2::framework::TimingInfo>().globalRunNumberChanged) { // this params need to be queried only in the beginning of the run
     pc.inputs().get<o2::itsmft::NoiseMap*>("noise");
+    pc.inputs().get<o2::itsmft::DPLAlpideParam<Mapping::getDetID()>*>("alppar");
+    const auto& alpParams = DPLAlpideParam<Mapping::getDetID()>::Instance();
+    alpParams.printKeyValues();
     if (mDoClusters) {
       mClusterer->setContinuousReadOut(o2::base::GRPGeomHelper::instance().getGRPECS()->isDetContinuousReadOut(Mapping::getDetID()));
       pc.inputs().get<o2::itsmft::TopologyDictionary*>("cldict");
-      pc.inputs().get<o2::itsmft::DPLAlpideParam<Mapping::getDetID()>*>("alppar");
       pc.inputs().get<o2::itsmft::ClustererParam<Mapping::getDetID()>*>("cluspar");
       // settings for the fired pixel overflow masking
-      const auto& alpParams = DPLAlpideParam<Mapping::getDetID()>::Instance();
       const auto& clParams = ClustererParam<Mapping::getDetID()>::Instance();
       if (clParams.maxBCDiffToMaskBias > 0 && clParams.maxBCDiffToSquashBias > 0) {
         LOGP(fatal, "maxBCDiffToMaskBias = {} and maxBCDiffToMaskBias = {} cannot be set at the same time. Either set masking or squashing with a BCDiff > 0", clParams.maxBCDiffToMaskBias, clParams.maxBCDiffToSquashBias);
       }
-      alpParams.printKeyValues();
       clParams.printKeyValues();
       auto nbc = clParams.maxBCDiffToMaskBias;
       nbc += mClusterer->isContinuousReadOut() ? alpParams.roFrameLengthInBC : (alpParams.roFrameLengthTrig / o2::constants::lhc::LHCBunchSpacingNS);
@@ -406,9 +406,9 @@ DataProcessorSpec getSTFDecoderSpec(const STFDecoderInp& inp)
   }
   inputs.emplace_back("noise", inp.origin, "NOISEMAP", 0, Lifetime::Condition,
                       o2::framework::ccdbParamSpec(fmt::format("{}/Calib/NoiseMap", inp.origin.as<std::string>())));
+  inputs.emplace_back("alppar", inp.origin, "ALPIDEPARAM", 0, Lifetime::Condition, ccdbParamSpec(fmt::format("{}/Config/AlpideParam", inp.origin.as<std::string>())));
   if (inp.doClusters) {
     inputs.emplace_back("cldict", inp.origin, "CLUSDICT", 0, Lifetime::Condition, ccdbParamSpec(fmt::format("{}/Calib/ClusterDictionary", inp.origin.as<std::string>())));
-    inputs.emplace_back("alppar", inp.origin, "ALPIDEPARAM", 0, Lifetime::Condition, ccdbParamSpec(fmt::format("{}/Config/AlpideParam", inp.origin.as<std::string>())));
     inputs.emplace_back("cluspar", inp.origin, "CLUSPARAM", 0, Lifetime::Condition, ccdbParamSpec(fmt::format("{}/Config/ClustererParam", inp.origin.as<std::string>())));
   }
 

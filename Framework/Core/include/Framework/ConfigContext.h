@@ -8,11 +8,11 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
-#ifndef FRAMEWORK_CONFIG_CONTEXT_H
-#define FRAMEWORK_CONFIG_CONTEXT_H
+#ifndef O2_FRAMEWORK_CONFIG_CONTEXT_H_
+#define O2_FRAMEWORK_CONFIG_CONTEXT_H_
 
 #include "Framework/ConfigParamRegistry.h"
-#include "Framework/ServiceRegistry.h"
+#include "Framework/ServiceRegistryRef.h"
 
 namespace o2::framework
 {
@@ -23,9 +23,10 @@ namespace o2::framework
 class ConfigContext
 {
  public:
-  ConfigContext(ConfigParamRegistry& options, int argc, char** argv) : mOptions{options}, mArgc{argc}, mArgv{argv} {}
+  ConfigContext(ConfigParamRegistry& options, ServiceRegistryRef services, int argc, char** argv);
 
   [[nodiscard]] ConfigParamRegistry& options() const { return mOptions; }
+  [[nodiscard]] ServiceRegistryRef services() const { return mServices; }
 
   [[nodiscard]] bool helpOnCommandLine() const;
 
@@ -34,11 +35,13 @@ class ConfigContext
 
  private:
   ConfigParamRegistry& mOptions;
+
+  ServiceRegistryRef mServices;
   // additionaly keep information about the original command line
   int mArgc = 0;
   char** mArgv = nullptr;
 };
 
-} // namespace o2
+} // namespace o2::framework
 
-#endif
+#endif // O2_FRAMEWORK_CONFIG_CONTEXT_H_

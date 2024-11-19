@@ -25,10 +25,6 @@ namespace gpu
 } // namespace GPUCA_NAMESPACE
 using namespace GPUCA_NAMESPACE::gpu;
 
-#if !defined(GPUCA_OPENCL1) && (!defined(GPUCA_ALIROOT_LIB) || !defined(GPUCA_GPUCODE))
-#define GPUCA_KRNL_NOOCL1
-#endif
-
 // clang-format off
 $<JOIN:$<LIST:TRANSFORM,$<LIST:TRANSFORM,$<LIST:REMOVE_DUPLICATES,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_FILES>>,APPEND,">,PREPEND,#include ">,
 >

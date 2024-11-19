@@ -36,16 +36,16 @@ void CalibdEdxCorrection::clear()
   mDims = -1;
 }
 
-void CalibdEdxCorrection::writeToFile(std::string_view fileName) const
+void CalibdEdxCorrection::writeToFile(std::string_view fileName, std::string_view objName) const
 {
   std::unique_ptr<TFile> file(TFile::Open(fileName.data(), "recreate"));
-  file->WriteObject(this, "CalibdEdxCorrection");
+  file->WriteObject(this, objName.data());
 }
 
-void CalibdEdxCorrection::loadFromFile(std::string_view fileName)
+void CalibdEdxCorrection::loadFromFile(std::string_view fileName, std::string_view objName)
 {
   std::unique_ptr<TFile> file(TFile::Open(fileName.data()));
-  auto tmp = file->Get<CalibdEdxCorrection>("CalibdEdxCorrection");
+  auto tmp = file->Get<CalibdEdxCorrection>(objName.data());
   if (tmp != nullptr) {
     *this = *tmp;
   }

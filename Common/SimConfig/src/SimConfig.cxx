@@ -76,7 +76,7 @@ void SimConfig::initOptions(boost::program_options::options_description& options
     "noGeant", bpo::bool_switch(), "prohibits any Geant transport/physics (by using tight cuts)")(
     "forwardKine", bpo::bool_switch(), "forward kinematics on a FairMQ channel")(
     "noDiscOutput", bpo::bool_switch(), "switch off writing sim results to disc (useful in combination with forwardKine)");
-  options.add_options()("fromCollContext", bpo::value<std::string>()->default_value(""), "Use a pregenerated collision context to infer number of events to simulate, how to embedd them, the vertex position etc. Takes precedence of other options such as \"--nEvents\".");
+  options.add_options()("fromCollContext", bpo::value<std::string>()->default_value(""), "Use a pregenerated collision context to infer number of events to simulate, how to embedd them, the vertex position etc. Takes precedence of other options such as \"--nEvents\". The format is COLLISIONCONTEXTFILE.root[:SIGNALNAME] where SIGNALNAME is the event part in the context which is relevant.");
 }
 
 void SimConfig::determineActiveModules(std::vector<std::string> const& inputargs, std::vector<std::string> const& skippedModules, std::vector<std::string>& activeModules, bool isUpgrade)
@@ -270,6 +270,21 @@ void SimConfig::determineReadoutDetectors(std::vector<std::string> const& active
   }
 }
 
+std::pair<std::string, std::string> SimConfig::getCollContextFilenameAndEventPrefix() const
+{
+  // we decompose the argument to fetch
+  // (a) collision contextfilename
+  // (b) sim prefix to use from the context
+  auto pos = mConfigData.mFromCollisionContext.find(':');
+  std::string collcontextfile{mConfigData.mFromCollisionContext};
+  std::string simprefix{mConfigData.mOutputPrefix};
+  if (pos != std::string::npos) {
+    collcontextfile = mConfigData.mFromCollisionContext.substr(0, pos);
+    simprefix = mConfigData.mFromCollisionContext.substr(pos + 1);
+  }
+  return std::make_pair(collcontextfile, simprefix);
+}
+
 bool SimConfig::resetFromParsedMap(boost::program_options::variables_map const& vm)
 {
   using o2::detectors::DetID;
@@ -333,17 +348,8 @@ bool SimConfig::resetFromParsedMap(boost::program_options::variables_map const& 
     mConfigData.mFilterNoHitEvents = true;
   }
   mConfigData.mFromCollisionContext = vm["fromCollContext"].as<std::string>();
-  // we decompose the argument to fetch
-  // (a) collision contextfilename
-  // (b) sim prefix to use from the context
-  auto pos = mConfigData.mFromCollisionContext.find(':');
-  std::string collcontextfile{mConfigData.mFromCollisionContext};
-  std::string simprefix{mConfigData.mOutputPrefix};
-  if (pos != std::string::npos) {
-    collcontextfile = mConfigData.mFromCollisionContext.substr(0, pos);
-    simprefix = mConfigData.mFromCollisionContext.substr(pos + 1);
-  }
-  adjustFromCollContext(collcontextfile, simprefix);
+  auto collcontext_simprefix = getCollContextFilenameAndEventPrefix();
+  adjustFromCollContext(collcontext_simprefix.first, collcontext_simprefix.second);
 
   // analyse vertex options
   if (!parseVertexModeString(vm["vertexMode"].as<std::string>(), mConfigData.mVertexMode)) {

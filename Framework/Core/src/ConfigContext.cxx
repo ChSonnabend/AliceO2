@@ -14,6 +14,9 @@
 namespace o2::framework
 {
 
+ConfigContext::ConfigContext(ConfigParamRegistry& options, ServiceRegistryRef services, int argc, char** argv)
+  : mOptions{options}, mServices{services}, mArgc{argc}, mArgv{argv} {}
+
 bool ConfigContext::helpOnCommandLine() const
 {
   bool helpasked = false;

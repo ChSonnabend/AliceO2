@@ -163,9 +163,9 @@ DataProcessorSpec getMIPTrackFilterSpec()
     outputs,
     adaptFromTask<MIPTrackFilterDevice>(),
     Options{
-      {"min-momentum", VariantType::Double, 0.3, {"minimum momentum cut"}},
-      {"max-momentum", VariantType::Double, 0.7, {"maximum momentum cut"}},
-      {"min-dedx", VariantType::Double, 20., {"minimum dEdx cut"}},
+      {"min-momentum", VariantType::Double, 0.35, {"minimum momentum cut"}},
+      {"max-momentum", VariantType::Double, 0.55, {"maximum momentum cut"}},
+      {"min-dedx", VariantType::Double, 10., {"minimum dEdx cut"}},
       {"max-dedx", VariantType::Double, 200., {"maximum dEdx cut"}},
       {"min-clusters", VariantType::Int, 60, {"minimum number of clusters in a track"}},
       {"processEveryNthTF", VariantType::Int, 1, {"Using only a fraction of the data: 1: Use every TF, 10: Process only every tenth TF."}},

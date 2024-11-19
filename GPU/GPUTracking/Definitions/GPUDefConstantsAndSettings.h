@@ -51,7 +51,7 @@
 #if defined(GPUCA_NSLICES) || defined(GPUCA_ROW_COUNT)
   #error GPUCA_NSLICES or GPUCA_ROW_COUNT already defined, do not include GPUTPCGeometry.h before!
 #endif
-#if defined(GPUCA_HAVE_O2HEADERS) && defined(GPUCA_TPC_GEOMETRY_O2) && (!defined(__OPENCL__) || defined(__OPENCLCPP__)) && !(defined(ROOT_VERSION_CODE) && ROOT_VERSION_CODE < 393216)
+#if defined(GPUCA_HAVE_O2HEADERS) && defined(GPUCA_TPC_GEOMETRY_O2) && !defined(__OPENCL1__) && !(defined(ROOT_VERSION_CODE) && ROOT_VERSION_CODE < 393216)
   //Use definitions from the O2 headers if available for nicer code and type safety
   #include "DataFormatsTPC/Constants.h"
   #define GPUCA_NSLICES o2::tpc::constants::MAXSECTOR

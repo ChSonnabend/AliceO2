@@ -40,6 +40,16 @@ std::ostream& operator<<(std::ostream& stream, const Tracklet64& trg)
   trg.printStream(stream);
   return stream;
 }
+
+bool operator<(const Tracklet64& lhs, const Tracklet64& rhs)
+{
+  return (lhs.getDetector() < rhs.getDetector()) ||
+         (lhs.getDetector() == rhs.getDetector() && lhs.getROB() < rhs.getROB()) ||
+         (lhs.getDetector() == rhs.getDetector() && lhs.getROB() == rhs.getROB() && lhs.getMCM() < rhs.getMCM()) ||
+         (lhs.getDetector() == rhs.getDetector() && lhs.getROB() == rhs.getROB() && lhs.getMCM() == rhs.getMCM() && lhs.getPadRow() < rhs.getPadRow()) ||
+         (lhs.getDetector() == rhs.getDetector() && lhs.getROB() == rhs.getROB() && lhs.getMCM() == rhs.getMCM() && lhs.getPadRow() == rhs.getPadRow() && lhs.getPadCol() < rhs.getPadCol());
+}
+
 #endif // GPUCA_GPUCODE_DEVICE
 
 } // namespace trd

@@ -103,6 +103,7 @@ class Pdg(Enum):
     kDPlus = 411
     kDS = 431
     kDSBar = -431
+    kDSStar = 433
     kDS1 = 10433
     kDS2Star = 435
     kDStar = 413
@@ -130,6 +131,7 @@ class Pdg(Enum):
     kHyperHydrogen4 = 1010010040
     kHyperHelium4 = 1010020040
     kHyperHelium5 = 1010020050
+    kHyperHelium4Sigma = 1110020040
 
 
 dbPdg = ROOT.o2.O2DatabasePDG

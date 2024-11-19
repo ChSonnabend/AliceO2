@@ -27,7 +27,8 @@ framework::DataProcessorSpec getDigitReaderSpec(
   bool useMC,
   std::string_view specName = "mch-digit-reader",
   std::string_view outputDigitDataDescription = "DIGITS",
-  std::string_view outputDigitRofDataDescription = "DIGITROFS");
+  std::string_view outputDigitRofDataDescription = "DIGITROFS",
+  std::string_view outputDigitLabelDataDescription = "DIGITLABELS");
 }
 } // namespace o2
 

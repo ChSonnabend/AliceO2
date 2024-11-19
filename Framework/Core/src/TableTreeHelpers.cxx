@@ -13,9 +13,13 @@
 #include "Framework/Endian.h"
 
 #include "arrow/type_traits.h"
+#include <arrow/dataset/file_base.h>
+#include <arrow/record_batch.h>
+#include <arrow/type.h>
 #include <arrow/util/key_value_metadata.h>
 #include <TBufferFile.h>
 
+#include <memory>
 #include <utility>
 namespace TableTreeHelpers
 {
@@ -125,54 +129,6 @@ BranchToColumn::BranchToColumn(TBranch* branch, bool VLA, std::string name, EDat
       }
       mValueBuilder = mBuilder.get();
     }
-  }
-}
-
-template <typename T>
-inline T doSwap(T)
-{
-  static_assert(always_static_assert_v<T>, "Unsupported type");
-}
-
-template <>
-inline uint16_t doSwap(uint16_t x)
-{
-  return swap16_(x);
-}
-
-template <>
-inline uint32_t doSwap(uint32_t x)
-{
-  return swap32_(x);
-}
-
-template <>
-inline uint64_t doSwap(uint64_t x)
-{
-  return swap64_(x);
-}
-
-template <typename T>
-void doSwapCopy_(void* dest, void* source, int size) noexcept
-{
-  auto tdest = static_cast<T*>(dest);
-  auto tsrc = static_cast<T*>(source);
-  for (auto i = 0; i < size; ++i) {
-    tdest[i] = doSwap<T>(tsrc[i]);
-  }
-}
-
-void swapCopy(unsigned char* dest, char* source, int size, int typeSize) noexcept
-{
-  switch (typeSize) {
-    case 1:
-      return (void)std::memcpy(dest, source, size);
-    case 2:
-      return doSwapCopy_<uint16_t>(dest, source, size);
-    case 4:
-      return doSwapCopy_<uint32_t>(dest, source, size);
-    case 8:
-      return doSwapCopy_<uint64_t>(dest, source, size);
   }
 }
 
@@ -455,7 +411,7 @@ std::shared_ptr<TTree> TableToTree::process()
 
   for (auto& reader : mColumnReaders) {
     int idealBasketSize = 1024 + reader->fieldSize() * reader->columnEntries(); // minimal additional size needed, otherwise we get 2 baskets
-    int basketSize = std::max(32000, idealBasketSize);        // keep a minimum value
+    int basketSize = std::max(32000, idealBasketSize);                          // keep a minimum value
     // std::cout << "Setting baskets size for " << reader->branchName() << " to " << basketSize << " =  1024 + "
     //           << reader->fieldSize() << " * " << reader->columnEntries() << ". mRows was " << mRows << std::endl;
     mTree->SetBasketSize(reader->branchName(), basketSize);
@@ -547,14 +503,22 @@ void TreeToTable::addAllColumns(TTree* tree, std::vector<std::string>&& names)
   if (mBranchReaders.empty()) {
     throw runtime_error("No columns will be read");
   }
-  //tree->SetCacheSize(50000000);
-  // FIXME: see https://github.com/root-project/root/issues/8962 and enable
-  // again once fixed.
-  //tree->SetClusterPrefetch(true);
-  //for (auto& reader : mBranchReaders) {
-  //  tree->AddBranchToCache(reader->branch());
-  //}
-  //tree->StopCacheLearningPhase();
+  // Was affected by https://github.com/root-project/root/issues/8962
+  // Re-enabling this seems to cut the number of IOPS in half
+  tree->SetCacheSize(25000000);
+  // tree->SetClusterPrefetch(true);
+  for (auto& reader : mBranchReaders) {
+    tree->AddBranchToCache(reader->branch());
+    if (strncmp(reader->branch()->GetName(), "fIndexArray", strlen("fIndexArray")) == 0) {
+      std::string sizeBranchName = reader->branch()->GetName();
+      sizeBranchName += "_size";
+      TBranch* sizeBranch = (TBranch*)tree->GetBranch(sizeBranchName.c_str());
+      if (sizeBranch) {
+        tree->AddBranchToCache(sizeBranch);
+      }
+    }
+  }
+  tree->StopCacheLearningPhase();
 }
 
 void TreeToTable::setLabel(const char* label)
@@ -593,6 +557,30 @@ void TreeToTable::addReader(TBranch* branch, std::string const& name, bool VLA)
 std::shared_ptr<arrow::Table> TreeToTable::finalize()
 {
   return mTable;
+}
+
+FragmentToBatch::FragmentToBatch(arrow::MemoryPool* pool)
+  : mArrowMemoryPool{pool}
+{
+}
+
+void FragmentToBatch::setLabel(const char* label)
+{
+  mTableLabel = label;
+}
+
+void FragmentToBatch::fill(std::shared_ptr<arrow::dataset::FileFragment> fragment, std::shared_ptr<arrow::Schema> schema, std::shared_ptr<arrow::dataset::FileFormat> format)
+{
+  auto options = std::make_shared<arrow::dataset::ScanOptions>();
+  options->dataset_schema = schema;
+  auto scanner = format->ScanBatchesAsync(options, fragment);
+  auto batch = (*scanner)();
+  mRecordBatch = *batch.result();
+}
+
+std::shared_ptr<arrow::RecordBatch> FragmentToBatch::finalize()
+{
+  return mRecordBatch;
 }
 
 } // namespace o2::framework

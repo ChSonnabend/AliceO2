@@ -14,6 +14,7 @@
 
 #include <EveWorkflow/EveWorkflowHelper.h>
 #include "EventVisualisationBase/ConfigurationManager.h"
+#include "EventVisualisationBase/EveConfParam.h"
 #include "EventVisualisationDataConverter/VisualisationEventSerializer.h"
 #include "ReconstructionDataFormats/GlobalTrackID.h"
 #include "ReconstructionDataFormats/VtxTrackRef.h"
@@ -22,6 +23,7 @@
 #include "ITStracking/IOUtils.h"
 #include "MFTTracking/IOUtils.h"
 #include "DataFormatsGlobalTracking/RecoContainerCreateTracksVariadic.h"
+#include "ReconstructionDataFormats/PrimaryVertex.h"
 #include "DetectorsBase/GRPGeomHelper.h"
 #include "DetectorsBase/Propagator.h"
 #include "TPCBase/ParameterElectronics.h"
@@ -152,6 +154,8 @@ bool EveWorkflowHelper::isInsideTimeBracket(float t)
 void EveWorkflowHelper::selectTracks(const CalibObjectsConst* calib,
                                      GID::mask_t maskCl, GID::mask_t maskTrk, GID::mask_t maskMatch)
 {
+  const auto& conf = EveConfParam::Instance();
+
   auto correctTrackTime = [this](auto& _tr, float t0, float terr) {
     if constexpr (isTPCTrack<decltype(_tr)>()) {
       // unconstrained TPC track, with t0 = TrackTPC.getTime0+0.5*(DeltaFwd-DeltaBwd) and terr = 0.5*(DeltaFwd+DeltaBwd) in TimeBins
@@ -193,8 +197,7 @@ void EveWorkflowHelper::selectTracks(const CalibObjectsConst* calib,
       }
     }
   };
-
-  auto creator = [maskTrk, this, &correctTrackTime, &flagTime, &fixMFTMCHMIDLabel](auto& trk, GID gid, float time, float terr) {
+  auto creator = [&conf, maskTrk, this, &correctTrackTime, &flagTime, &fixMFTMCHMIDLabel](auto& trk, GID gid, float time, float terr) {
     fixMFTMCHMIDLabel(gid);
 
     const auto src = gid.getSource();
@@ -206,11 +209,11 @@ void EveWorkflowHelper::selectTracks(const CalibObjectsConst* calib,
 
     auto bracket = correctTrackTime(trk, time, terr);
 
-    if (mEnabledFilters.test(Filter::TimeBracket) && !isInsideTimeBracket(bracket)) {
+    if (mUseTimeBracket && !isInsideTimeBracket(bracket)) {
       return true;
     }
 
-    if (mEnabledFilters.test(Filter::ITSROF) && !isInsideITSROF(bracket)) {
+    if (conf.filterITSROF && !isInsideITSROF(bracket)) {
       return true;
     }
 
@@ -218,36 +221,58 @@ void EveWorkflowHelper::selectTracks(const CalibObjectsConst* calib,
 
     // If the mode is disabled,
     // add every track to a symbolic "zero" primary vertex
-    if (!mPrimaryVertexMode) {
+    if (!conf.PVMode) {
       mPrimaryVertexTrackGIDs[0].push_back(gid);
     }
 
     return true;
   };
 
+  auto prop = o2::base::Propagator::Instance();
   this->mRecoCont->createTracksVariadic(creator);
-
-  if (mPrimaryVertexMode) {
+  if (conf.PVMode) {
+    bool checkTPCDCA = conf.TPCOnlyMaxDCARZ[0] > 0.f || conf.TPCOnlyMaxDCARZ[1] > 0.f;
     const auto trackIndex = mRecoCont->getPrimaryVertexMatchedTracks(); // Global ID's for associated tracks
     const auto vtxRefs = mRecoCont->getPrimaryVertexMatchedTrackRefs(); // references from vertex to these track IDs
     const auto totalPrimaryVertices = vtxRefs.size() - 1;               // The last entry is for unassigned tracks, ignore them
 
     for (std::size_t iv = 0; iv < totalPrimaryVertices; iv++) {
+      const auto& pv = mRecoCont->getPrimaryVertex(iv);
+      if (pv.getX() < conf.PVXYZMin[0] || pv.getX() > conf.PVXYZMax[0] ||
+          pv.getY() < conf.PVXYZMin[1] || pv.getY() > conf.PVXYZMax[1] ||
+          pv.getZ() < conf.PVXYZMin[2] || pv.getZ() > conf.PVXYZMax[2]) {
+        continue; // skip vertex
+      }
+
+      o2::math_utils::Point3D<float> pvXYZ(pv.getX(), pv.getY(), pv.getZ());
       const auto& vtref = vtxRefs[iv];
       const gsl::span tracksForVertex(trackIndex.data() + vtref.getFirstEntry(), vtref.getEntries());
       for (const auto& tvid : tracksForVertex) {
-
         if (!mRecoCont->isTrackSourceLoaded(tvid.getSource())) {
           continue;
         }
-
-        // TODO: fix TPC tracks?
-
-        GID gid = tvid;
+        GID gid(tvid);
         fixMFTMCHMIDLabel(gid);
-
         // If a track was not rejected, associate it with its primary vertex
         if (mGIDTrackTime.find(gid) != mGIDTrackTime.end()) {
+          // add optional cut on TPC-only tracks DCAz (corrected for the vertex time)
+          if (gid.getSource() == o2::dataformats::GlobalTrackID::TPC && checkTPCDCA) {
+            const auto& tpcTr = mRecoCont->getTPCTrack(gid);
+            o2::track::TrackPar trc{tpcTr};
+            if (!tpcTr.hasBothSidesClusters()) { // need to correct track Z with this vertex time
+              float dz = (tpcTr.getTime0() * mTPCTimeBins2MUS - (pv.getTimeStamp().getTimeStamp() + mTPCVDrift->getTimeOffset())) * mTPCVDrift->getVDrift();
+              if (tpcTr.hasCSideClustersOnly()) {
+                dz = -dz;
+              }
+              trc.setZ(trc.getZ() + dz);
+            }
+            std::array<float, 2> dca;
+            if (!prop->propagateToDCA(pvXYZ, trc, prop->getNominalBz(), 10., o2::base::PropagatorF::MatCorrType::USEMatCorrNONE, &dca) ||
+                (conf.TPCOnlyMaxDCARZ[1] > 0. && std::abs(dca[1]) > conf.TPCOnlyMaxDCARZ[1]) ||
+                (conf.TPCOnlyMaxDCARZ[0] > 0. && std::abs(dca[0]) > conf.TPCOnlyMaxDCARZ[0])) {
+              continue;
+            }
+          }
           mPrimaryVertexTrackGIDs[iv].push_back(gid);
         }
       }
@@ -260,22 +285,22 @@ void EveWorkflowHelper::selectTowers()
   const auto& allTriggersPHOS = mRecoCont->getPHOSTriggers();
   const auto& allTriggersEMCAL = mRecoCont->getEMCALTriggers();
   const auto& allTriggersHMP = mRecoCont->getHMPClusterTriggers();
-
+  const auto& conf = EveConfParam::Instance();
   auto filterTrigger = [&](const auto& trig) {
     const auto time = bcDiffToTFTimeMUS(trig.getBCData());
 
-    if (mEnabledFilters.test(Filter::TimeBracket) && !isInsideTimeBracket(time)) {
+    if (mUseTimeBracket && !isInsideTimeBracket(time)) {
       return false;
     }
 
-    if (mEnabledFilters.test(Filter::ITSROF) && !isInsideITSROF(time)) {
+    if (EveConfParam::Instance().filterITSROF && !isInsideITSROF(time)) {
       return false;
     }
 
     return true;
   };
 
-  if (mPrimaryVertexMode) {
+  if (conf.PVMode) {
     const auto trackIndex = mRecoCont->getPrimaryVertexMatchedTracks(); // Global ID's for associated tracks
     const auto vtxRefs = mRecoCont->getPrimaryVertexMatchedTrackRefs(); // references from vertex to these track IDs
     const auto totalPrimaryVertices = vtxRefs.size() - 1;               // The last entry is for unassigned tracks, ignore them
@@ -345,7 +370,7 @@ void EveWorkflowHelper::selectTowers()
 
 void EveWorkflowHelper::setITSROFs()
 {
-  if (mEnabledFilters.test(Filter::ITSROF)) {
+  if (EveConfParam::Instance().filterITSROF) {
     const auto& irFrames = mRecoCont->getIRFramesITS();
 
     for (const auto& irFrame : irFrames) {
@@ -356,6 +381,7 @@ void EveWorkflowHelper::setITSROFs()
 
 void EveWorkflowHelper::draw(std::size_t primaryVertexIdx, bool sortTracks)
 {
+  const auto& conf = EveConfParam::Instance();
   if (mPrimaryVertexTrackGIDs.find(primaryVertexIdx) == mPrimaryVertexTrackGIDs.end()) {
     LOGF(info, "Primary vertex %d has no tracks", primaryVertexIdx);
   } else {
@@ -364,6 +390,7 @@ void EveWorkflowHelper::draw(std::size_t primaryVertexIdx, bool sortTracks)
     };
 
     auto& tracks = mPrimaryVertexTrackGIDs.at(primaryVertexIdx);
+    float pvTime = conf.PVMode ? mRecoCont->getPrimaryVertex(primaryVertexIdx).getTimeStamp().getTimeStamp() : -1e9;
 
     if (sortTracks) {
       std::sort(tracks.begin(), tracks.end(),
@@ -374,8 +401,8 @@ void EveWorkflowHelper::draw(std::size_t primaryVertexIdx, bool sortTracks)
 
     auto trackCount = tracks.size();
 
-    if (mEnabledFilters.test(Filter::TotalNTracks) && trackCount >= mMaxNTracks) {
-      trackCount = mMaxNTracks;
+    if (conf.maxTracks > 0 && trackCount >= conf.maxTracks) {
+      trackCount = conf.maxTracks;
     }
 
     for (std::size_t it = 0; it < trackCount; it++) {
@@ -387,9 +414,20 @@ void EveWorkflowHelper::draw(std::size_t primaryVertexIdx, bool sortTracks)
         case GID::ITS:
           drawITS(gid, tim);
           break;
-        case GID::TPC:
-          drawTPC(gid, tim);
-          break;
+        case GID::TPC: {
+          float dz = 0.f;
+          if (conf.PVMode) { // for TPC the nominal time (center of the bracket) is stored but in the PVMode we correct it by the PV time
+            tim = pvTime;
+            const auto& tpcTr = mRecoCont->getTPCTrack(gid);
+            if (!tpcTr.hasBothSidesClusters()) { // need to correct track Z with this vertex time
+              float dz = (tpcTr.getTime0() * mTPCTimeBins2MUS - (pvTime + mTPCVDrift->getTimeOffset())) * mTPCVDrift->getVDrift();
+              if (tpcTr.hasCSideClustersOnly()) {
+                dz = -dz;
+              }
+            }
+          }
+          drawTPC(gid, tim, dz);
+        } break;
         case GID::MFT:
           drawMFT(gid, tim);
           break;
@@ -628,6 +666,7 @@ void EveWorkflowHelper::drawEMC(GID gid)
   const auto& trig = mRecoCont->getEMCALTriggers()[gid.getIndex()];
   const auto time = bcDiffToTFTimeMUS(trig.getBCData());
   const gsl::span cellsForTrigger(cells.data() + trig.getFirstEntry(), trig.getNumberOfObjects());
+  const auto& conf = EveConfParam::Instance();
 
   for (const auto& cell : cellsForTrigger) {
     if (!(cell.getType() == o2::emcal::ChannelType_t::HIGH_GAIN || cell.getType() == o2::emcal::ChannelType_t::LOW_GAIN)) {
@@ -646,11 +685,11 @@ void EveWorkflowHelper::drawEMC(GID gid)
       cellTime = calibCell->getTimeStamp();
       cellEnergy = calibCell->getEnergy();
     }
-    if (std::abs(cellTime) > mEMCALMaxCellTime) {
+    if (std::abs(cellTime) > conf.EMCCellTimeMax) {
       // cell rejected by time cut (pileup or noise)
       continue;
     }
-    if (cellEnergy < mEMCALMinCellEnergy) {
+    if (cellEnergy < conf.EMCCellEnergyMin) {
       // cell rejected by energy cut (rejection of soft cells)
       continue;
     }
@@ -681,7 +720,7 @@ void EveWorkflowHelper::drawITSTPC(GID gid, float trackTime, GID::Source source)
   const auto& track = mRecoCont->getTPCITSTrack(gid);
   addTrackToEvent(track, gid, trackTime, 0., source);
   drawITSClusters(track.getRefITS()); // trackTime
-  drawTPCClusters(track.getRefTPC()); // trackTime * mMUS2TPCTimeBins
+  drawTPCClusters(track.getRefTPC(), trackTime * mMUS2TPCTimeBins);
 }
 
 void EveWorkflowHelper::drawITSTPCTOF(GID gid, float trackTime, GID::Source source)
@@ -689,7 +728,7 @@ void EveWorkflowHelper::drawITSTPCTOF(GID gid, float trackTime, GID::Source sour
   const auto& track = mRecoCont->getITSTPCTOFTrack(gid);
   addTrackToEvent(track, gid, trackTime, 0., source);
   drawITSClusters(track.getRefITS()); // trackTime
-  drawTPCClusters(track.getRefTPC()); // trackTime * mMUS2TPCTimeBins
+  drawTPCClusters(track.getRefTPC(), trackTime * mMUS2TPCTimeBins);
   drawTOFClusters(gid);
 }
 
@@ -698,7 +737,7 @@ void EveWorkflowHelper::drawTPCTRD(GID gid, float trackTime, GID::Source source)
   // LOG(info) << "EveWorkflowHelper::drawTPCTRD " << gid;
   const auto& tpcTrdTrack = mRecoCont->getTPCTRDTrack<o2::trd::TrackTRD>(gid);
   addTrackToEvent(tpcTrdTrack, gid, trackTime, 0., source);
-  drawTPCClusters(tpcTrdTrack.getRefGlobalTrackId()); // trackTime * mMUS2TPCTimeBins
+  drawTPCClusters(tpcTrdTrack.getRefGlobalTrackId(), trackTime * mMUS2TPCTimeBins);
   drawTRDClusters(tpcTrdTrack);                       // tracktime
 }
 
@@ -734,7 +773,7 @@ void EveWorkflowHelper::drawTPCTOF(GID gid, float trackTime)
   const auto& trTPCTOF = mRecoCont->getTPCTOFTrack(gid);
   const auto& match = mRecoCont->getTPCTOFMatch(gid.getIndex());
   addTrackToEvent(trTPCTOF, gid, trackTime, 0);
-  drawTPCClusters(match.getTrackRef()); // trackTime * mMUS2TPCTimeBins
+  drawTPCClusters(match.getTrackRef(), trackTime * mMUS2TPCTimeBins);
   drawTOFClusters(gid);                 // trackTime
 }
 
@@ -937,19 +976,21 @@ void EveWorkflowHelper::drawITSClusters(GID gid) // float trackTime
 }
 
 // TPC cluseters for given TPC track (gid)
-void EveWorkflowHelper::drawTPCClusters(GID gid) // , float trackTimeTB
+void EveWorkflowHelper::drawTPCClusters(GID gid, float trackTimeTB)
 {
   const auto& trc = mRecoCont->getTPCTrack(gid);
   auto mTPCTracksClusIdx = mRecoCont->getTPCTracksClusterRefs();
   auto mTPCClusterIdxStruct = &mRecoCont->getTPCClusters();
-
+  if (trackTimeTB < -1e9) {
+    trackTimeTB = trc.getTime0();
+  }
   // store the TPC cluster positions
   for (int iCl = trc.getNClusterReferences(); iCl--;) {
     uint8_t sector, row;
     const auto& clTPC = trc.getCluster(mTPCTracksClusIdx, iCl, *mTPCClusterIdxStruct, sector, row);
 
     std::array<float, 3> xyz;
-    this->mTPCFastTransform->TransformIdeal(sector, row, clTPC.getPad(), clTPC.getTime(), xyz[0], xyz[1], xyz[2], trc.getTime0()); // in sector coordinate
+    this->mTPCFastTransform->TransformIdeal(sector, row, clTPC.getPad(), clTPC.getTime(), xyz[0], xyz[1], xyz[2], trackTimeTB);    // in sector coordinate
     o2::math_utils::rotateZ(xyz, o2::math_utils::sector2Angle(sector % o2::tpc::SECTORSPERSIDE));                                  // lab coordinate (global)
     mEvent.addCluster(xyz.data());                                                                                                 // trackTimeTB / mMUS2TPCTimeBins
   }
@@ -968,23 +1009,23 @@ void EveWorkflowHelper::drawMFTClusters(GID gid) // float trackTime
   }
 }
 
-void EveWorkflowHelper::drawTPC(GID gid, float trackTime)
+void EveWorkflowHelper::drawTPC(GID gid, float trackTime, float dz)
 {
   const auto& tr = mRecoCont->getTPCTrack(gid);
 
-  if (mEnabledFilters.test(Filter::EtaBracket) && mEtaBracket.isOutside(tr.getEta()) == Bracket::Relation::Inside) {
+  if (mUseEtaBracketTPC && mEtaBracketTPC.isOutside(tr.getEta()) == Bracket::Relation::Inside) {
     return;
   }
 
-  addTrackToEvent(tr, gid, trackTime, 4.f, GID::TPC);
-
-  drawTPCClusters(gid); // trackTime
+  addTrackToEvent(tr, gid, trackTime, dz, GID::TPC);
+  float clTime0 = EveConfParam::Instance().PVMode ? trackTime * mMUS2TPCTimeBins : -2e9; // in PVMode use supplied real time converted to TB, otherwise pass dummy time to use tpcTrack.getTime0
+  drawTPCClusters(gid, clTime0);                                                         // trackTime
 }
 
 void EveWorkflowHelper::drawITS(GID gid, float trackTime)
 {
   const auto& tr = mRecoCont->getITSTrack(gid);
-  addTrackToEvent(tr, gid, trackTime, 1.f, GID::ITS);
+  addTrackToEvent(tr, gid, trackTime, 0.f, GID::ITS);
 
   drawITSClusters(gid); // tracktime
 }
@@ -1095,8 +1136,17 @@ void EveWorkflowHelper::drawTRDClusters(const o2::trd::TrackTRD& tpcTrdTrack) //
   }
 }
 
-EveWorkflowHelper::EveWorkflowHelper(const FilterSet& enabledFilters, std::size_t maxNTracks, const Bracket& timeBracket, const Bracket& etaBracket, bool primaryVertexMode) : mEnabledFilters(enabledFilters), mMaxNTracks(maxNTracks), mTimeBracket(timeBracket), mEtaBracket(etaBracket), mPrimaryVertexMode(primaryVertexMode)
+EveWorkflowHelper::EveWorkflowHelper()
 {
+  const auto& conf = EveConfParam::Instance();
+  if (conf.timeMinMax[0] >= 0.f && conf.timeMinMax[0] < conf.timeMinMax[1]) {
+    mUseTimeBracket = true;
+    mTimeBracket = {conf.timeMinMax[0], conf.timeMinMax[1]};
+  }
+  if (conf.TPCEtaAbsMax > 0.f) {
+    mUseEtaBracketTPC = true;
+    mEtaBracketTPC = {-conf.TPCEtaAbsMax, conf.TPCEtaAbsMax};
+  }
   o2::mch::TrackExtrap::setField();
   this->mMFTGeom = o2::mft::GeometryTGeo::Instance();
   this->mMFTGeom->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::L2G));
@@ -1106,6 +1156,7 @@ EveWorkflowHelper::EveWorkflowHelper(const FilterSet& enabledFilters, std::size_
   this->mPHOSGeom = o2::phos::Geometry::GetInstance("");
   this->mTPCFastTransform = (o2::tpc::TPCFastTransformHelperO2::instance()->create(0));
   const auto& elParams = o2::tpc::ParameterElectronics::Instance();
+  mTPCTimeBins2MUS = elParams.ZbinWidth;
   mMUS2TPCTimeBins = 1. / elParams.ZbinWidth;
   mTPCBin2MUS = elParams.ZbinWidth;
   const auto grp = o2::base::GRPGeomHelper::instance().getGRPECS();
@@ -1119,6 +1170,14 @@ EveWorkflowHelper::EveWorkflowHelper(const FilterSet& enabledFilters, std::size_
 
   for (int i = 0; i < GID::Source::NSources; i++) {
     mTotalDataTypes[i] = 0;
+  }
+}
+
+void EveWorkflowHelper::setTPCVDrift(const o2::tpc::VDriftCorrFact* v)
+{
+  mTPCVDrift = v;
+  if (v) {
+    o2::tpc::TPCFastTransformHelperO2::instance()->updateCalibration(*mTPCFastTransform.get(), 0, v->corrFact, v->refVDrift, v->getTimeOffset());
   }
 }
 

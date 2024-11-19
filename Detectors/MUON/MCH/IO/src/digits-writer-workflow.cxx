@@ -47,6 +47,7 @@ void customize(std::vector<ConfigParamSpec>& workflowOptions)
 {
   workflowOptions.emplace_back(ConfigParamSpec{"input-digits-data-description", VariantType::String, "DIGITS", {"description string for the input digits data"}});
   workflowOptions.emplace_back(ConfigParamSpec{"input-digitrofs-data-description", VariantType::String, "DIGITROFS", {"description string for the input digit rofs data"}});
+  workflowOptions.emplace_back(ConfigParamSpec{"input-digitlabels-data-description", VariantType::String, "DIGITLABELS", {"description string for the input digit labels data"}});
   workflowOptions.emplace_back(ConfigParamSpec{"enable-mc", VariantType::Bool, false, {" output MC labels if available "}});
   workflowOptions.emplace_back(ConfigParamSpec{"mch-digit-outfile", VariantType::String, "mchdigits.root", {"name of digit root file"}});
 }
@@ -65,5 +66,6 @@ WorkflowSpec defineDataProcessing(const ConfigContext& cc)
     name,
     cc.options().get<std::string>("mch-digit-outfile"),
     cc.options().get<std::string>("input-digits-data-description"),
-    cc.options().get<std::string>("input-digitrofs-data-description"))};
+    cc.options().get<std::string>("input-digitrofs-data-description"),
+    cc.options().get<std::string>("input-digitlabels-data-description"))};
 }

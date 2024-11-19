@@ -81,7 +81,7 @@ struct AlgorithmSpec {
 
 /// Helper class for an algorithm which is loaded as a plugin.
 struct AlgorithmPlugin {
-  virtual AlgorithmSpec create() = 0;
+  virtual AlgorithmSpec create(ConfigContext const&) = 0;
 };
 // Allow fetching inputs from the context using a string literal.
 template <StringLiteral lit, typename T>

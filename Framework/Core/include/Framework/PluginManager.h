@@ -51,8 +51,9 @@ struct PluginManager {
   /// the DPLPluginHandle provided by the library.
   static void load(std::vector<PluginInfo>& infos, const char* dso, std::function<void(DPLPluginHandle*)>& onSuccess);
   /// Load an called @plugin from a library called @a library and
-  /// return the associtated AlgorithmSpec.
-  static auto loadAlgorithmFromPlugin(std::string library, std::string plugin) -> AlgorithmSpec;
+  /// @return the associated AlgorithmSpec.
+  /// The config @a context can be used to determine the workflow options which affect such plugin.
+  static auto loadAlgorithmFromPlugin(std::string library, std::string plugin, ConfigContext const& context) -> AlgorithmSpec;
   /// Wrap an algorithm with some lambda @wrapper which will be called
   /// with the original callback and the ProcessingContext.
   static auto wrapAlgorithm(AlgorithmSpec const& spec, WrapperProcessCallback&& wrapper) -> AlgorithmSpec;

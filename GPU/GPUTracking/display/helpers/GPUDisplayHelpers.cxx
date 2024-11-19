@@ -23,7 +23,7 @@
 
 using namespace GPUCA_NAMESPACE::gpu;
 
-int GPUDisplay::getNumThreads()
+int32_t GPUDisplay::getNumThreads()
 {
   if (mChain) {
     return mChain->GetProcessingSettings().ompThreads;
@@ -33,6 +33,13 @@ int GPUDisplay::getNumThreads()
 #else
     return 1;
 #endif
+  }
+}
+
+void GPUDisplay::updateOptions()
+{
+  if (mCfgH.splitCETracks == -1 && mParam) {
+    mCfgH.splitCETracks = mParam->continuousMaxTimeBin != 0;
   }
 }
 

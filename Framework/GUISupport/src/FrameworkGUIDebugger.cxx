@@ -71,6 +71,8 @@ ImVec4 colorForLogLevel(LogParsingHelpers::LogLevel logLevel)
       return PaletteHelpers::GREEN;
     case LogParsingHelpers::LogLevel::Debug:
       return PaletteHelpers::WHITE;
+    case LogParsingHelpers::LogLevel::Alarm:
+      return PaletteHelpers::YELLOW;
     case LogParsingHelpers::LogLevel::Warning:
       return PaletteHelpers::DARK_YELLOW;
     case LogParsingHelpers::LogLevel::Error:
@@ -139,6 +141,24 @@ void displayHistory(const DeviceInfo& info, DeviceControl& control)
     assert(ji < historySize);
     auto& line = info.history[ji];
     auto logLevel = info.historyLevel[ji];
+
+    // assign proper loglevel to ROOT log messages from stderr
+    auto getLogLevelUnknown = [&line]() -> LogParsingHelpers::LogLevel {
+      if (line.starts_with("Print in") || line.starts_with("Info in") || line.starts_with("[INFO]")) {
+        return LogParsingHelpers::LogLevel::Info;
+      } else if (line.starts_with("Warning in")) {
+        return LogParsingHelpers::LogLevel::Warning;
+      } else if (line.starts_with("Error in") || line.starts_with("SysError in")) {
+        return LogParsingHelpers::LogLevel::Error;
+      } else if (line.starts_with("Fatal in") || line.starts_with("*** Break ***")) {
+        return LogParsingHelpers::LogLevel::Fatal;
+      } else {
+        return LogParsingHelpers::LogLevel::Unknown;
+      }
+    };
+    if (logLevel == LogParsingHelpers::LogLevel::Unknown) {
+      logLevel = getLogLevelUnknown();
+    }
 
     // Skip empty lines
     if (line.empty()) {

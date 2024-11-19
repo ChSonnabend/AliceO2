@@ -180,7 +180,7 @@ struct WorkflowHelpers {
   // dangling inputs are satisfied.
   // @a workflow the workflow to decorate
   // @a ctx the context for the configuration phase
-  static void injectServiceDevices(WorkflowSpec& workflow, ConfigContext const& ctx);
+  static void injectServiceDevices(WorkflowSpec& workflow, ConfigContext& ctx);
 
   // Final adjustments to @a workflow after service devices have been injected.
   static void adjustTopology(WorkflowSpec& workflow, ConfigContext const& ctx);
@@ -203,8 +203,6 @@ struct WorkflowHelpers {
   static std::vector<EdgeAction> computeInEdgeActions(
     const std::vector<DeviceConnectionEdge>& edges,
     const std::vector<size_t>& index);
-
-  static std::shared_ptr<DataOutputDirector> getDataOutputDirector(ConfigParamRegistry const& options, std::vector<InputSpec> const& OutputsInputs, std::vector<bool> const& outputTypes);
 
   /// Given @a workflow it gathers all the OutputSpec and in addition provides
   /// the information whether and output is dangling and/or of type AOD

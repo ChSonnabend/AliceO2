@@ -50,6 +50,72 @@ GPUg() void fitTrackSeedsKernel(
 #endif
 } // namespace gpu
 
+void countCellsHandler(const Cluster** sortedClusters,
+                       const Cluster** unsortedClusters,
+                       const TrackingFrameInfo** tfInfo,
+                       const Tracklet** tracklets,
+                       const int** trackletsLUT,
+                       const int nTracklets,
+                       const int layer,
+                       CellSeed* cells,
+                       int** cellsLUTsDeviceArray,
+                       int* cellsLUTsHost,
+                       const float bz,
+                       const float maxChi2ClusterAttachment,
+                       const float cellDeltaTanLambdaSigma,
+                       const float nSigmaCut,
+                       const int nBlocks,
+                       const int nThreads);
+
+void computeCellsHandler(const Cluster** sortedClusters,
+                         const Cluster** unsortedClusters,
+                         const TrackingFrameInfo** tfInfo,
+                         const Tracklet** tracklets,
+                         const int** trackletsLUT,
+                         const int nTracklets,
+                         const int layer,
+                         CellSeed* cells,
+                         int** cellsLUTsDeviceArray,
+                         int* cellsLUTsHost,
+                         const float bz,
+                         const float maxChi2ClusterAttachment,
+                         const float cellDeltaTanLambdaSigma,
+                         const float nSigmaCut,
+                         const int nBlocks,
+                         const int nThreads);
+
+void countCellNeighboursHandler(CellSeed** cellsLayersDevice,
+                                int* neighboursLUTs,
+                                int** cellsLUTs,
+                                gpuPair<int, int>* cellNeighbours,
+                                int* neighboursIndexTable,
+                                const float maxChi2ClusterAttachment,
+                                const float bz,
+                                const int layerIndex,
+                                const unsigned int nCells,
+                                const unsigned int nCellsNext,
+                                const int maxCellNeighbours,
+                                const int nBlocks,
+                                const int nThreads);
+
+void computeCellNeighboursHandler(CellSeed** cellsLayersDevice,
+                                  int* neighboursLUTs,
+                                  int** cellsLUTs,
+                                  gpuPair<int, int>* cellNeighbours,
+                                  int* neighboursIndexTable,
+                                  const float maxChi2ClusterAttachment,
+                                  const float bz,
+                                  const int layerIndex,
+                                  const unsigned int nCells,
+                                  const unsigned int nCellsNext,
+                                  const int maxCellNeighbours,
+                                  const int nBlocks,
+                                  const int nThreads);
+
+void filterCellNeighboursHandler(std::vector<int>&,
+                                 gpuPair<int, int>*,
+                                 unsigned int);
+
 void trackSeedHandler(CellSeed* trackSeeds,
                       const TrackingFrameInfo** foundTrackingFrameInfo,
                       o2::its::TrackITSExt* tracks,
@@ -59,6 +125,8 @@ void trackSeedHandler(CellSeed* trackSeeds,
                       float maxChi2ClusterAttachment,
                       float maxChi2NDF,
                       const o2::base::Propagator* propagator,
-                      const o2::base::PropagatorF::MatCorrType matCorrType);
+                      const o2::base::PropagatorF::MatCorrType matCorrType,
+                      const int nBlocks,
+                      const int nThreads);
 } // namespace o2::its
 #endif // ITSTRACKINGGPU_TRACKINGKERNELS_H_

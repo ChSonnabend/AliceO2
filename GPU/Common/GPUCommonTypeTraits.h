@@ -21,7 +21,7 @@
 #ifndef GPUCA_GPUCODE_COMPILEKERNELS
 #include <type_traits>
 #endif
-#elif !defined(__OPENCL__) || defined(__OPENCLCPP__)
+#elif !defined(__OPENCL1__)
 // We just reimplement some type traits in std for the GPU
 namespace std
 {

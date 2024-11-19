@@ -30,7 +30,8 @@ std::unique_ptr<ConfigContext> makeEmptyConfigContext()
   store->preload();
   store->activate();
   static ConfigParamRegistry registry(std::move(store));
-  auto context = std::make_unique<ConfigContext>(registry, 0, nullptr);
+  static ServiceRegistry services;
+  auto context = std::make_unique<ConfigContext>(registry, ServiceRegistryRef{services}, 0, nullptr);
   return context;
 }
 

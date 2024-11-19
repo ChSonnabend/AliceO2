@@ -18,6 +18,7 @@
 #define INCLUDE_RECONSTRUCTIONDATAFORMATS_TRACKPARAMETRIZATIONWITHERROR_H_
 
 #include "ReconstructionDataFormats/TrackParametrization.h"
+#include <MathUtils/Cartesian.h>
 
 namespace o2
 {
@@ -38,10 +39,10 @@ class TrackParametrizationWithError : public TrackParametrization<value_T>
 #endif
 
   using covMat_t = gpu::gpustd::array<value_t, kCovMatSize>;
-  using MatrixDSym5 = ROOT::Math::SMatrix<double, kNParams, kNParams, ROOT::Math::MatRepSym<double, kNParams>>;
-  using MatrixD5 = ROOT::Math::SMatrix<double, kNParams, kNParams, ROOT::Math::MatRepStd<double, kNParams, kNParams>>;
+  using MatrixDSym5 = o2::math_utils::SMatrix<double, kNParams, kNParams, o2::math_utils::MatRepSym<double, kNParams>>;
+  using MatrixD5 = o2::math_utils::SMatrix<double, kNParams, kNParams, o2::math_utils::MatRepStd<double, kNParams, kNParams>>;
 
-  GPUd() TrackParametrizationWithError();
+  GPUhd() TrackParametrizationWithError();
   GPUd() TrackParametrizationWithError(value_t x, value_t alpha, const params_t& par, const covMat_t& cov, int charge = 1, const PID pid = PID::Pion);
   GPUd() TrackParametrizationWithError(const dim3_t& xyz, const dim3_t& pxpypz,
                                        const gpu::gpustd::array<value_t, kLabCovMatSize>& cv, int sign, bool sectorAlpha = true, const PID pid = PID::Pion);
@@ -93,18 +94,19 @@ class TrackParametrizationWithError : public TrackParametrization<value_T>
   GPUd() bool propagateToDCA(const o2::dataformats::VertexBase& vtx, value_t b, o2::dataformats::DCA* dca = nullptr, value_t maxD = 999.f);
   GPUd() void invert();
   GPUd() value_t getPredictedChi2(const dim2_t& p, const dim3_t& cov) const;
-  GPUd() value_t getPredictedChi2Unchecked(const dim2_t& p, const dim3_t& cov) const;
+  GPUd() value_t getPredictedChi2Quiet(const dim2_t& p, const dim3_t& cov) const;
   GPUd() value_t getPredictedChi2(const value_t* p, const value_t* cov) const;
-  GPUd() value_t getPredictedChi2Unchecked(const value_t* p, const value_t* cov) const;
+  GPUd() value_t getPredictedChi2Quiet(const value_t* p, const value_t* cov) const;
 
   template <typename T>
   GPUd() value_t getPredictedChi2(const BaseCluster<T>& p) const;
 
-  void buildCombinedCovMatrix(const TrackParametrizationWithError& rhs, MatrixDSym5& cov) const;
-  value_t getPredictedChi2(const TrackParametrizationWithError& rhs, MatrixDSym5& covToSet) const;
+  GPUd() void buildCombinedCovMatrix(const TrackParametrizationWithError& rhs, MatrixDSym5& cov) const;
+  GPUd() value_t getPredictedChi2(const TrackParametrizationWithError& rhs, MatrixDSym5& covToSet) const;
   GPUd() value_t getPredictedChi2(const TrackParametrizationWithError& rhs) const;
-  bool update(const TrackParametrizationWithError& rhs, const MatrixDSym5& covInv);
-  bool update(const TrackParametrizationWithError& rhs);
+  GPUd() value_t getPredictedChi2Quiet(const TrackParametrizationWithError& rhs) const;
+  GPUd() bool update(const TrackParametrizationWithError& rhs, const MatrixDSym5& covInv);
+  GPUd() bool update(const TrackParametrizationWithError& rhs);
 
   GPUd() bool update(const dim2_t& p, const dim3_t& cov);
   GPUd() bool update(const value_t* p, const value_t* cov);
@@ -143,7 +145,7 @@ class TrackParametrizationWithError : public TrackParametrization<value_T>
 
 //__________________________________________________________________________
 template <typename value_T>
-GPUdi() TrackParametrizationWithError<value_T>::TrackParametrizationWithError() : TrackParametrization<value_T>{}
+GPUhdi() TrackParametrizationWithError<value_T>::TrackParametrizationWithError() : TrackParametrization<value_T>{}
 {
 }
 
@@ -322,9 +324,9 @@ GPUdi() auto TrackParametrizationWithError<value_T>::getPredictedChi2(const dim2
 
 //______________________________________________
 template <typename value_T>
-GPUdi() auto TrackParametrizationWithError<value_T>::getPredictedChi2Unchecked(const dim2_t& p, const dim3_t& cov) const -> value_t
+GPUdi() auto TrackParametrizationWithError<value_T>::getPredictedChi2Quiet(const dim2_t& p, const dim3_t& cov) const -> value_t
 {
-  return getPredictedChi2Unchecked(p.data(), cov.data());
+  return getPredictedChi2Quiet(p.data(), cov.data());
 }
 
 //______________________________________________

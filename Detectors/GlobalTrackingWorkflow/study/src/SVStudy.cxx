@@ -22,6 +22,7 @@
 #include "DetectorsBase/GeometryManager.h"
 #include "SimulationDataFormat/MCEventLabel.h"
 #include "SimulationDataFormat/MCUtils.h"
+#include "SimulationDataFormat/MCTrack.h"
 #include "CommonDataFormat/BunchFilling.h"
 #include "CommonUtils/NameConf.h"
 #include "DataFormatsFT0/RecPoints.h"
@@ -86,7 +87,7 @@ class SVStudySpec : public Task
   float mBz = 0;
   GTrackID::mask_t mTracksSrc{};
   o2::vertexing::DCAFitterN<2> mFitterV0;
-  o2::steer::MCKinematicsReader mcReader; // reader of MC information
+  std::unique_ptr<o2::steer::MCKinematicsReader> mcReader; // reader of MC information
 };
 
 void SVStudySpec::init(InitContext& ic)
@@ -96,6 +97,9 @@ void SVStudySpec::init(InitContext& ic)
   mRefit = ic.options().get<bool>("refit");
   mSelK0 = ic.options().get<float>("sel-k0");
   mMaxEta = ic.options().get<float>("max-eta");
+  if (mUseMC) {
+    mcReader = std::make_unique<o2::steer::MCKinematicsReader>("collisioncontext.root");
+  }
 }
 
 void SVStudySpec::run(ProcessingContext& pc)
@@ -161,23 +165,24 @@ o2::dataformats::V0Ext SVStudySpec::processV0(int iv, o2::globaltracking::RecoCo
     v0ext.v0 = v0sel;
   }
   v0ext.v0ID = v0id;
-  o2::MCCompLabel lb;
+  o2::MCCompLabel lb[2];
+  const o2::MCTrack* mcTrks[2];
   for (int ip = 0; ip < 2; ip++) {
     auto& prInfo = v0ext.prInfo[ip];
     auto gid = v0ext.v0ID.getProngID(ip);
     auto gidset = recoData.getSingleDetectorRefs(gid);
-    lb = recoData.getTrackMCLabel(gid);
-    if (lb.isValid()) {
-      prInfo.corrGlo = !lb.isFake();
+    lb[ip] = recoData.getTrackMCLabel(gid);
+    if (lb[ip].isValid()) {
+      prInfo.corrGlo = !lb[ip].isFake();
     }
     // get TPC tracks, if any
     if (gidset[GTrackID::TPC].isSourceSet()) {
       const auto& tpcTr = recoData.getTPCTrack(gidset[GTrackID::TPC]);
       prInfo.trackTPC = tpcTr;
       prInfo.nClTPC = tpcTr.getNClusters();
-      lb = recoData.getTrackMCLabel(gidset[GTrackID::TPC]);
-      if (lb.isValid()) {
-        prInfo.corrTPC = !lb.isFake();
+      lb[ip] = recoData.getTrackMCLabel(gidset[GTrackID::TPC]);
+      if (lb[ip].isValid()) {
+        prInfo.corrTPC = !lb[ip].isFake();
       }
     }
     // get ITS tracks, if any
@@ -186,9 +191,9 @@ o2::dataformats::V0Ext SVStudySpec::processV0(int iv, o2::globaltracking::RecoCo
       if (gidset[GTrackID::ITS].isSourceSet()) {
         const auto& itsTr = recoData.getITSTrack(gidset[GTrackID::ITS]);
         prInfo.nClITS = itsTr.getNClusters();
-        lb = recoData.getTrackMCLabel(gidset[GTrackID::ITS]);
-        if (lb.isValid()) {
-          prInfo.corrITS = !lb.isFake();
+        lb[ip] = recoData.getTrackMCLabel(gidset[GTrackID::ITS]);
+        if (lb[ip].isValid()) {
+          prInfo.corrITS = !lb[ip].isFake();
         }
         for (int il = 0; il < 7; il++) {
           if (itsTr.hasHitOnLayer(il)) {
@@ -198,9 +203,9 @@ o2::dataformats::V0Ext SVStudySpec::processV0(int iv, o2::globaltracking::RecoCo
       } else {
         const auto& itsTrf = recoData.getITSABRefs()[gidset[GTrackID::ITSAB]];
         prInfo.nClITS = itsTrf.getNClusters();
-        lb = recoData.getTrackMCLabel(gidset[GTrackID::ITSAB]);
-        if (lb.isValid()) {
-          prInfo.corrITS = !lb.isFake();
+        lb[ip] = recoData.getTrackMCLabel(gidset[GTrackID::ITSAB]);
+        if (lb[ip].isValid()) {
+          prInfo.corrITS = !lb[ip].isFake();
         }
         for (int il = 0; il < 7; il++) {
           if (itsTrf.hasHitOnLayer(il)) {
@@ -211,12 +216,23 @@ o2::dataformats::V0Ext SVStudySpec::processV0(int iv, o2::globaltracking::RecoCo
       }
       if (gidset[GTrackID::ITSTPC].isSourceSet()) {
         auto mtc = recoData.getTPCITSTrack(gidset[GTrackID::ITSTPC]);
-        lb = recoData.getTrackMCLabel(gidset[GTrackID::ITSTPC]);
+        lb[ip] = recoData.getTrackMCLabel(gidset[GTrackID::ITSTPC]);
         prInfo.chi2ITSTPC = mtc.getChi2Match();
-        if (lb.isValid()) {
-          prInfo.corrITSTPC = !lb.isFake();
+        if (lb[ip].isValid()) {
+          prInfo.corrITSTPC = !lb[ip].isFake();
         }
       }
+    }
+    if (mUseMC && lb[ip].isValid()) { // temp store of mctrks
+      mcTrks[ip] = mcReader->getTrack(lb[ip]);
+    }
+  }
+  if (mUseMC && (mcTrks[0] != nullptr) && (mcTrks[1] != nullptr)) {
+    // check majority vote on mother particle otherwise leave pdg -1
+    if (lb[0].getSourceID() == lb[1].getSourceID() && lb[0].getEventID() == lb[1].getEventID() &&
+        mcTrks[0]->getMotherTrackId() == mcTrks[1]->getMotherTrackId() && mcTrks[0]->getMotherTrackId() >= 0) {
+      const auto mother = mcReader->getTrack(lb[0].getSourceID(), lb[0].getEventID(), mcTrks[0]->getMotherTrackId());
+      v0ext.mcPID = mother->GetPdgCode();
     }
   }
   return v0ext;

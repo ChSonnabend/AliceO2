@@ -108,8 +108,8 @@ void sendOnChannel(fair::mq::Device& device, fair::mq::Parts& messages, std::str
   }
 
   // FIXME: we need a better logic for avoiding message spam
-  if (timeout > 1 && timeout <= maxTimeout) {
-    LOG(warning) << "dispatching on channel " << channel << " was delayed by " << timeout << " ms";
+  if (timeout > 100 && timeout <= maxTimeout) {
+    LOG(warning) << "dispatching on channel " << channel << " was delayed by " << timeout / 1000.f << " s";
   }
   // TODO: feeling this is a bit awkward, but the interface of fair::mq::Parts does not provide a
   // method to clear the content.

@@ -38,9 +38,7 @@ o2::framework::DataProcessorSpec getMCHDigitWriterSpec(bool mctruth)
                                 1, // default number of events
                                 BranchDefinition<std::vector<o2::mch::Digit>>{InputSpec{"mchdigits", "MCH", "DIGITS"}, "MCHDigit"},
                                 BranchDefinition<std::vector<o2::mch::ROFRecord>>{InputSpec{"mchrofrecords", "MCH", "DIGITROFS"}, "MCHROFRecords"},
-                                BranchDefinition<o2::dataformats::MCTruthContainer<o2::MCCompLabel>>{InputSpec{"mchdigitlabels", "MCH", "DIGITSLABELS"}, "MCHMCLabels", mctruth ? 1 : 0}
-                                // add more branch definitions (for example Monte Carlo labels here)
-                                )();
+                                BranchDefinition<o2::dataformats::MCTruthContainer<o2::MCCompLabel>>{InputSpec{"mchdigitlabels", "MCH", "DIGITSLABELS"}, "MCHMCLabels", mctruth ? 1 : 0})();
 }
 
 o2::framework::DataProcessorSpec getDigitWriterSpec(
@@ -48,23 +46,24 @@ o2::framework::DataProcessorSpec getDigitWriterSpec(
   std::string_view specName,
   std::string_view outfile,
   std::string_view inputDigitDataDescription,
-  std::string_view inputDigitRofDataDescription)
+  std::string_view inputDigitRofDataDescription,
+  std::string_view inputDigitLabelDataDescription)
 {
   std::string input =
-    fmt::format("digits:MCH/{};rofs:MCH/{}",
-                inputDigitDataDescription, inputDigitRofDataDescription);
+    fmt::format("digits:MCH/{};rofs:MCH/{};labels:MCH/{}",
+                inputDigitDataDescription, inputDigitRofDataDescription, inputDigitLabelDataDescription);
 
   framework::Inputs inputs{framework::select(input.c_str())};
   auto rofs = std::find_if(inputs.begin(), inputs.end(), [](const framework::InputSpec& is) { return is.binding == "rofs"; });
   auto digits = std::find_if(inputs.begin(), inputs.end(), [](const framework::InputSpec& is) { return is.binding == "digits"; });
+  auto labels = std::find_if(inputs.begin(), inputs.end(), [](const framework::InputSpec& is) { return is.binding == "labels"; });
   return framework::MakeRootTreeWriterSpec(
     std::string(specName).c_str(),
     std::string(outfile).c_str(),
     framework::MakeRootTreeWriterSpec::TreeAttributes{"o2sim", "Tree MCH Digits"},
     BranchDefinition<std::vector<ROFRecord>>{framework::InputSpec{*rofs}, "MCHROFRecords"},
     BranchDefinition<std::vector<Digit>>{framework::InputSpec{*digits}, "MCHDigit"},
-    BranchDefinition<o2::dataformats::MCTruthContainer<o2::MCCompLabel>>{
-      framework::InputSpec{"mchdigitlabels", "MCH", "DIGITSLABELS"}, "MCHMCLabels", useMC ? 1 : 0})();
+    BranchDefinition<o2::dataformats::MCTruthContainer<o2::MCCompLabel>>{framework::InputSpec{*labels}, "MCHMCLabels", useMC ? 1 : 0})();
 }
 
 } // end namespace mch

@@ -68,12 +68,13 @@ void Clusterizer<InputType>::getClusterFromNeighbours(std::vector<InputwithIndex
 
     if (mInputMap[row + rowDiffs[dir]][column + colDiffs[dir]].mInput) {
       if (!mCellMask[row + rowDiffs[dir]][column + colDiffs[dir]]) {
-        if (mDoEnergyGradientCut && not(mInputMap[row + rowDiffs[dir]][column + colDiffs[dir]].mInput->getEnergy() > mInputMap[row][column].mInput->getEnergy() + mGradientCut)) {
-          if (not(TMath::Abs(mInputMap[row + rowDiffs[dir]][column + colDiffs[dir]].mInput->getTimeStamp() - mInputMap[row][column].mInput->getTimeStamp()) > mTimeCut)) {
-            getClusterFromNeighbours(clusterInputs, row + rowDiffs[dir], column + colDiffs[dir]);
-            // Add the cell/digit to the current cluster -- if we end up here, the selected cluster fulfills the condition
-            clusterInputs.emplace_back(mInputMap[row + rowDiffs[dir]][column + colDiffs[dir]]);
-          }
+        if (mDoEnergyGradientCut && (mInputMap[row + rowDiffs[dir]][column + colDiffs[dir]].mInput->getEnergy() > mInputMap[row][column].mInput->getEnergy() + mGradientCut)) {
+          continue;
+        }
+        if (not(TMath::Abs(mInputMap[row + rowDiffs[dir]][column + colDiffs[dir]].mInput->getTimeStamp() - mInputMap[row][column].mInput->getTimeStamp()) > mTimeCut)) {
+          getClusterFromNeighbours(clusterInputs, row + rowDiffs[dir], column + colDiffs[dir]);
+          // Add the cell/digit to the current cluster -- if we end up here, the selected cluster fulfills the condition
+          clusterInputs.emplace_back(mInputMap[row + rowDiffs[dir]][column + colDiffs[dir]]);
         }
       }
     }

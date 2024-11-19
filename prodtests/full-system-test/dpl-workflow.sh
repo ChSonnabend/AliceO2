@@ -81,7 +81,6 @@ TRD_CONFIG=
 TRD_CONFIG_KEY=
 TRD_FILTER_CONFIG=
 CPV_INPUT=raw
-EVE_CONFIG=" --jsons-folder $EDJSONS_DIR"
 MIDDEC_CONFIG=
 EMCRAW2C_CONFIG=
 PHS_CONFIG=
@@ -90,6 +89,8 @@ CTP_CONFIG=
 TPC_CORR_OPT=
 TPC_CORR_KEY=
 INTERACTION_TAG_CONFIG_KEY=
+EVE_OPT=" --jsons-folder $EDJSONS_DIR"
+: ${EVE_CONFIG:=}
 : ${STRTRACKING:=}
 : ${ITSEXTRAERR:=}
 : ${TRACKTUNETPCINNER:=}
@@ -202,7 +203,7 @@ has_detector_flp_processing CPV && CPV_INPUT=digits
 ! has_detector_flp_processing TOF && TOF_CONFIG+=" --local-cmp"
 
 if [[ $EPNSYNCMODE == 1 ]]; then
-  EVE_CONFIG+=" --eve-dds-collection-index 0"
+  EVE_OPT+=" --eve-dds-collection-index 0"
   MIDDEC_CONFIG+=" --feeId-config-file \"$MID_FEEID_MAP\""
   if [[ $EXTINPUT == 1 ]] && [[ $GPUTYPE != "CPU" ]] && [[ -z "$GPU_NUM_MEM_REG_CALLBACKS" ]]; then
     if [[ $NUMAGPUIDS == 1 ]]; then
@@ -225,17 +226,18 @@ if [[ $SYNCRAWMODE == 1 ]] || [[ $SYNCMODE == 0 && $CTFINPUT == 1 && $GPUTYPE !=
 fi
 
 if [[ $SYNCMODE == 1 && "0${ED_NO_ITS_ROF_FILTER:-}" != "01" && $BEAMTYPE == "PbPb" ]] && has_detector ITS; then
-  EVE_CONFIG+=" --filter-its-rof"
+  EVE_CONFIG+=";eveconf.filterITSROF=true;"
 fi
 
 if [[ ! -z ${EVE_NTH_EVENT:-} ]]; then
-  EVE_CONFIG+=" --only-nth-event=$EVE_NTH_EVENT"
+  EVE_CONFIG+=";eveconf.onlyNthEvent=$EVE_NTH_EVENT;"
 fi
 
+EVE_CONFIG+=";eveconf.maxTracks=5000;"
 if [[ $RUNTYPE == "SYNTHETIC" ]]; then
-  EVE_CONFIG+=" --number-of_files 20"
+  EVE_CONFIG+=";eveconf.maxFiles=20;"
 elif [[ $RUNTYPE == "PHYSICS" ]]; then
-  EVE_CONFIG+=" --primary-vertex-triggers"
+  EVE_CONFIG+=";eveconf.PVTriggersMode=true;"
 fi
 
 if [[ $GPUTYPE != "CPU" && $NUMAGPUIDS != 0 ]] && [[ -z ${ROCR_VISIBLE_DEVICES:-} || ${ROCR_VISIBLE_DEVICES:-} = "0,1,2,3,4,5,6,7" || ${ROCR_VISIBLE_DEVICES:-} = "0,1,2,3" || ${ROCR_VISIBLE_DEVICES:-} = "4,5,6,7" ]]; then
@@ -351,7 +353,8 @@ if has_processing_step MUON_SYNC_RECO; then
   fi
   [[ $RUNTYPE == "COSMICS" ]] && [[ -z ${CONFIG_EXTRA_PROCESS_o2_mft_reco_workflow:-} ]] && CONFIG_EXTRA_PROCESS_o2_mft_reco_workflow="MFTTracking.FullClusterScan=true"
 fi
-[[ $RUNTYPE != "COSMICS" ]] && [[ $RUNTYPE != "TECHNICAL" ]] && has_detectors_reco ITS && has_detector_matching PRIMVTX && [[ ! -z "$VERTEXING_SOURCES" ]] && EVE_CONFIG+=" --primary-vertex-mode"
+[[ $SYNCRAWMODE == 1 ]] && [[ -z ${CONFIG_EXTRA_PROCESS_o2_zdc_digits_reco:-} ]] && CONFIG_EXTRA_PROCESS_o2_zdc_digits_reco='RecoParamZDC.tdc_calib[9]=1;RecoParamZDC.tdc_calib[0]=1;RecoParamZDC.tdc_calib[8]=1;RecoParamZDC.tdc_calib[1]=1;RecoParamZDC.tdc_calib[3]=1;RecoParamZDC.tdc_calib[6]=1;RecoParamZDC.tdc_calib[5]=1;RecoParamZDC.tdc_calib[4]=1;RecoParamZDC.tdc_calib[2]=1;RecoParamZDC.tdc_calib[7]=1;RecoParamZDC.energy_calib[13]=1;RecoParamZDC.energy_calib[12]=1;RecoParamZDC.energy_calib[11]=1;RecoParamZDC.energy_calib[6]=1;RecoParamZDC.energy_calib[25]=1;RecoParamZDC.energy_calib[14]=1;RecoParamZDC.energy_calib[20]=1;RecoParamZDC.energy_calib[5]=1;RecoParamZDC.energy_calib[0]=1;RecoParamZDC.energy_calib[19]=1;RecoParamZDC.tower_calib[1]=1;RecoParamZDC.tower_calib[2]=1;RecoParamZDC.tower_calib[3]=1;RecoParamZDC.tower_calib[4]=1;RecoParamZDC.tower_calib[24]=1;RecoParamZDC.tower_calib[21]=1;RecoParamZDC.tower_calib[22]=1;RecoParamZDC.tower_calib[23]=1;RecoParamZDC.tower_calib[18]=1;RecoParamZDC.tower_calib[16]=1;RecoParamZDC.tower_calib[17]=1;RecoParamZDC.tower_calib[15]=1;RecoParamZDC.tower_calib[8]=1;RecoParamZDC.tower_calib[9]=1;RecoParamZDC.tower_calib[7]=1;RecoParamZDC.tower_calib[10]=1'
+[[ $RUNTYPE != "COSMICS" ]] && [[ $RUNTYPE != "TECHNICAL" ]] && has_detectors_reco ITS && has_detector_matching PRIMVTX && [[ ! -z "$VERTEXING_SOURCES" ]] && EVE_CONFIG+=";eveconf.PVMode=true;"
 [[ $SYNCRAWMODE == 1 ]] && [[ -z ${CONFIG_EXTRA_PROCESS_o2_trd_global_tracking:-} ]] && CONFIG_EXTRA_PROCESS_o2_trd_global_tracking='GPU_rec_trd.maxChi2=25;GPU_rec_trd.penaltyChi2=20;GPU_rec_trd.extraRoadY=4;GPU_rec_trd.extraRoadZ=10;GPU_rec_trd.applyDeflectionCut=0;GPU_rec_trd.trkltResRPhiIdeal=1'
 [[ $SYNCRAWMODE == 1 ]] && [[ -z ${ARGS_EXTRA_PROCESS_o2_phos_reco_workflow:-} ]] && ARGS_EXTRA_PROCESS_o2_phos_reco_workflow='--presamples 2 --fitmethod semigaus'
 [[ $SYNCRAWMODE == 1 ]] && [[ $BEAMTYPE == "PbPb" ]] && [[ -z ${CONFIG_EXTRA_PROCESS_o2_calibration_emcal_channel_calib_workflow:-} ]] && CONFIG_EXTRA_PROCESS_o2_calibration_emcal_channel_calib_workflow='EMCALCalibParams.selectedClassMasks=C0TVX-NONE-NOPF-EMC:c0tvxtsc-b-nopf-emc:C0TVXTCE-B-NOPF-EMC;EMCALCalibParams.fractionEvents_bc=0.3'
@@ -627,7 +630,7 @@ workflow_has_parameters CALIB CALIB_LOCAL_INTEGRATED_AGGREGATOR && { source ${CA
 # RS this is a temporary setting
 : ${ED_TRACKS:=$TRACK_SOURCES}
 : ${ED_CLUSTERS:=$TRACK_SOURCES}
-workflow_has_parameter EVENT_DISPLAY && [[ $NUMAID == 0 ]] && [[ ! -z "$ED_TRACKS" ]] && [[ ! -z "$ED_CLUSTERS" ]] && [[ $EPNSYNCMODE == 0 || ${EPN_NODE_MI100:-0} == 0 ]] && add_W o2-eve-export-workflow "--display-tracks $ED_TRACKS --display-clusters $ED_CLUSTERS --skipOnEmptyInput $DISABLE_ROOT_INPUT --number-of_tracks 50000 $EVE_CONFIG $DISABLE_MC" "$ITSMFT_STROBES"
+workflow_has_parameter EVENT_DISPLAY && [[ $NUMAID == 0 ]] && [[ ! -z "$ED_TRACKS" ]] && [[ ! -z "$ED_CLUSTERS" ]] && [[ $EPNSYNCMODE == 0 || ${EPN_NODE_MI100:-0} == 0 ]] && add_W o2-eve-export-workflow "--display-tracks $ED_TRACKS --display-clusters $ED_CLUSTERS --skipOnEmptyInput $DISABLE_ROOT_INPUT $EVE_OPT $DISABLE_MC" "$ITSMFT_STROBES;$EVE_CONFIG"
 
 workflow_has_parameter GPU_DISPLAY && [[ $NUMAID == 0 ]] && add_W o2-gpu-display "${ED_TRACKS+--display-tracks} $ED_TRACKS ${ED_CLUSTERS+--display-clusters} $ED_CLUSTERS"
 

@@ -27,8 +27,11 @@ namespace dataformats
 struct TrackInfoExt {
   o2::track::TrackParCov track;
   DCA dca{};
+  DCA dcaTPC{};
   VtxTrackIndex gid;
   MatchInfoTOF infoTOF;
+  std::array<float, 3> innerTPCPos{};  // innermost cluster position at assigned time
+  std::array<float, 3> innerTPCPos0{}; // innermost cluster position at nominal time0
   float ttime = 0;
   float ttimeE = 0;
   float xmin = 0;
@@ -37,10 +40,21 @@ struct TrackInfoExt {
   float q2ptTPC = 0.f;
   float q2ptITSTPC = 0.f;
   float q2ptITSTPCTRD = 0.f;
-  int nClTPC = 0;
-  int nClITS = 0;
-  int pattITS = 0;
-  ClassDefNV(TrackInfoExt, 1);
+  uint16_t nClTPC = 0;
+  uint8_t pattITS = 0;
+  uint8_t nClITS = 0;
+  uint8_t rowMinTPC = 0;
+  uint8_t rowMaxTPC = 0;
+  uint8_t rowCountTPC = 0;
+
+  float getTPCInX() const { return innerTPCPos[0]; }
+  float getTPCInY() const { return innerTPCPos[1]; }
+  float getTPCInZ() const { return innerTPCPos[2]; }
+  float getTPCInX0() const { return innerTPCPos0[0]; }
+  float getTPCInY0() const { return innerTPCPos0[1]; }
+  float getTPCInZ0() const { return innerTPCPos0[2]; }
+
+  ClassDefNV(TrackInfoExt, 3);
 };
 
 } // namespace dataformats

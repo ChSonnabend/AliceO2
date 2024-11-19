@@ -39,6 +39,7 @@ int main(int argc, char* argv[])
   bool skipParentFilesList = false;
   int verbosity = 2;
   int exitCode = 0; // 0: success, >0: failure
+  int compression = 505;
 
   int option_index = 0;
   static struct option long_options[] = {
@@ -47,8 +48,9 @@ int main(int argc, char* argv[])
     {"max-size", required_argument, nullptr, 2},
     {"skip-non-existing-files", no_argument, nullptr, 3},
     {"skip-parent-files-list", no_argument, nullptr, 4},
-    {"verbosity", required_argument, nullptr, 5},
-    {"help", no_argument, nullptr, 6},
+    {"compression", no_argument, nullptr, 5},
+    {"verbosity", required_argument, nullptr, 'v'},
+    {"help", no_argument, nullptr, 'h'},
     {nullptr, 0, nullptr, 0}};
 
   while (true) {
@@ -66,14 +68,17 @@ int main(int argc, char* argv[])
     } else if (c == 4) {
       skipParentFilesList = true;
     } else if (c == 5) {
+      compression = atoi(optarg);
+    } else if (c == 'v') {
       verbosity = atoi(optarg);
-    } else if (c == 6) {
+    } else if (c == 'h') {
       printf("AO2D merging tool. Options: \n");
       printf("  --input <inputfile.txt>      Contains path to files to be merged. Default: %s\n", inputCollection.c_str());
       printf("  --output <outputfile.root>   Target output ROOT file. Default: %s\n", outputFileName.c_str());
       printf("  --max-size <size in Bytes>   Target directory size. Default: %ld. Set to 0 if file is not self-contained.\n", maxDirSize);
       printf("  --skip-non-existing-files    Flag to allow skipping of non-existing files in the input list.\n");
       printf("  --skip-parent-files-list     Flag to allow skipping the merging of the parent files list.\n");
+      printf("  --compression <root compression id>  Compression algorithm / level to use (default: %d)\n", compression);
       printf("  --verbosity <flag>           Verbosity of output (default: %d).\n", verbosity);
       return -1;
     } else {
@@ -95,7 +100,7 @@ int main(int argc, char* argv[])
   std::map<std::string, int> offsets;
   std::map<std::string, int> unassignedIndexOffset;
 
-  auto outputFile = TFile::Open(outputFileName.c_str(), "RECREATE", "", 505);
+  auto outputFile = TFile::Open(outputFileName.c_str(), "RECREATE", "", compression);
   TDirectory* outputDir = nullptr;
   long currentDirSize = 0;
 

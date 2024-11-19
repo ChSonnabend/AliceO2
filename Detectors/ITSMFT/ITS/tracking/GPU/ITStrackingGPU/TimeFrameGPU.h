@@ -20,155 +20,20 @@
 #include "ITStrackingGPU/Array.h"
 #include "ITStrackingGPU/Vector.h"
 #include "ITStrackingGPU/Stream.h"
+#include "ITStrackingGPU/TimeFrameChunk.h"
 
 #include <gsl/gsl>
 
 namespace o2
 {
-namespace gpu
-{
-class GPUChainITS;
-}
 namespace its
 {
-template <typename T1, typename T2>
-struct gpuPair {
-  T1 first;
-  T2 second;
-};
-
 namespace gpu
 {
 
 class DefaultGPUAllocator : public ExternalAllocator
 {
   void* allocate(size_t size) override;
-};
-template <int nLayers>
-struct StaticTrackingParameters {
-  StaticTrackingParameters<nLayers>& operator=(const StaticTrackingParameters<nLayers>& t) = default;
-  void set(const TrackingParameters& pars)
-  {
-    ClusterSharing = pars.ClusterSharing;
-    MinTrackLength = pars.MinTrackLength;
-    NSigmaCut = pars.NSigmaCut;
-    PVres = pars.PVres;
-    DeltaROF = pars.DeltaROF;
-    ZBins = pars.ZBins;
-    PhiBins = pars.PhiBins;
-    CellDeltaTanLambdaSigma = pars.CellDeltaTanLambdaSigma;
-  }
-
-  /// General parameters
-  int ClusterSharing = 0;
-  int MinTrackLength = nLayers;
-  float NSigmaCut = 5;
-  float PVres = 1.e-2f;
-  int DeltaROF = 0;
-  int ZBins{256};
-  int PhiBins{128};
-
-  /// Cell finding cuts
-  float CellDeltaTanLambdaSigma = 0.007f;
-};
-
-enum class Task {
-  Tracker = 0,
-  Vertexer = 1
-};
-
-template <int nLayers>
-class GpuTimeFrameChunk
-{
- public:
-  static size_t computeScalingSizeBytes(const int, const TimeFrameGPUParameters&);
-  static size_t computeFixedSizeBytes(const TimeFrameGPUParameters&);
-  static size_t computeRofPerChunk(const TimeFrameGPUParameters&, const size_t);
-
-  GpuTimeFrameChunk() = delete;
-  GpuTimeFrameChunk(o2::its::TimeFrame* tf, TimeFrameGPUParameters& conf)
-  {
-    mTimeFramePtr = tf;
-    mTFGPUParams = &conf;
-  }
-  ~GpuTimeFrameChunk();
-
-  /// Most relevant operations
-  void allocate(const size_t, Stream&);
-  void reset(const Task, Stream&);
-  size_t loadDataOnDevice(const size_t, const size_t, const int, Stream&);
-
-  /// Interface
-  Cluster* getDeviceClusters(const int);
-  int* getDeviceClusterExternalIndices(const int);
-  int* getDeviceIndexTables(const int);
-  Tracklet* getDeviceTracklets(const int);
-  int* getDeviceTrackletsLookupTables(const int);
-  CellSeed* getDeviceCells(const int);
-  int* getDeviceCellsLookupTables(const int);
-  int* getDeviceRoadsLookupTables(const int);
-  TimeFrameGPUParameters* getTimeFrameGPUParameters() const { return mTFGPUParams; }
-
-  int* getDeviceCUBTmpBuffer() { return mCUBTmpBufferDevice; }
-  int* getDeviceFoundTracklets() { return mFoundTrackletsDevice; }
-  int* getDeviceNFoundCells() { return mNFoundCellsDevice; }
-  int* getDeviceCellNeigboursLookupTables(const int);
-  int* getDeviceCellNeighbours(const int);
-  CellSeed** getDeviceArrayCells() const { return mCellsDeviceArray; }
-  int** getDeviceArrayNeighboursCell() const { return mNeighboursCellDeviceArray; }
-  int** getDeviceArrayNeighboursCellLUT() const { return mNeighboursCellLookupTablesDeviceArray; }
-
-  /// Vertexer only
-  int* getDeviceNTrackletCluster(const int combid) { return mNTrackletsPerClusterDevice[combid]; }
-  Line* getDeviceLines() { return mLinesDevice; };
-  int* getDeviceNFoundLines() { return mNFoundLinesDevice; }
-  int* getDeviceNExclusiveFoundLines() { return mNExclusiveFoundLinesDevice; }
-  unsigned char* getDeviceUsedTracklets() { return mUsedTrackletsDevice; }
-  int* getDeviceClusteredLines() { return mClusteredLinesDevice; }
-  size_t getNPopulatedRof() const { return mNPopulatedRof; }
-
- private:
-  /// Host
-  std::array<gsl::span<const Cluster>, nLayers> mHostClusters;
-  std::array<gsl::span<const int>, nLayers> mHostIndexTables;
-
-  /// Device
-  std::array<Cluster*, nLayers> mClustersDevice;
-  std::array<int*, nLayers> mClusterExternalIndicesDevice;
-  std::array<int*, nLayers> mIndexTablesDevice;
-  std::array<Tracklet*, nLayers - 1> mTrackletsDevice;
-  std::array<int*, nLayers - 1> mTrackletsLookupTablesDevice;
-  std::array<CellSeed*, nLayers - 2> mCellsDevice;
-  // Road<nLayers - 2>* mRoadsDevice;
-  std::array<int*, nLayers - 2> mCellsLookupTablesDevice;
-  std::array<int*, nLayers - 3> mNeighboursCellDevice;
-  std::array<int*, nLayers - 3> mNeighboursCellLookupTablesDevice;
-  std::array<int*, nLayers - 2> mRoadsLookupTablesDevice;
-
-  // These are to make them accessible using layer index
-  CellSeed** mCellsDeviceArray;
-  int** mNeighboursCellDeviceArray;
-  int** mNeighboursCellLookupTablesDeviceArray;
-
-  // Small accessory buffers
-  int* mCUBTmpBufferDevice;
-  int* mFoundTrackletsDevice;
-  int* mNFoundCellsDevice;
-
-  /// Vertexer only
-  Line* mLinesDevice;
-  int* mNFoundLinesDevice;
-  int* mNExclusiveFoundLinesDevice;
-  unsigned char* mUsedTrackletsDevice;
-  std::array<int*, 2> mNTrackletsPerClusterDevice;
-  int* mClusteredLinesDevice;
-
-  /// State and configuration
-  bool mAllocated = false;
-  size_t mNRof = 0;
-  size_t mNPopulatedRof = 0;
-  o2::its::TimeFrame* mTimeFramePtr = nullptr;
-  TimeFrameGPUParameters* mTFGPUParams = nullptr;
 };
 
 template <int nLayers = 7>
@@ -184,21 +49,32 @@ class TimeFrameGPU : public TimeFrame
   void registerHostMemory(const int);
   void unregisterHostMemory(const int);
   void initialise(const int, const TrackingParameters&, const int, IndexTableUtils* utils = nullptr, const TimeFrameGPUParameters* pars = nullptr);
-  void initialiseHybrid(const int, const TrackingParameters&, const int, IndexTableUtils* utils = nullptr, const TimeFrameGPUParameters* pars = nullptr);
   void initDevice(IndexTableUtils*, const TrackingParameters& trkParam, const TimeFrameGPUParameters&, const int, const int);
   void initDeviceSAFitting();
   void loadTrackingFrameInfoDevice(const int);
-  void loadUnsortedClustersDevice();
-  void loadClustersDevice();
+  void loadUnsortedClustersDevice(const int);
+  void loadClustersDevice(const int);
   void loadTrackletsDevice();
+  void loadTrackletsLUTDevice();
   void loadCellsDevice();
+  void loadCellsLUTDevice();
   void loadTrackSeedsDevice();
   void loadTrackSeedsChi2Device();
   void loadRoadsDevice();
   void loadTrackSeedsDevice(std::vector<CellSeed>&);
-  void createCellNeighboursDevice(const unsigned int& layer, std::vector<std::pair<int, int>>& neighbours);
+  void createCellsBuffers(const int);
+  void createCellsDevice();
+  void createCellsLUTDevice();
+  void createNeighboursDevice();
+  void createNeighboursDevice(const unsigned int& layer, std::vector<std::pair<int, int>>& neighbours);
+  void createNeighboursLUTDevice(const int, const unsigned int);
   void createTrackITSExtDevice(std::vector<CellSeed>&);
   void downloadTrackITSExtDevice(std::vector<CellSeed>&);
+  void downloadCellsNeighboursDevice(std::vector<std::vector<std::pair<int, int>>>&, const int);
+  void downloadNeighboursLUTDevice(std::vector<int>&, const int);
+  void downloadCellsDevice();
+  void downloadCellsLUTDevice();
+  void unregisterRest();
   void initDeviceChunks(const int, const int);
   template <Task task>
   size_t loadChunkData(const size_t, const size_t, const size_t);
@@ -225,22 +101,32 @@ class TimeFrameGPU : public TimeFrame
   // Hybrid
   Road<nLayers - 2>* getDeviceRoads() { return mRoadsDevice; }
   TrackITSExt* getDeviceTrackITSExt() { return mTrackITSExtDevice; }
+  int* getDeviceNeighboursLUT(const int layer) { return mNeighboursLUTDevice[layer]; }
   gpuPair<int, int>* getDeviceNeighbours(const int layer) { return mNeighboursDevice[layer]; }
   TrackingFrameInfo* getDeviceTrackingFrameInfo(const int);
-  // TrackingFrameInfo** getDeviceArrayTrackingFrameInfo() { return mTrackingFrameInfoDeviceArray; }
   const TrackingFrameInfo** getDeviceArrayTrackingFrameInfo() const { return mTrackingFrameInfoDeviceArray; }
-  Cluster** getDeviceArrayClusters() const { return mClustersDeviceArray; }
-  Cluster** getDeviceArrayUnsortedClusters() const { return mUnsortedClustersDeviceArray; }
-  Tracklet** getDeviceArrayTracklets() const { return mTrackletsDeviceArray; }
+  const Cluster** getDeviceArrayClusters() const { return mClustersDeviceArray; }
+  const Cluster** getDeviceArrayUnsortedClusters() const { return mUnsortedClustersDeviceArray; }
+  const Tracklet** getDeviceArrayTracklets() const { return mTrackletsDeviceArray; }
+  const int** getDeviceArrayTrackletsLUT() const { return mTrackletsLUTDeviceArray; }
+  int** getDeviceArrayCellsLUT() const { return mCellsLUTDeviceArray; }
+  int** getDeviceArrayNeighboursCellLUT() const { return mNeighboursCellLUTDeviceArray; }
   CellSeed** getDeviceArrayCells() const { return mCellsDeviceArray; }
   CellSeed* getDeviceTrackSeeds() { return mTrackSeedsDevice; }
   o2::track::TrackParCovF** getDeviceArrayTrackSeeds() { return mCellSeedsDeviceArray; }
   float** getDeviceArrayTrackSeedsChi2() { return mCellSeedsChi2DeviceArray; }
+  int* getDeviceNeighboursIndexTables(const int layer) { return mNeighboursIndexTablesDevice[layer]; }
+
   void setDevicePropagator(const o2::base::PropagatorImpl<float>*) override;
 
   // Host-specific getters
   gsl::span<int> getHostNTracklets(const int chunkId);
   gsl::span<int> getHostNCells(const int chunkId);
+
+  // Host-available device getters
+  gsl::span<int*> getDeviceCellLUTs() { return mCellsLUTDevice; }
+  gsl::span<CellSeed*> getDeviceCells() { return mCellsDevice; }
+  gsl::span<int, nLayers - 2> getNCellsDevice() { return mNCells; }
 
  private:
   void allocMemAsync(void**, size_t, Stream*, bool); // Abstract owned and unowned memory allocations
@@ -248,6 +134,9 @@ class TimeFrameGPU : public TimeFrame
   std::vector<GpuTimeFrameChunk<nLayers>> mMemChunks;
   TimeFrameGPUParameters mGpuParams;
   StaticTrackingParameters<nLayers> mStaticTrackingParams;
+
+  // Host-available device buffer sizes
+  std::array<int, nLayers - 2> mNCells;
 
   // Device pointers
   StaticTrackingParameters<nLayers>* mTrackingParamsDevice;
@@ -260,11 +149,20 @@ class TimeFrameGPU : public TimeFrame
   // Hybrid pref
   std::array<Cluster*, nLayers> mClustersDevice;
   std::array<Cluster*, nLayers> mUnsortedClustersDevice;
-  Cluster** mClustersDeviceArray;
-  Cluster** mUnsortedClustersDeviceArray;
+  const Cluster** mClustersDeviceArray;
+  const Cluster** mUnsortedClustersDeviceArray;
   std::array<Tracklet*, nLayers - 1> mTrackletsDevice;
-  Tracklet** mTrackletsDeviceArray;
+  const Tracklet** mTrackletsDeviceArray;
+  const int** mTrackletsLUTDeviceArray;
+  std::array<int*, nLayers - 2> mTrackletsLUTDevice;
+  std::array<int*, nLayers - 2> mCellsLUTDevice;
+  std::array<int*, nLayers - 3> mNeighboursLUTDevice;
+
+  int** mCellsLUTDeviceArray;
+  int** mNeighboursCellDeviceArray;
+  int** mNeighboursCellLUTDeviceArray;
   std::array<CellSeed*, nLayers - 2> mCellsDevice;
+  std::array<int*, nLayers - 2> mNeighboursIndexTablesDevice;
   CellSeed* mTrackSeedsDevice;
   CellSeed** mCellsDeviceArray;
   std::array<o2::track::TrackParCovF*, nLayers - 2> mCellSeedsDevice;

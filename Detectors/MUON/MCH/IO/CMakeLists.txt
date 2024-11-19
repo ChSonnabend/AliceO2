@@ -25,6 +25,7 @@ o2_add_library(MCHIO
            O2::DataFormatsMCH
            O2::Framework
            O2::MCHBase
+           O2::MCHDigitFiltering
            O2::SimulationDataFormat
            )
 

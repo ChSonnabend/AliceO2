@@ -17,9 +17,7 @@
 #include "ReconstructionDataFormats/V0.h"
 #include "SimulationDataFormat/MCCompLabel.h"
 
-namespace o2
-{
-namespace dataformats
+namespace o2::dataformats
 {
 
 struct ProngInfoExt {
@@ -40,10 +38,10 @@ struct V0Ext {
   V0Index v0ID;
   std::array<ProngInfoExt, 2> prInfo{};
   const ProngInfoExt& getPrInfo(int i) const { return prInfo[i]; }
-  ClassDefNV(V0Ext, 1);
+  int mcPID = -1;
+  ClassDefNV(V0Ext, 2);
 };
 
-} // namespace dataformats
-} // namespace o2
+} // namespace o2::dataformats
 
 #endif

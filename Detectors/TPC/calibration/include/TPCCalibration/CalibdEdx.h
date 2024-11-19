@@ -33,6 +33,8 @@
 #include <boost/histogram.hpp>
 #include "THn.h"
 
+class TLinearFitter;
+
 namespace o2::tpc
 {
 
@@ -74,7 +76,7 @@ class CalibdEdx
 
   /// \param angularBins number of bins for Tgl and Snp
   /// \param fitSnp enable Snp correction
-  CalibdEdx(int dEdxBins = 60, float mindEdx = 20, float maxdEdx = 90, int angularBins = 36, bool fitSnp = false);
+  CalibdEdx(int dEdxBins = 70, float mindEdx = 10, float maxdEdx = 90, int angularBins = 36, bool fitSnp = false);
 
   void setCuts(const TrackCuts& cuts) { mCuts = cuts; }
   void setApplyCuts(bool apply) { mApplyCuts = apply; }
@@ -124,7 +126,8 @@ class CalibdEdx
 
   /// Compute MIP position from dEdx histograms and save result in the correction container.
   /// To retrieve the correction call `CalibdEdx::getCalib()`
-  void finalize();
+  /// \param useGausFits make gaussian fits of dEdx vs tgl instead of fitting the mean dEdx
+  void finalize(const bool useGausFits = true);
 
   /// Return calib data histogram
   const Hist& getHist() const { return mHist; }
@@ -170,6 +173,17 @@ class CalibdEdx
   constexpr static float scaleTgl(float tgl, GEMstack rocType) { return tgl / conf_dedx_corr::TglScale[rocType]; }
   constexpr static float recoverTgl(float scaledTgl, GEMstack rocType) { return scaledTgl * conf_dedx_corr::TglScale[rocType]; }
 
+  /// dump this object to a file - the boost histogram is converted to a ROOT histogram -
+  void dumpToFile(const char* outFile, const char* outName) const;
+
+  /// read the object from a file
+  static CalibdEdx readFromFile(const char* inFile, const char* inName);
+
+  /// set lower and upper range in units of sigma which are used for the gaussian fits
+  /// \param lowerSigma low sigma range
+  /// \param upperSigma upper sigma range
+  void setSigmaFitRange(const float lowerSigma, const float upperSigma);
+
  private:
   // ATTENTION: Adjust copy constructor
   bool mFitSnp{};
@@ -182,15 +196,26 @@ class CalibdEdx
   float mFitLowCutFactor = 1.5;  ///< dEdx cut multiplier for the lower dE/dx range
   int mFitPasses = 3;            ///< number of fit passes used to remove electron tracks
   TFIDInfo mTFID{};              ///< current TFID
+  float mSigmaUpper = 1.;        ///< mSigma*sigma_gaus used for cutting electrons in case gaussian fits are performed
+  float mSigmaLower = 1.5;       ///< mSigma*sigma_gaus used for cutting electrons in case gaussian fits are performed
 
-  Hist mHist;                     ///< dEdx multidimensional histogram
+  Hist mHist;                     ///<! dEdx multidimensional histogram
   CalibdEdxCorrection mCalib{};   ///< Calibration output
   CalibdEdxCorrection mCalibIn{}; ///< Calibration output
 
   o2::base::Propagator::MatCorrType mMatType{}; ///< material type for track propagation
 
-  std::unique_ptr<o2::utils::TreeStreamRedirector> mDebugOutputStreamer; ///< Debug output streamer
-  ClassDefNV(CalibdEdx, 4);
+  std::unique_ptr<o2::utils::TreeStreamRedirector> mDebugOutputStreamer; ///<! Debug output streamer
+
+  THnF* getTHnF() const;
+
+  /// make fits of dEdx as a function of tgl and perform the calibration fit
+  void fitHistGaus(TLinearFitter& fitter, CalibdEdxCorrection& corr, const CalibdEdxCorrection* stackMean = nullptr);
+
+  /// set boost histogram containing the data from root histogram
+  void setFromRootHist(const THnF* hist);
+
+  ClassDefNV(CalibdEdx, 5);
 };
 
 } // namespace o2::tpc

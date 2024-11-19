@@ -33,5 +33,8 @@
 #pragma link C++ class std::vector < o2::trackstudy::RecPV> + ;
 #pragma link C++ class o2::trackstudy::MCVertex + ;
 #pragma link C++ class std::vector < o2::trackstudy::MCVertex> + ;
+#pragma link C++ class o2::trackstudy::ClResTPC + ;
+#pragma link C++ class o2::trackstudy::ClResTPCCont + ;
+#pragma link C++ class std::vector < o2::trackstudy::ClResTPCCont> + ;
 
 #endif

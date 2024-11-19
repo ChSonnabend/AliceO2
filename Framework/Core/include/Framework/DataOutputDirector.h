@@ -84,7 +84,7 @@ struct DataOutputDirector {
   std::vector<DataOutputDescriptor*> getDataOutputDescriptors(InputSpec spec);
 
   // get the matching TFile
-  FileAndFolder getFileFolder(DataOutputDescriptor* dodesc, uint64_t folderNumber, std::string parentFileName);
+  FileAndFolder getFileFolder(DataOutputDescriptor* dodesc, uint64_t folderNumber, std::string parentFileName, int compression);
 
   // check file sizes
   bool checkFileSizes();

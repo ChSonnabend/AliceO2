@@ -25,7 +25,8 @@ o2::framework::DataProcessorSpec getDigitWriterSpec(
   std::string_view specName = "mch-digit-writer",
   std::string_view outfile = "mchdigits.root",
   std::string_view inputDigitDataDescription = "DIGITS",
-  std::string_view inputDigitRofDataDescription = "DIGITROFS");
+  std::string_view inputDigitRofDataDescription = "DIGITROFS",
+  std::string_view inputDigitLabelDataDescription = "DIGITLABELS");
 
 } // end namespace mch
 } // end namespace o2

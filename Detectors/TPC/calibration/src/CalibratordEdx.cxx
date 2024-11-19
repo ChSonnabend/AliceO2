@@ -40,7 +40,7 @@ void CalibratordEdx::finalizeSlot(Slot& slot)
 
   // compute calibration values from histograms
   CalibdEdx* container = slot.getContainer();
-  container->finalize();
+  container->finalize(mMakeGaussianFits);
   container->finalizeDebugOutput();
   mCalibs.push_back(container->getCalib());
 

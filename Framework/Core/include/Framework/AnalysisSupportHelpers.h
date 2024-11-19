@@ -14,6 +14,7 @@
 #include "Framework/OutputSpec.h"
 #include "Framework/InputSpec.h"
 #include "Framework/DataProcessorSpec.h"
+#include "Framework/AnalysisContext.h"
 #include "Headers/DataHeader.h"
 #include <array>
 
@@ -24,36 +25,7 @@ static constexpr std::array<header::DataOrigin, 5> extendedAODOrigins{header::Da
 static constexpr std::array<header::DataOrigin, 4> writableAODOrigins{header::DataOrigin{"AOD"}, header::DataOrigin{"AOD1"}, header::DataOrigin{"AOD2"}, header::DataOrigin{"DYN"}};
 
 class DataOutputDirector;
-
-struct OutputTaskInfo {
-  uint32_t id;
-  std::string name;
-};
-
-struct OutputObjectInfo {
-  uint32_t id;
-  std::vector<std::string> bindings;
-};
-} // namespace o2::framework
-
-extern template class std::vector<o2::framework::OutputObjectInfo>;
-extern template class std::vector<o2::framework::OutputTaskInfo>;
-
-namespace o2::framework
-{
-//
-struct AnalysisContext {
-  std::vector<InputSpec> requestedAODs;
-  std::vector<OutputSpec> providedAODs;
-  std::vector<InputSpec> requestedDYNs;
-  std::vector<OutputSpec> providedDYNs;
-  std::vector<InputSpec> requestedIDXs;
-  std::vector<OutputSpec> providedOutputObjHist;
-  std::vector<InputSpec> spawnerInputs;
-
-  std::vector<OutputTaskInfo> outTskMap;
-  std::vector<OutputObjectInfo> outObjHistMap;
-};
+class ConfigContext;
 
 // Helper class to be moved in the AnalysisSupport plugin at some point
 struct AnalysisSupportHelpers {
@@ -74,11 +46,11 @@ struct AnalysisSupportHelpers {
 
   /// Match all inputs of kind ATSK and write them to a ROOT file,
   /// one root file per originating task.
-  static DataProcessorSpec getOutputObjHistSink(std::vector<OutputObjectInfo> const& objmap,
-                                                std::vector<OutputTaskInfo> const& tskmap);
+  static DataProcessorSpec getOutputObjHistSink(ConfigContext const&);
   /// writes inputs of kind AOD to file
-  static DataProcessorSpec getGlobalAODSink(std::shared_ptr<DataOutputDirector> dod,
-                                            std::vector<InputSpec> const& outputInputs);
+  static DataProcessorSpec getGlobalAODSink(ConfigContext const&);
+  /// Get the data director
+  static std::shared_ptr<DataOutputDirector> getDataOutputDirector(ConfigContext const& ctx);
 };
 
 }; // namespace o2::framework

@@ -101,10 +101,10 @@ void PluginManager::load(std::vector<PluginInfo>& libs, const char* dso, std::fu
   onSuccess(pluginInstance);
 }
 
-auto PluginManager::loadAlgorithmFromPlugin(std::string library, std::string plugin) -> AlgorithmSpec
+auto PluginManager::loadAlgorithmFromPlugin(std::string library, std::string plugin, ConfigContext const& context) -> AlgorithmSpec
 {
   std::shared_ptr<AlgorithmSpec> algorithm{nullptr};
-  return AlgorithmSpec{[algorithm, library, plugin](InitContext& ic) mutable -> AlgorithmSpec::ProcessCallback {
+  return AlgorithmSpec{[algorithm, library, plugin, &context](InitContext& ic) mutable -> AlgorithmSpec::ProcessCallback {
     if (algorithm.get()) {
       return algorithm->onInit(ic);
     }
@@ -134,7 +134,7 @@ auto PluginManager::loadAlgorithmFromPlugin(std::string library, std::string plu
     if (!creator) {
       LOGP(fatal, "Could not find the {} plugin in {}.", plugin, libName);
     }
-    algorithm = std::make_shared<AlgorithmSpec>(creator->create());
+    algorithm = std::make_shared<AlgorithmSpec>(creator->create(context));
     return algorithm->onInit(ic);
   }};
 };

@@ -65,7 +65,7 @@ GPUSettingsO2 GPUO2InterfaceConfiguration::ReadConfigurableParam(GPUO2InterfaceC
 #define AddOptionSet(name, type, value, optname, optnameshort, help, ...)
 #define AddOptionVec(name, type, optname, optnameshort, help, ...)
 #define AddOptionArray(name, type, count, default, optname, optnameshort, help, ...) \
-  for (int i = 0; i < count; i++) {                                                  \
+  for (int32_t i = 0; i < count; i++) {                                              \
     dst.name[i] = src.name[i];                                                       \
   }
 #define AddOptionArrayRTC(...) AddOptionArray(__VA_ARGS__)
@@ -103,11 +103,11 @@ GPUSettingsO2 GPUO2InterfaceConfiguration::ReadConfigurableParam(GPUO2InterfaceC
   obj.configReconstruction = rec;
   obj.configDisplay = display;
   obj.configQA = QA;
-  if (obj.configGRP.continuousMaxTimeBin == 0 || obj.configGRP.continuousMaxTimeBin == -1) {
-    if (global.continuousMaxTimeBin) {
-      obj.configGRP.continuousMaxTimeBin = global.continuousMaxTimeBin;
+  if (obj.configGRP.grpContinuousMaxTimeBin < 0) {
+    if (global.setMaxTimeBin != -2) {
+      obj.configGRP.grpContinuousMaxTimeBin = global.setMaxTimeBin;
     } else {
-      obj.configGRP.continuousMaxTimeBin = global.tpcTriggeredMode ? 0 : -1;
+      obj.configGRP.grpContinuousMaxTimeBin = global.tpcTriggeredMode ? 0 : -1;
     }
   }
   if (global.solenoidBzNominalGPU > -1e6f) {

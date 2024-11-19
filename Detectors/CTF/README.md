@@ -101,6 +101,11 @@ comma-separated list of detectors to skip
 max CTFs to process (<= 0 : infinite)
 
 ```
+--max-tf-per-file arg (=-1)
+```
+max TFs to process from every CTF file (<= 0 : infinite)
+
+```
 --loop arg (=0)
 ```
 loop N times after the 1st pass over the data (infinite for N<0)

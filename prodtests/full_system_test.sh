@@ -230,6 +230,7 @@ if [[ ${RANS_OPT:-} =~ (--ans-version +)(compat) ]] ; then
   # for decoding we use either just produced or externally provided common local file
   export ARGS_EXTRA_PROCESS_o2_ctf_reader_workflow+="--ctf-dict $CTFDICTFILE"
 fi
+export CONFIG_EXTRA_PROCESS_o2_gpu_reco_workflow+="GPU_global.overrideNHbfPerTF=$NHBPERTF;"
 
 for STAGE in $STAGES; do
   logfile=reco_${STAGE}.log

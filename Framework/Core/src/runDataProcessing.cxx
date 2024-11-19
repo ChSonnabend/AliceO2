@@ -1049,6 +1049,7 @@ int doChild(int argc, char** argv, ServiceRegistry& serviceRegistry,
     ConfigParamsHelper::populateBoostProgramOptions(optsDesc, spec.options, gHiddenDeviceOptions);
     char const* defaultSignposts = getenv("DPL_SIGNPOSTS");
     optsDesc.add_options()("monitoring-backend", bpo::value<std::string>()->default_value("default"), "monitoring backend info")                                                                   //
+      ("dpl-stats-min-online-publishing-interval", bpo::value<std::string>()->default_value("0"), "minimum flushing interval for online metrics (in s)")                                           //
       ("driver-client-backend", bpo::value<std::string>()->default_value(defaultDriverClient), "backend for device -> driver communicataon: stdout://: use stdout, ws://: use websockets")         //
       ("infologger-severity", bpo::value<std::string>()->default_value(""), "minimum FairLogger severity to send to InfoLogger")                                                                   //
       ("dpl-tracing-flags", bpo::value<std::string>()->default_value(""), "pipe `|` separate list of events to be traced")                                                                         //
@@ -1444,6 +1445,9 @@ int runStateMachine(DataProcessorSpecs const& workflow,
   if (driverConfig.batch == false && window == nullptr && frameworkId.empty()) {
     LOG(warn) << "Could not create GUI. Switching to batch mode. Do you have GLFW on your system?";
     driverConfig.batch = true;
+    if (varmap["error-policy"].defaulted()) {
+      driverInfo.processingPolicies.error = TerminationPolicy::QUIT;
+    }
   }
   bool guiQuitRequested = false;
   bool hasError = false;
@@ -2026,6 +2030,7 @@ int runStateMachine(DataProcessorSpecs const& workflow,
             "--aod-writer-resmode",
             "--aod-writer-maxfilesize",
             "--aod-writer-keep",
+            "--aod-max-io-rate",
             "--aod-parent-access-level",
             "--aod-parent-base-path-replacement",
             "--driver-client-backend",

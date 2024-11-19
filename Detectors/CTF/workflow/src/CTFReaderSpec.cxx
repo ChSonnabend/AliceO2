@@ -360,7 +360,7 @@ bool CTFReaderSpec::processTF(ProcessingContext& pc)
 void CTFReaderSpec::checkTreeEntries()
 {
   // check if the tree has entries left, if needed, close current tree/file
-  if (++mCurrTreeEntry >= mCTFTree->GetEntries()) { // this file is done, check if there are other files
+  if (++mCurrTreeEntry >= mCTFTree->GetEntries() || (mInput.maxTFsPerFile > 0 && mCurrTreeEntry >= mInput.maxTFsPerFile)) { // this file is done, check if there are other files
     mCTFTree.reset();
     mCTFFile->Close();
     mCTFFile.reset();

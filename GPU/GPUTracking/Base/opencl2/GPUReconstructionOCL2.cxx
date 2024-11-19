@@ -38,21 +38,21 @@ GPUReconstructionOCL2Backend::GPUReconstructionOCL2Backend(const GPUSettingsDevi
 {
 }
 
-template <class T, int I, typename... Args>
-int GPUReconstructionOCL2Backend::runKernelBackend(const krnlSetupArgs<T, I, Args...>& args)
+template <class T, int32_t I, typename... Args>
+int32_t GPUReconstructionOCL2Backend::runKernelBackend(const krnlSetupArgs<T, I, Args...>& args)
 {
   cl_kernel k = args.s.y.num > 1 ? getKernelObject<cl_kernel, T, I, true>() : getKernelObject<cl_kernel, T, I, false>();
   return std::apply([this, &args, &k](auto&... vals) { return runKernelBackendInternal(args.s, k, vals...); }, args.v);
 }
 
-template <class S, class T, int I, bool MULTI>
+template <class S, class T, int32_t I, bool MULTI>
 S& GPUReconstructionOCL2Backend::getKernelObject()
 {
-  static unsigned int krnl = FindKernel<T, I>(MULTI ? 2 : 1);
+  static uint32_t krnl = FindKernel<T, I>(MULTI ? 2 : 1);
   return mInternals->kernels[krnl].first;
 }
 
-int GPUReconstructionOCL2Backend::GetOCLPrograms()
+int32_t GPUReconstructionOCL2Backend::GetOCLPrograms()
 {
   char platform_version[256] = {};
   GPUFailedMsg(clGetPlatformInfo(mInternals->platform, CL_PLATFORM_VERSION, sizeof(platform_version), platform_version, nullptr));
@@ -64,14 +64,14 @@ int GPUReconstructionOCL2Backend::GetOCLPrograms()
   const char* ocl_flags = GPUCA_M_STR(OCL_FLAGS);
 
 #ifdef OPENCL2_ENABLED_SPIRV // clang-format off
-  if (ver >= 2.2f) {
-    GPUInfo("Reading OpenCL program from SPIR-V IL (Platform version %f)", ver);
+  if (ver >= 2.2f && !GetProcessingSettings().oclCompileFromSources) {
+    GPUInfo("Reading OpenCL program from SPIR-V IL (Platform version %4.2f)", ver);
     mInternals->program = clCreateProgramWithIL(mInternals->context, _binary_GPUReconstructionOCL2Code_spirv_start, _binary_GPUReconstructionOCL2Code_spirv_len, &ocl_error);
     ocl_flags = "";
   } else
 #endif // clang-format on
   {
-    GPUInfo("Compiling OpenCL program from sources (Platform version %f, %s)", ver);
+    GPUInfo("Compiling OpenCL program from sources (Platform version %4.2f)", ver);
     size_t program_sizes[1] = {_binary_GPUReconstructionOCL2Code_src_len};
     char* programs_sources[1] = {_binary_GPUReconstructionOCL2Code_src_start};
     mInternals->program = clCreateProgramWithSource(mInternals->context, (cl_uint)1, (const char**)&programs_sources, program_sizes, &ocl_error);
@@ -113,7 +113,7 @@ int GPUReconstructionOCL2Backend::GetOCLPrograms()
   return 0;
 }
 
-bool GPUReconstructionOCL2Backend::CheckPlatform(unsigned int i)
+bool GPUReconstructionOCL2Backend::CheckPlatform(uint32_t i)
 {
   char platform_version[64] = {}, platform_vendor[64] = {};
   clGetPlatformInfo(mInternals->platforms[i], CL_PLATFORM_VERSION, sizeof(platform_version), platform_version, nullptr);

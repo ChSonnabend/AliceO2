@@ -57,6 +57,7 @@ class CalibdEdxDevice : public Task
     const auto maxdEdx = ic.options().get<float>("max-dedx");
     const auto angularBins = ic.options().get<int>("angularbins");
     const auto fitSnp = ic.options().get<bool>("fit-snp");
+    mMakeGaussianFits = !ic.options().get<bool>("disable-gaussian-fits");
 
     mDumpToFile = ic.options().get<int>("file-dump");
 
@@ -103,12 +104,13 @@ class CalibdEdxDevice : public Task
   void endOfStream(EndOfStreamContext& eos) final
   {
     LOGP(info, "Finalizing calibration");
-    mCalib->finalize();
+    mCalib->finalize(mMakeGaussianFits);
     mCalib->print();
     sendOutput(eos.outputs());
 
     if (mDumpToFile) {
-      mCalib->getCalib().writeToFile("calibdEdx.root");
+      mCalib->dumpToFile("calibdEdx_Obj.root", "calib");
+      mCalib->getCalib().writeToFile("calibdEdx.root", "ccdb_object");
       if (mDumpToFile > 1) {
         mCalib->writeTTree("calibdEdx.histo.tree.root");
       }
@@ -141,6 +143,7 @@ class CalibdEdxDevice : public Task
   uint64_t mRunNumber{0};      ///< processed run number
   uint64_t mTimeStampStart{0}; ///< time stamp for first TF for CCDB output
   std::unique_ptr<CalibdEdx> mCalib;
+  bool mMakeGaussianFits{true}; ///< make gaussian fits or take the mean
 };
 
 DataProcessorSpec getCalibdEdxSpec(const o2::base::Propagator::MatCorrType matType)
@@ -175,11 +178,12 @@ DataProcessorSpec getCalibdEdxSpec(const o2::base::Propagator::MatCorrType matTy
       {"fit-threshold", VariantType::Float, 0.2f, {"dEdx width around the MIP peak used in the fit"}},
       {"fit-threshold-low-factor", VariantType::Float, 1.5f, {"factor for low dEdx width around the MIP peak used in the fit"}},
 
-      {"dedxbins", VariantType::Int, 60, {"number of dEdx bins"}},
-      {"min-dedx", VariantType::Float, 20.0f, {"minimum value for dEdx histograms"}},
+      {"dedxbins", VariantType::Int, 70, {"number of dEdx bins"}},
+      {"min-dedx", VariantType::Float, 10.0f, {"minimum value for dEdx histograms"}},
       {"max-dedx", VariantType::Float, 90.0f, {"maximum value for dEdx histograms"}},
       {"angularbins", VariantType::Int, 36, {"number of angular bins: Tgl and Snp"}},
       {"fit-snp", VariantType::Bool, false, {"enable Snp correction"}},
+      {"disable-gaussian-fits", VariantType::Bool, false, {"disable calibration with gaussian fits and use mean instead"}},
 
       {"file-dump", VariantType::Int, 0, {"directly dump calibration to file"}}}};
 }

@@ -60,6 +60,53 @@ root -l
 .x build_rejectlist.C+(1716436103391,1721272208000,"localhost:8083")
 ```
 
+### Add custom bad channels
+
+The macro `build_rejectlist.C` scans the QCDB and the CCDB in search of issues.
+However, the QCDB flag is based on local boards with empty signals.
+It can happen that a local board is problematic, but not completely dead and, therefore, it is not correctly spotted by the macro.
+It is therefore important to have a way to add the issues by hand.
+This can be done with a json file in the form:
+
+```json
+{
+    "startRun": 557251,
+    "endRun": 557926,
+    "rejectList": [
+        {
+            "deId": 4,
+            "columnId": 2,
+            "patterns": [
+                "0x0",
+                "0xFFFF",
+                "0x0",
+                "0x0",
+                "0x0"
+            ]
+        },
+        {
+            "deId": 13,
+            "columnId": 2,
+            "patterns": [
+                "0x0",
+                "0xFFFF",
+                "0x0",
+                "0x0",
+                "0x0"
+            ]
+        }
+    ]
+}
+```
+
+The path to the file is then given to the macro with:
+
+```shell
+.x build_rejectlist.C+(1726299038000,1727386238000,"http://localhost:8083","http://alice-ccdb.cern.ch","http://localhost:8080","rejectlist.json")
+```
+
+The macro will then merge the manual reject list from the file with the reject list that it finds by scanning the QCDB and CCDB.
+
 ## Running the local CCDB
 
 The local CCDB server can be easily built through alibuild.

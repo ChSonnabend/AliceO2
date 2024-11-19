@@ -74,7 +74,12 @@ class TPCFourierTransformAggregatorSpec : public o2::framework::Task
       return;
     }
 
-    mCCDBBuffer[lane] = pc.inputs().get<std::vector<long>>("tsccdb");
+    const auto tsTmp = pc.inputs().get<std::vector<long>>("tsccdb");
+    if (tsTmp.front() == 0) {
+      LOGP(warning, "Received dummy data with empty timestamp");
+      return;
+    }
+    mCCDBBuffer[lane] = tsTmp;
     if (mProcessedTimeStamp > mCCDBBuffer[lane].front()) {
       LOGP(warning, "Already received data from a later time stamp {} then the currently received time stamp {}! (This might not be an issue)", mProcessedTimeStamp, mCCDBBuffer[lane].front());
     } else {
@@ -201,7 +206,7 @@ class TPCFourierTransformAggregatorSpec : public o2::framework::Task
 
   void endOfStream(o2::framework::EndOfStreamContext& ec) final
   {
-    if (!mDisableScaler) {
+    if (!mDisableScaler && !mProcessSACs) {
       makeTPCScaler(ec.outputs(), true);
     }
     ec.services().get<ControlService>().readyToQuit(QuitRequest::Me);
@@ -289,6 +294,7 @@ class TPCFourierTransformAggregatorSpec : public o2::framework::Task
     if (eos) {
       // in case of eos write out everything
       lastValidIdx = times.empty() ? -1 : times.size() - 1;
+      LOGP(info, "End of stream detected: Creating IDC scalers with {} IDC objects", lastValidIdx);
     }
 
     // create IDC scaler in case index is valid
@@ -342,7 +348,13 @@ class TPCFourierTransformAggregatorSpec : public o2::framework::Task
               const float deltaTime = times[i + 1].first - time.second;
               // if delta time is too large add dummy values
               if (deltaTime > (timesDuration / checkGapp)) {
-                const int nDummyValues = deltaTime / idcIntegrationTime + 0.5;
+                int nDummyValues = deltaTime / idcIntegrationTime + 0.5;
+                // restrict dummy values
+                const int nMaxDummyValues = checkGapp * timesDuration / idcIntegrationTime;
+                if (nDummyValues > nMaxDummyValues) {
+                  nDummyValues = nMaxDummyValues;
+                }
+
                 // add dummy to A
                 if (idc.idc1[0].size() > 0) {
                   float meanA = std::reduce(idc.idc1[0].begin(), idc.idc1[0].end()) / static_cast<float>(idc.idc1[0].size());

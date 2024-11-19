@@ -42,6 +42,7 @@ int main(int argc, char* argv[])
   std::string outputFileName("AO2D_thinned.root");
   int exitCode = 0; // 0: success, !=0: failure
   bool bOverwrite = false;
+  int compression = 505;
 
   int option_index = 1;
 
@@ -50,6 +51,7 @@ int main(int argc, char* argv[])
     {"input", required_argument, nullptr, 'i'},
     {"output", required_argument, nullptr, 'o'},
     {"overwrite", no_argument, nullptr, 'O'},
+    {"compression", no_argument, nullptr, 'c'},
     {"help", no_argument, nullptr, 'h'},
     {nullptr, 0, nullptr, 0}};
 
@@ -69,12 +71,16 @@ int main(int argc, char* argv[])
         bOverwrite = true;
         printf("Overwriting existing output file if existing\n");
         break;
+      case 'c':
+        compression = atoi(optarg);
+        break;
       case 'h':
       case '?':
       default:
         printf("AO2D thinning tool. Options: \n");
         printf("  --input/-i <inputfile.root>     Contains input file path to the file to be thinned. Default: %s\n", inputFileName.c_str());
         printf("  --output/-o <outputfile.root>   Target output ROOT file. Default: %s\n", outputFileName.c_str());
+        printf("  --compression/-c <compression id>   ROOT compression algorithm / level. Default: %d\n", compression);
         printf("\n");
         printf("  Optional Arguments:\n");
         printf("  --overwrite/-O                  Overwrite existing output file\n");
@@ -89,7 +95,7 @@ int main(int argc, char* argv[])
   TStopwatch clock;
   clock.Start(kTRUE);
 
-  auto outputFile = TFile::Open(outputFileName.c_str(), (bOverwrite) ? "RECREATE" : "CREATE", "", 505);
+  auto outputFile = TFile::Open(outputFileName.c_str(), (bOverwrite) ? "RECREATE" : "CREATE", "", compression);
   if (outputFile == nullptr) {
     printf("Error: File %s exists or cannot be created!\n", outputFileName.c_str());
     return 1;

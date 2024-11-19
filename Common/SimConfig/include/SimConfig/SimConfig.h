@@ -83,6 +83,7 @@ struct SimConfigData {
   bool mNoGeant = false;                              // if Geant transport should be turned off (when one is only interested in the generated events)
   bool mIsUpgrade = false;                            // true if the simulation is for Run 5
   std::string mFromCollisionContext = "";             // string denoting a collision context file; If given, this file will be used to determine number of events
+                                                      //
   bool mForwardKine = false;                          // true if tracks and event headers are to be published on a FairMQ channel (for reading by other consumers)
   bool mWriteToDisc = true;                           // whether we write simulation products (kine, hits) to disc
   VertexMode mVertexMode = VertexMode::kDiamondParam; // by default we should use die InteractionDiamond parameter
@@ -176,6 +177,10 @@ class SimConfig
   bool forwardKine() const { return mConfigData.mForwardKine; }
   bool writeToDisc() const { return mConfigData.mWriteToDisc; }
   VertexMode getVertexMode() const { return mConfigData.mVertexMode; }
+
+  // returns the pair of collision context filename as well as event prefix encoded
+  // in the mFromCollisionContext string. Returns empty string if information is not available or set.
+  std::pair<std::string, std::string> getCollContextFilenameAndEventPrefix() const;
 
  private:
   SimConfigData mConfigData; //!

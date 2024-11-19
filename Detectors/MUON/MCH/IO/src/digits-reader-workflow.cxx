@@ -35,7 +35,7 @@ void customize(std::vector<ConfigParamSpec>& workflowOptions)
     {"configKeyValues", VariantType::String, "", {"Semicolon separated key=value strings"}},
     {"mch-output-digits-data-description", VariantType::String, "DIGITS", {"description string for the output digits message"}},
     {"mch-output-digitrofs-data-description", VariantType::String, "DIGITROFS", {"description string for the output digit rofs message"}},
-  };
+    {"mch-output-digitlabels-data-description", VariantType::String, "DIGITLABELS", {"description string for the output digit labels message"}}};
   workflowOptions.insert(workflowOptions.end(), options.begin(), options.end());
   o2::raw::HBFUtilsInitializer::addConfigOption(workflowOptions);
 }
@@ -55,7 +55,8 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cc)
     useMC,
     name,
     cc.options().get<std::string>("mch-output-digits-data-description"),
-    cc.options().get<std::string>("mch-output-digitrofs-data-description")));
+    cc.options().get<std::string>("mch-output-digitrofs-data-description"),
+    cc.options().get<std::string>("mch-output-digitlabels-data-description")));
 
   o2::raw::HBFUtilsInitializer hbfIni(cc, specs);
 

@@ -53,7 +53,7 @@ TPCTrackingDigitsPreCheck::precheckModifiedData TPCTrackingDigitsPreCheck::runPr
     std::unique_ptr<precheckModifiedDataInternal> retVal = std::make_unique<precheckModifiedDataInternal>();
     retVal->tpcDigitsMap = *ptrs->tpcPackedDigits;
     const float zsThreshold = config->configReconstruction.tpc.zsThreshold;
-    const int maxContTimeBin = config->configGRP.continuousMaxTimeBin;
+    const int maxContTimeBin = config->configGRP.grpContinuousMaxTimeBin;
     static bool filterOutOfTF = getenv("TPC_WORKFLOW_FILTER_DIGITS_OUTSIDE_OF_TF") && atoi(getenv("TPC_WORKFLOW_FILTER_DIGITS_OUTSIDE_OF_TF"));
     bool updateDigits = (zsThreshold > 0 || filterOutOfTF) && ptrs->tpcZS == nullptr;
     const auto& d = ptrs->tpcPackedDigits;

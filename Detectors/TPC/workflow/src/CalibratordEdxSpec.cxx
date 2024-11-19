@@ -69,6 +69,7 @@ class CalibratordEdxDevice : public Task
     const auto dumpData = ic.options().get<bool>("file-dump");
     const auto dumpHistograms = ic.options().get<uint32_t>("dump-histograms");
     const auto trackDebug = ic.options().get<bool>("track-debug");
+    const bool makeGaussianFits = !ic.options().get<bool>("disable-gaussian-fits");
 
     mCalibrator = std::make_unique<tpc::CalibratordEdx>();
     mCalibrator->setHistParams(dEdxBins, mindEdx, maxdEdx, angularBins, fitSnp);
@@ -82,6 +83,7 @@ class CalibratordEdxDevice : public Task
     mCalibrator->setMaterialType(mMatType);
     mCalibrator->setDumpHistograms(dumpHistograms);
     mCalibrator->setTrackDebug(trackDebug);
+    mCalibrator->setMakeGaussianFits(makeGaussianFits);
 
     if (dumpData) {
       const auto dumpDataName = ic.options().get<std::string>("file-dump-name");
@@ -218,8 +220,8 @@ DataProcessorSpec getCalibratordEdxSpec(const o2::base::Propagator::MatCorrType 
       {"fit-threshold", VariantType::Float, 0.2f, {"dEdx width around the MIP peak used in the fit"}},
       {"fit-threshold-low-factor", VariantType::Float, 1.5f, {"factor for low dEdx width around the MIP peak used in the fit"}},
 
-      {"dedxbins", VariantType::Int, 60, {"number of dEdx bins"}},
-      {"min-dedx", VariantType::Float, 20.0f, {"minimum value for dEdx histograms"}},
+      {"dedxbins", VariantType::Int, 70, {"number of dEdx bins"}},
+      {"min-dedx", VariantType::Float, 10.0f, {"minimum value for dEdx histograms"}},
       {"max-dedx", VariantType::Float, 90.0f, {"maximum value for dEdx histograms"}},
       {"angularbins", VariantType::Int, 36, {"number of angular bins: Tgl and Snp"}},
       {"fit-snp", VariantType::Bool, false, {"enable Snp correction"}},
@@ -228,6 +230,7 @@ DataProcessorSpec getCalibratordEdxSpec(const o2::base::Propagator::MatCorrType 
       {"file-dump", VariantType::Bool, false, {"directly dump calibration to file"}},
       {"file-dump-name", VariantType::String, "calibratordEdx.root", {"name of the file dump output file"}},
       {"track-debug", VariantType::Bool, false, {"track dEdx debugging"}},
+      {"disable-gaussian-fits", VariantType::Bool, false, {"disable calibration with gaussian fits and use mean instead"}},
     }};
 }
 

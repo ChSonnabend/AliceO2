@@ -23,8 +23,20 @@ namespace o2
 {
 namespace its
 {
+template <typename T1, typename T2>
+struct gpuPair {
+  T1 first;
+  T2 second;
+};
+
 namespace gpu
 {
+
+enum class Task {
+  Tracker = 0,
+  Vertexer = 1
+};
+
 template <class T>
 GPUhd() T* getPtrFromRuler(int index, T* src, const int* ruler, const int stride = 1)
 {

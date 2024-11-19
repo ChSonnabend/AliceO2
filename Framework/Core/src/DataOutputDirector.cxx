@@ -455,7 +455,7 @@ std::vector<DataOutputDescriptor*> DataOutputDirector::getDataOutputDescriptors(
   return result;
 }
 
-FileAndFolder DataOutputDirector::getFileFolder(DataOutputDescriptor* dodesc, uint64_t folderNumber, std::string parentFileName)
+FileAndFolder DataOutputDirector::getFileFolder(DataOutputDescriptor* dodesc, uint64_t folderNumber, std::string parentFileName, int compression)
 {
   // initialisation
   FileAndFolder fileAndFolder;
@@ -488,7 +488,7 @@ FileAndFolder DataOutputDirector::getFileFolder(DataOutputDescriptor* dodesc, ui
       auto fn = resdirname + "/" + mfilenameBases[ind] + ".root";
       delete mfilePtrs[ind];
       mParentMaps[ind]->Clear();
-      mfilePtrs[ind] = TFile::Open(fn.c_str(), mfileMode.c_str(), "", 505);
+      mfilePtrs[ind] = TFile::Open(fn.c_str(), mfileMode.c_str(), "", compression);
     }
     fileAndFolder.file = mfilePtrs[ind];
 

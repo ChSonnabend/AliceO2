@@ -16,6 +16,7 @@ if(HIP_ENABLED)
                  SOURCES ../cuda/ClusterLinesGPU.cu
                          ../cuda/Context.cu
                          ../cuda/TimeFrameGPU.cu
+                         ../cuda/TimeFrameChunk.cu
                          ../cuda/Stream.cu
                          ../cuda/TrackerTraitsGPU.cxx
                          ../cuda/TracerGPU.cu

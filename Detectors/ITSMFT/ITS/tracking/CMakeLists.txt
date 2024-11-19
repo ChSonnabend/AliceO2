@@ -37,7 +37,6 @@ o2_add_library(ITStracking
                        O2::ITSMFTReconstruction
                        O2::DataFormatsITS)
 
-
 if (OpenMP_CXX_FOUND)
         target_compile_definitions(${targetName} PRIVATE WITH_OPENMP)
         target_link_libraries(${targetName} PRIVATE OpenMP::OpenMP_CXX)

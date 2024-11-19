@@ -31,7 +31,8 @@ std::unique_ptr<o2::framework::ConfigContext> mockupLabels(std::string labelArg)
   store->preload();
   store->activate();
   registry = ConfigParamRegistry(std::move(store));
-  auto context = std::make_unique<ConfigContext>(registry, 0, nullptr);
+  static ServiceRegistry services;
+  auto context = std::make_unique<ConfigContext>(registry, ServiceRegistryRef{services}, 0, nullptr);
   return context;
 }
 

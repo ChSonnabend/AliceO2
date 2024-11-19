@@ -13,7 +13,7 @@
 #include "CCDBHelpers.h"
 
 struct CCDBFetcherPlugin : o2::framework::AlgorithmPlugin {
-  o2::framework::AlgorithmSpec create() final
+  o2::framework::AlgorithmSpec create(o2::framework::ConfigContext const&) final
   {
     return o2::framework::CCDBHelpers::fetchFromCCDB();
   }

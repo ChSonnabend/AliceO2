@@ -24,6 +24,7 @@
 #include "CommonConstants/GeomConstants.h"
 #include "CommonConstants/ZDCConstants.h"
 #include "SimulationDataFormat/MCGenProperties.h"
+#include "Framework/PID.h"
 
 namespace o2
 {
@@ -249,6 +250,7 @@ DECLARE_SOA_COLUMN(ITSChi2NCl, itsChi2NCl, float);                              
 DECLARE_SOA_COLUMN(TPCChi2NCl, tpcChi2NCl, float);                                            //! Chi2 / cluster for the TPC track segment
 DECLARE_SOA_COLUMN(TRDChi2, trdChi2, float);                                                  //! Chi2 for the TRD track segment
 DECLARE_SOA_COLUMN(TOFChi2, tofChi2, float);                                                  //! Chi2 for the TOF track segment
+DECLARE_SOA_COLUMN(ITSSignal, itsSignal, float);                                              //! dE/dx signal in the ITS (Run 2)
 DECLARE_SOA_COLUMN(TPCSignal, tpcSignal, float);                                              //! dE/dx signal in the TPC
 DECLARE_SOA_COLUMN(TRDSignal, trdSignal, float);                                              //! PID signal in the TRD
 DECLARE_SOA_COLUMN(Length, length, float);                                                    //! Track length
@@ -266,39 +268,58 @@ DECLARE_SOA_EXPRESSION_COLUMN(DetectorMap, detectorMap, uint8_t, //! Detector ma
                                 ifnode(aod::track::trdPattern > (uint8_t)0, static_cast<uint8_t>(o2::aod::track::TRD), (uint8_t)0x0) |
                                 ifnode((aod::track::tofChi2 >= 0.f) && (aod::track::tofExpMom > 0.f), static_cast<uint8_t>(o2::aod::track::TOF), (uint8_t)0x0));
 
-DECLARE_SOA_DYNAMIC_COLUMN(TOFExpTime, tofExpTime, //! Expected time for the track to reach the TOF
-                           [](float length, float tofExpMom, float mMassZSqared) -> float {
-                             if (tofExpMom <= 0.f) {
-                               return -999.f;
-                             }
-                             return length * std::sqrt((mMassZSqared) + (tofExpMom * tofExpMom)) / (o2::constants::physics::LightSpeedCm2PS * tofExpMom);
+DECLARE_SOA_DYNAMIC_COLUMN(TOFExpTimeEl, tofExpTimeEl, //! Expected time for the track to reach the TOF under the electron hypothesis
+                           [](float length, float tofExpMom) -> float {
+                             constexpr float massSquared = o2::constants::physics::MassElectron * o2::constants::physics::MassElectron;
+                             return o2::framework::pid::tof::MassToExpTime(tofExpMom, length, massSquared);
+                           });
+
+DECLARE_SOA_DYNAMIC_COLUMN(TOFExpTimeMu, tofExpTimeMu, //! Expected time for the track to reach the TOF under the muon hypothesis
+                           [](float length, float tofExpMom) -> float {
+                             constexpr float massSquared = o2::constants::physics::MassMuon * o2::constants::physics::MassMuon;
+                             return o2::framework::pid::tof::MassToExpTime(tofExpMom, length, massSquared);
                            });
 
 DECLARE_SOA_DYNAMIC_COLUMN(TOFExpTimePi, tofExpTimePi, //! Expected time for the track to reach the TOF under the pion hypothesis
                            [](float length, float tofExpMom) -> float {
-                             if (tofExpMom <= 0.f) {
-                               return -999.f;
-                             }
-                             constexpr float mMassZSqared = o2::constants::physics::MassPionCharged * o2::constants::physics::MassPionCharged;
-                             return length * std::sqrt((mMassZSqared) + (tofExpMom * tofExpMom)) / (o2::constants::physics::LightSpeedCm2PS * tofExpMom);
+                             constexpr float massSquared = o2::constants::physics::MassPionCharged * o2::constants::physics::MassPionCharged;
+                             return o2::framework::pid::tof::MassToExpTime(tofExpMom, length, massSquared);
                            });
 
 DECLARE_SOA_DYNAMIC_COLUMN(TOFExpTimeKa, tofExpTimeKa, //! Expected time for the track to reach the TOF under the kaon hypothesis
                            [](float length, float tofExpMom) -> float {
-                             if (tofExpMom <= 0.f) {
-                               return -999.f;
-                             }
-                             constexpr float mMassZSqared = o2::constants::physics::MassKaonCharged * o2::constants::physics::MassKaonCharged;
-                             return length * std::sqrt((mMassZSqared) + (tofExpMom * tofExpMom)) / (o2::constants::physics::LightSpeedCm2PS * tofExpMom);
+                             constexpr float massSquared = o2::constants::physics::MassKaonCharged * o2::constants::physics::MassKaonCharged;
+                             return o2::framework::pid::tof::MassToExpTime(tofExpMom, length, massSquared);
                            });
 
 DECLARE_SOA_DYNAMIC_COLUMN(TOFExpTimePr, tofExpTimePr, //! Expected time for the track to reach the TOF under the proton hypothesis
                            [](float length, float tofExpMom) -> float {
-                             if (tofExpMom <= 0.f) {
-                               return -999.f;
-                             }
-                             constexpr float mMassZSqared = o2::constants::physics::MassProton * o2::constants::physics::MassProton;
-                             return length * std::sqrt((mMassZSqared) + (tofExpMom * tofExpMom)) / (o2::constants::physics::LightSpeedCm2PS * tofExpMom);
+                             constexpr float massSquared = o2::constants::physics::MassProton * o2::constants::physics::MassProton;
+                             return o2::framework::pid::tof::MassToExpTime(tofExpMom, length, massSquared);
+                           });
+
+DECLARE_SOA_DYNAMIC_COLUMN(TOFExpTimeDe, tofExpTimeDe, //! Expected time for the track to reach the TOF under the deuteron hypothesis
+                           [](float length, float tofExpMom) -> float {
+                             constexpr float massSquared = o2::constants::physics::MassDeuteron * o2::constants::physics::MassDeuteron;
+                             return o2::framework::pid::tof::MassToExpTime(tofExpMom, length, massSquared);
+                           });
+
+DECLARE_SOA_DYNAMIC_COLUMN(TOFExpTimeTr, tofExpTimeTr, //! Expected time for the track to reach the TOF under the triton hypothesis
+                           [](float length, float tofExpMom) -> float {
+                             constexpr float massSquared = o2::constants::physics::MassTriton * o2::constants::physics::MassTriton;
+                             return o2::framework::pid::tof::MassToExpTime(tofExpMom, length, massSquared);
+                           });
+
+DECLARE_SOA_DYNAMIC_COLUMN(TOFExpTimeHe, tofExpTimeHe, //! Expected time for the track to reach the TOF under the helium3 hypothesis
+                           [](float length, float tofExpMom) -> float {
+                             constexpr float massSquared = o2::constants::physics::MassHelium3 * o2::constants::physics::MassHelium3;
+                             return o2::framework::pid::tof::MassToExpTime(tofExpMom, length, massSquared);
+                           });
+
+DECLARE_SOA_DYNAMIC_COLUMN(TOFExpTimeAl, tofExpTimeAl, //! Expected time for the track to reach the TOF under the helium4 hypothesis
+                           [](float length, float tofExpMom) -> float {
+                             constexpr float massSquared = o2::constants::physics::MassAlpha * o2::constants::physics::MassAlpha;
+                             return o2::framework::pid::tof::MassToExpTime(tofExpMom, length, massSquared);
                            });
 
 namespace v001
@@ -338,7 +359,7 @@ DECLARE_SOA_DYNAMIC_COLUMN(ITSNClsInnerBarrel, itsNClsInnerBarrel, //! Number of
                            });
 DECLARE_SOA_DYNAMIC_COLUMN(ITSClsSizeInLayer, itsClsSizeInLayer, //! Size of the ITS cluster in a given layer
                            [](uint32_t itsClusterSizes, int layer) -> uint8_t {
-                             if (layer >= 7) {
+                             if (layer >= 7 || layer < 0) {
                                return 0;
                              }
                              return (itsClusterSizes >> (layer * 4)) & 0xf;
@@ -535,10 +556,15 @@ DECLARE_SOA_TABLE_FULL(StoredTracksExtra_000, "TracksExtra", "AOD", "TRACKEXTRA"
                        track::HasTRD<track::DetectorMap>, track::HasTOF<track::DetectorMap>,
                        track::TPCNClsFound<track::TPCNClsFindable, track::TPCNClsFindableMinusFound>,
                        track::TPCNClsCrossedRows<track::TPCNClsFindable, track::TPCNClsFindableMinusCrossedRows>,
-                       track::TOFExpTime<track::Length, track::TOFExpMom>,
+                       track::TOFExpTimeEl<track::Length, track::TOFExpMom>,
+                       track::TOFExpTimeMu<track::Length, track::TOFExpMom>,
                        track::TOFExpTimePi<track::Length, track::TOFExpMom>,
                        track::TOFExpTimeKa<track::Length, track::TOFExpMom>,
                        track::TOFExpTimePr<track::Length, track::TOFExpMom>,
+                       track::TOFExpTimeDe<track::Length, track::TOFExpMom>,
+                       track::TOFExpTimeTr<track::Length, track::TOFExpMom>,
+                       track::TOFExpTimeHe<track::Length, track::TOFExpMom>,
+                       track::TOFExpTimeAl<track::Length, track::TOFExpMom>,
                        track::ITSNCls<track::ITSClusterMap>, track::ITSNClsInnerBarrel<track::ITSClusterMap>,
                        track::TPCCrossedRowsOverFindableCls<track::TPCNClsFindable, track::TPCNClsFindableMinusCrossedRows>,
                        track::TPCFoundOverFindableCls<track::TPCNClsFindable, track::TPCNClsFindableMinusFound>,
@@ -560,10 +586,15 @@ DECLARE_SOA_TABLE_FULL_VERSIONED(StoredTracksExtra_001, "TracksExtra", "AOD", "T
                                  track::v001::ITSClusterMap<track::ITSClusterSizes>, track::v001::ITSNCls<track::ITSClusterSizes>, track::v001::ITSNClsInnerBarrel<track::ITSClusterSizes>,
                                  track::v001::ITSClsSizeInLayer<track::ITSClusterSizes>,
                                  track::v001::IsITSAfterburner<track::v001::DetectorMap, track::ITSChi2NCl>,
-                                 track::TOFExpTime<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimeEl<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimeMu<track::Length, track::TOFExpMom>,
                                  track::TOFExpTimePi<track::Length, track::TOFExpMom>,
                                  track::TOFExpTimeKa<track::Length, track::TOFExpMom>,
                                  track::TOFExpTimePr<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimeDe<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimeTr<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimeHe<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimeAl<track::Length, track::TOFExpMom>,
                                  track::TPCCrossedRowsOverFindableCls<track::TPCNClsFindable, track::TPCNClsFindableMinusCrossedRows>,
                                  track::TPCFoundOverFindableCls<track::TPCNClsFindable, track::TPCNClsFindableMinusFound>,
                                  track::TPCFractionSharedCls<track::TPCNClsShared, track::TPCNClsFindable, track::TPCNClsFindableMinusFound>,
@@ -574,6 +605,9 @@ DECLARE_SOA_EXTENDED_TABLE(TracksExtra_000, StoredTracksExtra_000, "TRACKEXTRA",
 DECLARE_SOA_EXTENDED_TABLE(TracksExtra_001, StoredTracksExtra_001, "TRACKEXTRA", //! Additional track information (clusters, PID, etc.)
                            track::v001::DetectorMap);
 
+DECLARE_SOA_TABLE(Run2TrackExtras, "AOD", "RUN2TRACKEXTRA",
+                  track::ITSSignal);
+
 using StoredTracksExtra = StoredTracksExtra_001;
 using TracksExtra = TracksExtra_001;
 
@@ -582,6 +616,7 @@ using TrackIU = TracksIU::iterator;
 using TrackCov = TracksCov::iterator;
 using TrackCovIU = TracksCovIU::iterator;
 using TrackExtra = TracksExtra::iterator;
+using Run2TrackExtra = Run2TrackExtras::iterator;
 
 } // namespace aod
 namespace soa

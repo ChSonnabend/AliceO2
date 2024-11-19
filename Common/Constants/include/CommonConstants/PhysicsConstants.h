@@ -48,6 +48,7 @@ enum Pdg {
   kDPlus = 411,
   kDS = 431,
   kDSBar = -431,
+  kDSStar = 433,
   kDS1 = 10433,
   kDS2Star = 435,
   kDStar = 413,
@@ -74,7 +75,8 @@ enum Pdg {
   kHyperTriton = 1010010030,
   kHyperHydrogen4 = 1010010040,
   kHyperHelium4 = 1010020040,
-  kHyperHelium5 = 1010020050
+  kHyperHelium5 = 1010020050,
+  kHyperHelium4Sigma = 1110020040
 };
 
 /// \brief Declarations of masses for additional particles
@@ -95,6 +97,7 @@ constexpr double MassDMinus = 1.86966;
 constexpr double MassDPlus = 1.86966;
 constexpr double MassDS = 1.96835;
 constexpr double MassDSBar = 1.96835;
+constexpr double MassDSStar = 2.1122;
 constexpr double MassDS1 = 2.53511;
 constexpr double MassDS2Star = 2.5691;
 constexpr double MassDStar = 2.01026;
@@ -122,6 +125,7 @@ constexpr double MassHyperTriton = 2.99131;
 constexpr double MassHyperHydrogen4 = 3.9226;
 constexpr double MassHyperHelium4 = 3.9217;
 constexpr double MassHyperHelium5 = 4.841;
+constexpr double MassHyperHelium4Sigma = 3.995;
 
 /// \brief Declarations of masses for particles in ROOT PDG_t
 constexpr double MassDown = 0.00467;
@@ -192,6 +196,7 @@ constexpr double MassKaonNeutral = MassK0;
 constexpr double MassLambda = MassLambda0;
 constexpr double MassHyperhydrog4 = MassHyperHydrogen4;
 constexpr double MassHyperhelium4 = MassHyperHelium4;
+constexpr double MassHyperhelium4sigma = MassHyperHelium4Sigma;
 
 // Light speed
 constexpr float LightSpeedCm2S = 299792458.e2;            // C in cm/s

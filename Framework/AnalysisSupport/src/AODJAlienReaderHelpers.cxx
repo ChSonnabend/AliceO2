@@ -22,6 +22,7 @@
 #include "Framework/DeviceSpec.h"
 #include "Framework/RawDeviceService.h"
 #include "Framework/DataSpecUtils.h"
+#include "Framework/ConfigContext.h"
 #include "DataInputDirector.h"
 #include "Framework/SourceInfoHeader.h"
 #include "Framework/ChannelInfo.h"
@@ -40,8 +41,6 @@
 #include <arrow/io/interfaces.h>
 #include <arrow/table.h>
 #include <arrow/util/key_value_metadata.h>
-
-#include <thread>
 
 using namespace o2;
 using namespace o2::aod;
@@ -119,12 +118,23 @@ static inline auto extractOriginalsTuple(framework::pack<Os...>, ProcessingConte
   return std::make_tuple(extractTypedOriginal<Os>(pc)...);
 }
 
-AlgorithmSpec AODJAlienReaderHelpers::rootFileReaderCallback()
+AlgorithmSpec AODJAlienReaderHelpers::rootFileReaderCallback(ConfigContext const& ctx)
 {
-  auto callback = AlgorithmSpec{adaptStateful([](ConfigParamRegistry const& options,
-                                                 DeviceSpec const& spec,
-                                                 Monitoring& monitoring,
-                                                 DataProcessingStats& stats) {
+  // aod-parent-base-path-replacement is now a workflow option, so it needs to be
+  // retrieved from the ConfigContext. This is because we do not allow workflow options
+  // to change over start-stop-start because they can affect the topology generation.
+  std::string parentFileReplacement;
+  if (ctx.options().isSet("aod-parent-base-path-replacement")) {
+    parentFileReplacement = ctx.options().get<std::string>("aod-parent-base-path-replacement");
+  }
+  int parentAccessLevel = 0;
+  if (ctx.options().isSet("aod-parent-access-level")) {
+    parentAccessLevel = ctx.options().get<int>("aod-parent-access-level");
+  }
+  auto callback = AlgorithmSpec{adaptStateful([parentFileReplacement, parentAccessLevel](ConfigParamRegistry const& options,
+                                                                                         DeviceSpec const& spec,
+                                                                                         Monitoring& monitoring,
+                                                                                         DataProcessingStats& stats) {
     // FIXME: not actually needed, since data processing stats can specify that we should
     // send the initial value.
     stats.updateStats({static_cast<short>(ProcessingStatsId::ARROW_BYTES_CREATED), DataProcessingStats::Op::Set, 0});
@@ -140,15 +150,7 @@ AlgorithmSpec AODJAlienReaderHelpers::rootFileReaderCallback()
 
     auto filename = options.get<std::string>("aod-file-private");
 
-    std::string parentFileReplacement;
-    if (options.isSet("aod-parent-base-path-replacement")) {
-      parentFileReplacement = options.get<std::string>("aod-parent-base-path-replacement");
-    }
-
-    int parentAccessLevel = 0;
-    if (options.isSet("aod-parent-access-level")) {
-      parentAccessLevel = options.get<int>("aod-parent-access-level");
-    }
+    auto maxRate = options.get<float>("aod-max-io-rate");
 
     // create a DataInputDirector
     auto didir = std::make_shared<DataInputDirector>(filename, &monitoring, parentAccessLevel, parentFileReplacement);
@@ -192,6 +194,7 @@ AlgorithmSpec AODJAlienReaderHelpers::rootFileReaderCallback()
                            fileCounter,
                            numTF,
                            watchdog,
+                           maxRate,
                            didir, reportTFN, reportTFFileName](Monitoring& monitoring, DataAllocator& outputs, ControlService& control, DeviceSpec const& device) {
       // Each parallel reader device.inputTimesliceId reads the files fileCounter*device.maxInputTimeslices+device.inputTimesliceId
       // the TF to read is numTF
@@ -222,6 +225,8 @@ AlgorithmSpec AODJAlienReaderHelpers::rootFileReaderCallback()
         return;
       }
 
+      int64_t startTime = uv_hrtime();
+      int64_t startSize = totalSizeCompressed;
       for (auto& route : requestedTables) {
         if ((device.inputTimesliceId % route.maxTimeslices) != route.timeslice) {
           continue;
@@ -277,6 +282,18 @@ AlgorithmSpec AODJAlienReaderHelpers::rootFileReaderCallback()
           }
         }
         first = false;
+      }
+      int64_t stopSize = totalSizeCompressed;
+      int64_t bytesDelta = stopSize - startSize;
+      int64_t stopTime = uv_hrtime();
+      float currentDelta = float(stopTime - startTime) / 1000000000; // in s
+      if (ceil(maxRate) > 0.) {
+        float extraTime = (bytesDelta / 1000000 - currentDelta * maxRate) / maxRate;
+        // We only sleep if we read faster than the max-read-rate.
+        if (extraTime > 0.) {
+          LOGP(info, "Read {} MB in {} s. Sleeping for {} seconds to stay within {} MB/s limit.", bytesDelta / 1000000, currentDelta, extraTime, maxRate);
+          uv_sleep(extraTime * 1000); // in milliseconds
+        }
       }
       totalDFSent++;
       monitoring.send(Metric{(uint64_t)totalDFSent, "df-sent"}.addTag(Key::Subsystem, monitoring::tags::Value::DPL));

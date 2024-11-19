@@ -16,6 +16,8 @@
 
 #include "FairGenerator.h"
 #include "Generators/Generator.h"
+#include <TRandom3.h>
+#include <TGrid.h>
 
 class TBranch;
 class TFile;
@@ -94,6 +96,10 @@ class GeneratorFromO2Kine : public o2::eventgen::Generator
   bool mSkipNonTrackable = true; //! whether to pass non-trackable (decayed particles) to the MC stack
   bool mContinueMode = false;    //! whether we want to continue simulation of previously inhibited tracks
   bool mRoundRobin = false;      //! whether we want to take events from file in a round robin fashion
+  bool mRandomize = false;       //! whether we want to randomize the order of events in the input file
+  unsigned int mRngSeed = 0;     //! randomizer seed, 0 for random value
+  bool mRandomPhi = false;       //! whether we want to randomize the phi angle of the particles
+  TGrid* mAlienInstance = nullptr; // a cached connection to TGrid (needed for Alien locations)
 
   std::unique_ptr<o2::dataformats::MCEventHeader> mOrigMCEventHeader; //! the MC event header of the original file
 
