@@ -17,6 +17,7 @@
 #include "Generators/Generator.h"
 #include "Generators/GeneratorFileOrCmd.h"
 #include "Generators/GeneratorHepMCParam.h"
+#include "Generators/GeneratorFileOrCmdParam.h"
 
 #ifdef GENERATORS_WITH_HEPMC3_DEPRECATED
 namespace HepMC
@@ -69,6 +70,10 @@ class GeneratorHepMC : public Generator, public GeneratorFileOrCmd
   void setup(const GeneratorFileOrCmdParam& param0,
              const GeneratorHepMCParam& param,
              const conf::SimConfig& config);
+  // Generator configuration from external local parameters
+  void setup(const FileOrCmdGenConfig& param0,
+             const HepMCGenConfig& param,
+             const conf::SimConfig& config);
   /**
    * Generate a single event.  The event is read in from the current
    * input file.  Returns false if a new event could not be read.
@@ -83,6 +88,7 @@ class GeneratorHepMC : public Generator, public GeneratorFileOrCmd
 
   /** setters **/
   void setEventsToSkip(uint64_t val) { mEventsToSkip = val; };
+  void setVersion(const int& ver) { mVersion = ver; };
 
  protected:
   /** copy constructor **/

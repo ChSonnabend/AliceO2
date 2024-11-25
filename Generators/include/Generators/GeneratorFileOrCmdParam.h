@@ -39,6 +39,11 @@ struct GeneratorFileOrCmdParam : public o2::conf::ConfigurableParamHelper<Genera
   O2ParamDef(GeneratorFileOrCmdParam, "GeneratorFileOrCmd");
 };
 
+struct FileOrCmdGenConfig {
+  std::string fileNames = "";
+  std::string cmd = ""; // Program command line to spawn
+};
+
 } // end namespace eventgen
 } // end namespace o2
 

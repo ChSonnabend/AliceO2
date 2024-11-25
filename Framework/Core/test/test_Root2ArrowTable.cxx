@@ -358,4 +358,112 @@ TEST_CASE("RootTree2Dataset")
   REQUIRE(result.ok());
   REQUIRE((*result)->columns().size() == 7);
   REQUIRE((*result)->num_rows() == 100);
+
+  {
+    auto int_array = std::static_pointer_cast<arrow::Int32Array>((*result)->GetColumnByName("ev"));
+    for (int64_t j = 0; j < int_array->length(); j++) {
+      REQUIRE(int_array->Value(j) == j + 1);
+    }
+  }
+
+  {
+    auto list_array = std::static_pointer_cast<arrow::FixedSizeListArray>((*result)->GetColumnByName("xyz"));
+
+    // Iterate over the FixedSizeListArray
+    for (int64_t i = 0; i < list_array->length(); i++) {
+      auto value_slice = list_array->value_slice(i);
+      auto float_array = std::static_pointer_cast<arrow::FloatArray>(value_slice);
+
+      REQUIRE(float_array->Value(0) == 1);
+      REQUIRE(float_array->Value(1) == 2);
+      REQUIRE(float_array->Value(2) == i + 1);
+    }
+  }
+
+  {
+    auto list_array = std::static_pointer_cast<arrow::FixedSizeListArray>((*result)->GetColumnByName("ij"));
+
+    // Iterate over the FixedSizeListArray
+    for (int64_t i = 0; i < list_array->length(); i++) {
+      auto value_slice = list_array->value_slice(i);
+      auto int_array = std::static_pointer_cast<arrow::Int32Array>(value_slice);
+      REQUIRE(int_array->Value(0) == i);
+      REQUIRE(int_array->Value(1) == i + 1);
+    }
+  }
+
+  auto* output = new TMemFile("foo", "RECREATE");
+  auto outFs = std::make_shared<TFileFileSystem>(output, 0);
+  arrow::fs::FileLocator locator{outFs, "/DF_3"};
+
+  auto destination = outFs->OpenOutputStream(locator.path, {});
+  REQUIRE(destination.ok());
+
+  auto writer = format->MakeWriter(*destination, schema, {}, locator);
+  auto success = writer->get()->Write(*result);
+  auto rootDestination = std::dynamic_pointer_cast<TTreeOutputStream>(*destination);
+
+  REQUIRE(success.ok());
+  // Let's read it back...
+  arrow::dataset::FileSource source2("/DF_3", outFs);
+  auto newTreeFS = outFs->GetSubFilesystem(source2);
+
+  REQUIRE(format->IsSupported(source) == true);
+
+  auto schemaOptWritten = format->Inspect(source);
+  REQUIRE(schemaOptWritten.ok());
+  auto schemaWritten = *schemaOptWritten;
+  REQUIRE(schemaWritten->num_fields() == 7);
+  REQUIRE(schemaWritten->field(0)->type()->id() == arrow::float32()->id());
+  REQUIRE(schemaWritten->field(1)->type()->id() == arrow::float32()->id());
+  REQUIRE(schemaWritten->field(2)->type()->id() == arrow::float32()->id());
+  REQUIRE(schemaWritten->field(3)->type()->id() == arrow::float64()->id());
+  REQUIRE(schemaWritten->field(4)->type()->id() == arrow::int32()->id());
+  REQUIRE(schemaWritten->field(5)->type()->id() == arrow::fixed_size_list(arrow::float32(), 3)->id());
+  REQUIRE(schemaWritten->field(6)->type()->id() == arrow::fixed_size_list(arrow::int32(), 2)->id());
+
+  auto fragmentWritten = format->MakeFragment(source, {}, schema);
+  REQUIRE(fragmentWritten.ok());
+  auto optionsWritten = std::make_shared<arrow::dataset::ScanOptions>();
+  options->dataset_schema = schemaWritten;
+  auto scannerWritten = format->ScanBatchesAsync(optionsWritten, *fragment);
+  REQUIRE(scannerWritten.ok());
+  auto batchesWritten = (*scanner)();
+  auto resultWritten = batches.result();
+  REQUIRE(resultWritten.ok());
+  REQUIRE((*resultWritten)->columns().size() == 7);
+  REQUIRE((*resultWritten)->num_rows() == 100);
+
+  {
+    auto int_array = std::static_pointer_cast<arrow::Int32Array>((*resultWritten)->GetColumnByName("ev"));
+    for (int64_t j = 0; j < int_array->length(); j++) {
+      REQUIRE(int_array->Value(j) == j + 1);
+    }
+  }
+
+  {
+    auto list_array = std::static_pointer_cast<arrow::FixedSizeListArray>((*result)->GetColumnByName("xyz"));
+
+    // Iterate over the FixedSizeListArray
+    for (int64_t i = 0; i < list_array->length(); i++) {
+      auto value_slice = list_array->value_slice(i);
+      auto float_array = std::static_pointer_cast<arrow::FloatArray>(value_slice);
+
+      REQUIRE(float_array->Value(0) == 1);
+      REQUIRE(float_array->Value(1) == 2);
+      REQUIRE(float_array->Value(2) == i + 1);
+    }
+  }
+
+  {
+    auto list_array = std::static_pointer_cast<arrow::FixedSizeListArray>((*result)->GetColumnByName("ij"));
+
+    // Iterate over the FixedSizeListArray
+    for (int64_t i = 0; i < list_array->length(); i++) {
+      auto value_slice = list_array->value_slice(i);
+      auto int_array = std::static_pointer_cast<arrow::Int32Array>(value_slice);
+      REQUIRE(int_array->Value(0) == i);
+      REQUIRE(int_array->Value(1) == i + 1);
+    }
+  }
 }

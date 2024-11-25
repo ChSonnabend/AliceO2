@@ -71,7 +71,7 @@ int main(int argc, char* argv[])
     } else if (c == 4) {
       downsampling = atof(optarg);
     } else if (c == 5) {
-      compression = atof(optarg);
+      compression = atoi(optarg);
     } else if (c == 'h') {
       printf("AO2D strainer tool. Options: \n");
       printf("  --input <%s>      Contains path to files to be merged. Default: %s\n", inputAO2D.c_str(), inputAO2D.c_str());

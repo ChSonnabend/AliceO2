@@ -48,7 +48,7 @@ int main(int argc, char* argv[])
     {"max-size", required_argument, nullptr, 2},
     {"skip-non-existing-files", no_argument, nullptr, 3},
     {"skip-parent-files-list", no_argument, nullptr, 4},
-    {"compression", no_argument, nullptr, 5},
+    {"compression", required_argument, nullptr, 5},
     {"verbosity", required_argument, nullptr, 'v'},
     {"help", no_argument, nullptr, 'h'},
     {nullptr, 0, nullptr, 0}};

@@ -9,10 +9,10 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \author R+Preghenella - September 2020
+/// \author M. Giacalone - October 2024
 
-#ifndef ALICEO2_EVENTGEN_GENERATOREXTERNALPARAM_H_
-#define ALICEO2_EVENTGEN_GENERATOREXTERNALPARAM_H_
+#ifndef ALICEO2_EVENTGEN_GENERATORHYBRIDPARAM_H_
+#define ALICEO2_EVENTGEN_GENERATORHYBRIDPARAM_H_
 
 #include "CommonUtils/ConfigurableParam.h"
 #include "CommonUtils/ConfigurableParamHelper.h"
@@ -24,22 +24,17 @@ namespace eventgen
 
 /**
  ** a parameter class/struct to keep the settings of
- ** the external event-generator and
+ ** the Hybrid event generator and
  ** allow the user to modify them
  **/
-struct GeneratorExternalParam : public o2::conf::ConfigurableParamHelper<GeneratorExternalParam> {
-  std::string fileName = "";
-  std::string funcName = "";
-  bool markAllAsPrimary = true; // marks all generator level particles as "primary" with kPPrimary as process (like Pythia8 is doing)
-  O2ParamDef(GeneratorExternalParam, "GeneratorExternal");
-};
 
-struct ExternalGenConfig {
-  std::string fileName = "";
-  std::string funcName = "";
+struct GeneratorHybridParam : public o2::conf::ConfigurableParamHelper<GeneratorHybridParam> {
+  std::string configFile = ""; // JSON configuration file for the generators
+  bool randomize = false;      // randomize the order of the generators, if not generator using fractions
+  O2ParamDef(GeneratorHybridParam, "GeneratorHybrid");
 };
 
 } // end namespace eventgen
 } // end namespace o2
 
-#endif // ALICEO2_EVENTGEN_GENERATOREXTERNALPARAM_H_
+#endif // ALICEO2_EVENTGEN_GENERATORHYBRIDPARAM_H_

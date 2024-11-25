@@ -54,6 +54,14 @@ struct GeneratorHepMCParam : public o2::conf::ConfigurableParamHelper<GeneratorH
   O2ParamDef(GeneratorHepMCParam, "HepMC");
 };
 
+struct HepMCGenConfig {
+  // Same parameters as GeneratorHepMCParam
+  int version = 0;
+  uint64_t eventsToSkip = 0;
+  std::string fileName = "";
+  bool prune = false;
+};
+
 } // end namespace eventgen
 } // end namespace o2
 

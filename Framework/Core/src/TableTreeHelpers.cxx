@@ -512,7 +512,7 @@ void TreeToTable::addAllColumns(TTree* tree, std::vector<std::string>&& names)
     if (strncmp(reader->branch()->GetName(), "fIndexArray", strlen("fIndexArray")) == 0) {
       std::string sizeBranchName = reader->branch()->GetName();
       sizeBranchName += "_size";
-      TBranch* sizeBranch = (TBranch*)tree->GetBranch(sizeBranchName.c_str());
+      auto* sizeBranch = (TBranch*)tree->GetBranch(sizeBranchName.c_str());
       if (sizeBranch) {
         tree->AddBranchToCache(sizeBranch);
       }

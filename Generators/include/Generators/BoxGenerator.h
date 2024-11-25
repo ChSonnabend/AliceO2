@@ -17,6 +17,7 @@
 #include "Generators/Generator.h"
 #include "TParticle.h"
 #include <vector>
+#include <Generators/BoxGunParam.h>
 
 namespace o2::eventgen
 {
@@ -43,6 +44,13 @@ class BoxGenerator : public Generator
     SetEtaRange(etamin, etamax);
     SetPRange(pmin, pmax);
     SetPhiRange(phimin, phimax);
+  }
+
+  BoxGenerator(BoxGenConfig const& config) : mPDG{config.pdg}, mMult{config.number}
+  {
+    SetEtaRange(config.eta[0], config.eta[1]);
+    SetPRange(config.prange[0], config.prange[1]);
+    SetPhiRange(config.phirange[0], config.phirange[1]);
   }
 
   void SetPRange(Double32_t pmin = 0, Double32_t pmax = 10)

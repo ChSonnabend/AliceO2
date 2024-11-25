@@ -35,6 +35,9 @@ struct GeneratorFileOrCmd {
    * function so as to better facilitate changes. */
   void setup(const GeneratorFileOrCmdParam& param,
              const conf::SimConfig& config);
+  // Configure with local parameters
+  void setup(const FileOrCmdGenConfig& param,
+             const conf::SimConfig& config);
   /**
    * Set command to execute in bacground rather than reading from
    * existing file(s)

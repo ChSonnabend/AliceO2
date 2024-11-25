@@ -70,6 +70,22 @@ void GeneratorFileOrCmd::setup(const GeneratorFileOrCmdParam& param,
   setBmax(config.getBMax());
 }
 // -----------------------------------------------------------------
+// Switches are permanently set to default values
+void GeneratorFileOrCmd::setup(const FileOrCmdGenConfig& param,
+                               const conf::SimConfig& config)
+{
+  setFileNames(param.fileNames);
+  setCmd(param.cmd);
+  setOutputSwitch(">");
+  setSeedSwitch("-s");
+  setBmaxSwitch("-b");
+  setNEventsSwitch("-n");
+  setBackgroundSwitch("&");
+  setSeed(config.getStartSeed());
+  setNEvents(config.getNEvents());
+  setBmax(config.getBMax());
+}
+// -----------------------------------------------------------------
 void GeneratorFileOrCmd::setFileNames(const std::string& filenames)
 {
   std::stringstream s(filenames);

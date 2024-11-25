@@ -87,6 +87,11 @@ class TTreeFileSystem : public VirtualRootFileSystemBase
   {
     return std::dynamic_pointer_cast<VirtualRootFileSystemBase>(shared_from_this());
   };
+
+  arrow::Result<std::shared_ptr<arrow::io::OutputStream>> OpenOutputStream(
+    const std::string& path,
+    const std::shared_ptr<const arrow::KeyValueMetadata>& metadata) override;
+
   virtual TTree* GetTree(arrow::dataset::FileSource source) = 0;
 };
 
@@ -127,6 +132,10 @@ class TFileFileSystem : public VirtualRootFileSystemBase
   }
 
   std::shared_ptr<VirtualRootFileSystemBase> GetSubFilesystem(arrow::dataset::FileSource source) override;
+
+  arrow::Result<std::shared_ptr<arrow::io::OutputStream>> OpenOutputStream(
+    const std::string& path,
+    const std::shared_ptr<const arrow::KeyValueMetadata>& metadata) override;
 
   // We can go back to the TFile in case this is needed.
   TDirectoryFile* GetFile()
@@ -216,6 +225,29 @@ class TTreeFileFormat : public arrow::dataset::FileFormat
   arrow::Result<arrow::RecordBatchGenerator> ScanBatchesAsync(
     const std::shared_ptr<arrow::dataset::ScanOptions>& options,
     const std::shared_ptr<arrow::dataset::FileFragment>& fragment) const override;
+};
+
+// An arrow outputstream which allows to write to a ttree
+class TTreeOutputStream : public arrow::io::OutputStream
+{
+ public:
+  TTreeOutputStream(TTree* t);
+
+  arrow::Status Close() override;
+
+  arrow::Result<int64_t> Tell() const override;
+
+  arrow::Status Write(const void* data, int64_t nbytes) override;
+
+  bool closed() const override;
+
+  TTree* GetTree()
+  {
+    return mTree;
+  }
+
+ private:
+  TTree* mTree;
 };
 
 } // namespace o2::framework

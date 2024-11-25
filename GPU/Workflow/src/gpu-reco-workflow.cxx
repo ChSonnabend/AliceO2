@@ -61,6 +61,7 @@ void customize(std::vector<ConfigParamSpec>& workflowOptions)
     {"configFile", VariantType::String, "", {"configuration file for configurable parameters"}},
     {"enableDoublePipeline", VariantType::Bool, false, {"enable GPU double pipeline mode"}},
     {"tpc-deadMap-sources", VariantType::Int, -1, {"Sources to consider for TPC dead channel map creation; -1=all, 0=deactivated"}},
+    {"tpc-mc-time-gain", VariantType::Bool, false, {"use time gain calibration for MC (true) or for data (false)"}},
   };
   o2::tpc::CorrectionMapsLoader::addGlobalOptions(options);
   o2::raw::HBFUtilsInitializer::addConfigOption(options);
@@ -185,6 +186,7 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
   cfg.tpcTriggerHandling = isEnabled(outputTypes, ioType::TPCTriggers) || cfg.caClusterer;
   cfg.enableDoublePipeline = cfgc.options().get<bool>("enableDoublePipeline");
   cfg.tpcDeadMapSources = cfgc.options().get<int32_t>("tpc-deadMap-sources");
+  cfg.tpcUseMCTimeGain = cfgc.options().get<bool>("tpc-mc-time-gain");
   cfg.runITSTracking = isEnabled(outputTypes, ioType::ITSTracks);
   cfg.itsOverrBeamEst = isEnabled(inputTypes, ioType::MeanVertex);
 

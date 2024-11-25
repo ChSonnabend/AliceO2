@@ -1,0 +1,104 @@
+{
+  "generators": [
+    {
+      "name": "pythia8",
+      "config": {
+        "config": "$O2_ROOT/share/Generators/egconfig/pythia8_inel.cfg",
+        "hooksFileName": "",
+        "hooksFuncName": "",
+        "includePartonEvent": false,
+        "particleFilter": "",
+        "verbose": 0
+      }
+    },
+    {
+      "name": "boxgen",
+      "config": {
+        "pdg": 13,
+        "number": 1,
+        "eta": [
+          -4,
+          -2.5
+        ],
+        "prange": [
+          0.1,
+          5
+        ],
+        "phirange": [
+          0,
+          360
+        ]
+      }
+    },
+    {
+      "name": "boxgen",
+      "config": {
+        "pdg": 22,
+        "number": 1,
+        "eta": [
+          -4,
+          -2.5
+        ],
+        "prange": [
+          0.1,
+          5
+        ],
+        "phirange": [
+          0,
+          360
+        ]
+      }
+    },
+    {
+      "name": "external",
+      "config": {
+        "fileName": "${O2DPG_ROOT}/MC/config/PWGDQ/external/generator/GeneratorParamPromptJpsiToElectronEvtGen_pp13TeV.C",
+        "funcName": "GeneratorParamPromptJpsiToElectronEvtGen_pp13TeV()"
+      }
+    },
+    {
+      "name": "extkinO2",
+      "config": {
+        "skipNonTrackable": true,
+        "continueMode": false,
+        "roundRobin": false,
+        "randomize": false,
+        "rngseed": 0,
+        "randomphi": false,
+        "fileName": "${PWD}/evtpool.root"
+      }
+    },
+    {
+      "name": "hepmc",
+      "config": {
+        "configcmd": {
+          "fileNames": "",
+          "cmd": ""
+        },
+        "confighepmc": {
+          "version": 2,
+          "eventsToSkip": 0,
+          "fileName": "${PWD}/slight.hepmc",
+          "prune": false
+        }
+      }
+    },
+    {
+      "name": "pythia8pp"
+    },
+    {
+      "name": "pythia8hf",
+      "config": ""
+    }
+  ],
+  "fractions": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+  ]
+}

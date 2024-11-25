@@ -29,10 +29,12 @@
 #pragma link C++ class o2::eventgen::Generator + ;
 #pragma link C++ class o2::eventgen::GeneratorTGenerator + ;
 #pragma link C++ class o2::eventgen::GeneratorExternalParam + ;
+#pragma link C++ class o2::eventgen::ExternalGenConfig + ;
 #pragma link C++ class o2::eventgen::GeneratorGeantinos + ;
 #pragma link C++ class o2::conf::ConfigurableParamHelper < o2::eventgen::GeneratorExternalParam> + ;
 #ifdef GENERATORS_WITH_HEPMC3
 #pragma link C++ class o2::eventgen::GeneratorHepMC + ;
+#pragma link C++ class o2::eventgen::HepMCGenConfig + ;
 #pragma link C++ class o2::eventgen::GeneratorHepMCParam + ;
 #endif
 #ifdef GENERATORS_WITH_PYTHIA6
@@ -44,14 +46,20 @@
 #pragma link C++ class o2::eventgen::GeneratorPythia8 + ;
 #pragma link C++ class o2::eventgen::DecayerPythia8 + ;
 #pragma link C++ class o2::eventgen::GeneratorPythia8Param + ;
+#pragma link C++ class o2::eventgen::Pythia8GenConfig + ;
 #pragma link C++ class o2::eventgen::DecayerPythia8Param + ;
 #pragma link C++ class o2::conf::ConfigurableParamHelper < o2::eventgen::GeneratorPythia8Param> + ;
 #pragma link C++ class o2::conf::ConfigurableParamHelper < o2::eventgen::DecayerPythia8Param> + ;
 #pragma link C++ class o2::eventgen::GeneratorFactory + ;
 #endif
+#if defined(GENERATORS_WITH_PYTHIA8) && defined(GENERATORS_WITH_HEPMC3)
+#pragma link C++ class o2::eventgen::GeneratorHybrid + ;
+#pragma link C++ class o2::eventgen::GeneratorHybridParam + ;
+#endif
 #pragma link C++ class o2::eventgen::GeneratorFromFile + ;
 #pragma link C++ class o2::eventgen::GeneratorFromO2Kine + ;
 #pragma link C++ class o2::eventgen::GeneratorFromO2KineParam + ;
+#pragma link C++ class o2::eventgen::O2KineGenConfig + ;
 #pragma link C++ class o2::conf::ConfigurableParamHelper < o2::eventgen::GeneratorFromO2KineParam> + ;
 #pragma link C++ class o2::eventgen::PrimaryGenerator + ;
 #pragma link C++ class o2::eventgen::PrimaryGeneratorParam + ;
@@ -62,6 +70,7 @@
 #pragma link C++ class o2::eventgen::TriggerParticleParam + ;
 #pragma link C++ class o2::conf::ConfigurableParamHelper < o2::eventgen::TriggerParticleParam> + ;
 #pragma link C++ class o2::eventgen::BoxGunParam + ;
+#pragma link C++ class o2::eventgen::BoxGenConfig + ;
 #pragma link C++ class o2::conf::ConfigurableParamHelper < o2::eventgen::BoxGunParam> + ;
 #pragma link C++ class o2::eventgen::QEDGenParam + ;
 #pragma link C++ class o2::conf::ConfigurableParamHelper < o2::eventgen::QEDGenParam> + ;
@@ -71,6 +80,7 @@
 #pragma link C++ class o2::eventgen::GeneratorTParticleParam + ;
 #pragma link C++ class o2::conf::ConfigurableParamHelper < o2::eventgen::GeneratorTParticleParam> + ;
 #pragma link C++ class o2::eventgen::GeneratorFileOrCmdParam + ;
+#pragma link C++ class o2::eventgen::FileOrCmdGenConfig + ;
 #pragma link C++ class o2::conf::ConfigurableParamHelper < o2::eventgen::GeneratorFileOrCmdParam> + ;
 
 #pragma link C++ class o2::eventgen::BoxGenerator + ;

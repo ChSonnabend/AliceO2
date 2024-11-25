@@ -31,6 +31,10 @@
 #include <Generators/GeneratorHepMC.h>
 #include <Generators/GeneratorHepMCParam.h>
 #endif
+#if defined(GENERATORS_WITH_PYTHIA8) && defined(GENERATORS_WITH_HEPMC3)
+#include <Generators/GeneratorHybrid.h>
+#include <Generators/GeneratorHybridParam.h>
+#endif
 #include <Generators/PrimaryGenerator.h>
 #include <Generators/BoxGunParam.h>
 #include <Generators/TriggerParticle.h>
@@ -67,7 +71,16 @@ void GeneratorFactory::setPrimaryGenerator(o2::conf::SimConfig const& conf, Fair
 
 #ifdef GENERATORS_WITH_PYTHIA8
   auto makePythia8Gen = [](std::string& config) {
-    auto gen = new o2::eventgen::GeneratorPythia8();
+    auto& singleton = GeneratorPythia8Param::Instance();
+    auto pars = o2::eventgen::Pythia8GenConfig{
+      .config = config.size() > 0 ? config : singleton.config,
+      .hooksFileName = singleton.hooksFileName,
+      .hooksFuncName = singleton.hooksFuncName,
+      .includePartonEvent = singleton.includePartonEvent,
+      .particleFilter = singleton.particleFilter,
+      .verbose = singleton.verbose,
+    };
+    auto gen = new o2::eventgen::GeneratorPythia8(pars);
     if (!config.empty()) {
       LOG(info) << "Setting \'Pythia8\' base configuration: " << config << std::endl;
       gen->setConfig(config); // assign config; will be executed in Init function
@@ -141,12 +154,21 @@ void GeneratorFactory::setPrimaryGenerator(o2::conf::SimConfig const& conf, Fair
     LOG(info) << "using external kinematics";
   } else if (genconfig.compare("extkinO2") == 0) {
     // external kinematics from previous O2 output
-    auto name1 = GeneratorFromO2KineParam::Instance().fileName;
+    auto& singleton = GeneratorFromO2KineParam::Instance();
+    auto name1 = singleton.fileName;
     auto name2 = conf.getExtKinematicsFileName();
-    auto extGen = new o2::eventgen::GeneratorFromO2Kine(name1.size() > 0 ? name1.c_str() : name2.c_str());
+    auto pars = O2KineGenConfig{
+      .skipNonTrackable = singleton.skipNonTrackable,
+      .continueMode = singleton.continueMode,
+      .roundRobin = singleton.roundRobin,
+      .randomize = singleton.randomize,
+      .rngseed = singleton.rngseed,
+      .randomphi = singleton.randomphi,
+      .fileName = name1.size() > 0 ? name1.c_str() : name2.c_str()};
+    auto extGen = new o2::eventgen::GeneratorFromO2Kine(pars);
     extGen->SetStartEvent(conf.getStartEvent());
     primGen->AddGenerator(extGen);
-    if (GeneratorFromO2KineParam::Instance().continueMode) {
+    if (pars.continueMode) {
       auto o2PrimGen = dynamic_cast<o2::eventgen::PrimaryGenerator*>(primGen);
       if (o2PrimGen) {
         o2PrimGen->setApplyVertex(false);
@@ -240,6 +262,24 @@ void GeneratorFactory::setPrimaryGenerator(o2::conf::SimConfig const& conf, Fair
         primGen->AddGenerator(boxGen);
       }
     }
+#if defined(GENERATORS_WITH_PYTHIA8) && defined(GENERATORS_WITH_HEPMC3)
+  } else if (genconfig.compare("hybrid") == 0) { // hybrid using multiple generators
+    LOG(info) << "Init hybrid generator";
+    auto& hybridparam = GeneratorHybridParam::Instance();
+    std::string config = hybridparam.configFile;
+    // check if config string points to an existing and not empty file
+    if (config.empty()) {
+      LOG(fatal) << "No configuration file provided for hybrid generator";
+      return;
+    }
+    // check if file named config exists and it's not empty
+    else if (gSystem->AccessPathName(config.c_str())) {
+      LOG(fatal) << "Configuration file for hybrid generator does not exist";
+      return;
+    }
+    auto hybrid = new o2::eventgen::GeneratorHybrid(config);
+    primGen->AddGenerator(hybrid);
+#endif
   } else {
     LOG(fatal) << "Invalid generator";
   }

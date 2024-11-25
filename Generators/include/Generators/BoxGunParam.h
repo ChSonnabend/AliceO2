@@ -37,6 +37,14 @@ struct BoxGunParam : public o2::conf::ConfigurableParamHelper<BoxGunParam> {
   O2ParamDef(BoxGunParam, "BoxGun");
 };
 
+struct BoxGenConfig {
+  int pdg = 211;                   // which particle (default pion); could make this an enum
+  int number = 10;                 // how many particles
+  double eta[2] = {-1, 1};         // eta range
+  double prange[2] = {0.1, 5};     // energy range min, max in GeV
+  double phirange[2] = {0., 360.}; // phi range
+};
+
 } // end namespace eventgen
 } // end namespace o2
 

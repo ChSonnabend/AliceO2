@@ -51,7 +51,7 @@ int main(int argc, char* argv[])
     {"input", required_argument, nullptr, 'i'},
     {"output", required_argument, nullptr, 'o'},
     {"overwrite", no_argument, nullptr, 'O'},
-    {"compression", no_argument, nullptr, 'c'},
+    {"compression", required_argument, nullptr, 'c'},
     {"help", no_argument, nullptr, 'h'},
     {nullptr, 0, nullptr, 0}};
 

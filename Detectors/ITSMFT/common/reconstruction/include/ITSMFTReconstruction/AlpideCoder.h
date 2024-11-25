@@ -273,33 +273,44 @@ class AlpideCoder
           uint16_t row = pixID >> 1;
           // abs id of left column in double column
           uint16_t colD = (region * NDColInReg + dColID) << 1; // TODO consider <<4 instead of *NDColInReg?
-          bool rightC = (row & 0x1) ? !(pixID & 0x1) : (pixID & 0x1); // true for right column / lalse for left
+          bool rightC = (row & 0x1) ? !(pixID & 0x1) : (pixID & 0x1); // true for right column / false for left
 
-          if (row == rowPrev && colD == colDPrev) {
-            // this is a special test to exclude repeated data of the same pixel fired
+          if (colD == colDPrev) {
+            bool skip = false;
+            if (row == rowPrev) { // this is a special test to exclude repeated data of the same pixel fired
+              skip = true;
 #ifdef ALPIDE_DECODING_STAT
-            chipData.setError(ChipStat::RepeatingPixel);
-            chipData.addErrorInfo((uint64_t(colD + rightC) << 16) | uint64_t(row));
+              chipData.setError(ChipStat::RepeatingPixel);
+              chipData.addErrorInfo((uint64_t(colD + rightC) << 16) | uint64_t(row));
 #endif
-            if ((dataS & (~MaskDColID)) == DATALONG) { // skip pattern w/o decoding
-              uint8_t hitsPattern = 0;
-              if (!buffer.next(hitsPattern)) {
+            } else if (rowPrev < 0xffff && row < rowPrev) {
 #ifdef ALPIDE_DECODING_STAT
-                chipData.setError(ChipStat::TruncatedLondData);
+              chipData.setError(ChipStat::DecreasingRow);
+              chipData.addErrorInfo((uint64_t(colD + rightC) << 16) | uint64_t(row));
 #endif
-                return unexpectedEOF("CHIP_DATA_LONG:Pattern"); // abandon cable data
-              }
-              if (hitsPattern & (~MaskHitMap)) {
-#ifdef ALPIDE_DECODING_STAT
-                chipData.setError(ChipStat::WrongDataLongPattern);
-#endif
-                return unexpectedEOF("CHIP_DATA_LONG:Pattern"); // abandon cable data
-              }
-              LOGP(debug, "hitsPattern: {:#b} expect {:#b}", int(hitsPattern), int(expectInp));
+              return unexpectedEOF("DECREASING_ROW"); // abandon cable data
             }
-            expectInp = ExpectChipTrailer | ExpectData | ExpectRegion;
-            continue; // end of DATA(SHORT or LONG) processing
-          } else if (colD != colDPrev) {
+            if (skip) {
+              if ((dataS & (~MaskDColID)) == DATALONG) { // skip pattern w/o decoding
+                uint8_t hitsPattern = 0;
+                if (!buffer.next(hitsPattern)) {
+#ifdef ALPIDE_DECODING_STAT
+                  chipData.setError(ChipStat::TruncatedLondData);
+#endif
+                  return unexpectedEOF("CHIP_DATA_LONG:Pattern"); // abandon cable data
+                }
+                if (hitsPattern & (~MaskHitMap)) {
+#ifdef ALPIDE_DECODING_STAT
+                  chipData.setError(ChipStat::WrongDataLongPattern);
+#endif
+                  return unexpectedEOF("CHIP_DATA_LONG:Pattern"); // abandon cable data
+                }
+                LOGP(debug, "hitsPattern: {:#b} expect {:#b}", int(hitsPattern), int(expectInp));
+              }
+              expectInp = ExpectChipTrailer | ExpectData | ExpectRegion;
+              continue; // end of DATA(SHORT or LONG) processing
+            }
+          } else {
             // if we start new double column, transfer the hits accumulated in the right column buffer of prev. double column
             if (colD < colDPrev && colDPrev != 0xffff) {
 #ifdef ALPIDE_DECODING_STAT
@@ -321,7 +332,7 @@ class AlpideCoder
           // are first collected in the temporary buffer
           // real columnt id is col = colD + 1;
           if (rightC) {
-            rightColHits[nRightCHits++] = row; // col = colD+1
+            rightColHits[nRightCHits++] = row;
           } else {
             addHit(chipData, row, colD); // col = colD, left column hits are added directly to the container
           }
@@ -355,7 +366,7 @@ class AlpideCoder
                 if (rightC) { // same as above
                   rightColHits[nRightCHits++] = rowE;
                 } else {
-                  addHit(chipData, rowE, colD + rightC); // left column hits are added directly to the container
+                  addHit(chipData, rowE, colD); // left column hits are added directly to the container
                 }
               }
             }
