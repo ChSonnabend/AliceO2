@@ -159,24 +159,28 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
       }
     }
 
+    std::vector<float> out_class(clusterer.nnClusterizerBatchedMode, 1.f);
+    int num_output_classes = 1;
     std::vector<int> index_class_2;
-    std::vector<float> out_class = clusterer.model_class.inference<T,float>(input_data);
-    // LOG(info) << "input_data.size(): " << input_data.size() << "; write_idx: " << write_idx << "; out_class.size(): " << out_class.size();
-    int num_output_classes = clusterer.model_class.getNumOutputNodes()[0][1];
+    if(clusterer.model_class.isInitialized()){
+      std::vector<float> out_class = clusterer.model_class.inference<T,float>(input_data);
+      // LOG(info) << "input_data.size(): " << input_data.size() << "; write_idx: " << write_idx << "; out_class.size(): " << out_class.size();
+      int num_output_classes = clusterer.model_class.getNumOutputNodes()[0][1];
 
-    if(num_output_classes > 1){
-      std::vector<float> tmp_out_class(clusterer.nnClusterizerBatchedMode);
-      for(int cls_idx = 0; cls_idx < clusterer.nnClusterizerBatchedMode; cls_idx++){
-        auto elem_iterator = out_class.begin() + (unsigned int)(cls_idx*num_output_classes);
-        tmp_out_class[cls_idx] = std::distance(elem_iterator, std::max_element(elem_iterator, elem_iterator+num_output_classes)) - 1; // -1 since 2-class classifier will have 3 outputs: classes 0, 1, 2
-        if(tmp_out_class[cls_idx] > 1){
-          index_class_2.push_back(cls_idx);
+      if(num_output_classes > 1){
+        std::vector<float> tmp_out_class(clusterer.nnClusterizerBatchedMode);
+        for(int cls_idx = 0; cls_idx < clusterer.nnClusterizerBatchedMode; cls_idx++){
+          auto elem_iterator = out_class.begin() + (unsigned int)(cls_idx*num_output_classes);
+          tmp_out_class[cls_idx] = std::distance(elem_iterator, std::max_element(elem_iterator, elem_iterator+num_output_classes)) - 1; // -1 since 2-class classifier will have 3 outputs: classes 0, 1, 2
+          if(tmp_out_class[cls_idx] > 1){
+            index_class_2.push_back(cls_idx);
+          }
         }
+        out_class = tmp_out_class;
       }
-      out_class = tmp_out_class;
     }
 
-    if(!clusterer.nnClusterizerUseCFregression) {
+    if(!clusterer.nnClusterizerUseCFregression && clusterer.model_reg_1.isInitialized()){
 
       std::vector<float> out_reg = clusterer.model_reg_1.inference<T,float>(input_data), tmp_out_reg_2;
       if(index_class_2.size() > 0){

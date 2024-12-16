@@ -40,6 +40,8 @@ void CalibdEdxCorrection::writeToFile(std::string_view fileName, std::string_vie
 {
   std::unique_ptr<TFile> file(TFile::Open(fileName.data(), "recreate"));
   file->WriteObject(this, objName.data());
+
+  dumpToTree("calib_dedx_debug.root");
 }
 
 void CalibdEdxCorrection::loadFromFile(std::string_view fileName, std::string_view objName)

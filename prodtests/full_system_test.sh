@@ -61,6 +61,7 @@ FST_TPC_ZSVERSION=${FST_TPC_ZSVERSION:-4}
 TPC_SLOW_REALISITC_FULL_SIM=${TPC_SLOW_REALISITC_FULL_SIM:-0}
 IDEAL_CLUSTERIZER_PADSIZE=${IDEAL_CLUSTERIZER_PADSIZE:-4}
 IDEAL_CLUSTERIZER_TIMESIZE=${IDEAL_CLUSTERIZER_TIMESIZE:-6}
+INJECT_TRACKS=${INJECT_TRACKS:-""}
 DISTORTIONS_TYPE=${DISTORTIONS_TYPE:-0}
 if [[ $BEAMTYPE == "PbPb" ]]; then
   FST_GENERATOR=${FST_GENERATOR:-pythia8hi}
@@ -137,6 +138,10 @@ fi
 if [[ $TPC_SLOW_REALISITC_FULL_SIM == 1 ]]; then
   SIMOPTKEY+="G4.physicsmode=3;SimCutParams.lowneut=true;TPCEleParam.doCommonModePerPad=0;TPCEleParam.doIonTailPerPad=1;TPCEleParam.commonModeCoupling=0;TPCEleParam.doNoiseEmptyPads=1;TPCEleParam.doSaturationTail=0;TPCDetParam.TPCRecoWindowSim=10;"
   DIGITOPTKEY+="TPCEleParam.doCommonModePerPad=0;TPCEleParam.doIonTailPerPad=1;TPCEleParam.commonModeCoupling=0;TPCEleParam.doNoiseEmptyPads=1;TPCEleParam.doSaturationTail=0;TPCDetParam.TPCRecoWindowSim=10;"
+fi
+
+if [[ $INJECT_TRACKS != "" ]]; then
+  SIMOPTKEY+="GeneratorHybrid.configFile=$INJECT_TRACKS;"
 fi
 
 taskwrapper sim.log o2-sim ${FST_BFIELD+--field=}${FST_BFIELD} --seed $O2SIMSEED -n $NEvents --configKeyValues "\"$SIMOPTKEY\"" -g ${FST_GENERATOR} -e ${FST_MC_ENGINE} -j $NJOBS --run ${RUNNUMBER} -o o2sim

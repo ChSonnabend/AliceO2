@@ -41,6 +41,7 @@ class OrtModel
   OrtModel(std::unordered_map<std::string, std::string> optionsMap) { reset(optionsMap); }
   void init(std::unordered_map<std::string, std::string> optionsMap) { reset(optionsMap); }
   void reset(std::unordered_map<std::string, std::string>);
+  bool isInitialized() { return mInitialized; }
 
   virtual ~OrtModel() = default;
 
@@ -79,6 +80,7 @@ class OrtModel
   std::vector<std::vector<int64_t>> mInputShapes, mOutputShapes;
 
   // Environment settings
+  bool mInitialized = false;
   std::string modelPath, device = "cpu", dtype = "float"; // device options should be cpu, rocm, migraphx, cuda
   int intraOpNumThreads = 0, deviceId = 0, enableProfiling = 0, loggingLevel = 0, allocateDeviceMemory = 0, enableOptimizations = 0;
 
