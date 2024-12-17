@@ -16,9 +16,11 @@
 using namespace o2::framework;
 using namespace arrow;
 using namespace o2::soa;
+using namespace o2::aod;
 
-DECLARE_SOA_METADATA();
-DECLARE_SOA_VERSIONING();
+namespace o2::aod
+{
+O2ORIGIN("TST");
 namespace coords
 {
 DECLARE_SOA_COLUMN_FULL(X, x, float, "x");
@@ -48,16 +50,17 @@ DECLARE_SOA_COLUMN_FULL(Category, category, int32_t, "category");
 } // namespace extra_3
 DECLARE_SOA_TABLE(Categorys, "TST", "Categories", Index<>, extra_3::PointId, extra_3::Category);
 
-namespace indices
+namespace test_indices
 {
 DECLARE_SOA_INDEX_COLUMN(Point, point);
 DECLARE_SOA_INDEX_COLUMN(Distance, distance);
 DECLARE_SOA_INDEX_COLUMN(Flag, flag);
 DECLARE_SOA_INDEX_COLUMN(Category, category);
-} // namespace indices
+} // namespace test_indices
 
-DECLARE_SOA_TABLE(IDXs, "TST", "Index", Index<>, indices::PointId, indices::DistanceId, indices::FlagId, indices::CategoryId);
-DECLARE_SOA_TABLE(IDX2s, "TST", "Index2", Index<>, indices::DistanceId, indices::PointId, indices::FlagId, indices::CategoryId);
+DECLARE_SOA_INDEX_TABLE(IDXs, Points, "Index1", test_indices::PointId, test_indices::DistanceId, test_indices::FlagId, test_indices::CategoryId);
+DECLARE_SOA_INDEX_TABLE(IDX2s, Points, "Index2", test_indices::DistanceId, test_indices::PointId, test_indices::FlagId, test_indices::CategoryId);
+} // namespace o2::aod
 
 TEST_CASE("TestIndexBuilder")
 {
@@ -99,7 +102,8 @@ TEST_CASE("TestIndexBuilder")
   auto t4 = b4.finalize();
   Categorys st4{t4};
 
-  auto t5 = IndexBuilder<Exclusive>::indexBuilder<Points>("test1a", {t1, t2, t3, t4}, typename IDXs::persistent_columns_t{}, o2::framework::pack<Points, Distances, Flags, Categorys>{});
+  using m1 = MetadataTrait<o2::aod::Hash<"Index1/0"_h>>::metadata;
+  auto t5 = IndexBuilder<Exclusive>::indexBuilder<Points, m1::sources.size(), m1::sources>("test1a", {t1, t2, t3, t4}, typename IDXs::persistent_columns_t{});
   REQUIRE(t5->num_rows() == 4);
   IDXs idxt{t5};
   idxt.bindExternalIndices(&st1, &st2, &st3, &st4);
@@ -109,9 +113,10 @@ TEST_CASE("TestIndexBuilder")
     REQUIRE(row.category().pointId() == row.pointId());
   }
 
-  auto t6 = IndexBuilder<Sparse>::indexBuilder<Points>("test3", {t2, t1, t3, t4}, typename IDX2s::persistent_columns_t{}, o2::framework::pack<Distances, Points, Flags, Categorys>{});
+  using m2 = MetadataTrait<o2::aod::Hash<"Index2/0"_h>>::metadata;
+  auto t6 = IndexBuilder<Sparse>::indexBuilder<Points, m2::sources.size(), m2::sources>("test3", {t2, t1, t3, t4}, typename IDX2s::persistent_columns_t{});
   REQUIRE(t6->num_rows() == st2.size());
-  IDXs idxs{t6};
+  IDX2s idxs{t6};
   std::array<int, 7> fs{0, 1, 2, -1, -1, 4, -1};
   std::array<int, 7> cs{0, 1, 2, -1, 5, 6, -1};
   idxs.bindExternalIndices(&st1, &st2, &st3, &st4);
@@ -131,22 +136,25 @@ TEST_CASE("TestIndexBuilder")
   }
 }
 
+namespace o2::aod
+{
 namespace extra_4
 {
 DECLARE_SOA_COLUMN_FULL(Bin, bin, int, "bin");
 DECLARE_SOA_COLUMN_FULL(Color, color, int, "color");
 } // namespace extra_4
 
-DECLARE_SOA_TABLE(BinnedPoints, "TST", "BinnedPoints", Index<>, extra_4::Bin, indices::PointId);
-DECLARE_SOA_TABLE(ColoredPoints, "TST", "ColoredPoints", Index<>, extra_4::Color, indices::PointId);
+DECLARE_SOA_TABLE(BinnedPoints, "TST", "BinnedPoints", Index<>, extra_4::Bin, test_indices::PointId);
+DECLARE_SOA_TABLE(ColoredPoints, "TST", "ColoredPoints", Index<>, extra_4::Color, test_indices::PointId);
 
-namespace indices
+namespace test_indices
 {
 DECLARE_SOA_SLICE_INDEX_COLUMN(BinnedPoint, binsSlice);
 DECLARE_SOA_ARRAY_INDEX_COLUMN(ColoredPoint, colorsList);
-} // namespace indices
+} // namespace test_indices
 
-DECLARE_SOA_TABLE(IDX3s, "TST", "Index3", Index<>, indices::PointId, indices::BinnedPointIdSlice, indices::ColoredPointIds);
+DECLARE_SOA_INDEX_TABLE(IDX3s, Points, "Index3", test_indices::PointId, test_indices::BinnedPointIdSlice, test_indices::ColoredPointIds);
+} // namespace o2::aod
 
 TEST_CASE("AdvancedIndexTables")
 {
@@ -204,7 +212,8 @@ TEST_CASE("AdvancedIndexTables")
                                                    {14, 34},
                                                    {8, 31, 42, 46, 58}}};
 
-  auto t3 = IndexBuilder<Sparse>::indexBuilder<Points>("test4", {t1, t2, tc}, typename IDX3s::persistent_columns_t{}, o2::framework::pack<Points, BinnedPoints, ColoredPoints>{});
+  using m3 = MetadataTrait<o2::aod::Hash<"Index3/0"_h>>::metadata;
+  auto t3 = IndexBuilder<Sparse>::indexBuilder<Points, m3::sources.size(), m3::sources>("test4", {t1, t2, tc}, typename IDX3s::persistent_columns_t{});
   REQUIRE(t3->num_rows() == st1.size());
   IDX3s idxs{t3};
   idxs.bindExternalIndices(&st1, &st2, &st3);
@@ -219,8 +228,8 @@ TEST_CASE("AdvancedIndexTables")
       }
     }
     auto colors = row.colorsList();
-    REQUIRE(colors.size() == colorsizes[count]);
-    for (auto j = 0; j < colors.size(); ++j) {
+    REQUIRE(colors.size() == (size_t)colorsizes[count]);
+    for (auto j = 0U; j < colors.size(); ++j) {
       REQUIRE(colors[j].color() == colorvalues[count][j]);
     }
     ++count;

@@ -9,11 +9,11 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file     ort_interface.cxx
+/// \file     OrtInterface.cxx
 /// \author   Christian Sonnabend <christian.sonnabend@cern.ch>
 /// \brief    A header library for loading ONNX models and inferencing them on CPU and GPU
 
-#include "ML/ort_interface.h"
+#include "ML/OrtInterface.h"
 #include "ML/3rdparty/GPUORTFloat16.h"
 
 // ONNX includes
@@ -57,24 +57,30 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
     enableOptimizations = (optionsMap.contains("enable-optimizations") ? std::stoi(optionsMap["enable-optimizations"]) : 0);
 
     std::string dev_mem_str = "Hip";
-#ifdef ORT_ROCM_BUILD
-    if (device == "ROCM") {
-      Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_ROCM(pImplOrt->sessionOptions, deviceId));
-      LOG(info) << "(ORT) ROCM execution provider set";
-    }
+#if defined(ORT_ROCM_BUILD)
+#if ORT_ROCM_BUILD == 1
+  if (device == "ROCM") {
+    Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_ROCM(pImplOrt->sessionOptions, deviceId));
+    LOG(info) << "(ORT) ROCM execution provider set";
+  }
 #endif
-#ifdef ORT_MIGRAPHX_BUILD
-    if (device == "MIGRAPHX") {
-      Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_MIGraphX(pImplOrt->sessionOptions, deviceId));
-      LOG(info) << "(ORT) MIGraphX execution provider set";
-    }
 #endif
-#ifdef ORT_CUDA_BUILD
-    if (device == "CUDA") {
-      Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CUDA(pImplOrt->sessionOptions, deviceId));
-      LOG(info) << "(ORT) CUDA execution provider set";
-      dev_mem_str = "Cuda";
-    }
+#if defined(ORT_MIGRAPHX_BUILD)
+#if ORT_MIGRAPHX_BUILD == 1
+  if (device == "MIGRAPHX") {
+    Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_MIGraphX(pImplOrt->sessionOptions, deviceId));
+    LOG(info) << "(ORT) MIGraphX execution provider set";
+  }
+#endif
+#endif
+#if defined(ORT_CUDA_BUILD)
+#if ORT_CUDA_BUILD == 1
+  if (device == "CUDA") {
+    Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CUDA(pImplOrt->sessionOptions, deviceId));
+    LOG(info) << "(ORT) CUDA execution provider set";
+    dev_mem_str = "Cuda";
+  }
+#endif
 #endif
 
     if (allocateDeviceMemory) {
@@ -145,7 +151,63 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
     }
     mInitialized = true;
   } else {
-    LOG(warn) << "(ORT) Model path is empty, no model loaded!";
+    (pImplOrt->sessionOptions).DisableProfiling();
+  }
+  (pImplOrt->sessionOptions).SetGraphOptimizationLevel(GraphOptimizationLevel(enableOptimizations));
+  (pImplOrt->sessionOptions).SetLogSeverityLevel(OrtLoggingLevel(loggingLevel));
+
+  pImplOrt->env = std::make_shared<Ort::Env>(
+    OrtLoggingLevel(loggingLevel),
+    (optionsMap["onnx-environment-name"].empty() ? "onnx_model_inference" : optionsMap["onnx-environment-name"].c_str()),
+    // Integrate ORT logging into Fairlogger
+    [](void* param, OrtLoggingLevel severity, const char* category, const char* logid, const char* code_location, const char* message) {
+      if (severity == ORT_LOGGING_LEVEL_VERBOSE) {
+        LOG(debug) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+      } else if (severity == ORT_LOGGING_LEVEL_INFO) {
+        LOG(info) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+      } else if (severity == ORT_LOGGING_LEVEL_WARNING) {
+        LOG(warning) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+      } else if (severity == ORT_LOGGING_LEVEL_ERROR) {
+        LOG(error) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+      } else if (severity == ORT_LOGGING_LEVEL_FATAL) {
+        LOG(fatal) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+      } else {
+        LOG(info) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+      }
+    },
+    (void*)3);
+  (pImplOrt->env)->DisableTelemetryEvents(); // Disable telemetry events
+  pImplOrt->session = std::make_shared<Ort::Session>(*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions);
+
+  for (size_t i = 0; i < (pImplOrt->session)->GetInputCount(); ++i) {
+    mInputNames.push_back((pImplOrt->session)->GetInputNameAllocated(i, pImplOrt->allocator).get());
+  }
+  for (size_t i = 0; i < (pImplOrt->session)->GetInputCount(); ++i) {
+    mInputShapes.emplace_back((pImplOrt->session)->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
+  }
+  for (size_t i = 0; i < (pImplOrt->session)->GetOutputCount(); ++i) {
+    mOutputNames.push_back((pImplOrt->session)->GetOutputNameAllocated(i, pImplOrt->allocator).get());
+  }
+  for (size_t i = 0; i < (pImplOrt->session)->GetOutputCount(); ++i) {
+    mOutputShapes.emplace_back((pImplOrt->session)->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
+  }
+
+  inputNamesChar.resize(mInputNames.size(), nullptr);
+  std::transform(std::begin(mInputNames), std::end(mInputNames), std::begin(inputNamesChar),
+                 [&](const std::string& str) { return str.c_str(); });
+  outputNamesChar.resize(mOutputNames.size(), nullptr);
+  std::transform(std::begin(mOutputNames), std::end(mOutputNames), std::begin(outputNamesChar),
+                 [&](const std::string& str) { return str.c_str(); });
+
+  // Print names
+  LOG(info) << "\tInput Nodes:";
+  for (size_t i = 0; i < mInputNames.size(); i++) {
+    LOG(info) << "\t\t" << mInputNames[i] << " : " << printShape(mInputShapes[i]);
+  }
+
+  LOG(info) << "\tOutput Nodes:";
+  for (size_t i = 0; i < mOutputNames.size(); i++) {
+    LOG(info) << "\t\t" << mOutputNames[i] << " : " << printShape(mOutputShapes[i]);
   }
 }
 

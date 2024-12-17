@@ -87,6 +87,7 @@ void CheckTracksCA(bool doFakeClStud = false,
   TTree* mcTree = (TTree*)gFile->Get("o2sim");
   mcTree->SetBranchStatus("*", 0); // disable all branches
   mcTree->SetBranchStatus("MCTrack*", 1);
+  mcTree->SetBranchStatus("MCEventHeader*", 1);
 
   std::vector<o2::MCTrack>* mcArr = nullptr;
   mcTree->SetBranchAddress("MCTrack", &mcArr);
@@ -115,10 +116,13 @@ void CheckTracksCA(bool doFakeClStud = false,
   std::cout << "** Filling particle table ... " << std::flush;
   int lastEventIDcl = -1, cf = 0;
   int nev = mcTree->GetEntriesFast();
-  std::vector<std::vector<ParticleInfo>> info(nev);
+  std::vector<std::vector<ParticleInfo>> info;
+  info.resize(nev);
+  TH1D* hZvertex = new TH1D("hZvertex", "Z vertex", 100, -20, 20);
   for (int n = 0; n < nev; n++) { // loop over MC events
     mcTree->GetEvent(n);
     info[n].resize(mcArr->size());
+    hZvertex->Fill(mcEvent->GetZ());
     for (unsigned int mcI{0}; mcI < mcArr->size(); ++mcI) {
       auto part = mcArr->at(mcI);
       info[n][mcI].event = n;
@@ -196,7 +200,6 @@ void CheckTracksCA(bool doFakeClStud = false,
         info[evID][trackID].track.getImpactParams(info[evID][trackID].pvx, info[evID][trackID].pvy, info[evID][trackID].pvz, bz, ip);
         info[evID][trackID].dcaxy = ip[0];
         info[evID][trackID].dcaz = ip[1];
-        Info("", "dcaxy=%f dcaz=%f bz=%f", ip[0], ip[1], bz);
       }
 
       fakes += fake;
@@ -286,6 +289,10 @@ void CheckTracksCA(bool doFakeClStud = false,
   clone->Divide(clone, den, 1, 1, "b");
   clone->SetLineColor(3);
   clone->Draw("histesame");
+  TCanvas* c2 = new TCanvas;
+  c2->SetGridx();
+  c2->SetGridy();
+  hZvertex->DrawClone();
 
   std::cout << "** Streaming output TTree to file ... " << std::flush;
   TFile file("CheckTracksCA.root", "recreate");

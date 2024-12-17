@@ -24,12 +24,8 @@
 #include "Framework/ConfigurableHelpers.h"
 #include "Framework/Condition.h"
 #include "Framework/InitContext.h"
-#include "Framework/ConfigContext.h"
 #include "Framework/RootConfigParamHelpers.h"
-#include "Framework/ExpressionHelpers.h"
-#include "Framework/CommonServices.h"
 #include "Framework/PluginManager.h"
-#include "Framework/RootMessageContext.h"
 #include "Framework/DeviceSpec.h"
 
 namespace o2::framework
@@ -49,7 +45,7 @@ struct GroupedCombinationManager<GroupedCombinationsGenerator<T1, GroupingPolicy
   static void setGroupedCombination(GroupedCombinationsGenerator<T1, GroupingPolicy, BP, G, As...>& comb, TG& grouping, std::tuple<T2s...>& associated)
   {
     static_assert(sizeof...(T2s) > 0, "There must be associated tables in process() for a correct pair");
-    if constexpr (std::is_same_v<G, TG>) {
+    if constexpr (std::same_as<G, TG>) {
       static_assert((framework::has_type<As>(pack<T2s...>{}) && ...), "You didn't subscribed to all tables requested for mixing");
       comb.setTables(grouping, associated);
     }
@@ -93,7 +89,7 @@ struct PartitionManager<Partition<T>> {
   template <typename T2>
   static void doSetPartition(Partition<T>& partition, T2& table)
   {
-    if constexpr (std::is_same_v<T, T2>) {
+    if constexpr (std::same_as<T, T2>) {
       partition.bindTable(table);
     }
   }
@@ -164,7 +160,7 @@ struct ConditionManager {
   template <typename ANY>
   static bool appendCondition(std::vector<InputSpec>& inputs, ANY& x)
   {
-    if constexpr (std::is_base_of_v<ConditionGroup, ANY>) {
+    if constexpr (std::derived_from<ANY, ConditionGroup>) {
       homogeneous_apply_refs<true>([&inputs](auto& y) { return ConditionManager<std::decay_t<decltype(y)>>::appendCondition(inputs, y); }, x);
       return true;
     } else {
@@ -175,7 +171,7 @@ struct ConditionManager {
   template <typename ANY>
   static bool newDataframe(InputRecord& record, ANY& x)
   {
-    if constexpr (std::is_base_of_v<ConfigurableGroup, ANY>) {
+    if constexpr (std::derived_from<ANY, ConfigurableGroup>) {
       homogeneous_apply_refs<true>([&record](auto&& y) { return ConditionManager<std::decay_t<decltype(y)>>::newDataframe(record, y); }, x);
       return true;
     } else {
@@ -204,7 +200,7 @@ struct OutputManager {
   template <typename ANY>
   static bool appendOutput(std::vector<OutputSpec>& outputs, ANY& what, uint32_t v)
   {
-    if constexpr (std::is_base_of_v<ProducesGroup, ANY>) {
+    if constexpr (std::derived_from<ANY, ProducesGroup>) {
       homogeneous_apply_refs<true>([&outputs, v](auto& p) { return OutputManager<std::decay_t<decltype(p)>>::appendOutput(outputs, p, v); }, what);
       return true;
     }
@@ -214,7 +210,7 @@ struct OutputManager {
   template <typename ANY>
   static bool prepare(ProcessingContext& context, ANY& what)
   {
-    if constexpr (std::is_base_of_v<ProducesGroup, ANY>) {
+    if constexpr (std::derived_from<ANY, ProducesGroup>) {
       homogeneous_apply_refs<true>([&context](auto& p) { return OutputManager<std::decay_t<decltype(p)>>::prepare(context, p); }, what);
       return true;
     }
@@ -224,7 +220,7 @@ struct OutputManager {
   template <typename ANY>
   static bool postRun(EndOfStreamContext& context, ANY& what)
   {
-    if constexpr (std::is_base_of_v<ProducesGroup, ANY>) {
+    if constexpr (std::derived_from<ANY, ProducesGroup>) {
       homogeneous_apply_refs<true>([&context](auto& p) { return OutputManager<std::decay_t<decltype(p)>>::postRun(context, p); }, what);
       return true;
     }
@@ -234,7 +230,7 @@ struct OutputManager {
   template <typename ANY>
   static bool finalize(ProcessingContext& context, ANY& what)
   {
-    if constexpr (std::is_base_of_v<ProducesGroup, ANY>) {
+    if constexpr (std::derived_from<ANY, ProducesGroup>) {
       homogeneous_apply_refs<true>([&context](auto& p) { return OutputManager<std::decay_t<decltype(p)>>::finalize(context, p); }, what);
       return true;
     }
@@ -243,25 +239,25 @@ struct OutputManager {
 };
 
 /// Produces specialization
-template <typename TABLE>
-struct OutputManager<Produces<TABLE>> {
-  static bool appendOutput(std::vector<OutputSpec>& outputs, Produces<TABLE>& /*what*/, uint32_t)
+template <is_producable T>
+struct OutputManager<Produces<T>> {
+  static bool appendOutput(std::vector<OutputSpec>& outputs, Produces<T>& /*what*/, uint32_t)
   {
-    outputs.emplace_back(OutputForTable<TABLE>::spec());
+    outputs.emplace_back(OutputForTable<typename Produces<T>::persistent_table_t>::spec());
     return true;
   }
-  static bool prepare(ProcessingContext& context, Produces<TABLE>& what)
+  static bool prepare(ProcessingContext& context, Produces<T>& what)
   {
-    what.resetCursor(std::move(context.outputs().make<TableBuilder>(OutputForTable<TABLE>::ref())));
+    what.resetCursor(std::move(context.outputs().make<TableBuilder>(OutputForTable<typename Produces<T>::persistent_table_t>::ref())));
     return true;
   }
-  static bool finalize(ProcessingContext&, Produces<TABLE>& what)
+  static bool finalize(ProcessingContext&, Produces<T>& what)
   {
-    what.setLabel(o2::aod::MetadataTrait<TABLE>::metadata::tableLabel());
+    what.setLabel(o2::aod::label<Produces<T>::persistent_table_t::ref>());
     what.release();
     return true;
   }
-  static bool postRun(EndOfStreamContext&, Produces<TABLE>&)
+  static bool postRun(EndOfStreamContext&, Produces<T>&)
   {
     return true;
   }
@@ -335,7 +331,15 @@ static inline std::vector<std::shared_ptr<arrow::Table>> extractOriginals(framew
   return {extractOriginal<Os>(pc)...};
 }
 
-template <typename T>
+template <size_t N, std::array<soa::TableRef, N> refs>
+static inline auto extractOriginals(ProcessingContext& pc)
+{
+  return [&]<size_t... Is>(std::index_sequence<Is...>) -> std::vector<std::shared_ptr<arrow::Table>> {
+    return {pc.inputs().get<TableConsumer>(o2::aod::label<refs[Is]>())->asArrowTable()...};
+  }(std::make_index_sequence<refs.size()>());
+}
+
+template <is_spawnable T>
 struct OutputManager<Spawns<T>> {
   static bool appendOutput(std::vector<OutputSpec>& outputs, Spawns<T>& what, uint32_t)
   {
@@ -345,13 +349,14 @@ struct OutputManager<Spawns<T>> {
 
   static bool prepare(ProcessingContext& pc, Spawns<T>& what)
   {
-    auto originalTable = soa::ArrowHelpers::joinTables(extractOriginals(what.sources_pack(), pc));
+    using metadata = o2::aod::MetadataTrait<o2::aod::Hash<T::ref.desc_hash>>::metadata;
+    auto originalTable = soa::ArrowHelpers::joinTables(extractOriginals<metadata::sources.size(), metadata::sources>(pc));
     if (originalTable->schema()->fields().empty() == true) {
       using base_table_t = typename Spawns<T>::base_table_t::table_t;
-      originalTable = makeEmptyTable<base_table_t>(aod::MetadataTrait<typename Spawns<T>::extension_t>::metadata::tableLabel());
+      originalTable = makeEmptyTable<base_table_t>(o2::aod::label<metadata::extension_table_t::ref>());
     }
 
-    what.extension = std::make_shared<typename Spawns<T>::extension_t>(o2::framework::spawner<aod::MetadataTrait<typename Spawns<T>::extension_t>::metadata::origin()>(what.pack(), extractOriginals(what.sources_pack(), pc), aod::MetadataTrait<typename Spawns<T>::extension_t>::metadata::tableLabel()));
+    what.extension = std::make_shared<typename Spawns<T>::extension_t>(o2::framework::spawner<o2::aod::Hash<metadata::extension_table_t::ref.desc_hash>>(originalTable, o2::aod::label<metadata::extension_table_t::ref>()));
     what.table = std::make_shared<typename T::table_t>(soa::ArrowHelpers::joinTables({what.extension->asArrowTable(), originalTable}));
     return true;
   }
@@ -379,19 +384,13 @@ static inline auto doExtractOriginal(framework::pack<Ts...>, ProcessingContext& 
   }
 }
 
-template <typename O>
-static inline auto extractOriginalJoined(ProcessingContext& pc)
-{
-  return o2::soa::ArrowHelpers::joinTables({doExtractOriginal(soa::make_originals_from_type<O>(), pc)});
-}
-
 template <typename... Os>
 static inline auto extractOriginalsVector(framework::pack<Os...>, ProcessingContext& pc)
 {
   return std::vector{extractOriginalJoined<Os>(pc)...};
 }
 
-template <typename T>
+template <soa::is_index_table T>
 struct OutputManager<Builds<T>> {
   static bool appendOutput(std::vector<OutputSpec>& outputs, Builds<T>& what, uint32_t)
   {
@@ -401,8 +400,8 @@ struct OutputManager<Builds<T>> {
 
   static bool prepare(ProcessingContext& pc, Builds<T>& what)
   {
-    return what.template build<typename T::indexing_t>(what.pack(), what.originals_pack(),
-                                                       extractOriginalsVector(what.originals_pack(), pc));
+    using metadata = o2::aod::MetadataTrait<o2::aod::Hash<T::ref.desc_hash>>::metadata;
+    return what.template build<typename T::indexing_t>(what.pack(), extractOriginals<metadata::sources.size(), metadata::sources>(pc));
   }
 
   static bool finalize(ProcessingContext& pc, Builds<T>& what)
@@ -420,7 +419,7 @@ struct OutputManager<Builds<T>> {
 template <typename T>
 struct ServiceManager {
   template <typename ANY>
-  static bool add(std::vector<ServiceSpec>& specs, ANY& any)
+  static bool add(std::vector<ServiceSpec>& /*specs*/, ANY& /*any*/)
   {
     return false;
   }
@@ -442,7 +441,7 @@ template <typename T>
 struct ServiceManager<Service<T>> {
   static bool add(std::vector<ServiceSpec>& specs, Service<T>& /*service*/)
   {
-    if constexpr (o2::framework::is_base_of_template_v<LoadableServicePlugin, T>) {
+    if constexpr (o2::framework::base_of_template<LoadableServicePlugin, T>) {
       T p = T{};
       auto loadableServices = PluginManager::parsePluginSpecString(p.loadSpec.c_str());
       PluginManager::loadFromPlugin<ServiceSpec, ServicePlugin>(loadableServices, specs);
@@ -510,7 +509,7 @@ struct OptionManager {
   static bool appendOption(std::vector<ConfigParamSpec>& options, ANY& x)
   {
     /// Recurse, in case we are brace constructible
-    if constexpr (std::is_base_of_v<ConfigurableGroup, ANY>) {
+    if constexpr (std::derived_from<ANY, ConfigurableGroup>) {
       if constexpr (requires { x.prefix; }) {
         homogeneous_apply_refs<true>([prefix = x.prefix]<typename C>(C& y) { // apend group prefix if set
           if constexpr (requires { y.name; }) {
@@ -531,7 +530,7 @@ struct OptionManager {
   template <typename ANY>
   static bool prepare(InitContext& ic, ANY& x)
   {
-    if constexpr (std::is_base_of_v<ConfigurableGroup, ANY>) {
+    if constexpr (std::derived_from<ANY, ConfigurableGroup>) {
       homogeneous_apply_refs<true>([&ic](auto&& y) { return OptionManager<std::decay_t<decltype(y)>>::prepare(ic, y); }, x);
       return true;
     } else {

@@ -1,4 +1,4 @@
-// Copyright 2019-2020 CERN and copyright holders of ALICE O2.
+// Copyright 2019-2024 CERN and copyright holders of ALICE O2.
 // See https://alice-o2.web.cern.ch/copyright for details of the copyright holders.
 // All rights not expressly granted are reserved.
 //
@@ -11,10 +11,15 @@
 #include "Framework/Plugins.h"
 #include "Framework/ConfigParamDiscovery.h"
 #include "Framework/ConfigParamRegistry.h"
+#include "Framework/RootArrowFilesystem.h"
 #include "Framework/Logger.h"
 #include "Framework/Capability.h"
 #include "Framework/Signpost.h"
 #include "Framework/VariantJSONHelpers.h"
+#include "Framework/PluginManager.h"
+#include <TDirectory.h>
+#include <TDirectoryFile.h>
+#include <TClass.h>
 #include <cstddef>
 #include <string_view>
 
@@ -168,11 +173,75 @@ struct DiscoverAODOptionsInCommandLine : o2::framework::ConfigDiscoveryPlugin {
   }
 };
 
+struct ImplementationContext {
+  std::vector<RootArrowFactory> implementations;
+};
+
+std::function<void*(TDirectoryFile*, std::string const&)> getHandleByClass(char const* classname)
+{
+  return [classname](TDirectoryFile* file, std::string const& path) { return file->GetObjectChecked(path.c_str(), TClass::GetClass(classname)); };
+}
+
+std::function<void*(TBufferFile*, std::string const&)> getBufferHandleByClass(char const* classname)
+{
+  return [classname](TBufferFile* buffer, std::string const& path) { buffer->Reset(); return buffer->ReadObjectAny(TClass::GetClass(classname)); };
+}
+
+void lazyLoadFactory(std::vector<RootArrowFactory>& implementations, char const* specs)
+{
+  // Lazy loading of the plugin so that we do not bring in RNTuple / TTree if not needed
+  if (implementations.empty()) {
+    std::vector<LoadablePlugin> plugins;
+    auto morePlugins = PluginManager::parsePluginSpecString(specs);
+    for (auto& extra : morePlugins) {
+      plugins.push_back(extra);
+    }
+    PluginManager::loadFromPlugin<RootArrowFactory, RootArrowFactoryPlugin>(plugins, implementations);
+    if (implementations.empty()) {
+      return;
+    }
+  }
+}
+
+struct RNTupleObjectReadingCapability : o2::framework::RootObjectReadingCapabilityPlugin {
+  RootObjectReadingCapability* create() override
+  {
+    auto context = new ImplementationContext;
+
+    return new RootObjectReadingCapability{
+      .name = "rntuple",
+      .getHandle = getHandleByClass("ROOT::Experimental::RNTuple"),
+      .getBufferHandle = getBufferHandleByClass("ROOT::Experimental::RNTuple"),
+      .factory = [context]() -> RootArrowFactory& {
+        lazyLoadFactory(context->implementations, "O2FrameworkAnalysisRNTupleSupport:RNTupleObjectReadingImplementation");
+        return context->implementations.back();
+      }};
+  }
+};
+
+struct TTreeObjectReadingCapability : o2::framework::RootObjectReadingCapabilityPlugin {
+  RootObjectReadingCapability* create() override
+  {
+    auto context = new ImplementationContext;
+
+    return new RootObjectReadingCapability{
+      .name = "ttree",
+      .getHandle = getHandleByClass("TTree"),
+      .getBufferHandle = getBufferHandleByClass("TTree"),
+      .factory = [context]() -> RootArrowFactory& {
+        lazyLoadFactory(context->implementations, "O2FrameworkAnalysisTTreeSupport:TTreeObjectReadingImplementation");
+        return context->implementations.back();
+      }};
+  }
+};
+
 DEFINE_DPL_PLUGINS_BEGIN
 DEFINE_DPL_PLUGIN_INSTANCE(DiscoverMetadataInAODCapability, Capability);
 DEFINE_DPL_PLUGIN_INSTANCE(DiscoverMetadataInCommandLineCapability, Capability);
 DEFINE_DPL_PLUGIN_INSTANCE(DiscoverAODOptionsInCommandLineCapability, Capability);
 DEFINE_DPL_PLUGIN_INSTANCE(DiscoverMetadataInCommandLine, ConfigDiscovery);
 DEFINE_DPL_PLUGIN_INSTANCE(DiscoverAODOptionsInCommandLine, ConfigDiscovery);
+DEFINE_DPL_PLUGIN_INSTANCE(RNTupleObjectReadingCapability, RootObjectReadingCapability);
+DEFINE_DPL_PLUGIN_INSTANCE(TTreeObjectReadingCapability, RootObjectReadingCapability);
 DEFINE_DPL_PLUGINS_END
 } // namespace o2::framework

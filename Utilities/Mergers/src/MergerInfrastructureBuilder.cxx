@@ -128,7 +128,8 @@ framework::WorkflowSpec MergerInfrastructureBuilder::generateInfrastructure()
   auto layerInputs = mInputs;
 
   // preparing some numbers
-  auto mergersPerLayer = computeNumberOfMergersPerLayer(layerInputs.size());
+  const auto mergersPerLayer = computeNumberOfMergersPerLayer(layerInputs.size());
+  const bool expendable = std::ranges::any_of(mConfig.labels, [](const auto& label) { return label.value == "expendable"; });
 
   // topology generation
   MergerBuilder mergerBuilder;
@@ -150,7 +151,6 @@ framework::WorkflowSpec MergerInfrastructureBuilder::generateInfrastructure()
       // we also expect moving windows to be published only by the last layer
       layerConfig.publishMovingWindow = {PublishMovingWindow::No};
     }
-    mergerBuilder.setConfig(layerConfig);
 
     framework::Inputs nextLayerInputs;
     auto inputsRangeBegin = layerInputs.begin();
@@ -162,13 +162,19 @@ framework::WorkflowSpec MergerInfrastructureBuilder::generateInfrastructure()
 
       auto inputsRangeEnd = inputsRangeBegin + inputsPerMerger + (m < inputsPerMergerRemainder);
       mergerBuilder.setInputSpecs(framework::Inputs(inputsRangeBegin, inputsRangeEnd));
-      inputsRangeBegin = inputsRangeEnd;
 
+      if (layer > 1 && !expendable) {
+        // we optimize the latency of higher Merger layers by publishing an object as soon as we get the expected number of inputs.
+        // we can do that safely only if tasks are not expendable, i.e. we are guaranteed that workflow stops if a Merger crashes.
+        const auto inputNumber = std::distance(inputsRangeBegin, inputsRangeEnd);
+        assert(inputNumber != 0);
+        layerConfig.publicationDecision = {PublicationDecision::EachNArrivals, inputNumber};
+      }
       if (layer == mergersPerLayer.size() - 1) {
         // the last layer => use the specified external OutputSpec
         mergerBuilder.setOutputSpec(mOutputSpecIntegral);
       }
-
+      mergerBuilder.setConfig(layerConfig);
       auto merger = mergerBuilder.buildSpec();
 
       auto input = DataSpecUtils::matchingInput(merger.outputs.at(0));
@@ -176,6 +182,7 @@ framework::WorkflowSpec MergerInfrastructureBuilder::generateInfrastructure()
       nextLayerInputs.push_back(input);
 
       workflow.emplace_back(std::move(merger));
+      inputsRangeBegin = inputsRangeEnd;
     }
     layerInputs = nextLayerInputs; // todo: could be optimised with pointers
   }

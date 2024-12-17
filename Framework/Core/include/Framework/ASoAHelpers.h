@@ -1294,7 +1294,7 @@ struct CombinationsGenerator {
 template <typename T2, typename... T2s>
 constexpr bool isSameType()
 {
-  return std::conjunction_v<std::is_same<T2, T2s>...>;
+  return (std::same_as<T2, T2s> && ...);
 }
 
 template <typename BP, typename T1, typename... T2s>

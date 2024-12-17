@@ -65,10 +65,7 @@
 #include "SimulationDataFormat/MCCompLabel.h"
 #include "Algorithm/Parser.h"
 #include "DataFormatsGlobalTracking/RecoContainer.h"
-#include "DataFormatsTRD/RecoInputContainer.h"
-#include "TRDBase/Geometry.h"
-#include "TRDBase/GeometryFlat.h"
-#include "ITSBase/GeometryTGeo.h"
+#include "DataFormatsTPC/AltroSyncSignal.h"
 #include "CommonUtils/VerbosityConfig.h"
 #include "CommonUtils/DebugStreamer.h"
 #include <filesystem>
@@ -306,6 +303,10 @@ bool GPURecoWorkflowSpec::fetchCalibsCCDBTPC<GPUCalibObjectsConst>(ProcessingCon
     // this calibration is defined for clustering and tracking
     if (dEdxCalibContainer->isCorrectionCCDB(o2::tpc::CalibsdEdx::CalGainMap) || mUpdateGainMapCCDB) {
       pc.inputs().get<o2::tpc::CalDet<float>*>("tpcgain");
+    }
+
+    if (mSpecConfig.outputTracks || mSpecConfig.caClusterer) {
+      mTPCCutAtTimeBin = mConfParam->overrideTPCTimeBinCur > 0 ? mConfParam->overrideTPCTimeBinCur : pc.inputs().get<o2::tpc::AltroSyncSignal*>("tpcaltrosync")->getTB2Cut(pc.services().get<o2::framework::TimingInfo>().tfCounter);
     }
 
     // these calibrations are only defined for the tracking

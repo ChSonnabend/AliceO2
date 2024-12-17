@@ -159,7 +159,7 @@ Bool_t GeneratorHepMC::generateEvent()
     tries++;
   } while (tries < max_tries);
 
-  LOG(fatal) << "HepMC event gen failed (Does the file/stream have enough events)?";
+  LOG(error) << "HepMC event gen failed (Does the file/stream have enough events)?";
 
   /** failure **/
   return false;
@@ -286,6 +286,7 @@ Bool_t GeneratorHepMC::importParticles()
   }
 
   /** loop over particles **/
+  mParticles.clear();
   auto particles = mEvent->particles();
   for (int i = 0; i < particles.size(); ++i) {
 

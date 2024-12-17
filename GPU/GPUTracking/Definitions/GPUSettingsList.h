@@ -181,6 +181,11 @@ AddOptionRTC(pileupBwdNBC, uint8_t, 80, "", 0, "Pre-trigger Pile-up integration 
 AddHelp("help", 'h')
 EndConfig()
 
+// Dynamic settings, must NOT use AddOptionRTC(...) !!!
+BeginSubConfig(GPUSettingsRecDynamic, dyn, configStandalone.rec, "RECDYN", 0, "Reconstruction settings", rec_dyn)
+AddHelp("help", 'h')
+EndConfig()
+
 BeginSubConfig(GPUSettingsRec, rec, configStandalone, "REC", 0, "Reconstruction settings", rec)
 AddOptionRTC(maxTrackQPtB5, float, 1.f / GPUCA_MIN_TRACK_PTB5_DEFAULT, "", 0, "required max Q/Pt (==min Pt) of tracks")
 AddOptionRTC(nonConsecutiveIDs, int8_t, false, "", 0, "Non-consecutive cluster IDs as in HLT, disables features that need access to slice data in TPC merger")
@@ -193,6 +198,7 @@ AddOptionRTC(trackingRefitGPUModel, int8_t, 1, "", 0, "Use GPU track model for t
 AddCustomCPP(void SetMinTrackPtB5(float v) { maxTrackQPtB5 = v > 0.001f ? (1.f / v) : (1.f / 0.001f); })
 AddSubConfig(GPUSettingsRecTPC, tpc)
 AddSubConfig(GPUSettingsRecTRD, trd)
+AddSubConfig(GPUSettingsRecDynamic, dyn)
 AddHelp("help", 'h')
 EndConfig()
 
@@ -554,6 +560,7 @@ AddOption(solenoidBzNominalGPU, float, -1e6f, "", 0, "Field strength of solenoid
 AddOption(constBz, bool, false, "", 0, "force constant Bz for tests")
 AddOption(setMaxTimeBin, int32_t, -2, "", 0, "maximum time bin of continuous data, 0 for triggered events, -1 for automatic continuous mode, -2 for automatic continuous / triggered")
 AddOption(overrideNHbfPerTF, int32_t, 0, "", 0, "Overrides the number of HBF per TF if != 0")
+AddOption(overrideTPCTimeBinCur, int32_t, 0, "", 0, "Overrides TPC time bin cut if > 0")
 AddOption(deviceType, std::string, "CPU", "", 0, "Device type, CPU | CUDA | HIP | OCL1 | OCL2")
 AddOption(forceDeviceType, bool, true, "", 0, "force device type, otherwise allows fall-back to CPU")
 AddOption(synchronousProcessing, bool, false, "", 0, "Apply performance shortcuts for synchronous processing, disable unneeded steps")

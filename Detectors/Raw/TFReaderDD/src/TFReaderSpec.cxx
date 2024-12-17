@@ -431,7 +431,7 @@ void TFReaderSpec::TFBuilder()
         } else {
           break;
         }
-        if (mInput.maxTFsPerFile > 0 && mInput.maxTFsPerFile >= locID) { // go to next file
+        if (mInput.maxTFsPerFile > 0 && locID >= mInput.maxTFsPerFile) { // go to next file
           break;
         }
       }

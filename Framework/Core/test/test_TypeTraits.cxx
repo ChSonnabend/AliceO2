@@ -156,18 +156,18 @@ struct NoBar : NoFooFoo<int> {
 
 TEST_CASE("BaseOfTemplate")
 {
-  constexpr bool t = is_base_of_template_v<std::vector, std::vector<int>>;
+  constexpr bool t = base_of_template<std::vector, std::vector<int>>;
   static_assert(t == true, "This should be true");
 
-  constexpr bool t2 = is_base_of_template_v<std::vector, int>;
+  constexpr bool t2 = base_of_template<std::vector, int>;
   static_assert(t2 == false, "This should be true");
 
-  constexpr bool t3 = is_base_of_template_v<FooFoo, Bar>;
+  constexpr bool t3 = base_of_template<FooFoo, Bar>;
   static_assert(t3 == true, "This should be true");
 
-  constexpr bool t4 = is_base_of_template_v<FooFoo, NoBar>;
+  constexpr bool t4 = base_of_template<FooFoo, NoBar>;
   static_assert(t4 == false, "This should be false");
 
-  constexpr bool t5 = is_base_of_template_v<NoFooFoo, NoBar>;
+  constexpr bool t5 = base_of_template<NoFooFoo, NoBar>;
   static_assert(t5 == true, "This should be true");
 }

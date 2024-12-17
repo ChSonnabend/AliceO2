@@ -22,6 +22,7 @@
 #include "Framework/InputRecord.h"
 #include "DataFormatsCTP/Digits.h"
 #include "DataFormatsCTP/LumiInfo.h"
+#include "DataFormatsCTP/Configuration.h"
 
 namespace o2
 {
@@ -43,14 +44,16 @@ class RawDataDecoder
   void setVerbose(bool v) { mVerbose = v; }
   void setMAXErrors(int m) { mErrorMax = m; }
   int setLumiInp(int lumiinp, std::string inp);
+  void setCTPConfig(CTPConfiguration cfg) { mCTPConfig = std::move(cfg); };
   uint32_t getIRRejected() const { return mIRRejected; }
   uint32_t getTCRRejected() const { return mTCRRejected; }
   std::vector<uint32_t>& getTFOrbits() { return mTFOrbits; }
   int getErrorIR() { return mErrorIR; }
   int getErrorTCR() { return mErrorTCR; }
+  CTPConfiguration& getCTPConfig() { return mCTPConfig; }
   int init();
   static int shiftNew(const o2::InteractionRecord& irin, uint32_t TFOrbit, std::bitset<48>& inpmask, int64_t shift, int level, std::map<o2::InteractionRecord, CTPDigit>& digmap);
-  static int shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digitsMap, o2::pmr::vector<CTPDigit>& digits, uint32_t TFOrbit);
+  static int shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digitsMap, o2::pmr::vector<CTPDigit>& digits, uint32_t TFOrbit, uint64_t trgclassmask = 0xffffffffffffffff);
 
  private:
   static constexpr uint32_t TF_TRIGGERTYPE_MASK = 0x800;
@@ -79,6 +82,7 @@ class RawDataDecoder
   int mErrorTCR = 0;
   int mErrorMax = 3;
   bool mStickyError = false;
+  CTPConfiguration mCTPConfig;
 };
 } // namespace ctp
 } // namespace o2

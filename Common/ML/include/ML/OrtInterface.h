@@ -9,12 +9,12 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file     ort_interface.h
+/// \file     OrtInterface.h
 /// \author   Christian Sonnabend <christian.sonnabend@cern.ch>
 /// \brief    A header library for loading ONNX models and inferencing them on CPU and GPU
 
-#ifndef O2_ML_ONNX_INTERFACE_H
-#define O2_ML_ONNX_INTERFACE_H
+#ifndef O2_ML_ORTINTERFACE_H
+#define O2_ML_ORTINTERFACE_H
 
 // C++ and system includes
 #include <vector>
@@ -91,4 +91,4 @@ class OrtModel
 
 } // namespace o2
 
-#endif // O2_ML_ORT_INTERFACE_H
+#endif // O2_ML_ORTINTERFACE_H

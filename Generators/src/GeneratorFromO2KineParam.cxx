@@ -13,3 +13,4 @@
 
 #include "Generators/GeneratorFromO2KineParam.h"
 O2ParamImpl(o2::eventgen::GeneratorFromO2KineParam);
+O2ParamImpl(o2::eventgen::GeneratorEventPoolParam);

@@ -17,12 +17,14 @@
 #include "FairGenerator.h"
 #include "Generators/Generator.h"
 #include "Generators/GeneratorFromO2KineParam.h"
+#include "SimulationDataFormat/MCEventHeader.h"
 #include <TRandom3.h>
-#include <TGrid.h>
+#include <random>
 
 class TBranch;
 class TFile;
 class TParticle;
+class TGrid;
 
 namespace o2
 {
@@ -107,6 +109,54 @@ class GeneratorFromO2Kine : public o2::eventgen::Generator
   std::unique_ptr<o2::dataformats::MCEventHeader> mOrigMCEventHeader; //! the MC event header of the original file
 
   ClassDefOverride(GeneratorFromO2Kine, 2);
+};
+
+/// Special generator for event pools.
+/// What do we like to have:
+/// - ability to give a file which contains the list of files to read
+/// - ability to give directly a file to read the event from
+/// - ability to give a pool path and to find the top N list of files closest to myself
+/// - ability to select itself one file from the pool
+class GeneratorFromEventPool : public o2::eventgen::Generator
+{
+ public:
+  constexpr static std::string_view eventpool_filename = "evtpool.root";
+  constexpr static std::string_view alien_protocol_prefix = "alien://";
+
+  GeneratorFromEventPool() = default; // mainly for ROOT IO
+  GeneratorFromEventPool(EventPoolGenConfig const& pars);
+
+  bool Init() override;
+
+  // the o2 Generator interface methods
+  bool generateEvent() override
+  { /* trivial - actual work in importParticles */
+    return mO2KineGenerator->generateEvent();
+  }
+  bool importParticles() override
+  {
+    mO2KineGenerator->clearParticles(); // clear old container before filling with new ones
+    auto import_good = mO2KineGenerator->importParticles();
+    // transfer the particles (could be avoided)
+    mParticles = mO2KineGenerator->getParticles();
+
+    return import_good;
+  }
+
+  // determine the collection of available files
+  std::vector<std::string> setupFileUniverse(std::string const& path) const;
+
+  std::vector<std::string> const& getFileUniverse() const { return mPoolFilesAvailable; }
+
+ private:
+  EventPoolGenConfig mConfig;                                                    //! Configuration object
+  std::unique_ptr<o2::eventgen::GeneratorFromO2Kine> mO2KineGenerator = nullptr; //! actual generator doing the work
+  std::vector<std::string> mPoolFilesAvailable;                                  //! container keeping the collection of files in the event pool
+  std::string mFileChosen;                                                       //! the file chosen for the pool
+  // random number generator to determine a concrete file name
+  std::mt19937 mRandomEngine; //!
+
+  ClassDefOverride(GeneratorFromEventPool, 1);
 };
 
 } // end namespace eventgen

@@ -9,7 +9,21 @@
 # granted to it by virtue of its status as an Intergovernmental Organization
 # or submit itself to any jurisdiction.
 
+# Pass ORT variables as a preprocessor definition
+if(DEFINED ENV{ORT_ROCM_BUILD})
+    add_compile_definitions(ORT_ROCM_BUILD=$ENV{ORT_ROCM_BUILD})
+endif()
+if(DEFINED ENV{ORT_CUDA_BUILD})
+    add_compile_definitions(ORT_CUDA_BUILD=$ENV{ORT_CUDA_BUILD})
+endif()
+if(DEFINED ENV{ORT_MIGRAPHX_BUILD})
+    add_compile_definitions(ORT_MIGRAPHX_BUILD=$ENV{ORT_MIGRAPHX_BUILD})
+endif()
+if(DEFINED ENV{ORT_TENSORRT_BUILD})
+    add_compile_definitions(ORT_TENSORRT_BUILD=$ENV{ORT_TENSORRT_BUILD})
+endif()
+
 o2_add_library(ML
-               SOURCES src/ort_interface.cxx
+               SOURCES src/OrtInterface.cxx
                TARGETVARNAME targetName
                PRIVATE_LINK_LIBRARIES O2::Framework ONNXRuntime::ONNXRuntime)

@@ -10,11 +10,11 @@
 // or submit itself to any jurisdiction.
 
 #include "Framework/TableBuilder.h"
-#include "Framework/TableConsumer.h"
 
 #include <benchmark/benchmark.h>
 
 using namespace o2::framework;
+using namespace o2::soa;
 
 static void BM_TableBuilderOverhead(benchmark::State& state)
 {
@@ -22,7 +22,7 @@ static void BM_TableBuilderOverhead(benchmark::State& state)
 
   for (auto _ : state) {
     TableBuilder builder;
-    auto rowWriter = builder.persist<float, float, float>({"x", "y", "z"});
+    [[maybe_unused]] auto rowWriter = builder.persist<float, float, float>({"x", "y", "z"});
     auto table = builder.finalize();
   }
 }
@@ -35,7 +35,7 @@ static void BM_TableBuilderScalar(benchmark::State& state)
   for (auto _ : state) {
     TableBuilder builder;
     auto rowWriter = builder.persist<float>({"x"});
-    for (size_t i = 0; i < state.range(0); ++i) {
+    for (auto i = 0; i < state.range(0); ++i) {
       rowWriter(0, 0.f);
     }
     auto table = builder.finalize();
@@ -52,7 +52,7 @@ static void BM_TableBuilderScalarReserved(benchmark::State& state)
     TableBuilder builder;
     auto rowWriter = builder.persist<float>({"x"});
     builder.reserve(o2::framework::pack<float>{}, state.range(0));
-    for (size_t i = 0; i < state.range(0); ++i) {
+    for (auto i = 0; i < state.range(0); ++i) {
       rowWriter(0, 0.f);
     }
     auto table = builder.finalize();
@@ -68,7 +68,7 @@ static void BM_TableBuilderScalarPresized(benchmark::State& state)
   for (auto _ : state) {
     TableBuilder builder;
     auto rowWriter = builder.preallocatedPersist<float>({"x"}, state.range(0));
-    for (size_t i = 0; i < state.range(0); ++i) {
+    for (auto i = 0; i < state.range(0); ++i) {
       rowWriter(0, 0.f);
     }
     auto table = builder.finalize();
@@ -86,7 +86,7 @@ static void BM_TableBuilderScalarBulk(benchmark::State& state)
   for (auto _ : state) {
     TableBuilder builder;
     auto bulkWriter = builder.bulkPersist<float>({"x"}, state.range(0));
-    for (size_t i = 0; i < state.range(0) / chunkSize; ++i) {
+    for (auto i = 0; i < state.range(0) / chunkSize; ++i) {
       bulkWriter(0, chunkSize, buffer.data());
     }
     auto table = builder.finalize();
@@ -101,7 +101,7 @@ static void BM_TableBuilderSimple(benchmark::State& state)
   for (auto _ : state) {
     TableBuilder builder;
     auto rowWriter = builder.persist<float, float, float>({"x", "y", "z"});
-    for (size_t i = 0; i < state.range(0); ++i) {
+    for (auto i = 0; i < state.range(0); ++i) {
       rowWriter(0, 0.f, 0.f, 0.f);
     }
     auto table = builder.finalize();
@@ -116,7 +116,7 @@ static void BM_TableBuilderSimple2(benchmark::State& state)
   for (auto _ : state) {
     TableBuilder builder;
     auto rowWriter = builder.persist<float, float, float>({"x", "y", "z"});
-    for (size_t i = 0; i < state.range(0); ++i) {
+    for (auto i = 0; i < state.range(0); ++i) {
       rowWriter(0, 0.f, 0.f, 0.f);
     }
     auto table = builder.finalize();
@@ -132,7 +132,7 @@ DECLARE_SOA_COLUMN(Y, y, float);
 DECLARE_SOA_COLUMN(Z, z, float);
 } // namespace test
 
-using TestVectors = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, test::X, test::Y, test::Z>;
+using TestVectors = o2::soa::InPlaceTable<"TST/0"_h, test::X, test::Y, test::Z>;
 
 static void BM_TableBuilderSoA(benchmark::State& state)
 {
@@ -140,7 +140,7 @@ static void BM_TableBuilderSoA(benchmark::State& state)
   for (auto _ : state) {
     TableBuilder builder;
     auto rowWriter = builder.cursor<TestVectors>();
-    for (size_t i = 0; i < state.range(0); ++i) {
+    for (auto i = 0; i < state.range(0); ++i) {
       rowWriter(0, 0.f, 0.f, 0.f);
     }
     auto table = builder.finalize();
@@ -155,7 +155,7 @@ static void BM_TableBuilderComplex(benchmark::State& state)
   for (auto _ : state) {
     TableBuilder builder;
     auto rowWriter = builder.persist<int, float, std::string, bool>({"x", "y", "s", "b"});
-    for (size_t i = 0; i < state.range(0); ++i) {
+    for (auto i = 0; i < state.range(0); ++i) {
       rowWriter(0, 0, 0., "foo", true);
     }
     auto table = builder.finalize();

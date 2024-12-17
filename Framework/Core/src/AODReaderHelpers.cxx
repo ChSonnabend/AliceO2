@@ -65,18 +65,6 @@ static inline auto doExtractOriginal(framework::pack<Ts...>, ProcessingContext& 
   }
 }
 
-template <typename O>
-static inline auto extractTypedOriginal(ProcessingContext& pc)
-{
-  return O{doExtractOriginal(soa::make_originals_from_type<O>(), pc)};
-}
-
-template <typename O>
-static inline auto extractOriginal(ProcessingContext& pc)
-{
-  return o2::soa::ArrowHelpers::joinTables({doExtractOriginal(soa::make_originals_from_type<O>(), pc)});
-}
-
 template <typename... Os>
 static inline auto extractOriginalsTuple(framework::pack<Os...>, ProcessingContext& pc)
 {
@@ -87,6 +75,14 @@ template <typename... Os>
 static inline auto extractOriginalsVector(framework::pack<Os...>, ProcessingContext& pc)
 {
   return std::vector{extractOriginal<Os>(pc)...};
+}
+
+template <size_t N, std::array<soa::TableRef, N> refs>
+static inline auto extractOriginals(ProcessingContext& pc)
+{
+  return [&]<size_t... Is>(std::index_sequence<Is...>) -> std::vector<std::shared_ptr<arrow::Table>> {
+    return {pc.inputs().get<TableConsumer>(o2::aod::label<refs[Is]>())->asArrowTable()...};
+  }(std::make_index_sequence<refs.size()>());
 }
 
 AlgorithmSpec AODReaderHelpers::indexBuilderCallback(std::vector<InputSpec>& requested)
@@ -101,17 +97,15 @@ AlgorithmSpec AODReaderHelpers::indexBuilderCallback(std::vector<InputSpec>& req
           using metadata_t = decltype(metadata);
           using Key = typename metadata_t::Key;
           using index_pack_t = typename metadata_t::index_pack_t;
-          using originals = typename metadata_t::originals;
+          constexpr auto sources = metadata_t::sources;
           if constexpr (metadata_t::exclusive == true) {
-            return o2::framework::IndexBuilder<o2::framework::Exclusive>::indexBuilder<Key>(input.binding.c_str(),
-                                                                                            extractOriginalsVector(originals{}, pc),
-                                                                                            index_pack_t{},
-                                                                                            originals{});
+            return o2::framework::IndexBuilder<o2::framework::Exclusive>::indexBuilder<Key, sources.size(), sources>(input.binding.c_str(),
+                                                                                                                     extractOriginals<sources.size(), sources>(pc),
+                                                                                                                     index_pack_t{});
           } else {
-            return o2::framework::IndexBuilder<o2::framework::Sparse>::indexBuilder<Key>(input.binding.c_str(),
-                                                                                         extractOriginalsVector(originals{}, pc),
-                                                                                         index_pack_t{},
-                                                                                         originals{});
+            return o2::framework::IndexBuilder<o2::framework::Sparse>::indexBuilder<Key, sources.size(), sources>(input.binding.c_str(),
+                                                                                                                  extractOriginals<sources.size(), sources>(pc),
+                                                                                                                  index_pack_t{});
           }
         };
 
@@ -153,49 +147,43 @@ AlgorithmSpec AODReaderHelpers::aodSpawnerCallback(std::vector<InputSpec>& reque
       // spawn tables
       for (auto& input : requested) {
         auto&& [origin, description, version] = DataSpecUtils::asConcreteDataMatcher(input);
-
-        auto maker = [&](auto metadata) {
-          using metadata_t = decltype(metadata);
-          using expressions = typename metadata_t::expression_pack_t;
-          std::vector<std::shared_ptr<arrow::Table>> originalTables;
-          for (auto& i : input.metadata) {
-            if ((i.type == VariantType::String) && (i.name.find("input:") != std::string::npos)) {
-              auto spec = DataSpecUtils::fromMetadataString(i.defaultValue.get<std::string>());
-              originalTables.push_back(pc.inputs().get<TableConsumer>(spec.binding)->asArrowTable());
-            }
-          }
-          return o2::framework::spawner<metadata_t::origin()>(expressions{}, std::move(originalTables), input.binding.c_str());
+        auto maker = [&]<o2::aod::is_aod_hash D>() {
+          using metadata_t = o2::aod::MetadataTrait<D>::metadata;
+          constexpr auto sources = metadata_t::sources;
+          return o2::framework::spawner<D>(extractOriginals<sources.size(), sources>(pc), input.binding.c_str());
         };
 
-        if (description == header::DataDescription{"TRACK"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::TracksExtensionMetadata{}));
-        } else if (description == header::DataDescription{"TRACK_IU"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::TracksIUExtensionMetadata{}));
-        } else if (description == header::DataDescription{"TRACKCOV"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::TracksCovExtensionMetadata{}));
-        } else if (description == header::DataDescription{"TRACKCOV_IU"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::TracksCovIUExtensionMetadata{}));
-        } else if (description == header::DataDescription{"TRACKEXTRA"}) {
+        if (description == header::DataDescription{"EXTRACK"}) {
+          outputs.adopt(Output{origin, description, version}, maker.template operator()<o2::aod::Hash<"EXTRACK/0"_h>>());
+        } else if (description == header::DataDescription{"EXTRACK_IU"}) {
+          outputs.adopt(Output{origin, description, version}, maker.template operator()<o2::aod::Hash<"EXTRACK_IU/0"_h>>());
+        } else if (description == header::DataDescription{"EXTRACKCOV"}) {
+          outputs.adopt(Output{origin, description, version}, maker.template operator()<o2::aod::Hash<"EXTRACKCOV/0"_h>>());
+        } else if (description == header::DataDescription{"EXTRACKCOV_IU"}) {
+          outputs.adopt(Output{origin, description, version}, maker.template operator()<o2::aod::Hash<"EXTRACKCOV_IU/0"_h>>());
+        } else if (description == header::DataDescription{"EXTRACKEXTRA"}) {
           if (version == 0U) {
-            outputs.adopt(Output{origin, description, version}, maker(o2::aod::TracksExtra_000ExtensionMetadata{}));
+            outputs.adopt(Output{origin, description, version}, maker.template operator()<o2::aod::Hash<"EXTRACKEXTRA/0"_h>>());
           } else if (version == 1U) {
-            outputs.adopt(Output{origin, description, version}, maker(o2::aod::TracksExtra_001ExtensionMetadata{}));
+            outputs.adopt(Output{origin, description, version}, maker.template operator()<o2::aod::Hash<"EXTRACKEXTRA/1"_h>>());
+          } else if (version == 2U) {
+            outputs.adopt(Output{origin, description, version}, maker.template operator()<o2::aod::Hash<"EXTRACKEXTRA/2"_h>>());
           }
-        } else if (description == header::DataDescription{"MFTTRACK"}) {
+        } else if (description == header::DataDescription{"EXMFTTRACK"}) {
           if (version == 0U) {
-            outputs.adopt(Output{origin, description, version}, maker(o2::aod::MFTTracks_000ExtensionMetadata{}));
+            outputs.adopt(Output{origin, description, version}, maker.template operator()<o2::aod::Hash<"EXMFTTRACK/0"_h>>());
           } else if (version == 1U) {
-            outputs.adopt(Output{origin, description, version}, maker(o2::aod::MFTTracks_001ExtensionMetadata{}));
+            outputs.adopt(Output{origin, description, version}, maker.template operator()<o2::aod::Hash<"EXMFTTRACK/1"_h>>());
           }
-        } else if (description == header::DataDescription{"FWDTRACK"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::FwdTracksExtensionMetadata{}));
-        } else if (description == header::DataDescription{"FWDTRACKCOV"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::FwdTracksCovExtensionMetadata{}));
-        } else if (description == header::DataDescription{"MCPARTICLE"}) {
+        } else if (description == header::DataDescription{"EXFWDTRACK"}) {
+          outputs.adopt(Output{origin, description, version}, maker.template operator()<o2::aod::Hash<"EXFWDTRACK/0"_h>>());
+        } else if (description == header::DataDescription{"EXFWDTRACKCOV"}) {
+          outputs.adopt(Output{origin, description, version}, maker.template operator()<o2::aod::Hash<"EXFWDTRACKCOV/0"_h>>());
+        } else if (description == header::DataDescription{"EXMCPARTICLE"}) {
           if (version == 0U) {
-            outputs.adopt(Output{origin, description, version}, maker(o2::aod::McParticles_000ExtensionMetadata{}));
+            outputs.adopt(Output{origin, description, version}, maker.template operator()<o2::aod::Hash<"EXMCPARTICLE/0"_h>>());
           } else if (version == 1U) {
-            outputs.adopt(Output{origin, description, version}, maker(o2::aod::McParticles_001ExtensionMetadata{}));
+            outputs.adopt(Output{origin, description, version}, maker.template operator()<o2::aod::Hash<"EXMCPARTICLE/1"_h>>());
           }
         } else {
           throw runtime_error("Not an extended table");

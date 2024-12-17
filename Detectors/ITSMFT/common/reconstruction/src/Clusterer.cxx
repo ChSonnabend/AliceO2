@@ -263,36 +263,38 @@ void Clusterer::ClustererThread::finishChip(ChipPixelData* curChipData, CompClus
       parent->streamCluster(pixArrBuff, &labelsBuff, bbox, parent->mPattIdConverter, compClusPtr, patternsPtr, labelsClusPtr, nlab);
     } else {
       auto warnLeft = MaxHugeClusWarn - parent->mNHugeClus;
-      if (warnLeft > 0) {
-        LOGP(warn, "Splitting a huge cluster: chipID {}, rows {}:{} cols {}:{}{}", bbox.chipID, bbox.rowMin, bbox.rowMax, bbox.colMin, bbox.colMax,
-             warnLeft == 1 ? " (Further warnings will be muted)" : "");
+      if (!parent->mDropHugeClusters) {
+        if (warnLeft > 0) {
+          LOGP(warn, "Splitting a huge cluster: chipID {}, rows {}:{} cols {}:{}{}", bbox.chipID, bbox.rowMin, bbox.rowMax, bbox.colMin, bbox.colMax,
+               warnLeft == 1 ? " (Further warnings will be muted)" : "");
 #ifdef WITH_OPENMP
 #pragma omp critical
 #endif
-        {
-          parent->mNHugeClus++;
+          {
+            parent->mNHugeClus++;
+          }
         }
-      }
-      BBox bboxT(bbox); // truncated box
-      std::vector<PixelData> pixbuf;
-      do {
-        bboxT.rowMin = bbox.rowMin;
-        bboxT.colMax = std::min(bbox.colMax, uint16_t(bboxT.colMin + o2::itsmft::ClusterPattern::MaxColSpan - 1));
-        do { // Select a subset of pixels fitting the reduced bounding box
-          bboxT.rowMax = std::min(bbox.rowMax, uint16_t(bboxT.rowMin + o2::itsmft::ClusterPattern::MaxRowSpan - 1));
-          for (const auto& pix : pixArrBuff) {
-            if (bboxT.isInside(pix.getRowDirect(), pix.getCol())) {
-              pixbuf.push_back(pix);
+        BBox bboxT(bbox); // truncated box
+        std::vector<PixelData> pixbuf;
+        do {
+          bboxT.rowMin = bbox.rowMin;
+          bboxT.colMax = std::min(bbox.colMax, uint16_t(bboxT.colMin + o2::itsmft::ClusterPattern::MaxColSpan - 1));
+          do { // Select a subset of pixels fitting the reduced bounding box
+            bboxT.rowMax = std::min(bbox.rowMax, uint16_t(bboxT.rowMin + o2::itsmft::ClusterPattern::MaxRowSpan - 1));
+            for (const auto& pix : pixArrBuff) {
+              if (bboxT.isInside(pix.getRowDirect(), pix.getCol())) {
+                pixbuf.push_back(pix);
+              }
             }
-          }
-          if (!pixbuf.empty()) { // Stream a piece of cluster only if the reduced bounding box is not empty
-            parent->streamCluster(pixbuf, &labelsBuff, bboxT, parent->mPattIdConverter, compClusPtr, patternsPtr, labelsClusPtr, nlab, true);
-            pixbuf.clear();
-          }
-          bboxT.rowMin = bboxT.rowMax + 1;
-        } while (bboxT.rowMin < bbox.rowMax);
-        bboxT.colMin = bboxT.colMax + 1;
-      } while (bboxT.colMin < bbox.colMax);
+            if (!pixbuf.empty()) { // Stream a piece of cluster only if the reduced bounding box is not empty
+              parent->streamCluster(pixbuf, &labelsBuff, bboxT, parent->mPattIdConverter, compClusPtr, patternsPtr, labelsClusPtr, nlab, true);
+              pixbuf.clear();
+            }
+            bboxT.rowMin = bboxT.rowMax + 1;
+          } while (bboxT.rowMin < bbox.rowMax);
+          bboxT.colMin = bboxT.colMax + 1;
+        } while (bboxT.colMin < bbox.colMax);
+      }
     }
   }
 }
@@ -451,8 +453,8 @@ void Clusterer::print() const
 {
   // print settings
   LOGP(info, "Clusterizer squashes overflow pixels separated by {} BC and <= {} in row/col seeking down to {} neighbour ROFs", mMaxBCSeparationToSquash, mMaxRowColDiffToMask, mSquashingDepth);
-  LOG(info) << "Clusterizer masks overflow pixels separated by < " << mMaxBCSeparationToMask << " BC and <= "
-            << mMaxRowColDiffToMask << " in row/col";
+  LOGP(info, "Clusterizer masks overflow pixels separated by < {} BC and <= {} in row/col", mMaxBCSeparationToMask, mMaxRowColDiffToMask);
+  LOGP(info, "Clusterizer does {} drop huge clusters", mDropHugeClusters ? "" : "not");
 
 #ifdef _PERFORM_TIMING_
   auto& tmr = const_cast<TStopwatch&>(mTimer); // ugly but this is what root does internally

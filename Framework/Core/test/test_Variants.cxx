@@ -338,3 +338,15 @@ TEST_CASE("VariantJSONConversionsTest")
     REQUIRE(vstrings[i] == vvstra.get<std::string*>()[i]);
   }
 }
+
+TEST_CASE("VariantThrowing")
+{
+  Variant a("true");
+  REQUIRE_THROWS_AS(a.get<int>(), o2::framework::RuntimeErrorRef);
+  try {
+    a.get<int>();
+  } catch (RuntimeErrorRef& ref) {
+    RuntimeError& error = error_from_ref(ref);
+    REQUIRE(error.what == std::string("Variant::get: Mismatch between types 4 0."));
+  }
+}

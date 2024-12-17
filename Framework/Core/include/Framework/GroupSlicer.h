@@ -52,7 +52,7 @@ struct GroupSlicer {
       if constexpr (o2::soa::relatedByIndex<std::decay_t<G>, std::decay_t<T>>()) {
         auto binding = o2::soa::getLabelFromTypeForKey<std::decay_t<T>>(mIndexColumnName);
         auto bk = std::make_pair(binding, mIndexColumnName);
-        if constexpr (!o2::soa::is_smallgroups_v<std::decay_t<T>>) {
+        if constexpr (!o2::soa::is_smallgroups<std::decay_t<T>>) {
           if (table.size() == 0) {
             return;
           }
@@ -165,7 +165,7 @@ struct GroupSlicer {
           pos = position;
         }
 
-        if constexpr (!o2::soa::is_smallgroups_v<std::decay_t<A1>>) {
+        if constexpr (!o2::soa::is_smallgroups<std::decay_t<A1>>) {
           // optimized split
           if (originalTable.size() == 0) {
             return originalTable;
@@ -225,7 +225,7 @@ struct GroupSlicer {
           }
         }
       } else {
-        static_assert(!o2::soa::is_smallgroups_v<std::decay_t<A1>>, "SmallGroups used with a table that is not related by index to the gouping table");
+        static_assert(!o2::soa::is_smallgroups<std::decay_t<A1>>, "SmallGroups used with a table that is not related by index to the gouping table");
         return originalTable;
       }
     }

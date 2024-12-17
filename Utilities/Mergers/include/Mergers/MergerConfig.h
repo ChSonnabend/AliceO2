@@ -41,7 +41,7 @@ enum class MergedObjectTimespan {
   // when InputObjectsTimespan::FullHistory is set.
   LastDifference,
   // Generalisation of the two above. Resets all objects in Mergers after n cycles (0 - infinite).
-  // The the above will be removed once we switch to NCycles in QC.
+  // The above will be removed once we switch to NCycles in QC.
   NCycles
 };
 
@@ -52,7 +52,8 @@ enum class PublishMovingWindow {
 };
 
 enum class PublicationDecision {
-  EachNSeconds, // Merged object is published each N seconds. This can evolve over time, thus we expect pairs specifying N:duration1, M:duration2...
+  EachNSeconds,  // Merged object is published each N seconds. This can evolve over time, thus we expect pairs specifying N:duration1, M:duration2...
+  EachNArrivals, // Merged object is published whenever we receive N new input objects.
 };
 
 enum class TopologySize {
@@ -66,6 +67,7 @@ enum class ParallelismType {
   RoundRobin   // Mergers receive their input messages in round robin order. Useful when there is one InputSpec with a wildcard.
 };
 
+// fixme: this way of configuring mergers should be refactored, it does not make sense that we share `param`s across for different enum values.
 template <typename V, typename P = double>
 struct ConfigEntry {
   V value;
@@ -82,7 +84,7 @@ class PublicationDecisionParameter
   PublicationDecisionParameter(size_t param) : decision({{param, 1}}) {}
   PublicationDecisionParameter(const std::vector<std::pair<size_t, size_t>>& decision) : decision(decision) {}
 
-  std::vector<std::pair<size_t, size_t>> decision;
+  std::vector<std::pair<size_t /* cycle duration seconds */, size_t /* validity seconds */>> decision;
 };
 
 // todo rework configuration in a way that user cannot create an invalid configuration

@@ -16,6 +16,7 @@
 #include <deque>
 #include "Framework/DataProcessorSpec.h"
 #include "Framework/Task.h"
+#include "Framework/WorkflowSpec.h"
 #include "DataFormatsCTP/Digits.h"
 #include "DataFormatsCTP/LumiInfo.h"
 #include "CTPReconstruction/RawDataDecoder.h"
@@ -50,6 +51,7 @@ class RawDecoderSpec : public framework::Task
   /// Input RawData: {"ROUT", "RAWDATA", 0, Lifetime::Timeframe}
   /// Output HW errors: {"CTP", "RAWHWERRORS", 0, Lifetime::Timeframe} -later
   void run(framework::ProcessingContext& ctx) final;
+  void updateTimeDependentParams(framework::ProcessingContext& pc);
 
  protected:
  private:
@@ -68,6 +70,7 @@ class RawDecoderSpec : public framework::Task
   uint32_t mNTFToIntegrate = 1;
   uint32_t mNHBIntegratedT = 0;
   uint32_t mNHBIntegratedV = 0;
+  bool mDecodeinputs = 0;
   std::deque<size_t> mHistoryT;
   std::deque<size_t> mHistoryV;
   RawDataDecoder mDecoder;

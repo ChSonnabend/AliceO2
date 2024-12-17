@@ -355,7 +355,7 @@ class Variant
   T get() const
   {
     if (mType != variant_trait_v<T>) {
-      throw runtime_error("Mismatch between types");
+      throw runtime_error_f("Variant::get: Mismatch between types %d %d.", mType, variant_trait_v<T>);
     }
     return variant_helper<T>::get(&mStore);
   }

@@ -71,6 +71,7 @@ class FullHistoryMerger : public framework::Task
   void mergeCache();
   void publish(framework::DataAllocator& allocator);
   void clear();
+  bool shouldFinishCycle(const framework::InputRecord& inputs) const;
 };
 
 } // namespace o2::mergers

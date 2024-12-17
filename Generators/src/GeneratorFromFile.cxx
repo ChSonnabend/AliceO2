@@ -22,6 +22,8 @@
 #include <TParticle.h>
 #include <TTree.h>
 #include <sstream>
+#include <filesystem>
+#include <TGrid.h>
 
 namespace o2
 {
@@ -249,6 +251,7 @@ bool GeneratorFromO2Kine::importParticles()
   // Randomize the order of events in the input file
   if (mRandomize) {
     mEventCounter = gRandom->Integer(mEventsAvailable);
+    LOG(info) << "GeneratorFromO2Kine - Picking event " << mEventCounter;
   }
 
   double dPhi = 0.;
@@ -352,8 +355,237 @@ void GeneratorFromO2Kine::updateHeader(o2::dataformats::MCEventHeader* eventHead
   eventHeader->putInfo<int>("forwarding-generator_inputEventNumber", mEventCounter - 1);
 }
 
+namespace
+{
+// some helper to execute a command and capture it's output in a vector
+std::vector<std::string> executeCommand(const std::string& command)
+{
+  std::vector<std::string> result;
+  std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(command.c_str(), "r"), pclose);
+  if (!pipe) {
+    throw std::runtime_error("Failed to open pipe");
+  }
+
+  char buffer[1024];
+  while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
+    std::string line(buffer);
+    // Remove trailing newline character, if any
+    if (!line.empty() && line.back() == '\n') {
+      line.pop_back();
+    }
+    result.push_back(line);
+  }
+  return result;
+}
+} // namespace
+
+GeneratorFromEventPool::GeneratorFromEventPool(EventPoolGenConfig const& pars) : mConfig{pars}
+{
+}
+
+bool GeneratorFromEventPool::Init()
+{
+  // initialize the event pool
+  if (mConfig.rngseed > 0) {
+    mRandomEngine.seed(mConfig.rngseed);
+  } else {
+    std::random_device rd;
+    mRandomEngine.seed(rd());
+  }
+  mPoolFilesAvailable = setupFileUniverse(mConfig.eventPoolPath);
+
+  if (mPoolFilesAvailable.size() == 0) {
+    LOG(error) << "No file found that can be used with EventPool generator";
+    return false;
+  }
+  LOG(info) << "Found " << mPoolFilesAvailable.size() << " available event pool files";
+
+  // now choose the actual file
+  std::uniform_int_distribution<int> distribution(0, mPoolFilesAvailable.size() - 1);
+  auto chosenIndex = distribution(mRandomEngine);
+  mFileChosen = mPoolFilesAvailable[chosenIndex];
+  LOG(info) << "EventPool is using file " << mFileChosen;
+
+  // we bring up the internal mO2KineGenerator
+  auto kine_config = O2KineGenConfig{
+    .skipNonTrackable = mConfig.skipNonTrackable,
+    .continueMode = false,
+    .roundRobin = false,
+    .randomize = mConfig.randomize,
+    .rngseed = mConfig.rngseed,
+    .randomphi = mConfig.randomphi,
+    .fileName = mFileChosen};
+  mO2KineGenerator.reset(new GeneratorFromO2Kine(kine_config));
+  return mO2KineGenerator->Init();
+}
+
+namespace
+{
+namespace fs = std::filesystem;
+// checks a single file name
+bool checkFileName(std::string const& pathStr)
+{
+  // LOG(info) << "Checking filename " << pathStr;
+  try {
+    // Remove optional protocol prefix "alien://"
+    const std::string protocol = "alien://";
+    std::string finalPathStr(pathStr);
+    if (pathStr.starts_with(protocol)) {
+      finalPathStr = pathStr.substr(protocol.size());
+    }
+    fs::path path(finalPathStr);
+
+    // Check if the filename is "eventpool.root"
+    return path.filename() == GeneratorFromEventPool::eventpool_filename;
+  } catch (const fs::filesystem_error& e) {
+    // Invalid path syntax will throw an exception
+    std::cerr << "Filesystem error: " << e.what() << '\n';
+    return false;
+  } catch (...) {
+    // Catch-all for other potential exceptions
+    std::cerr << "An unknown error occurred while checking the path.\n";
+    return false;
+  }
+}
+
+// checks a whole universe of file names
+bool checkFileUniverse(std::vector<std::string> const& universe)
+{
+  if (universe.size() == 0) {
+    return false;
+  }
+  for (auto& fn : universe) {
+    if (!checkFileName(fn)) {
+      return false;
+    }
+  }
+  // TODO: also check for a common path structure with maximally 00X as only difference
+
+  return true;
+}
+
+std::vector<std::string> readLines(const std::string& filePath)
+{
+  std::vector<std::string> lines;
+
+  // Check if the file is a valid text file
+  fs::path path(filePath);
+
+  // Open the file
+  std::ifstream file(filePath);
+  if (!file.is_open()) {
+    throw std::ios_base::failure("Failed to open the file.");
+  }
+
+  // Read up to n lines
+  std::string line;
+  while (std::getline(file, line)) {
+    lines.push_back(line);
+  }
+  return lines;
+}
+
+// Function to find all files named eventpool_filename under a given path
+std::vector<std::string> getLocalFileList(const fs::path& rootPath)
+{
+  std::vector<std::string> result;
+
+  // Ensure the root path exists and is a directory
+  if (!fs::exists(rootPath) || !fs::is_directory(rootPath)) {
+    throw std::invalid_argument("The provided path is not a valid directory.");
+  }
+
+  // Iterate over the directory and subdirectories
+  for (const auto& entry : fs::recursive_directory_iterator(rootPath)) {
+    if (entry.is_regular_file() && entry.path().filename() == GeneratorFromEventPool::eventpool_filename) {
+      result.push_back(entry.path().string());
+    }
+  }
+  return result;
+}
+
+} // end anonymous namespace
+
+/// A function determining the universe of event pool files, as determined by the path string
+/// returns empty vector if it fails
+std::vector<std::string> GeneratorFromEventPool::setupFileUniverse(std::string const& path) const
+{
+  // the path could refer to a local or alien filesystem; find out first
+  bool onAliEn = strncmp(path.c_str(), std::string(alien_protocol_prefix).c_str(), alien_protocol_prefix.size()) == 0;
+  std::vector<std::string> result;
+
+  if (onAliEn) {
+    // AliEn case
+    // we support: (a) an actual evtgen file and (b) a path containing multiple eventfiles
+
+    auto alienStatTypeCommand = std::string("alien.py stat ") + mConfig.eventPoolPath + std::string(" 2>/dev/null | grep Type ");
+    auto typeString = executeCommand(alienStatTypeCommand);
+    if (typeString.size() == 0) {
+      return result;
+    } else if (typeString.size() == 1 && typeString.front() == std::string("Type: f")) {
+      // this is a file ... simply use it
+      result.push_back(mConfig.eventPoolPath);
+      return result;
+    } else if (typeString.size() == 1 && typeString.front() == std::string("Type: d")) {
+      // this is a directory
+      // construct command to find actual event files
+      std::string alienSearchCommand = std::string("alien.py find ") +
+                                       mConfig.eventPoolPath + "/ " + std::string(eventpool_filename);
+
+      auto universe_vector = executeCommand(alienSearchCommand);
+      // check vector
+      if (!checkFileUniverse(universe_vector)) {
+        return result;
+      }
+      for (auto& f : universe_vector) {
+        f = std::string(alien_protocol_prefix) + f;
+      }
+
+      return universe_vector;
+    } else {
+      LOG(error) << "Unsupported file type";
+      return result;
+    }
+  } else {
+    // local file case
+    // check if the path is a regular file
+    auto is_actual_file = std::filesystem::is_regular_file(path);
+    if (is_actual_file) {
+      // The files must match a criteria of being canonical paths ending with eventpool_Kine.root
+      if (checkFileName(path)) {
+        TFile rootfile(path.c_str(), "OPEN");
+        if (!rootfile.IsZombie()) {
+          result.push_back(path);
+          return result;
+        }
+      } else {
+        // otherwise assume it is a text file containing a list of files themselves
+        auto files = readLines(path);
+        if (checkFileUniverse(files)) {
+          result = files;
+          return result;
+        }
+      }
+    } else {
+      // check if the path is just a path
+      // In this case we need to search something and check
+      auto is_dir = std::filesystem::is_directory(path);
+      if (!is_dir) {
+        return result;
+      }
+      auto files = getLocalFileList(path);
+      if (checkFileUniverse(files)) {
+        result = files;
+        return result;
+      }
+    }
+  }
+  return result;
+}
+
 } // namespace eventgen
 } // end namespace o2
 
+ClassImp(o2::eventgen::GeneratorFromEventPool);
 ClassImp(o2::eventgen::GeneratorFromFile);
 ClassImp(o2::eventgen::GeneratorFromO2Kine);

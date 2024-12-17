@@ -49,14 +49,13 @@ struct MctracksToAod {
                          "Interaction rate to simulate"};
   Configurable<bool> filt{"filter-mctracks", false,
                           "Filter tracks"};
+  Configurable<uint64_t> tfOffset{"tf-offset", 0, "Start TF counter from an offset"};
   /** @} */
 
   /** Number of timeframes */
   uint64_t mTimeFrame = 0;
   /** Interaction simulation */
   InteractionSampler mSampler;
-  /** Whether to filter tracks */
-  bool mFilter;
 
   /** Initialize */
   void init(o2::framework::InitContext& /*ic*/)
@@ -64,13 +63,14 @@ struct MctracksToAod {
     mSampler.setInteractionRate(IR);
     mSampler.setFirstIR({0, 0});
     mSampler.init();
-    mFilter = filt;
+
+    mTimeFrame = tfOffset;
   }
 
   /** Run the conversion */
   void run(o2::framework::ProcessingContext& pc)
   {
-    LOG(info) << "=== Running extended MC AOD exporter ===";
+    LOG(debug) << "=== Running extended MC AOD exporter ===";
     using namespace o2::aodmchelpers;
     using McHeader = o2::dataformats::MCEventHeader;
     using McTrack = o2::MCTrack;
@@ -78,11 +78,17 @@ struct MctracksToAod {
 
     auto nParts = pc.inputs().getNofParts(0);
     auto nPartsVerify = pc.inputs().getNofParts(1);
+
+    using o2::framework::Lifetime;
+    using o2::framework::Output;
+
     if (nParts != nPartsVerify) {
       LOG(warn) << "Mismatch between number of MC headers and "
                 << "number of track vectors: " << nParts
                 << " != " << nPartsVerify
                 << ", shipping the empty timeframe";
+      pc.outputs().snapshot(Output{"TFF", "TFFilename", 0}, "");
+      pc.outputs().snapshot(Output{"TFN", "TFNumber", 0}, ++mTimeFrame);
       return;
     }
     // TODO: include BC simulation
@@ -115,18 +121,15 @@ struct MctracksToAod {
                                tracks,
                                preselect,
                                offset,
-                               mFilter,
+                               (bool)filt,
                                false);
 
       LOG(debug) << "Increment BC counter";
       bcCounter++;
     }
-    using o2::framework::Lifetime;
-    using o2::framework::Output;
 
-    ++mTimeFrame;
     pc.outputs().snapshot(Output{"TFF", "TFFilename", 0}, "");
-    pc.outputs().snapshot(Output{"TFN", "TFNumber", 0}, mTimeFrame);
+    pc.outputs().snapshot(Output{"TFN", "TFNumber", 0}, ++mTimeFrame);
   }
 };
 

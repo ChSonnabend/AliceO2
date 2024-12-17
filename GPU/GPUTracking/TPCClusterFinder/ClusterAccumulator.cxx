@@ -27,6 +27,10 @@ GPUd() bool ClusterAccumulator::toNative(const ChargePos& pos, Charge q, tpc::Cl
   if (cn.qTot <= param.rec.tpc.cfQTotCutoff) {
     return false;
   }
+  cn.qMax = q;
+  if (cn.qMax <= param.rec.tpc.cfQMaxCutoff) {
+    return false;
+  }
   if (mTimeMean < param.rec.tpc.clustersShiftTimebinsClusterizer) {
     return false;
   }
@@ -48,7 +52,6 @@ GPUd() bool ClusterAccumulator::toNative(const ChargePos& pos, Charge q, tpc::Cl
   flags |= (wasSplitInPad) ? tpc::ClusterNative::flagSplitPad : 0;
   flags |= (isSingleCluster) ? tpc::ClusterNative::flagSingle : 0;
 
-  cn.qMax = q;
   cn.setTimeFlags(mTimeMean - param.rec.tpc.clustersShiftTimebinsClusterizer, flags);
   cn.setPad(mPadMean);
   cn.setSigmaTime(mTimeSigma);

@@ -25,6 +25,7 @@
 #include "DetectorsBase/CTFCoderBase.h"
 #include "CTPReconstruction/CTFHelper.h"
 #include "CTPReconstruction/RawDataDecoder.h"
+#include "DataFormatsCTP/Configuration.h"
 
 class TTree;
 
@@ -53,6 +54,9 @@ class CTFCoder : public o2::ctf::CTFCoderBase
 
   void createCoders(const std::vector<char>& bufVec, o2::ctf::CTFCoderBase::OpType op) final;
   void setDecodeInps(bool decodeinps) { mDecodeInps = decodeinps; }
+  void setCTPConfig(CTPConfiguration cfg) { mCTPConfig = std::move(cfg); }
+  bool getDecodeInps() { return mDecodeInps; }
+  CTPConfiguration& getCTPConfig() { return mCTPConfig; }
   bool canApplyBCShiftInputs(const o2::InteractionRecord& ir) const { return canApplyBCShift(ir, mBCShiftInputs); }
 
  private:
@@ -62,6 +66,7 @@ class CTFCoder : public o2::ctf::CTFCoderBase
   void appendToTree(TTree& tree, CTF& ec);
   void readFromTree(TTree& tree, int entry, std::vector<CTPDigit>& data, LumiInfo& lumi);
   std::vector<CTPDigit> mDataFilt;
+  CTPConfiguration mCTPConfig;
   int mBCShiftInputs = 0;
   bool mDecodeInps = false;
 };
@@ -215,8 +220,13 @@ o2::ctf::CTFIOSize CTFCoder::decode(const CTF::base& ec, VTRG& data, LumiInfo& l
     }
   }
   if (mDecodeInps) {
+    uint64_t trgclassmask = 0xffffffffffffffff;
+    if (mCTPConfig.getRunNumber() != 0) {
+      trgclassmask = mCTPConfig.getTriggerClassMask();
+    }
+    // std::cout << "trgclassmask:" << std::hex << trgclassmask << std::dec << std::endl;
     o2::pmr::vector<CTPDigit> digits;
-    o2::ctp::RawDataDecoder::shiftInputs(digitsMap, digits, mFirstTFOrbit);
+    o2::ctp::RawDataDecoder::shiftInputs(digitsMap, digits, mFirstTFOrbit, trgclassmask);
     for (auto const& dig : digits) {
       data.emplace_back(dig);
     }

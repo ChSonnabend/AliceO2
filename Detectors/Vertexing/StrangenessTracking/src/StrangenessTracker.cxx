@@ -507,7 +507,7 @@ bool StrangenessTracker::updateTrack(const ITSCluster& clus, o2::track::TrackPar
       return false;
     }
   }
-  auto chi2 = std::abs(track.getPredictedChi2(clus)); // abs to be understood
+  auto chi2 = std::abs(track.getPredictedChi2Quiet(clus)); // abs to be understood
   LOG(debug) << "Chi2: " << chi2;
   if (chi2 > mStrParams->mMaxChi2 || chi2 < 0) {
     return false;

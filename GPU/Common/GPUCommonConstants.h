@@ -20,7 +20,7 @@
 #if !defined(__OPENCL1__)
 namespace GPUCA_NAMESPACE::gpu::gpu_common_constants
 {
-static CONSTEXPR const float kCLight = 0.000299792458f;
+static CONSTEXPR const float kCLight = 0.000299792458f; // TODO: Duplicate of MathConstants, fix this when OpenCL1 is removed
 }
 #endif
 

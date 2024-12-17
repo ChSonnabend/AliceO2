@@ -50,6 +50,17 @@ struct RejectListStruct {
   std::vector<o2::mid::ColumnData> rejectList{}; /// Bad channels
 };
 
+/// @brief Useful metadata
+struct MDStruct {
+  long start = 0;      /// Start validity
+  long end = 0;        /// End validity
+  int runNumber = 0;   /// Run number
+  std::string runType; /// Run Type
+
+  bool operator<(const MDStruct& other) const { return start < other.start; }
+  bool operator==(const MDStruct& other) const { return start == other.start; }
+};
+
 /// @brief Get timestamp in milliseconds
 /// @param timestamp Input timestamp (in s or ms)
 /// @return Timestamp in ms
@@ -96,23 +107,33 @@ std::string timeRangeToString(long start, long end)
 /// @param end Query objects created not after
 /// @param api CDB api
 /// @param path CDB path
-/// @return Vector of start validity of each object sorted in ascending way
-std::vector<long> findObjectsTSInPeriod(long start, long end, const o2::ccdb::CcdbApi& api, const char* path)
+/// @return Vector of metadata in ascending order
+std::vector<MDStruct> findObjectsMDInPeriod(long start, long end, const o2::ccdb::CcdbApi& api, const char* path)
 {
-  std::vector<long> ts;
-  auto out = api.list(path, false, "text/plain", getTSMS(end), getTSMS(start));
-  std::stringstream ss(out);
-  std::string token;
-  while (ss >> token) {
-    if (token.find("Validity") != std::string::npos) {
-      ss >> token;
-      ts.emplace_back(std::atol(token.c_str()));
-    }
+  std::vector<MDStruct> mds;
+  auto out = api.list(path, false, "application/json", getTSMS(end), getTSMS(start));
+  rapidjson::Document doc;
+  doc.Parse(out.c_str());
+  for (auto& obj : doc["objects"].GetArray()) {
+    MDStruct md;
+    md.start = obj["validFrom"].GetInt64();
+    md.end = obj["validUntil"].GetInt64();
+    md.runNumber = std::atoi(obj["RunNumber"].GetString());
+    md.runType = obj["RunType"].GetString();
+    mds.emplace_back(md);
   }
-  ts.erase(std::unique(ts.begin(), ts.end()), ts.end());
+  mds.erase(std::unique(mds.begin(), mds.end()), mds.end());
   // Sort timestamps in ascending order
-  std::sort(ts.begin(), ts.end());
-  return ts;
+  std::sort(mds.begin(), mds.end());
+  return mds;
+}
+
+/// @brief Gets the quality trend graph from the quality canvas
+/// @param qcQuality MID QC quality canvas
+/// @return Quality trend graph
+TGraph* getQualityTrend(const TCanvas* qcQuality)
+{
+  return static_cast<TGraph*>(qcQuality->GetListOfPrimitives()->FindObject("Graph"));
 }
 
 /// @brief Find the first and last time when the quality was good or bad
@@ -127,7 +148,7 @@ std::pair<uint64_t, uint64_t> findTSRange(TCanvas* qcQuality, bool selectBad = t
   // Medium: 2.5
   // Bad: 1.5
   // Null: 0.5
-  auto* gr = static_cast<TGraph*>(qcQuality->GetListOfPrimitives()->FindObject("Graph"));
+  auto* gr = getQualityTrend(qcQuality);
   double xp, yp;
   std::pair<uint64_t, uint64_t> range{std::numeric_limits<uint64_t>::max(), 0};
   for (int ip = 0; ip < gr->GetN(); ++ip) {
@@ -142,6 +163,32 @@ std::pair<uint64_t, uint64_t> findTSRange(TCanvas* qcQuality, bool selectBad = t
     range.first = 0;
   }
   return range;
+}
+
+/// @brief Gets the first and last timestamp in the quality
+/// @param qcQuality MID QC quality canvas
+/// @return Pair with the first and last timestamp in the quality trend
+std::pair<uint64_t, uint64_t> getFirstLast(const TCanvas* qcQuality)
+{
+  auto* gr = getQualityTrend(qcQuality);
+  double xp1, xp2, yp;
+  gr->GetPoint(0, xp1, yp);
+  gr->GetPoint(gr->GetN() - 1, xp2, yp);
+  return {static_cast<uint64_t>(xp1 * 1000), static_cast<uint64_t>(xp2 * 1000)};
+}
+
+/// @brief Update the selected range of timestamp
+/// @param selectedTSRange Reference to the selected range to be modified
+/// @param qcTSRange Range of the MID quality trend
+/// @param runRange Run range
+void updateRange(std::pair<uint64_t, uint64_t>& selectedTSRange, const std::pair<uint64_t, uint64_t> qcTSRange, const std::pair<uint64_t, uint64_t> runRange)
+{
+  if (selectedTSRange.first == qcTSRange.first) {
+    selectedTSRange.first = runRange.first;
+  }
+  if (selectedTSRange.second == qcTSRange.second) {
+    selectedTSRange.second = runRange.second;
+  }
 }
 
 /// @brief Find bad channels from the occupancy histograms
@@ -186,72 +233,61 @@ std::vector<o2::mid::ColumnData> getRejectList(std::vector<o2::mid::ColumnData> 
   return badChannels;
 }
 
-/// @brief Gets the run duration with a safety marging
-/// @param ccdbApi CCDB api
-/// @param marging margin in milliseconds
-/// @return Pair with the timestamps of start-margin and end+margin for the run
-std::pair<int64_t, int64_t> getRunDuration(const o2::ccdb::CcdbApi& ccdbApi, int runNumber, int64_t margin = 120000)
-{
-  auto runRange = o2::ccdb::BasicCCDBManager::getRunDuration(ccdbApi, runNumber);
-  runRange.first -= margin;  // Subtract margin
-  runRange.second += margin; // Add margin
-  return runRange;
-}
-
 /// @brief Builds the reject list for the selected timestamp
-/// @param timestamp Timestamp for query
+/// @param md MD structure
 /// @param qcdbApi QCDB api
 /// @param ccdbApi CCDB api
 /// @param outCCDBApi api of the CCDB where the reject list will be uploaded
 /// @return Reject list
-RejectListStruct build_rejectlist(long timestamp, const o2::ccdb::CcdbApi& qcdbApi, const o2::ccdb::CcdbApi& ccdbApi)
+RejectListStruct build_rejectlist(const MDStruct& md, const o2::ccdb::CcdbApi& qcdbApi, const o2::ccdb::CcdbApi& ccdbApi)
 {
-  std::map<std::string, std::string> metadata;
   RejectListStruct rl;
-  auto* qcQuality = qcdbApi.retrieveFromTFileAny<TCanvas>(sPathQCQuality, metadata, getTSMS(timestamp));
-  if (!qcQuality) {
-    std::cerr << "Cannot find QC quality for " << tsToString(timestamp) << std::endl;
+  if (md.runType != "PHYSICS") {
+    std::cout << "Run " << md.runNumber << " is of type " << md.runType << ": skip" << std::endl;
     return rl;
   }
+
+  std::map<std::string, std::string> metadata;
+  auto* qcQuality = qcdbApi.retrieveFromTFileAny<TCanvas>(sPathQCQuality, metadata, getTSMS(md.start));
+  if (!qcQuality) {
+    std::cerr << "Cannot find QC quality for " << tsToString(md.start) << std::endl;
+    return rl;
+  }
+
   // Find the first and last timestamp where the quality was bad (if any)
   auto badTSRange = findTSRange(qcQuality);
   if (badTSRange.second == 0) {
     std::cout << "All good" << std::endl;
     return rl;
   }
+
+  // Find the first and last timestamp where the quality flag was set
+  auto qualityTSRange = getFirstLast(qcQuality);
   // Search for the last timestamp for which the run quality was good
   auto goodTSRange = findTSRange(qcQuality, false);
-  // Query the CCDB to see to which run the timestamp corresponds
-  auto oldestTSInQCQuality = (goodTSRange.first == 0) ? badTSRange.first : goodTSRange.first;
-  auto grpecs = *ccdbApi.retrieveFromTFileAny<o2::parameters::GRPECSObject>("GLO/Config/GRPECS", metadata, getTSMS(oldestTSInQCQuality));
-  if (!grpecs.isDetReadOut(o2::detectors::DetID::MID)) {
-    std::cout << "Error: we are probably reading a parallel run" << std::endl;
-    grpecs.print();
-    return rl;
-  }
-  if (grpecs.getRunType() != o2::parameters::GRPECS::PHYSICS) {
-    std::cout << "This is not a physics run: skip" << std::endl;
-    grpecs.print();
-    return rl;
-  }
 
-  auto runRange = getRunDuration(ccdbApi, grpecs.getRun());
+  auto runRange = o2::ccdb::BasicCCDBManager::getRunDuration(ccdbApi, md.runNumber);
+  updateRange(badTSRange, qualityTSRange, runRange);
+  updateRange(goodTSRange, qualityTSRange, runRange);
 
   // Search for hits histogram in the period where the QC quality was bad
-  auto tsVector = findObjectsTSInPeriod(badTSRange.first, badTSRange.second, qcdbApi, "qc/MID/MO/QcTaskMIDDigits/Hits");
-  if (tsVector.empty()) {
+  auto mdVector = findObjectsMDInPeriod(badTSRange.first, badTSRange.second, qcdbApi, "qc/MID/MO/QcTaskMIDDigits/Hits");
+  if (mdVector.empty()) {
     std::cerr << "Cannot find hits in period " << tsToString(badTSRange.first) << " - " << tsToString(badTSRange.second) << std::endl;
     return {};
   }
-  // Focus on the first object found
-  TH1* occupancy = qcdbApi.retrieveFromTFileAny<TH1F>("qc/MID/MO/QcTaskMIDDigits/Hits", metadata, getTSMS(tsVector.front()));
+  // Focus on the last object found
+  // We chose the last instead of the first because it might happen that
+  // we lose additional boards before the EOR
+  // If we build the reject list for the first object, we would therefore miss some boards
+  TH1* occupancy = qcdbApi.retrieveFromTFileAny<TH1F>("qc/MID/MO/QcTaskMIDDigits/Hits", metadata, getTSMS(mdVector.back().start));
   o2::mid::GlobalMapper gm;
   auto infos = gm.buildStripsInfo();
   auto badChannels = findBadChannels(occupancy, infos);
-  auto badChannelsCCDB = *ccdbApi.retrieveFromTFileAny<std::vector<o2::mid::ColumnData>>("MID/Calib/BadChannels", metadata, getTSMS(timestamp));
+  auto badChannelsCCDB = *ccdbApi.retrieveFromTFileAny<std::vector<o2::mid::ColumnData>>("MID/Calib/BadChannels", metadata, getTSMS(md.start));
   rl.rejectList = getRejectList(badChannels, badChannelsCCDB);
   if (rl.rejectList.empty()) {
-    std::cout << "Warning: reject list was empty. It probably means that an entire board is already masked in calibration for run " << grpecs.getRun() << std::endl;
+    std::cout << "Warning: reject list was empty. It probably means that an entire board is already masked in calibration for run " << md.runNumber << std::endl;
     return rl;
   }
 
@@ -260,21 +296,15 @@ RejectListStruct build_rejectlist(long timestamp, const o2::ccdb::CcdbApi& qcdbA
   for (auto& col : rl.rejectList) {
     std::cout << col << std::endl;
   }
-  std::cout << "Run number: " << grpecs.getRun() << std::endl;
-  std::cout << "SOR - EOR: " << timeRangeToString(grpecs.getTimeStart(), grpecs.getTimeEnd()) << std::endl;
+  std::cout << "Run number: " << md.runNumber << std::endl;
   std::cout << "SOT - EOT: " << timeRangeToString(runRange.first, runRange.second) << std::endl;
   std::cout << "Good:      " << timeRangeToString(goodTSRange.first, goodTSRange.second) << std::endl;
   std::cout << "Bad:       " << timeRangeToString(badTSRange.first, badTSRange.second) << std::endl;
+  std::cout << "Fraction bad: " << static_cast<double>(badTSRange.second - badTSRange.first) / static_cast<double>(runRange.second - runRange.first) << std::endl;
 
   // Set the start of the reject list to the last timestamp in which the occupancy was ok
   rl.start = goodTSRange.second;
-  if (goodTSRange.first == 0) {
-    // If the quality was bad for the full run, set the start of the reject list to the SOR
-    std::cout << "CAVEAT: no good TS found. Will use SOT instead" << std::endl;
-    rl.start = runRange.first;
-  }
-  // Set the end of the reject list to the end of run
-  rl.end = runRange.second;
+  rl.end = badTSRange.second;
   return rl;
 }
 
@@ -301,8 +331,8 @@ RejectListStruct load_from_json(const o2::ccdb::CcdbApi& ccdbApi, const char* fi
     std::cerr << "Problem parsing " << filename << std::endl;
     return rl;
   }
-  auto startRange = getRunDuration(ccdbApi, doc["startRun"].GetInt());
-  auto endRange = getRunDuration(ccdbApi, doc["endRun"].GetInt());
+  auto startRange = o2::ccdb::BasicCCDBManager::getRunDuration(ccdbApi, doc["startRun"].GetInt());
+  auto endRange = o2::ccdb::BasicCCDBManager::getRunDuration(ccdbApi, doc["endRun"].GetInt());
   rl.start = startRange.first;
   rl.end = endRange.second;
   std::cout << "Manual RL validity: " << timeRangeToString(rl.start, rl.end) << std::endl;
@@ -397,9 +427,9 @@ void build_rejectlist(long start, long end, const char* qcdbUrl = "http://ali-qc
   o2::ccdb::CcdbApi ccdbApi;
   ccdbApi.init(ccdbUrl);
   std::vector<RejectListStruct> rls;
-  auto objectsTS = findObjectsTSInPeriod(start, end, qcdbApi, sPathQCQuality.c_str());
-  for (auto ts : objectsTS) {
-    auto rl = build_rejectlist(ts, qcdbApi, ccdbApi);
+  auto objectsMD = findObjectsMDInPeriod(start, end, qcdbApi, sPathQCQuality.c_str());
+  for (auto md : objectsMD) {
+    auto rl = build_rejectlist(md, qcdbApi, ccdbApi);
     if (rl.start != rl.end) {
       rls.emplace_back(rl);
     }

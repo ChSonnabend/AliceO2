@@ -42,29 +42,16 @@ namespace o2
 namespace eventgen
 {
 
+std::atomic<int> GeneratorPythia8::Pythia8InstanceCounter;
+
 /*****************************************************************/
 /*****************************************************************/
 
-GeneratorPythia8::GeneratorPythia8() : Generator("ALICEo2", "ALICEo2 Pythia8 Generator")
+// the default construct uses the GeneratorPythia8Param singleton to extract a config and delegates
+// to the proper constructor
+GeneratorPythia8::GeneratorPythia8() : GeneratorPythia8(GeneratorPythia8Param::Instance().detach())
 {
-  /** default constructor **/
-
-  mInterface = reinterpret_cast<void*>(&mPythia);
-  mInterfaceName = "pythia8";
-
-  auto& param = GeneratorPythia8Param::Instance();
-  LOG(info) << "Default Instance \'Pythia8\' generator with following parameters";
-  LOG(info) << param;
-
-  // convert the outside singleton config to the internally used one
-  o2::eventgen::Pythia8GenConfig config{param.config,
-                                        param.hooksFileName, param.hooksFuncName, param.includePartonEvent, param.particleFilter, param.verbose};
-  mGenConfig = config;
-
-  setConfig(config.config);
-  setHooksFileName(config.hooksFileName);
-  setHooksFuncName(config.hooksFuncName);
-  // TODO: use constructor delegation to other interface
+  LOG(info) << "GeneratorPythia8 constructed from GeneratorPythia8Param ConfigurableParam";
 }
 
 /*****************************************************************/
@@ -72,6 +59,8 @@ GeneratorPythia8::GeneratorPythia8() : Generator("ALICEo2", "ALICEo2 Pythia8 Gen
 GeneratorPythia8::GeneratorPythia8(Pythia8GenConfig const& config) : Generator("ALICEo2", "ALICEo2 Pythia8 Generator")
 {
   /** constructor **/
+  mThisPythia8InstanceID = GeneratorPythia8::Pythia8InstanceCounter;
+  GeneratorPythia8::Pythia8InstanceCounter++;
 
   mInterface = reinterpret_cast<void*>(&mPythia);
   mInterfaceName = "pythia8";
@@ -131,7 +120,15 @@ void GeneratorPythia8::seedGenerator()
     // Otherwise will seed the generator with the state of
     // TRandom::GetSeed. This is the seed that is influenced from
     // SimConfig --seed command line options options.
-    seed = (gRandom->TRandom::GetSeed() % (MAX_SEED + 1));
+    seed = gRandom->TRandom::GetSeed(); // this uses the "original" seed
+    // we advance the seed by one so that the next Pythia8 generator gets a different value
+    if (mThisPythia8InstanceID > 0) {
+      gRandom->Rndm();
+      LOG(info) << "Multiple Pythia8 generator instances detected .. automatically adjusting seed further to avoid overlap ";
+      seed = seed ^ gRandom->GetSeed(); // this uses the "current" seed
+    }
+    // apply max seed cuttof
+    seed = seed % (MAX_SEED + 1);
     LOG(info) << "GeneratorPythia8: Using random seed from gRandom % 900000001: " << seed;
   }
   mPythia.readString("Random:setSeed on");
@@ -694,6 +691,9 @@ void GeneratorPythia8::updateHeader(o2::dataformats::MCEventHeader* eventHeader)
   eventHeader->putInfo<float>(Key::weight, mPythia.info.weight());
 
   auto& info = mPythia.info;
+
+  eventHeader->putInfo<int>(Key::acceptedEvents, info.nAccepted());
+  eventHeader->putInfo<int>(Key::attemptedEvents, info.nTried());
 
   // Set PDF information
   eventHeader->putInfo<int>(Key::pdfParton1Id, info.id1pdf());

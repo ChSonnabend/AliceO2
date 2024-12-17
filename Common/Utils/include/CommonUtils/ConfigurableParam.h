@@ -321,17 +321,19 @@ class ConfigurableParam
 } // end namespace o2
 
 // a helper macro for boilerplate code in parameter classes
-#define O2ParamDef(classname, key)               \
- public:                                         \
-  classname(TRootIOCtor*) {}                     \
-  classname(classname const&) = delete;          \
-                                                 \
- private:                                        \
-  static constexpr char const* const sKey = key; \
-  static classname sInstance;                    \
-  classname() = default;                         \
-  template <typename T>                          \
-  friend class o2::conf::ConfigurableParamHelper;
+#define O2ParamDef(classname, key)                \
+ public:                                          \
+  classname(TRootIOCtor*) {}                      \
+  classname(classname const&) = delete;           \
+                                                  \
+ private:                                         \
+  static constexpr char const* const sKey = key;  \
+  static classname sInstance;                     \
+  classname() = default;                          \
+  template <typename T>                           \
+  friend class o2::conf::ConfigurableParamHelper; \
+  template <typename T, typename P>               \
+  friend class o2::conf::ConfigurableParamPromoter;
 
 // a helper macro to implement necessary symbols in source
 #define O2ParamImpl(classname) classname classname::sInstance;

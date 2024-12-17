@@ -167,6 +167,16 @@ size_t IRFrameSelector::loadIRFrames(const std::string& fname)
   return mOwnList.size();
 }
 
+void IRFrameSelector::setOwnList(const std::vector<o2::dataformats::IRFrame>& lst, bool toBeSorted)
+{
+  clear();
+  mOwnList.insert(mOwnList.end(), lst.begin(), lst.end());
+  if (toBeSorted) {
+    std::sort(mOwnList.begin(), mOwnList.end(), [](const auto& a, const auto& b) { return a.getMin() < b.getMin(); });
+  }
+  setSelectedIRFrames(mOwnList, 0, 0, 0, false);
+}
+
 void IRFrameSelector::print(bool lst) const
 {
   LOGP(info, "Last query stopped at entry {} for IRFrame {}:{}", mLastBoundID,
@@ -183,6 +193,8 @@ void IRFrameSelector::clear()
 {
   mIsSet = false;
   mOwnList.clear();
+  mLastIRFrameChecked.getMin().clear(); // invalidate
+  mLastBoundID = -1;
   mFrames = {};
 }
 

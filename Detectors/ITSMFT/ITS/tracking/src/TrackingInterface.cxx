@@ -47,6 +47,8 @@ void ITSTrackingInterface::initialise()
     trackParams[2].TrackletMinPt = 0.1f;
     trackParams[2].CellDeltaTanLambdaSigma *= 4.;
     trackParams[2].MinTrackLength = 4;
+    trackParams[2].MinPt[3] = 0.2f;
+    trackParams[2].StartLayerMask = (1 << 6) + (1 << 3);
     if (o2::its::TrackerParamConfig::Instance().doUPCIteration) {
       trackParams[3].TrackletMinPt = 0.1f;
       trackParams[3].CellDeltaTanLambdaSigma *= 4.;
@@ -174,7 +176,7 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
   auto errorLogger = [&](std::string s) { LOG(error) << s; };
 
   FastMultEst multEst; // mult estimator
-  std::vector<bool> processingMask, processUPCMask;
+  std::vector<uint8_t> processingMask, processUPCMask;
   int cutVertexMult{0}, cutUPCVertex{0}, cutRandomMult = int(trackROFvec.size()) - multEst.selectROFs(trackROFvec, compClusters, physTriggers, processingMask);
   processUPCMask.resize(processingMask.size(), false);
   mTimeFrame->setMultiplicityCutMask(processingMask);
@@ -269,13 +271,13 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
     mTimeFrame->setROFMask(processUPCMask);
     // Run CA tracker
     if constexpr (isGPU) {
-      if (mMode == o2::its::TrackingMode::Async) {
+      if (mMode == o2::its::TrackingMode::Async && o2::its::TrackerParamConfig::Instance().fataliseUponFailure) {
         mTracker->clustersToTracksHybrid(logger, fatalLogger);
       } else {
         mTracker->clustersToTracksHybrid(logger, errorLogger);
       }
     } else {
-      if (mMode == o2::its::TrackingMode::Async) {
+      if (mMode == o2::its::TrackingMode::Async && o2::its::TrackerParamConfig::Instance().fataliseUponFailure) {
         mTracker->clustersToTracks(logger, fatalLogger);
       } else {
         mTracker->clustersToTracks(logger, errorLogger);

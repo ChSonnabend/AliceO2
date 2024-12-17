@@ -59,6 +59,7 @@ struct GPUParam_t {
 
   int8_t dodEdxDownscaled;
   int32_t continuousMaxTimeBin;
+  int32_t tpcCutTimeBin;
 
   GPUTPCGeometry tpcGeometry;                       // TPC Geometry
   GPUTPCGMPolynomialField polynomialField;          // Polynomial approx. of magnetic field for TPC GM
@@ -84,7 +85,7 @@ struct GPUParam : public internal::GPUParam_t<GPUSettingsRec, GPUSettingsParam> 
 #ifndef GPUCA_GPUCODE
   void SetDefaults(float solenoidBz);
   void SetDefaults(const GPUSettingsGRP* g, const GPUSettingsRec* r = nullptr, const GPUSettingsProcessing* p = nullptr, const GPURecoStepConfiguration* w = nullptr);
-  void UpdateSettings(const GPUSettingsGRP* g, const GPUSettingsProcessing* p = nullptr, const GPURecoStepConfiguration* w = nullptr);
+  void UpdateSettings(const GPUSettingsGRP* g, const GPUSettingsProcessing* p = nullptr, const GPURecoStepConfiguration* w = nullptr, const GPUSettingsRecDynamic* d = nullptr);
   void UpdateBzOnly(float newSolenoidBz);
   void LoadClusterErrors(bool Print = 0);
   void UpdateRun3ClusterErrors(const float* yErrorParam, const float* zErrorParam);

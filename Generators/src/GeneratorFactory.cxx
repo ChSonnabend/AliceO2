@@ -175,6 +175,13 @@ void GeneratorFactory::setPrimaryGenerator(o2::conf::SimConfig const& conf, Fair
       }
     }
     LOG(info) << "using external O2 kinematics";
+  } else if (genconfig.compare("evtpool") == 0) {
+    // case of an "event-pool" which is a specialization of extkinO2
+    // with some additional logic in file management and less configurability
+    // and not features such as "continue transport"
+    auto extGen = new o2::eventgen::GeneratorFromEventPool(o2::eventgen::GeneratorEventPoolParam::Instance().detach());
+    primGen->AddGenerator(extGen);
+    LOG(info) << "using the eventpool generator";
   } else if (genconfig.compare("tparticle") == 0) {
     // External ROOT file(s) with tree of TParticle in clones array,
     // or external program generating such a file
@@ -278,6 +285,7 @@ void GeneratorFactory::setPrimaryGenerator(o2::conf::SimConfig const& conf, Fair
       return;
     }
     auto hybrid = new o2::eventgen::GeneratorHybrid(config);
+    hybrid->setNEvents(conf.getNEvents());
     primGen->AddGenerator(hybrid);
 #endif
   } else {

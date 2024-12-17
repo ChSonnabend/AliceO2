@@ -233,6 +233,7 @@ class GPURecoWorkflowSpec : public o2::framework::Task
   bool mITSGeometryCreated = false;
   bool mTRDGeometryCreated = false;
   bool mPropagatorInstanceCreated = false;
+  int32_t mTPCCutAtTimeBin = -1;
 };
 
 } // end namespace gpu

@@ -24,21 +24,9 @@ namespace eventgen
 {
 
 /**
- ** a parameter class/struct to keep the settings of
- ** the Pythia8 event generator and
- ** allow the user to modify them
+ ** a parameter class/struct to configure the settings of
+ ** the GeneratorPythia8 event generator
  **/
-
-struct GeneratorPythia8Param : public o2::conf::ConfigurableParamHelper<GeneratorPythia8Param> {
-  std::string config = "";
-  std::string hooksFileName = "";
-  std::string hooksFuncName = "";
-  bool includePartonEvent = false; // whether to keep the event before hadronization
-  std::string particleFilter = ""; // user particle filter
-  int verbose = 0;                 // verbose control (if > 0 may show more info messages about what is going on)
-  O2ParamDef(GeneratorPythia8Param, "GeneratorPythia8");
-};
-
 struct Pythia8GenConfig {
   std::string config = "";
   std::string hooksFileName = "";
@@ -46,6 +34,11 @@ struct Pythia8GenConfig {
   bool includePartonEvent = false; // whether to keep the event before hadronization
   std::string particleFilter = ""; // user particle filter
   int verbose = 0;                 // verbose control (if > 0 may show more info messages about what is going on)
+};
+
+// construct a configurable param singleton out of the Pythia8GenConfig struct
+struct GeneratorPythia8Param : public o2::conf::ConfigurableParamPromoter<GeneratorPythia8Param, Pythia8GenConfig> {
+  O2ParamDef(GeneratorPythia8Param, "GeneratorPythia8");
 };
 
 } // end namespace eventgen

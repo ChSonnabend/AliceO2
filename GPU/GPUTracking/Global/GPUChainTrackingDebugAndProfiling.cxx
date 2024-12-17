@@ -315,6 +315,9 @@ void GPUChainTracking::RunTPCClusterFilter(o2::tpc::ClusterNativeAccess* cluster
             keep = keep && cl.qTot > param().rec.tpc.cfQTotCutoff && cl.qMax > param().rec.tpc.cfQMaxCutoff;
             keep = keep && (!(cl.getFlags() & o2::tpc::ClusterNative::flagSingle) || ((cl.sigmaPadPacked || cl.qMax > param().rec.tpc.cfQMaxCutoffSinglePad) && (cl.sigmaTimePacked || cl.qMax > param().rec.tpc.cfQMaxCutoffSingleTime)));
           }
+          if (param().tpcCutTimeBin > 0) {
+            keep = keep && cl.getTime() < param().tpcCutTimeBin;
+          }
           keep = keep && (!GetProcessingSettings().tpcApplyDebugClusterFilter || clusterFilter.filter(iSector, iRow, cl));
           if (iPhase && keep) {
             outputBuffer[countTotal] = cl;

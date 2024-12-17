@@ -29,7 +29,7 @@ struct CompressedClustersCounters {
   unsigned int nUnattachedClusters = 0;
   unsigned int nAttachedClustersReduced = 0;
   unsigned int nSliceRows = 36 * 152;
-  unsigned char nComppressionModes = 0;
+  unsigned char nComppressionModes = 0; // Don't fix this name due to ROOT dictionaries!
   float solenoidBz = -1e6f;
   int maxTimeBin = -1e6;
 

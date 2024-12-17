@@ -182,19 +182,19 @@ std::string asString(TDataMember const& dm, char* pointer)
   // potentially other cases to be added here
 
   LOG(error) << "COULD NOT REPRESENT AS STRING";
-  return nullptr;
+  return std::string();
 }
 
 // ----------------------------------------------------------------------
 
 std::vector<ParamDataMember>* _ParamHelper::getDataMembersImpl(std::string const& mainkey, TClass* cl, void* obj,
-                                                               std::map<std::string, ConfigurableParam::EParamProvenance> const* provmap)
+                                                               std::map<std::string, ConfigurableParam::EParamProvenance> const* provmap, size_t globaloffset)
 {
   std::vector<ParamDataMember>* members = new std::vector<ParamDataMember>;
 
-  auto toDataMember = [&members, obj, mainkey, provmap](const TDataMember* dm, int index, int size) {
+  auto toDataMember = [&members, obj, mainkey, provmap, globaloffset](const TDataMember* dm, int index, int size) {
     auto TS = getSizeOfUnderlyingType(*dm);
-    char* pointer = ((char*)obj) + dm->GetOffset() + index * TS;
+    char* pointer = ((char*)obj) + dm->GetOffset() + index * TS + globaloffset;
     const std::string name = getName(dm, index, size);
     auto value = asString(*dm, pointer);
 
@@ -280,14 +280,14 @@ std::type_info const& nameToTypeInfo(const char* tname, TDataType const* dt)
 
 void _ParamHelper::fillKeyValuesImpl(std::string const& mainkey, TClass* cl, void* obj, boost::property_tree::ptree* tree,
                                      std::map<std::string, std::pair<std::type_info const&, void*>>* keytostoragemap,
-                                     EnumRegistry* enumRegistry)
+                                     EnumRegistry* enumRegistry, size_t globaloffset)
 {
   boost::property_tree::ptree localtree;
-  auto fillMap = [obj, &mainkey, &localtree, &keytostoragemap, &enumRegistry](const TDataMember* dm, int index, int size) {
+  auto fillMap = [obj, &mainkey, &localtree, &keytostoragemap, &enumRegistry, globaloffset](const TDataMember* dm, int index, int size) {
     const auto name = getName(dm, index, size);
     auto dt = dm->GetDataType();
     auto TS = getSizeOfUnderlyingType(*dm);
-    char* pointer = ((char*)obj) + dm->GetOffset() + index * TS;
+    char* pointer = ((char*)obj) + dm->GetOffset() + index * TS + globaloffset;
     localtree.put(name, asString(*dm, pointer));
 
     auto key = mainkey + "." + name;
@@ -355,14 +355,14 @@ bool isMemblockDifferent(char const* block1, char const* block2, int sizeinbytes
 // ----------------------------------------------------------------------
 
 void _ParamHelper::assignmentImpl(std::string const& mainkey, TClass* cl, void* to, void* from,
-                                  std::map<std::string, ConfigurableParam::EParamProvenance>* provmap)
+                                  std::map<std::string, ConfigurableParam::EParamProvenance>* provmap, size_t globaloffset)
 {
-  auto assignifchanged = [to, from, &mainkey, provmap](const TDataMember* dm, int index, int size) {
+  auto assignifchanged = [to, from, &mainkey, provmap, globaloffset](const TDataMember* dm, int index, int size) {
     const auto name = getName(dm, index, size);
     auto dt = dm->GetDataType();
     auto TS = getSizeOfUnderlyingType(*dm);
-    char* pointerto = ((char*)to) + dm->GetOffset() + index * TS;
-    char* pointerfrom = ((char*)from) + dm->GetOffset() + index * TS;
+    char* pointerto = ((char*)to) + dm->GetOffset() + index * TS + globaloffset;
+    char* pointerfrom = ((char*)from) + dm->GetOffset() + index * TS + globaloffset;
 
     // lambda to update the provenance
     auto updateProv = [&mainkey, name, provmap]() {
@@ -402,14 +402,14 @@ void _ParamHelper::assignmentImpl(std::string const& mainkey, TClass* cl, void* 
 // ----------------------------------------------------------------------
 
 void _ParamHelper::syncCCDBandRegistry(const std::string& mainkey, TClass* cl, void* to, void* from,
-                                       std::map<std::string, ConfigurableParam::EParamProvenance>* provmap)
+                                       std::map<std::string, ConfigurableParam::EParamProvenance>* provmap, size_t globaloffset)
 {
-  auto sync = [to, from, &mainkey, provmap](const TDataMember* dm, int index, int size) {
+  auto sync = [to, from, &mainkey, provmap, globaloffset](const TDataMember* dm, int index, int size) {
     const auto name = getName(dm, index, size);
     auto dt = dm->GetDataType();
     auto TS = getSizeOfUnderlyingType(*dm);
-    char* pointerto = ((char*)to) + dm->GetOffset() + index * TS;
-    char* pointerfrom = ((char*)from) + dm->GetOffset() + index * TS;
+    char* pointerto = ((char*)to) + dm->GetOffset() + index * TS + globaloffset;
+    char* pointerfrom = ((char*)from) + dm->GetOffset() + index * TS + globaloffset;
 
     // check current provenance
     auto key = mainkey + "." + name;

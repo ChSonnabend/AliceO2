@@ -319,12 +319,9 @@ std::vector<InputSpec> DataDescriptorQueryBuilder::parse(char const* config)
           if (*currentKey == "lifetime" && currentValue == "condition") {
             currentLifetime = Lifetime::Condition;
           }
-          if (*currentKey == "ccdb-run-dependent" && (currentValue != "false" && currentValue != "0")) {
-            attributes.push_back(ConfigParamSpec{*currentKey, VariantType::Bool, true, {}});
-          } else if (*currentKey == "ccdb-run-dependent" && (currentValue == "false" || currentValue == "0")) {
-            attributes.push_back(ConfigParamSpec{*currentKey, VariantType::Bool, false, {}});
-          } else if (*currentKey == "ccdb-run-dependent") {
-            error("ccdb-run-dependent can only be true or false");
+          if (*currentKey == "ccdb-run-dependent") {
+            int val = currentValue == "false" ? 0 : (currentValue == "true" ? 1 : std::stoi(*currentValue));
+            attributes.push_back(ConfigParamSpec{*currentKey, VariantType::Int, val, {}});
           } else {
             attributes.push_back(ConfigParamSpec{*currentKey, VariantType::String, *currentValue, {}});
           }
@@ -333,12 +330,9 @@ std::vector<InputSpec> DataDescriptorQueryBuilder::parse(char const* config)
           if (*currentKey == "lifetime" && currentValue == "condition") {
             currentLifetime = Lifetime::Condition;
           }
-          if (*currentKey == "ccdb-run-dependent" && (currentValue != "false" && currentValue != "0")) {
-            attributes.push_back(ConfigParamSpec{*currentKey, VariantType::Bool, true, {}});
-          } else if (*currentKey == "ccdb-run-dependent" && (currentValue == "false" || currentValue == "0")) {
-            attributes.push_back(ConfigParamSpec{*currentKey, VariantType::Bool, false, {}});
-          } else if (*currentKey == "ccdb-run-dependent") {
-            error("ccdb-run-dependent can only be true or false");
+          if (*currentKey == "ccdb-run-dependent") {
+            int val = currentValue == "false" ? 0 : (currentValue == "true" ? 1 : std::stoi(*currentValue));
+            attributes.push_back(ConfigParamSpec{*currentKey, VariantType::Int, val, {}});
           } else {
             attributes.push_back(ConfigParamSpec{*currentKey, VariantType::String, *currentValue, {}});
           }
@@ -347,12 +341,9 @@ std::vector<InputSpec> DataDescriptorQueryBuilder::parse(char const* config)
           if (*currentKey == "lifetime" && currentValue == "condition") {
             currentLifetime = Lifetime::Condition;
           }
-          if (*currentKey == "ccdb-run-dependent" && (currentValue != "false" && currentValue != "0")) {
-            attributes.push_back(ConfigParamSpec{*currentKey, VariantType::Bool, true, {}});
-          } else if (*currentKey == "ccdb-run-dependent" && (currentValue == "false" || currentValue == "0")) {
-            attributes.push_back(ConfigParamSpec{*currentKey, VariantType::Bool, false, {}});
-          } else if (*currentKey == "ccdb-run-dependent") {
-            error("ccdb-run-dependent can only be true or false");
+          if (*currentKey == "ccdb-run-dependent") {
+            int val = currentValue == "false" ? 0 : (currentValue == "true" ? 1 : std::stoi(*currentValue));
+            attributes.push_back(ConfigParamSpec{*currentKey, VariantType::Int, val, {}});
           } else {
             attributes.push_back(ConfigParamSpec{*currentKey, VariantType::String, *currentValue, {}});
           }

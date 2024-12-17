@@ -287,6 +287,9 @@ class GeneratorPythia8 : public Generator
                                // Value of -1 means unitialized; 0 will be time-dependent and values >1 <= MAX_SEED concrete reproducible seeding
   Pythia8GenConfig mGenConfig; // configuration object
 
+  static std::atomic<int> Pythia8InstanceCounter;
+  int mThisPythia8InstanceID = 0;
+
   constexpr static long MAX_SEED = 900000000;
 
   ClassDefOverride(GeneratorPythia8, 1);

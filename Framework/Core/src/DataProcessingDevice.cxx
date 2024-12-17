@@ -1008,6 +1008,9 @@ void DataProcessingDevice::InitTask()
   auto ref = ServiceRegistryRef{mServiceRegistry};
   auto& deviceContext = ref.get<DeviceContext>();
   auto& context = ref.get<DataProcessorContext>();
+
+  O2_SIGNPOST_ID_FROM_POINTER(cid, device, &context);
+  O2_SIGNPOST_START(device, cid, "InitTask", "Entering InitTask callback.");
   auto& spec = getRunningDevice(mRunningDevice, mServiceRegistry);
   auto distinct = DataRelayerHelpers::createDistinctRouteIndex(spec.inputs);
   auto& state = ref.get<DeviceState>();
@@ -1098,10 +1101,13 @@ void DataProcessingDevice::InitTask()
   // We will get there.
   this->fillContext(mServiceRegistry.get<DataProcessorContext>(ServiceRegistry::globalDeviceSalt()), deviceContext);
 
+  O2_SIGNPOST_END(device, cid, "InitTask", "Exiting InitTask callback waiting for the remaining region callbacks.");
+
   auto hasPendingEvents = [&mutex = mRegionInfoMutex, &pendingRegionInfos = mPendingRegionInfos](DeviceContext& deviceContext) {
     std::lock_guard<std::mutex> lock(mutex);
     return (pendingRegionInfos.empty() == false) || deviceContext.expectedRegionCallbacks > 0;
   };
+  O2_SIGNPOST_START(device, cid, "InitTask", "Waiting for registation events.");
   /// We now run an event loop also in InitTask. This is needed to:
   /// * Make sure region registration callbacks are invoked
   /// on the main thread.
@@ -1111,10 +1117,12 @@ void DataProcessingDevice::InitTask()
     uv_run(state.loop, UV_RUN_ONCE);
     // Handle callbacks if any
     {
+      O2_SIGNPOST_EVENT_EMIT(device, cid, "InitTask", "Memory registration event received.");
       std::lock_guard<std::mutex> lock(mRegionInfoMutex);
       handleRegionCallbacks(mServiceRegistry, mPendingRegionInfos);
     }
   }
+  O2_SIGNPOST_END(device, cid, "InitTask", "Done waiting for registration events.");
 }
 
 void DataProcessingDevice::fillContext(DataProcessorContext& context, DeviceContext& deviceContext)

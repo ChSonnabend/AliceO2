@@ -45,6 +45,9 @@
 #include "DataFormatsZDC/CTF.h"
 #include "DataFormatsHMP/CTF.h"
 #include "DataFormatsCTP/CTF.h"
+#include "DataFormatsParameters/AggregatedRunInfo.h"
+#include "CCDB/BasicCCDBManager.h"
+#include "CommonConstants/LHCConstants.h"
 #include "Algorithm/RangeTokenizer.h"
 #include <TStopwatch.h>
 #include <fairmq/Device.h>
@@ -81,6 +84,8 @@ class CTFReaderSpec : public o2::framework::Task
   void run(o2::framework::ProcessingContext& pc) final;
 
  private:
+  void runTimeRangesToIRFrameSelector(const o2::framework::TimingInfo& timingInfo);
+  void loadRunTimeSpans(const std::string& flname);
   void openCTFFile(const std::string& flname);
   bool processTF(ProcessingContext& pc);
   void checkTreeEntries();
@@ -91,16 +96,20 @@ class CTFReaderSpec : public o2::framework::Task
   void tryToFixCTFHeader(CTFHeader& ctfHeader) const;
   CTFReaderInp mInput{};
   o2::utils::IRFrameSelector mIRFrameSelector; // optional IR frames selector
+  std::map<int, std::vector<std::pair<long, long>>> mRunTimeRanges;
   std::unique_ptr<o2::utils::FileFetcher> mFileFetcher;
   std::unique_ptr<TFile> mCTFFile;
   std::unique_ptr<TTree> mCTFTree;
   bool mRunning = false;
   bool mUseLocalTFCounter = false;
+  int mConvRunTimeRangesToOrbits = -1; // not defined yet
   int mCTFCounter = 0;
+  int mCTFCounterAcc = 0;
   int mNFailedFiles = 0;
   int mFilesRead = 0;
   int mTFLength = 128;
   int mNWaits = 0;
+  int mRunNumberPrev = -1;
   long mTotalWaitTime = 0;
   long mLastSendTime = 0L;
   long mCurrTreeEntry = 0L;
@@ -129,8 +138,8 @@ void CTFReaderSpec::stopReader()
     return;
   }
   LOGP(info, "CTFReader stops processing, {} files read, {} files failed", mFilesRead - mNFailedFiles, mNFailedFiles);
-  LOGP(info, "CTF reading total timing: Cpu: {:.3f} Real: {:.3f} s for {} TFs in {} loops, spent {:.2} s in {} data waiting states",
-       mTimer.CpuTime(), mTimer.RealTime(), mCTFCounter, mFileFetcher->getNLoops(), 1e-6 * mTotalWaitTime, mNWaits);
+  LOGP(info, "CTF reading total timing: Cpu: {:.3f} Real: {:.3f} s for {} TFs ({} accepted) in {} loops, spent {:.2} s in {} data waiting states",
+       mTimer.CpuTime(), mTimer.RealTime(), mCTFCounter, mCTFCounterAcc, mFileFetcher->getNLoops(), 1e-6 * mTotalWaitTime, mNWaits);
   mRunning = false;
   mFileFetcher->stop();
   mFileFetcher.reset();
@@ -164,6 +173,111 @@ void CTFReaderSpec::init(InitContext& ic)
     mTFLength = hbfu.nHBFPerTF;
     LOGP(info, "IRFrames will be selected from {}, assumed TF length: {} HBF", mInput.fileIRFrames, mTFLength);
   }
+  if (!mInput.fileRunTimeSpans.empty()) {
+    loadRunTimeSpans(mInput.fileRunTimeSpans);
+  }
+}
+
+void CTFReaderSpec::runTimeRangesToIRFrameSelector(const o2::framework::TimingInfo& timingInfo)
+{
+  // convert entries in the runTimeRanges to IRFrameSelector, if needed, convert time to orbit
+  mIRFrameSelector.clear();
+  auto ent = mRunTimeRanges.find(timingInfo.runNumber);
+  if (ent == mRunTimeRanges.end()) {
+    LOGP(info, "RunTimeRanges selection was provided but run {} has no entries, all TFs will be processed", timingInfo.runNumber);
+    return;
+  }
+  o2::parameters::AggregatedRunInfo rinfo;
+  auto& ccdb = o2::ccdb::BasicCCDBManager::instance();
+  rinfo = o2::parameters::AggregatedRunInfo::buildAggregatedRunInfo(ccdb, timingInfo.runNumber);
+  if (rinfo.runNumber != timingInfo.runNumber || rinfo.orbitsPerTF < 1) {
+    LOGP(fatal, "failed to extract AggregatedRunInfo for run {}", timingInfo.runNumber);
+  }
+  mTFLength = rinfo.orbitsPerTF;
+  std::vector<o2::dataformats::IRFrame> frames;
+  for (const auto& rng : ent->second) {
+    long orbMin = 0, orbMax = 0;
+    if (mConvRunTimeRangesToOrbits > 0) {
+      orbMin = rinfo.orbitSOR + (rng.first - rinfo.sor) / (o2::constants::lhc::LHCOrbitMUS * 0.001);
+      orbMax = rinfo.orbitSOR + (rng.second - rinfo.sor) / (o2::constants::lhc::LHCOrbitMUS * 0.001);
+    } else {
+      orbMin = rng.first;
+      orbMax = rng.second;
+    }
+    if (orbMin < 0) {
+      orbMin = 0;
+    }
+    if (orbMax < 0) {
+      orbMax = 0;
+    }
+    if (timingInfo.runNumber > 523897) {
+      orbMin = (orbMin / rinfo.orbitsPerTF) * rinfo.orbitsPerTF;
+      orbMax = (orbMax / rinfo.orbitsPerTF + 1) * rinfo.orbitsPerTF - 1;
+    }
+    LOGP(info, "TFs overlapping with orbits {}:{} will be {}", orbMin, orbMax, mInput.invertIRFramesSelection ? "rejected" : "selected");
+    frames.emplace_back(InteractionRecord{0, uint32_t(orbMin)}, InteractionRecord{o2::constants::lhc::LHCMaxBunches, uint32_t(orbMax)});
+  }
+  mIRFrameSelector.setOwnList(frames, true);
+}
+
+void CTFReaderSpec::loadRunTimeSpans(const std::string& flname)
+{
+  std::ifstream inputFile(flname);
+  if (!inputFile) {
+    LOGP(fatal, "Failed to open selected run/timespans file {}", mInput.fileRunTimeSpans);
+  }
+  std::string line;
+  size_t cntl = 0, cntr = 0;
+  while (std::getline(inputFile, line)) {
+    cntl++;
+    for (char& ch : line) { // Replace semicolons and tabs with spaces for uniform processing
+      if (ch == ';' || ch == '\t' || ch == ',') {
+        ch = ' ';
+      }
+    }
+    o2::utils::Str::trim(line);
+    if (line.size() < 1 || line[0] == '#') {
+      continue;
+    }
+    auto tokens = o2::utils::Str::tokenize(line, ' ');
+    auto logError = [&cntl, &line]() { LOGP(error, "Expected format for selection is tripplet <run> <range_min> <range_max>, failed on line#{}: {}", cntl, line); };
+    if (tokens.size() >= 3) {
+      int run = 0;
+      long rmin, rmax;
+      try {
+        run = std::stoi(tokens[0]);
+        rmin = std::stol(tokens[1]);
+        rmax = std::stol(tokens[2]);
+      } catch (...) {
+        logError();
+        continue;
+      }
+
+      constexpr long ISTimeStamp = 1514761200000L;
+      int convmn = rmin > ISTimeStamp ? 1 : 0, convmx = rmax > ISTimeStamp ? 1 : 0; // values above ISTimeStamp are timestamps (need to be converted to orbits)
+      if (rmin > rmax) {
+        LOGP(fatal, "Provided range limits are not in increasing order, entry is {}", line);
+      }
+      if (mConvRunTimeRangesToOrbits == -1) {
+        if (convmn != convmx) {
+          LOGP(fatal, "Provided range limits should be both consistent either with orbit number or with unix timestamp in ms, entry is {}", line);
+        }
+        mConvRunTimeRangesToOrbits = convmn; // need to convert to orbit if time
+        LOGP(info, "Interpret selected time-spans input as {}", mConvRunTimeRangesToOrbits == 1 ? "timstamps(ms)" : "orbits");
+      } else {
+        if (mConvRunTimeRangesToOrbits != convmn || mConvRunTimeRangesToOrbits != convmx) {
+          LOGP(fatal, "Provided range limits should are not consistent with previously determined {} input, entry is {}", mConvRunTimeRangesToOrbits == 1 ? "timestamps" : "orbits", line);
+        }
+      }
+
+      mRunTimeRanges[run].emplace_back(rmin, rmax);
+      cntr++;
+    } else {
+      logError();
+    }
+  }
+  LOGP(info, "Read {} time-spans for {} runs from {}", cntr, mRunTimeRanges.size(), mInput.fileRunTimeSpans);
+  inputFile.close();
 }
 
 ///_______________________________________
@@ -256,6 +370,17 @@ void CTFReaderSpec::run(ProcessingContext& pc)
     pc.services().get<ControlService>().endOfStream();
     pc.services().get<ControlService>().readyToQuit(QuitRequest::Me);
     stopReader();
+    const std::string dummy{"ctf_read_ntf.txt"};
+    if (mCTFCounterAcc == 0) {
+      LOGP(warn, "No TF passed selection, writing a 0 to file {}", dummy);
+    }
+    try {
+      std::ofstream outfile;
+      outfile.open(dummy, std::ios::out | std::ios::trunc);
+      outfile << mCTFCounterAcc << std::endl;
+    } catch (...) {
+      LOGP(error, "Failed to write {}", dummy);
+    }
   }
 }
 
@@ -278,7 +403,7 @@ bool CTFReaderSpec::processTF(ProcessingContext& pc)
   }
 
   if (mUseLocalTFCounter) {
-    ctfHeader.tfCounter = mCTFCounter;
+    ctfHeader.tfCounter = mCTFCounterAcc;
   }
 
   LOG(info) << ctfHeader;
@@ -289,19 +414,26 @@ bool CTFReaderSpec::processTF(ProcessingContext& pc)
   timingInfo.tfCounter = ctfHeader.tfCounter;
   timingInfo.runNumber = ctfHeader.run;
 
+  if (mRunTimeRanges.size() && timingInfo.runNumber != mRunNumberPrev) {
+    runTimeRangesToIRFrameSelector(timingInfo);
+  }
+  mRunNumberPrev = timingInfo.runNumber;
+
   if (mIRFrameSelector.isSet()) {
     o2::InteractionRecord ir0(0, timingInfo.firstTForbit);
-    // we cannot have GRPECS via DPL CCDB fetcher in the CTFReader, so we use mTFLength extracted from the HBFUtils
     o2::InteractionRecord ir1(o2::constants::lhc::LHCMaxBunches - 1, timingInfo.firstTForbit < 0xffffffff - (mTFLength - 1) ? timingInfo.firstTForbit + (mTFLength - 1) : 0xffffffff);
     auto irSpan = mIRFrameSelector.getMatchingFrames({ir0, ir1});
-    if (irSpan.size() == 0 && mInput.skipSkimmedOutTF) {
-      LOGP(info, "Skimming did not define any selection for TF [{}] : [{}]", ir0.asString(), ir1.asString());
+    bool acc = true;
+    if (mInput.skipSkimmedOutTF) {
+      acc = (irSpan.size() > 0) ? !mInput.invertIRFramesSelection : mInput.invertIRFramesSelection;
+      LOGP(info, "IRFrame selection contains {} frames for TF [{}] : [{}]: {}use this TF (selection inversion mode is {})",
+           irSpan.size(), ir0.asString(), ir1.asString(), acc ? "" : "do not ", mInput.invertIRFramesSelection ? "ON" : "OFF");
+    }
+    if (!acc) {
       return false;
-    } else {
-      if (mInput.checkTFLimitBeforeReading) {
-        limiter.check(pc, mInput.tfRateLimit, mInput.minSHM);
-      }
-      LOGP(info, "{} IR-Frames are selected for TF [{}] : [{}]", irSpan.size(), ir0.asString(), ir1.asString());
+    }
+    if (mInput.checkTFLimitBeforeReading) {
+      limiter.check(pc, mInput.tfRateLimit, mInput.minSHM);
     }
     auto outVec = pc.outputs().make<std::vector<o2::dataformats::IRFrame>>(OutputRef{"selIRFrames"}, irSpan.begin(), irSpan.end());
   } else {
@@ -329,6 +461,7 @@ bool CTFReaderSpec::processTF(ProcessingContext& pc)
   processDetector<o2::cpv::CTF>(DetID::CPV, ctfHeader, pc);
   processDetector<o2::zdc::CTF>(DetID::ZDC, ctfHeader, pc);
   processDetector<o2::ctp::CTF>(DetID::CTP, ctfHeader, pc);
+  mCTFCounterAcc++;
 
   // send sTF acknowledge message
   if (!mInput.sup0xccdb) {
@@ -466,7 +599,7 @@ DataProcessorSpec getCTFReaderSpec(const CTFReaderInp& inp)
       outputs.emplace_back(OutputLabel{det.getName()}, det.getDataOrigin(), "CTFDATA", inp.subspec, Lifetime::Timeframe);
     }
   }
-  if (!inp.fileIRFrames.empty()) {
+  if (!inp.fileIRFrames.empty() || !inp.fileRunTimeSpans.empty()) {
     outputs.emplace_back(OutputLabel{"selIRFrames"}, "CTF", "SELIRFRAMES", 0, Lifetime::Timeframe);
   }
   if (!inp.sup0xccdb) {

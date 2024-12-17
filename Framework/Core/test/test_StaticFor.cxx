@@ -26,21 +26,21 @@ TEST_CASE("TestStaticFor")
 {
   // check if it is actually static
   static_for<0, 0>([&](auto i) {
-    static_assert(std::is_same_v<decltype(i), std::integral_constant<int, 0>>);
+    static_assert(std::same_as<decltype(i), std::integral_constant<int, 0>>);
 
-    static_assert(std::is_same_v<decltype(i.value), const int>);
+    static_assert(std::same_as<decltype(i.value), const int>);
     REQUIRE(i.value == 0);
     REQUIRE(i == 0);
 
     // the following checks will fail
-    // static_assert(std::is_same_v<decltype(i), std::integral_constant<int, 1>>);
+    // static_assert(std::same_as<decltype(i), std::integral_constant<int, 1>>);
     // REQUIRE(i.value ==  1);;
     // REQUIRE(i ==  1);;
   });
 
   // dont start at 0
   static_for<5, 5>([&](auto i) {
-    static_assert(std::is_same_v<decltype(i), std::integral_constant<int, 5>>);
+    static_assert(std::same_as<decltype(i), std::integral_constant<int, 5>>);
   });
 
   // check if argument can be used as non-type template argument

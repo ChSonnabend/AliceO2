@@ -34,6 +34,7 @@ class EntropyDecoderSpec : public o2::framework::Task
   void init(o2::framework::InitContext& ic) final;
   void endOfStream(o2::framework::EndOfStreamContext& ec) final;
   void finaliseCCDB(o2::framework::ConcreteDataMatcher& matcher, void* obj) final;
+  void updateTimeDependentParams(framework::ProcessingContext& pc);
 
  private:
   o2::ctp::CTFCoder mCTFCoder;

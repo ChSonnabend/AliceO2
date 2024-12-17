@@ -71,13 +71,13 @@ void TrackerTraits::computeLayerTracklets(const int iteration, int iROFslice, in
   const Vertex diamondVert({mTrkParams[iteration].Diamond[0], mTrkParams[iteration].Diamond[1], mTrkParams[iteration].Diamond[2]}, {25.e-6f, 0.f, 0.f, 25.e-6f, 0.f, 36.f}, 1, 1.f);
   gsl::span<const Vertex> diamondSpan(&diamondVert, 1);
   int startROF{mTrkParams[iteration].nROFsPerIterations > 0 ? iROFslice * mTrkParams[iteration].nROFsPerIterations : 0};
-  int endROF{mTrkParams[iteration].nROFsPerIterations > 0 ? (iROFslice + 1) * mTrkParams[iteration].nROFsPerIterations + mTrkParams[iteration].DeltaROF : tf->getNrof()};
+  int endROF{gpu::GPUCommonMath::Min(mTrkParams[iteration].nROFsPerIterations > 0 ? (iROFslice + 1) * mTrkParams[iteration].nROFsPerIterations + mTrkParams[iteration].DeltaROF : tf->getNrof(), tf->getNrof())};
   for (int rof0{startROF}; rof0 < endROF; ++rof0) {
     gsl::span<const Vertex> primaryVertices = mTrkParams[iteration].UseDiamond ? diamondSpan : tf->getPrimaryVertices(rof0);
     const int startVtx{iVertex >= 0 ? iVertex : 0};
-    const int endVtx{iVertex >= 0 ? std::min(iVertex + 1, static_cast<int>(primaryVertices.size())) : static_cast<int>(primaryVertices.size())};
-    int minRof = std::max(startROF, rof0 - mTrkParams[iteration].DeltaROF);
-    int maxRof = std::min(endROF - 1, rof0 + mTrkParams[iteration].DeltaROF);
+    const int endVtx{iVertex >= 0 ? o2::gpu::CAMath::Min(iVertex + 1, static_cast<int>(primaryVertices.size())) : static_cast<int>(primaryVertices.size())};
+    int minRof = o2::gpu::CAMath::Max(startROF, rof0 - mTrkParams[iteration].DeltaROF);
+    int maxRof = o2::gpu::CAMath::Min(endROF - 1, rof0 + mTrkParams[iteration].DeltaROF);
 #pragma omp parallel for num_threads(mNThreads)
     for (int iLayer = 0; iLayer < mTrkParams[iteration].TrackletsPerRoad(); ++iLayer) {
       gsl::span<const Cluster> layer0 = tf->getClustersOnLayer(rof0, iLayer);
@@ -111,7 +111,7 @@ void TrackerTraits::computeLayerTracklets(const int iteration, int iROFslice, in
           const float sqInverseDeltaZ0{1.f / (Sq(currentCluster.zCoordinate - primaryVertex.getZ()) + 2.e-8f)}; /// protecting from overflows adding the detector resolution
           const float sigmaZ{o2::gpu::CAMath::Sqrt(Sq(resolution) * Sq(tanLambda) * ((Sq(inverseR0) + sqInverseDeltaZ0) * Sq(meanDeltaR) + 1.f) + Sq(meanDeltaR * tf->getMSangle(iLayer)))};
 
-          const int4 selectedBinsRect{getBinsRect(currentCluster, iLayer, zAtRmin, zAtRmax,
+          const int4 selectedBinsRect{getBinsRect(currentCluster, iLayer + 1, zAtRmin, zAtRmax,
                                                   sigmaZ * mTrkParams[iteration].NSigmaCut, tf->getPhiCut(iLayer))};
           if (selectedBinsRect.x == 0 && selectedBinsRect.y == 0 && selectedBinsRect.z == 0 && selectedBinsRect.w == 0) {
             continue;
@@ -128,7 +128,6 @@ void TrackerTraits::computeLayerTracklets(const int iteration, int iROFslice, in
             if (layer1.empty()) {
               continue;
             }
-
             for (int iPhiCount{0}; iPhiCount < phiBinsNum; iPhiCount++) {
               int iPhiBin = (selectedBinsRect.y + iPhiCount) % mTrkParams[iteration].PhiBins;
               const int firstBinIndex{tf->mIndexTableUtils.getBinIndex(selectedBinsRect.x, iPhiBin)};
@@ -145,9 +144,7 @@ void TrackerTraits::computeLayerTracklets(const int iteration, int iROFslice, in
               }
               const int firstRowClusterIndex = tf->getIndexTable(rof1, iLayer + 1)[firstBinIndex];
               const int maxRowClusterIndex = tf->getIndexTable(rof1, iLayer + 1)[maxBinIndex];
-
               for (int iNextCluster{firstRowClusterIndex}; iNextCluster < maxRowClusterIndex; ++iNextCluster) {
-
                 if (iNextCluster >= (int)layer1.size()) {
                   break;
                 }
@@ -576,6 +573,9 @@ void TrackerTraits::findRoads(const int iteration)
     const int minimumLayer{startLevel - 1};
     std::vector<CellSeed> trackSeeds;
     for (int startLayer{mTrkParams[iteration].CellsPerRoad() - 1}; startLayer >= minimumLayer; --startLayer) {
+      if ((mTrkParams[iteration].StartLayerMask & (1 << (startLayer + 2))) == 0) {
+        continue;
+      }
       CA_DEBUGGER(std::cout << "\t\t > Starting processing layer " << startLayer << std::endl);
       std::vector<int> lastCellId, updatedCellId;
       std::vector<CellSeed> lastCellSeed, updatedCellSeed;
@@ -618,7 +618,7 @@ void TrackerTraits::findRoads(const int iteration)
       temporaryTrack.resetCovariance();
       temporaryTrack.setChi2(0);
       fitSuccess = fitTrack(temporaryTrack, mTrkParams[0].NLayers - 1, -1, -1, mTrkParams[0].MaxChi2ClusterAttachment, mTrkParams[0].MaxChi2NDF, 50.f);
-      if (!fitSuccess) {
+      if (!fitSuccess || temporaryTrack.getPt() < mTrkParams[iteration].MinPt[mTrkParams[iteration].NLayers - temporaryTrack.getNClusters()]) {
         continue;
       }
       tracks[trackIndex++] = temporaryTrack;
@@ -668,7 +668,7 @@ void TrackerTraits::findRoads(const int iteration)
       if (rofs[1] != INT_MAX) {
         track.setNextROFbit();
       }
-      mTimeFrame->getTracks(std::min(rofs[0], rofs[1])).emplace_back(track);
+      mTimeFrame->getTracks(o2::gpu::CAMath::Min(rofs[0], rofs[1])).emplace_back(track);
     }
   }
 }
@@ -679,10 +679,11 @@ void TrackerTraits::extendTracks(const int iteration)
     for (auto& track : mTimeFrame->getTracks(rof)) {
       auto backup{track};
       bool success{false};
-      if (track.getLastClusterLayer() != mTrkParams[iteration].NLayers - 1) {
+      // the order here biases towards top extension, tracks should probably be fitted separately in the directions and then compared.
+      if ((mTrkParams[iteration].UseTrackFollowerMix || mTrkParams[iteration].UseTrackFollowerTop) && track.getLastClusterLayer() != mTrkParams[iteration].NLayers - 1) {
         success = success || trackFollowing(&track, rof, true, iteration);
       }
-      if (track.getFirstClusterLayer() != 0) {
+      if ((mTrkParams[iteration].UseTrackFollowerMix || (mTrkParams[iteration].UseTrackFollowerBot && !success)) && track.getFirstClusterLayer() != 0) {
         success = success || trackFollowing(&track, rof, false, iteration);
       }
       if (success) {
@@ -830,8 +831,8 @@ bool TrackerTraits::fitTrack(TrackITSExt& track, int start, int end, int step, f
     }
 
     if (mCorrType == o2::base::PropagatorF::MatCorrType::USEMatCorrNONE) {
-      float radl = 9.36f; // Radiation length of Si [cm]
-      float rho = 2.33f;  // Density of Si [g/cm^3]
+      constexpr float radl = 9.36f; // Radiation length of Si [cm]
+      constexpr float rho = 2.33f;  // Density of Si [g/cm^3]
       if (!track.correctForMaterial(mTrkParams[0].LayerxX0[iLayer], mTrkParams[0].LayerxX0[iLayer] * radl * rho, true)) {
         continue;
       }
@@ -855,36 +856,40 @@ bool TrackerTraits::trackFollowing(TrackITSExt* track, int rof, bool outward, co
   auto propInstance = o2::base::Propagator::Instance();
   const int step = -1 + outward * 2;
   const int end = outward ? mTrkParams[iteration].NLayers - 1 : 0;
-  std::vector<TrackITSExt> hypotheses(1, *track);
-  for (auto& hypo : hypotheses) {
-    int iLayer = outward ? track->getLastClusterLayer() : track->getFirstClusterLayer();
+  std::vector<TrackITSExt> hypotheses(1, *track); // possibly avoid reallocation
+  for (size_t iHypo{0}; iHypo < hypotheses.size(); ++iHypo) {
+    auto hypo{hypotheses[iHypo]};
+    int iLayer = static_cast<int>(outward ? hypo.getLastClusterLayer() : hypo.getFirstClusterLayer());
+    // per layer we add new hypotheses
     while (iLayer != end) {
-      iLayer += step;
+      iLayer += step; // step through all layers until we reach the end, this allows for skipping on empty layers
       const float r = mTrkParams[iteration].LayerRadii[iLayer];
+      // get an estimate of the trackinf-frame x for the next step
       float x{-999};
       if (!hypo.getXatLabR(r, x, mTimeFrame->getBz(), o2::track::DirAuto) || x <= 0.f) {
         continue;
       }
-
+      // estimate hypo's trk parameters at that x
       auto& hypoParam{outward ? hypo.getParamOut() : hypo.getParamIn()};
       if (!propInstance->propagateToX(hypoParam, x, mTimeFrame->getBz(), PropagatorF::MAX_SIN_PHI,
                                       PropagatorF::MAX_STEP, mTrkParams[iteration].CorrType)) {
         continue;
       }
 
-      if (mTrkParams[iteration].CorrType == PropagatorF::MatCorrType::USEMatCorrNONE) {
-        float radl = 9.36f; // Radiation length of Si [cm]
-        float rho = 2.33f;  // Density of Si [g/cm^3]
+      if (mTrkParams[iteration].CorrType == PropagatorF::MatCorrType::USEMatCorrNONE) { // account for material affects if propagator does not
+        constexpr float radl = 9.36f;                                                   // Radiation length of Si [cm]
+        constexpr float rho = 2.33f;                                                    // Density of Si [g/cm^3]
         if (!hypoParam.correctForMaterial(mTrkParams[iteration].LayerxX0[iLayer], mTrkParams[iteration].LayerxX0[iLayer] * radl * rho, true)) {
           continue;
         }
       }
+
+      // calculate the search window on this layer
       const float phi{hypoParam.getPhi()};
       const float ePhi{o2::gpu::CAMath::Sqrt(hypoParam.getSigmaSnp2() / hypoParam.getCsp2())};
       const float z{hypoParam.getZ()};
       const float eZ{o2::gpu::CAMath::Sqrt(hypoParam.getSigmaZ2())};
-      const int4 selectedBinsRect{getBinsRect(iLayer, phi, mTrkParams[iteration].NSigmaCut * ePhi, z, mTrkParams[iteration].NSigmaCut * eZ)};
-
+      const int4 selectedBinsRect{getBinsRect(iLayer, phi, mTrkParams[iteration].TrackFollowerNSigmaCutPhi * ePhi, z, mTrkParams[iteration].TrackFollowerNSigmaCutZ * eZ)};
       if (selectedBinsRect.x == 0 && selectedBinsRect.y == 0 && selectedBinsRect.z == 0 && selectedBinsRect.w == 0) {
         continue;
       }
@@ -900,9 +905,8 @@ bool TrackerTraits::trackFollowing(TrackITSExt* track, int rof, bool outward, co
         continue;
       }
 
-      TrackITSExt currentHypo{hypo}, newHypo{hypo};
-      bool first{true};
-      for (int iPhiCount{0}; iPhiCount < phiBinsNum; iPhiCount++) {
+      // check all clusters in search windows for possible new hypotheses
+      for (int iPhiCount = 0; iPhiCount < phiBinsNum; iPhiCount++) {
         int iPhiBin = (selectedBinsRect.y + iPhiCount) % mTrkParams[iteration].PhiBins;
         const int firstBinIndex{mTimeFrame->mIndexTableUtils.getBinIndex(selectedBinsRect.x, iPhiBin)};
         const int maxBinIndex{firstBinIndex + selectedBinsRect.z - selectedBinsRect.x + 1};
@@ -921,7 +925,7 @@ bool TrackerTraits::trackFollowing(TrackITSExt* track, int rof, bool outward, co
 
           const TrackingFrameInfo& trackingHit = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer).at(nextCluster.clusterId);
 
-          TrackITSExt& tbupdated = first ? hypo : newHypo;
+          auto tbupdated{hypo};
           auto& tbuParams = outward ? tbupdated.getParamOut() : tbupdated.getParamIn();
           if (!tbuParams.rotate(trackingHit.alphaTrackingFrame)) {
             continue;
@@ -942,12 +946,7 @@ bool TrackerTraits::trackFollowing(TrackITSExt* track, int rof, bool outward, co
           }
           tbupdated.setChi2(tbupdated.getChi2() + predChi2); /// This is wrong for outward propagation as the chi2 refers to inward parameters
           tbupdated.setExternalClusterIndex(iLayer, nextCluster.clusterId, true);
-
-          if (!first) {
-            hypotheses.emplace_back(tbupdated);
-            newHypo = currentHypo;
-          }
-          first = false;
+          hypotheses.emplace_back(tbupdated);
         }
       }
     }

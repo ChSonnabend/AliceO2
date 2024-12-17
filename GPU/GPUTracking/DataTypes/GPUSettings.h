@@ -60,6 +60,7 @@ struct GPUSettingsGRP {
   int32_t grpContinuousMaxTimeBin = -2;   // 0 for triggered events, -1 for automatic setting, -2 invalid default
   int32_t needsClusterer = 0;             // Set to true if the data requires the clusterizer
   int32_t doCompClusterDecode = 0;        // Set to true if the data contains compressed TPC clusters
+  int32_t tpcCutTimeBin = 0;              // Cut TPC clusters and digits >= this cut
 };
 
 // Parameters of the current time frame

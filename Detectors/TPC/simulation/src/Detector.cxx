@@ -142,6 +142,25 @@ Bool_t Detector::ProcessHits(FairVolume* vol)
   // TODO: Temporary hack to process only one sector
   // if (sectorID != 0) return kFALSE;
 
+  // ---| momentum and beta gamma |---
+  static TLorentzVector momentum; // static to make avoid creation/deletion of this expensive object
+  fMC->TrackMomentum(momentum);
+
+  const float time = fMC->TrackTime() * 1.0e9;
+  const int trackID = fMC->GetStack()->GetCurrentTrackNumber();
+  const int detID = vol->getMCid();
+  o2::data::Stack* stack = (o2::data::Stack*)fMC->GetStack();
+  if (fMC->IsTrackEntering() || fMC->IsTrackExiting()) {
+    stack->addTrackReference(o2::TrackReference(position.X(), position.Y(), position.Z(), momentum.X(), momentum.Y(),
+                                                momentum.Z(), fMC->TrackLength(), time, trackID, GetDetId()));
+    lastReferenceR = fMC->TrackLength();
+  }
+  if (TMath::Abs(lastReferenceR - fMC->TrackLength()) > kMaxDistRef) { /// we can speedup
+    stack->addTrackReference(o2::TrackReference(position.X(), position.Y(), position.Z(), momentum.X(), momentum.Y(),
+                                                momentum.Z(), fMC->TrackLength(), time, trackID, GetDetId()));
+    lastReferenceR = fMC->TrackLength();
+  }
+
   // ---| remove clusters between the IFC and the FC strips |---
   // those should not enter the active readout area
   // do coarse selection before, to limit number of transformations
@@ -162,24 +181,6 @@ Bool_t Detector::ProcessHits(FairVolume* vol)
         return kFALSE;
       }
     }
-  }
-
-  // ---| momentum and beta gamma |---
-  static TLorentzVector momentum; // static to make avoid creation/deletion of this expensive object
-  fMC->TrackMomentum(momentum);
-
-  const float time = fMC->TrackTime() * 1.0e9;
-  const int trackID = fMC->GetStack()->GetCurrentTrackNumber();
-  const int detID = vol->getMCid();
-  o2::data::Stack* stack = (o2::data::Stack*)fMC->GetStack();
-  if (fMC->IsTrackEntering() || fMC->IsTrackExiting()) {
-    stack->addTrackReference(o2::TrackReference(position.X(), position.Y(), position.Z(), momentum.X(), momentum.Y(),
-                                                momentum.Z(), fMC->TrackLength(), time, trackID, GetDetId()));
-  }
-  if (TMath::Abs(lastReferenceR - fMC->TrackLength()) > kMaxDistRef) { /// we can speedup
-    stack->addTrackReference(o2::TrackReference(position.X(), position.Y(), position.Z(), momentum.X(), momentum.Y(),
-                                                momentum.Z(), fMC->TrackLength(), time, trackID, GetDetId()));
-    lastReferenceR = fMC->TrackLength();
   }
 
   // ===| CONVERT THE ENERGY LOSS TO IONIZATION ELECTRONS |=====================

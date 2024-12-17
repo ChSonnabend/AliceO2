@@ -11,17 +11,13 @@
 
 #include <catch_amalgamated.hpp>
 
-#include "Framework/Logger.h"
 #include "Framework/TableBuilder.h"
-#include "Framework/TableConsumer.h"
-#include "Framework/DataAllocator.h"
-#include "Framework/OutputRoute.h"
+#include "Framework/Output.h"
 #include <arrow/table.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/io/memory.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/ipc/reader.h>
-#include "../src/ArrowDebugHelpers.h"
 
 using namespace o2::framework;
 
@@ -34,8 +30,8 @@ DECLARE_SOA_COLUMN_FULL(Y, y, uint64_t, "y");
 DECLARE_SOA_COLUMN_FULL(Pos, pos, int[4], "pos");
 } // namespace test2
 
-using TestTable = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, test2::X, test2::Y>;
-using ArrayTable = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, test2::Pos>;
+using TestTable = o2::soa::InPlaceTable<0, test2::X, test2::Y>;
+using ArrayTable = o2::soa::InPlaceTable<0, test2::Pos>;
 
 TEST_CASE("TestTableBuilder")
 {
@@ -184,7 +180,7 @@ TEST_CASE("TestTableBuilderBulk")
   REQUIRE(table->schema()->field(0)->type()->id() == arrow::int32()->id());
   REQUIRE(table->schema()->field(1)->type()->id() == arrow::int32()->id());
 
-  for (size_t i = 0; i < 8; ++i) {
+  for (int64_t i = 0; i < 8; ++i) {
     auto p = std::dynamic_pointer_cast<arrow::NumericArray<arrow::Int32Type>>(table->column(0)->chunk(0));
     REQUIRE(p->Value(i) == i);
   }

@@ -344,10 +344,10 @@ bool MatchITSTPCQC::init()
   mChi2Refit = new TH1F("mChi2Refit", "Chi2 of refit; chi2", 200, 0, 300);
   mChi2Refit->SetOption("logy");
   mChi2Refit->GetYaxis()->SetTitleOffset(1.4);
-  mDCAr = new TH1F("mDCAr", "DCA of TPC tracks; DCAr", 200, -100, 100);
-  mDCArVsPtNum = new TH2F("mDCArVsPtNum", "DCA of TPC tracks Vs Pt Num; #it{p}_{T} [GeV/c]; DCAr", 100, 0, 20., 200, -30, 30);
+  mDCAr = new TH1F("mDCAr", "DCA of TPC tracks; DCAr", 100, -mDCATPCCutY, mDCATPCCutY);
+  mDCArVsPtNum = new TH2F("mDCArVsPtNum", "DCA of TPC tracks Vs Pt Num; #it{p}_{T} [GeV/c]; DCAr", 100, 0, 20., 100, -mDCATPCCutY, mDCATPCCutY);
   mDCArVsPtNum->Sumw2();
-  mDCArVsPtDen = new TH2F("mDCArVsPtDen", "DCA of TPC tracks Vs Pt Den; #it{p}_{T} [GeV/c]; DCAr", 100, 0, 20., 200, -30, 30);
+  mDCArVsPtDen = new TH2F("mDCArVsPtDen", "DCA of TPC tracks Vs Pt Den; #it{p}_{T} [GeV/c]; DCAr", 100, 0, 20., 100, -mDCATPCCutY, mDCATPCCutY);
   mDCArVsPtDen->Sumw2();
   mFractionITSTPCmatchDCArVsPt = new TEfficiency("mFractionITSTPCmatchDCArVsPt", "Fraction of ITSTPC matched tracks wrt TPC vs DCAr; #it{p}_{T} [GeV#it{c}]; DCAr; Eff", 100, 0, 20., 200, -30, 30);
 
@@ -477,6 +477,21 @@ void MatchITSTPCQC::run(o2::framework::ProcessingContext& ctx)
   if (mTimestamp == -1 && mDoK0QC) {
     // we have not yet initialized the SVertexer params; let's do it
     ctx.inputs().get<o2::vertexing::SVertexerParams*>("SVParam");
+    const auto& svparam = o2::vertexing::SVertexerParams::Instance();
+    mFitterV0.setUseAbsDCA(svparam.useAbsDCA);
+    mFitterV0.setMaxR(svparam.maxRIni);
+    mFitterV0.setMinParamChange(svparam.minParamChange);
+    mFitterV0.setMinRelChi2Change(svparam.minRelChi2Change);
+    mFitterV0.setMaxDZIni(svparam.maxDZIni);
+    mFitterV0.setMaxDXYIni(svparam.maxDXYIni);
+    mFitterV0.setMaxChi2(svparam.maxChi2);
+    mFitterV0.setMatCorrType(o2::base::Propagator::MatCorrType(svparam.matCorr));
+    mFitterV0.setUsePropagator(svparam.usePropagator);
+    mFitterV0.setRefitWithMatCorr(svparam.refitWithMatCorr);
+    mFitterV0.setMaxStep(svparam.maxStep);
+    mFitterV0.setMaxSnp(svparam.maxSnp);
+    mFitterV0.setMinXSeed(svparam.minXSeed);
+
     mTimestamp = ctx.services().get<o2::framework::TimingInfo>().creation;
     auto grplhcif = o2::base::GRPGeomHelper::instance().getGRPLHCIF();
     if (grplhcif->getBeamZ(0) != 1 || grplhcif->getBeamZ(1) != 1) {
@@ -962,6 +977,7 @@ void MatchITSTPCQC::run(o2::framework::ProcessingContext& ctx)
 
   if (mDoK0QC && mRecoCont.getPrimaryVertices().size() > 0) {
     // now doing K0S
+    mFitterV0.setBz(mBz);
     const auto pvertices = mRecoCont.getPrimaryVertices();
     LOG(info) << "****** Number of PVs                 = " << pvertices.size();
 

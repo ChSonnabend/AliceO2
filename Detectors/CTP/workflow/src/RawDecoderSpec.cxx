@@ -13,20 +13,21 @@
 #include <fairlogger/Logger.h>
 #include "Framework/InputRecordWalker.h"
 #include "Framework/DataRefUtils.h"
-#include "Framework/WorkflowSpec.h"
 #include "Framework/ConfigParamRegistry.h"
 #include "DetectorsRaw/RDHUtils.h"
 #include "CTPWorkflow/RawDecoderSpec.h"
 #include "CommonUtils/VerbosityConfig.h"
 #include "Framework/InputRecord.h"
 #include "DataFormatsCTP/TriggerOffsetsParam.h"
+#include "Framework/CCDBParamSpec.h"
+#include "DataFormatsCTP/Configuration.h"
 
 using namespace o2::ctp::reco_workflow;
 
 void RawDecoderSpec::init(framework::InitContext& ctx)
 {
-  bool decodeinps = ctx.options().get<bool>("ctpinputs-decoding");
-  mDecoder.setDecodeInps(decodeinps);
+  mDecodeinputs = ctx.options().get<bool>("ctpinputs-decoding");
+  mDecoder.setDecodeInps(mDecodeinputs);
   mNTFToIntegrate = ctx.options().get<int>("ntf-to-average");
   mVerbose = ctx.options().get<bool>("use-verbose-mode");
   int maxerrors = ctx.options().get<int>("print-errors-num");
@@ -42,7 +43,7 @@ void RawDecoderSpec::init(framework::InitContext& ctx)
   mOutputLumiInfo.inp2 = inp2;
   mMaxInputSize = ctx.options().get<int>("max-input-size");
   mMaxInputSizeFatal = ctx.options().get<bool>("max-input-size-fatal");
-  LOG(info) << "CTP reco init done. Inputs decoding here:" << decodeinps << " DoLumi:" << mDoLumi << " DoDigits:" << mDoDigits << " NTF:" << mNTFToIntegrate << " Lumi inputs:" << lumiinp1 << ":" << inp1 << " " << lumiinp2 << ":" << inp2 << " Max errors:" << maxerrors << " Max input size:" << mMaxInputSize << " MaxInputSizeFatal:" << mMaxInputSizeFatal;
+  LOG(info) << "CTP reco init done. Inputs decoding here:" << mDecodeinputs << " DoLumi:" << mDoLumi << " DoDigits:" << mDoDigits << " NTF:" << mNTFToIntegrate << " Lumi inputs:" << lumiinp1 << ":" << inp1 << " " << lumiinp2 << ":" << inp2 << " Max errors:" << maxerrors << " Max input size:" << mMaxInputSize << " MaxInputSizeFatal:" << mMaxInputSizeFatal;
   // mOutputLumiInfo.printInputs();
 }
 void RawDecoderSpec::endOfStream(framework::EndOfStreamContext& ec)
@@ -73,6 +74,7 @@ void RawDecoderSpec::endOfStream(framework::EndOfStreamContext& ec)
 }
 void RawDecoderSpec::run(framework::ProcessingContext& ctx)
 {
+  updateTimeDependentParams(ctx);
   mOutputDigits.clear();
   std::map<o2::InteractionRecord, CTPDigit> digits;
   using InputSpec = o2::framework::InputSpec;
@@ -176,6 +178,7 @@ void RawDecoderSpec::run(framework::ProcessingContext& ctx)
       mOutputLumiInfo.orbit = lumiPointsHBF1[0].orbit;
     }
     mOutputLumiInfo.counts = mCountsT;
+
     mOutputLumiInfo.countsFV0 = mCountsV;
     mOutputLumiInfo.nHBFCounted = mNHBIntegratedT;
     mOutputLumiInfo.nHBFCountedFV0 = mNHBIntegratedV;
@@ -199,6 +202,8 @@ o2::framework::DataProcessorSpec o2::ctp::reco_workflow::getRawDecoderSpec(bool 
 
   std::vector<o2::framework::OutputSpec> outputs;
   if (digits) {
+    inputs.emplace_back("ctpconfig", "CTP", "CTPCONFIG", 0, o2::framework::Lifetime::Condition, o2::framework::ccdbParamSpec("CTP/Config/Config", 1));
+    inputs.emplace_back("trigoffset", "CTP", "Trig_Offset", 0, o2::framework::Lifetime::Condition, o2::framework::ccdbParamSpec("CTP/Config/TriggerOffsets"));
     outputs.emplace_back("CTP", "DIGITS", 0, o2::framework::Lifetime::Timeframe);
   }
   if (lumi) {
@@ -218,4 +223,19 @@ o2::framework::DataProcessorSpec o2::ctp::reco_workflow::getRawDecoderSpec(bool 
       {"max-input-size", o2::framework::VariantType::Int, 0, {"Do not process input if bigger than max size, 0 - do not check"}},
       {"max-input-size-fatal", o2::framework::VariantType::Bool, false, {"If true issue fatal error otherwise error on;y"}},
       {"ctpinputs-decoding", o2::framework::VariantType::Bool, false, {"Inputs alignment: true - raw decoder - has to be compatible with CTF decoder: allowed options: 10,01,00"}}}};
+}
+void RawDecoderSpec::updateTimeDependentParams(framework::ProcessingContext& pc)
+{
+  if (pc.services().get<o2::framework::TimingInfo>().globalRunNumberChanged) {
+    pc.inputs().get<o2::ctp::TriggerOffsetsParam*>("trigoffset");
+    const auto& trigOffsParam = o2::ctp::TriggerOffsetsParam::Instance();
+    LOG(info) << "updateing TroggerOffsetsParam: inputs L0_L1:" << trigOffsParam.L0_L1 << " classes L0_L1:" << trigOffsParam.L0_L1_classes;
+    if (mDecodeinputs) {
+      const auto ctpcfg = pc.inputs().get<o2::ctp::CTPConfiguration*>("ctpconfig");
+      if (ctpcfg != nullptr) {
+        mDecoder.setCTPConfig(*ctpcfg);
+        LOG(info) << "ctpconfig for run done:" << mDecoder.getCTPConfig().getRunNumber();
+      }
+    }
+  }
 }

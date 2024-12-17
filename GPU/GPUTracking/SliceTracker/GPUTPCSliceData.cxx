@@ -265,22 +265,20 @@ GPUdii() int32_t GPUTPCSliceData::InitFromClusterData(int32_t nBlocks, int32_t n
       for (uint32_t i = iThread; i < NumberOfClusters; i += nThreads) {
         UpdateMinMaxYZ(yMin, yMax, zMin, zMax, YZData[RowOffset + i].x, YZData[RowOffset + i].y);
       }
+    } else if (mem->param.par.earlyTpcTransform) { // Early transform case with ClusterNative present
+      for (uint32_t i = iThread; i < NumberOfClusters; i += nThreads) {
+        float2 tmp;
+        tmp.x = mClusterData[RowOffset + i].y;
+        tmp.y = mClusterData[RowOffset + i].z;
+        UpdateMinMaxYZ(yMin, yMax, zMin, zMax, tmp.x, tmp.y);
+        YZData[RowOffset + i] = tmp;
+      }
     } else {
-      if (mem->param.par.earlyTpcTransform) { // Early transform case with ClusterNative present
-        for (uint32_t i = iThread; i < NumberOfClusters; i += nThreads) {
-          float2 tmp;
-          tmp.x = mClusterData[RowOffset + i].y;
-          tmp.y = mClusterData[RowOffset + i].z;
-          UpdateMinMaxYZ(yMin, yMax, zMin, zMax, tmp.x, tmp.y);
-          YZData[RowOffset + i] = tmp;
-        }
-      } else {
-        for (uint32_t i = iThread; i < NumberOfClusters; i += nThreads) {
-          float x, y, z;
-          GPUTPCConvertImpl::convert(*mem, iSlice, rowIndex, mem->ioPtrs.clustersNative->clusters[iSlice][rowIndex][i].getPad(), mem->ioPtrs.clustersNative->clusters[iSlice][rowIndex][i].getTime(), x, y, z);
-          UpdateMinMaxYZ(yMin, yMax, zMin, zMax, y, z);
-          YZData[RowOffset + i] = CAMath::MakeFloat2(y, z);
-        }
+      for (uint32_t i = iThread; i < NumberOfClusters; i += nThreads) {
+        float x, y, z;
+        GPUTPCConvertImpl::convert(*mem, iSlice, rowIndex, mem->ioPtrs.clustersNative->clusters[iSlice][rowIndex][i].getPad(), mem->ioPtrs.clustersNative->clusters[iSlice][rowIndex][i].getTime(), x, y, z);
+        UpdateMinMaxYZ(yMin, yMax, zMin, zMax, y, z);
+        YZData[RowOffset + i] = CAMath::MakeFloat2(y, z);
       }
     }
 

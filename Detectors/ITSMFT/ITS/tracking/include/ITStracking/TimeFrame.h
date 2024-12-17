@@ -106,12 +106,16 @@ class TimeFrame
 
   float getBeamX() const;
   float getBeamY() const;
-
+  std::vector<float>& getMinRs() { return mMinR; }
+  std::vector<float>& getMaxRs() { return mMaxR; }
   float getMinR(int layer) const { return mMinR[layer]; }
   float getMaxR(int layer) const { return mMaxR[layer]; }
   float getMSangle(int layer) const { return mMSangles[layer]; }
+  std::vector<float>& getMSangles() { return mMSangles; }
   float getPhiCut(int layer) const { return mPhiCuts[layer]; }
+  std::vector<float>& getPhiCuts() { return mPhiCuts; }
   float getPositionResolution(int layer) const { return mPositionResolution[layer]; }
+  std::vector<float>& getPositionResolutions() { return mPositionResolution; }
 
   gsl::span<Cluster> getClustersOnLayer(int rofId, int layerId);
   gsl::span<const Cluster> getClustersOnLayer(int rofId, int layerId) const;
@@ -209,8 +213,8 @@ class TimeFrame
   const unsigned long long& getRoadLabel(int i) const;
   bool isRoadFake(int i) const;
 
-  void setMultiplicityCutMask(const std::vector<bool>& cutMask) { mMultiplicityCutMask = cutMask; }
-  void setROFMask(const std::vector<bool>& rofMask) { mROFMask = rofMask; }
+  void setMultiplicityCutMask(const std::vector<uint8_t>& cutMask) { mMultiplicityCutMask = cutMask; }
+  void setROFMask(const std::vector<uint8_t>& rofMask) { mROFMask = rofMask; }
   void swapMasks() { mMultiplicityCutMask.swap(mROFMask); }
 
   int hasBogusClusters() const { return std::accumulate(mBogusClusters.begin(), mBogusClusters.end(), 0); }
@@ -255,6 +259,7 @@ class TimeFrame
   void printCellLUTonLayer(int i);
   void printTrackletLUTs();
   void printCellLUTs();
+  void printSliceInfo(const int, const int);
 
   IndexTableUtils mIndexTableUtils;
 
@@ -289,8 +294,16 @@ class TimeFrame
   std::vector<std::vector<TrackITSExt>> mTracks;
   std::vector<std::vector<int>> mCellsNeighbours;
   std::vector<std::vector<int>> mCellsLookupTable;
+  std::vector<uint8_t> mMultiplicityCutMask;
 
   const o2::base::PropagatorImpl<float>* mPropagatorDevice = nullptr; // Needed only for GPU
+  void dropTracks()
+  {
+    for (auto& v : mTracks) {
+      deepVectorClear(v);
+    }
+  }
+
  protected:
   template <typename T>
   void deepVectorClear(std::vector<T>& vec)
@@ -311,8 +324,8 @@ class TimeFrame
   std::vector<float> mPhiCuts;
   std::vector<float> mPositionResolution;
   std::vector<uint8_t> mClusterSize;
-  std::vector<bool> mMultiplicityCutMask;
-  std::vector<bool> mROFMask;
+
+  std::vector<uint8_t> mROFMask;
   std::vector<std::array<float, 2>> mPValphaX; /// PV x and alpha for track propagation
   std::vector<std::vector<MCCompLabel>> mTrackletLabels;
   std::vector<std::vector<MCCompLabel>> mCellLabels;
@@ -439,33 +452,33 @@ inline gsl::span<const Cluster> TimeFrame::getClustersPerROFrange(int rofMin, in
     return gsl::span<const Cluster>();
   }
   int startIdx{mROFramesClusters[layerId][rofMin]}; // First cluster of rofMin
-  int endIdx{mROFramesClusters[layerId][std::min(rofMin + range, mNrof)]};
+  int endIdx{mROFramesClusters[layerId][o2::gpu::CAMath::Min(rofMin + range, mNrof)]};
   return {&mClusters[layerId][startIdx], static_cast<gsl::span<Cluster>::size_type>(endIdx - startIdx)};
 }
 
 inline gsl::span<const int> TimeFrame::getROFramesClustersPerROFrange(int rofMin, int range, int layerId) const
 {
-  int chkdRange{std::min(range, mNrof - rofMin)};
+  int chkdRange{o2::gpu::CAMath::Min(range, mNrof - rofMin)};
   return {&mROFramesClusters[layerId][rofMin], static_cast<gsl::span<int>::size_type>(chkdRange)};
 }
 
 inline gsl::span<const int> TimeFrame::getNClustersROFrange(int rofMin, int range, int layerId) const
 {
-  int chkdRange{std::min(range, mNrof - rofMin)};
+  int chkdRange{o2::gpu::CAMath::Min(range, mNrof - rofMin)};
   return {&mNClustersPerROF[layerId][rofMin], static_cast<gsl::span<int>::size_type>(chkdRange)};
 }
 
 inline int TimeFrame::getTotalClustersPerROFrange(int rofMin, int range, int layerId) const
 {
   int startIdx{rofMin}; // First cluster of rofMin
-  int endIdx{std::min(rofMin + range, mNrof)};
+  int endIdx{o2::gpu::CAMath::Min(rofMin + range, mNrof)};
   return mROFramesClusters[layerId][endIdx] - mROFramesClusters[layerId][startIdx];
 }
 
 inline gsl::span<const int> TimeFrame::getIndexTablePerROFrange(int rofMin, int range, int layerId) const
 {
   const int iTableSize{mIndexTableUtils.getNphiBins() * mIndexTableUtils.getNzBins() + 1};
-  int chkdRange{std::min(range, mNrof - rofMin)};
+  int chkdRange{o2::gpu::CAMath::Min(range, mNrof - rofMin)};
   return {&mIndexTables[layerId][rofMin * iTableSize], static_cast<gsl::span<int>::size_type>(chkdRange * iTableSize)};
 }
 

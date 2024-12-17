@@ -63,7 +63,8 @@ o2_target_root_dictionary(
           include/DataFormatsTPC/VDriftCorrFact.h
           include/DataFormatsTPC/CalibdEdxCorrection.h
           include/DataFormatsTPC/BetheBlochAleph.h
-          include/DataFormatsTPC/PIDResponse.h)
+          include/DataFormatsTPC/PIDResponse.h
+          include/DataFormatsTPC/AltroSyncSignal.h)
 
 o2_add_test(
   ClusterNative

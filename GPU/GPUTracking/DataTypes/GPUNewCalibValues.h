@@ -25,8 +25,10 @@ namespace gpu
 struct GPUNewCalibValues {
   bool newSolenoidField = false;
   bool newContinuousMaxTimeBin = false;
+  bool newTPCTimeBinCut = false;
   float solenoidField = 0.f;
   uint32_t continuousMaxTimeBin = 0;
+  int32_t tpcTimeBinCut = 0;
 
   void updateFrom(const GPUNewCalibValues* from);
 };

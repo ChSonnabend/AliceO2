@@ -55,9 +55,8 @@ void EntropyDecoderSpec::run(ProcessingContext& pc)
   mTimer.Start(false);
   o2::ctf::CTFIOSize iosize;
 
-  mCTFCoder.updateTimeDependentParams(pc, true);
+  updateTimeDependentParams(pc);
   auto buff = pc.inputs().get<gsl::span<o2::ctf::BufferType>>("ctf_CTP");
-
   auto& digits = pc.outputs().make<std::vector<CTPDigit>>(OutputRef{"digits"});
   auto& lumi = pc.outputs().make<LumiInfo>(OutputRef{"CTPLumi"});
 
@@ -76,6 +75,20 @@ void EntropyDecoderSpec::endOfStream(EndOfStreamContext& ec)
   LOGF(info, "CTP Entropy Decoding total timing: Cpu: %.3e Real: %.3e s in %d slots",
        mTimer.CpuTime(), mTimer.RealTime(), mTimer.Counter() - 1);
 }
+void EntropyDecoderSpec::updateTimeDependentParams(framework::ProcessingContext& pc)
+{
+  mCTFCoder.updateTimeDependentParams(pc, true);
+  if (pc.services().get<o2::framework::TimingInfo>().globalRunNumberChanged) {
+    const auto ctpcfg = pc.inputs().get<o2::ctp::CTPConfiguration*>("ctpconfig");
+    if (mCTFCoder.getDecodeInps()) {
+      const auto ctpcfg = pc.inputs().get<o2::ctp::CTPConfiguration*>("ctpconfig");
+      if (ctpcfg != nullptr) {
+        mCTFCoder.setCTPConfig(*ctpcfg);
+        LOG(info) << "ctpconfig for run done:" << mCTFCoder.getCTPConfig().getRunNumber();
+      }
+    }
+  }
+}
 
 DataProcessorSpec getEntropyDecoderSpec(int verbosity, unsigned int sspec)
 {
@@ -88,7 +101,7 @@ DataProcessorSpec getEntropyDecoderSpec(int verbosity, unsigned int sspec)
   inputs.emplace_back("ctf_CTP", "CTP", "CTFDATA", sspec, Lifetime::Timeframe);
   inputs.emplace_back("ctfdict_CTP", "CTP", "CTFDICT", 0, Lifetime::Condition, ccdbParamSpec("CTP/Calib/CTFDictionaryTree"));
   inputs.emplace_back("trigoffset", "CTP", "Trig_Offset", 0, Lifetime::Condition, ccdbParamSpec("CTP/Config/TriggerOffsets"));
-
+  inputs.emplace_back("ctpconfig", "CTP", "CTPCONFIG", 0, Lifetime::Condition, ccdbParamSpec("CTP/Config/Config", 1));
   return DataProcessorSpec{
     "ctp-entropy-decoder",
     inputs,

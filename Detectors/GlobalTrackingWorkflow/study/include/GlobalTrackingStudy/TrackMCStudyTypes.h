@@ -86,6 +86,28 @@ struct RecTrack {
   ClassDefNV(RecTrack, 1);
 };
 
+struct TrackPairInfo {
+  RecTrack tr0;
+  RecTrack tr1;
+  uint8_t nshTPC = 0;
+  uint8_t nshTPCRow = 0;
+
+  int getComb() const { return tr0.track.getSign() != tr1.track.getSign() ? 0 : (tr0.track.getSign() > 0 ? 1 : 2); }
+  float getDPhi() const
+  {
+    float dphi = tr0.track.getPhi() - tr1.track.getPhi();
+    if (dphi < -o2::constants::math::PI) {
+      dphi += o2::constants::math::TwoPI;
+    } else if (dphi > o2::constants::math::PI) {
+      dphi -= o2::constants::math::TwoPI;
+    }
+    return dphi;
+  }
+  float getDTgl() const { return tr0.track.getTgl() - tr1.track.getTgl(); }
+
+  ClassDefNV(TrackPairInfo, 1)
+};
+
 struct TrackFamily { // set of tracks related to the same MC label
   MCTrackInfo mcTrackInfo{};
   std::vector<RecTrack> recTracks{};

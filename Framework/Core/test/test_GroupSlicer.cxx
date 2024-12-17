@@ -10,10 +10,12 @@
 // or submit itself to any jurisdiction.
 
 #include "Framework/ASoA.h"
+#include "Framework/AnalysisDataModel.h"
 #include "Framework/TableBuilder.h"
 #include "Framework/GroupSlicer.h"
 #include "Framework/ArrowTableSlicingCache.h"
 #include <arrow/util/config.h>
+#include <iostream>
 
 #include <catch_amalgamated.hpp>
 
@@ -65,13 +67,13 @@ DECLARE_SOA_TABLE(TrksU, "AOD", "TRKSU",
                   test::Y,
                   test::Z);
 
-DECLARE_SOA_TABLE(TrksXU, "AOD", "TRKSX",
+DECLARE_SOA_TABLE(TrksXU, "AOD", "TRKSXU",
                   unsorted::EventId,
                   test::X);
-DECLARE_SOA_TABLE(TrksYU, "AOD", "TRKSY",
+DECLARE_SOA_TABLE(TrksYU, "AOD", "TRKSYU",
                   unsorted::EventId,
                   test::Y);
-DECLARE_SOA_TABLE(TrksZU, "AOD", "TRKSZ",
+DECLARE_SOA_TABLE(TrksZU, "AOD", "TRKSZU",
                   unsorted::EventId,
                   test::Z);
 
@@ -85,6 +87,13 @@ DECLARE_SOA_COLUMN(Lst, lst, std::vector<double>);
 DECLARE_SOA_TABLE(EventExtra, "AOD", "EVTSXTRA", test::Arr, test::Boo, test::Lst);
 
 } // namespace o2::aod
+TEST_CASE("RelatedByIndex")
+{
+  using Trks = soa::Join<aod::Tracks, aod::TracksExtra>;
+  CHECK(soa::relatedByIndex<aod::Collision, Trks>() == true);
+  CHECK(soa::relatedByIndex<aod::Collision, aod::Tracks>() == true);
+}
+
 TEST_CASE("GroupSlicerOneAssociated")
 {
   TableBuilder builderE;
@@ -560,21 +569,21 @@ TEST_CASE("GroupSlicerMismatchedUnsortedFilteredGroupsWithSelfIndex")
     for (auto& thing : ts) {
       if (thing.has_part()) {
         auto part = thing.part_as<FilteredParts>();
-        REQUIRE(std::is_same_v<std::decay_t<decltype(part)>::parent_t, FilteredParts>);
+        REQUIRE(std::same_as<std::decay_t<decltype(part)>::parent_t, FilteredParts>);
         auto rs = part.relatives_as<std::decay_t<decltype(part)::parent_t>>();
-        REQUIRE(std::is_same_v<std::decay_t<decltype(rs)>, FilteredParts>);
+        REQUIRE(std::same_as<std::decay_t<decltype(rs)>, FilteredParts>);
         for (auto& r : rs) {
-          REQUIRE(std::is_same_v<std::decay_t<decltype(r)>::parent_t, FilteredParts>);
+          REQUIRE(std::same_as<std::decay_t<decltype(r)>::parent_t, FilteredParts>);
           auto rss = r.relatives_as<std::decay_t<decltype(r)>::parent_t>();
-          REQUIRE(std::is_same_v<std::decay_t<decltype(rss)>, FilteredParts>);
+          REQUIRE(std::same_as<std::decay_t<decltype(rss)>, FilteredParts>);
           for (auto& rr : rss) {
-            REQUIRE(std::is_same_v<std::decay_t<decltype(rr)>::parent_t, FilteredParts>);
+            REQUIRE(std::same_as<std::decay_t<decltype(rr)>::parent_t, FilteredParts>);
             auto rsss = rr.relatives_as<std::decay_t<decltype(rr)>::parent_t>();
-            REQUIRE(std::is_same_v<std::decay_t<decltype(rsss)>, FilteredParts>);
+            REQUIRE(std::same_as<std::decay_t<decltype(rsss)>, FilteredParts>);
             for (auto& rrr : rsss) {
-              REQUIRE(std::is_same_v<std::decay_t<decltype(rrr)>::parent_t, FilteredParts>);
+              REQUIRE(std::same_as<std::decay_t<decltype(rrr)>::parent_t, FilteredParts>);
               auto rssss = rrr.relatives_as<std::decay_t<decltype(rrr)>::parent_t>();
-              REQUIRE(std::is_same_v<std::decay_t<decltype(rssss)>, FilteredParts>);
+              REQUIRE(std::same_as<std::decay_t<decltype(rssss)>, FilteredParts>);
             }
           }
         }

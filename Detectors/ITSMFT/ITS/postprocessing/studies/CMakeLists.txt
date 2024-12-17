@@ -31,3 +31,5 @@ HEADERS include/ITSStudies/ITSStudiesConfigParam.h
         include/ITSStudies/TrackCuts.h
         include/ITSStudies/TrackMethods.h
 LINKDEF src/ITSStudiesLinkDef.h)
+
+add_subdirectory(macros)

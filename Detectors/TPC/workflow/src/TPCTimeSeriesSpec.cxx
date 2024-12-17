@@ -61,7 +61,7 @@ class TPCTimeSeries : public Task
 {
  public:
   /// \constructor
-  TPCTimeSeries(std::shared_ptr<o2::base::GRPGeomRequest> req, const bool disableWriter, const o2::base::Propagator::MatCorrType matType, const bool enableUnbinnedWriter, const bool tpcOnly, std::shared_ptr<o2::globaltracking::DataRequest> dr) : mCCDBRequest(req), mDisableWriter(disableWriter), mMatType(matType), mUnbinnedWriter(enableUnbinnedWriter), mTPCOnly(tpcOnly), mDataRequest(dr){};
+  TPCTimeSeries(std::shared_ptr<o2::base::GRPGeomRequest> req, const bool disableWriter, const o2::base::Propagator::MatCorrType matType, const bool enableUnbinnedWriter, const bool tpcOnly, std::shared_ptr<o2::globaltracking::DataRequest> dr) : mCCDBRequest(req), mDisableWriter(disableWriter), mMatType(matType), mUnbinnedWriter(enableUnbinnedWriter), mTPCOnly(tpcOnly), mDataRequest(dr) {};
 
   void init(framework::InitContext& ic) final
   {
@@ -206,11 +206,14 @@ class TPCTimeSeries : public Task
       indicesITSTPC[tracksITSTPC[i].getRefTPC().getIndex()] = {i, idxVtx};
     }
 
-    std::vector<std::tuple<int, float, float>> idxTPCTrackToTOFCluster; // store for each tpc track index the index to the TOF cluster
+    std::vector<std::tuple<int, float, float, o2::track::TrackLTIntegral, double, float>> idxTPCTrackToTOFCluster; // store for each tpc track index the index to the TOF cluster
 
     // get matches to TOF in case skimmed data is produced
     if (mUnbinnedWriter) {
-      idxTPCTrackToTOFCluster = std::vector<std::tuple<int, float, float>>(tracksTPC.size(), {-1, -999, -999});
+      //   getLTIntegralOut(), ///< L,TOF integral calculated during the propagation
+      //  getSignal()  mSignal = 0.0;              ///< TOF time in ps
+      o2::track::TrackLTIntegral defLT;
+      idxTPCTrackToTOFCluster = std::vector<std::tuple<int, float, float, o2::track::TrackLTIntegral, double, float>>(tracksTPC.size(), {-1, -999, -999, defLT, 0, 0});
       const std::vector<gsl::span<const o2::dataformats::MatchInfoTOF>> tofMatches{recoData.getTPCTOFMatches(), recoData.getTPCTRDTOFMatches(), recoData.getITSTPCTOFMatches(), recoData.getITSTPCTRDTOFMatches()};
 
       // loop over ITS-TPC-TRD-TOF and ITS-TPC-TOF tracks an store for each ITS-TPC track the TOF track index
@@ -218,7 +221,10 @@ class TPCTimeSeries : public Task
         for (const auto& tpctofmatch : tofMatch) {
           auto refTPC = recoData.getTPCContributorGID(tpctofmatch.getTrackRef());
           if (refTPC.isIndexSet()) {
-            idxTPCTrackToTOFCluster[refTPC] = {tpctofmatch.getIdxTOFCl(), tpctofmatch.getDXatTOF(), tpctofmatch.getDZatTOF()};
+            o2::track::TrackLTIntegral ltIntegral = tpctofmatch.getLTIntegralOut();
+            double signal = tpctofmatch.getSignal();
+            float deltaT = tpctofmatch.getDeltaT();
+            idxTPCTrackToTOFCluster[refTPC] = {tpctofmatch.getIdxTOFCl(), tpctofmatch.getDXatTOF(), tpctofmatch.getDZatTOF(), ltIntegral, signal, deltaT};
           }
         }
       }
@@ -1049,7 +1055,7 @@ class TPCTimeSeries : public Task
     return isGoodTrack;
   }
 
-  void fillDCA(const gsl::span<const TrackTPC> tracksTPC, const gsl::span<const o2::dataformats::TrackTPCITS> tracksITSTPC, const gsl::span<const o2::dataformats::PrimaryVertex> vertices, const int iTrk, const int iThread, const std::unordered_map<unsigned int, std::array<int, 2>>& indicesITSTPC, const gsl::span<const o2::its::TrackITS> tracksITS, const std::vector<std::tuple<int, float, float>>& idxTPCTrackToTOFCluster, const gsl::span<const o2::tof::Cluster> tofClusters)
+  void fillDCA(const gsl::span<const TrackTPC> tracksTPC, const gsl::span<const o2::dataformats::TrackTPCITS> tracksITSTPC, const gsl::span<const o2::dataformats::PrimaryVertex> vertices, const int iTrk, const int iThread, const std::unordered_map<unsigned int, std::array<int, 2>>& indicesITSTPC, const gsl::span<const o2::its::TrackITS> tracksITS, const std::vector<std::tuple<int, float, float, o2::track::TrackLTIntegral, double, float>>& idxTPCTrackToTOFCluster, const gsl::span<const o2::tof::Cluster> tofClusters)
   {
     const auto& trackFull = tracksTPC[iTrk];
     const bool isGoodTrack = checkTrack(trackFull);
@@ -1354,7 +1360,8 @@ class TPCTimeSeries : public Task
             }
           }
         }
-
+        double vertexTime = vertex.getTimeStamp().getTimeStamp();
+        double trackTime0 = trackFull.getTime0();
         *mStreamer[iThread] << "treeTimeSeries"
                             // DCAs
                             << "triggerMask=" << triggerMask
@@ -1432,6 +1439,11 @@ class TPCTimeSeries : public Task
                             << "tpcZDeltaAtTOF=" << tpcZDeltaAtTOF
                             << "mDXatTOF=" << std::get<1>(idxTPCTrackToTOFCluster[iTrk])
                             << "mDZatTOF=" << std::get<2>(idxTPCTrackToTOFCluster[iTrk])
+                            << "mTOFLength=" << std::get<3>(idxTPCTrackToTOFCluster[iTrk])
+                            << "mTOFSignal=" << std::get<4>(idxTPCTrackToTOFCluster[iTrk])
+                            << "mDeltaTTOFTPC=" << std::get<5>(idxTPCTrackToTOFCluster[iTrk]) /// delta T- TPC TOF
+                            << "vertexTime=" << vertexTime                                    /// time stamp assigned to the vertex
+                            << "trackTime0=" << trackTime0                                    /// time stamp assigned to the track
                             // TPC delta param
                             << "deltaTPCParamInOutTgl=" << deltaTPCParamInOutTgl
                             << "deltaTPCParamInOutQPt=" << deltaTPCParamInOutQPt

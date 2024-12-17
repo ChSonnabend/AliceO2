@@ -94,11 +94,21 @@ struct TrackingParameters {
   unsigned long MaxMemory = 12000000000UL;
   float MaxChi2ClusterAttachment = 60.f;
   float MaxChi2NDF = 30.f;
-  bool UseTrackFollower = false;
+  std::vector<float> MinPt = {0.f, 0.f, 0.f, 0.f};
+  unsigned char StartLayerMask = 0x7F;
   bool FindShortTracks = false;
   bool PerPrimaryVertexProcessing = false;
   bool SaveTimeBenchmarks = false;
   bool DoUPCIteration = false;
+  bool FataliseUponFailure = true;
+  bool DropTFUponFailure = false;
+  /// Cluster attachment
+  bool UseTrackFollower = false;
+  bool UseTrackFollowerTop = false;
+  bool UseTrackFollowerBot = false;
+  bool UseTrackFollowerMix = false;
+  float TrackFollowerNSigmaCutZ = 1.f;
+  float TrackFollowerNSigmaCutPhi = 1.f;
 };
 
 inline int TrackingParameters::CellMinimumLevel()

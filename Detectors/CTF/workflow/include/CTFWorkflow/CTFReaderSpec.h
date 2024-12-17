@@ -31,8 +31,10 @@ struct CTFReaderInp {
   std::string remoteRegex{};
   std::string metricChannel{};
   std::string fileIRFrames{};
+  std::string fileRunTimeSpans{};
   std::vector<int> ctfIDs{};
   bool skipSkimmedOutTF = false;
+  bool invertIRFramesSelection = false;
   bool allowMissingDetectors = false;
   bool checkTFLimitBeforeReading = false;
   bool sup0xccdb = false;

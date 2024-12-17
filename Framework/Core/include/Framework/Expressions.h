@@ -81,33 +81,28 @@ using LiteralValue = LiteralStorage<int, bool, float, double, uint8_t, int64_t, 
 template <typename T>
 constexpr auto selectArrowType()
 {
-  if constexpr (std::is_same_v<T, int>) {
-    return atype::INT32;
-  } else if constexpr (std::is_same_v<T, bool>) {
-    return atype::BOOL;
-  } else if constexpr (std::is_same_v<T, float>) {
-    return atype::FLOAT;
-  } else if constexpr (std::is_same_v<T, double>) {
-    return atype::DOUBLE;
-  } else if constexpr (std::is_same_v<T, uint8_t>) {
-    return atype::UINT8;
-  } else if constexpr (std::is_same_v<T, int8_t>) {
-    return atype::INT8;
-  } else if constexpr (std::is_same_v<T, uint16_t>) {
-    return atype::UINT16;
-  } else if constexpr (std::is_same_v<T, int16_t>) {
-    return atype::INT16;
-  } else if constexpr (std::is_same_v<T, int64_t>) {
-    return atype::INT64;
-  } else if constexpr (std::is_same_v<T, uint32_t>) {
-    return atype::UINT32;
-  } else if constexpr (std::is_same_v<T, uint64_t>) {
-    return atype::UINT64;
-  } else {
-    return atype::NA;
-  }
-  O2_BUILTIN_UNREACHABLE();
+  return atype::NA;
 }
+
+#define SELECT_ARROW_TYPE(_Ctype_, _Atype_) \
+  template <typename T>                     \
+    requires std::same_as<T, _Ctype_>       \
+  constexpr auto selectArrowType()          \
+  {                                         \
+    return atype::_Atype_;                  \
+  }
+
+SELECT_ARROW_TYPE(bool, BOOL);
+SELECT_ARROW_TYPE(float, FLOAT);
+SELECT_ARROW_TYPE(double, DOUBLE);
+SELECT_ARROW_TYPE(uint8_t, UINT8);
+SELECT_ARROW_TYPE(int8_t, INT8);
+SELECT_ARROW_TYPE(uint16_t, UINT16);
+SELECT_ARROW_TYPE(int16_t, INT16);
+SELECT_ARROW_TYPE(uint32_t, UINT32);
+SELECT_ARROW_TYPE(int32_t, INT32);
+SELECT_ARROW_TYPE(uint64_t, UINT64);
+SELECT_ARROW_TYPE(int64_t, INT64);
 
 std::shared_ptr<arrow::DataType> concreteArrowType(atype::type type);
 std::string upcastTo(atype::type f);

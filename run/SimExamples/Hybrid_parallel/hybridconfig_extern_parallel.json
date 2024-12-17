@@ -1,0 +1,69 @@
+{
+  "mode": "parallel",
+  "generators": [
+    {
+      "name": "external",
+      "config": {
+        "fileName": "",
+        "funcName": "",
+        "iniFile": "${O2DPG_ROOT}/MC/config/PWGHF/ini/GeneratorHF_D2H_ccbar_Mode2_OmegaC.ini"
+      }
+    },
+    {
+      "name": "external",
+      "config": {
+        "fileName": "",
+        "funcName": "",
+        "iniFile": "${O2DPG_ROOT}/MC/config/PWGHF/ini/GeneratorHF_D2H_ccbar_Mode2_OmegaC.ini"
+      }
+    },
+    {
+      "name": "external",
+      "config": {
+        "fileName": "",
+        "funcName": "",
+        "iniFile": "${O2DPG_ROOT}/MC/config/PWGHF/ini/GeneratorHF_D2H_ccbar_Mode2_OmegaC.ini"
+      }
+    },
+    {
+      "name": "external",
+      "config": {
+        "fileName": "",
+        "funcName": "",
+        "iniFile": "${O2DPG_ROOT}/MC/config/PWGHF/ini/GeneratorHF_D2H_ccbar_Mode2_OmegaC.ini"
+      }
+    },
+    {
+      "name": "external",
+      "config": {
+        "fileName": "",
+        "funcName": "",
+        "iniFile": "${O2DPG_ROOT}/MC/config/PWGHF/ini/GeneratorHF_D2H_ccbar_Mode2_OmegaC.ini"
+      }
+    },
+    {
+      "name": "external",
+      "config": {
+        "fileName": "",
+        "funcName": "",
+        "iniFile": "${O2DPG_ROOT}/MC/config/PWGHF/ini/GeneratorHF_D2H_ccbar_Mode2_OmegaC.ini"
+      }
+    },
+    {
+      "name": "external",
+      "config": {
+        "fileName": "",
+        "funcName": "",
+        "iniFile": "${O2DPG_ROOT}/MC/config/PWGHF/ini/GeneratorHF_D2H_ccbar_Mode2_OmegaC.ini"
+      }
+    },
+    {
+      "name": "external",
+      "config": {
+        "fileName": "",
+        "funcName": "",
+        "iniFile": "${O2DPG_ROOT}/MC/config/PWGHF/ini/GeneratorHF_D2H_ccbar_Mode2_OmegaC.ini"
+      }
+    }
+  ]
+}

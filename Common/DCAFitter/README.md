@@ -2,7 +2,7 @@
 \page refDetectorsVertexing DCAFitter
 /doxy -->
 
-## DCAFitterN
+# DCAFitterN
 
 Templated class to fit the Point of Closest Approach (PCA) of secondary vertex with N prongs. Allows minimization of either absolute or weighted Distances of Closest Approach (DCA) of N tracks to their common PCA.
 
@@ -74,7 +74,22 @@ Extra method `setWeightedFinalPCA(bool)` is provided for the "mixed" mode: if `s
 but the final V0 position will be calculated using weighted average. One can also recalculate the V0 position by the weighted average method by calling explicitly
 `ft.recalculatePCAWithErrors(int icand=0)`, w/o prior call of `setWeightedFinalPCA(true)`: this will update the position returned by the `getPCACandidate(int cand = 0)`.
 
-The covariance matrix of the V0 position is calculated as an inversed sum of tracks inversed covariances at respective `X_dca` points.
+The covariance matrix of the V0 position is calculated as an inverted sum of tracks inversed covariances at respective `X_dca` points.
 
 See ``O2/Common/DCAFitter/test/testDCAFitterN.cxx`` for more extended example.
 Currently only 2 and 3 prongs permitted, thought this can be changed by modifying ``DCAFitterN::NMax`` constant.
+
+## Error handling
+
+It may happen that the track propagation to the the proximity of the PCA fails at the various stage of the fit. In this case the fit is abandoned and the failure flag is set, it can be checked using
+isPropagationFailure(int cand = 0)` method.
+
+Also, due to the linearization errors the covariance matrix of the track propagated to some point may become non-positive defined.
+In this case the relevant correlation coefficient of the cov.matrix is redefined to cure the position part of the cov.matrix and further program flow depends on the user settings for `DCAFitterN::setBadCovPolicy(v)`:
+
+`DCAFitterN::setBadCovPolicy(DCAFitterN::Discard);` : abandon fit (default)
+
+`DCAFitterN::setBadCovPolicy(DCAFitterN::Override);` : continue fit with overridden cov.matrix
+
+`DCAFitterN::setBadCovPolicy(DCAFitterN::OverrideAnFlag);` continue fit with overridden cov.matrix but set the propagation failure flag (can be checked using the same `isPropagationFailure(int cand = 0)` method).
+

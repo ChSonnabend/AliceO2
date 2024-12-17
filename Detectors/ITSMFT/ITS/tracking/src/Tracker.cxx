@@ -35,6 +35,7 @@ namespace o2
 {
 namespace its
 {
+using o2::its::constants::GB;
 
 Tracker::Tracker(o2::its::TrackerTraits* traits)
 {
@@ -56,6 +57,7 @@ void Tracker::clustersToTracks(std::function<void(std::string s)> logger, std::f
     }
   }
 
+  bool dropTF = false;
   for (int iteration = 0; iteration < (int)mTrkParams.size(); ++iteration) {
     if (iteration == 3 && mTrkParams[0].DoUPCIteration) {
       mTimeFrame->swapMasks();
@@ -74,12 +76,18 @@ void Tracker::clustersToTracks(std::function<void(std::string s)> logger, std::f
           &Tracker::computeTracklets, "Tracklet finding", [](std::string) {}, iteration, iROFs, iVertex);
         nTracklets += mTraits->getTFNumberOfTracklets();
         if (!mTimeFrame->checkMemory(mTrkParams[iteration].MaxMemory)) {
-          error(fmt::format("Too much memory used during trackleting in iteration {}, check the detector status and/or the selections.", iteration));
+          mTimeFrame->printSliceInfo(iROFs, mTrkParams[iteration].nROFsPerIterations);
+          error(fmt::format("Too much memory used during trackleting in iteration {} in ROF span {}-{}: {:.2f} GB. Current limit is {:.2f} GB, check the detector status and/or the selections.",
+                            iteration, iROFs, iROFs + mTrkParams[iteration].nROFsPerIterations, mTimeFrame->getArtefactsMemory() / GB, mTrkParams[iteration].MaxMemory / GB));
+          if (mTrkParams[iteration].DropTFUponFailure) {
+            dropTF = true;
+          }
           break;
         }
         float trackletsPerCluster = mTraits->getTFNumberOfClusters() > 0 ? float(mTraits->getTFNumberOfTracklets()) / mTraits->getTFNumberOfClusters() : 0.f;
         if (trackletsPerCluster > mTrkParams[iteration].TrackletsPerClusterLimit) {
-          error(fmt::format("Too many tracklets per cluster ({}) in iteration {}, check the detector status and/or the selections. Current limit is {}", trackletsPerCluster, iteration, mTrkParams[iteration].TrackletsPerClusterLimit));
+          error(fmt::format("Too many tracklets per cluster ({}) in iteration {} in ROF span {}-{}:, check the detector status and/or the selections. Current limit is {}",
+                            trackletsPerCluster, iteration, iROFs, iROFs + mTrkParams[iteration].nROFsPerIterations, mTrkParams[iteration].TrackletsPerClusterLimit));
           break;
         }
 
@@ -87,12 +95,18 @@ void Tracker::clustersToTracks(std::function<void(std::string s)> logger, std::f
           &Tracker::computeCells, "Cell finding", [](std::string) {}, iteration);
         nCells += mTraits->getTFNumberOfCells();
         if (!mTimeFrame->checkMemory(mTrkParams[iteration].MaxMemory)) {
-          error(fmt::format("Too much memory used during cell finding in iteration {}, check the detector status and/or the selections.", iteration));
+          mTimeFrame->printSliceInfo(iROFs, mTrkParams[iteration].nROFsPerIterations);
+          error(fmt::format("Too much memory used during cell finding in iteration {} in ROF span {}-{}: {:.2f} GB. Current limit is {:.2f} GB, check the detector status and/or the selections.",
+                            iteration, iROFs, iROFs + mTrkParams[iteration].nROFsPerIterations, mTimeFrame->getArtefactsMemory() / GB, mTrkParams[iteration].MaxMemory / GB));
+          if (mTrkParams[iteration].DropTFUponFailure) {
+            dropTF = true;
+          }
           break;
         }
         float cellsPerCluster = mTraits->getTFNumberOfClusters() > 0 ? float(mTraits->getTFNumberOfCells()) / mTraits->getTFNumberOfClusters() : 0.f;
         if (cellsPerCluster > mTrkParams[iteration].CellsPerClusterLimit) {
-          error(fmt::format("Too many cells per cluster ({}) in iteration {}, check the detector status and/or the selections. Current limit is {}", cellsPerCluster, iteration, mTrkParams[iteration].CellsPerClusterLimit));
+          error(fmt::format("Too many cells per cluster ({}) in iteration {} in ROF span {}-{}, check the detector status and/or the selections. Current limit is {}",
+                            cellsPerCluster, iteration, iROFs, iROFs + mTrkParams[iteration].nROFsPerIterations, mTrkParams[iteration].CellsPerClusterLimit));
           break;
         }
 
@@ -103,7 +117,7 @@ void Tracker::clustersToTracks(std::function<void(std::string s)> logger, std::f
           &Tracker::findRoads, "Road finding", [](std::string) {}, iteration);
       }
       iVertex++;
-    } while (iVertex < maxNvertices);
+    } while (iVertex < maxNvertices && !dropTF);
     logger(fmt::format(" - Tracklet finding: {} tracklets found in {:.2f} ms", nTracklets, timeTracklets));
     logger(fmt::format(" - Cell finding: {} cells found in {:.2f} ms", nCells, timeCells));
     logger(fmt::format(" - Neighbours finding: {} neighbours found in {:.2f} ms", nNeighbours, timeNeighbours));
@@ -115,12 +129,17 @@ void Tracker::clustersToTracks(std::function<void(std::string s)> logger, std::f
       total += timeExtending;
       logger(fmt::format(" - Extending Tracks: {} extended tracks using {} clusters found in {:.2f} ms", nExtendedTracks + mTimeFrame->mNExtendedTracks, nExtendedClusters + mTimeFrame->mNExtendedUsedClusters, timeExtending));
     }
+    if (dropTF) {
+      error(fmt::format("...Dropping Timeframe..."));
+      mTimeFrame->dropTracks();
+      break; // breaking out the iterations loop
+    }
   }
 
   total += evaluateTask(&Tracker::findShortPrimaries, "Short primaries finding", logger);
 
   std::stringstream sstream;
-  if (constants::DoTimeBenchmarks) {
+  if constexpr (constants::DoTimeBenchmarks) {
     sstream << std::setw(2) << " - "
             << "Timeframe " << mTimeFrameCounter++ << " processing completed in: " << total << "ms using " << mTraits->getNThreads() << " threads.";
   }
@@ -200,7 +219,7 @@ void Tracker::clustersToTracksHybrid(std::function<void(std::string s)> logger, 
   // total += evaluateTask(&Tracker::findShortPrimaries, "Hybrid short primaries finding", logger);
 
   std::stringstream sstream;
-  if (constants::DoTimeBenchmarks) {
+  if constexpr (constants::DoTimeBenchmarks) {
     sstream << std::setw(2) << " - "
             << "Timeframe " << mTimeFrameCounter++ << " processing completed in: " << total << "ms using " << mTraits->getNThreads() << " threads.";
   }
@@ -495,6 +514,8 @@ void Tracker::getGlobalConfiguration()
     params.nROFsPerIterations = nROFsPerIterations;
     params.PerPrimaryVertexProcessing = tc.perPrimaryVertexProcessing;
     params.SaveTimeBenchmarks = tc.saveTimeBenchmarks;
+    params.FataliseUponFailure = tc.fataliseUponFailure;
+    params.DropTFUponFailure = tc.dropTFUponFailure;
     for (int iD{0}; iD < 3; ++iD) {
       params.Diamond[iD] = tc.diamondPos[iD];
     }
@@ -502,8 +523,16 @@ void Tracker::getGlobalConfiguration()
     if (tc.maxMemory) {
       params.MaxMemory = tc.maxMemory;
     }
-    if (tc.useTrackFollower >= 0) {
-      params.UseTrackFollower = tc.useTrackFollower;
+    if (tc.useTrackFollower > 0) {
+      params.UseTrackFollower = true;
+      // Bit 0: Allow for mixing of top&bot extension --> implies Bits 1&2 set
+      // Bit 1: Allow for top extension
+      // Bit 2: Allow for bot extension
+      params.UseTrackFollowerMix = ((tc.useTrackFollower & (1 << 0)) != 0);
+      params.UseTrackFollowerTop = ((tc.useTrackFollower & (1 << 1)) != 0);
+      params.UseTrackFollowerBot = ((tc.useTrackFollower & (1 << 2)) != 0);
+      params.TrackFollowerNSigmaCutZ = tc.trackFollowerNSigmaZ;
+      params.TrackFollowerNSigmaCutPhi = tc.trackFollowerNSigmaPhi;
     }
     if (tc.cellsPerClusterLimit >= 0) {
       params.CellsPerClusterLimit = tc.cellsPerClusterLimit;

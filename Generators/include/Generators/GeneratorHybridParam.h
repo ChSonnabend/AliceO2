@@ -31,6 +31,7 @@ namespace eventgen
 struct GeneratorHybridParam : public o2::conf::ConfigurableParamHelper<GeneratorHybridParam> {
   std::string configFile = ""; // JSON configuration file for the generators
   bool randomize = false;      // randomize the order of the generators, if not generator using fractions
+  int num_workers = 1;         // number of threads available for asyn/parallel event generation
   O2ParamDef(GeneratorHybridParam, "GeneratorHybrid");
 };
 

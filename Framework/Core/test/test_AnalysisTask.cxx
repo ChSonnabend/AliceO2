@@ -21,6 +21,7 @@ using namespace o2::framework;
 
 namespace o2::aod
 {
+O2HASH("TestA/0");
 namespace test
 {
 DECLARE_SOA_COLUMN(X, x, float);
@@ -30,9 +31,12 @@ DECLARE_SOA_COLUMN(Foo, foo, float);
 DECLARE_SOA_COLUMN(Bar, bar, float);
 DECLARE_SOA_COLUMN(EventProperty, eventProperty, float);
 DECLARE_SOA_DYNAMIC_COLUMN(Sum, sum, [](float x, float y) { return x + y; });
+DECLARE_SOA_EXPRESSION_COLUMN(Sqfoo, sqfoo, float, nsqrt(test::foo));
 } // namespace test
+
 DECLARE_SOA_TABLE(Foos, "AOD", "FOO",
                   test::Foo);
+DECLARE_SOA_EXTENDED_TABLE(Fooss, Foos, "FOOS", 0, test::Sqfoo);
 DECLARE_SOA_TABLE(Bars, "AOD", "BAR",
                   test::Bar);
 DECLARE_SOA_TABLE(FooBars, "AOD", "FOOBAR",
@@ -42,6 +46,27 @@ DECLARE_SOA_TABLE(XYZ, "AOD", "XYZ",
                   test::X, test::Y, test::Z);
 DECLARE_SOA_TABLE(Events, "AOD", "EVENTS",
                   test::EventProperty);
+
+DECLARE_SOA_TABLE(Roots, "AOD", "ROOTS", test::Foo);
+
+namespace idx
+{
+DECLARE_SOA_INDEX_COLUMN(Root, root);
+}
+
+DECLARE_SOA_TABLE(B1s, "AOD", "B1", idx::RootId, test::X);
+DECLARE_SOA_TABLE(B2s, "AOD", "B2", idx::RootId, test::Y);
+DECLARE_SOA_TABLE(B3s, "AOD", "B3", idx::RootId, test::Z);
+
+namespace idx
+{
+DECLARE_SOA_INDEX_COLUMN(B1, b1);
+DECLARE_SOA_INDEX_COLUMN(B2, b2);
+DECLARE_SOA_INDEX_COLUMN(B3, b3);
+} // namespace idx
+
+DECLARE_SOA_INDEX_TABLE(Bs, Roots, "BS", idx::RootId, idx::B1Id, idx::B2Id, idx::B3Id);
+
 } // namespace o2::aod
 
 struct ATask {
@@ -49,8 +74,14 @@ struct ATask {
 
   void process(o2::aod::Track const&)
   {
-    foobars(0.01102005, 0.27092016); // dummy value for phi for now...
   }
+};
+
+struct ATaskconsumer {
+  Spawns<aod::Fooss> foos;
+  Builds<aod::Bs> bs;
+
+  void init(InitContext&) {}
 };
 
 struct BTask {
@@ -159,21 +190,29 @@ TEST_CASE("AdaptorCompilation")
   auto cfgc = makeEmptyConfigContext();
 
   REQUIRE(brace_constructible_size<ATask>() == 1);
-  auto task1 = adaptAnalysisTask<ATask>(*cfgc, TaskName{"test1"});
-  REQUIRE(task1.inputs.size() == 2);
-  REQUIRE(task1.outputs.size() == 1);
-  REQUIRE(task1.inputs[1].binding == std::string("Tracks"));
-  REQUIRE(task1.inputs[0].binding == std::string("TracksExtension"));
-  REQUIRE(task1.outputs[0].binding.value == std::string("FooBars"));
+  auto task1ng = adaptAnalysisTask<ATask>(*cfgc, TaskName{"test1"});
+  REQUIRE(task1ng.inputs.size() == 2);
+  REQUIRE(task1ng.outputs.size() == 1);
+  REQUIRE(task1ng.inputs[1].binding == std::string("TracksExtension"));
+  REQUIRE(task1ng.inputs[0].binding == std::string("Tracks"));
+  REQUIRE(task1ng.outputs[0].binding.value == std::string("FooBars"));
+
+  auto task1ngc = adaptAnalysisTask<ATaskconsumer>(*cfgc);
+  REQUIRE(task1ngc.inputs.size() == 5);
+  REQUIRE(task1ngc.inputs[0].binding == "Foos");
+  REQUIRE(task1ngc.inputs[1].binding == "Roots");
+  REQUIRE(task1ngc.inputs[2].binding == "B1s");
+  REQUIRE(task1ngc.inputs[3].binding == "B2s");
+  REQUIRE(task1ngc.inputs[4].binding == "B3s");
 
   auto task2 = adaptAnalysisTask<BTask>(*cfgc, TaskName{"test2"});
   REQUIRE(task2.inputs.size() == 10);
-  REQUIRE(task2.inputs[1].binding == "TracksExtension");
-  REQUIRE(task2.inputs[2].binding == "Tracks");
-  REQUIRE(task2.inputs[3].binding == "TracksExtra_001Extension");
-  REQUIRE(task2.inputs[4].binding == "TracksExtra");
-  REQUIRE(task2.inputs[5].binding == "TracksCovExtension");
-  REQUIRE(task2.inputs[6].binding == "TracksCov");
+  REQUIRE(task2.inputs[2].binding == "TracksExtension");
+  REQUIRE(task2.inputs[1].binding == "Tracks");
+  REQUIRE(task2.inputs[4].binding == "TracksExtra_002Extension");
+  REQUIRE(task2.inputs[3].binding == "TracksExtra");
+  REQUIRE(task2.inputs[6].binding == "TracksCovExtension");
+  REQUIRE(task2.inputs[5].binding == "TracksCov");
   REQUIRE(task2.inputs[7].binding == "AmbiguousTracks");
   REQUIRE(task2.inputs[8].binding == "Calos");
   REQUIRE(task2.inputs[9].binding == "CaloTriggers");
@@ -182,30 +221,33 @@ TEST_CASE("AdaptorCompilation")
   auto task3 = adaptAnalysisTask<CTask>(*cfgc, TaskName{"test3"});
   REQUIRE(task3.inputs.size() == 3);
   REQUIRE(task3.inputs[0].binding == "Collisions_001");
-  REQUIRE(task3.inputs[2].binding == "Tracks");
-  REQUIRE(task3.inputs[1].binding == "TracksExtension");
+  REQUIRE(task3.inputs[1].binding == "Tracks");
+  REQUIRE(task3.inputs[2].binding == "TracksExtension");
 
   auto task4 = adaptAnalysisTask<DTask>(*cfgc, TaskName{"test4"});
   REQUIRE(task4.inputs.size() == 2);
-  REQUIRE(task4.inputs[1].binding == "Tracks");
-  REQUIRE(task4.inputs[0].binding == "TracksExtension");
+  REQUIRE(task4.inputs[0].binding == "Tracks");
+  REQUIRE(task4.inputs[1].binding == "TracksExtension");
 
   auto task5 = adaptAnalysisTask<ETask>(*cfgc, TaskName{"test5"});
   REQUIRE(task5.inputs.size() == 1);
   REQUIRE(task5.inputs[0].binding == "FooBars");
 
-  auto task6 = adaptAnalysisTask<FTask>(*cfgc, TaskName{"test6"});
-  REQUIRE(task6.inputs.size() == 1);
-  REQUIRE(task6.inputs[0].binding == "FooBars");
+  auto task6ng = adaptAnalysisTask<FTask>(*cfgc, TaskName{"test6"});
+  REQUIRE(task6ng.inputs.size() == 1);
+  REQUIRE(task6ng.inputs[0].binding == "FooBars");
 
-  auto task7 = adaptAnalysisTask<GTask>(*cfgc, TaskName{"test7"});
-  REQUIRE(task7.inputs.size() == 3);
+  auto task7ng = adaptAnalysisTask<GTask>(*cfgc, TaskName{"test7"});
+  REQUIRE(task7ng.inputs.size() == 3);
+  REQUIRE(task7ng.inputs[0].binding == "Foos");
+  REQUIRE(task7ng.inputs[1].binding == "Bars");
+  REQUIRE(task7ng.inputs[2].binding == "XYZ");
 
-  auto task8 = adaptAnalysisTask<HTask>(*cfgc, TaskName{"test8"});
-  REQUIRE(task8.inputs.size() == 3);
+  auto task8ng = adaptAnalysisTask<HTask>(*cfgc, TaskName{"test8"});
+  REQUIRE(task8ng.inputs.size() == 3);
 
-  auto task9 = adaptAnalysisTask<ITask>(*cfgc, TaskName{"test9"});
-  REQUIRE(task9.inputs.size() == 4);
+  auto task9ng = adaptAnalysisTask<ITask>(*cfgc, TaskName{"test9"});
+  REQUIRE(task9ng.inputs.size() == 4);
 
   auto task10 = adaptAnalysisTask<JTask>(*cfgc, TaskName{"test10"});
   REQUIRE(task10.inputs.size() == 1);
@@ -233,7 +275,7 @@ TEST_CASE("TestPartitionIteration")
   auto tableA = builderA.finalize();
   REQUIRE(tableA->num_rows() == 8);
 
-  using TestA = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::soa::Index<>, aod::test::X, aod::test::Y>;
+  using TestA = soa::InPlaceTable<"TestA/0"_h, o2::soa::Index<>, aod::test::X, aod::test::Y>;
   using FilteredTest = o2::soa::Filtered<TestA>;
   using PartitionTest = Partition<TestA>;
   using PartitionFilteredTest = Partition<o2::soa::Filtered<TestA>>;

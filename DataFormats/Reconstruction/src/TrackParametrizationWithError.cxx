@@ -12,13 +12,8 @@
 #include "ReconstructionDataFormats/TrackParametrizationWithError.h"
 #include "ReconstructionDataFormats/Vertex.h"
 #include "ReconstructionDataFormats/DCA.h"
+#include "CommonConstants/MathConstants.h"
 #include <GPUCommonLogger.h>
-
-#ifndef __OPENCL__
-#include <cfloat>
-#else
-#include <float.h>
-#endif
 
 #ifndef GPUCA_GPUCODE_DEVICE
 #include <iostream>
@@ -794,11 +789,11 @@ GPUd() auto TrackParametrizationWithError<value_T>::getPredictedChi2(const Track
   // get chi2 wrt other track, which must be defined at the same parameters X,alpha
   // Supplied non-initialized covToSet matrix is filled by inverse combined matrix for further use
 
-  if (gpu::CAMath::Abs(this->getAlpha() - rhs.getAlpha()) > FLT_EPSILON) {
+  if (gpu::CAMath::Abs(this->getAlpha() - rhs.getAlpha()) > o2::constants::math::Epsilon) {
     LOG(error) << "The reference Alpha of the tracks differ: " << this->getAlpha() << " : " << rhs.getAlpha();
     return 2.f * HugeF;
   }
-  if (gpu::CAMath::Abs(this->getX() - rhs.getX()) > FLT_EPSILON) {
+  if (gpu::CAMath::Abs(this->getX() - rhs.getX()) > o2::constants::math::Epsilon) {
     LOG(error) << "The reference X of the tracks differ: " << this->getX() << " : " << rhs.getX();
     return 2.f * HugeF;
   }
@@ -827,11 +822,11 @@ GPUd() bool TrackParametrizationWithError<value_T>::update(const TrackParametriz
   // update track with other track, the inverted combined cov matrix should be supplied
 
   // consider skipping this check, since it is usually already done upstream
-  if (gpu::CAMath::Abs(this->getAlpha() - rhs.getAlpha()) > FLT_EPSILON) {
+  if (gpu::CAMath::Abs(this->getAlpha() - rhs.getAlpha()) > o2::constants::math::Epsilon) {
     LOG(error) << "The reference Alpha of the tracks differ: " << this->getAlpha() << " : " << rhs.getAlpha();
     return false;
   }
-  if (gpu::CAMath::Abs(this->getX() - rhs.getX()) > FLT_EPSILON) {
+  if (gpu::CAMath::Abs(this->getX() - rhs.getX()) > o2::constants::math::Epsilon) {
     LOG(error) << "The reference X of the tracks differ: " << this->getX() << " : " << rhs.getX();
     return false;
   }

@@ -37,7 +37,7 @@ TEST_CASE("StringHelpersConstStr")
 
   auto myConstStr = CONST_STR("helloWorld");
   printString(myConstStr);
-  static_assert(std::is_same_v<decltype(myConstStr), ConstStr<'h', 'e', 'l', 'l', 'o', 'W', 'o', 'r', 'l', 'd'>>);
+  static_assert(std::same_as<decltype(myConstStr), ConstStr<'h', 'e', 'l', 'l', 'o', 'W', 'o', 'r', 'l', 'd'>>);
   static_assert(myConstStr.hash == (uint32_t)942280617);
   REQUIRE(myConstStr.hash == compile_time_hash("helloWorld"));
 
@@ -47,7 +47,7 @@ TEST_CASE("StringHelpersConstStr")
 
   auto myConstStr2 = CONST_STR("hello") + CONST_STR("Universe");
   printString(myConstStr2);
-  static_assert(std::is_same_v<decltype(myConstStr2), ConstStr<'h', 'e', 'l', 'l', 'o', 'U', 'n', 'i', 'v', 'e', 'r', 's', 'e'>>);
+  static_assert(std::same_as<decltype(myConstStr2), ConstStr<'h', 'e', 'l', 'l', 'o', 'U', 'n', 'i', 'v', 'e', 'r', 's', 'e'>>);
 
   enum ParticleSpecies {
     kPion,

@@ -73,5 +73,6 @@
 #pragma link C++ class o2::tpc::TriggerWordDLBZS + ;
 #pragma link C++ class o2::tpc::TriggerInfoDLBZS + ;
 #pragma link C++ class std::vector < o2::tpc::TriggerInfoDLBZS> + ;
+#pragma link C++ class o2::tpc::AltroSyncSignal + ;
 
 #endif

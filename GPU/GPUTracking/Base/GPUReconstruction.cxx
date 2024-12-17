@@ -427,7 +427,7 @@ int32_t GPUReconstruction::InitPhaseAfterDevice()
     (mProcessors[i].proc->*(mProcessors[i].InitializeProcessor))();
   }
 
-  WriteConstantParams(); // First initialization, if the user doesn't use RunChains
+  WriteConstantParams(); // Initialize with initial values, can optionally be updated later
 
   mInitialized = true;
   return 0;
@@ -1105,7 +1105,12 @@ void GPUReconstruction::DumpSettings(const char* dir)
   }
 }
 
-void GPUReconstruction::UpdateSettings(const GPUSettingsGRP* g, const GPUSettingsProcessing* p)
+void GPUReconstruction::UpdateDynamicSettings(const GPUSettingsRecDynamic* d)
+{
+  UpdateSettings(nullptr, nullptr, d);
+}
+
+void GPUReconstruction::UpdateSettings(const GPUSettingsGRP* g, const GPUSettingsProcessing* p, const GPUSettingsRecDynamic* d)
 {
   if (g) {
     mGRPSettings = *g;
@@ -1114,8 +1119,11 @@ void GPUReconstruction::UpdateSettings(const GPUSettingsGRP* g, const GPUSetting
     mProcessingSettings.debugLevel = p->debugLevel;
     mProcessingSettings.resetTimers = p->resetTimers;
   }
-  GPURecoStepConfiguration w = mRecoSteps;
-  param().UpdateSettings(g, p, &w);
+  GPURecoStepConfiguration* w = nullptr;
+  if (mRecoSteps.steps.isSet(GPUDataTypes::RecoStep::TPCdEdx)) {
+    w = &mRecoSteps;
+  }
+  param().UpdateSettings(g, p, w, d);
   if (mInitialized) {
     WriteConstantParams();
   }

@@ -532,3 +532,30 @@ void GPUChainTracking::WriteOutput(int32_t iSlice, int32_t threadId)
     GPUInfo("Finished WriteOutput for slice %d on thread %d\n", iSlice, threadId);
   }
 }
+
+int32_t GPUChainTracking::HelperReadEvent(int32_t iSlice, int32_t threadId, GPUReconstructionHelpers::helperParam* par) { return ReadEvent(iSlice, threadId); }
+
+int32_t GPUChainTracking::HelperOutput(int32_t iSlice, int32_t threadId, GPUReconstructionHelpers::helperParam* par)
+{
+  if (param().rec.tpc.globalTracking) {
+    uint32_t tmpSlice = GPUTPCGlobalTracking::GlobalTrackingSliceOrder(iSlice);
+    uint32_t sliceLeft, sliceRight;
+    GPUTPCGlobalTracking::GlobalTrackingSliceLeftRight(tmpSlice, sliceLeft, sliceRight);
+
+    while (mSliceSelectorReady < (int32_t)tmpSlice || mSliceSelectorReady < (int32_t)sliceLeft || mSliceSelectorReady < (int32_t)sliceRight) {
+      if (par->reset) {
+        return 1;
+      }
+    }
+    GlobalTracking(tmpSlice, 0);
+    WriteOutput(tmpSlice, 0);
+  } else {
+    while (mSliceSelectorReady < iSlice) {
+      if (par->reset) {
+        return 1;
+      }
+    }
+    WriteOutput(iSlice, threadId);
+  }
+  return 0;
+}
