@@ -19,7 +19,7 @@
 #include "GPUProcessor.h"
 #include "GPUDataTypes.h"
 #include "CfFragment.h"
-#include "ML/ort_interface.h"
+#include "ML/OrtInterface.h"
 #include "ML/3rdparty/GPUORTFloat16.h"
 
 using namespace o2::ml;
