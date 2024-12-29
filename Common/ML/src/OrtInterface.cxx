@@ -198,17 +198,6 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
   outputNamesChar.resize(mOutputNames.size(), nullptr);
   std::transform(std::begin(mOutputNames), std::end(mOutputNames), std::begin(outputNamesChar),
                  [&](const std::string& str) { return str.c_str(); });
-
-  // Print names
-  LOG(info) << "\tInput Nodes:";
-  for (size_t i = 0; i < mInputNames.size(); i++) {
-    LOG(info) << "\t\t" << mInputNames[i] << " : " << printShape(mInputShapes[i]);
-  }
-
-  LOG(info) << "\tOutput Nodes:";
-  for (size_t i = 0; i < mOutputNames.size(); i++) {
-    LOG(info) << "\t\t" << mOutputNames[i] << " : " << printShape(mOutputShapes[i]);
-  }
 }
 
 void OrtModel::resetSession()

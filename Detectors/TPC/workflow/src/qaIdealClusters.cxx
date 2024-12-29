@@ -377,7 +377,8 @@ void qaCluster::read_tracking_clusters(bool mc){
   memset(&clusterIndex, 0, sizeof(clusterIndex));
   o2::tpc::ClusterNativeHelper::ConstMCLabelContainerViewWithBuffer clusterMCBuffer;
   qc::Clusters clusters;
-  for (unsigned long i = 0; i < tpcClusterReader.getTreeSize(); ++i) {
+
+  for (unsigned long i = 0; i < tpcClusterReader.getTreeSize(); i++) {
     tpcClusterReader.read(i);
     tpcClusterReader.fillIndex(clusterIndex, clusterBuffer, clusterMCBuffer);
   }
