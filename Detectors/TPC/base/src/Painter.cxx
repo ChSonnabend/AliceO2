@@ -334,9 +334,9 @@ TCanvas* painter::draw(const CalDet<T>& calDet, int nbins1D, float xMin1D, float
         const GlobalPosition2D pos = mapper.getPadCentre(PadROCPos(roc, irow, ipad));
         const int bin = hist2D->FindBin(pos.X(), pos.Y());
         if (!hist2D->GetBinContent(bin)) {
-          hist2D->SetBinContent(bin, val);
+          hist2D->SetBinContent(bin, double(val));
         }
-        hist1D->Fill(val);
+        hist1D->Fill(double(val));
       }
     }
   }
@@ -430,7 +430,7 @@ void painter::fillHistogram2D(TH2& h2D, const CalDet<T>& calDet, Side side)
         const GlobalPosition2D pos = mapper.getPadCentre(PadROCPos(roc, irow, ipad));
         const int bin = h2D.FindBin(pos.X(), pos.Y());
         if (!h2D.GetBinContent(bin)) {
-          h2D.SetBinContent(bin, val);
+          h2D.SetBinContent(bin, double(val));
         }
       }
     }
@@ -454,7 +454,7 @@ void painter::fillHistogram2D(TH2& h2D, const CalArray<T>& calArray)
       const GlobalPadNumber pad = mapper.getPadNumber(padSubset, position, irow, ipad);
       const auto val = calArray.getValue(pad);
       const int cpad = ipad - padsInRow / 2;
-      h2D.Fill(irow, cpad, val);
+      h2D.Fill(irow, cpad, double(val));
     }
   }
 }
@@ -523,6 +523,17 @@ std::enable_if_t<std::is_unsigned<T>::value, bool> hasData(const CalArray<T>& ca
   return cal.getSum() > T{0};
 }
 
+template <typename T>
+std::enable_if_t<std::is_enum<T>::value, bool> hasData(const CalArray<T>& cal)
+{
+  for (const auto v : cal.getData()) {
+    if (int(v) > 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
 template <class T>
 std::vector<TCanvas*> painter::makeSummaryCanvases(const CalDet<T>& calDet, int nbins1D, float xMin1D, float xMax1D, bool onlyFilled, std::vector<TCanvas*>* outputCanvases)
 {
@@ -589,7 +600,7 @@ std::vector<TCanvas*> painter::makeSummaryCanvases(const CalDet<T>& calDet, int 
     // ===| 1D histogram |===
     auto h1D = new TH1F(fmt::format("h1_{}_{:02d}", calName, iroc).data(), fmt::format("{} distribution ROC {:02d} ({});ADC value", calName, iroc, getROCTitle(iroc)).data(), nbins1D, xMin1D, xMax1D);
     for (const auto& val : roc.getData()) {
-      h1D->Fill(val);
+      h1D->Fill(double(val));
     }
 
     // ===| 2D histogram |===
@@ -1342,6 +1353,9 @@ void painter::adjustPalette(TH1* h, float x2ndc, float tickLength)
   gPad->Modified();
   gPad->Update();
   auto palette = (TPaletteAxis*)h->GetListOfFunctions()->FindObject("palette");
+  if (!palette) {
+    return;
+  }
   palette->SetX2NDC(x2ndc);
   auto ax = h->GetZaxis();
   ax->SetTickLength(tickLength);
@@ -1424,6 +1438,12 @@ template std::vector<TCanvas*> painter::makeSummaryCanvases<short>(const CalDet<
 template TCanvas* painter::draw<short>(const CalArray<short>& calArray);
 template TH2* painter::getHistogram2D<short>(const CalDet<short>& calDet, Side side);
 template TH2* painter::getHistogram2D<short>(const CalArray<short>& calArray);
+
+template TCanvas* painter::draw<PadFlags>(const CalDet<PadFlags>& calDet, int, float, float, TCanvas*);
+template std::vector<TCanvas*> painter::makeSummaryCanvases<PadFlags>(const CalDet<PadFlags>& calDet, int, float, float, bool, std::vector<TCanvas*>*);
+template TCanvas* painter::draw<PadFlags>(const CalArray<PadFlags>& calArray);
+template TH2* painter::getHistogram2D<PadFlags>(const CalDet<PadFlags>& calDet, Side side);
+template TH2* painter::getHistogram2D<PadFlags>(const CalArray<PadFlags>& calArray);
 
 template TCanvas* painter::draw<bool>(const CalDet<bool>& calDet, int, float, float, TCanvas*);
 template std::vector<TCanvas*> painter::makeSummaryCanvases<bool>(const CalDet<bool>& calDet, int, float, float, bool, std::vector<TCanvas*>*);

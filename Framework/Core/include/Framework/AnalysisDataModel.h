@@ -660,7 +660,7 @@ using TrackIU = TracksIU::iterator;
 using TrackCov = TracksCov::iterator;
 using TrackCovIU = TracksCovIU::iterator;
 using TrackExtra = TracksExtra::iterator;
-using Run2TrackExtras = Run2TrackExtras_000;
+using Run2TrackExtras = Run2TrackExtras_001;
 using Run2TrackExtra = Run2TrackExtras::iterator;
 
 } // namespace aod
@@ -1699,6 +1699,8 @@ DECLARE_SOA_COLUMN(SPDFiredFastOrL0, spdFiredFastOrL0, uint16_t);     //! Fired 
 DECLARE_SOA_COLUMN(SPDFiredFastOrL1, spdFiredFastOrL1, uint16_t);     //! Fired FASTOR signals in the first layer of the SPD (online)
 DECLARE_SOA_COLUMN(V0TriggerChargeA, v0TriggerChargeA, uint16_t);     //! V0A trigger charge
 DECLARE_SOA_COLUMN(V0TriggerChargeC, v0TriggerChargeC, uint16_t);     //! V0C trigger charge
+DECLARE_SOA_COLUMN(NTPCClusters, nTPCClusters, uint32_t);             //! total number of TPC clusters (for ev sel)
+DECLARE_SOA_COLUMN(NSDDSSDClusters, nSDDSSDClusters, uint32_t);       //! total number of SSD + SDD clusters (for ev sel)
 namespace oftv0
 {
 DECLARE_SOA_INDEX_COLUMN(Collision, collision);                         //! Collision index
@@ -1721,12 +1723,23 @@ DECLARE_SOA_COLUMN(Mass, mass, float);                                  //! mass
 } // namespace oftv0
 } // namespace run2
 
-DECLARE_SOA_TABLE(Run2BCInfos, "AOD", "RUN2BCINFO", run2::EventCuts, //! Legacy information for Run 2 event selection
+DECLARE_SOA_TABLE(Run2BCInfos_000, "AOD", "RUN2BCINFO", run2::EventCuts, //! Legacy information for Run 2 event selection
                   run2::TriggerMaskNext50, run2::L0TriggerInputMask,
                   run2::SPDClustersL0, run2::SPDClustersL1,
                   run2::SPDFiredChipsL0, run2::SPDFiredChipsL1,
                   run2::SPDFiredFastOrL0, run2::SPDFiredFastOrL1,
                   run2::V0TriggerChargeA, run2::V0TriggerChargeC);
+
+DECLARE_SOA_TABLE_VERSIONED(Run2BCInfos_001, "AOD", "RUN2BCINFO", 1,
+                            run2::EventCuts, //! Legacy information for Run 2 event selection
+                            run2::TriggerMaskNext50, run2::L0TriggerInputMask,
+                            run2::SPDClustersL0, run2::SPDClustersL1,
+                            run2::SPDFiredChipsL0, run2::SPDFiredChipsL1,
+                            run2::SPDFiredFastOrL0, run2::SPDFiredFastOrL1,
+                            run2::V0TriggerChargeA, run2::V0TriggerChargeC,
+                            run2::NTPCClusters, run2::NSDDSSDClusters);
+
+using Run2BCInfos = Run2BCInfos_001;
 using Run2BCInfo = Run2BCInfos::iterator;
 
 DECLARE_SOA_TABLE(Run2OTFV0s, "AOD", "Run2OTFV0", //! Run 2 V0 on the fly table

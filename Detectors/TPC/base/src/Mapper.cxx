@@ -298,5 +298,41 @@ void Mapper::setTraceLengths(std::string_view inputFile, std::vector<float>& len
   }
 }
 
+bool Mapper::isEdgePad(int rowInSector, int padInRow)
+{
+  const auto& mapper = instance();
+  return (padInRow == 0) || (padInRow == mapper.getNumberOfPadsInRowSector(rowInSector) - 1);
+}
+
+bool Mapper::isFirstOrLastRowInStack(int rowInSector)
+{
+  if (rowInSector == 0 || rowInSector == PADROWS - 1) {
+    return true;
+  }
+
+  const auto& mapper = instance();
+  for (int i = 1; i < 4; ++i) {
+    if (rowInSector == ROWOFFSETSTACK[i] || rowInSector == ROWOFFSETSTACK[i] - 1) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool Mapper::isBelowSpacerCross(int rowInSector, int padInRow)
+{
+  static std::vector<bool> ROWSBELOWCROSS{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  if (ROWSBELOWCROSS[rowInSector]) {
+    return true;
+  }
+
+  const auto& mapper = instance();
+  const auto padCenter = mapper.getNumberOfPadsInRowSector(rowInSector) / 2;
+  if (padInRow == padCenter || padInRow == padCenter - 1) {
+    return true;
+  }
+  return false;
+}
+
 } // namespace tpc
 } // namespace o2

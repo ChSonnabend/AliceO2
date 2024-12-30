@@ -47,7 +47,8 @@ std::shared_ptr<VirtualRootFileSystemBase> TFileFileSystem::GetSubFilesystem(arr
   // file, so that we can support TTree and RNTuple at the same time
   // without having to depend on both.
   for (auto& capability : mObjectFactory.capabilities) {
-    void* handle = capability.getHandle(mFile, source.path());
+    auto objectPath = capability.lfn2objectPath(source.path());
+    void* handle = capability.getHandle(mFile, objectPath);
     if (!handle) {
       continue;
     }
@@ -238,6 +239,7 @@ std::shared_ptr<VirtualRootFileSystemBase> TBufferFileFS::GetSubFilesystem(arrow
   // file, so that we can support TTree and RNTuple at the same time
   // without having to depend on both.
   for (auto& capability : mObjectFactory.capabilities) {
+
     void* handle = capability.getBufferHandle(mBuffer, source.path());
     if (handle) {
       mFilesystem = capability.factory().getSubFilesystem(handle);

@@ -65,6 +65,12 @@ GeneratorHepMC::~GeneratorHepMC()
   if (mEvent) {
     delete mEvent;
   }
+  if (not mCmd.empty()) {
+    // Must be executed before removing the temporary file
+    // otherwise the current child process might still be writing on it
+    // causing unwanted stdout messages which could slow down the system
+    terminateCmd();
+  }
   removeTemp();
 }
 
@@ -575,9 +581,16 @@ Bool_t GeneratorHepMC::Init()
   // All of this can conviniently be achieved via a wrapper script
   // around the actual EG program.
   if (not mCmd.empty()) {
-    // Set filename to be a temporary name
-    if (not makeTemp()) {
-      return false;
+    if (mFileNames.empty()) {
+      // Set filename to be a temporary name
+      if (not makeTemp(false)) {
+        return false;
+      }
+    } else {
+      // Use the first filename as output for cmd line
+      if (not makeTemp(true)) {
+        return false;
+      }
     }
 
     // Make a fifo

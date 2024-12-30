@@ -40,7 +40,7 @@ namespace eventgen
 PrimaryGenerator::~PrimaryGenerator()
 {
   /** destructor **/
-
+  LOG(info) << "Destructing PrimaryGenerator";
   if (mEmbedFile && mEmbedFile->IsOpen()) {
     mEmbedFile->Close();
     delete mEmbedFile;

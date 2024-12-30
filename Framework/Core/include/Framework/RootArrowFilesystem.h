@@ -83,6 +83,11 @@ struct RootArrowFactoryPlugin {
 struct RootObjectReadingCapability {
   // The unique name of this capability
   std::string name = "unknown";
+  // Convert a logical filename to an actual object to be read
+  // This can be used, e.g. to read an RNTuple stored in
+  // a flat directory structure in a TFile vs a TTree stored inside
+  // a TDirectory (e.g. /DF_1000/o2tracks).
+  std::function<std::string(std::string)> lfn2objectPath;
   // Given a TFile, return the object which this capability support
   // Use a void * in order not to expose the kind of object to the
   // generic reading code. This is also where we load the plugin

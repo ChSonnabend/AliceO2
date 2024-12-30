@@ -1751,14 +1751,15 @@ class TPCTimeSeries : public Task
   }
 };
 
-o2::framework::DataProcessorSpec getTPCTimeSeriesSpec(const bool disableWriter, const o2::base::Propagator::MatCorrType matType, const bool enableUnbinnedWriter, bool tpcOnly)
+o2::framework::DataProcessorSpec getTPCTimeSeriesSpec(const bool disableWriter, const o2::base::Propagator::MatCorrType matType, const bool enableUnbinnedWriter, GTrackID::mask_t src)
 {
-  using GID = o2::dataformats::GlobalTrackID;
   auto dataRequest = std::make_shared<DataRequest>();
   bool useMC = false;
-  GID::mask_t srcTracks = tpcOnly ? GID::getSourcesMask("TPC") : GID::getSourcesMask("TPC,ITS,ITS-TPC,ITS-TPC-TRD,ITS-TPC-TOF,ITS-TPC-TRD-TOF");
+  GTrackID::mask_t srcTracks = GTrackID::getSourcesMask("TPC,ITS,ITS-TPC,ITS-TPC-TRD,ITS-TPC-TOF,ITS-TPC-TRD-TOF") & src;
+  srcTracks.set(GTrackID::TPC); // TPC must be always there
   dataRequest->requestTracks(srcTracks, useMC);
-  dataRequest->requestClusters(GID::getSourcesMask("TPC"), useMC);
+  dataRequest->requestClusters(GTrackID::getSourcesMask("TPC"), useMC);
+  bool tpcOnly = srcTracks == GTrackID::getSourcesMask("TPC");
   if (!tpcOnly) {
     dataRequest->requestPrimaryVertices(useMC);
   }

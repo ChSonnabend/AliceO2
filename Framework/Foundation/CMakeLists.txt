@@ -17,6 +17,7 @@ o2_add_library(FrameworkFoundation
                SOURCES src/RuntimeError.cxx
                src/Signpost.cxx
                src/BacktraceHelpers.cxx
+               src/O2LongInt.cxx
                TARGETVARNAME targetName
                PUBLIC_LINK_LIBRARIES O2::FrameworkFoundation3rdparty
               )

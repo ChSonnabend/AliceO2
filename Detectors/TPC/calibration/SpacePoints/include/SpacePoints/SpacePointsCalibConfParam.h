@@ -29,35 +29,35 @@ struct SpacePointsCalibConfParam : public o2::conf::ConfigurableParamHelper<Spac
   int additionalTracksMap = 3'500'000; ///< will be added to maxTracksPerCalibSlot for track sample with uniform acceptance (no PHOS hole)
 
   // define track cuts for track interpolation
-  int minTPCNCls = 70;             ///< min number of TPC clusters
-  int minTPCNClsNoOuterPoint = 50; ///< min number of TPC clusters if no hit in TRD or TOF exists
-  float maxTPCChi2 = 4.f;          ///< cut on TPC reduced chi2
-  int minITSNCls = 4;              ///< min number of ITS clusters
-  int minITSNClsNoOuterPoint = 6;  ///< min number of ITS clusters if no hit in TRD or TOF exists
-  int minTRDNTrklts = 3;           ///< min number of TRD space points
-  float maxITSChi2 = 20.f;         ///< cut on ITS reduced chi2
-  float maxTRDChi2 = 10.f;         ///< cut on TRD reduced chi2
-  float minPtNoOuterPoint = 0.8f;  ///< minimum pt for ITS-TPC tracks to be considered for extrapolation
-  int minTOFTRDPVContributors = 0; ///< min contributors from TRD or TOF (fast detectors) to consider tracks of this PV
-  bool ignoreNonPVContrib = true;  ///< flag if tracks which did not contribute to the PV should be ignored or not
+  int minTPCNCls = 70;                  ///< min number of TPC clusters
+  int minTPCNClsNoOuterPoint = 50;      ///< min number of TPC clusters if no hit in TRD or TOF exists
+  float maxTPCChi2 = 4.f;               ///< cut on TPC reduced chi2
+  int minITSNCls = 4;                   ///< min number of ITS clusters
+  int minITSNClsNoOuterPoint = 6;       ///< min number of ITS clusters if no hit in TRD or TOF exists
+  int minTRDNTrklts = 3;                ///< min number of TRD space points
+  float maxITSChi2 = 20.f;              ///< cut on ITS reduced chi2
+  float maxTRDChi2 = 10.f;              ///< cut on TRD reduced chi2
+  float minPtNoOuterPoint = 0.8f;       ///< minimum pt for ITS-TPC tracks to be considered for extrapolation
+  int minTOFTRDPVContributors = 0;      ///< min contributors from TRD or TOF (fast detectors) to consider tracks of this PV
+  bool ignoreNonPVContrib = true;       ///< flag if tracks which did not contribute to the PV should be ignored or not
   bool enableTrackDownsampling = false; ///< flag if track sampling shall be enabled or not
   float tsalisThreshold = 1.f;          ///< in case the sampling functions returns a value smaller than this the track is discarded (1. means no downsampling)
 
   // other settings for track interpolation
-  float sigYZ2TOF{.75f}; ///< for now assume cluster error for TOF equal for all clusters in both Y and Z
-  float maxSnp{.85f};    ///< max snp when propagating tracks
-  float maxStep{2.f};    ///< maximum step for propagation
+  float sigYZ2TOF{.75f};   ///< for now assume cluster error for TOF equal for all clusters in both Y and Z
+  float maxSnp{.85f};      ///< max snp when propagating tracks
+  float maxStep{2.f};      ///< maximum step for propagation
   bool debugTRDTOF{false}; ///< if true, ITS-TPC-TRD-TOF tracks and their seeding ITS-TPC-TRD track will both be interpolated and their residuals stored
 
   // steering of map creation after the residuals have already been written to file
   bool fitVdrift{true};             ///< if vDrift should be extracted (TODO: currently from unbinned residuals in macro mode only)
   bool writeBinnedResiduals{false}; ///< when creating the map from unbinned residuals store the binned residuals together with the voxel results
   bool useTrackData{true};          ///< if we have the track data available, we can redefine the above cuts for the map creation, e.g. minTPCNCls etc
-  bool timeFilter{false};   ///< consider only residuals as input from TFs with a specific time range specified via startTimeMS and endTimeMS
-  long startTimeMS{0L};     ///< the start of the time range in MS
-  long endTimeMS{1999999999999L}; ///< the end of the time range in MS
-  bool cutOnDCA{true};            ///< when creating the map from unbinned residuals cut on DCA estimated from ITS outer parameter
-  float maxDCA = 7.f;             ///< DCA cut value in cm
+  bool timeFilter{false};           ///< consider only residuals as input from TFs with a specific time range specified via startTimeMS and endTimeMS
+  long startTimeMS{0L};             ///< the start of the time range in MS
+  long endTimeMS{1999999999999L};   ///< the end of the time range in MS
+  bool cutOnDCA{true};              ///< when creating the map from unbinned residuals cut on DCA estimated from ITS outer parameter
+  float maxDCA = 7.f;               ///< DCA cut value in cm
 
   // parameters for outlier rejection
   bool skipOutlierFiltering{false};      ///< if set, the outlier filtering will not be applied at all
@@ -88,6 +88,7 @@ struct SpacePointsCalibConfParam : public o2::conf::ConfigurableParamHelper<Spac
   float maxSigY = 1.1f;                ///< maximum sigma for y of the voxel
   float maxSigZ = .7f;                 ///< maximum sigma for z of the voxel
   float maxGaussStdDev = 5.f;          ///< maximum number of sigmas to be considered for gaussian kernel smoothing
+  float maxZ2X = 1.f;                  ///< maximum Z/X
 
   O2ParamDef(SpacePointsCalibConfParam, "scdcalib");
 };

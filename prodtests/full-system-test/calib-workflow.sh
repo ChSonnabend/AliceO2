@@ -56,7 +56,7 @@ fi
 if [[ $CALIB_ASYNC_EXTRACTTIMESERIES == 1 ]] ; then
   CONFIG_TPCTIMESERIES=
   : ${CALIB_ASYNC_SAMPLINGFACTORTIMESERIES:=0.001}
-  if [[ ! -z "$CALIB_ASYNC_ENABLEUNBINNEDTIMESERIES" ]]; then
+  if [[ ! -z ${CALIB_ASYNC_ENABLEUNBINNEDTIMESERIES:-} ]]; then
     CONFIG_TPCTIMESERIES+=" --enable-unbinned-root-output --sample-unbinned-tsallis --threads ${TPCTIMESERIES_THREADS:-1}"
   fi
   if [[ $ON_SKIMMED_DATA == 1 ]] || [[ ! -z "$CALIB_ASYNC_SAMPLINGFACTORTIMESERIES" ]]; then
@@ -68,6 +68,8 @@ if [[ $CALIB_ASYNC_EXTRACTTIMESERIES == 1 ]] ; then
     fi
     CONFIG_TPCTIMESERIES+=" --sampling-factor ${SAMPLINGFACTORTIMESERIES}"
   fi
+  : ${TPCTIMESERIES_SOURCES:=$TRACK_SOURCES}
+  CONFIG_TPCTIMESERIES+=" --track-sources $TPCTIMESERIES_SOURCES"
   add_W o2-tpc-time-series-workflow "${CONFIG_TPCTIMESERIES}"
 fi
 

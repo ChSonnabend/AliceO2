@@ -187,6 +187,31 @@ struct RootNTupleVisitor : public ROOT::Experimental::Detail::RFieldVisitor {
     this->datatype = arrow::int32();
   }
 
+  void VisitInt8Field(const ROOT::Experimental::RField<std::int8_t>& field) override
+  {
+    this->datatype = arrow::int8();
+  }
+
+  void VisitInt16Field(const ROOT::Experimental::RField<std::int16_t>& field) override
+  {
+    this->datatype = arrow::int16();
+  }
+
+  void VisitUInt32Field(const ROOT::Experimental::RField<std::uint32_t>& field) override
+  {
+    this->datatype = arrow::uint32();
+  }
+
+  void VisitUInt8Field(const ROOT::Experimental::RField<std::uint8_t>& field) override
+  {
+    this->datatype = arrow::uint8();
+  }
+
+  void VisitUInt16Field(const ROOT::Experimental::RField<std::uint16_t>& field) override
+  {
+    this->datatype = arrow::int16();
+  }
+
   void VisitBoolField(const ROOT::Experimental::RField<bool>& field) override
   {
     this->datatype = arrow::boolean();
@@ -240,6 +265,8 @@ std::unique_ptr<ROOT::Experimental::RFieldBase> rootFieldFromArrow(std::shared_p
       return std::make_unique<RField<float>>(name);
     case arrow::Type::DOUBLE:
       return std::make_unique<RField<double>>(name);
+    case arrow::Type::STRING:
+      return std::make_unique<RField<std::string>>(name);
     default:
       throw runtime_error("Unsupported arrow column type");
   }

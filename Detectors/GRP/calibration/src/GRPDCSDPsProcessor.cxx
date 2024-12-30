@@ -185,7 +185,7 @@ bool GRPDCSDPsProcessor::processEnvVar(const DPCOM& dpcom)
 }
 
 //______________________________________________________________________
-bool GRPDCSDPsProcessor::processPairD(const DPCOM& dpcom, const std::string& alias, std::unordered_map<std::string, std::vector<std::pair<uint64_t, double>>>& mapToUpdate)
+bool GRPDCSDPsProcessor::processPairD(const DPCOM& dpcom, const std::string& alias, std::unordered_map<std::string, std::vector<std::pair<O2LongUInt, double>>>& mapToUpdate)
 {
 
   // function to process Data Points that is stored in a pair
@@ -207,7 +207,7 @@ bool GRPDCSDPsProcessor::processPairD(const DPCOM& dpcom, const std::string& ali
 }
 
 //______________________________________________________________________
-bool GRPDCSDPsProcessor::processPairS(const DPCOM& dpcom, const std::string& alias, std::pair<uint64_t, std::string>& p, bool& flag)
+bool GRPDCSDPsProcessor::processPairS(const DPCOM& dpcom, const std::string& alias, std::pair<O2LongUInt, std::string>& p, bool& flag)
 {
 
   // function to process string Data Points that is stored in a pair
@@ -237,7 +237,7 @@ bool GRPDCSDPsProcessor::processPairS(const DPCOM& dpcom, const std::string& ali
 
 //______________________________________________________________________
 
-bool GRPDCSDPsProcessor::compareToLatest(std::pair<uint64_t, double>& p, double val)
+bool GRPDCSDPsProcessor::compareToLatest(std::pair<O2LongUInt, double>& p, double val)
 {
 
   // check if the content of the pair should be updated
@@ -408,7 +408,7 @@ void GRPDCSDPsProcessor::updateCollimatorsCCDB()
 
 //______________________________________________________________________
 
-void GRPDCSDPsProcessor::printVectorInfo(const std::vector<std::pair<uint64_t, double>>& vect, bool afterUpdate)
+void GRPDCSDPsProcessor::printVectorInfo(const std::vector<std::pair<O2LongUInt, double>>& vect, bool afterUpdate)
 {
 
   std::string stage = afterUpdate ? "after update" : "before update";
@@ -422,7 +422,7 @@ void GRPDCSDPsProcessor::printVectorInfo(const std::vector<std::pair<uint64_t, d
 
 //______________________________________________________________________
 
-void GRPDCSDPsProcessor::updateVector(const DPID& dpid, std::vector<std::pair<uint64_t, double>>& vect, std::string alias, uint64_t timestamp, double val)
+void GRPDCSDPsProcessor::updateVector(const DPID& dpid, std::vector<std::pair<O2LongUInt, double>>& vect, std::string alias, O2LongUInt timestamp, double val)
 {
   printVectorInfo(vect, 0);
   bool updateFlag = false;

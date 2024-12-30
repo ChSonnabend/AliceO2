@@ -369,7 +369,7 @@ bool validateContents(std::shared_ptr<arrow::RecordBatch> batch)
 
 bool validateSchema(std::shared_ptr<arrow::Schema> schema)
 {
-  REQUIRE(schema->num_fields() == 10);
+  REQUIRE(schema->num_fields() == 11);
   REQUIRE(schema->field(0)->type()->id() == arrow::float32()->id());
   REQUIRE(schema->field(1)->type()->id() == arrow::float32()->id());
   REQUIRE(schema->field(2)->type()->id() == arrow::float32()->id());
@@ -380,6 +380,7 @@ bool validateSchema(std::shared_ptr<arrow::Schema> schema)
   REQUIRE(schema->field(7)->type()->id() == arrow::boolean()->id());
   REQUIRE(schema->field(8)->type()->id() == arrow::fixed_size_list(arrow::boolean(), 2)->id());
   REQUIRE(schema->field(9)->type()->id() == arrow::list(arrow::int32())->id());
+  REQUIRE(schema->field(10)->type()->id() == arrow::int8()->id());
   return true;
 }
 
@@ -435,6 +436,7 @@ TEST_CASE("RootTree2Dataset")
     bool manyBool[2];
     int vla[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     int vlaSize = 0;
+    char byte;
 
     t->Branch("px", &px, "px/F");
     t->Branch("py", &py, "py/F");
@@ -447,6 +449,7 @@ TEST_CASE("RootTree2Dataset")
     t->Branch("manyBools", &manyBool, "manyBools[2]/O");
     t->Branch("vla_size", &vlaSize, "vla_size/I");
     t->Branch("vla", vla, "vla[vla_size]/I");
+    t->Branch("byte", &byte, "byte/B");
     // fill the tree
     for (Int_t i = 0; i < 100; i++) {
       xyz[0] = 1;
@@ -463,6 +466,7 @@ TEST_CASE("RootTree2Dataset")
       manyBool[0] = (i % 4 == 0);
       manyBool[1] = (i % 5 == 0);
       vlaSize = i % 10;
+      byte = i;
       t->Fill();
     }
   }
@@ -512,7 +516,7 @@ TEST_CASE("RootTree2Dataset")
   auto batches = (*scanner)();
   auto result = batches.result();
   REQUIRE(result.ok());
-  REQUIRE((*result)->columns().size() == 10);
+  REQUIRE((*result)->columns().size() == 11);
   REQUIRE((*result)->num_rows() == 100);
   validateContents(*result);
 
@@ -552,7 +556,7 @@ TEST_CASE("RootTree2Dataset")
     auto batchesWritten = (*scanner)();
     auto resultWritten = batches.result();
     REQUIRE(resultWritten.ok());
-    REQUIRE((*resultWritten)->columns().size() == 10);
+    REQUIRE((*resultWritten)->columns().size() == 11);
     REQUIRE((*resultWritten)->num_rows() == 100);
     validateContents(*resultWritten);
   }
@@ -586,7 +590,7 @@ TEST_CASE("RootTree2Dataset")
   auto rntupleBatchesWritten = (*rntupleScannerWritten)();
   auto rntupleResultWritten = rntupleBatchesWritten.result();
   REQUIRE(rntupleResultWritten.ok());
-  REQUIRE((*rntupleResultWritten)->columns().size() == 10);
+  REQUIRE((*rntupleResultWritten)->columns().size() == 11);
   REQUIRE(validateSchema((*rntupleResultWritten)->schema()));
   REQUIRE((*rntupleResultWritten)->num_rows() == 100);
   REQUIRE(validateContents(*rntupleResultWritten));

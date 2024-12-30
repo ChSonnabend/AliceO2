@@ -57,6 +57,7 @@ enum TrackFlagsRun2Enum {
   FreeClsSPDTracklet = 0x1, // for SPD tracklets, tracklet from cluster not used in tracking
   TPCrefit = 0x2,
   GoldenChi2 = 0x4,
+  TPCout = 0x8
   // NOTE Highest 4 (29..32) bits reserved for PID hypothesis
 };
 enum DetectorMapEnum : uint8_t {

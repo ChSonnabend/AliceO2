@@ -40,6 +40,7 @@ GPUg() void fitTrackSeedsKernel(
   CellSeed* trackSeeds,
   const TrackingFrameInfo** foundTrackingFrameInfo,
   o2::its::TrackITSExt* tracks,
+  const float* minPts,
   const unsigned int nSeeds,
   const float Bz,
   const int startLevel,
@@ -175,13 +176,36 @@ void computeCellNeighboursHandler(CellSeed** cellsLayersDevice,
                                   const int nBlocks,
                                   const int nThreads);
 
-void filterCellNeighboursHandler(std::vector<int>&,
-                                 gpuPair<int, int>*,
-                                 unsigned int);
+int filterCellNeighboursHandler(std::vector<int>&,
+                                gpuPair<int, int>*,
+                                int*,
+                                unsigned int);
+
+template <int nLayers = 7>
+void processNeighboursHandler(const int startLayer,
+                              const int startLevel,
+                              CellSeed** allCellSeeds,
+                              CellSeed* currentCellSeeds,
+                              const unsigned int nCurrentCells,
+                              const unsigned char** usedClusters,
+                              int* neighbours,
+                              gsl::span<int*> neighboursDeviceLUTs,
+                              const TrackingFrameInfo** foundTrackingFrameInfo,
+                              const float bz,
+                              const float MaxChi2ClusterAttachment,
+                              const o2::base::Propagator* propagator,
+                              const o2::base::PropagatorF::MatCorrType matCorrType,
+                              const std::vector<int>& lastCellIdHost,        // temporary host vector
+                              const std::vector<CellSeed>& lastCellSeedHost, // temporary host vector
+                              std::vector<int>& updatedCellIdHost,           // temporary host vector
+                              std::vector<CellSeed>& updatedCellSeedHost,    // temporary host vector
+                              const int nBlocks,
+                              const int nThreads);
 
 void trackSeedHandler(CellSeed* trackSeeds,
                       const TrackingFrameInfo** foundTrackingFrameInfo,
                       o2::its::TrackITSExt* tracks,
+                      std::vector<float>& minPtsHost,
                       const unsigned int nSeeds,
                       const float Bz,
                       const int startLevel,

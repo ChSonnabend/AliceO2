@@ -76,9 +76,10 @@ class TimeFrameGPU : public TimeFrame
   void createCellsBuffers(const int);
   void createCellsDevice();
   void createCellsLUTDevice();
-  void createNeighboursDevice();
+  void createNeighboursIndexTablesDevice();
   void createNeighboursDevice(const unsigned int& layer, std::vector<std::pair<int, int>>& neighbours);
   void createNeighboursLUTDevice(const int, const unsigned int);
+  void createNeighboursDeviceArray();
   void createTrackITSExtDevice(std::vector<CellSeed>&);
   void downloadTrackITSExtDevice(std::vector<CellSeed>&);
   void downloadCellsNeighboursDevice(std::vector<std::vector<std::pair<int, int>>>&, const int);
@@ -113,7 +114,10 @@ class TimeFrameGPU : public TimeFrame
   Road<nLayers - 2>* getDeviceRoads() { return mRoadsDevice; }
   TrackITSExt* getDeviceTrackITSExt() { return mTrackITSExtDevice; }
   int* getDeviceNeighboursLUT(const int layer) { return mNeighboursLUTDevice[layer]; }
-  gpuPair<int, int>* getDeviceNeighbours(const int layer) { return mNeighboursDevice[layer]; }
+  gsl::span<int*> getDeviceNeighboursLUTs() { return mNeighboursLUTDevice; }
+  gpuPair<int, int>* getDeviceNeighbourPairs(const int layer) { return mNeighbourPairsDevice[layer]; }
+  int* getDeviceNeighbours(const int layer) { return mNeighboursDevice[layer]; }
+  int** getDeviceNeighboursArray() { return mNeighboursDeviceArray; }
   TrackingFrameInfo* getDeviceTrackingFrameInfo(const int);
   const TrackingFrameInfo** getDeviceArrayTrackingFrameInfo() const { return mTrackingFrameInfoDeviceArray; }
   const Cluster** getDeviceArrayClusters() const { return mClustersDeviceArray; }
@@ -195,7 +199,9 @@ class TimeFrameGPU : public TimeFrame
 
   Road<nLayers - 2>* mRoadsDevice;
   TrackITSExt* mTrackITSExtDevice;
-  std::array<gpuPair<int, int>*, nLayers - 2> mNeighboursDevice;
+  std::array<gpuPair<int, int>*, nLayers - 2> mNeighbourPairsDevice;
+  std::array<int*, nLayers - 2> mNeighboursDevice;
+  int** mNeighboursDeviceArray;
   std::array<TrackingFrameInfo*, nLayers> mTrackingFrameInfoDevice;
   const TrackingFrameInfo** mTrackingFrameInfoDeviceArray;
 

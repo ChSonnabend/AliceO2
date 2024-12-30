@@ -14,22 +14,23 @@
 
 #include <Rtypes.h>
 #include "Framework/Logger.h"
+#include "Framework/O2LongInt.h"
 
 namespace o2
 {
 namespace fit
 {
 struct DCSDPValues {
-  std::vector<std::pair<uint64_t, int64_t>> values;
+  std::vector<std::pair<O2LongUInt, O2LongInt>> values;
 
   DCSDPValues()
   {
-    values = std::vector<std::pair<uint64_t, int64_t>>();
+    values = std::vector<std::pair<O2LongUInt, O2LongInt>>();
   }
 
   void add(uint64_t timestamp, int64_t value)
   {
-    values.push_back(std::pair<uint64_t, int64_t>(timestamp, value));
+    values.push_back(std::pair<O2LongUInt, O2LongInt>(timestamp, value));
   }
 
   bool empty()

@@ -179,12 +179,12 @@ struct ImplementationContext {
 
 std::function<void*(TDirectoryFile*, std::string const&)> getHandleByClass(char const* classname)
 {
-  return [classname](TDirectoryFile* file, std::string const& path) { return file->GetObjectChecked(path.c_str(), TClass::GetClass(classname)); };
+  return [c = TClass::GetClass(classname)](TDirectoryFile* file, std::string const& path) { return file->GetObjectChecked(path.c_str(), c); };
 }
 
 std::function<void*(TBufferFile*, std::string const&)> getBufferHandleByClass(char const* classname)
 {
-  return [classname](TBufferFile* buffer, std::string const& path) { buffer->Reset(); return buffer->ReadObjectAny(TClass::GetClass(classname)); };
+  return [c = TClass::GetClass(classname)](TBufferFile* buffer, std::string const& path) { buffer->Reset(); return buffer->ReadObjectAny(c); };
 }
 
 void lazyLoadFactory(std::vector<RootArrowFactory>& implementations, char const* specs)
@@ -210,6 +210,13 @@ struct RNTupleObjectReadingCapability : o2::framework::RootObjectReadingCapabili
 
     return new RootObjectReadingCapability{
       .name = "rntuple",
+      .lfn2objectPath = [](std::string s) {
+         std::replace(s.begin()+1, s.end(), '/', '-');
+         if (s.starts_with("/")) {
+          return s;
+        } else {
+          return "/" + s;
+        } },
       .getHandle = getHandleByClass("ROOT::Experimental::RNTuple"),
       .getBufferHandle = getBufferHandleByClass("ROOT::Experimental::RNTuple"),
       .factory = [context]() -> RootArrowFactory& {
@@ -226,6 +233,7 @@ struct TTreeObjectReadingCapability : o2::framework::RootObjectReadingCapability
 
     return new RootObjectReadingCapability{
       .name = "ttree",
+      .lfn2objectPath = [](std::string s) { return s; },
       .getHandle = getHandleByClass("TTree"),
       .getBufferHandle = getBufferHandleByClass("TTree"),
       .factory = [context]() -> RootArrowFactory& {

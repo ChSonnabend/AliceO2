@@ -50,16 +50,18 @@ using namespace o2::tpc;
 //______________________________________________________________________________
 void TrackResiduals::init(bool doBinning)
 {
+  mSmoothPol2[VoxX] = true;
+  mSmoothPol2[VoxF] = true;
+  setKernelType();
+  mParams = &SpacePointsCalibConfParam::Instance();
+  mMaxZ2X = mParams->maxZ2X;
+  mIsInitialized = true;
+
   if (doBinning) {
     // initialize binning
     initBinning();
   }
 
-  mSmoothPol2[VoxX] = true;
-  mSmoothPol2[VoxF] = true;
-  setKernelType();
-  mParams = &SpacePointsCalibConfParam::Instance();
-  mIsInitialized = true;
   LOG(info) << "Initialization complete";
 }
 
@@ -182,10 +184,10 @@ void TrackResiduals::initBinning()
   }
   //
   // Z/X binning
-  mDZ2XI = mNZ2XBins / sMaxZ2X;
+  mDZ2XI = mNZ2XBins / mMaxZ2X;
   mDZ2X = 1.0f / mDZ2XI; // for uniform case only
   if (mUniformBins[VoxZ]) {
-    LOGF(info, "Z/X-binning is uniform with %i bins from 0 to %f", mNZ2XBins, sMaxZ2X);
+    LOGF(info, "Z/X-binning is uniform with %i bins from 0 to %f", mNZ2XBins, mMaxZ2X);
     for (int iz = 0; iz < mNZ2XBins; ++iz) {
       mZ2XBinsDH.push_back(.5f * mDZ2X);
       mZ2XBinsDI.push_back(mDZ2XI);
@@ -265,7 +267,7 @@ int TrackResiduals::getRowID(float x) const
 bool TrackResiduals::findVoxelBin(int secID, float x, float y, float z, std::array<unsigned char, VoxDim>& bvox) const
 {
   // Z/X bin
-  if (fabs(z / x) > sMaxZ2X) {
+  if (fabs(z / x) > mMaxZ2X) {
     return false;
   }
   int bz = getZ2XBinExact(secID < SECTORSPERSIDE ? z / x : -z / x);
@@ -601,7 +603,7 @@ int TrackResiduals::validateVoxels(int iSec)
           resVox.flags |= Masked;
         }
       } // loop over Z
-    }   // loop over Y/X
+    } // loop over Y/X
     mValidFracXBins[iSec][ix] = static_cast<float>(cntValid) / (mNY2XBins * mNZ2XBins);
     LOGP(debug, "Sector {}: xBin {} has {} % of voxels valid. Total masked due to fit: {} ,and sigma: {}",
          iSec, ix, mValidFracXBins[iSec][ix] * 100., cntMaskedFit, cntMaskedSigma);

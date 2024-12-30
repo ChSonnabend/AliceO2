@@ -21,18 +21,19 @@
 // o2 includes
 #include "CCDB/CcdbApi.h"
 #include "CCDB/CcdbObjectInfo.h"
-#include "CommonUtils/NameConf.h"
+// #include "CommonUtils/NameConf.h"
 #include "DataFormatsTPC/TrackTPC.h"
-#include "DataFormatsParameters/GRPObject.h"
+// #include "DataFormatsParameters/GRPObject.h"
 #include "DetectorsCalibration/Utils.h"
 #include "Framework/Task.h"
 #include "Framework/DataProcessorSpec.h"
 #include "Framework/ConfigParamRegistry.h"
 #include "Framework/CCDBParamSpec.h"
+#include "GPUO2InterfaceConfigurableParam.h"
 #include "TPCCalibration/CalibratordEdx.h"
 #include "TPCWorkflow/ProcessingHelpers.h"
 #include "DetectorsBase/GRPGeomHelper.h"
-#include "TPCBase/CDBInterface.h"
+#include "TPCBase/CDBTypes.h"
 #include "TPCBase/Utils.h"
 
 using namespace o2::framework;
@@ -85,6 +86,29 @@ class CalibratordEdxDevice : public Task
     mCalibrator->setTrackDebug(trackDebug);
     mCalibrator->setMakeGaussianFits(makeGaussianFits);
 
+    mCustomdEdxFileName = o2::gpu::GPUConfigurableParamGPUSettingsO2::Instance().dEdxCorrFile;
+    mDisableTimeGain = o2::gpu::GPUConfigurableParamGPUSettingsO2::Instance().dEdxDisableResidualGain;
+
+    if (mDisableTimeGain) {
+      LOGP(info, "TimeGain correction was disabled via GPU_global.dEdxDisableResidualGain=1");
+    }
+
+    if (!mDisableTimeGain && !mCustomdEdxFileName.empty()) {
+      std::unique_ptr<TFile> fdEdxCustom(TFile::Open(mCustomdEdxFileName.data()));
+      if (!fdEdxCustom || !fdEdxCustom->IsOpen() || fdEdxCustom->IsZombie()) {
+        LOGP(error, "Could not open custom TimeGain file {}", mCustomdEdxFileName);
+      } else {
+        const auto timeGain = fdEdxCustom->Get<o2::tpc::CalibdEdxCorrection>("CalibdEdxCorrection");
+        if (!timeGain) {
+          LOGP(error, "Could not load 'CalibdEdxCorrection' from file {}", mCustomdEdxFileName);
+        } else {
+          mTimeGain = *timeGain;
+          const auto meanParamTot = mTimeGain.getMeanParams(ChargeType::Tot);
+          LOGP(info, "Loaded custom TimeGain from file {} with {} dimensions and mean qTot Params {}", mCustomdEdxFileName, mTimeGain.getDims(), utils::elementsToString(meanParamTot));
+        }
+      }
+    }
+
     if (dumpData) {
       const auto dumpDataName = ic.options().get<std::string>("file-dump-name");
       mCalibrator->enableDebugOutput(dumpDataName);
@@ -96,7 +120,7 @@ class CalibratordEdxDevice : public Task
     if (o2::base::GRPGeomHelper::instance().finaliseCCDB(matcher, obj)) {
       return;
     }
-    if (matcher == ConcreteDataMatcher("TPC", "TIMEGAIN", 0)) {
+    if ((mDisableTimeGain == 0) && mCustomdEdxFileName.empty() && (matcher == ConcreteDataMatcher("TPC", "TIMEGAIN", 0))) {
       mTimeGain = *(o2::tpc::CalibdEdxCorrection*)obj;
       const auto meanParamTot = mTimeGain.getMeanParams(ChargeType::Tot);
       LOGP(info, "Updating TimeGain with {} dimensions and mean qTot Params {}", mTimeGain.getDims(), utils::elementsToString(meanParamTot));
@@ -181,6 +205,8 @@ class CalibratordEdxDevice : public Task
   uint32_t mRunNumber{0};                   ///< processed run number
   long mCalibIntervalExtensionMS{0};        ///< Extension of the calibration interval end in ms
   o2::tpc::CalibdEdxCorrection mTimeGain{}; ///< currently valid TimeGain
+  bool mDisableTimeGain{false};             ///< if time gain is disabled via GPU_global.dEdxDisableResidualGain=1
+  std::string mCustomdEdxFileName{};        ///< name of the custom dE/dx file configured via GPU_global.dEdxCorrFile
 };
 
 DataProcessorSpec getCalibratordEdxSpec(const o2::base::Propagator::MatCorrType matType)

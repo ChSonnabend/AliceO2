@@ -38,6 +38,7 @@ o2_add_library(TPCBase
                        src/IonTailSettings.cxx
                        src/FEEConfig.cxx
                        src/DeadChannelMapCreator.cxx
+                       src/CommonModeCorrection.cxx
                PUBLIC_LINK_LIBRARIES Vc::Vc Boost::boost O2::DataFormatsTPC
                                      O2::DetectorsRaw O2::CCDB FairRoot::Base)
 
@@ -70,6 +71,7 @@ o2_target_root_dictionary(TPCBase
                                   include/TPCBase/IonTailSettings.h
                                   include/TPCBase/FEEConfig.h
                                   include/TPCBase/DeadChannelMapCreator.h
+                                  include/TPCBase/CommonModeCorrection.h
                                   include/TPCBase/CDBTypes.h)
 o2_add_test(Base
             COMPONENT_NAME tpc
