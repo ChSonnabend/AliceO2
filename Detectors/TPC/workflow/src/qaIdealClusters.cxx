@@ -513,7 +513,7 @@ void qaCluster::read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>
 {
 
   o2::steer::MCKinematicsReader reader((simulationPath + "/collisioncontext.root").c_str());
-  std::vector<std::array<float,7>> track_ideal_info;
+  std::vector<std::array<float,8>> track_ideal_info;
   std::vector<std::string> track_ideal_branches = {"SourceID", "EventID", "TrackID", "Eta", "Phi", "P", "Pt"};
 
   tracks.resize(reader.getNSources());
@@ -523,7 +523,7 @@ void qaCluster::read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>
       tracks[src][ev] = reader.getTracks(src, ev);
       int track_counter = 0;
       for(auto trk : tracks[src][ev]){
-        track_ideal_info.push_back({(float)src, (float)ev, (float)track_counter, (float)trk.GetEta(), (float)trk.GetPhi(), (float)trk.GetP(), (float)trk.GetPt()});
+        track_ideal_info.push_back({(float)src, (float)ev, (float)track_counter, (float)trk.GetEta(), (float)trk.GetPhi(), (float)trk.GetP(), (float)trk.GetPt(), (float)trk.GetPdgCode()});
         track_counter++;
       }
     }
