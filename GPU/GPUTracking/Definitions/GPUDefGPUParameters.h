@@ -345,6 +345,12 @@
   #ifndef GPUCA_LB_GPUTPCDecompressionUtilKernels_sortPerSectorRow
     #define GPUCA_LB_GPUTPCDecompressionUtilKernels_sortPerSectorRow 256
   #endif
+    #ifndef GPUCA_LB_GPUTPCDecompressionUtilKernels_countFilteredClusters
+    #define GPUCA_LB_GPUTPCDecompressionUtilKernels_countFilteredClusters 256
+  #endif
+    #ifndef GPUCA_LB_GPUTPCDecompressionUtilKernels_storeFilteredClusters
+    #define GPUCA_LB_GPUTPCDecompressionUtilKernels_storeFilteredClusters 256
+  #endif
   #ifndef GPUCA_LB_GPUTPCCFDecodeZS
     #define GPUCA_LB_GPUTPCCFDecodeZS 128, 4
   #endif

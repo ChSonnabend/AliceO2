@@ -42,6 +42,8 @@ namespace o2
 namespace eventgen
 {
 
+std::atomic<int> GeneratorPythia8::Pythia8InstanceCounter;
+
 /*****************************************************************/
 /*****************************************************************/
 
@@ -57,6 +59,8 @@ GeneratorPythia8::GeneratorPythia8() : GeneratorPythia8(GeneratorPythia8Param::I
 GeneratorPythia8::GeneratorPythia8(Pythia8GenConfig const& config) : Generator("ALICEo2", "ALICEo2 Pythia8 Generator")
 {
   /** constructor **/
+  mThisPythia8InstanceID = GeneratorPythia8::Pythia8InstanceCounter;
+  GeneratorPythia8::Pythia8InstanceCounter++;
 
   mInterface = reinterpret_cast<void*>(&mPythia);
   mInterfaceName = "pythia8";
@@ -116,7 +120,15 @@ void GeneratorPythia8::seedGenerator()
     // Otherwise will seed the generator with the state of
     // TRandom::GetSeed. This is the seed that is influenced from
     // SimConfig --seed command line options options.
-    seed = (gRandom->TRandom::GetSeed() % (MAX_SEED + 1));
+    seed = gRandom->TRandom::GetSeed(); // this uses the "original" seed
+    // we advance the seed by one so that the next Pythia8 generator gets a different value
+    if (mThisPythia8InstanceID > 0) {
+      gRandom->Rndm();
+      LOG(info) << "Multiple Pythia8 generator instances detected .. automatically adjusting seed further to avoid overlap ";
+      seed = seed ^ gRandom->GetSeed(); // this uses the "current" seed
+    }
+    // apply max seed cuttof
+    seed = seed % (MAX_SEED + 1);
     LOG(info) << "GeneratorPythia8: Using random seed from gRandom % 900000001: " << seed;
   }
   mPythia.readString("Random:setSeed on");
@@ -679,6 +691,9 @@ void GeneratorPythia8::updateHeader(o2::dataformats::MCEventHeader* eventHeader)
   eventHeader->putInfo<float>(Key::weight, mPythia.info.weight());
 
   auto& info = mPythia.info;
+
+  eventHeader->putInfo<int>(Key::acceptedEvents, info.nAccepted());
+  eventHeader->putInfo<int>(Key::attemptedEvents, info.nTried());
 
   // Set PDF information
   eventHeader->putInfo<int>(Key::pdfParton1Id, info.id1pdf());

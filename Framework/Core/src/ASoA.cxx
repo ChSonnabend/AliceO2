@@ -115,11 +115,14 @@ std::shared_ptr<arrow::Table> ArrowHelpers::concatTables(std::vector<std::shared
 
 arrow::ChunkedArray* getIndexFromLabel(arrow::Table* table, const char* label)
 {
-  auto index = table->schema()->GetAllFieldIndices(label);
-  if (index.empty()) {
+  auto field = std::find_if(table->schema()->fields().begin(), table->schema()->fields().end(), [&](std::shared_ptr<arrow::Field> const& f) {
+    return o2::framework::strToUpper(label) == o2::framework::strToUpper(std::string{f->name()});
+  });
+  if (field == table->schema()->fields().end()) {
     o2::framework::throw_error(o2::framework::runtime_error_f("Unable to find column with label %s", label));
   }
-  return table->column(index[0]).get();
+  auto index = std::distance(table->schema()->fields().begin(), field);
+  return table->column(index).get();
 }
 
 void notBoundTable(const char* tableName)
@@ -147,6 +150,12 @@ std::string cutString(std::string&& str)
   if (pos != std::string::npos) {
     str.erase(pos);
   }
+  return str;
+}
+
+std::string strToUpper(std::string&& str)
+{
+  std::transform(str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::toupper(c); });
   return str;
 }
 } // namespace o2::framework

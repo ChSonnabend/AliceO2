@@ -1,0 +1,53 @@
+{
+  "mode": "parallel",
+  "generators": [
+    {
+      "name": "pythia8",
+      "config": {
+        "config": "$O2_ROOT/share/Generators/egconfig/pythia8_inel.cfg",
+        "hooksFileName": "",
+        "hooksFuncName": "",
+        "includePartonEvent": false,
+        "particleFilter": "",
+        "verbose": 0
+      }
+    },
+    {
+      "name": "pythia8",
+      "config": {
+        "config": "$O2_ROOT/share/Generators/egconfig/pythia8_inel.cfg",
+        "hooksFileName": "",
+        "hooksFuncName": "",
+        "includePartonEvent": false,
+        "particleFilter": "",
+        "verbose": 0
+      }
+    },
+    {
+      "name": "pythia8",
+      "config": {
+        "config": "$O2_ROOT/share/Generators/egconfig/pythia8_inel.cfg",
+        "hooksFileName": "",
+        "hooksFuncName": "",
+        "includePartonEvent": false,
+        "particleFilter": "",
+        "verbose": 0
+      }
+    },
+    {
+      "name": "pythia8",
+      "config": {
+        "config": "$O2_ROOT/share/Generators/egconfig/pythia8_inel.cfg",
+        "hooksFileName": "",
+        "hooksFuncName": "",
+        "includePartonEvent": false,
+        "particleFilter": "",
+        "verbose": 0
+      }
+    }
+  ],
+  "fractions": [
+    1,
+    1
+  ]
+}

@@ -32,6 +32,10 @@
 #pragma link C++ class o2::eventgen::ExternalGenConfig + ;
 #pragma link C++ class o2::eventgen::GeneratorGeantinos + ;
 #pragma link C++ class o2::conf::ConfigurableParamHelper < o2::eventgen::GeneratorExternalParam> + ;
+#pragma link C++ class o2::eventgen::GeneratorFromEventPool + ;
+#pragma link C++ class o2::eventgen::GeneratorEventPoolParam + ;
+#pragma link C++ class o2::eventgen::EventPoolGenConfig + ;
+#pragma link C++ class o2::conf::ConfigurableParamPromoter < o2::eventgen::GeneratorEventPoolParam, o2::eventgen::EventPoolGenConfig> + ;
 #ifdef GENERATORS_WITH_HEPMC3
 #pragma link C++ class o2::eventgen::GeneratorHepMC + ;
 #pragma link C++ class o2::eventgen::HepMCGenConfig + ;

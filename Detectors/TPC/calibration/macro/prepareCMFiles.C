@@ -28,7 +28,10 @@
 using namespace o2::tpc::cru_calib_helpers;
 using namespace o2::tpc;
 
-void prepareCMFiles(const std::string_view pulserFile, std::string outputDir = "./")
+/// \param limitHighCouplingPads if > 0 limit pads in the high coupling region to this value
+/// \param replaceHighCouplingPads if > 0 replace pads in the high coupling region by this value (take preceedence over limitHighCouplingPads)
+/// \param maxValue if > 0 limit to this maximum value
+void prepareCMFiles(const std::string_view pulserFile, std::string outputDir = "./", float limitHighCouplingPads = 0, float replaceHighCouplingPads = 0, float maxValue = 0)
 {
   constexpr uint32_t DataBits = 8;
   constexpr uint32_t FractionalBits = 6;
@@ -115,6 +118,7 @@ void prepareCMFiles(const std::string_view pulserFile, std::string outputDir = "
       const int fecInPartition = fecInfo.getIndex() - partInfo.getSectorFECOffset();
       const int dataWrapperID = fecInPartition >= fecOffset;
       const int globalLinkID = (fecInPartition % fecOffset) + dataWrapperID * 12;
+      const auto& padPos = mapper.padPos(globalPad);
 
       float pulserVal = rocPulserQtot.getValue(ipad);
 
@@ -126,6 +130,20 @@ void prepareCMFiles(const std::string_view pulserFile, std::string outputDir = "
       if (pulserVal > MaxVal) {
         LOGP(error, "Too large Pulser Qtot value in ROC {:2}, CRU {:3}, fec in CRU: {:2}, SAMPA: {}, channel: {:2}, pulserQtot norm: {:.4f}, setting value to max val: {}", iroc, cruID, fecInPartition, sampa, sampaChannel, pulserVal, MaxVal);
         pulserVal = MaxVal;
+      }
+
+      if (replaceHighCouplingPads > 0) {
+        if (Mapper::isHighCouplingPad(padPos.getRow(), padPos.getPad())) {
+          pulserVal = replaceHighCouplingPads;
+        }
+      } else if (limitHighCouplingPads > 0) {
+        if (Mapper::isHighCouplingPad(padPos.getRow(), padPos.getPad())) {
+          pulserVal = std::min(pulserVal, limitHighCouplingPads);
+        }
+      }
+
+      if (maxValue > 0) {
+        pulserVal = std::min(pulserVal, maxValue);
       }
 
       const int hwChannel = getHWChannel(sampa, sampaChannel, region % 2);
@@ -143,22 +161,36 @@ void prepareCMFiles(const std::string_view pulserFile, std::string outputDir = "
 
   const bool onlyFilled = false;
   // ===| k-Values full float precision |===
-  const auto outFileFloatTxt = (outputDir + "/commonMode_K_values_float.txt");
-  const auto outFileFloatRoot = (outputDir + "/commonMode_K_values_float.root");
+  string nameAdd;
+  if (replaceHighCouplingPads > 0) {
+    nameAdd = fmt::format(".replaceHC_{:.2}", replaceHighCouplingPads);
+  } else if (limitHighCouplingPads > 0) {
+    nameAdd = fmt::format(".limitHC_{:.2}", limitHighCouplingPads);
+  }
+
+  if (maxValue > 0) {
+    nameAdd += fmt::format(".maxValue_{:.2}", maxValue);
+  }
+
+  string outNameBase = "commonMode_K_values" + nameAdd;
+  string outNameInvBase = "commonMode_inv_K_values" + nameAdd;
+
+  const auto outFileFloatTxt = (outputDir + "/" + outNameBase + "_float.txt");
+  const auto outFileFloatRoot = (outputDir + "/" + outNameBase + "_float.root");
   writeValues(outFileFloatTxt, commonModeKValuesFloat, onlyFilled);
 
-  getCalPad<FractionalBits>(outFileFloatTxt, outFileFloatRoot, "CMkValues");
+  getCalPad<0>(outFileFloatTxt, outFileFloatRoot, "CMkValues");
 
   // ===| k-Values limited precision 2I6F |===
-  const auto outFileTxt = (outputDir + "/commonMode_K_values.txt");
-  const auto outFileRoot = (outputDir + "/commonMode_K_values.root");
+  const auto outFileTxt = (outputDir + "/" + outNameBase + ".txt");
+  const auto outFileRoot = (outputDir + "/" + outNameBase + ".root");
   writeValues(outFileTxt, commonModeKValues, onlyFilled);
 
   getCalPad<FractionalBits>(outFileTxt, outFileRoot, "CMkValues");
 
   // ===| inverse k-Values limited precision 2I6F |===
-  const auto outFileInvTxt = (outputDir + "/commonMode_inv_K_values.txt");
-  const auto outFileInvRoot = (outputDir + "/commonMode_inv_K_values.root");
+  const auto outFileInvTxt = (outputDir + "/" + outNameInvBase + ".txt");
+  const auto outFileInvRoot = (outputDir + "/" + outNameInvBase + ".root");
   writeValues(outFileInvTxt, commonModeInvKValues, onlyFilled);
 
   getCalPad<FractionalBits>(outFileInvTxt, outFileInvRoot, "InvCMkValues");

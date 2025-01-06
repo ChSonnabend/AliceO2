@@ -77,6 +77,11 @@ consteval uint32_t compile_time_hash(char const* str)
   return crc32(str, static_cast<int>(__builtin_strlen(str)) - 1) ^ 0xFFFFFFFF;
 }
 
+consteval uint32_t operator""_h(const char* str, size_t)
+{
+  return compile_time_hash(str);
+}
+
 constexpr uint32_t runtime_crc32(char const* str, int length)
 {
   uint32_t crc = 0xFFFFFFFF;

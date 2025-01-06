@@ -15,6 +15,7 @@
 #include <deque>
 #include <numeric>
 #include "Framework/Logger.h"
+#include "Framework/O2LongInt.h"
 #include "DetectorsDCS/DataPointCompositeObject.h"
 #include "DetectorsDCS/DataPointIdentifier.h"
 #include "DetectorsDCS/DataPointValue.h"
@@ -39,10 +40,10 @@ using DPVAL = o2::dcs::DataPointValue;
 using DPCOM = o2::dcs::DataPointCompositeObject;
 
 struct ZDCDCSinfo {
-  std::pair<uint64_t, double> firstValue; // first value seen by the ZDC DCS processor
-  std::pair<uint64_t, double> lastValue;  // last value seen by the ZDC DCS processor
-  std::pair<uint64_t, double> midValue;   // mid value seen by the ZDC DCS processor
-  std::pair<uint64_t, double> maxChange;  // maximum variation seen by the ZDC DCS processor
+  std::pair<O2LongUInt, double> firstValue; // first value seen by the ZDC DCS processor
+  std::pair<O2LongUInt, double> lastValue;  // last value seen by the ZDC DCS processor
+  std::pair<O2LongUInt, double> midValue;   // mid value seen by the ZDC DCS processor
+  std::pair<O2LongUInt, double> maxChange;  // maximum variation seen by the ZDC DCS processor
 
   ZDCDCSinfo()
   {

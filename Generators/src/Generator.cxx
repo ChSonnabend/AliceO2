@@ -28,6 +28,8 @@ namespace o2
 namespace eventgen
 {
 
+std::atomic<int> Generator::InstanceCounter{0};
+
 /*****************************************************************/
 /*****************************************************************/
 
@@ -35,6 +37,8 @@ Generator::Generator() : FairGenerator("ALICEo2", "ALICEo2 Generator"),
                          mBoost(0.)
 {
   /** default constructor **/
+  mThisInstanceID = Generator::InstanceCounter;
+  Generator::InstanceCounter++;
 }
 
 /*****************************************************************/
@@ -43,6 +47,8 @@ Generator::Generator(const Char_t* name, const Char_t* title) : FairGenerator(na
                                                                 mBoost(0.)
 {
   /** constructor **/
+  mThisInstanceID = Generator::InstanceCounter;
+  Generator::InstanceCounter++;
 }
 
 /*****************************************************************/

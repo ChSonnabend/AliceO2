@@ -60,6 +60,7 @@ class IntegratingMerger : public framework::Task
   void publishMovingWindow(framework::DataAllocator& allocator);
   static void merge(ObjectStore& mMergedDelta, ObjectStore&& other);
   void clear();
+  bool shouldFinishCycle(const framework::InputRecord&) const;
 
  private:
   header::DataHeader::SubSpecificationType mSubSpec;

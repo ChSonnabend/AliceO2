@@ -34,7 +34,7 @@
 using namespace o2::framework;
 using DetID = o2::detectors::DetID;
 
-std::array<o2::header::DataOrigin, 1> exceptionsDetID{"GRP"};
+std::array<o2::header::DataOrigin, 2> exceptionsDetID{"GRP", "AGD"};
 
 void sendAnswer(const std::string& what, const std::string& ack_chan, fair::mq::Device& device)
 {

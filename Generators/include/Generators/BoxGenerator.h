@@ -18,6 +18,7 @@
 #include "TParticle.h"
 #include <vector>
 #include <Generators/BoxGunParam.h>
+#include "SimulationDataFormat/MCEventHeader.h"
 
 namespace o2::eventgen
 {
@@ -90,6 +91,14 @@ class BoxGenerator : public Generator
     mParticles.clear();
     std::copy(mEvent.begin(), mEvent.end(), std::back_insert_iterator(mParticles));
     return true;
+  }
+
+  void updateHeader(o2::dataformats::MCEventHeader* eventHeader) override
+  {
+    using Key = o2::dataformats::MCInfoKeys;
+    if (eventHeader) {
+      eventHeader->putInfo<std::string>(Key::generator, "o2::eventgen::BoxGenerator");
+    }
   }
 
  private:

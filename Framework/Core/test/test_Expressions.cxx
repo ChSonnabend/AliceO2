@@ -184,7 +184,7 @@ TEST_CASE("TestGandivaTreeCreation")
   auto projector_b = createProjector(schema2, ptespecs, resfield2);
   auto fields = o2::soa::createFieldsFromColumns(o2::aod::Tracks::persistent_columns_t{});
   auto schema_p = std::make_shared<arrow::Schema>(fields);
-  auto projector_alt = o2::framework::expressions::createProjectors(o2::framework::pack<o2::aod::track::Pt>{}, fields, schema_p);
+  auto projector_alt = o2::framework::expressions::createProjectors(o2::framework::pack<o2::aod::track::Pt>{}, {resfield2}, schema_p);
 
   Filter bitwiseFilter = (o2::aod::track::flags & static_cast<uint32_t>(o2::aod::track::TPCrefit)) != 0u;
   auto bwf = createOperations(bitwiseFilter);

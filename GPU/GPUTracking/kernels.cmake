@@ -108,6 +108,8 @@ o2_gpu_add_kernel("GPUTPCCompressionGatherKernels, multiBlock"        "GPUTPCCom
 o2_gpu_add_kernel("GPUTPCDecompressionKernels, step0attached"         "= TPCDECOMPRESSION"                                    LB      simple int32_t trackStart int32_t trackEnd)
 o2_gpu_add_kernel("GPUTPCDecompressionKernels, step1unattached"       "= TPCDECOMPRESSION"                                    LB      simple int32_t sliceStart int32_t nSlices)
 o2_gpu_add_kernel("GPUTPCDecompressionUtilKernels, sortPerSectorRow"  "GPUTPCDecompressionKernels"                            LB      simple)
+o2_gpu_add_kernel("GPUTPCDecompressionUtilKernels, countFilteredClusters"  "GPUTPCDecompressionKernels"                       LB      simple)
+o2_gpu_add_kernel("GPUTPCDecompressionUtilKernels, storeFilteredClusters"  "GPUTPCDecompressionKernels"                       LB      simple)
 o2_gpu_add_kernel("GPUTPCCFCheckPadBaseline"                          "= TPCCLUSTERFINDER"                                    LB      single)
 o2_gpu_add_kernel("GPUTPCCFChargeMapFiller, fillIndexMap"             "= TPCCLUSTERFINDER"                                    LB      single)
 o2_gpu_add_kernel("GPUTPCCFChargeMapFiller, fillFromDigits"           "= TPCCLUSTERFINDER"                                    LB      single)

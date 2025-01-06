@@ -90,7 +90,7 @@ float Vertexer::clustersToVerticesHybrid(std::function<void(std::string s)> logg
     auto timeVertexingIteration = evaluateTask(
       &Vertexer::findVerticesHybrid, "Hybrid Vertexer vertex finding", [](std::string) {}, iteration);
 
-    printEpilog(logger, true, nTracklets01, nTracklets12, mTimeFrame->getNLinesTotal(), mTimeFrame->getTotVertIteration().size(), timeInit, timeTracklet, timeSelection, timeVertexing);
+    printEpilog(logger, true, nTracklets01, nTracklets12, mTimeFrame->getNLinesTotal(), mTimeFrame->getTotVertIteration()[iteration], timeInitIteration, timeTrackletIteration, timeSelectionIteration, timeVertexingIteration);
     timeInit += timeInitIteration;
     timeTracklet += timeTrackletIteration;
     timeSelection += timeSelectionIteration;
@@ -142,9 +142,9 @@ void Vertexer::printEpilog(std::function<void(std::string s)> logger,
                            const float initT, const float trackletT, const float selecT, const float vertexT)
 {
   float total = initT + trackletT + selecT + vertexT;
-  logger(fmt::format(" - {}Vertexer: found {} | {} tracklets in: {} ms", isHybrid ? "Hybrid" : "", trackletN01, trackletN12, trackletT));
-  logger(fmt::format(" - {}Vertexer: selected {} tracklets in: {} ms", isHybrid ? "Hybrid" : "", selectedN, selecT));
-  logger(fmt::format(" - {}Vertexer: found {} vertices in: {} ms", isHybrid ? "Hybrid" : "", vertexN, vertexT));
+  logger(fmt::format(" - {}Vertexer: found {} | {} tracklets in: {} ms", isHybrid ? "Hybrid " : "", trackletN01, trackletN12, trackletT));
+  logger(fmt::format(" - {}Vertexer: selected {} tracklets in: {} ms", isHybrid ? "Hybrid " : "", selectedN, selecT));
+  logger(fmt::format(" - {}Vertexer: found {} vertices in: {} ms", isHybrid ? "Hybrid " : "", vertexN, vertexT));
   // logger(fmt::format(" - Timeframe {} vertexing completed in: {} ms, using {} thread(s).", mTimeFrameCounter++, total, mTraits->getNThreads()));
 }
 

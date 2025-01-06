@@ -63,6 +63,7 @@ class TreeStream
   const char* getName() const { return mTree.GetName(); }
   void setID(int id) { mID = id; }
   int getID() const { return mID; }
+
   TreeStream& operator<<(const Bool_t& b)
   {
     CheckIn('B', &b);
@@ -72,6 +73,12 @@ class TreeStream
   TreeStream& operator<<(const Char_t& c)
   {
     CheckIn('B', &c);
+    return *this;
+  }
+
+  TreeStream& operator<<(const int8_t& i)
+  {
+    CheckIn('B', &i);
     return *this;
   }
 

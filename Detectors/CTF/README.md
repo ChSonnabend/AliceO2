@@ -95,6 +95,14 @@ comma-separated list of detectors to read, Overrides skipDet
 ```
 comma-separated list of detectors to skip
 
+
+By default an exception will be thrown if detector is requested but missing in the CTF. To enable injection of the empty output in such case one should use option `--allow-missing-detectors`.
+
+```
+--ctf-data-subspec arg (=0)
+```
+allows to alter the `subSpecification` used to send the CTFDATA from the reader to decoders. Non-0 value must be used in case the data extracted by the CTF-reader should be processed and stored in new CTFs (in order to avoid clash of CTFDATA messages of the reader and writer).
+
 ```
 --max-tf arg (=-1)
 ```
@@ -141,6 +149,8 @@ There is a possibility to read remote root files directly, w/o caching them loca
 2) provide proper regex to define remote files, e.g. for the example above: `--remote-regex "^root://.+/eos/aliceo2/.+"`.
 3) pass an option `--copy-cmd no-copy`.
 
+## Selective TF reading
+
 ```
 --select-ctf-ids <id's of CTFs to select>
 ```
@@ -148,24 +158,25 @@ This is a `ctf-reader` device local option allowing selective reading of particu
 Note that the index corresponds not to the entry of the TF in the CTF tree but to the reader own counter incremented throught all input files (e.g. if the 10 CTF files with 20 TFs each are provided for the input and the selection of TFs
 `0,2,22,66` is provided, the reader will inject to the DPL the TFs at entries 0 and 2 from the 1st CTF file, entry 5 of the second file, entry 6 of the 3d and will finish the job.
 
-For the ITS and MFT entropy decoding one can request either to decompose clusters to digits and send them instead of clusters (via `o2-ctf-reader-workflow` global options `--its-digits` and `--mft-digits` respectively)
-or to apply the noise mask to decoded clusters (or decoded digits). If the masking (e.g. via option `--its-entropy-decoder " --mask-noise "`) is requested, user should provide to the entropy decoder the noise mask file (eventually will be loaded from CCDB) and cluster patterns decoding dictionary (if the clusters were encoded with patterns IDs).
-For example,
 ```
-o2-ctf-reader-workflow --ctf-input <ctfFiles> --onlyDet ITS,MFT --its-entropy-decoder ' --mask-noise' | ...
+--ir-frames-files <root_file_with_IRFrames_to_select> --skip-skimmed-out-tf
 ```
-will decode ITS and MFT data, decompose on the fly ITS clusters to digits, mask the noisy pixels with the provided masks, recluster remaining ITS digits and send the new clusters out, together with unchanged MFT clusters.
-```
-o2-ctf-reader-workflow --ctf-input <ctfFiles> --onlyDet ITS,MFT --mft-digits --mft-entropy-decoder ' --mask-noise' | ...
-```
-will send decompose clusters to digits and send ben out after masking the noise for the MFT, while ITS clusters will be sent as decoded.
-
-By default an exception will be thrown if detector is requested but missing in the CTF. To enable injection of the empty output in such case one should use option `--allow-missing-detectors`.
+This option (used for skimming) allow to push to DPL only those TFs which overlap with selected BC-ranges provided via input root file (for various formats see `o2::utils::IRFrameSelector::loadIRFrames` method).
 
 ```
---ctf-data-subspec arg (=0)
+--ir-frames-files <root_file_with_IRFrames_to_select>
 ```
-allows to alter the `subSpecification` used to send the CTFDATA from the reader to decoders. Non-0 value must be used in case the data extracted by the CTF-reader should be processed and stored in new CTFs (in order to avoid clash of CTFDATA messages of the reader and writer).
+This option allows to push to DPL only those TFs which overlap with the `<runnumber> <range-min> <range-max>` (separators can be any whitespace, comma or semicolon) records provided via text file (assuming that there are some entries for a given run, otherwise the option is ignored).
+Multiple ranges per run and multiple runs can be mentioned in a single input file. The range limits can be indicated either as a UNIX timestamp in `ms` or as an orbit number (in the fill the run belongs to).
+
+In case an option
+```
+--invert-irframe-selection
+```
+is provided, the selections above are inverted: TFs matching some of the provided ranges will be discarded, while the rest will be pushed to the DPL
+
+At the end of the processing the `ctf-writer` will create a local file `ctf_read_ntf.txt` containing only the number of TFs pushed to the DPL.
+In case no TF passed the selections above, this file will contain 0.
 
 ## Support for externally provided encoding dictionaries
 
@@ -201,3 +212,18 @@ Additionally, one may throttle on the free SHM by providing an option to the rea
 
 Note that by default the reader reads into the memory the CTF data and prepares all output messages but injects them only once the rate-limiter allows that.
 With the option `--limit-tf-before-reading` set also the preparation of the data to inject will be conditioned by the green light from the rate-limiter.
+
+
+## Modifying ITS/MFT CTF output
+
+For the ITS and MFT entropy decoding one can request either to decompose clusters to digits and send them instead of clusters (via `o2-ctf-reader-workflow` global options `--its-digits` and `--mft-digits` respectively)
+or to apply the noise mask to decoded clusters (or decoded digits). If the masking (e.g. via option `--its-entropy-decoder " --mask-noise "`) is requested, user should provide to the entropy decoder the noise mask file (eventually will be loaded from CCDB) and cluster patterns decoding dictionary (if the clusters were encoded with patterns IDs).
+For example,
+```
+o2-ctf-reader-workflow --ctf-input <ctfFiles> --onlyDet ITS,MFT --its-entropy-decoder ' --mask-noise' | ...
+```
+will decode ITS and MFT data, decompose on the fly ITS clusters to digits, mask the noisy pixels with the provided masks, recluster remaining ITS digits and send the new clusters out, together with unchanged MFT clusters.
+```
+o2-ctf-reader-workflow --ctf-input <ctfFiles> --onlyDet ITS,MFT --mft-digits --mft-entropy-decoder ' --mask-noise' | ...
+```
+will send decompose clusters to digits and send ben out after masking the noise for the MFT, while ITS clusters will be sent as decoded.

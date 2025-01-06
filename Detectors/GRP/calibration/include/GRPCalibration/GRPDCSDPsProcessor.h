@@ -16,6 +16,7 @@
 #include <unordered_map>
 #include <deque>
 #include "Framework/Logger.h"
+#include "Framework/O2LongInt.h"
 #include "DetectorsDCS/DataPointCompositeObject.h"
 #include "DetectorsDCS/DataPointIdentifier.h"
 #include "DetectorsDCS/DataPointValue.h"
@@ -37,11 +38,11 @@ using DPID = o2::dcs::DataPointIdentifier;
 using DPVAL = o2::dcs::DataPointValue;
 using DPCOM = o2::dcs::DataPointCompositeObject;
 
-inline unsigned long llu2lu(std::uint64_t v) { return (unsigned long)v; }
+inline O2LongUInt llu2lu(std::uint64_t v) { return (O2LongUInt)v; }
 
 struct GRPEnvVariables {
 
-  std::unordered_map<std::string, std::vector<std::pair<uint64_t, double>>> mEnvVars;
+  std::unordered_map<std::string, std::vector<std::pair<O2LongUInt, double>>> mEnvVars;
   size_t totalEntries() const
   {
     size_t s = 0;
@@ -60,7 +61,7 @@ struct GRPEnvVariables {
     }
   }
 
-  ClassDefNV(GRPEnvVariables, 1);
+  ClassDefNV(GRPEnvVariables, 2);
 };
 
 struct MagFieldHelper {
@@ -122,7 +123,7 @@ struct MagFieldHelper {
 
 struct GRPCollimators {
 
-  std::unordered_map<std::string, std::vector<std::pair<uint64_t, double>>> mCollimators;
+  std::unordered_map<std::string, std::vector<std::pair<O2LongUInt, double>>> mCollimators;
   size_t totalEntries() const
   {
     size_t s = 0;
@@ -141,7 +142,7 @@ struct GRPCollimators {
     }
   }
 
-  ClassDefNV(GRPCollimators, 1);
+  ClassDefNV(GRPCollimators, 2);
 };
 
 struct GRPLHCInfo {
@@ -191,19 +192,19 @@ struct GRPLHCInfo {
   static constexpr std::string_view lhcStringAliases[NLHCStringAliases] = {"ALI_Lumi_Source_Name", "BEAM_MODE", "MACHINE_MODE"};
   static constexpr int nAliasesLHC = (int)NCollimatorAliases + (int)NBeamAliases + (int)NBkgAliases + (int)NBPTXAliases + (int)NBPTXPhaseAliases + (int)NBPTXPhaseRMSAliases + (int)NBPTXPhaseShiftAliases + (int)NLumiAliases + (int)NLHCStringAliases;
 
-  std::array<std::vector<std::pair<uint64_t, double>>, 2> mIntensityBeam;
-  std::array<std::vector<std::pair<uint64_t, double>>, 3> mBackground;
-  std::vector<std::pair<uint64_t, double>> mInstLumi;
-  std::vector<std::pair<uint64_t, double>> mBPTXdeltaT;
-  std::vector<std::pair<uint64_t, double>> mBPTXdeltaTRMS;
-  std::array<std::vector<std::pair<uint64_t, double>>, 2> mBPTXPhase;
-  std::array<std::vector<std::pair<uint64_t, double>>, 2> mBPTXPhaseRMS;
-  std::array<std::vector<std::pair<uint64_t, double>>, 2> mBPTXPhaseShift;
-  std::pair<uint64_t, std::string> mLumiSource;  // only one value per object: when there is a change, a new object is stored
-  std::pair<uint64_t, std::string> mMachineMode; // only one value per object: when there is a change, a new object is stored
-  std::pair<uint64_t, std::string> mBeamMode;    // only one value per object: when there is a change, a new object is stored
+  std::array<std::vector<std::pair<O2LongUInt, double>>, 2> mIntensityBeam;
+  std::array<std::vector<std::pair<O2LongUInt, double>>, 3> mBackground;
+  std::vector<std::pair<O2LongUInt, double>> mInstLumi;
+  std::vector<std::pair<O2LongUInt, double>> mBPTXdeltaT;
+  std::vector<std::pair<O2LongUInt, double>> mBPTXdeltaTRMS;
+  std::array<std::vector<std::pair<O2LongUInt, double>>, 2> mBPTXPhase;
+  std::array<std::vector<std::pair<O2LongUInt, double>>, 2> mBPTXPhaseRMS;
+  std::array<std::vector<std::pair<O2LongUInt, double>>, 2> mBPTXPhaseShift;
+  std::pair<O2LongUInt, std::string> mLumiSource;  // only one value per object: when there is a change, a new object is stored
+  std::pair<O2LongUInt, std::string> mMachineMode; // only one value per object: when there is a change, a new object is stored
+  std::pair<O2LongUInt, std::string> mBeamMode;    // only one value per object: when there is a change, a new object is stored
 
-  void resetAndKeepLastVector(std::vector<std::pair<uint64_t, double>>& vect)
+  void resetAndKeepLastVector(std::vector<std::pair<O2LongUInt, double>>& vect)
   {
     // always check that the size is > 0 (--> begin != end) for all vectors
     if (vect.begin() != vect.end()) {
@@ -291,16 +292,16 @@ class GRPDCSDPsProcessor
   void init(const std::vector<DPID>& pids);
   int process(const gsl::span<const DPCOM> dps);
   int processDP(const DPCOM& dpcom);
-  uint64_t processFlags(uint64_t flag, const char* pid) { return 0; } // for now it is not really implemented
+  O2LongUInt processFlags(O2LongUInt flag, const char* pid) { return 0; } // for now it is not really implemented
   bool processCollimators(const DPCOM& dpcom);
   bool processEnvVar(const DPCOM& dpcom);
-  bool processPairD(const DPCOM& dpcom, const std::string& alias, std::unordered_map<std::string, std::vector<std::pair<uint64_t, double>>>& mapToUpdate);
-  bool processPairS(const DPCOM& dpcom, const std::string& alias, std::pair<uint64_t, std::string>& p, bool& flag);
-  bool compareToLatest(std::pair<uint64_t, double>& p, double val);
+  bool processPairD(const DPCOM& dpcom, const std::string& alias, std::unordered_map<std::string, std::vector<std::pair<O2LongUInt, double>>>& mapToUpdate);
+  bool processPairS(const DPCOM& dpcom, const std::string& alias, std::pair<O2LongUInt, std::string>& p, bool& flag);
+  bool compareToLatest(std::pair<O2LongUInt, double>& p, double val);
   bool processLHCIFDPs(const DPCOM& dpcom);
 
   void resetAndKeepLastLHCIFDPs() { mLHCInfo.resetAndKeepLast(); }
-  void resetAndKeepLast(std::unordered_map<std::string, std::vector<std::pair<uint64_t, double>>>& mapToReset)
+  void resetAndKeepLast(std::unordered_map<std::string, std::vector<std::pair<O2LongUInt, double>>>& mapToReset)
   {
     // keep only the latest measurement
     for (auto& el : mapToReset) {
@@ -366,8 +367,8 @@ class GRPDCSDPsProcessor
   void useVerboseMode() { mVerbose = true; }
   void clearVectors() { mClearVectors = true; }
 
-  void printVectorInfo(const std::vector<std::pair<uint64_t, double>>& vect, bool afterUpdate);
-  void updateVector(const DPID& dpid, std::vector<std::pair<uint64_t, double>>& vect, std::string alias, uint64_t timestamp, double val);
+  void printVectorInfo(const std::vector<std::pair<O2LongUInt, double>>& vect, bool afterUpdate);
+  void updateVector(const DPID& dpid, std::vector<std::pair<O2LongUInt, double>>& vect, std::string alias, O2LongUInt timestamp, double val);
 
  private:
   std::unordered_map<DPID, bool> mPids; // contains all PIDs for the processor, the bool

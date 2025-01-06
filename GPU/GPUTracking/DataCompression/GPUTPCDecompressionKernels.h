@@ -59,11 +59,15 @@ class GPUTPCDecompressionUtilKernels : public GPUKernelTemplate
 {
  public:
   enum K : int32_t {
-    sortPerSectorRow = 0,
+    countFilteredClusters = 0,
+    storeFilteredClusters = 1,
+    sortPerSectorRow = 2,
   };
 
   template <int32_t iKernel = defaultKernel>
   GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() processors);
+
+  GPUdi() static bool isClusterKept(const o2::tpc::ClusterNative& cl, const GPUParam& GPUrestrict() param);
 };
 
 } // namespace GPUCA_NAMESPACE::gpu

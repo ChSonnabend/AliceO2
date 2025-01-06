@@ -157,7 +157,6 @@ TEST_CASE("TreeToTableConversion")
 
 namespace o2::aod
 {
-DECLARE_SOA_VERSIONING();
 namespace cols
 {
 DECLARE_SOA_COLUMN(Ivec, ivec, std::vector<int>);

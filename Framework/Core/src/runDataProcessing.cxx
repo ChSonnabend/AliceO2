@@ -2786,7 +2786,7 @@ void enableSignposts(std::string const& signpostsToEnable)
     }
 
     auto fullName = prefix + std::string{selectedName, last ? last - selectedName : strlen(selectedName)};
-    if (strncmp(name, fullName.data(), fullName.size()) == 0) {
+    if (fullName == name) {
       LOGP(info, "Enabling signposts for stream \"{}\" with depth {}.", fullName, maxDepth);
       _o2_log_set_stacktrace(log, maxDepth);
       return false;

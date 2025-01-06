@@ -235,62 +235,38 @@ inline void O2DatabasePDG::addALICEParticles(TDatabasePDG* db)
   //Hyper nuclei and exotica
   ionCode = 1010010030;
   if (!db->GetParticle(ionCode)) {
-    db->AddParticle("HyperTriton", "HyperTriton", 2.99131, kFALSE,
+    db->AddParticle("HyperTriton", "HyperTriton", 2.991134, kFALSE,
                     2.5e-15, 3, "Ion", ionCode);
   }
 
   ionCode = -1010010030;
   if (!db->GetParticle(ionCode)) {
-    db->AddParticle("AntiHyperTriton", "AntiHyperTriton", 2.99131, kFALSE,
+    db->AddParticle("AntiHyperTriton", "AntiHyperTriton", 2.991134, kFALSE,
                     2.5e-15, 3, "Ion", ionCode);
   }
 
   //hyper hydrogen 4 ground state
   ionCode = 1010010040;
   if (!db->GetParticle(ionCode)) {
-    db->AddParticle("Hyperhydrog4", "Hyperhydrog4", 3.9226, kFALSE,
+    db->AddParticle("Hyperhydrog4", "Hyperhydrog4", 3.922434, kFALSE,
                     2.5e-15, 3, "Ion", ionCode);
   }
   //anti hyper hydrogen 4 ground state
   ionCode = -1010010040;
   if (!db->GetParticle(ionCode)) {
-    db->AddParticle("AntiHyperhydrog4", "AntiHyperhydrog4", 3.9226, kFALSE,
-                    2.5e-15, 3, "Ion", ionCode);
-  }
-  //hyper hydrogen 4 excited state
-  ionCode = 1010010041;
-  if (!db->GetParticle(ionCode)) {
-    db->AddParticle("Hyperhydrog4*", "Hyperhydrog4*", 3.9237, kFALSE,
-                    2.5e-15, 3, "Ion", ionCode);
-  }
-  //anti hyper hydrogen 4 excited state
-  ionCode = -1010010041;
-  if (!db->GetParticle(ionCode)) {
-    db->AddParticle("AntiHyperhydrog4*", "AntiHyperhydrog4*", 3.9237, kFALSE,
+    db->AddParticle("AntiHyperhydrog4", "AntiHyperhydrog4", 3.922434, kFALSE,
                     2.5e-15, 3, "Ion", ionCode);
   }
   //hyper helium 4 ground state
   ionCode = 1010020040;
   if (!db->GetParticle(ionCode)) {
-    db->AddParticle("Hyperhelium4", "Hyperhelium4", 3.9217, kFALSE,
+    db->AddParticle("Hyperhelium4", "Hyperhelium4", 3.921728, kFALSE,
                     2.5e-15, 6, "Ion", ionCode);
   }
   //anti hyper helium 4 ground state
   ionCode = -1010020040;
   if (!db->GetParticle(ionCode)) {
-    db->AddParticle("AntiHyperhelium4", "AntiHyperhelium4", 3.9217, kFALSE,
-                    2.5e-15, 6, "Ion", ionCode);
-  }
-  //hyper helium 4 excited state
-  ionCode = 1010020041;
-  if (!db->GetParticle(ionCode)) {
-    db->AddParticle("Hyperhelium4*", "Hyperhelium4*", 3.9231, kFALSE,
-                    2.5e-15, 6, "Ion", ionCode);
-  }
-  //anti hyper helium 4 excited state
-  ionCode = -1010020041;
-  if (!db->GetParticle(ionCode)) {
-    db->AddParticle("AntiHyperhelium4*", "AntiHyperhelium4*", 3.9231, kFALSE,
+    db->AddParticle("AntiHyperhelium4", "AntiHyperhelium4", 3.921728, kFALSE,
                     2.5e-15, 6, "Ion", ionCode);
   }
 
@@ -309,13 +285,13 @@ inline void O2DatabasePDG::addALICEParticles(TDatabasePDG* db)
 
   ionCode = 1010020050;
   if (!db->GetParticle(ionCode)) {
-    db->AddParticle("Hyperhelium5", "Hyperhelium5", 4.841, kFALSE,
+    db->AddParticle("Hyperhelium5", "Hyperhelium5", 4.839961, kFALSE,
                     2.5e-15, 6, "Ion", ionCode);
   }
 
   ionCode = -1010020050;
   if (!db->GetParticle(ionCode)) {
-    db->AddParticle("AntiHyperhelium5", "AntiHyperhelium5", 4.841, kFALSE,
+    db->AddParticle("AntiHyperhelium5", "AntiHyperhelium5", 4.839961, kFALSE,
                     2.5e-15, 6, "Ion", ionCode);
   }
 
@@ -329,6 +305,20 @@ inline void O2DatabasePDG::addALICEParticles(TDatabasePDG* db)
   if (!db->GetParticle(ionCode)) {
     db->AddParticle("DoubleAntiHyperhydrogen4", "DoubleAntiHyperhydrogen4", 4.106, kFALSE,
                     2.5e-15, 6, "Ion", ionCode);
+  }
+
+  // 4-Xi-He
+  ionCode = 1120020040;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("4XiHe", "4XiHe", 4.128, kFALSE, 4.04e-15, 3, "Ion", ionCode);
+    db->AddAntiParticle("Anti4XiHe", -ionCode);
+  }
+
+  // 4-Xi-H
+  ionCode = 1120010040;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("4XiH", "4XiH", 4.128, kFALSE, 4.04e-15, 3, "Ion", ionCode);
+    db->AddAntiParticle("Anti4XiH", -ionCode);
   }
 
   // hyper helium 4 sigma

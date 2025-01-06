@@ -132,7 +132,7 @@ void CookedTrackerDPL::run(ProcessingContext& pc)
 
   const auto& multEstConf = FastMultEstConfig::Instance(); // parameters for mult estimation and cuts
   FastMultEst multEst;                                     // mult estimator
-  std::vector<bool> processingMask;
+  std::vector<uint8_t> processingMask;
   int cutVertexMult{0}, cutRandomMult = int(rofsinput.size()) - multEst.selectROFs(rofsinput, compClusters, physTriggers, processingMask);
 
   // auto processingMask_ephemeral = processingMask;

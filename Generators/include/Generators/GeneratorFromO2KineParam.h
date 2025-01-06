@@ -49,6 +49,22 @@ struct O2KineGenConfig {
   std::string fileName = ""; // filename to read from - takes precedence over SimConfig if given
 };
 
+struct EventPoolGenConfig {
+  std::string eventPoolPath = ""; // In that order: The path where an event pool can be found ;
+                                  // or .. a local file containing a list of files to use
+                                  // or .. a concrete file path to a kinematics file
+  bool skipNonTrackable = true;   // <--- do we need this?
+  bool roundRobin = false;        // read events with period boundary conditions
+  bool randomize = true;          // randomize the order of events
+  unsigned int rngseed = 0;       // randomizer seed, 0 for random value
+  bool randomphi = false;         // randomize phi angle; rotates tracks in events by some phi-angle
+};
+
+// construct a configurable param singleton out of the
+struct GeneratorEventPoolParam : public o2::conf::ConfigurableParamPromoter<GeneratorEventPoolParam, EventPoolGenConfig> {
+  O2ParamDef(GeneratorEventPoolParam, "GeneratorEventPool");
+};
+
 } // end namespace eventgen
 } // end namespace o2
 

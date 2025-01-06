@@ -31,7 +31,7 @@
 using namespace o2::tpc::cru_calib_helpers;
 using namespace o2::tpc;
 
-void prepareCMFiles(const std::string_view itDataFile, std::string outputDir = "./")
+void prepareITFiles(const std::string_view itDataFile, std::string outputDir = "./", float orocFractionScale = 1.f)
 {
   const auto& mapper = Mapper::instance();
 
@@ -101,6 +101,10 @@ void prepareCMFiles(const std::string_view itDataFile, std::string outputDir = "
 
       float fractionVal = rocFraction.getValue(ipad);
       float expLambdaVal = rocExpLambda.getValue(ipad);
+
+      if (roc.isOROC()) {
+        fractionVal *= orocFractionScale;
+      }
 
       if ((fractionVal <= 0) || (fractionVal > 0.6)) {
         LOGP(error, "Too fraction value in ROC {:2}, CRU {:3}, fec in CRU: {:2}, SAMPA: {}, channel: {:2}: {:.4f}, setting value to roc mean {}", iroc, cruID, fecInPartition, sampa, sampaChannel, fractionVal, meanFraction);

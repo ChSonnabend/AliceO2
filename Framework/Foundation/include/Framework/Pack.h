@@ -39,7 +39,6 @@ struct pack_element<I, pack<Ts...>> {
   using type = __type_pack_element<I, Ts...>;
 };
 #else
-
 // recursive case
 template <std::size_t I, typename Head, typename... Tail>
 struct pack_element<I, pack<Head, Tail...>>
@@ -209,7 +208,7 @@ using filtered_pack = std::decay_t<decltype(filter_pack<Condition>(pack<>{}, pac
 template <typename T, typename... Us>
 bool consteval has_type(framework::pack<Us...>)
 {
-  return (std::is_same_v<T, Us> || ...);
+  return (std::same_as<T, Us> || ...);
 }
 
 template <typename T, typename P>

@@ -633,7 +633,7 @@ int32_t GPUChainTracking::DoQueuedUpdates(int32_t stream, bool updateSlave)
   const GPUSettingsProcessing* p = nullptr;
   std::lock_guard lk(mMutexUpdateCalib);
   if (mUpdateNewCalibObjects) {
-    if (mNewCalibValues->newSolenoidField || mNewCalibValues->newContinuousMaxTimeBin) {
+    if (mNewCalibValues->newSolenoidField || mNewCalibValues->newContinuousMaxTimeBin || mNewCalibValues->newTPCTimeBinCut) {
       grp = std::make_unique<GPUSettingsGRP>(mRec->GetGRPSettings());
       if (mNewCalibValues->newSolenoidField) {
         grp->solenoidBzNominalGPU = mNewCalibValues->solenoidField;

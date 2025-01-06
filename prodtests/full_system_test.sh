@@ -241,12 +241,17 @@ for STAGE in $STAGES; do
     export HOSTMEMSIZE=1000000000
     export SYNCMODE=1
     export CTFINPUT=0
+    # enabling SECVTX
+    export WORKFLOW_EXTRA_PROCESSING_STEPS+="MATCH_SECVTX"
   elif [[ "$STAGE" = "ASYNC" ]]; then
     export CREATECTFDICT=0
     export GPUTYPE=CPU
     export SYNCMODE=0
     export HOSTMEMSIZE=$TPCTRACKERSCRATCHMEMORY
     export CTFINPUT=1
+    # the following line is needed in case the SECTVX was enabled in the SYNC; in this case, it'd have the options:
+    # export ARGS_EXTRA_PROCESS_o2_secondary_vertexing_workflow='--disable-cascade-finder --disable-3body-finder --disable-strangeness-tracker'
+    unset ARGS_EXTRA_PROCESS_o2_secondary_vertexing_workflow
     export WORKFLOW_PARAMETERS="${WORKFLOW_PARAMETERS},AOD"
   else
     export CREATECTFDICT=$SYNCMODEDOCTFDICT
@@ -255,6 +260,8 @@ for STAGE in $STAGES; do
     export HOSTMEMSIZE=$TPCTRACKERSCRATCHMEMORY
     export CTFINPUT=0
     export WORKFLOW_PARAMETERS="${WORKFLOW_PARAMETERS},CALIB,CTF,EVENT_DISPLAY,${FST_SYNC_EXTRA_WORKFLOW_PARAMETERS}"
+    # enabling SECVTX
+    export WORKFLOW_EXTRA_PROCESSING_STEPS+="MATCH_SECVTX"
     # temporarily enable ZDC reconstruction for calibration validations
     export WORKFLOW_EXTRA_PROCESSING_STEPS+=",ZDC_RECO"
     unset JOBUTILS_JOB_SKIPCREATEDONE

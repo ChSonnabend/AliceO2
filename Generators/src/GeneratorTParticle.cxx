@@ -54,9 +54,16 @@ Bool_t GeneratorTParticle::Init()
   mChain->SetBranchAddress(mBranchName.c_str(), &mTParticles);
 
   if (not mCmd.empty()) {
-    // Set filename to be a temporary name
-    if (not makeTemp()) {
-      return false;
+    if (mFileNames.empty()) {
+      // Set filename to be a temporary name
+      if (not makeTemp(false)) {
+        return false;
+      }
+    } else {
+      // Use the first filename as output for cmd line
+      if (not makeTemp(true)) {
+        return false;
+      }
     }
 
     // Build command line, Assumes command line parameter

@@ -487,8 +487,8 @@ void SimConfig::adjustFromCollContext(std::string const& collcontextfile, std::s
         // we take what is specified in the context
         mConfigData.mNEvents = collisionmap.size();
       } else {
-        LOG(warning) << "The number of events on the command line " << mConfigData.mNEvents << " and in the collision context differ. Taking the min of the 2";
-        mConfigData.mNEvents = std::min((size_t)mConfigData.mNEvents, collisionmap.size());
+        LOG(warning) << "The number of events on the command line " << mConfigData.mNEvents << " and in the collision context differ. We take the one from collision context " << collisionmap.size();
+        mConfigData.mNEvents = collisionmap.size();
       }
       LOG(info) << "Setting number of events to simulate to " << mConfigData.mNEvents;
     }

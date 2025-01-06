@@ -19,12 +19,15 @@ using namespace GPUCA_NAMESPACE::gpu;
 void GPUNewCalibValues::updateFrom(const GPUNewCalibValues* from)
 {
   if (from->newSolenoidField) {
-    solenoidField = from->newSolenoidField;
+    newSolenoidField = true;
+    solenoidField = from->solenoidField;
   }
   if (from->newContinuousMaxTimeBin) {
+    newContinuousMaxTimeBin = true;
     continuousMaxTimeBin = from->continuousMaxTimeBin;
   }
   if (from->newTPCTimeBinCut) {
+    newTPCTimeBinCut = true;
     tpcTimeBinCut = from->tpcTimeBinCut;
   }
 }

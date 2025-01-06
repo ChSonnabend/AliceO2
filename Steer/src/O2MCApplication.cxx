@@ -264,29 +264,19 @@ void addSpecialParticles()
   LOG(info) << "Adding custom particles to VMC";
 
   //Hypertriton
-  TVirtualMC::GetMC()->DefineParticle(1010010030, "HyperTriton", kPTHadron, 2.99131, 1.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 3, kFALSE);
+  TVirtualMC::GetMC()->DefineParticle(1010010030, "HyperTriton", kPTHadron, 2.991134, 1.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 3, kFALSE);
   //Anti-Hypertriton
-  TVirtualMC::GetMC()->DefineParticle(-1010010030, "AntiHyperTriton", kPTHadron, 2.99131, 1.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 3, kFALSE);
+  TVirtualMC::GetMC()->DefineParticle(-1010010030, "AntiHyperTriton", kPTHadron, 2.991134, 1.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 3, kFALSE);
 
   //Hyper hydrogen 4 ground state
-  TVirtualMC::GetMC()->DefineParticle(1010010040, "Hyperhydrog4", kPTHadron, 3.9226, 1.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
+  TVirtualMC::GetMC()->DefineParticle(1010010040, "Hyperhydrog4", kPTHadron, 3.922434, 1.0, 2.08e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
   //Anti-Hyper hydrogen 4 ground state
-  TVirtualMC::GetMC()->DefineParticle(-1010010040, "AntiHyperhydrog4", kPTHadron, 3.9226, 1.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
-
-  //Hyper hydrogen 4 excited state
-  TVirtualMC::GetMC()->DefineParticle(1010010041, "Hyperhydrog4*", kPTHadron, 3.9237, 1.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
-  //Anti-Hyper hydrogen 4 excited state
-  TVirtualMC::GetMC()->DefineParticle(-1010010041, "AntiHyperhydrog4*", kPTHadron, 3.9237, 1.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
+  TVirtualMC::GetMC()->DefineParticle(-1010010040, "AntiHyperhydrog4", kPTHadron, 3.922434, 1.0, 2.08e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
 
   //Hyper helium 4 ground state
-  TVirtualMC::GetMC()->DefineParticle(1010020040, "Hyperhelium4", kPTHadron, 3.9217, 2.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
+  TVirtualMC::GetMC()->DefineParticle(1010020040, "Hyperhelium4", kPTHadron, 3.921728, 2.0, 2.50e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
   //Anti-Hyper helium 4 ground state
-  TVirtualMC::GetMC()->DefineParticle(-1010020040, "AntiHyperhelium4", kPTHadron, 3.9217, 2.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
-
-  //Hyper helium 4 excited state
-  TVirtualMC::GetMC()->DefineParticle(1010020041, "Hyperhelium4*", kPTHadron, 3.9231, 2.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
-  //Anti-Hyper helium 4 excited state
-  TVirtualMC::GetMC()->DefineParticle(-1010020041, "AntiHyperhelium4*", kPTHadron, 3.9231, 2.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
+  TVirtualMC::GetMC()->DefineParticle(-1010020040, "AntiHyperhelium4", kPTHadron, 3.921728, 2.0, 2.50e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
 
   // Lithium 4 ground state
   TVirtualMC::GetMC()->DefineParticle(1000030040, "Lithium4", kPTHadron, 3.7513, 3.0, 9.1e-23, "Ion", 0.003, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
@@ -294,14 +284,23 @@ void addSpecialParticles()
   TVirtualMC::GetMC()->DefineParticle(-1000030040, "AntiLithium4", kPTHadron, 3.7513, 3.0, 9.1e-23, "Ion", 0.003, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
 
   //Hyper helium 5
-  TVirtualMC::GetMC()->DefineParticle(1010020050, "Hyperhelium5", kPTHadron, 4.841, 2.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 5, kFALSE);
+  TVirtualMC::GetMC()->DefineParticle(1010020050, "Hyperhelium5", kPTHadron, 4.839961, 2.0, 2.74e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 5, kFALSE);
   //Anti-Hyper helium 5
-  TVirtualMC::GetMC()->DefineParticle(-1010020050, "AntiHyperhelium5", kPTHadron, 4.841, 2.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 5, kFALSE);
+  TVirtualMC::GetMC()->DefineParticle(-1010020050, "AntiHyperhelium5", kPTHadron, 4.839961, 2.0, 2.74e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 5, kFALSE);
 
   //Double Hyper hydrogen 4
   TVirtualMC::GetMC()->DefineParticle(1020010040, "DoubleHyperhydrogen4", kPTHadron, 4.106, 1.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
   //Double Anti-Hyper hydrogen 4
   TVirtualMC::GetMC()->DefineParticle(-1020010040, "DoubleAntiHyperhydrogen4", kPTHadron, 4.106, 1.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
+
+  // 4Xi(-)H
+  TVirtualMC::GetMC()->DefineParticle(1120010040, "4XiH", kPTHadron, 4.128, 1.0, 1.639e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
+  // Anti-4Xi(-)H
+  TVirtualMC::GetMC()->DefineParticle(-1120010040, "Anti4XiH", kPTHadron, 4.128, 1.0, 1.639e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
+  // 4Xi(-)He
+  TVirtualMC::GetMC()->DefineParticle(1120020040, "4XiHe", kPTHadron, 4.128, 1.0, 1.639e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
+  // Anti-4Xi(-)He
+  TVirtualMC::GetMC()->DefineParticle(-1120020040, "Anti4XiHe", kPTHadron, 4.128, 1.0, 1.639e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
 
   // Hyper helium 4 sigma
   TVirtualMC::GetMC()->DefineParticle(1110020040, "Hyperhelium4sigma", kPTHadron, 3.995, 2.0, 8.018e-11, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
@@ -586,8 +585,6 @@ void addSpecialParticles()
   mode3[1][2] = -211;       // negative pion
 
   TVirtualMC::GetMC()->SetDecayMode(1010010040, bratio3, mode3);
-  //Decay for the excited state (after em transition)
-  TVirtualMC::GetMC()->SetDecayMode(1010010041, bratio3, mode3);
 
   // Define the 2- and 3-body phase space decay for the Hyper Hydrogen 4
   Int_t amode3[6][3];
@@ -608,8 +605,6 @@ void addSpecialParticles()
   amode3[1][2] = 211;         // positive pion
 
   TVirtualMC::GetMC()->SetDecayMode(-1010010040, abratio3, amode3);
-  //Decay for the excited state (after em transition)
-  TVirtualMC::GetMC()->SetDecayMode(-1010010041, abratio3, amode3);
 
   // Define the 3-body phase space decay for the Hyper Helium 4
   Int_t mode4[6][3];
@@ -621,14 +616,16 @@ void addSpecialParticles()
     mode4[kz][1] = 0;
     mode4[kz][2] = 0;
   }
-  bratio4[0] = 100.;
+  bratio4[0] = 50.;
   mode4[0][0] = 1000020030; // Helium3
   mode4[0][1] = -211;       // negative pion
   mode4[0][2] = 2212;       // proton
 
+  bratio4[1] = 50.;
+  mode4[1][0] = 1000030040; // lithium-4
+  mode4[1][1] = -211;       // negative pion
+
   TVirtualMC::GetMC()->SetDecayMode(1010020040, bratio4, mode4);
-  //Decay for the excited state (after em transition)
-  TVirtualMC::GetMC()->SetDecayMode(1010020041, bratio4, mode4);
 
   // Define the 2-body phase space decay for the Anti-Hyper Helium 4
   Int_t amode4[6][3];
@@ -640,14 +637,16 @@ void addSpecialParticles()
     amode4[kz][1] = 0;
     amode4[kz][2] = 0;
   }
-  abratio4[0] = 100.;
+  abratio4[0] = 50.;
   amode4[0][0] = -1000020030; // anti-Helium 3
   amode4[0][1] = 211;         // positive pion
   amode4[0][2] = -2212;       // anti proton
 
+  abratio4[1] = 50.;
+  amode4[1][0] = -1000030040; // antilithium-4
+  amode4[1][1] = 211;         // positive pion
+
   TVirtualMC::GetMC()->SetDecayMode(-1010020040, abratio4, amode4);
-  //Decay for the excited state (after em transition)
-  TVirtualMC::GetMC()->SetDecayMode(-1010020041, abratio4, amode4);
 
   // Define the 2-body phase space decay for the Lithium 4
   Int_t model4[6][3];
@@ -733,9 +732,14 @@ void addSpecialParticles()
     mode42[kz][1] = 0;
     mode42[kz][2] = 0;
   }
-  bratio42[0] = 100.;
+  bratio42[0] = 50.;
   mode42[0][0] = 1010020040; // Hyper-Helium4
   mode42[0][1] = -211;       // negative pion
+
+  bratio42[1] = 50.;
+  mode42[1][0] = 1010010030; // Hypertriton
+  mode42[1][1] = 2212;       // proton
+  mode42[1][2] = -211;       // negative pion
 
   TVirtualMC::GetMC()->SetDecayMode(1020010040, bratio42, mode42);
 
@@ -749,11 +753,120 @@ void addSpecialParticles()
     amode42[kz][1] = 0;
     amode42[kz][2] = 0;
   }
-  abratio42[0] = 100.;
+  abratio42[0] = 50.;
   amode42[0][0] = -1010020040; // anti-Hyper-Helium 4
   amode42[0][1] = 211;         // positive pion
 
+  abratio42[1] = 50.;
+  amode42[1][0] = -1010010030; // anti-Hypertriton
+  amode42[1][1] = -2212;       // antiproton
+  amode42[1][2] = 211;         // positive pion
+
   TVirtualMC::GetMC()->SetDecayMode(-1020010040, abratio42, amode42);
+
+  // Define the decay for the 4Xi(-)He
+  Int_t mode4XiHe[6][3];
+  Float_t bratio4XiHe[6];
+
+  for (Int_t kz = 0; kz < 6; kz++) {
+    bratio4XiHe[kz] = 0.;
+    mode4XiHe[kz][0] = 0;
+    mode4XiHe[kz][1] = 0;
+    mode4XiHe[kz][2] = 0;
+  }
+  bratio4XiHe[0] = 33.;
+  mode4XiHe[0][0] = 1010020040; // HyperHelium4
+  mode4XiHe[0][1] = -211;       // negative pion
+
+  bratio4XiHe[1] = 33.;
+  mode4XiHe[1][0] = 3122;       // lambda
+  mode4XiHe[1][1] = 1000020030; // helium-3
+  mode4XiHe[1][2] = -211;       // negative pion
+
+  bratio4XiHe[2] = 33.;
+  mode4XiHe[2][0] = 1000030040; // lithium-4
+  mode4XiHe[2][1] = -211;       // negative pion
+  mode4XiHe[2][2] = -211;       // negative pion
+
+  TVirtualMC::GetMC()->SetDecayMode(1120020040, bratio4XiHe, mode4XiHe);
+
+  // Define the decay for the Anti-4Xi(-)He
+  Int_t amode4XiHe[6][3];
+  Float_t abratio4XiHe[6];
+
+  for (Int_t kz = 0; kz < 6; kz++) {
+    abratio4XiHe[kz] = 0.;
+    amode4XiHe[kz][0] = 0;
+    amode4XiHe[kz][1] = 0;
+    amode4XiHe[kz][2] = 0;
+  }
+  abratio4XiHe[0] = 33.;
+  amode4XiHe[0][0] = -1010020040; // antiHyperHelium-4
+  amode4XiHe[0][1] = 211;         // positive pion
+
+  abratio4XiHe[1] = 33.;
+  amode4XiHe[1][0] = -3122;       // antilambda
+  amode4XiHe[1][1] = -1000020030; // antihelium-3
+  amode4XiHe[1][2] = 211;         // positive pion
+
+  abratio4XiHe[2] = 33.;
+  amode4XiHe[2][0] = -1000030040; // antilithium-4
+  amode4XiHe[2][1] = 211;         // positive pion
+  amode4XiHe[2][2] = 211;         // positive pion
+
+  TVirtualMC::GetMC()->SetDecayMode(-1120020040, abratio4XiHe, amode4XiHe);
+
+  // Define the decay for the 4Xi(-)H
+  Int_t mode4XiH[6][3];
+  Float_t bratio4XiH[6];
+
+  for (Int_t kz = 0; kz < 6; kz++) {
+    bratio4XiH[kz] = 0.;
+    mode4XiH[kz][0] = 0;
+    mode4XiH[kz][1] = 0;
+    mode4XiH[kz][2] = 0;
+  }
+  bratio4XiH[0] = 33.;
+  mode4XiH[0][0] = 1010010040; // HyperHydrogen4
+  mode4XiH[0][1] = -211;       // negative pion
+
+  bratio4XiH[1] = 33.;
+  mode4XiH[1][0] = 3122;       // lambda
+  mode4XiH[1][1] = 1000010030; // triton
+  mode4XiH[1][2] = -211;       // negative pion
+
+  bratio4XiH[2] = 33.;
+  mode4XiH[2][0] = 1000020040; // alpha
+  mode4XiH[2][1] = -211;       // negative pion
+  mode4XiH[2][2] = -211;       // negative pion
+
+  TVirtualMC::GetMC()->SetDecayMode(1120010040, bratio4XiH, mode4XiH);
+
+  // Define the decay for the Anti-4Xi(-)H
+  Int_t amode4XiH[6][3];
+  Float_t abratio4XiH[6];
+
+  for (Int_t kz = 0; kz < 6; kz++) {
+    abratio4XiH[kz] = 0.;
+    amode4XiH[kz][0] = 0;
+    amode4XiH[kz][1] = 0;
+    amode4XiH[kz][2] = 0;
+  }
+  abratio4XiH[0] = 33.;
+  amode4XiH[0][0] = -1010010040; // antiHyperHydrogen-4
+  amode4XiH[0][1] = 211;         // positive pion
+
+  abratio4XiH[1] = 33.;
+  amode4XiH[1][0] = -3122;       // antilambda
+  amode4XiH[1][1] = -1000010030; // antitriton
+  amode4XiH[1][2] = 211;         // positive pion
+
+  abratio4XiH[2] = 33.;
+  amode4XiH[2][0] = -1000020040; // antialpha
+  amode4XiH[2][1] = 211;         // positive pion
+  amode4XiH[2][2] = 211;         // positive pion
+
+  TVirtualMC::GetMC()->SetDecayMode(-1120010040, abratio4XiH, amode4XiH);
 
   // Define the 2- and 3-body phase space decay for the Hyper Helium 4 sigma
   Int_t mode4s[6][3];

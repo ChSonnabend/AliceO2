@@ -36,6 +36,14 @@ enum struct DplPluginKind : int {
   // set, you might want to load metadata from it and attach it to the
   // configuration.
   Capability,
+  // A RootObjectReadingCapability is used to discover if there is away
+  // to read and understand an object serialised with ROOT.
+  RootObjectReadingCapability,
+
+  // A RootObjectReadingImplementation is actually used to read said object
+  // using the arrow dataset API
+  RootObjectReadingImplementation,
+
   // A plugin which was not initialised properly.
   Unknown
 };

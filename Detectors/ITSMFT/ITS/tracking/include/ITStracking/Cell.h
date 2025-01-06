@@ -15,10 +15,10 @@
 
 #ifndef TRACKINGITSU_INCLUDE_CACELL_H_
 #define TRACKINGITSU_INCLUDE_CACELL_H_
-
 #ifndef GPUCA_GPUCODE_DEVICE
 #include <array>
 #include <vector>
+#include <iostream>
 #endif
 
 #include "GPUCommonDef.h"
@@ -104,6 +104,7 @@ class CellSeed final : public o2::track::TrackParCovF
   GPUhd() int* getLevelPtr() { return &mLevel; }
   GPUhd() int* getClusters() { return mClusters; }
   GPUhd() int getCluster(int i) const { return mClusters[i]; }
+  GPUhdi() void printCell() const;
 
  private:
   int mClusters[7] = {-1, -1, -1, -1, -1, -1, -1};
@@ -111,6 +112,11 @@ class CellSeed final : public o2::track::TrackParCovF
   int mLevel = 0;
   float mChi2 = 0.f;
 };
+
+GPUhdi() void CellSeed::printCell() const
+{
+  printf("trkl: %d, %d\t lvl: %d\t chi2: %f\n", mTracklets[0], mTracklets[1], mLevel, mChi2);
+}
 
 } // namespace its
 } // namespace o2

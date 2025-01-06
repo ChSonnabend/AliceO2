@@ -45,7 +45,7 @@ struct FastMultEst {
 
   static uint32_t getCurrentRandomSeed();
   int selectROFs(const gsl::span<const o2::itsmft::ROFRecord> rofs, const gsl::span<const o2::itsmft::CompClusterExt> clus,
-                 const gsl::span<const o2::itsmft::PhysTrigger> trig, std::vector<bool>& sel);
+                 const gsl::span<const o2::itsmft::PhysTrigger> trig, std::vector<uint8_t>& sel);
 
   void fillNClPerLayer(const gsl::span<const o2::itsmft::CompClusterExt>& clusters);
   float process(const std::array<int, NLayers> ncl)

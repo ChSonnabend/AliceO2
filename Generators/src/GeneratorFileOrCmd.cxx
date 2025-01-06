@@ -16,7 +16,9 @@
 // For fifo's and system call
 #include <cstdlib>
 #include <sys/types.h> // POSIX only
-#include <sys/stat.h>  // POISX only
+#include <sys/stat.h>  // POSIX only
+#include <csignal>
+#include <sys/wait.h>
 #include <cstdio>
 // For filesystem operations
 #include <filesystem>
@@ -115,30 +117,89 @@ std::string GeneratorFileOrCmd::makeCmdLine() const
   return s.str();
 }
 // -----------------------------------------------------------------
-bool GeneratorFileOrCmd::executeCmdLine(const std::string& cmd) const
+bool GeneratorFileOrCmd::executeCmdLine(const std::string& cmd)
 {
   LOG(info) << "Command line to execute: \"" << cmd << "\"";
-  int ret = std::system(cmd.c_str());
-  if (ret != 0) {
-    LOG(fatal) << "Failed to spawn \"" << cmd << "\"";
+  // Fork a new process
+  pid_t pid = fork();
+  if (pid == -1) {
+    LOG(fatal) << "Failed to fork process: " << std::strerror(errno);
     return false;
+  }
+
+  if (pid == 0) {
+    // Child process
+    setsid();
+    execl("/bin/sh", "sh", "-c", cmd.c_str(), (char*)nullptr);
+    // If execl returns, there was an error, otherwise following lines will not be executed
+    LOG(fatal) << "Failed to execute command: " << std::strerror(errno);
+    _exit(EXIT_FAILURE);
+  } else {
+    // Parent process
+    setCmdPid(pid);
+    LOG(info) << "Child spawned process group is running with PID: " << mCmdPid;
   }
   return true;
 }
 // -----------------------------------------------------------------
-bool GeneratorFileOrCmd::makeTemp()
+bool GeneratorFileOrCmd::terminateCmd()
 {
-  mFileNames.clear();
-  char buf[] = "generatorFifoXXXXXX";
-  auto fp = mkstemp(buf);
-  if (fp < 0) {
-    LOG(fatal) << "Failed to make temporary file: "
-               << std::strerror(errno);
+  if (mCmdPid == -1) {
+    LOG(info) << "No command is currently running";
     return false;
   }
-  mTemporary = std::string(buf);
-  mFileNames.push_back(mTemporary);
-  close(fp);
+
+  LOG(info) << "Terminating process ID group " << mCmdPid;
+  if (kill(-mCmdPid, SIGKILL) == -1) {
+    LOG(fatal) << "Failed to kill process: " << std::strerror(errno);
+    return false;
+  }
+
+  // Wait for the process to terminate
+  int status;
+  if (waitpid(mCmdPid, &status, 0) == -1) {
+    LOG(fatal) << "Failed to wait for process termination: " << std::strerror(errno);
+    return false;
+  }
+
+  mCmdPid = -1; // Reset the process ID
+  return true;
+}
+// -----------------------------------------------------------------
+bool GeneratorFileOrCmd::makeTemp(const bool& fromName)
+{
+  if (fromName) {
+    if (mFileNames.empty()) {
+      LOG(fatal) << "No file names to make temporary file from";
+      return false;
+    } else if (mFileNames.size() > 1) {
+      LOG(warning) << "More than one file name to make temporary file from";
+      LOG(warning) << "Using the first one: " << mFileNames.front();
+      LOG(warning) << "Removing all the others";
+      mFileNames.erase(++mFileNames.begin(), mFileNames.end());
+    } else {
+      LOG(debug) << "Making temporary file from: " << mFileNames.front();
+    }
+    std::ofstream ofs(mFileNames.front().c_str());
+    if (!ofs) {
+      LOG(fatal) << "Failed to create temporary file: " << mFileNames.front();
+      return false;
+    }
+    mTemporary = std::string(mFileNames.front());
+    ofs.close();
+  } else {
+    mFileNames.clear();
+    char buf[] = "generatorFifoXXXXXX";
+    auto fp = mkstemp(buf);
+    if (fp < 0) {
+      LOG(fatal) << "Failed to make temporary file: "
+                 << std::strerror(errno);
+      return false;
+    }
+    mTemporary = std::string(buf);
+    mFileNames.push_back(mTemporary);
+    close(fp);
+  }
   return true;
 }
 // -----------------------------------------------------------------

@@ -608,5 +608,22 @@ void TimeFrame::printNClsPerROF()
     std::cout << std::endl;
   }
 }
+
+void TimeFrame::printSliceInfo(const int startROF, const int sliceSize)
+{
+  std::cout << "Dumping slice of " << sliceSize << " rofs:" << std::endl;
+  for (int iROF{startROF}; iROF < startROF + sliceSize; ++iROF) {
+    std::cout << "ROF " << iROF << " dump:" << std::endl;
+    for (unsigned int iLayer{0}; iLayer < mClusters.size(); ++iLayer) {
+      std::cout << "Layer " << iLayer << " has: " << getClustersOnLayer(iROF, iLayer).size() << " clusters." << std::endl;
+    }
+    std::cout << "Number of seeding vertices: " << getPrimaryVertices(iROF).size() << std::endl;
+    int iVertex{0};
+    for (auto& v : getPrimaryVertices(iROF)) {
+      std::cout << "\t vertex " << iVertex++ << ": x=" << v.getX() << " " << " y=" << v.getY() << " z=" << v.getZ() << " has " << v.getNContributors() << " contributors." << std::endl;
+    }
+  }
+}
+
 } // namespace its
 } // namespace o2

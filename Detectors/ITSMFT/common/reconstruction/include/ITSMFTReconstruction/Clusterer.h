@@ -204,6 +204,9 @@ class Clusterer
   bool isContinuousReadOut() const { return mContinuousReadout; }
   void setContinuousReadOut(bool v) { mContinuousReadout = v; }
 
+  bool isDropHugeClusters() const { return mDropHugeClusters; }
+  void setDropHugeClusters(bool v) { mDropHugeClusters = v; }
+
   int getMaxBCSeparationToMask() const { return mMaxBCSeparationToMask; }
   void setMaxBCSeparationToMask(int n) { mMaxBCSeparationToMask = n; }
 
@@ -238,6 +241,7 @@ class Clusterer
 
   // clusterization options
   bool mContinuousReadout = true; ///< flag continuous readout
+  bool mDropHugeClusters = false; ///< don't include clusters that would be split in more than one
 
   ///< mask continuosly fired pixels in frames separated by less than this amount of BCs (fired from hit in prev. ROF)
   int mMaxBCSeparationToMask = 6000. / o2::constants::lhc::LHCBunchSpacingNS + 10;

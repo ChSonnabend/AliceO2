@@ -68,8 +68,19 @@ void IntegratingMerger::run(framework::ProcessingContext& ctx)
     }
   }
 
-  if (ctx.inputs().isValid("timer-publish")) {
+  if (shouldFinishCycle(ctx.inputs())) {
     finishCycle(ctx.outputs());
+  }
+}
+
+bool IntegratingMerger::shouldFinishCycle(const framework::InputRecord& inputs) const
+{
+  if (mConfig.publicationDecision.value == PublicationDecision::EachNSeconds) {
+    return inputs.isValid("timer-publish");
+  } else if (mConfig.publicationDecision.value == PublicationDecision::EachNArrivals) {
+    return mDeltasMerged > 0 && mDeltasMerged % mConfig.publicationDecision.param.decision.begin()->first == 0;
+  } else {
+    throw std::runtime_error("unsupported publication decision parameter");
   }
 }
 

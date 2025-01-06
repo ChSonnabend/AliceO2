@@ -43,8 +43,8 @@ std::shared_ptr<arrow::Field> SelfIndexColumnBuilder::field() const
 }
 
 IndexColumnBuilder::IndexColumnBuilder(std::shared_ptr<arrow::ChunkedArray> source, const char* name, int listSize, arrow::MemoryPool* pool)
-  : ChunkedArrayIterator{source},
-    SelfIndexColumnBuilder{name, pool},
+  : SelfIndexColumnBuilder{name, pool},
+    ChunkedArrayIterator{source},
     mListSize{listSize},
     mSourceSize{(size_t)source->length()}
 {

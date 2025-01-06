@@ -46,6 +46,8 @@ class IRFrameSelector
   auto getIRFrames() const { return mFrames; }
   bool isSet() const { return mIsSet; }
 
+  void setOwnList(const std::vector<o2::dataformats::IRFrame>& lst, bool toBeSorted);
+
  private:
   gsl::span<const o2::dataformats::IRFrame> mFrames{}; // externally provided span of IRFrames, must be sorted in IRFrame.getMin()
   o2::dataformats::IRFrame mLastIRFrameChecked{};      // last frame which was checked

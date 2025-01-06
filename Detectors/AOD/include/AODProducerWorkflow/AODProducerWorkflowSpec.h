@@ -21,7 +21,6 @@
 #include "DataFormatsTRD/TrackTRD.h"
 #include "DetectorsBase/GRPGeomHelper.h"
 #include "DetectorsBase/Propagator.h"
-#include "Framework/AnalysisHelpers.h"
 #include "Framework/DataProcessorSpec.h"
 #include "Framework/Task.h"
 #include "ReconstructionDataFormats/GlobalTrackID.h"
@@ -30,9 +29,12 @@
 #include "TStopwatch.h"
 #include "ZDCBase/Constants.h"
 #include "GlobalTracking/MatchGlobalFwd.h"
+#include "CommonUtils/TreeStreamRedirector.h"
+#include "CommonUtils/EnumBitOperators.h"
 
+#include <cstdint>
+#include <limits>
 #include <set>
-#include <string>
 #include <vector>
 #include <random>
 using namespace o2::framework;
@@ -203,7 +205,15 @@ class BunchCrossings
 
   std::vector<TimeWindow> mTimeWindows; // the time window structure covering the complete duration of mBCTimeVector
   double mWindowSize;                   // the size of a single time window
-};                                      // end internal class
+}; // end internal class
+
+// Steering bits for additional output during AOD production
+enum struct AODProducerStreamerMask : uint8_t {
+  None = 0,
+  TrackQA = O2_ENUM_SET_BIT(0),
+  All = std::numeric_limits<std::underlying_type_t<AODProducerStreamerMask>>::max(),
+};
+O2_DEFINE_ENUM_BIT_OPERATORS(AODProducerStreamerMask)
 
 class AODProducerWorkflowDPL : public Task
 {
@@ -240,6 +250,9 @@ class AODProducerWorkflowDPL : public Task
 
   std::unordered_set<GIndex> mGIDUsedBySVtx;
   std::unordered_set<GIndex> mGIDUsedByStr;
+
+  AODProducerStreamerMask mStreamerMask{0};
+  std::shared_ptr<o2::utils::TreeStreamRedirector> mStreamer;
 
   int mNThreads = 1;
   bool mUseMC = true;
@@ -339,6 +352,7 @@ class AODProducerWorkflowDPL : public Task
   uint32_t mTrackCovOffDiag = 0xFFFF0000;      // 7 bits
   uint32_t mTrackSignal = 0xFFFFFF00;          // 15 bits
   uint32_t mTrackTime = 0xFFFFFFFF;            // use full float precision for time
+  uint32_t mTPCTime0 = 0xFFFFFFE0;             // 18 bits, providing 14256./(1<<19) = 0.027 TB precision e.g., ~0.13 mm in z
   uint32_t mTrackTimeError = 0xFFFFFF00;       // 15 bits
   uint32_t mTrackPosEMCAL = 0xFFFFFF00;        // 15 bits
   uint32_t mTracklets = 0xFFFFFF00;            // 15 bits
@@ -397,18 +411,30 @@ class AODProducerWorkflowDPL : public Task
 
   struct TrackQA {
     GID trackID;
-    float tpcTime0;
-    int16_t tpcdcaR;
-    int16_t tpcdcaZ;
-    uint8_t tpcClusterByteMask;
-    uint8_t tpcdEdxMax0R;
-    uint8_t tpcdEdxMax1R;
-    uint8_t tpcdEdxMax2R;
-    uint8_t tpcdEdxMax3R;
-    uint8_t tpcdEdxTot0R;
-    uint8_t tpcdEdxTot1R;
-    uint8_t tpcdEdxTot2R;
-    uint8_t tpcdEdxTot3R;
+    float tpcTime0{};
+    int16_t tpcdcaR{};
+    int16_t tpcdcaZ{};
+    uint8_t tpcClusterByteMask{};
+    uint8_t tpcdEdxMax0R{};
+    uint8_t tpcdEdxMax1R{};
+    uint8_t tpcdEdxMax2R{};
+    uint8_t tpcdEdxMax3R{};
+    uint8_t tpcdEdxTot0R{};
+    uint8_t tpcdEdxTot1R{};
+    uint8_t tpcdEdxTot2R{};
+    uint8_t tpcdEdxTot3R{};
+    int8_t dRefContY{std::numeric_limits<int8_t>::min()};
+    int8_t dRefContZ{std::numeric_limits<int8_t>::min()};
+    int8_t dRefContSnp{std::numeric_limits<int8_t>::min()};
+    int8_t dRefContTgl{std::numeric_limits<int8_t>::min()};
+    int8_t dRefContQ2Pt{std::numeric_limits<int8_t>::min()};
+    int8_t dRefGloY{std::numeric_limits<int8_t>::min()};
+    int8_t dRefGloZ{std::numeric_limits<int8_t>::min()};
+    int8_t dRefGloSnp{std::numeric_limits<int8_t>::min()};
+    int8_t dRefGloTgl{std::numeric_limits<int8_t>::min()};
+    int8_t dRefGloQ2Pt{std::numeric_limits<int8_t>::min()};
+    int8_t dTofdX{std::numeric_limits<int8_t>::min()};
+    int8_t dTofdZ{std::numeric_limits<int8_t>::min()};
   };
 
   // helper struct for addToFwdTracksTable()

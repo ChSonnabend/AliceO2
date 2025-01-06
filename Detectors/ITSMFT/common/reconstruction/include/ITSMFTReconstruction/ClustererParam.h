@@ -38,6 +38,7 @@ struct ClustererParam : public o2::conf::ConfigurableParamHelper<ClustererParam<
   int maxBCDiffToMaskBias = 10;                    ///< mask if 2 ROFs differ by <= StrobeLength + Bias BCs, use value <0 to disable masking
   int maxBCDiffToSquashBias = -10;                 ///< squash if 2 ROFs differ by <= StrobeLength + Bias BCs, use value <0 to disable squashing
   float maxSOTMUS = 8.;                            ///< max expected signal over threshold in \mus
+  bool dropHugeClusters = false;                   ///< option to drop huge clusters (mitigate beam background)
 
   O2ParamDef(ClustererParam, getParamName().data());
 

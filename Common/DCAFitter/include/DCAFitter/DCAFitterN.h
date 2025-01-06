@@ -26,34 +26,32 @@ namespace o2
 {
 namespace vertexing
 {
+
 ///__________________________________________________________________________________
 ///< Inverse cov matrix (augmented by a dummy X error) of the point defined by the track
 struct TrackCovI {
   float sxx, syy, syz, szz;
 
-  GPUd() TrackCovI(const o2::track::TrackParCov& trc, float xerrFactor = 1.) { set(trc, xerrFactor); }
-
   GPUdDefault() TrackCovI() = default;
 
-  GPUd() void set(const o2::track::TrackParCov& trc, float xerrFactor = 1)
+  GPUd() bool set(const o2::track::TrackParCov& trc, float xerrFactor = 1.f)
   {
     // we assign Y error to X for DCA calculation
     // (otherwise for quazi-collinear tracks the X will not be constrained)
     float cyy = trc.getSigmaY2(), czz = trc.getSigmaZ2(), cyz = trc.getSigmaZY(), cxx = cyy * xerrFactor;
     float detYZ = cyy * czz - cyz * cyz;
-    if (detYZ > 0.) {
-      auto detYZI = 1. / detYZ;
-      sxx = 1. / cxx;
-      syy = czz * detYZI;
-      syz = -cyz * detYZI;
-      szz = cyy * detYZI;
-    } else {
-#ifndef GPUCA_GPUCODE
-      throw std::runtime_error("invalid track covariance");
-#else
-      printf("invalid track covariance\n");
-#endif
+    bool res = true;
+    if (detYZ <= 0.) {
+      cyz = o2::gpu::GPUCommonMath::Sqrt(cyy * czz) * (cyz > 0 ? 0.98f : -0.98f);
+      detYZ = cyy * czz - cyz * cyz;
+      res = false;
     }
+    auto detYZI = 1. / detYZ;
+    sxx = 1. / cxx;
+    syy = czz * detYZI;
+    syz = -cyz * detYZI;
+    szz = cyy * detYZI;
+    return res;
   }
 };
 
@@ -71,6 +69,27 @@ struct TrackDeriv {
     d2ydx2 = crv2c * cspI * cspI; // = crv/csp^3
     d2zdx2 = crv2c * dzdx * dydx; // = crv*tgl*snp/csp^3
   }
+};
+
+///__________________________________________________________________________
+///< Log log-throttling helper
+struct LogLogThrottler {
+  size_t evCount{0};
+  size_t evCountPrev{0};
+  size_t logCount{0};
+
+  GPUdi() bool needToLog()
+  {
+    if (size_t(o2::gpu::GPUCommonMath::Log(++evCount)) + 1 > logCount) {
+      logCount++;
+      return true;
+    }
+    return false;
+  }
+
+  GPUdi() size_t getNMuted() const { return evCount - evCountPrev - 1; }
+
+  GPUdi() void clear() { evCount = evCountPrev = logCount = 0; }
 };
 
 template <int N, typename... Args>
@@ -99,6 +118,12 @@ class DCAFitterN
   using ArrTrPos = o2::gpu::gpustd::array<Vec3D, N>;         // container of Track positions
 
  public:
+  enum BadCovPolicy {   // if encountering non-positive defined cov. matrix, the choice is:
+    Discard = 0,        // stop evaluation
+    Override = 1,       // override correlation coef. to have cov.matrix pos.def and continue
+    OverrideAndFlag = 2 // override correlation coef. to have cov.matrix pos.def, set mPropFailed flag of corresponding candidate to true and continue (up to the user to check the flag)
+  };
+
   static constexpr int getNProngs() { return N; }
 
   DCAFitterN() = default;
@@ -299,6 +324,9 @@ class DCAFitterN
     pnt[2] = tr.getZ();
   }
 
+  void setBadCovPolicy(BadCovPolicy v) { mBadCovPolicy = v; }
+  BadCovPolicy getBadCovPolicy() const { return mBadCovPolicy; }
+
  private:
   // vectors of 1st derivatives of track local residuals over X parameters
   o2::gpu::gpustd::array<o2::gpu::gpustd::array<Vec3D, N>, N> mDResidDx;
@@ -324,11 +352,15 @@ class DCAFitterN
   o2::gpu::gpustd::array<int, MAXHYP> mNIters;           // number of iterations for each seed
   o2::gpu::gpustd::array<bool, MAXHYP> mTrPropDone{};    // Flag that the tracks are fully propagated to PCA
   o2::gpu::gpustd::array<bool, MAXHYP> mPropFailed{};    // Flag that some propagation failed for this PCA candidate
+  LogLogThrottler mLoggerBadCov{};
+  LogLogThrottler mLoggerBadInv{};
+  LogLogThrottler mLoggerBadProp{};
   MatSym3D mWeightInv;                                   // inverse weight of single track, [sum{M^T E M}]^-1 in EQ.T
   o2::gpu::gpustd::array<int, MAXHYP> mOrder{0};
   int mCurHyp = 0;
   int mCrossIDCur = 0;
   int mCrossIDAlt = -1;
+  BadCovPolicy mBadCovPolicy{BadCovPolicy::Discard};                                              // what to do in case of non-pos-def. cov. matrix, see BadCovPolicy enum
   bool mAllowAltPreference = true;                                                                // if the fit converges to alternative PCA seed, abandon the current one
   bool mUseAbsDCA = false;                                                                        // use abs. distance minimization rather than chi2
   bool mWeightedFinalPCA = false;                                                                 // recalculate PCA as a cov-matrix weighted mean, even if absDCA method was used
@@ -677,7 +709,23 @@ GPUd() bool DCAFitterN<N, Args...>::recalculatePCAWithErrors(int cand)
   mCurHyp = mOrder[cand];
   if (mUseAbsDCA) {
     for (int i = N; i--;) {
-      mTrcEInv[mCurHyp][i].set(mCandTr[mCurHyp][i], XerrFactor); // prepare inverse cov.matrices at starting point
+      if (!mTrcEInv[mCurHyp][i].set(mCandTr[mCurHyp][i], XerrFactor)) { // prepare inverse cov.matrices at starting point
+        if (mLoggerBadCov.needToLog()) {
+#ifndef GPUCA_GPUCODE
+          printf("fitter %d: error (%ld muted): overrode invalid track covariance from %s\n",
+                 mFitterID, mLoggerBadCov.getNMuted(), mCandTr[mCurHyp][i].asString().c_str());
+#else
+          printf("fitter %d: error (%ld muted): overrode invalid track covariance cyy:%e czz:%e cyz:%e\n",
+                 mFitterID, mLoggerBadCov.getNMuted(), mCandTr[mCurHyp][i].getSigmaY2(), mCandTr[mCurHyp][i].getSigmaZ2(), mCandTr[mCurHyp][i].getSigmaZY());
+#endif
+          mLoggerBadCov.evCountPrev = mLoggerBadCov.evCount;
+        }
+        if (mBadCovPolicy == Discard) {
+          return false;
+        } else if (mBadCovPolicy == OverrideAndFlag) {
+          mPropFailed[mCurHyp] = true;
+        } // otherwise, just use overridden errors w/o flagging
+      }
     }
     if (!calcPCACoefs()) {
       mCurHyp = saveCurHyp;
@@ -884,7 +932,23 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2()
       return false;
     }
     setTrackPos(mTrPos[mCurHyp][i], mCandTr[mCurHyp][i]);      // prepare positions
-    mTrcEInv[mCurHyp][i].set(mCandTr[mCurHyp][i], XerrFactor); // prepare inverse cov.matrices at starting point
+    if (!mTrcEInv[mCurHyp][i].set(mCandTr[mCurHyp][i], XerrFactor)) { // prepare inverse cov.matrices at starting point
+      if (mLoggerBadCov.needToLog()) {
+#ifndef GPUCA_GPUCODE
+        printf("fitter %d: error (%ld muted): overrode invalid track covariance from %s\n",
+               mFitterID, mLoggerBadCov.getNMuted(), mCandTr[mCurHyp][i].asString().c_str());
+#else
+        printf("fitter %d: error (%ld muted): overrode invalid track covariance cyy:%e czz:%e cyz:%e\n",
+               mFitterID, mLoggerBadCov.getNMuted(), mCandTr[mCurHyp][i].getSigmaY2(), mCandTr[mCurHyp][i].getSigmaZ2(), mCandTr[mCurHyp][i].getSigmaZY());
+#endif
+        mLoggerBadCov.evCountPrev = mLoggerBadCov.evCount;
+      }
+      if (mBadCovPolicy == Discard) {
+        return false;
+      } else if (mBadCovPolicy == OverrideAndFlag) {
+        mPropFailed[mCurHyp] = true;
+      } // otherwise, just use overridden errors w/o flagging
+    }
   }
 
   if (mMaxDZIni > 0 && !roughDZCut()) { // apply rough cut on tracks Z difference
@@ -904,11 +968,10 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2()
 
     // do Newton-Rapson iteration with corrections = - dchi2/d{x0..xN} * [ d^2chi2/d{x0..xN}^2 ]^-1
     if (!mD2Chi2Dx2.Invert()) {
-#ifndef GPUCA_GPUCODE_DEVICE
-      LOG(error) << "InversionFailed";
-#else
-      printf("InversionFailed\n");
-#endif
+      if (mLoggerBadInv.needToLog()) {
+        printf("fitter %d: error (%ld muted): Inversion failed\n", mFitterID, mLoggerBadCov.getNMuted());
+        mLoggerBadInv.evCountPrev = mLoggerBadInv.evCount;
+      }
       return false;
     }
     VecND dx = mD2Chi2Dx2 * mDChi2Dx;
@@ -961,11 +1024,10 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2NoErr()
 
     // do Newton-Rapson iteration with corrections = - dchi2/d{x0..xN} * [ d^2chi2/d{x0..xN}^2 ]^-1
     if (!mD2Chi2Dx2.Invert()) {
-#ifndef GPUCA_GPUCODE_DEVICE
-      LOG(error) << "InversionFailed";
-#else
-      printf("InversionFailed\n");
-#endif
+      if (mLoggerBadInv.needToLog()) {
+        printf("itter %d: error (%ld muted): Inversion failed\n", mFitterID, mLoggerBadCov.getNMuted());
+        mLoggerBadInv.evCountPrev = mLoggerBadInv.evCount;
+      }
       return false;
     }
     VecND dx = mD2Chi2Dx2 * mDChi2Dx;
@@ -1108,6 +1170,14 @@ GPUdi() bool DCAFitterN<N, Args...>::propagateParamToX(o2::track::TrackPar& t, f
   }
   if (!res) {
     mPropFailed[mCurHyp] = true;
+    if (mLoggerBadProp.needToLog()) {
+#ifndef GPUCA_GPUCODE
+      printf("fitter %d: error (%ld muted): propagation failed for %s\n", mFitterID, mLoggerBadProp.getNMuted(), t.asString().c_str());
+#else
+      printf("fitter %d: error (%ld muted): propagation failed\n", mFitterID, mLoggerBadProp.getNMuted());
+#endif
+      mLoggerBadProp.evCountPrev = mLoggerBadProp.evCount;
+    }
   }
   return res;
 }
@@ -1126,6 +1196,14 @@ GPUdi() bool DCAFitterN<N, Args...>::propagateToX(o2::track::TrackParCov& t, flo
   }
   if (!res) {
     mPropFailed[mCurHyp] = true;
+    if (mLoggerBadProp.needToLog()) {
+#ifndef GPUCA_GPUCODE
+      printf("fitter %d: error (%ld muted): propagation failed for %s\n", mFitterID, mLoggerBadProp.getNMuted(), t.asString().c_str());
+#else
+      printf("fitter %d: error (%ld muted): propagation failed\n", mFitterID, mLoggerBadProp.getNMuted());
+#endif
+      mLoggerBadProp.evCountPrev = mLoggerBadProp.evCount;
+    }
   }
   return res;
 }
