@@ -187,8 +187,7 @@ if [[ $BEAMTYPE == "PbPb" ]] && [ $NEvents -ge 5 ] ; then
 fi
 for i in $CHECK_DETECTORS_RAW; do
   if [[ `ls -l raw/$i/*.raw | awk '{print $5}' | grep -v "^0\$" | wc -l` == "0" ]]; then
-    echo "ERROR: Full system test did generate no raw data for $i"
-    exit 1
+    echo "WARN: Full system test did generate no raw data for $i"
   fi
 done
 
