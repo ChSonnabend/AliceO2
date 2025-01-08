@@ -150,8 +150,6 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
       }
     }
     mInitialized = true;
-  } else {
-    (pImplOrt->sessionOptions).DisableProfiling();
   }
   (pImplOrt->sessionOptions).SetGraphOptimizationLevel(GraphOptimizationLevel(enableOptimizations));
   (pImplOrt->sessionOptions).SetLogSeverityLevel(OrtLoggingLevel(loggingLevel));
