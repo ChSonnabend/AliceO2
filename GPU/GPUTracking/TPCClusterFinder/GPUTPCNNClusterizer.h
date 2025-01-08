@@ -66,20 +66,20 @@ class GPUTPCNNClusterizer : public GPUKernelTemplate
   static int rowOffset(int, int);
   static bool isBoundary(int, int, int, const GPUTPCGeometry&);
 
-  template<class T>
+  template <class T>
   static GPUd() void nn_clusterizer(int, int, int, int,
-                              processorType&,
-                              const CfFragment&,
-                              GPUSharedMemory&,
-                              const Array2D<PackedCharge>&,
-                              const ChargePos*,
-                              const GPUSettingsRec&,
-                              MCLabelAccumulator*,
-                              uint,
-                              uint,
-                              uint*,
-                              tpc::ClusterNative*,
-                              uint*);
+                                    processorType&,
+                                    const CfFragment&,
+                                    GPUSharedMemory&,
+                                    const Array2D<PackedCharge>&,
+                                    const ChargePos*,
+                                    const GPUSettingsRec&,
+                                    MCLabelAccumulator*,
+                                    uint,
+                                    uint,
+                                    uint*,
+                                    tpc::ClusterNative*,
+                                    uint*);
 
  private:
   // ---------------------------------
