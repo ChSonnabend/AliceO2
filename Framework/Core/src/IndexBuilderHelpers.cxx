@@ -9,6 +9,7 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+#include "Framework/RuntimeError.h"
 #include "Framework/IndexBuilderHelpers.h"
 #include "Framework/CompilerBuiltins.h"
 #include <arrow/compute/api_aggregate.h>
@@ -19,6 +20,11 @@
 
 namespace o2::framework
 {
+void cannotBuildAnArray()
+{
+  throw runtime_error("Cannot build an array");
+}
+
 ChunkedArrayIterator::ChunkedArrayIterator(std::shared_ptr<arrow::ChunkedArray> source)
   : mSource{source}
 {

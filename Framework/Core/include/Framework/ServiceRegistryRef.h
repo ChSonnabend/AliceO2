@@ -72,7 +72,8 @@ class ServiceRegistryRef
 
   /// Check if service of type T is currently active.
   template <typename T>
-  std::enable_if_t<std::is_const_v<T> == false, bool> active() const
+    requires(std::is_const_v<T> == false)
+  [[nodiscard]] bool active() const
   {
     return mRegistry.active<T>(mSalt);
   }

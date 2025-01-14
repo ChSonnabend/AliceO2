@@ -20,20 +20,12 @@
 #define O2_DCS_DELIVERY_TYPE
 
 #include <string>
-#include <regex>
+#include <bitset>
 #include <stdexcept>
 #include "DetectorsDCS/GenericFunctions.h"
 
-namespace o2
+namespace o2::dcs
 {
-namespace dcs
-{
-/**
-     * This regular expression matches with strings representing payload types.
-     */
-static const std::regex REGEX_PT(
-  "^(Raw|DPVAL)/(Int|Uint|Float|Double|Bool|Char|String|Time|Binary)$");
-
 /**
      * <p>DeliveryType is a piece of meta-information used for deducing types of
      * DPVAL payloads and DIM service description strings used with services
@@ -406,8 +398,8 @@ inline size_t dim_buffer_size(const DeliveryType type)
       throw std::domain_error("Illegal DeliveryType.");
   }
 }
-} // namespace dcs
+} // namespace o2::dcs
 
-} // namespace o2
+
 
 #endif /* O2_DCS_DELIVERY_TYPE */

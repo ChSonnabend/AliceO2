@@ -18,6 +18,7 @@ o2_add_library(Framework
                        src/AnalysisDataModel.cxx
                        src/AnalysisSupportHelpers.cxx
                        src/ASoA.cxx
+                       src/ASoAHelpers.cxx
                        src/AsyncQueue.cxx
                        src/AnalysisDataModelHelpers.cxx
                        src/BoostOptionsRetriever.cxx
@@ -51,6 +52,7 @@ o2_add_library(Framework
                        src/ConfigParamDiscovery.cxx
                        src/ConfigParamStore.cxx
                        src/ConfigParamsHelper.cxx
+                       src/ConfigParamRegistry.cxx
                        src/ChannelParamSpec.cxx
                        src/DDSConfigHelpers.cxx
                        src/DataAllocator.cxx
@@ -137,6 +139,7 @@ o2_add_library(Framework
                        src/Task.cxx
                        src/Array2D.cxx
                        src/Variant.cxx
+                       src/VariantPropertyTreeHelpers.cxx
                        src/WorkflowCustomizationHelpers.cxx
                        src/WorkflowHelpers.cxx
                        src/WorkflowSerializationHelpers.cxx

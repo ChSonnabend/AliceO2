@@ -27,6 +27,7 @@
 #include "Framework/DataTakingContext.h"
 #include "Framework/DefaultsHelpers.h"
 #include "Framework/Signpost.h"
+#include "Framework/ServiceRegistryHelpers.h"
 
 #include "Framework/Variant.h"
 #include "Headers/DataHeader.h"

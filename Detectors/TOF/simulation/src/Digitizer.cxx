@@ -170,7 +170,7 @@ Int_t Digitizer::processHit(const HitType& hit, Double_t event_time)
 
   Float_t charge = getCharge(hit.GetEnergyLoss());
   // NOTE: FROM NOW ON THE TIME IS IN PS ... AND NOT IN NS
-  Double_t time = getShowerTimeSmeared((double(hit.GetTime()) + event_time) * 1E3, charge);
+  Double_t time = getShowerTimeSmeared((double(hit.GetTime()) + event_time) * 1E3 + 0.5 * Geo::TDCBIN, charge);
 
   Float_t xLocal = deltapos[0];
   Float_t zLocal = deltapos[2];
@@ -192,7 +192,7 @@ Int_t Digitizer::processHit(const HitType& hit, Double_t event_time)
     ndigits++;
     mXLastShift[mNLastHit] = 0;
     mZLastShift[mNLastHit] = 0;
-    addDigit(channel, istrip, time, xLocal, zLocal, charge, 0, 0, detInd[3], trackID);
+    addDigit(channel, istrip, time, xLocal, zLocal, charge, 0, 0, detInd[3], trackID, hit.GetTime(), event_time * 1E3);
   }
 
   // check PAD 2
@@ -209,7 +209,7 @@ Int_t Digitizer::processHit(const HitType& hit, Double_t event_time)
     ndigits++;
     mXLastShift[mNLastHit] = 0;
     mZLastShift[mNLastHit] = iZshift;
-    addDigit(channel, istrip, time, xLocal, zLocal, charge, 0, iZshift, detInd[3], trackID);
+    addDigit(channel, istrip, time, xLocal, zLocal, charge, 0, iZshift, detInd[3], trackID, hit.GetTime(), event_time * 1E3);
   }
 
   // check PAD 3
@@ -223,7 +223,7 @@ Int_t Digitizer::processHit(const HitType& hit, Double_t event_time)
       ndigits++;
       mXLastShift[mNLastHit] = -1;
       mZLastShift[mNLastHit] = 0;
-      addDigit(channel, istrip, time, xLocal, zLocal, charge, -1, 0, detInd[3], trackID);
+      addDigit(channel, istrip, time, xLocal, zLocal, charge, -1, 0, detInd[3], trackID, hit.GetTime(), event_time * 1E3);
     }
   }
 
@@ -238,7 +238,7 @@ Int_t Digitizer::processHit(const HitType& hit, Double_t event_time)
       ndigits++;
       mXLastShift[mNLastHit] = 1;
       mZLastShift[mNLastHit] = 0;
-      addDigit(channel, istrip, time, xLocal, zLocal, charge, 1, 0, detInd[3], trackID);
+      addDigit(channel, istrip, time, xLocal, zLocal, charge, 1, 0, detInd[3], trackID, hit.GetTime(), event_time * 1E3);
     }
   }
 
@@ -257,7 +257,7 @@ Int_t Digitizer::processHit(const HitType& hit, Double_t event_time)
       ndigits++;
       mXLastShift[mNLastHit] = -1;
       mZLastShift[mNLastHit] = iZshift;
-      addDigit(channel, istrip, time, xLocal, zLocal, charge, -1, iZshift, detInd[3], trackID);
+      addDigit(channel, istrip, time, xLocal, zLocal, charge, -1, iZshift, detInd[3], trackID, hit.GetTime(), event_time * 1E3);
     }
   }
 
@@ -276,7 +276,7 @@ Int_t Digitizer::processHit(const HitType& hit, Double_t event_time)
       ndigits++;
       mXLastShift[mNLastHit] = 1;
       mZLastShift[mNLastHit] = iZshift;
-      addDigit(channel, istrip, time, xLocal, zLocal, charge, 1, iZshift, detInd[3], trackID);
+      addDigit(channel, istrip, time, xLocal, zLocal, charge, 1, iZshift, detInd[3], trackID, hit.GetTime(), event_time * 1E3);
     }
   }
   return ndigits;
@@ -284,7 +284,7 @@ Int_t Digitizer::processHit(const HitType& hit, Double_t event_time)
 
 //______________________________________________________________________
 void Digitizer::addDigit(Int_t channel, UInt_t istrip, Double_t time, Float_t x, Float_t z, Float_t charge, Int_t iX, Int_t iZ,
-                         Int_t padZfired, Int_t trackID)
+                         Int_t padZfired, Int_t trackID, float geanttime, double t0)
 {
   // TOF digit requires: channel, time and time-over-threshold
 
@@ -297,10 +297,11 @@ void Digitizer::addDigit(Int_t channel, UInt_t istrip, Double_t time, Float_t x,
   charge *= getFractionOfCharge(x, z);
 
   // tot tuned to reproduce 0.8% of orphans tot(=0)
-  Float_t tot = gRandom->Gaus(12., 1.5); // time-over-threshold
-  if (tot < 8.4) {
-    tot = 0;
+  Float_t totf = gRandom->Gaus(12. * Geo::NTOTBIN_PER_NS, 1.5 * Geo::NTOTBIN_PER_NS); // time-over-threshold
+  if (totf < 172) {
+    totf = 0;
   }
+  int tot = int(totf);
 
   Float_t xborder = Geo::XPAD * 0.5 - std::abs(x);
   Float_t zborder = Geo::ZPAD * 0.5 - std::abs(z);
@@ -309,7 +310,7 @@ void Digitizer::addDigit(Int_t channel, UInt_t istrip, Double_t time, Float_t x,
   Float_t timewalkX = x * mTimeWalkeSlope;
   Float_t timewalkZ = (z - (padZfired - 0.5) * Geo::ZPAD) * mTimeWalkeSlope;
 
-  if (border < 0) { // keep the effect onlu if hit out of pad
+  if (border < 0) { // keep the effect only if hit out of pad
     border *= -1;
     Float_t extraTimeSmear = border * mTimeSlope;
     time += gRandom->Gaus(mTimeDelay, extraTimeSmear);
@@ -325,7 +326,7 @@ void Digitizer::addDigit(Int_t channel, UInt_t istrip, Double_t time, Float_t x,
   time += TMath::Sqrt(timewalkX * timewalkX + timewalkZ * timewalkZ) - mTimeDelayCorr - mTimeWalkeSlope * 2;
 
   // Decalibrate
-  float tsCorr = mCalibApi->getTimeDecalibration(channel, tot);
+  float tsCorr = mCalibApi->getTimeDecalibration(channel, tot * Geo::TOTBIN_NS);
   if (std::abs(tsCorr) > 200E3) { // accept correction up to 200 ns
     LOG(error) << "Wrong de-calibration correction for ch = " << channel << ", tot = " << tot << " (Skip it)";
     return;
@@ -344,8 +345,10 @@ void Digitizer::addDigit(Int_t channel, UInt_t istrip, Double_t time, Float_t x,
 
   int tdc = int((time - Geo::BC_TIME_INPS * nbc) * Geo::NTDCBIN_PER_PS);
 
+  static long firstlongbc = long(o2::raw::HBFUtils::Instance().orbitFirstSampled) * o2::constants::lhc::LHCMaxBunches;
   // add orbit and bc
   nbc += mEventTime.toLong();
+  t0 += (mEventTime.toLong() - firstlongbc - Geo::LATENCYWINDOW_IN_BC) * Geo::BC_TIME_INPS;
 
   //  printf("orbit = %d -- bc = %d -- nbc = (%d) %d\n",mEventTime.orbit,mEventTime.bc, mEventTime.toLong(),nbc);
 
@@ -386,7 +389,7 @@ void Digitizer::addDigit(Int_t channel, UInt_t istrip, Double_t time, Float_t x,
       mFutureItrackID.push_back(trackID);
 
       // fill temporary digits array
-      insertDigitInFuture(channel, tdc, tot * Geo::NTOTBIN_PER_NS, nbc, lblCurrent);
+      insertDigitInFuture(channel, tdc, tot, nbc, lblCurrent);
       return; // don't fill if doesn't match any available readout window
     } else if (isIfOverlap == MAXWINDOWS) { // add in future digits but also in one of the current readout windows (beacuse of windows overlap)
       lblCurrent = mFutureIevent.size();
@@ -395,7 +398,7 @@ void Digitizer::addDigit(Int_t channel, UInt_t istrip, Double_t time, Float_t x,
       mFutureItrackID.push_back(trackID);
 
       // fill temporary digits array
-      insertDigitInFuture(channel, tdc, tot * Geo::NTOTBIN_PER_NS, nbc, lblCurrent);
+      insertDigitInFuture(channel, tdc, tot, nbc, lblCurrent);
     }
 
     if (isnext) {
@@ -416,7 +419,7 @@ void Digitizer::addDigit(Int_t channel, UInt_t istrip, Double_t time, Float_t x,
     mcTruthContainer = mMCTruthContainerNext[isnext - 1];
   }
 
-  fillDigitsInStrip(strips, mcTruthContainer, channel, tdc, tot, nbc, istrip, trackID, mEventID, mSrcID);
+  fillDigitsInStrip(strips, mcTruthContainer, channel, tdc, tot, nbc, istrip, trackID, mEventID, mSrcID, geanttime, t0);
 
   if (isIfOverlap > -1 && isIfOverlap < MAXWINDOWS) { // fill also a second readout window because of the overlap
     if (!isIfOverlap) {
@@ -427,18 +430,18 @@ void Digitizer::addDigit(Int_t channel, UInt_t istrip, Double_t time, Float_t x,
       mcTruthContainer = mMCTruthContainerNext[isIfOverlap - 1];
     }
 
-    fillDigitsInStrip(strips, mcTruthContainer, channel, tdc, tot, nbc, istrip, trackID, mEventID, mSrcID);
+    fillDigitsInStrip(strips, mcTruthContainer, channel, tdc, tot, nbc, istrip, trackID, mEventID, mSrcID, geanttime, t0);
   }
 }
 //______________________________________________________________________
-void Digitizer::fillDigitsInStrip(std::vector<Strip>* strips, o2::dataformats::MCTruthContainer<o2::tof::MCLabel>* mcTruthContainer, int channel, int tdc, int tot, uint64_t nbc, UInt_t istrip, Int_t trackID, Int_t eventID, Int_t sourceID)
+void Digitizer::fillDigitsInStrip(std::vector<Strip>* strips, o2::dataformats::MCTruthContainer<o2::tof::MCLabel>* mcTruthContainer, int channel, int tdc, int tot, uint64_t nbc, UInt_t istrip, Int_t trackID, Int_t eventID, Int_t sourceID, float geanttime, double t0)
 {
   int lblCurrent;
   if (mcTruthContainer) {
     lblCurrent = mcTruthContainer->getIndexedSize(); // this is the size of mHeaderArray;
   }
 
-  Int_t lbl = (*strips)[istrip].addDigit(channel, tdc, tot * Geo::NTOTBIN_PER_NS, nbc, lblCurrent);
+  Int_t lbl = (*strips)[istrip].addDigit(channel, tdc, tot, nbc, lblCurrent, 0, 0, geanttime, t0);
 
   if (mcTruthContainer) {
     if (lbl == lblCurrent) { // it means that the digit was a new one --> we have to add the info in the MC container
@@ -1099,7 +1102,7 @@ void Digitizer::checkIfReuseFutureDigits()
       int trackID = mFutureItrackID[digit->getLabel()];
       int sourceID = mFutureIsource[digit->getLabel()];
       int eventID = mFutureIevent[digit->getLabel()];
-      fillDigitsInStrip(strips, mcTruthContainer, digit->getChannel(), digit->getTDC(), digit->getTOT(), digit->getBC(), digit->getChannel() / Geo::NPADS, trackID, eventID, sourceID);
+      fillDigitsInStrip(strips, mcTruthContainer, digit->getChannel(), digit->getTDC(), digit->getTOT(), digit->getBC(), digit->getChannel() / Geo::NPADS, trackID, eventID, sourceID, digit->getTgeant());
 
       if (isIfOverlap < 0) { // if there is no overlap candidate
         // remove digit from array in the future

@@ -11,7 +11,6 @@
 
 #ifndef O2_FRAMEWORK_INDEXBUILDERHELPERS_H_
 #define O2_FRAMEWORK_INDEXBUILDERHELPERS_H_
-#include "Framework/RuntimeError.h"
 #include "arrow/array.h"
 #include <arrow/chunked_array.h>
 #include <arrow/builder.h>
@@ -22,6 +21,8 @@
 
 namespace o2::framework
 {
+void cannotBuildAnArray();
+
 struct ChunkedArrayIterator {
   ChunkedArrayIterator(std::shared_ptr<arrow::ChunkedArray> source);
   virtual ~ChunkedArrayIterator() = default;
@@ -51,7 +52,7 @@ struct SelfIndexColumnBuilder {
     std::shared_ptr<arrow::Array> array;
     auto status = static_cast<arrow::Int32Builder*>(mBuilder.get())->Finish(&array);
     if (!status.ok()) {
-      throw runtime_error("Cannot build an array");
+      cannotBuildAnArray();
     }
 
     return std::make_shared<arrow::ChunkedArray>(array);

@@ -569,21 +569,6 @@ constexpr auto tuple_to_pack(std::tuple<ARGS...>&&)
   return framework::pack<ARGS...>{};
 }
 
-/// Detect if this is a fixed size array
-/// FIXME: Notice that C++20 provides a method with the same name
-/// so we should move to it when we switch.
-template <class T>
-struct is_bounded_array : std::false_type {
-};
-
-template <class T, std::size_t N>
-struct is_bounded_array<T[N]> : std::true_type {
-};
-
-template <class T, std::size_t N>
-struct is_bounded_array<std::array<T, N>> : std::true_type {
-};
-
 template <typename T>
 concept BulkInsertable = (std::integral<std::decay<T>> && !std::same_as<bool, std::decay_t<T>>);
 
@@ -681,14 +666,14 @@ class TableBuilder
   {
     using args_pack_t = framework::pack<ARGS...>;
     if constexpr (sizeof...(ARGS) == 1 &&
-                  is_bounded_array<pack_element_t<0, args_pack_t>>::value == false &&
+                  std::is_bounded_array<pack_element_t<0, args_pack_t>>::value == false &&
                   std::is_arithmetic_v<pack_element_t<0, args_pack_t>> == false &&
                   framework::is_base_of_template_v<std::vector, pack_element_t<0, args_pack_t>> == false) {
       using objType_t = pack_element_t<0, framework::pack<ARGS...>>;
       using argsPack_t = decltype(tuple_to_pack(framework::to_tuple(std::declval<objType_t>())));
       return framework::pack_size(argsPack_t{});
     } else if constexpr (sizeof...(ARGS) == 1 &&
-                         (is_bounded_array<pack_element_t<0, args_pack_t>>::value == true ||
+                         (std::is_bounded_array<pack_element_t<0, args_pack_t>>::value == true ||
                           framework::is_base_of_template_v<std::vector, pack_element_t<0, args_pack_t>> == true)) {
       using objType_t = pack_element_t<0, framework::pack<ARGS...>>;
       using argsPack_t = framework::pack<objType_t>;
@@ -719,7 +704,7 @@ class TableBuilder
   {
     using args_pack_t = framework::pack<ARGS...>;
     if constexpr (sizeof...(ARGS) == 1 &&
-                  is_bounded_array<pack_element_t<0, args_pack_t>>::value == false &&
+                  std::is_bounded_array<pack_element_t<0, args_pack_t>>::value == false &&
                   std::is_arithmetic_v<pack_element_t<0, args_pack_t>> == false &&
                   framework::is_base_of_template_v<std::vector, pack_element_t<0, args_pack_t>> == false) {
       using objType_t = pack_element_t<0, framework::pack<ARGS...>>;
@@ -730,7 +715,7 @@ class TableBuilder
         persister(slot, t);
       };
     } else if constexpr (sizeof...(ARGS) == 1 &&
-                         (is_bounded_array<pack_element_t<0, args_pack_t>>::value == true ||
+                         (std::is_bounded_array<pack_element_t<0, args_pack_t>>::value == true ||
                           framework::is_base_of_template_v<std::vector, pack_element_t<0, args_pack_t>> == true)) {
       using objType_t = pack_element_t<0, framework::pack<ARGS...>>;
       auto persister = persistTuple(framework::pack<objType_t>{}, columnNames);

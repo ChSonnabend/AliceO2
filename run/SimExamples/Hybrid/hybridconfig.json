@@ -53,7 +53,8 @@
       "name": "external",
       "config": {
         "fileName": "${O2DPG_ROOT}/MC/config/PWGDQ/external/generator/GeneratorParamPromptJpsiToElectronEvtGen_pp13TeV.C",
-        "funcName": "GeneratorParamPromptJpsiToElectronEvtGen_pp13TeV()"
+        "funcName": "GeneratorParamPromptJpsiToElectronEvtGen_pp13TeV()",
+        "iniFile": ""
       }
     },
     {

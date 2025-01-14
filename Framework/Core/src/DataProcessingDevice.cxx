@@ -52,8 +52,6 @@
 #include "Headers/DataHeader.h"
 #include "Headers/DataHeaderHelpers.h"
 
-#include "ScopedExit.h"
-
 #include <Framework/Tracing.h>
 
 #include <fairmq/Parts.h>

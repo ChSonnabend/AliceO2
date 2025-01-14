@@ -69,8 +69,8 @@ class RawPixelDecoder final : public PixelReader
   template <class CalibContainer>
   void fillCalibData(CalibContainer& calib);
 
-  template <class LinkErrors, class DecErrors>
-  void collectDecodingErrors(LinkErrors& linkErrors, DecErrors& decErrors);
+  template <class LinkErrors, class DecErrors, class ErrMsgs>
+  void collectDecodingErrors(LinkErrors& linkErrors, DecErrors& decErrors, ErrMsgs& errInfos);
 
   const RUDecodeData* getRUDecode(int ruSW) const { return mRUEntry[ruSW] < 0 ? nullptr : &mRUDecodeVec[mRUEntry[ruSW]]; }
   const GBTLink* getGBTLink(int i) const { return i < 0 ? nullptr : &mGBTLinks[i]; }
@@ -267,8 +267,8 @@ void RawPixelDecoder<Mapping>::fillCalibData(CalibContainer& calib)
 
 ///______________________________________________________________________
 template <class Mapping>
-template <class LinkErrors, class DecErrors>
-void RawPixelDecoder<Mapping>::collectDecodingErrors(LinkErrors& linkErrors, DecErrors& decErrors)
+template <class LinkErrors, class DecErrors, class ErrMsgs>
+void RawPixelDecoder<Mapping>::collectDecodingErrors(LinkErrors& linkErrors, DecErrors& decErrors, ErrMsgs& errInfos)
 {
   for (auto& lnk : mGBTLinks) {
     if (lnk.gbtErrStatUpadated) {
@@ -276,11 +276,24 @@ void RawPixelDecoder<Mapping>::collectDecodingErrors(LinkErrors& linkErrors, Dec
       lnk.gbtErrStatUpadated = false;
     }
   }
+  size_t nerr = 0, nerrMsg = 0;
   for (auto& ru : mRUDecodeVec) {
-    for (const auto& err : ru.chipErrorsTF) {
-      decErrors.emplace_back(ChipError{err.first, err.second.first, err.second.second}); // id, nerrors, errorFlags
+    nerr += ru.chipErrorsTF.size();
+    nerrMsg += ru.errMsgVecTF.size();
+  }
+  if (nerr || nerrMsg) {
+    decErrors.reserve(nerr);
+    errInfos.reserve(nerrMsg);
+    for (auto& ru : mRUDecodeVec) {
+      for (const auto& err : ru.chipErrorsTF) {
+        decErrors.emplace_back(ChipError{err.first, err.second.first, err.second.second}); // id, nerrors, errorFlags
+      }
+      for (auto& err : ru.errMsgVecTF) {
+        errInfos.push_back(err);
+      }
+      ru.chipErrorsTF.clear();
+      ru.errMsgVecTF.clear();
     }
-    ru.chipErrorsTF.clear();
   }
 }
 

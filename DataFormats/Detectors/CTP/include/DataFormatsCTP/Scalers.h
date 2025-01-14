@@ -128,7 +128,7 @@ class CTPRunScalers
   std::pair<double, double> getRate(uint32_t orbit, int classindex, int type) const;
 
   /// same with absolute  timestamp (not orbit) as argument
-  std::pair<double, double> getRateGivenT(double timestamp, int classindex, int type) const;
+  std::pair<double, double> getRateGivenT(double timestamp, int classindex, int type, bool qc = 0) const;
 
   /// retrieves integral for class
   std::array<uint64_t, 7> getIntegralForClass(int i) const

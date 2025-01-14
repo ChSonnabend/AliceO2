@@ -55,4 +55,7 @@
 #pragma link C++ class o2::conf::ConfigurableParamHelper < o2::itsmft::ClustererParam < o2::detectors::DetID::ITS>> + ;
 #pragma link C++ class o2::conf::ConfigurableParamHelper < o2::itsmft::ClustererParam < o2::detectors::DetID::MFT>> + ;
 
+#pragma link C++ class o2::itsmft::ErrorMessage + ;
+#pragma link C++ class std::vector < o2::itsmft::ErrorMessage> + ;
+
 #endif

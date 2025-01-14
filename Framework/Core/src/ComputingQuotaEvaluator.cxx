@@ -24,6 +24,7 @@
 
 #define LOGLEVEL debug
 
+
 namespace o2::framework
 {
 
@@ -90,7 +91,7 @@ bool ComputingQuotaEvaluator::selectOffer(int task, ComputingQuotaRequest const&
     }
     if (enough) {
       LOGP(LOGLEVEL, "{} offers were selected for a total of: cpu {}, memory {}, shared memory {}", result.size(), totalOffer.cpu, totalOffer.memory, totalOffer.sharedMemory);
-      LOGP(LOGLEVEL, "  The following offers were selected for computation: {} ", fmt::join(result, ","));
+      //LOG(LOGLEVEL) << "  The following offers were selected for computation: {} " << fmt::join(result, ", ");
       dpStats.updateStats({static_cast<short>(ProcessingStatsId::RESOURCES_SATISFACTORY), DataProcessingStats::Op::Add, 1});
     } else {
       dpStats.updateStats({static_cast<short>(ProcessingStatsId::RESOURCES_MISSING), DataProcessingStats::Op::Add, 1});
@@ -99,16 +100,16 @@ bool ComputingQuotaEvaluator::selectOffer(int task, ComputingQuotaRequest const&
       }
     }
     if (stats.invalidOffers.size()) {
-      LOGP(LOGLEVEL, "  The following offers were invalid: {}", fmt::join(stats.invalidOffers, ", "));
+    //  LOGP(LOGLEVEL, "  The following offers were invalid: {}", fmt::join(stats.invalidOffers, ", "));
     }
     if (stats.otherUser.size()) {
-      LOGP(LOGLEVEL, "  The following offers were owned by other users: {}", fmt::join(stats.otherUser, ", "));
+     // LOGP(LOGLEVEL, "  The following offers were owned by other users: {}", fmt::join(stats.otherUser, ", "));
     }
     if (stats.expired.size()) {
-      LOGP(LOGLEVEL, "  The following offers are expired: {}", fmt::join(stats.expired, ", "));
+     // LOGP(LOGLEVEL, "  The following offers are expired: {}", fmt::join(stats.expired, ", "));
     }
     if (stats.unexpiring.size() > 1) {
-      LOGP(LOGLEVEL, "  The following offers will never expire: {}", fmt::join(stats.unexpiring, ", "));
+     // LOGP(LOGLEVEL, "  The following offers will never expire: {}", fmt::join(stats.unexpiring, ", "));
     }
 
     return enough;

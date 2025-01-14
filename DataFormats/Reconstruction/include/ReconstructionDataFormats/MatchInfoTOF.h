@@ -28,7 +28,7 @@ class MatchInfoTOF
   using GTrackID = o2::dataformats::GlobalTrackID;
 
  public:
-  MatchInfoTOF(int idLocal, int idxTOFCl, double time, float chi2, o2::track::TrackLTIntegral trkIntLT, GTrackID idxTrack, float dt = 0, float z = 0, float dx = 0, float dz = 0, float dy = 0) : mIdLocal(idLocal), mIdxTOFCl(idxTOFCl), mSignal(time), mChi2(chi2), mIntLT(trkIntLT), mIdxTrack(idxTrack), mDeltaT(dt), mZatTOF(z), mDXatTOF(dx), mDZatTOF(dz), mDYatTOF(dy){};
+  MatchInfoTOF(int idLocal, int idxTOFCl, double time, float chi2, o2::track::TrackLTIntegral trkIntLT, GTrackID idxTrack, float dt = 0, float z = 0, float dx = 0, float dz = 0, float dy = 0, float geanttime = 0.0, double t0 = 0.0) : mIdLocal(idLocal), mIdxTOFCl(idxTOFCl), mSignal(time), mChi2(chi2), mIntLT(trkIntLT), mIdxTrack(idxTrack), mDeltaT(dt), mZatTOF(z), mDXatTOF(dx), mDZatTOF(dz), mDYatTOF(dy), mTgeant(geanttime), mT0true(t0){};
   MatchInfoTOF() = default;
   void setIdxTOFCl(int index) { mIdxTOFCl = index; }
   void setIdxTrack(GTrackID index) { mIdxTrack = index; }
@@ -70,6 +70,10 @@ class MatchInfoTOF
   void setVz(float val) { mVz = val; }
   int getChannel() const { return mChannel; }
   void setChannel(int val) { mChannel = val; }
+  float getTgeant() const { return mTgeant; }
+  void setTgeant(float val) { mTgeant = val; }
+  double getT0true() const { return mT0true; }
+  void setT0true(double val) { mT0true = val; }
 
  private:
   int mIdLocal;                      // track id in sector of the pair track-TOFcluster
@@ -88,8 +92,10 @@ class MatchInfoTOF
   // Hit pattern information
   bool mHitUpDown = false;    ///< hit pattern in TOF up-down
   bool mHitLeftRight = false; ///< hit pattern in TOF left-right
+  float mTgeant = 0.0;        ///< geant time in MC
+  double mT0true = 0.0;       ///< t0true
 
-  ClassDefNV(MatchInfoTOF, 7);
+  ClassDefNV(MatchInfoTOF, 8);
 };
 } // namespace dataformats
 } // namespace o2

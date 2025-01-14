@@ -99,6 +99,14 @@ bool DigitizationContext::initSimChains(o2::detectors::DetID detid, std::vector<
     return false;
   }
 
+  // check that all files are present, otherwise quit
+  for (int source = 0; source < mSimPrefixes.size(); ++source) {
+    if (!std::filesystem::exists(o2::base::DetectorNameConf::getHitsFileName(detid, mSimPrefixes[source].data()))) {
+      LOG(info) << "Not hit file present for " << detid.getName() << " (exiting SimChain setup)";
+      return false;
+    }
+  }
+
   simchains.emplace_back(new TChain("o2sim"));
   // add the main (background) file
   simchains.back()->AddFile(o2::base::DetectorNameConf::getHitsFileName(detid, mSimPrefixes[0].data()).c_str());

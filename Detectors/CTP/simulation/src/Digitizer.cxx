@@ -170,7 +170,7 @@ void Digitizer::calculateClassMask(const std::bitset<CTP_NINPUTS> ctpinpmask, st
           // }
       }
     } else {
-      if ((ctpinpmask.to_ullong() & tcl.descriptor->getInputsMask()) == tcl.descriptor->getInputsMask()) {
+      if (tcl.descriptor && ((ctpinpmask.to_ullong() & tcl.descriptor->getInputsMask()) == tcl.descriptor->getInputsMask())) {
         classmask |= tcl.classMask;
       }
     }

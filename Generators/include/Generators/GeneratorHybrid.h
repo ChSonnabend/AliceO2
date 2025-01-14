@@ -66,6 +66,7 @@ class GeneratorHybrid : public Generator
   void setNEvents(int n) { mNEvents = n; }
 
   Bool_t parseJSON(const std::string& path);
+  Bool_t confSetter(const auto& gen);
   template <typename T>
   std::string jsonValueToString(const T& value);
 
@@ -97,6 +98,10 @@ class GeneratorHybrid : public Generator
   int mIndex = 0;
   int mEventCounter = 0;
   int mTasksStarted = 0;
+
+  // Cocktail mode
+  bool mCocktailMode = false;
+  std::vector<std::vector<int>> mGroups;
 
   // Create a task arena with a specified number of threads
   std::thread mTBBTaskPoolRunner;

@@ -77,10 +77,6 @@ using Metric = o2::monitoring::Metric;
 using Key = o2::monitoring::tags::Key;
 using Value = o2::monitoring::tags::Value;
 
-// This is to allow C++20 aggregate initialisation
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-
 O2_DECLARE_DYNAMIC_LOG(data_processor_context);
 O2_DECLARE_DYNAMIC_LOG(stream_context);
 O2_DECLARE_DYNAMIC_LOG(async_queue);
@@ -1327,4 +1323,3 @@ std::vector<ServiceSpec> CommonServices::arrowServices()
 }
 
 } // namespace o2::framework
-#pragma GCC diagnostic pop

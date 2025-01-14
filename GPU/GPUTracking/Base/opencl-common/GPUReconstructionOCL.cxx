@@ -108,6 +108,14 @@ int32_t GPUReconstructionOCL::InitDevice_Runtime()
       }
       mInternals->platform = mInternals->platforms[mProcessingSettings.platformNum];
       found = true;
+      if (mProcessingSettings.debugLevel >= 2) {
+        char platform_profile[256] = {}, platform_version[256] = {}, platform_name[256] = {}, platform_vendor[256] = {};
+        clGetPlatformInfo(mInternals->platform, CL_PLATFORM_PROFILE, sizeof(platform_profile), platform_profile, nullptr);
+        clGetPlatformInfo(mInternals->platform, CL_PLATFORM_VERSION, sizeof(platform_version), platform_version, nullptr);
+        clGetPlatformInfo(mInternals->platform, CL_PLATFORM_NAME, sizeof(platform_name), platform_name, nullptr);
+        clGetPlatformInfo(mInternals->platform, CL_PLATFORM_VENDOR, sizeof(platform_vendor), platform_vendor, nullptr);
+        GPUInfo("Selected Platform %d: (%s %s) %s %s", mProcessingSettings.platformNum, platform_profile, platform_version, platform_vendor, platform_name);
+      }
     } else {
       for (uint32_t i_platform = 0; i_platform < num_platforms; i_platform++) {
         char platform_profile[256] = {}, platform_version[256] = {}, platform_name[256] = {}, platform_vendor[256] = {};
@@ -227,6 +235,8 @@ int32_t GPUReconstructionOCL::InitDevice_Runtime()
     clGetDeviceInfo(mInternals->device, CL_DEVICE_VERSION, sizeof(deviceVersion) - 1, deviceVersion, nullptr);
     clGetDeviceInfo(mInternals->device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(maxWorkGroup), &maxWorkGroup, nullptr);
     clGetDeviceInfo(mInternals->device, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(maxWorkItems), maxWorkItems, nullptr);
+    int versionMajor, versionMinor;
+    sscanf(deviceVersion, "OpenCL %d.%d", &versionMajor, &versionMinor);
     if (mProcessingSettings.debugLevel >= 2) {
       GPUInfo("Using OpenCL device %d: %s %s with properties:", bestDevice, device_vendor, device_name);
       GPUInfo("\tVersion = %s", deviceVersion);
@@ -277,9 +287,18 @@ int32_t GPUReconstructionOCL::InitDevice_Runtime()
       quit("OPENCL Constant Memory Allocation Error");
     }
 
+    if (device_type & CL_DEVICE_TYPE_CPU) {
+      if (mProcessingSettings.deviceTimers && mProcessingSettings.debugLevel >= 2) {
+        GPUInfo("Disabling device timers for CPU device");
+      }
+      mProcessingSettings.deviceTimers = 0;
+    }
     for (int32_t i = 0; i < mNStreams; i++) {
 #ifdef CL_VERSION_2_0
-      cl_queue_properties prop = mProcessingSettings.deviceTimers ? CL_QUEUE_PROFILING_ENABLE : 0;
+      cl_queue_properties prop = 0;
+      if (versionMajor >= 2 && IsGPU() && mProcessingSettings.deviceTimers) {
+        prop |= CL_QUEUE_PROFILING_ENABLE;
+      }
       mInternals->command_queue[i] = clCreateCommandQueueWithProperties(mInternals->context, mInternals->device, &prop, &ocl_error);
       if (mProcessingSettings.deviceTimers && ocl_error == CL_INVALID_QUEUE_PROPERTIES) {
         GPUError("GPU device timers not supported by OpenCL platform, disabling");

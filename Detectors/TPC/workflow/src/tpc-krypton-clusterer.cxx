@@ -12,6 +12,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <thread>
 
 #include "Algorithm/RangeTokenizer.h"
 #include "Framework/WorkflowSpec.h"

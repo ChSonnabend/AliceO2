@@ -24,6 +24,7 @@ namespace o2::framework
 // has no range checks
 template <typename T>
 struct Array2D {
+  void is_array_2d();
   using element_t = T;
 
   Array2D()
@@ -161,6 +162,7 @@ template <typename T>
 class LabeledArray : public LabelMap
 {
  public:
+  void is_labeled_array();
   using element_t = T;
 
   LabeledArray()

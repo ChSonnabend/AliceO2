@@ -33,10 +33,6 @@
 #include <boost/program_options/variables_map.hpp>
 #include <csignal>
 
-// This is to allow C++20 aggregate initialisation
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-
 namespace o2::framework
 {
 

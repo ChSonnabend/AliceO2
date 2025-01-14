@@ -34,7 +34,7 @@ Strip::Strip(Int_t index)
 {
 }
 //_______________________________________________________________________
-Int_t Strip::addDigit(Int_t channel, Int_t tdc, Int_t tot, uint64_t bc, Int_t lbl, uint32_t triggerorbit, uint16_t triggerbunch)
+Int_t Strip::addDigit(Int_t channel, Int_t tdc, Int_t tot, uint64_t bc, Int_t lbl, uint32_t triggerorbit, uint16_t triggerbunch, float geanttime, double t0)
 {
 
   // return the MC label. We pass it also as argument, but it can change in
@@ -44,10 +44,13 @@ Int_t Strip::addDigit(Int_t channel, Int_t tdc, Int_t tot, uint64_t bc, Int_t lb
   auto dig = findDigit(key);
   if (dig) {
     lbl = dig->getLabel(); // getting the label from the already existing digit
-    dig->merge(tdc, tot);  // merging to the existing digit
+    if (dig->merge(tdc, tot)) { // merging to the existing digit (if new came first upload also MC truth)
+      dig->setTgeant(geanttime);
+      dig->setT0true(t0);
+    }
     mDigitMerged++;
   } else {
-    mDigits.emplace(std::make_pair(key, Digit(channel, tdc, tot, bc, lbl, triggerorbit, triggerbunch)));
+    mDigits.emplace(std::make_pair(key, Digit(channel, tdc, tot, bc, lbl, triggerorbit, triggerbunch, geanttime, t0)));
   }
 
   return lbl;

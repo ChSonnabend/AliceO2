@@ -37,8 +37,8 @@ struct SpacePointsCalibConfParam : public o2::conf::ConfigurableParamHelper<Spac
   int minTRDNTrklts = 3;                ///< min number of TRD space points
   float maxITSChi2 = 20.f;              ///< cut on ITS reduced chi2
   float maxTRDChi2 = 10.f;              ///< cut on TRD reduced chi2
-  float minPtNoOuterPoint = 0.8f;       ///< minimum pt for ITS-TPC tracks to be considered for extrapolation
-  int minTOFTRDPVContributors = 0;      ///< min contributors from TRD or TOF (fast detectors) to consider tracks of this PV
+  float minPtNoOuterPoint = 0.2f;       ///< minimum pt for ITS-TPC tracks to be considered for extrapolation
+  int minTOFTRDPVContributors = 2;      ///< min contributors from TRD or TOF (fast detectors) to consider tracks of this PV
   bool ignoreNonPVContrib = true;       ///< flag if tracks which did not contribute to the PV should be ignored or not
   bool enableTrackDownsampling = false; ///< flag if track sampling shall be enabled or not
   float tsalisThreshold = 1.f;          ///< in case the sampling functions returns a value smaller than this the track is discarded (1. means no downsampling)
@@ -67,7 +67,7 @@ struct SpacePointsCalibConfParam : public o2::conf::ConfigurableParamHelper<Spac
   float maxRejFrac{.15f};                ///< if the fraction of rejected clusters of a track is higher, the full track is invalidated
   float maxRMSLong{.8f};                 ///< maximum variance of the cluster residuals wrt moving avarage for a track to be considered
   int minNCl = 30;                       ///< min number of clusters in a track to be used for calibration
-  float maxQ2Pt = 3.f;                   ///< max fitted q/pt for a track to be used for calibration
+  float maxQ2Pt = 5.f;                   ///< max fitted q/pt for a track to be used for calibration
   float maxDevHelixY = .3f;              ///< max deviation in Y for clusters wrt helix fit
   float maxDevHelixZ = .3f;              ///< max deviation in Z for clusters wrt helix fit
   int minNumberOfAcceptedResiduals = 30; ///< min number of accepted residuals for

@@ -538,14 +538,14 @@ bool DeviceMetricsHelper::processMetric(ParsedMetricMatch& match,
   return true;
 }
 
-size_t DeviceMetricsHelper::metricIdxByName(const std::string& name, const DeviceMetricsInfo& info)
+size_t DeviceMetricsHelper::metricIdxByName(std::string_view const name, const DeviceMetricsInfo& info)
 {
   size_t i = 0;
   while (i < info.metricLabels.size()) {
-    auto& metricName = info.metricLabels[i];
+    std::string_view metricName(info.metricLabels[i].label, info.metricLabels[i].size);
     // We check the size first and then the last character because that's
     // likely to be different for multi-index metrics
-    if (metricName.size == name.size() && metricName.label[metricName.size - 1] == name[metricName.size - 1] && memcmp(metricName.label, name.c_str(), metricName.size) == 0) {
+    if (metricName.size() == name.size() && metricName[metricName.size() - 1] == name[name.size() - 1] && metricName == name) {
       return i;
     }
     ++i;

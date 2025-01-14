@@ -2,7 +2,7 @@
 
 #include "Generators/Trigger.h"
 #include "Pythia8/Pythia.h"
-#include "Pythia8/HIUserHooks.h"
+#include "Pythia8/HIInfo.h"
 #include <fairlogger/Logger.h>
 
 o2::eventgen::DeepTrigger

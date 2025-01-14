@@ -12,7 +12,6 @@
 #include "Generators/GeneratorHybrid.h"
 #include <fairlogger/Logger.h>
 #include <algorithm>
-
 #include <tbb/concurrent_queue.h>
 #include <tbb/task_arena.h>
 #include <tbb/parallel_for.h>
@@ -42,9 +41,16 @@ GeneratorHybrid::GeneratorHybrid(const std::string& inputgens)
   }
   int index = 0;
   if (!(mRandomize || mGenerationMode == GenMode::kParallel)) {
-    if (mFractions.size() != mInputGens.size()) {
-      LOG(fatal) << "Number of fractions does not match the number of generators";
-      return;
+    if (mCocktailMode) {
+      if (mGroups.size() != mFractions.size()) {
+        LOG(fatal) << "Number of groups does not match the number of fractions";
+        return;
+      }
+    } else {
+      if (mFractions.size() != mInputGens.size()) {
+        LOG(fatal) << "Number of fractions does not match the number of generators";
+        return;
+      }
     }
     // Check if all elements of mFractions are 0
     if (std::all_of(mFractions.begin(), mFractions.end(), [](int i) { return i == 0; })) {
@@ -303,7 +309,7 @@ bool GeneratorHybrid::generateEvent()
           }
         }
       } else {
-        mIndex = gRandom->Integer(mGens.size());
+        mIndex = gRandom->Integer(mFractions.size());
       }
     } else {
       while (mFractions[mCurrentFraction] == 0 || mseqCounter == mFractions[mCurrentFraction]) {
@@ -322,25 +328,47 @@ bool GeneratorHybrid::generateEvent()
 bool GeneratorHybrid::importParticles()
 {
   int genIndex = -1;
+  std::vector<int> subGenIndex = {};
   if (mIndex == -1) {
     // this means parallel mode ---> we have a common queue
     mResultQueue[0].pop(genIndex);
   } else {
     // need to pop from a particular queue
-    mResultQueue[mIndex].pop(genIndex);
+    if (!mCocktailMode) {
+      mResultQueue[mIndex].pop(genIndex);
+    } else {
+      // in cocktail mode we need to pop from the group queue
+      subGenIndex.resize(mGroups[mIndex].size());
+      for (size_t pos = 0; pos < mGroups[mIndex].size(); ++pos) {
+        int subIndex = mGroups[mIndex][pos];
+        LOG(info) << "Getting generator " << mGens[subIndex] << " from cocktail group " << mIndex;
+        mResultQueue[subIndex].pop(subGenIndex[pos]);
+      }
+    }
   }
-  LOG(info) << "Importing particles for task " << genIndex;
-
-  // at this moment the mIndex-th generator is ready to be used
+  // Clear particles and event header
   mParticles.clear();
-  mParticles = gens[genIndex]->getParticles();
-
-  // fetch the event Header information from the underlying generator
   mMCEventHeader.clearInfo();
-  gens[genIndex]->updateHeader(&mMCEventHeader);
-
-  mInputTaskQueue.push(genIndex);
-  mTasksStarted++;
+  if (mCocktailMode) {
+    // in cocktail mode we need to merge the particles from the different generators
+    for (auto subIndex : subGenIndex) {
+      LOG(info) << "Importing particles for task " << subIndex;
+      auto subParticles = gens[subIndex]->getParticles();
+      mParticles.insert(mParticles.end(), subParticles.begin(), subParticles.end());
+      // fetch the event Header information from the underlying generator
+      gens[subIndex]->updateHeader(&mMCEventHeader);
+      mInputTaskQueue.push(subIndex);
+      mTasksStarted++;
+    }
+  } else {
+    LOG(info) << "Importing particles for task " << genIndex;
+    // at this moment the mIndex-th generator is ready to be used
+    mParticles = gens[genIndex]->getParticles();
+    // fetch the event Header information from the underlying generator
+    gens[genIndex]->updateHeader(&mMCEventHeader);
+    mInputTaskQueue.push(genIndex);
+    mTasksStarted++;
+  }
 
   mseqCounter++;
   mEventCounter++;
@@ -348,6 +376,7 @@ bool GeneratorHybrid::importParticles()
     LOG(info) << "HybridGen: Stopping TBB task pool";
     mStopFlag = true;
   }
+
   return true;
 }
 
@@ -369,6 +398,59 @@ std::string GeneratorHybrid::jsonValueToString(const T& value)
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
   value.Accept(writer);
   return buffer.GetString();
+}
+
+Bool_t GeneratorHybrid::confSetter(const auto& gen)
+{
+  std::string name = gen["name"].GetString();
+  mInputGens.push_back(name);
+  if (gen.HasMember("config")) {
+    if (name == "boxgen") {
+      const auto& boxconf = gen["config"];
+      auto boxConfig = TBufferJSON::FromJSON<o2::eventgen::BoxGenConfig>(jsonValueToString(boxconf).c_str());
+      mBoxGenConfigs.push_back(std::move(boxConfig));
+      mConfigs.push_back("boxgen_" + std::to_string(mBoxGenConfigs.size() - 1));
+    } else if (name == "pythia8") {
+      const auto& pythia8conf = gen["config"];
+      auto pythia8Config = TBufferJSON::FromJSON<o2::eventgen::Pythia8GenConfig>(jsonValueToString(pythia8conf).c_str());
+      mPythia8GenConfigs.push_back(std::move(pythia8Config));
+      mConfigs.push_back("pythia8_" + std::to_string(mPythia8GenConfigs.size() - 1));
+    } else if (name == "extkinO2") {
+      const auto& o2kineconf = gen["config"];
+      auto o2kineConfig = TBufferJSON::FromJSON<o2::eventgen::O2KineGenConfig>(jsonValueToString(o2kineconf).c_str());
+      mO2KineGenConfigs.push_back(std::move(o2kineConfig));
+      mConfigs.push_back("extkinO2_" + std::to_string(mO2KineGenConfigs.size() - 1));
+    } else if (name == "evtpool") {
+      const auto& o2kineconf = gen["config"];
+      auto poolConfig = TBufferJSON::FromJSON<o2::eventgen::EventPoolGenConfig>(jsonValueToString(o2kineconf).c_str());
+      mEventPoolConfigs.push_back(*poolConfig);
+      mConfigs.push_back("evtpool_" + std::to_string(mEventPoolConfigs.size() - 1));
+    } else if (name == "external") {
+      const auto& extconf = gen["config"];
+      auto extConfig = TBufferJSON::FromJSON<o2::eventgen::ExternalGenConfig>(jsonValueToString(extconf).c_str());
+      mExternalGenConfigs.push_back(std::move(extConfig));
+      mConfigs.push_back("external_" + std::to_string(mExternalGenConfigs.size() - 1));
+    } else if (name == "hepmc") {
+      const auto& genconf = gen["config"];
+      const auto& cmdconf = genconf["configcmd"];
+      const auto& hepmcconf = genconf["confighepmc"];
+      auto cmdConfig = TBufferJSON::FromJSON<o2::eventgen::FileOrCmdGenConfig>(jsonValueToString(cmdconf).c_str());
+      auto hepmcConfig = TBufferJSON::FromJSON<o2::eventgen::HepMCGenConfig>(jsonValueToString(hepmcconf).c_str());
+      mFileOrCmdGenConfigs.push_back(std::move(cmdConfig));
+      mHepMCGenConfigs.push_back(std::move(hepmcConfig));
+      mConfigs.push_back("hepmc_" + std::to_string(mFileOrCmdGenConfigs.size() - 1));
+    } else {
+      mConfigs.push_back("");
+    }
+  } else {
+    if (name == "boxgen" || name == "pythia8" || name == "extkinO2" || name == "external" || name == "hepmc") {
+      LOG(fatal) << "No configuration provided for generator " << name;
+      return false;
+    } else {
+      mConfigs.push_back("");
+    }
+  }
+  return true;
 }
 
 Bool_t GeneratorHybrid::parseJSON(const std::string& path)
@@ -407,60 +489,26 @@ Bool_t GeneratorHybrid::parseJSON(const std::string& path)
   if (doc.HasMember("generators")) {
     const auto& gens = doc["generators"];
     for (const auto& gen : gens.GetArray()) {
-      // push in mInputGens the "name" of the generator
-      std::string name = gen["name"].GetString();
-      mInputGens.push_back(name);
-      if (gen.HasMember("config")) {
-        if (name == "boxgen") {
-          const auto& boxconf = gen["config"];
-          auto boxConfig = TBufferJSON::FromJSON<o2::eventgen::BoxGenConfig>(jsonValueToString(boxconf).c_str());
-          mBoxGenConfigs.push_back(std::move(boxConfig));
-          mConfigs.push_back("boxgen_" + std::to_string(mBoxGenConfigs.size() - 1));
-          continue;
-        } else if (name == "pythia8") {
-          const auto& pythia8conf = gen["config"];
-          auto pythia8Config = TBufferJSON::FromJSON<o2::eventgen::Pythia8GenConfig>(jsonValueToString(pythia8conf).c_str());
-          mPythia8GenConfigs.push_back(std::move(pythia8Config));
-          mConfigs.push_back("pythia8_" + std::to_string(mPythia8GenConfigs.size() - 1));
-          continue;
-        } else if (name == "extkinO2") {
-          const auto& o2kineconf = gen["config"];
-          auto o2kineConfig = TBufferJSON::FromJSON<o2::eventgen::O2KineGenConfig>(jsonValueToString(o2kineconf).c_str());
-          mO2KineGenConfigs.push_back(std::move(o2kineConfig));
-          mConfigs.push_back("extkinO2_" + std::to_string(mO2KineGenConfigs.size() - 1));
-          continue;
-        } else if (name == "evtpool") {
-          const auto& o2kineconf = gen["config"];
-          auto poolConfig = TBufferJSON::FromJSON<o2::eventgen::EventPoolGenConfig>(jsonValueToString(o2kineconf).c_str());
-          mEventPoolConfigs.push_back(*poolConfig);
-          mConfigs.push_back("evtpool_" + std::to_string(mEventPoolConfigs.size() - 1));
-          continue;
-        } else if (name == "external") {
-          const auto& extconf = gen["config"];
-          auto extConfig = TBufferJSON::FromJSON<o2::eventgen::ExternalGenConfig>(jsonValueToString(extconf).c_str());
-          mExternalGenConfigs.push_back(std::move(extConfig));
-          mConfigs.push_back("external_" + std::to_string(mExternalGenConfigs.size() - 1));
-          continue;
-        } else if (name == "hepmc") {
-          const auto& genconf = gen["config"];
-          const auto& cmdconf = genconf["configcmd"];
-          const auto& hepmcconf = genconf["confighepmc"];
-          auto cmdConfig = TBufferJSON::FromJSON<o2::eventgen::FileOrCmdGenConfig>(jsonValueToString(cmdconf).c_str());
-          auto hepmcConfig = TBufferJSON::FromJSON<o2::eventgen::HepMCGenConfig>(jsonValueToString(hepmcconf).c_str());
-          mFileOrCmdGenConfigs.push_back(std::move(cmdConfig));
-          mHepMCGenConfigs.push_back(std::move(hepmcConfig));
-          mConfigs.push_back("hepmc_" + std::to_string(mFileOrCmdGenConfigs.size() - 1));
-          continue;
-        } else {
-          mConfigs.push_back("");
+      mGroups.push_back({});
+      // Check if gen is an array (cocktail mode)
+      if (gen.HasMember("cocktail")) {
+        mCocktailMode = true;
+        for (const auto& subgen : gen["cocktail"].GetArray()) {
+          if (confSetter(subgen)) {
+            mGroups.back().push_back(mInputGens.size() - 1);
+          } else {
+            return false;
+          }
         }
       } else {
-        if (name == "boxgen" || name == "pythia8" || name == "extkinO2" || name == "external" || name == "hepmc") {
-          LOG(fatal) << "No configuration provided for generator " << name;
+        if (!confSetter(gen)) {
           return false;
-        } else {
-          mConfigs.push_back("");
         }
+        // Groups are created in case cocktail mode is activated, this way
+        // cocktails can be declared anywhere in the JSON file, without the need
+        // of grouping single generators. If no cocktail is defined
+        // groups will be ignored nonetheless.
+        mGroups.back().push_back(mInputGens.size() - 1);
       }
     }
   }

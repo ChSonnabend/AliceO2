@@ -723,7 +723,7 @@ std::pair<double, double> CTPRunScalers::getRate(uint32_t orbit, int classindex,
 // rate in Hz at a certain orbit number within the run
 // type - 7 : inputs
 // type - 1..6 : lmb,lma,l0b,l0a,l1b,l1a
-std::pair<double, double> CTPRunScalers::getRateGivenT(double timestamp, int classindex, int type) const
+std::pair<double, double> CTPRunScalers::getRateGivenT(double timestamp, int classindex, int type, bool qc) const
 {
   if (mScalerRecordO2.size() <= 1) {
     LOG(error) << "not enough data";
@@ -775,12 +775,24 @@ std::pair<double, double> CTPRunScalers::getRateGivenT(double timestamp, int cla
       return -1; // wrong type
     }
   };
-  if (nextindex == 0 || nextindex == mScalerRecordO2.size()) {
+  if (nextindex == 0) {
     // orbit is out of bounds
-    LOG(info) << "query timestamp " << (long)timestamp << " out of bounds; Just returning the global rate";
-    return std::make_pair(/*global mean rate*/ calcRate(0, mScalerRecordO2.size() - 1), /* current rate */ -1);
+    if (qc == 0) {
+      LOG(info) << "query timestamp " << (long)timestamp << " before first record; Just returning the global rate";
+      return std::make_pair(/*global mean rate*/ calcRate(0, mScalerRecordO2.size() - 1), /* current rate */ -1);
+    } else {
+      LOG(info) << "query timestamp " << (long)timestamp << " before first record; Returning the first rate";
+      return std::make_pair(/*global mean rate*/ calcRate(0, mScalerRecordO2.size() - 1), /* first rate */ calcRate(0, 1));
+    }
+  } else if (nextindex == mScalerRecordO2.size()) {
+    if (qc == 0) {
+      LOG(info) << "query timestamp " << (long)timestamp << " after last record; Just returning the global rate";
+      return std::make_pair(/*global mean rate*/ calcRate(0, mScalerRecordO2.size() - 1), /* current rate */ -1);
+    } else {
+      LOG(info) << "query timestamp " << (long)timestamp << " after last record; Returning the last rate";
+      return std::make_pair(/*global mean rate*/ calcRate(0, mScalerRecordO2.size() - 1), /* last rate */ calcRate(mScalerRecordO2.size() - 2, mScalerRecordO2.size() - 1));
+    }
   } else {
-
     return std::make_pair(/*global mean rate*/ calcRate(0, mScalerRecordO2.size() - 1), /* current rate */ calcRate(nextindex - 1, nextindex));
   }
   return std::make_pair(-1., -1.);

@@ -2126,6 +2126,9 @@ class Table
 template <uint32_t D, soa::is_column... C>
 using InPlaceTable = Table<o2::aod::Hash<"TEST"_h>, o2::aod::Hash<D>, o2::aod::Hash<"TEST"_h>, C...>;
 
+void getterNotFound(const char* targetColumnLabel);
+void emptyColumnLabel();
+
 namespace row_helpers
 {
 template <soa::is_persistent_column... Cs>
@@ -2232,7 +2235,7 @@ ColumnGetterFunction<R, T> getColumnGetterByLabel(o2::framework::pack<Cs...>, co
   (void)((func = createGetterPtr<R, T, Cs>(targetColumnLabel), func) || ...);
 
   if (!func) {
-    throw framework::runtime_error_f("Getter for \"%s\" not found", targetColumnLabel);
+    getterNotFound(targetColumnLabel.data());
   }
 
   return func;
@@ -2248,7 +2251,7 @@ ColumnGetterFunction<R, typename T::iterator> getColumnGetterByLabel(const std::
   using TypesWithCommonGetter = o2::framework::selected_pack_multicondition<with_common_getter_t, framework::pack<R>, typename T::columns_t>;
 
   if (targetColumnLabel.size() == 0) {
-    throw framework::runtime_error("columnLabel: must not be empty");
+    emptyColumnLabel();
   }
 
   return getColumnGetterByLabel<R, typename T::iterator>(TypesWithCommonGetter{}, targetColumnLabel);

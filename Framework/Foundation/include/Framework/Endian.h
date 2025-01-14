@@ -33,24 +33,17 @@
 #define O2_BIG_ENDIAN __BIG_ENDIAN
 #define O2_LITTLE_ENDIAN __LITTLE_ENDIAN
 
-
-template <typename T>
-  requires std::same_as<T, uint16_t>
-inline uint16_t doSwap(uint16_t x)
+inline uint16_t doSwap(std::same_as<uint16_t> auto x)
 {
   return swap16_(x);
 }
 
-template <typename T>
-  requires std::same_as<T, uint32_t>
-inline uint32_t doSwap(uint32_t x)
+inline uint32_t doSwap(std::same_as<uint32_t> auto x)
 {
   return swap32_(x);
 }
 
-template <typename T>
-  requires std::same_as<T, uint64_t>
-inline uint64_t doSwap(uint64_t x)
+inline uint64_t doSwap(std::same_as<uint64_t> auto x)
 {
   return swap64_(x);
 }

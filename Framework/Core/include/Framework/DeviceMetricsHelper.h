@@ -13,18 +13,30 @@
 #define O2_FRAMEWORK_DEVICEMETRICSHELPERS_H_
 
 #include "Framework/DeviceMetricsInfo.h"
-#include "Framework/RuntimeError.h"
-#include <array>
+#include <concepts>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <functional>
-#include <string>
 #include <string_view>
 #include <vector>
 
 namespace o2::framework
 {
 struct DriverInfo;
+
+// General definition of what can of values can be put in a metric.
+// Notice that int8_t is used for enums.
+template <typename T>
+concept DeviceMetricValue = std::same_as<int, T> || std::same_as<float, T> || std::same_as<uint64_t, T> || std::same_as<int8_t, T>;
+
+// Numeric like metrics values.
+template <typename T>
+concept DeviceMetricNumericValue = std::same_as<int, T> || std::same_as<float, T> || std::same_as<uint64_t, T>;
+
+// Enum like values
+template <typename T>
+concept DeviceMetricEnumValue = std::same_as<int8_t, T>;
 
 struct DeviceMetricsHelper {
   /// Type of the callback which can be provided to be invoked every time a new
@@ -43,68 +55,91 @@ struct DeviceMetricsHelper {
                             DeviceMetricsInfo& info,
                             NewMetricCallback newMetricCallback = nullptr);
   /// @return the index in metrics for the information of given metric
-  static size_t metricIdxByName(const std::string& name,
+  static size_t metricIdxByName(std::string_view const name,
                                 const DeviceMetricsInfo& info);
 
-  /// Typesafe way to get the actual store
-  template <typename T>
+  template <std::same_as<int> T>
   static auto& getMetricsStore(DeviceMetricsInfo& metrics)
   {
-    if constexpr (std::is_same_v<T, int>) {
-      return metrics.intMetrics;
-    } else if constexpr (std::is_same_v<T, float>) {
-      return metrics.floatMetrics;
-    } else if constexpr (std::is_same_v<T, uint64_t>) {
-      return metrics.uint64Metrics;
-    } else if constexpr (std::is_same_v<T, int8_t>) {
-      return metrics.enumMetrics;
-    } else {
-      throw runtime_error("Unhandled metric type");
-    };
+    return metrics.intMetrics;
   }
 
-  /// Typesafe way to get the actual store
-  template <typename T>
+  template <std::same_as<float> T>
+  static auto& getMetricsStore(DeviceMetricsInfo& metrics)
+  {
+    return metrics.floatMetrics;
+  }
+
+  template <std::same_as<uint64_t> T>
+  static auto& getMetricsStore(DeviceMetricsInfo& metrics)
+  {
+    return metrics.uint64Metrics;
+  }
+
+  template <std::same_as<int8_t> T>
+  static auto& getMetricsStore(DeviceMetricsInfo& metrics)
+  {
+    return metrics.enumMetrics;
+  }
+
+  template <std::same_as<int> T>
   static auto& getTimestampsStore(DeviceMetricsInfo& metrics)
   {
-    if constexpr (std::is_same_v<T, int>) {
-      return metrics.intTimestamps;
-    } else if constexpr (std::is_same_v<T, float>) {
-      return metrics.floatTimestamps;
-    } else if constexpr (std::is_same_v<T, uint64_t>) {
-      return metrics.uint64Timestamps;
-    } else if constexpr (std::is_same_v<T, int8_t>) {
-      return metrics.enumTimestamps;
-    } else {
-      throw runtime_error("Unhandled metric type");
-    };
+    return metrics.intTimestamps;
   }
 
-  template <typename T>
-  static auto getMetricType()
+  template <std::same_as<float> T>
+  static auto& getTimestampsStore(DeviceMetricsInfo& metrics)
   {
-    if constexpr (std::is_same_v<T, int>) {
-      return MetricType::Int;
-    } else if constexpr (std::is_same_v<T, float>) {
-      return MetricType::Float;
-    } else if constexpr (std::is_same_v<T, uint64_t>) {
-      return MetricType::Uint64;
-    } else if constexpr (std::is_same_v<T, int8_t>) {
-      return MetricType::Enum;
-    } else {
-      throw runtime_error("Unhandled metric type");
-    };
+    return metrics.floatTimestamps;
   }
 
-  static auto updateNumericInfo(DeviceMetricsInfo& metrics, size_t metricIndex, float value, size_t timestamp) {
-      metrics.minDomain[metricIndex] = std::min(metrics.minDomain[metricIndex], timestamp);
-      metrics.maxDomain[metricIndex] = std::max(metrics.maxDomain[metricIndex], timestamp);
-      metrics.max[metricIndex] = std::max(metrics.max[metricIndex], (float)value);
-      metrics.min[metricIndex] = std::min(metrics.min[metricIndex], (float)value);
-      metrics.changed.at(metricIndex) = true;
+  template <std::same_as<uint64_t> T>
+  static auto& getTimestampsStore(DeviceMetricsInfo& metrics)
+  {
+    return metrics.uint64Timestamps;
   }
 
-  template <typename T>
+  template <std::same_as<int8_t> T>
+  static auto& getTimestampsStore(DeviceMetricsInfo& metrics)
+  {
+    return metrics.enumTimestamps;
+  }
+
+  template <std::same_as<int> T>
+  static auto getMetricType() -> MetricType
+  {
+    return MetricType::Int;
+  }
+
+  template <std::same_as<float> T>
+  static auto getMetricType() -> MetricType
+  {
+    return MetricType::Float;
+  }
+
+  template <std::same_as<uint64_t> T>
+  static auto getMetricType() -> MetricType
+  {
+    return MetricType::Uint64;
+  }
+
+  template <std::same_as<int8_t> T>
+  static auto getMetricType() -> MetricType
+  {
+    return MetricType::Enum;
+  }
+
+  static auto updateNumericInfo(DeviceMetricsInfo& metrics, size_t metricIndex, float value, size_t timestamp)
+  {
+    metrics.minDomain[metricIndex] = std::min(metrics.minDomain[metricIndex], timestamp);
+    metrics.maxDomain[metricIndex] = std::max(metrics.maxDomain[metricIndex], timestamp);
+    metrics.max[metricIndex] = std::max(metrics.max[metricIndex], (float)value);
+    metrics.min[metricIndex] = std::min(metrics.min[metricIndex], (float)value);
+    metrics.changed.at(metricIndex) = true;
+  }
+
+  template <DeviceMetricNumericValue T>
   static auto getNumericMetricCursor(size_t metricIndex)
   {
     return [metricIndex](DeviceMetricsInfo& metrics, T value, size_t timestamp) {
@@ -123,13 +158,12 @@ struct DeviceMetricsHelper {
   static size_t bookMetricInfo(DeviceMetricsInfo& metrics, char const* name, MetricType type);
 
   /// @return helper to insert a given value in the metrics
-  template <typename T>
+  template <DeviceMetricNumericValue T>
   static size_t
     bookNumericMetric(DeviceMetricsInfo& metrics,
                       char const* name,
                       NewMetricCallback newMetricsCallback = nullptr)
   {
-    static_assert(std::is_same_v<T, int> || std::is_same_v<T, uint64_t> || std::is_same_v<T, float>, "Unsupported metric type");
     size_t metricIndex = bookMetricInfo(metrics, name, getMetricType<T>());
     auto& metricInfo = metrics.metrics[metricIndex];
     if (newMetricsCallback != nullptr) {
@@ -139,13 +173,12 @@ struct DeviceMetricsHelper {
   }
 
   /// @return helper to insert a given value in the metrics
-  template <typename T>
+  template <DeviceMetricNumericValue T>
   static std::function<void(DeviceMetricsInfo&, T value, size_t timestamp)>
     createNumericMetric(DeviceMetricsInfo& metrics,
                         char const* name,
                         NewMetricCallback newMetricsCallback = nullptr)
   {
-    static_assert(std::is_same_v<T, int> || std::is_same_v<T, uint64_t> || std::is_same_v<T, float>, "Unsupported metric type");
     size_t metricIndex = bookNumericMetric<T>(metrics, name, newMetricsCallback);
     return getNumericMetricCursor<T>(metricIndex);
   }

@@ -967,6 +967,9 @@ void MatchTOF::doMatching(int sec)
           }
         }
 
+        // adjust accordingly to DeltaY
+        updateTL(trkLTInt[nStripsCrossedInPropagation - 1], -deltaPosTemp[1]);
+
         detId[nStripsCrossedInPropagation - 1][0] = detIdTemp[0];
         detId[nStripsCrossedInPropagation - 1][1] = detIdTemp[1];
         detId[nStripsCrossedInPropagation - 1][2] = detIdTemp[2];
@@ -1340,10 +1343,13 @@ void MatchTOF::doMatchingForTPC(int sec)
           for (int ii = 0; ii < 3; ii++) { // we need to change the type...
             posFloat[ii] = pos[ii];
           }
+
           while (deltaPosTemp2[1] < -0.05 && detIdTemp2[2] != -1 && nstep < maxnstep) { // continuing propagation if dy is negative and we are still inside the strip volume
             nstep++;
             xStop += 0.1;
             propagateToRefXWithoutCov(trefTrk, xStop, 0.1, mBz, posFloat);
+
+            posFloat[2] += ZshiftCurrent;
 
             Geo::getPadDxDyDz(posFloat, detIdTemp2, deltaPosTemp2, sec);
             if (detIdTemp2[2] != -1) { // if propation was succesful -> update params
@@ -1356,8 +1362,14 @@ void MatchTOF::doMatchingForTPC(int sec)
               detIdTemp[2] = detIdTemp2[2];
               detIdTemp[3] = detIdTemp2[3];
               detIdTemp[4] = detIdTemp2[4];
+              deltaPosTemp[0] = deltaPosTemp2[0];
+              deltaPosTemp[1] = deltaPosTemp2[1];
+              deltaPosTemp[2] = deltaPosTemp2[2];
             }
           }
+
+          // adjust accordingly to DeltaY
+          updateTL(trkLTInt[ibc][nStripsCrossedInPropagation[ibc] - 1], -deltaPosTemp[1]);
 
           detId[ibc][nStripsCrossedInPropagation[ibc] - 1][0] = detIdTemp[0];
           detId[ibc][nStripsCrossedInPropagation[ibc] - 1][1] = detIdTemp[1];
@@ -1671,6 +1683,10 @@ void MatchTOF::BestMatches(std::vector<o2::dataformats::MatchInfoTOFReco>& match
           if (std::abs(timeNew - timeOld) < 200) {
             // update time information averaging the two (the second one corrected for the difference in the track length)
             prevMatching.setSignal((timeNew + timeOld) * 0.5);
+            float geanttime = (TOFClusWork[matchingPair.getTOFClIndex()].getTgeant() + TOFClusWork[prevMatching.getTOFClIndex()].getTgeant() - deltaT * 1E-3) * 0.5;
+            double t0 = (TOFClusWork[matchingPair.getTOFClIndex()].getT0true() + TOFClusWork[prevMatching.getTOFClIndex()].getT0true()) * 0.5;
+            prevMatching.setTgeant(geanttime);
+            prevMatching.setT0true(t0);
             prevMatching.setChi2(0);                                                                // flag such cases with chi2 equal to zero
             matchedClustersIndex[matchingPair.getTOFClIndex()] = matchedTracksIndex[trkType][itrk]; // flag also the second cluster as already used
           }
@@ -1681,6 +1697,9 @@ void MatchTOF::BestMatches(std::vector<o2::dataformats::MatchInfoTOFReco>& match
     }
     matchedTracksIndex[trkType][itrk] = matchedTracks[trkTypeSplitted].size();              // index of the MatchInfoTOF correspoding to this track
     matchedClustersIndex[matchingPair.getTOFClIndex()] = matchedTracksIndex[trkType][itrk]; // index of the track that was matched to this cluster
+
+    matchingPair.setTgeant(TOFClusWork[matchingPair.getTOFClIndex()].getTgeant());
+    matchingPair.setT0true(TOFClusWork[matchingPair.getTOFClIndex()].getT0true());
 
     // let's check if cluster has multiple-hits (noferini)
     if (TOFClusWork[matchingPair.getTOFClIndex()].getNumOfContributingChannels() > 1) {

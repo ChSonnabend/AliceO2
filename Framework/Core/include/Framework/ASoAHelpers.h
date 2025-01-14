@@ -14,7 +14,6 @@
 
 #include "Framework/ASoA.h"
 #include "Framework/BinningPolicy.h"
-#include "Framework/RuntimeError.h"
 #include <arrow/table.h>
 
 #include <iterator>
@@ -72,6 +71,8 @@ inline bool diffCategory(BinningIndex const& a, BinningIndex const& b)
   return a.bin >= b.bin;
 }
 
+void dataSizeVariesBetweenColumns();
+
 template <template <typename... Cs> typename BP, typename T, typename... Cs>
 std::vector<BinningIndex> groupTable(const T& table, const BP<Cs...>& binningPolicy, int minCatSize, int outsider)
 {
@@ -98,7 +99,7 @@ std::vector<BinningIndex> groupTable(const T& table, const BP<Cs...>& binningPol
   auto chunksCount = arrowColumns[0]->num_chunks();
   for (int i = 1; i < persistentColumnsCount; i++) {
     if (arrowColumns[i]->num_chunks() != chunksCount) {
-      throw o2::framework::runtime_error("Combinations: data size varies between selected columns");
+      dataSizeVariesBetweenColumns();
     }
   }
 
@@ -107,7 +108,7 @@ std::vector<BinningIndex> groupTable(const T& table, const BP<Cs...>& binningPol
     auto chunkLength = std::get<0>(chunks)->length();
     for_<persistentColumnsCount - 1>([&chunks, &chunkLength](auto i) {
       if (std::get<i.value + 1>(chunks)->length() != chunkLength) {
-        throw o2::framework::runtime_error("Combinations: data size varies between selected columns");
+        dataSizeVariesBetweenColumns();
       }
     });
 

@@ -22,6 +22,7 @@
 #include "Framework/TimingHelpers.h"
 #include "../src/DataRelayerHelpers.h"
 #include "Framework/DataProcessingHeader.h"
+#include "Framework/ServiceRegistryHelpers.h"
 #include "Framework/WorkflowSpec.h"
 #include <Monitoring/Monitoring.h>
 #include <fairmq/TransportFactory.h>

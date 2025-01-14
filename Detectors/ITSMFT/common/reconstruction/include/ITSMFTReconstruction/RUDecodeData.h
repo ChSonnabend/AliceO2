@@ -54,6 +54,8 @@ struct RUDecodeData {
   bool ROFRampUpStage = false;                                                // flag that the data come from the ROF rate ramp-up stage
   GBTCalibData calibData{};                                                   // calibration info from GBT calibration word
   std::unordered_map<uint32_t, std::pair<uint32_t, uint32_t>> chipErrorsTF{}; // vector of chip decoding errors seen in the given TF
+  std::vector<ErrorMessage> errMsgVecTF;                                      // Specific errors info collected for sending for the whole TF
+
   const RUInfo* ruInfo = nullptr;
 
   RUDecodeData()

@@ -16,11 +16,9 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include <regex>
 
-namespace o2
-{
-namespace framework
+
+namespace o2::framework
 {
 
 namespace data_matcher
@@ -65,9 +63,9 @@ struct DataDescriptorQueryBuilder {
   /// deprecated?
   static DataDescriptorQuery buildFromExtendedKeepConfig(std::string const& config);
   static std::unique_ptr<data_matcher::DataDescriptorMatcher> buildNode(std::string const& nodeString);
-  static std::smatch getTokens(std::string const& nodeString);
+  static std::vector<std::string> getTokens(std::string const& nodeString);
 };
 
-} // namespace framework
-} // namespace o2
+} // namespace o2::framework
+
 #endif // o2_framework_DataDescriptorQueryBuilder_H_INCLUDED

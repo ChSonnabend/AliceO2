@@ -247,7 +247,8 @@ void STFDecoder<Mapping>::run(ProcessingContext& pc)
   }
   auto& linkErrors = pc.outputs().make<std::vector<GBTLinkDecodingStat>>(Output{orig, "LinkErrors", 0});
   auto& decErrors = pc.outputs().make<std::vector<ChipError>>(Output{orig, "ChipErrors", 0});
-  mDecoder->collectDecodingErrors(linkErrors, decErrors);
+  auto& errMessages = pc.outputs().make<std::vector<ErrorMessage>>(Output{orig, "ErrorInfo", 0});
+  mDecoder->collectDecodingErrors(linkErrors, decErrors, errMessages);
 
   pc.outputs().snapshot(Output{orig, "PHYSTRIG", 0}, mDecoder->getExternalTriggers());
 
@@ -398,6 +399,7 @@ DataProcessorSpec getSTFDecoderSpec(const STFDecoderInp& inp)
 
   outputs.emplace_back(inp.origin, "LinkErrors", 0, Lifetime::Timeframe);
   outputs.emplace_back(inp.origin, "ChipErrors", 0, Lifetime::Timeframe);
+  outputs.emplace_back(inp.origin, "ErrorInfo", 0, Lifetime::Timeframe);
   outputs.emplace_back(inp.origin, "CHIPSSTATUS", 0, Lifetime::Timeframe);
 
   if (inp.askSTFDist) {

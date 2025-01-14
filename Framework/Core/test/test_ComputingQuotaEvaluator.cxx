@@ -16,10 +16,9 @@
 #include "Framework/Logger.h"
 #include "Framework/TimingHelpers.h"
 #include "Framework/DataProcessingStats.h"
+#include "Framework/ServiceRegistryHelpers.h"
 #include "uv.h"
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
 using namespace o2::framework;
 
 TEST_CASE("TestComputingQuotaEvaluator")
@@ -218,5 +217,3 @@ TEST_CASE("TestComputingQuotaEvaluator")
   REQUIRE(evaluator.mOffers[1].valid == false);
   REQUIRE(evaluator.mOffers[2].valid == false);
 }
-
-#pragma GGC diagnostic pop

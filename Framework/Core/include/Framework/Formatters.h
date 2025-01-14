@@ -20,7 +20,7 @@ struct fmt::formatter<o2::framework::Lifetime> : fmt::formatter<std::string_view
   char presentation = 's';
 
   template <typename FormatContext>
-  auto format(o2::framework::Lifetime const& h, FormatContext& ctx)
+  auto format(o2::framework::Lifetime const& h, FormatContext& ctx) const
   {
     std::string_view s = "unknown";
     switch (h) {

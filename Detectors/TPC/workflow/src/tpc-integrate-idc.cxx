@@ -11,6 +11,7 @@
 
 #include <vector>
 #include <string>
+#include <thread>
 #include "Algorithm/RangeTokenizer.h"
 #include "Framework/WorkflowSpec.h"
 #include "Framework/ConfigParamSpec.h"

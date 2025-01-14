@@ -32,8 +32,8 @@ class Digit
  public:
   Digit() = default;
 
-  Digit(Int_t channel, Int_t tdc, Int_t tot, uint64_t bc, Int_t label = -1, uint32_t triggerorbit = 0, uint16_t triggerbunch = 0);
-  Digit(Int_t channel, Int_t tdc, Int_t tot, uint32_t orbit, uint16_t bc, Int_t label = -1, uint32_t triggerorbit = 0, uint16_t triggerbunch = 0);
+  Digit(Int_t channel, Int_t tdc, Int_t tot, uint64_t bc, Int_t label = -1, uint32_t triggerorbit = 0, uint16_t triggerbunch = 0, float geanttime = 0, double t0 = 0);
+  Digit(Int_t channel, Int_t tdc, Int_t tot, uint32_t orbit, uint16_t bc, Int_t label = -1, uint32_t triggerorbit = 0, uint16_t triggerbunch = 0, float geanttime = 0, double t0 = 0);
   ~Digit() = default;
 
   /// Get global ordering key made of
@@ -66,7 +66,7 @@ class Digit
 
   void printStream(std::ostream& stream) const;
 
-  void merge(Int_t tdc, Int_t tot);
+  bool merge(Int_t tdc, Int_t tot);
 
   void getPhiAndEtaIndex(int& phi, int& eta) const;
 
@@ -93,6 +93,11 @@ class Digit
   void setTriggerBunch(uint16_t value) { mTriggerBunch = value; }
   uint16_t getTriggerBunch() const { return mTriggerBunch; }
 
+  float getTgeant() const { return mTgeant; }
+  void setTgeant(float val) { mTgeant = val; }
+  double getT0true() const { return mT0true; }
+  void setT0true(double val) { mT0true = val; }
+
  private:
   friend class boost::serialization::access;
 
@@ -107,8 +112,10 @@ class Digit
   uint16_t mTriggerBunch = 0;    //!< bunch id of trigger event
   Bool_t mIsUsedInCluster;       //!/< flag to declare that the digit was used to build a cluster
   Bool_t mIsProblematic = false; //!< flag to tell whether the channel of the digit was problemati; not persistent; default = ok
+  float mTgeant = 0.0;           ///< geant time in MC
+  double mT0true = 0.0;          ///< t0true
 
-  ClassDefNV(Digit, 4);
+  ClassDefNV(Digit, 5);
 };
 
 std::ostream& operator<<(std::ostream& stream, const Digit& dig);

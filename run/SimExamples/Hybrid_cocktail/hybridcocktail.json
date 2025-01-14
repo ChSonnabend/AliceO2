@@ -1,0 +1,55 @@
+{
+  "generators": [
+    {
+      "cocktail": [
+        {
+          "name": "pythia8",
+          "config": {
+            "config": "$O2_ROOT/share/Generators/egconfig/pythia8_inel.cfg",
+            "hooksFileName": "",
+            "hooksFuncName": "",
+            "includePartonEvent": false,
+            "particleFilter": "",
+            "verbose": 0
+          }
+        },
+        {
+          "name": "external",
+          "config": {
+            "fileName": "${O2DPG_ROOT}/MC/config/PWGDQ/external/generator/GeneratorParamPromptJpsiToElectronEvtGen_pp13TeV.C",
+            "funcName": "GeneratorParamPromptJpsiToElectronEvtGen_pp13TeV()",
+            "iniFile": ""
+          }
+        }
+      ]
+    },
+    {
+      "cocktail": [
+        {
+          "name": "pythia8pp"
+        },
+        {
+          "name": "extkinO2",
+          "config": {
+            "skipNonTrackable": true,
+            "continueMode": false,
+            "roundRobin": false,
+            "randomize": false,
+            "rngseed": 0,
+            "randomphi": false,
+            "fileName": "${PWD}/evtpool.root"
+          }
+        }
+      ]
+    },
+    {
+      "name": "pythia8hf",
+      "config": ""
+    }
+  ],
+  "fractions": [
+    1,
+    1,
+    1
+  ]
+}

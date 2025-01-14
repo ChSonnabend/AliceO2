@@ -90,11 +90,10 @@ o2_log_handle_t* o2_walk_logs(bool (*callback)(char const* name, void* log, void
 #include <os/log.h>
 #include <os/signpost.h>
 #include <cstring>
-#define O2_LOG_DEBUG_MAC(log, ...) os_log_debug(private_o2_log_##log, __VA_ARGS__)
-// FIXME: use __VA_OPT__ when available in C++20
-#define O2_SIGNPOST_EVENT_EMIT_MAC(log, id, name, format, ...) os_signpost_event_emit(private_o2_log_##log->os_log, (uint64_t)id.value, name, format, ##__VA_ARGS__)
-#define O2_SIGNPOST_START_MAC(log, id, name, format, ...) os_signpost_interval_begin(private_o2_log_##log->os_log, (uint64_t)id.value, name, format, ##__VA_ARGS__)
-#define O2_SIGNPOST_END_MAC(log, id, name, format, ...) os_signpost_interval_end(private_o2_log_##log->os_log, (uint64_t)id.value, name, format, ##__VA_ARGS__)
+#define O2_LOG_DEBUG_MAC(log, format, ...) os_log_debug(private_o2_log_##log, format __VA_OPT__(, ) __VA_ARGS__)
+#define O2_SIGNPOST_EVENT_EMIT_MAC(log, id, name, format, ...) os_signpost_event_emit(private_o2_log_##log->os_log, (uint64_t)id.value, name, format __VA_OPT__(, ) __VA_ARGS__)
+#define O2_SIGNPOST_START_MAC(log, id, name, format, ...) os_signpost_interval_begin(private_o2_log_##log->os_log, (uint64_t)id.value, name, format __VA_OPT__(, ) __VA_ARGS__)
+#define O2_SIGNPOST_END_MAC(log, id, name, format, ...) os_signpost_interval_end(private_o2_log_##log->os_log, (uint64_t)id.value, name, format __VA_OPT__(, ) __VA_ARGS__)
 #define O2_SIGNPOST_ENABLED_MAC(log) os_signpost_enabled(private_o2_log_##log->os_log)
 #else
 // These are no-ops on linux.

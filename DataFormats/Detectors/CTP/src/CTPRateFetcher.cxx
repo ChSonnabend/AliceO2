@@ -84,14 +84,14 @@ double CTPRateFetcher::fetchCTPratesClassesNoPuCorr(uint64_t timeStamp, const st
     LOG(warn) << "Trigger class " << className << " not found in CTPConfiguration";
     return -2.;
   }
-  auto rate{mScalers.getRateGivenT(timeStamp * 1.e-3, classIndex, inputType)};
+  auto rate{mScalers.getRateGivenT(timeStamp * 1.e-3, classIndex, inputType, 1)};
   return rate.second;
 }
 double CTPRateFetcher::fetchCTPratesInputs(uint64_t timeStamp, int input)
 {
   std::vector<ctp::CTPScalerRecordO2>& recs = mScalers.getScalerRecordO2();
   if (recs[0].scalersInps.size() == 48) {
-    return pileUpCorrection(mScalers.getRateGivenT(timeStamp * 1.e-3, input, 7).second);
+    return pileUpCorrection(mScalers.getRateGivenT(timeStamp * 1.e-3, input, 7, 1).second);
   } else {
     LOG(error) << "Inputs not available";
     return -1.;
@@ -101,7 +101,7 @@ double CTPRateFetcher::fetchCTPratesInputsNoPuCorr(uint64_t timeStamp, int input
 {
   std::vector<ctp::CTPScalerRecordO2>& recs = mScalers.getScalerRecordO2();
   if (recs[0].scalersInps.size() == 48) {
-    return mScalers.getRateGivenT(timeStamp * 1.e-3, input, 7).second;
+    return mScalers.getRateGivenT(timeStamp * 1.e-3, input, 7, 1).second;
   } else {
     LOG(error) << "Inputs not available";
     return -1.;

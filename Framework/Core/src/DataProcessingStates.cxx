@@ -18,6 +18,7 @@
 #include <iostream>
 #include <atomic>
 #include <utility>
+#include <thread>
 #include <string_view>
 
 namespace o2::framework

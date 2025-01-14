@@ -14,5 +14,3 @@ available generators in O2. The JSON template can be generated using the ${O2DPG
 - **runo2sim.sh** &rarr; allows to use the hybrid generator example
 - **hybridconfig.json** &rarr; example JSON file for the hybrid generator configuration
 - **example.optns** &rarr; options file to be used in EPOS4 implemented as subgenerator in this example (the .optns must be available in the current working directory)
-- **evtpool.root** &rarr; cached events to be used with the extkinO2 generator
-- **epos4.hepmc** &rarr; EPOS4 events stored as hepmc file

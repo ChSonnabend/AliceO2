@@ -14,9 +14,6 @@
 #include "Framework/DataProcessorSpecHelpers.h"
 #include "Framework/ConfigParamSpec.h"
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-
 TEST_CASE("TestDataProcessorSpecHelpers")
 {
   using namespace o2::framework;
@@ -35,5 +32,3 @@ TEST_CASE("TestDataProcessorSpecHelpers")
   REQUIRE(DataProcessorSpecHelpers::hasLabel(spec, "label2") == false);
   REQUIRE(DataProcessorSpecHelpers::hasLabel(spec, "label3") == true);
 }
-
-#pragma diagnostic pop

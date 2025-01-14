@@ -8,6 +8,7 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
+#include <memory>
 #define BOOST_BIND_GLOBAL_PLACEHOLDERS
 #include <stdexcept>
 #include "Framework/BoostOptionsRetriever.h"
@@ -34,6 +35,7 @@
 #include "Framework/DeviceState.h"
 #include "Framework/DeviceConfig.h"
 #include "DeviceStateHelpers.h"
+#include "Framework/ServiceRegistryHelpers.h"
 #include "Framework/DevicesManager.h"
 #include "Framework/DebugGUI.h"
 #include "Framework/LocalRootFileService.h"
@@ -68,6 +70,7 @@
 #include "HTTPParser.h"
 #include "DPLWebSocket.h"
 #include "ArrowSupport.h"
+#include "Framework/ConfigParamDiscovery.h"
 
 #include "ComputingResourceHelpers.h"
 #include "DataProcessingStatus.h"
@@ -131,9 +134,6 @@
 #include <unistd.h>
 #include <execinfo.h>
 #include <cfenv>
-// This is to allow C++20 aggregate initialisation
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
 #if defined(__linux__) && __has_include(<sched.h>)
 #include <sched.h>
 #elif __has_include(<linux/getcpu.h>)
@@ -2803,6 +2803,38 @@ void enableSignposts(std::string const& signpostsToEnable)
     o2_walk_logs(matchingLogEnabler, token);
     token = strtok_r(nullptr, ",", &saveptr);
   }
+}
+
+void overrideAll(o2::framework::ConfigContext& ctx, std::vector<o2::framework::DataProcessorSpec>& workflow)
+{
+  overrideCloning(ctx, workflow);
+  overridePipeline(ctx, workflow);
+  overrideLabels(ctx, workflow);
+}
+
+o2::framework::ConfigContext createConfigContext(std::unique_ptr<ConfigParamRegistry>& workflowOptionsRegistry,
+                                                 o2::framework::ServiceRegistry& configRegistry,
+                                                 std::vector<o2::framework::ConfigParamSpec>& workflowOptions,
+                                                 std::vector<o2::framework::ConfigParamSpec>& extraOptions, int argc, char** argv)
+{
+  std::vector<std::unique_ptr<o2::framework::ParamRetriever>> retrievers;
+  std::unique_ptr<o2::framework::ParamRetriever> retriever{new o2::framework::BoostOptionsRetriever(true, argc, argv)};
+  retrievers.emplace_back(std::move(retriever));
+  auto workflowOptionsStore = std::make_unique<o2::framework::ConfigParamStore>(workflowOptions, std::move(retrievers));
+  workflowOptionsStore->preload();
+  workflowOptionsStore->activate();
+  workflowOptionsRegistry = std::make_unique<ConfigParamRegistry>(std::move(workflowOptionsStore));
+  extraOptions = o2::framework::ConfigParamDiscovery::discover(*workflowOptionsRegistry, argc, argv);
+  for (auto& extra : extraOptions) {
+    workflowOptions.push_back(extra);
+  }
+
+  return o2::framework::ConfigContext(*workflowOptionsRegistry, o2::framework::ServiceRegistryRef{configRegistry}, argc, argv);
+}
+
+std::unique_ptr<o2::framework::ServiceRegistry> createRegistry()
+{
+  return std::make_unique<o2::framework::ServiceRegistry>();
 }
 
 // This is a toy executor for the workflow spec

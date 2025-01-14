@@ -30,6 +30,16 @@ void missingFilterDeclaration(int hash, int ai)
   throw o2::framework::runtime_error_f("Null selection for %d (arg %d), missing Filter declaration?", hash, ai);
 }
 
+void getterNotFound(const char* targetColumnLabel)
+{
+  throw o2::framework::runtime_error_f("Getter for \"%s\" not found", targetColumnLabel);
+}
+
+void emptyColumnLabel()
+{
+  throw framework::runtime_error("columnLabel: must not be empty");
+}
+
 SelectionVector selectionToVector(gandiva::Selection const& sel)
 {
   SelectionVector rows;

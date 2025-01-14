@@ -173,6 +173,8 @@ void Clusterer::buildCluster(Cluster& c, MCLabelContainer const* digitMCTruth)
   }
 
   c.setMainContributingChannel(mContributingDigit[0]->getChannel());
+  c.setTgeant(mContributingDigit[0]->getTgeant());
+  c.setT0true(mContributingDigit[0]->getT0true());
   c.setTime(mContributingDigit[0]->getCalibratedTime());                                                                                      // time in ps (for now we assume it calibrated)
   c.setTimeRaw(mContributingDigit[0]->getTDC() * Geo::TDCBIN + mContributingDigit[0]->getBC() * o2::constants::lhc::LHCBunchSpacingNS * 1E3); // time in ps (for now we assume it calibrated)
 

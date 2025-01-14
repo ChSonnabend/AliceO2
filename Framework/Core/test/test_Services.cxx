@@ -14,6 +14,7 @@
 #include "Framework/ServiceRegistry.h"
 #include "Framework/CallbackService.h"
 #include "Framework/CommonServices.h"
+#include "Framework/ServiceRegistryHelpers.h"
 #include <Framework/DeviceState.h>
 #include <catch_amalgamated.hpp>
 #include <fairmq/ProgOptions.h>

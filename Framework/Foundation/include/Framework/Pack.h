@@ -114,42 +114,43 @@ consteval auto prune_voids_pack(Result result, pack<>)
   return result;
 }
 
+template <typename T>
+concept void_pack_element = std::is_void_v<T>;
+
+template <typename T>
+concept nonvoid_pack_element = !void_pack_element<T>;
+
 // The first one is non void, but one of the others is void
-template <typename... Rs, typename T, typename... Ts>
-  requires(!std::is_void_v<T>)
+template <typename... Rs, nonvoid_pack_element T, typename... Ts>
 consteval auto prune_voids_pack(pack<Rs...> result, pack<T, Ts...>)
 {
   return prune_voids_pack(pack<Rs..., T>{}, pack<Ts...>{});
 }
 
 // The first one is void
-template <typename... Rs, typename V, typename... Ts>
-  requires(std::is_void_v<V>)
+template <typename... Rs, void_pack_element V, typename... Ts>
 consteval auto prune_voids_pack(pack<Rs...> result, pack<V, Ts...>)
 {
   return prune_voids_pack(pack<Rs...>{}, pack<Ts...>{});
 }
 
 // The first one is non void, but one of the others is void
-template <typename... Rs, typename T1, typename T2, typename... Ts>
-  requires(!std::is_void_v<T1> && !std::is_void_v<T2>)
+template <typename... Rs, nonvoid_pack_element T1, nonvoid_pack_element T2, typename... Ts>
 consteval auto prune_voids_pack(pack<Rs...> result, pack<T1, T2, Ts...>)
 {
   return prune_voids_pack(pack<Rs..., T1, T2>{}, pack<Ts...>{});
 }
 
 // Eats 4 types at the time
-template <typename... Rs, typename T1, typename T2, typename T3, typename T4, typename... Ts>
-  requires(!std::is_void_v<T1> && !std::is_void_v<T2> && !std::is_void_v<T3> && !std::is_void_v<T4>)
+template <typename... Rs, nonvoid_pack_element T1, nonvoid_pack_element T2, nonvoid_pack_element T3, nonvoid_pack_element T4, typename... Ts>
 consteval auto prune_voids_pack(pack<Rs...> result, pack<T1, T2, T3, T4, Ts...>)
 {
   return prune_voids_pack(pack<Rs..., T1, T2, T3, T4>{}, pack<Ts...>{});
 }
 
 // Eats 8 types at the time
-template <typename... Rs, typename T1, typename T2, typename T3, typename T4,
-          typename T5, typename T6, typename T7, typename T8, typename... Ts>
-  requires(!std::is_void_v<T1> && !std::is_void_v<T2> && !std::is_void_v<T3> && !std::is_void_v<T4> && !std::is_void_v<T5> && !std::is_void_v<T6> && !std::is_void_v<T7> && !std::is_void_v<T8>)
+template <typename... Rs, nonvoid_pack_element T1, nonvoid_pack_element T2, nonvoid_pack_element T3, nonvoid_pack_element T4,
+          nonvoid_pack_element T5, nonvoid_pack_element T6, nonvoid_pack_element T7, nonvoid_pack_element T8, typename... Ts>
 consteval auto prune_voids_pack(pack<Rs...> result, pack<T1, T2, T3, T4, T5, T6, T7, T8, Ts...>)
 {
   return prune_voids_pack(pack<Rs..., T1, T2, T3, T4, T5, T6, T7, T8>{}, pack<Ts...>{});

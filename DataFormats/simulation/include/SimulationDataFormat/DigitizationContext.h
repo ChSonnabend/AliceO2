@@ -209,6 +209,9 @@ inline void DigitizationContext::retrieveHits(std::vector<TChain*> const& chains
                                               int entryID,
                                               std::vector<T>* hits) const
 {
+  if (chains.size() <= sourceID) {
+    return;
+  }
   auto br = chains[sourceID]->GetBranch(brname);
   if (!br) {
     LOG(error) << "No branch found with name " << brname;

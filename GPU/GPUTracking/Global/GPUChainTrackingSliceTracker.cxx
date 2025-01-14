@@ -150,7 +150,9 @@ int32_t GPUChainTracking::RunTPCTrackingSlices_internal()
     AllocateRegisteredMemory(mInputsHost->mResourceOccupancyMap, mSubOutputControls[GPUTrackingOutputs::getIndex(&GPUTrackingOutputs::tpcOccupancyMap)]);
   }
   if (param().rec.tpc.occupancyMapTimeBins) {
-    ReleaseEvent(mEvents->init);
+    if (doGPU) {
+      ReleaseEvent(mEvents->init);
+    }
     uint32_t* ptr = doGPU ? mInputsShadow->mTPCClusterOccupancyMap : mInputsHost->mTPCClusterOccupancyMap;
     auto* ptrTmp = (GPUTPCClusterOccupancyMapBin*)mRec->AllocateVolatileMemory(GPUTPCClusterOccupancyMapBin::getTotalSize(param()), doGPU);
     runKernel<GPUMemClean16>(GetGridAutoStep(streamOccMap, RecoStep::TPCSliceTracking), ptrTmp, GPUTPCClusterOccupancyMapBin::getTotalSize(param()));
@@ -297,7 +299,9 @@ int32_t GPUChainTracking::RunTPCTrackingSlices_internal()
   }
 
   if (doGPU || GetProcessingSettings().debugLevel >= 1) {
-    ReleaseEvent(mEvents->init);
+    if (doGPU) {
+      ReleaseEvent(mEvents->init);
+    }
     if (!doSliceDataOnGPU) {
       WaitForHelperThreads();
     }
@@ -439,11 +443,11 @@ int32_t GPUChainTracking::RunTPCTrackingSlices_internal()
         if (!((GetRecoStepsOutputs() & GPUDataTypes::InOutType::TPCSectorTracks) || (doGPU && !(GetRecoStepsGPU() & RecoStep::TPCMerging)))) {
           uint32_t sliceLeft, sliceRight;
           GPUTPCGlobalTracking::GlobalTrackingSliceLeftRight(tmpSlice, sliceLeft, sliceRight);
-          if (!blocking[tmpSlice * mRec->NStreams() + sliceLeft % mRec->NStreams()]) {
+          if (doGPU && !blocking[tmpSlice * mRec->NStreams() + sliceLeft % mRec->NStreams()]) {
             StreamWaitForEvents(tmpSlice % mRec->NStreams(), &mEvents->slice[sliceLeft]);
             blocking[tmpSlice * mRec->NStreams() + sliceLeft % mRec->NStreams()] = true;
           }
-          if (!blocking[tmpSlice * mRec->NStreams() + sliceRight % mRec->NStreams()]) {
+          if (doGPU && !blocking[tmpSlice * mRec->NStreams() + sliceRight % mRec->NStreams()]) {
             StreamWaitForEvents(tmpSlice % mRec->NStreams(), &mEvents->slice[sliceRight]);
             blocking[tmpSlice * mRec->NStreams() + sliceRight % mRec->NStreams()] = true;
           }
@@ -452,7 +456,7 @@ int32_t GPUChainTracking::RunTPCTrackingSlices_internal()
       }
     }
     for (uint32_t iSlice = 0; iSlice < NSLICES; iSlice++) {
-      if (transferRunning[iSlice]) {
+      if (doGPU && transferRunning[iSlice]) {
         ReleaseEvent(mEvents->slice[iSlice]);
       }
     }

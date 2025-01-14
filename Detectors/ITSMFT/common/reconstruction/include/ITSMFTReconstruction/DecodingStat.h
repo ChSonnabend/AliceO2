@@ -290,6 +290,14 @@ struct GBTLinkDecodingStat {
   ClassDefNV(GBTLinkDecodingStat, 3);
 };
 
+struct ErrorMessage {
+  uint16_t id = -1;
+  uint16_t errType = 0;
+  uint16_t errInfo0 = 0;
+  uint16_t errInfo1 = 0;
+  ClassDefNV(ErrorMessage, 1)
+};
+
 } // namespace itsmft
 } // namespace o2
 #endif

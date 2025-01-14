@@ -20,10 +20,6 @@
 #include <cstdlib>
 #include <uv.h>
 
-// This is to allow C++20 aggregate initialisation
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-
 namespace o2::framework
 {
 

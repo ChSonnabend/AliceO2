@@ -38,7 +38,7 @@ struct fmt::formatter<T, std::enable_if_t<o2::header::is_descriptor<T>::value, c
   }
 
   template <typename FormatContext>
-  auto format(const T& p, FormatContext& ctx)
+  auto format(const T& p, FormatContext& ctx) const
   {
     return fmt::format_to(ctx.out(), "{}", p.template as<std::string>());
   }
@@ -67,7 +67,7 @@ struct fmt::formatter<o2::header::DataHeader> {
   }
 
   template <typename FormatContext>
-  auto format(const o2::header::DataHeader& h, FormatContext& ctx)
+  auto format(const o2::header::DataHeader& h, FormatContext& ctx) const
   {
     if (presentation == 's') {
       auto res = fmt::format("Data header version {}, flags: {}\n", h.headerVersion, h.flags) +

@@ -30,7 +30,7 @@
 #include "ZDCBase/Constants.h"
 #include "GlobalTracking/MatchGlobalFwd.h"
 #include "CommonUtils/TreeStreamRedirector.h"
-#include "CommonUtils/EnumBitOperators.h"
+#include "CommonUtils/EnumFlags.h"
 
 #include <cstdint>
 #include <limits>
@@ -208,12 +208,9 @@ class BunchCrossings
 }; // end internal class
 
 // Steering bits for additional output during AOD production
-enum struct AODProducerStreamerMask : uint8_t {
-  None = 0,
-  TrackQA = O2_ENUM_SET_BIT(0),
-  All = std::numeric_limits<std::underlying_type_t<AODProducerStreamerMask>>::max(),
+enum struct AODProducerStreamerFlags : uint8_t {
+  TrackQA,
 };
-O2_DEFINE_ENUM_BIT_OPERATORS(AODProducerStreamerMask)
 
 class AODProducerWorkflowDPL : public Task
 {
@@ -251,7 +248,7 @@ class AODProducerWorkflowDPL : public Task
   std::unordered_set<GIndex> mGIDUsedBySVtx;
   std::unordered_set<GIndex> mGIDUsedByStr;
 
-  AODProducerStreamerMask mStreamerMask{0};
+  o2::utils::EnumFlags<AODProducerStreamerFlags> mStreamerFlags;
   std::shared_ptr<o2::utils::TreeStreamRedirector> mStreamer;
 
   int mNThreads = 1;
@@ -523,8 +520,8 @@ class AODProducerWorkflowDPL : public Task
                            GIndex trackID, const o2::globaltracking::RecoContainer& data, int collisionID,
                            std::uint64_t collisionBC, const std::map<uint64_t, int>& bcsMap);
 
-  template <typename fwdTracksCursorType, typename fwdTracksCovCursorType, typename AmbigFwdTracksCursorType>
-  void addToFwdTracksTable(fwdTracksCursorType& fwdTracksCursor, fwdTracksCovCursorType& fwdTracksCovCursor, AmbigFwdTracksCursorType& ambigFwdTracksCursor,
+  template <typename fwdTracksCursorType, typename fwdTracksCovCursorType, typename AmbigFwdTracksCursorType, typename mftTracksCovCursorType>
+  void addToFwdTracksTable(fwdTracksCursorType& fwdTracksCursor, fwdTracksCovCursorType& fwdTracksCovCursor, AmbigFwdTracksCursorType& ambigFwdTracksCursor, mftTracksCovCursorType& mftTracksCovCursor,
                            GIndex trackID, const o2::globaltracking::RecoContainer& data, int collisionID, std::uint64_t collisionBC, const std::map<uint64_t, int>& bcsMap);
 
   TrackExtraInfo processBarrelTrack(int collisionID, std::uint64_t collisionBC, GIndex trackIndex, const o2::globaltracking::RecoContainer& data, const std::map<uint64_t, int>& bcsMap);
@@ -538,7 +535,7 @@ class AODProducerWorkflowDPL : public Task
   // * fills tables collision by collision
   // * interaction time is for TOF information
   template <typename TracksCursorType, typename TracksCovCursorType, typename TracksExtraCursorType, typename TracksQACursorType, typename AmbigTracksCursorType,
-            typename MFTTracksCursorType, typename AmbigMFTTracksCursorType,
+            typename MFTTracksCursorType, typename MFTTracksCovCursorType, typename AmbigMFTTracksCursorType,
             typename FwdTracksCursorType, typename FwdTracksCovCursorType, typename AmbigFwdTracksCursorType, typename FwdTrkClsCursorType>
   void fillTrackTablesPerCollision(int collisionID,
                                    std::uint64_t collisionBC,
@@ -551,6 +548,7 @@ class AODProducerWorkflowDPL : public Task
                                    TracksQACursorType& tracksQACursor,
                                    AmbigTracksCursorType& ambigTracksCursor,
                                    MFTTracksCursorType& mftTracksCursor,
+                                   MFTTracksCovCursorType& mftTracksCovCursor,
                                    AmbigMFTTracksCursorType& ambigMFTTracksCursor,
                                    FwdTracksCursorType& fwdTracksCursor,
                                    FwdTracksCovCursorType& fwdTracksCovCursor,

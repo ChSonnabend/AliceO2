@@ -14,17 +14,13 @@
 #include "Framework/ThreadSafetyAnalysis.h"
 #include "Framework/ServiceHandle.h"
 #include "Framework/ServiceSpec.h"
-#include "Framework/ServiceRegistryHelpers.h"
 #include "Framework/CompilerBuiltins.h"
 #include "Framework/TypeIdHelpers.h"
 
-#include <algorithm>
 #include <array>
-#include <functional>
 #include <string>
 #include <type_traits>
 #include <typeinfo>
-#include <thread>
 #include <atomic>
 #include <mutex>
 
@@ -267,33 +263,32 @@ struct ServiceRegistry {
 
   /// @deprecated old API to be substituted with the ServiceHandle one
   template <class I, class C, enum ServiceKind K = ServiceKind::Serial>
+    requires std::is_base_of_v<I, C>
   void registerService(C* service, Salt salt = ServiceRegistry::globalDeviceSalt())
   {
     // This only works for concrete implementations of the type T.
     // We need type elision as we do not want to know all the services in
     // advance
-    static_assert(std::is_base_of<I, C>::value == true,
-                  "Registered service is not derived from declared interface");
     constexpr ServiceTypeHash typeHash{TypeIdHelpers::uniqueId<I>()};
     ServiceRegistry::registerService(typeHash, reinterpret_cast<void*>(service), K, salt, typeid(C).name());
   }
 
   /// @deprecated old API to be substituted with the ServiceHandle one
   template <class I, class C, enum ServiceKind K = ServiceKind::Serial>
+    requires std::is_base_of_v<I, C>
   void registerService(C const* service, Salt salt = ServiceRegistry::globalDeviceSalt())
   {
     // This only works for concrete implementations of the type T.
     // We need type elision as we do not want to know all the services in
     // advance
-    static_assert(std::is_base_of<I, C>::value == true,
-                  "Registered service is not derived from declared interface");
     constexpr ServiceTypeHash typeHash{TypeIdHelpers::uniqueId<I const>()};
     this->registerService(typeHash, reinterpret_cast<void*>(const_cast<C*>(service)), K, salt, typeid(C).name());
   }
 
   /// Check if service of type T is currently active.
   template <typename T>
-  std::enable_if_t<std::is_const_v<T> == false, bool> active(Salt salt) const
+    requires(std::is_const_v<T> == false)
+  bool active(Salt salt) const
   {
     constexpr ServiceTypeHash typeHash{TypeIdHelpers::uniqueId<T>()};
     if (this->getPos(typeHash, GLOBAL_CONTEXT_SALT) != -1) {

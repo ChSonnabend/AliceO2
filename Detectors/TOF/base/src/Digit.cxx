@@ -17,14 +17,14 @@ using namespace o2::tof;
 
 ClassImp(o2::tof::Digit);
 
-Digit::Digit(Int_t channel, Int_t tdc, Int_t tot, uint64_t bc, Int_t label, uint32_t triggerorbit, uint16_t triggerbunch)
-  : mChannel(channel), mTDC(tdc), mTOT(tot), mIR(0, 0), mLabel(label), mTriggerOrbit(triggerorbit), mTriggerBunch(triggerbunch), mIsUsedInCluster(kFALSE)
+Digit::Digit(Int_t channel, Int_t tdc, Int_t tot, uint64_t bc, Int_t label, uint32_t triggerorbit, uint16_t triggerbunch, float geanttime, double t0)
+  : mChannel(channel), mTDC(tdc), mTOT(tot), mIR(0, 0), mLabel(label), mTriggerOrbit(triggerorbit), mTriggerBunch(triggerbunch), mIsUsedInCluster(kFALSE), mTgeant(geanttime), mT0true(t0)
 {
   mIR.setFromLong(bc);
 }
 //______________________________________________________________________
-Digit::Digit(Int_t channel, Int_t tdc, Int_t tot, uint32_t orbit, uint16_t bc, Int_t label, uint32_t triggerorbit, uint16_t triggerbunch)
-  : mChannel(channel), mTDC(tdc), mTOT(tot), mIR(bc, orbit), mLabel(label), mTriggerOrbit(triggerorbit), mTriggerBunch(triggerbunch), mIsUsedInCluster(kFALSE)
+Digit::Digit(Int_t channel, Int_t tdc, Int_t tot, uint32_t orbit, uint16_t bc, Int_t label, uint32_t triggerorbit, uint16_t triggerbunch, float geanttime, double t0)
+  : mChannel(channel), mTDC(tdc), mTOT(tot), mIR(bc, orbit), mLabel(label), mTriggerOrbit(triggerorbit), mTriggerBunch(triggerbunch), mIsUsedInCluster(kFALSE), mTgeant(geanttime), mT0true(t0)
 {
 }
 //______________________________________________________________________
@@ -44,16 +44,18 @@ std::ostream& operator<<(std::ostream& stream, const Digit& digi)
 
 //______________________________________________________________________
 
-void Digit::merge(Int_t tdc, Int_t tot)
+bool Digit::merge(Int_t tdc, Int_t tot)
 {
 
   // merging two digits
 
   if (tdc < mTDC) {
     mTDC = tdc;
+    return 1; // new came first
     // TODO: adjust TOT
   } else {
     // TODO: adjust TOT
+    return 0;
   }
 }
 

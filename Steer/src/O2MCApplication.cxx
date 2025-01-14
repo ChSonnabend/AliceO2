@@ -902,14 +902,14 @@ void addSpecialParticles()
     amode4s[kz][1] = 0;
     amode4s[kz][2] = 0;
   }
-  abratio4s[0] = 50.;
+  abratio4s[0] = 20.;
   amode4s[0][0] = -1000020040; // anti-Helium4
   amode4s[0][1] = 111;         // pion0
-  abratio4s[1] = 50.;
+  abratio4s[1] = 40.;
   amode4s[1][0] = -1000010030; // anti-tritium
   amode4s[1][2] = -2212;       // anti-proton
   amode4s[1][1] = 111;         // pion0
-  abratio4s[2] = 50.;
+  abratio4s[2] = 40.;
   amode4s[2][0] = -1000010030; // anti-tritium
   amode4s[2][2] = -211;        // pion-
   amode4s[2][1] = -2112;       // anti-neutron

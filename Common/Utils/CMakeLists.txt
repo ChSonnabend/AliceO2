@@ -81,6 +81,12 @@ o2_add_test(MemFileHelper
             SOURCES test/testMemFileHelper.cxx
             PUBLIC_LINK_LIBRARIES O2::CommonUtils)
 
+o2_add_test(EnumFlags
+            COMPONENT_NAME CommonUtils
+            LABELS utils
+            SOURCES test/testEnumFlags.cxx
+            PUBLIC_LINK_LIBRARIES O2::CommonUtils)
+
 o2_add_executable(treemergertool
             COMPONENT_NAME CommonUtils
           SOURCES src/TreeMergerTool.cxx
