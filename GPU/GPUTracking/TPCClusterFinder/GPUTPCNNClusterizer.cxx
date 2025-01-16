@@ -133,16 +133,16 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
       int pad_offset = GPUTPCNNClusterizer::padOffset(row, row + r, clusterer.Param().tpcGeometry);
       int row_offset = GPUTPCNNClusterizer::rowOffset(row, clusterer.nnClusterizerSizeInputRow);
       for (int p = -clusterer.nnClusterizerSizeInputPad; p <= clusterer.nnClusterizerSizeInputPad; p++) {
-        push_mc_label &= (std::abs(p) < 2); // Use inner 5x5 window
+        // push_mc_label &= (std::abs(p) < 2); // Use inner 5x5 window
         bool is_boundary = GPUTPCNNClusterizer::isBoundary(row + r + row_offset, pad + p + pad_offset, clusterer.nnClusterizerSizeInputRow, clusterer.Param().tpcGeometry);
         for (int t = -clusterer.nnClusterizerSizeInputTime; t <= clusterer.nnClusterizerSizeInputTime; t++) {
-          push_mc_label &= (std::abs(t) < 2); // Use inner 5x5 window
+          // push_mc_label &= (std::abs(t) < 2); // Use inner 5x5 window
           if (!is_boundary) {
             ChargePos tmp_pos(row + r, pad + p + pad_offset, time + t);
             input_data[write_idx] = (T)(chargeMap[tmp_pos].unpack() / central_charge);
             if (push_mc_label) {
               ChargePos tmp_pos_mc(row, pad + p, time + t);
-              CPU_ONLY(labelAcc->collect(tmp_pos, chargeMap[tmp_pos_mc].unpack()));
+              // CPU_ONLY(labelAcc->collect(tmp_pos, chargeMap[tmp_pos_mc].unpack()));
             }
           }
           write_idx++;
@@ -218,7 +218,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
           ClusterAccumulator pc;
 
           ClusterAccumulator dummy_pc;
-          CPU_ONLY(labelAcc->collect(peak_positions[element], central_charges[element]));
+          // CPU_ONLY(labelAcc->collect(peak_positions[element], central_charges[element]));
 
           // Dummy build to push MC labels
           buildCluster(
@@ -240,6 +240,10 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
 
           pc.setFull(central_charges[element] * out_reg[model_output_index + 4], peak_positions[element].pad() + out_reg[model_output_index + 0], out_reg[model_output_index + 2], fragment.start + peak_positions[element].time() + out_reg[model_output_index + 1], out_reg[model_output_index + 3], 0, 0);
           // LOG(info) << "Example: " << num_outputs_1 << " " << out_reg.size() << ";; " << out_reg[model_output_index + 4] << "; " << out_reg[model_output_index + 0] << "; " << out_reg[model_output_index + 2] << "; " << out_reg[model_output_index + 1] << "; " << out_reg[model_output_index + 3];
+
+          if(std::abs(out_reg[model_output_index + 0]) > 10){
+            LOG(info) << "Found peak outside boundary: " << peak_positions[element].pad() << "; " << peak_positions[element].row() << "; " << peak_positions[element].time();
+          }
 
           tpc::ClusterNative myCluster;
           bool rejectCluster = !pc.toNative(peak_positions[element], central_charges[element], myCluster, clusterer.Param());

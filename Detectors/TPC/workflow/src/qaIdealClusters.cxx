@@ -220,61 +220,77 @@ void qaCluster::read_native(int sector, std::vector<customCluster>& digit_map, s
   qc::Clusters clusters;
   float current_time = 0, current_pad = 0, current_row = 0;
 
-  for (unsigned long i = 0; i < tpcClusterReader.getTreeSize(); ++i) {
+  int count_clusters_outside_range = 0;
+
+  for (unsigned long i = 0; i < tpcClusterReader.getTreeSize(); i++) {
     tpcClusterReader.read(i);
     tpcClusterReader.fillIndex(clusterIndex, clusterBuffer, clusterMCBuffer);
 
     int nClustersSec = 0;
-    for (int irow = 0; irow < o2::tpc::constants::MAXGLOBALPADROW; ++irow) {
+    for (int irow = 0; irow < o2::tpc::constants::MAXGLOBALPADROW; irow++) {
       nClustersSec += clusterIndex.nClusters[sector][irow];
     }
     if (verbose >= 4) {
       LOG(info) << "Native clusters in sector " << sector << ": " << nClustersSec;
     }
     
+    // int count_clusters = 0;
+    // for (int irow = 0; irow < o2::tpc::constants::MAXGLOBALPADROW; irow++) {
+    //   if (overwrite_max_time) {
+    //     count_clusters += clusterIndex.nClusters[sector][irow];
+    //   } else {
+    //     for (int icl = 0; icl < clusterIndex.nClusters[sector][irow]; icl++) {
+    //       const auto& cl = *(clusterIndex.clusters[sector][irow] + icl);
+    //       // clusters.processCluster(cl, Sector(sector), irow);
+    //       current_time = cl.getTime();
+    //       if (current_time < max_time[sector]) {
+    //         count_clusters++;
+    //       }
+    //     }
+    //   }
+    // }
+
+    native_map.clear();
+    // native_map.resize(count_clusters);
     int count_clusters = 0;
-    for (int irow = 0; irow < o2::tpc::constants::MAXGLOBALPADROW; ++irow) {
-      if (overwrite_max_time) {
-        count_clusters += clusterIndex.nClusters[sector][irow];
-      } else {
-        for (int icl = 0; icl < clusterIndex.nClusters[sector][irow]; ++icl) {
-          const auto& cl = *(clusterIndex.clusters[sector][irow] + icl);
-          clusters.processCluster(cl, Sector(sector), irow);
-          current_time = cl.getTime();
-          if (current_time < max_time[sector]) {
-            count_clusters++;
-          }
-        }
-      }
-    }
 
-    native_map.resize(count_clusters);
-    count_clusters = 0;
-
-    for (int irow = 0; irow < o2::tpc::constants::MAXGLOBALPADROW; ++irow) {
+    for (int irow = 0; irow < o2::tpc::constants::MAXGLOBALPADROW; irow++) {
       const unsigned long nClusters = clusterIndex.nClusters[sector][irow];
-      for (int icl = 0; icl < nClusters; ++icl) {
+      for (int icl = 0; icl < nClusters; icl++) {
         const auto& cl = *(clusterIndex.clusters[sector][irow] + icl);
-        clusters.processCluster(cl, Sector(sector), irow);
+        // clusters.processCluster(cl, Sector(sector), irow);
         current_pad = cl.getPad();
         current_time = cl.getTime();
 
+        if((current_pad >= (TPC_GEOM[irow][2] + global_shift[0]) || current_pad <= -global_shift[0]) && verbose > 2){
+          LOG(warning) << "WARNING: Cluster outside of TPC boundaries: sec: " << sector << "; row: " << irow << "; pad: (" << current_pad << " / " << TPC_GEOM[irow][2] << "), time: " << current_time;
+          count_clusters_outside_range++;
+          continue;
+        }
+
         if (overwrite_max_time) {
-          native_map[count_clusters] = customCluster{sector, irow, (int)round(current_pad), (int)round(current_time), current_pad, current_time, cl.getSigmaPad(), cl.getSigmaTime(), (float)cl.getQmax(), (float)cl.getQtot(), cl.getFlags(), -1, -1, -1, count_clusters, 0.f};
+          // native_map[count_clusters] = customCluster{sector, irow, (int)round(current_pad), (int)round(current_time), current_pad, current_time, cl.getSigmaPad(), cl.getSigmaTime(), (float)cl.getQmax(), (float)cl.getQtot(), cl.getFlags(), -1, -1, -1, count_clusters, 0.f};
+          native_map.push_back(customCluster{sector, irow, (int)round(current_pad), (int)round(current_time), current_pad, current_time, cl.getSigmaPad(), cl.getSigmaTime(), (float)cl.getQmax(), (float)cl.getQtot(), cl.getFlags(), -1, -1, -1, count_clusters, 0.f});
           if (current_time > max_time[sector]){
             max_time[sector] = current_time + 1;
           }
           count_clusters++;
         } else {
           if (current_time < max_time[sector]) {
-            native_map[count_clusters] = customCluster{sector, irow, (int)round(current_pad), (int)round(current_time), current_pad, current_time, cl.getSigmaPad(), cl.getSigmaTime(), (float)cl.getQmax(), (float)cl.getQtot(), cl.getFlags(), -1, -1, -1, count_clusters, 0.f};
+            // native_map[count_clusters] = customCluster{sector, irow, (int)round(current_pad), (int)round(current_time), current_pad, current_time, cl.getSigmaPad(), cl.getSigmaTime(), (float)cl.getQmax(), (float)cl.getQtot(), cl.getFlags(), -1, -1, -1, count_clusters, 0.f};
+            native_map.push_back(customCluster{sector, irow, (int)round(current_pad), (int)round(current_time), current_pad, current_time, cl.getSigmaPad(), cl.getSigmaTime(), (float)cl.getQmax(), (float)cl.getQtot(), cl.getFlags(), -1, -1, -1, count_clusters, 0.f});
             count_clusters++;
           }
         }
       }
     }
   }
+  digit_map.clear();
   digit_map = native_map;
+
+  if(count_clusters_outside_range > 0 && verbose > 1){
+    LOG(warning) << "Number of clusters outside of TPC boundaries: " << count_clusters_outside_range;
+  }
 }
 
 // ---------------------------------
@@ -1656,6 +1672,9 @@ void qaCluster::overwrite_map2d(int sector, tpc2d& map2d, std::vector<customClus
 int qaCluster::test_neighbour(std::array<int, 3> index, std::array<int, 2> nn, tpc2d& map2d, int mode)
 {
   if(index[0] < o2::tpc::constants::MAXGLOBALPADROW && index[1] + nn[0] <= TPC_GEOM[index[0]][2]){
+    // LOG(info) << map2d[1][387][23].size() << " / " << map2d[1][388][23].size() << " / " << map2d[1][386][23].size();
+    // LOG(info) << index[2] + global_shift[1] + nn[1] << " / " << index[0] + rowOffset(index[0]) + global_shift[2] << " / " << index[1] + padOffset(index[0]) + global_shift[0] + nn[0];
+    // LOG(info) << map2d[mode][index[2] + global_shift[1] + nn[1]].size() << " / " << map2d[mode][index[2] + global_shift[1] + nn[1]][index[0] + rowOffset(index[0]) + global_shift[2]].size();
     return map2d[mode][index[2] + global_shift[1] + nn[1]][index[0] + rowOffset(index[0]) + global_shift[2]][index[1] + padOffset(index[0]) + global_shift[0] + nn[0]];
   } else {
     return -1;
