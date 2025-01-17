@@ -1255,7 +1255,7 @@ void qaCluster::calculateOccupancy(int sector, tpc2d& map2d)
           }
         }
       }
-      occupancy[sector][region][time] /= 40*padsInROC[region];
+      occupancy[sector][region][time] /= 41*padsInROC[region];
     }
   }
 }
