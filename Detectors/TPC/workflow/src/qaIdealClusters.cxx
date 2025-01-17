@@ -262,8 +262,10 @@ void qaCluster::read_native(int sector, std::vector<customCluster>& digit_map, s
         current_pad = cl.getPad();
         current_time = cl.getTime();
 
-        if((current_pad >= (TPC_GEOM[irow][2] + global_shift[0]) || current_pad <= -global_shift[0]) && verbose > 2){
-          LOG(warning) << "WARNING: Cluster outside of TPC boundaries: sec: " << sector << "; row: " << irow << "; pad: (" << current_pad << " / " << TPC_GEOM[irow][2] << "), time: " << current_time;
+        if(current_pad >= (TPC_GEOM[irow][2] + global_shift[0]) || current_pad <= -global_shift[0]){
+          if(verbose > 2) {
+            LOG(warning) << "WARNING: Cluster outside of TPC boundaries: sec: " << sector << "; row: " << irow << "; pad: (" << current_pad << " / " << TPC_GEOM[irow][2] << "), time: " << current_time;
+          }
           count_clusters_outside_range++;
           continue;
         }
@@ -679,12 +681,15 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
   int* map_ptr = nullptr;
   if (use_max_cog == 0) {
     // Storing the indices
-    if (fillmode == 0 || fillmode == -1) {
+    if (fillmode == 1 || fillmode == -1) {
+      int map_size = map2d[1].size() - global_shift[1];
       for (auto dig : digit_map) {
-        map2d[1][dig.max_time + global_shift[1]][dig.row + rowOffset(dig.row) + global_shift[2]][dig.max_pad + global_shift[0] + padOffset(dig.row)] = dig.index;
+        if(dig.max_time < map_size){
+          map2d[1][dig.max_time + global_shift[1]][dig.row + rowOffset(dig.row) + global_shift[2]][dig.max_pad + global_shift[0] + padOffset(dig.row)] = dig.index;
+        }
       }
     }
-    if (fillmode == 1 || fillmode == -1) {
+    if (fillmode == 0 || fillmode == -1) {
       std::vector<customCluster> new_ideal_map;
       int overwrite_index = 0, found_overwrites = 0;
       for (auto idl : ideal_map) {
@@ -721,12 +726,16 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
     }
   } else if (use_max_cog == 1) {
     // Storing the indices
-    if (fillmode == 0 || fillmode == -1) {
+    if (fillmode == 1 || fillmode == -1) {
+      int map_size = map2d[1].size() - global_shift[1];
       for (auto dig : digit_map) {
-        map2d[1][dig.max_time + global_shift[1]][dig.row + rowOffset(dig.row) + global_shift[2]][dig.max_pad + global_shift[0] + padOffset(dig.row)] = dig.index;
+        if(round(dig.cog_time) < map_size){
+          // LOG(info) << round(dig.cog_time) + global_shift[1] << " / " << map2d[1].size() << "; " << dig.row + rowOffset(dig.row) + global_shift[2] << " / " << map2d[1][round(dig.cog_time) + global_shift[1]].size() << "; " << round(dig.cog_pad) + global_shift[0] + padOffset(dig.row) << " / " << map2d[1][round(dig.cog_time) + global_shift[1]][dig.row + rowOffset(dig.row) + global_shift[2]].size() << "; " << dig.index;
+          map2d[1][round(dig.cog_time) + global_shift[1]][dig.row + rowOffset(dig.row) + global_shift[2]][round(dig.cog_pad) + global_shift[0] + padOffset(dig.row)] = dig.index;
+        }
       }
     }
-    if (fillmode == 1 || fillmode == -1) {
+    if (fillmode == 0 || fillmode == -1) {
       std::vector<customCluster> new_ideal_map;
       int overwrite_index = 0, found_overwrites = 0;
       for (auto idl : ideal_map) {
@@ -1216,6 +1225,39 @@ std::vector<std::vector<std::vector<int>>> qaCluster::looper_tagger(int sector, 
   tagger.clear();
 
   return looper_tagged_region;
+}
+
+// ---------------------------------
+void qaCluster::calculateOccupancy(int sector, tpc2d& map2d)
+{
+  TPCMap map;
+  std::vector<std::vector<int>> regions = {{0,map.EndIROC()}, {map.EndIROC(),map.EndOROC1()}, {map.EndOROC1(),map.EndOROC2()}, {map.EndOROC2(), o2::tpc::constants::MAXGLOBALPADROW}};
+  std::vector<int> padsInROC(4, 0);
+  occupancy[sector].resize(regions.size());
+  for(int region = 0; region < regions.size(); region++){
+    occupancy[sector][region].resize(max_time[sector]);
+    custom::fill_nested_container(occupancy[sector], 0);
+    for(int row = regions[region][0]; row < regions[region][1]; row++){
+      padsInROC[region] += map.NPads(row);
+    }
+  }
+  for(int time = 0; time < max_time[sector]; time++){
+    for(int region = 0; region < regions.size(); region++){
+      for(int row = regions[region][0]; row < regions[region][1]; row++){
+        for(int pad = 0; pad < map.NPads(row); pad++){
+          for(int selection_time = -20; selection_time < 21; selection_time++){ // [-20,20] window -> maybe needs adjustment
+          int idx_time = time + selection_time;
+            if(idx_time < 0 || idx_time >= max_time[sector]){
+              continue;
+            } else {
+              occupancy[sector][region][time] += (int)(map2d[1][idx_time][row][pad] > -1);
+            }
+          }
+        }
+      }
+      occupancy[sector][region][time] /= 40*padsInROC[region];
+    }
+  }
 }
 
 // ---------------------------------
@@ -1871,6 +1913,20 @@ void qaCluster::runQa(int sector)
 
   fill_map2d(sector, map2d, digit_map, ideal_map, -1);
 
+  if (mode.find(std::string("occ")) != std::string::npos){
+    if (mode.find(std::string("native")) != std::string::npos) {
+      std::vector<customCluster> tmp_digit_map;
+      read_digits(sector, tmp_digit_map);
+      fill_map2d(sector, map2d, tmp_digit_map, ideal_map, 1);
+      calculateOccupancy(sector, map2d);
+      custom::fill_nested_container(map2d[1], -1);
+      fill_map2d(sector, map2d, digit_map, ideal_map, 1);
+      tmp_digit_map.clear();
+    } else {
+      calculateOccupancy(sector, map2d);
+    }
+  }
+
   if ((mode.find(std::string("network")) == std::string::npos) && (mode.find(std::string("native")) == std::string::npos)) {
     find_maxima(sector, map2d, digit_map, maxima_digits);
     // if (mode.find(std::string("looper_tagger")) != std::string::npos) {
@@ -2210,7 +2266,9 @@ void qaCluster::runQa(int sector)
     // int native_writer_map_size = native_writer_map.size();
     // native_writer_map.resize(native_writer_map_size + native_ideal_assignemnt.size());
 
-    float sec = sector, nat_row = 0, nat_time = 0, nat_pad = 0, nat_sigma_time = 0, nat_sigma_pad = 0,  nat_qTot = 0, nat_qMax = 0, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0, area_overlap = 0, charge_overlap = 0, ext_charge_overlap = 0, tot_area = 0, tot_charge = 0;;
+    float sec = sector, nat_row = 0, nat_time = 0, nat_pad = 0, nat_sigma_time = 0, nat_sigma_pad = 0,  nat_qTot = 0, nat_qMax = 0,
+    id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0,
+    area_overlap = 0, charge_overlap = 0, ext_charge_overlap = 0, tot_area = 0, tot_charge = 0, occ = 0;
     native_ideal->Branch("sector", &sec);
     native_ideal->Branch("native_row", &nat_row);
     native_ideal->Branch("native_cog_time", &nat_time);
@@ -2226,6 +2284,7 @@ void qaCluster::runQa(int sector)
     native_ideal->Branch("ideal_sigma_pad", &id_sigma_pad);
     native_ideal->Branch("ideal_qMax", &id_qMax);
     native_ideal->Branch("ideal_qTot", &id_qTot);
+    native_ideal->Branch("occupancy", &occ);
 
     if(overlap_study){
       native_ideal->Branch("fraction_charge_overlap", &charge_overlap);
@@ -2251,6 +2310,7 @@ void qaCluster::runQa(int sector)
       id_sigma_time = elem[1].sigmaTime;
       id_qTot = elem[1].qTot;
       id_qMax = elem[1].qMax;
+      occ = occupancy[sector][tpcmap.GetROC(elem[0].row)][round(elem[0].cog_time)];
 
       if(overlap_study){
         area_overlap = overlap_info[id_row][overlap_info_trkid_map[id_row][elem[1].mcTrkId]][1];
@@ -2449,7 +2509,9 @@ void qaCluster::runQa(int sector)
     TFile* outputFileNetworkIdeal = new TFile(file_in.str().c_str(), "RECREATE");
     TTree* network_ideal = new TTree("network_ideal", "tree");
 
-    float sec = sector, id_class = -999, net_row = 0, net_time = 0, net_pad = 0, net_sigma_time = 0, net_sigma_pad = 0, net_qTot = 0, net_qMax = 0, net_momX = 1000, net_momY = 1000, net_momZ = 1000, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0, net_idx = 0, net_lbl = 0, id_idx = 0, id_momX = 1000, id_momY = 1000, id_momZ = 1000, id_mom = 1000, net_momY_X = 1000, net_momZ_X = 1000, ext_charge_overlap = 0, area_overlap = 0, charge_overlap = 0, tot_area = 0, tot_charge = 0;
+    float sec = sector, id_class = -999, net_row = 0, net_time = 0, net_pad = 0, net_sigma_time = 0, net_sigma_pad = 0, net_qTot = 0, net_qMax = 0, net_momX = 1000, net_momY = 1000, net_momZ = 1000,
+    id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0, net_idx = 0, net_lbl = 0, id_idx = 0, id_momX = 1000, id_momY = 1000, id_momZ = 1000, id_mom = 1000,
+    net_momY_X = 1000, net_momZ_X = 1000, ext_charge_overlap = 0, area_overlap = 0, charge_overlap = 0, tot_area = 0, tot_charge = 0, occ = 0;
     network_ideal->Branch("sector", &sec);
     network_ideal->Branch("network_row", &net_row);
     network_ideal->Branch("network_cog_time", &net_time);
@@ -2478,6 +2540,7 @@ void qaCluster::runQa(int sector)
     network_ideal->Branch("ideal_momentumX", &id_momX);
     network_ideal->Branch("ideal_momentumY", &id_momY);
     network_ideal->Branch("ideal_momentumZ", &id_momZ);
+    network_ideal->Branch("occupancy", &occ);
 
     if(overlap_study){
       network_ideal->Branch("fraction_charge_overlap", &charge_overlap);
@@ -2517,6 +2580,7 @@ void qaCluster::runQa(int sector)
       id_qMax = elem[1].qMax;
       id_idx = elem[1].index;
       id_class = digit_has_non_looper_assignments[elem[0].index];
+      occ = occupancy[sector][tpcmap.GetROC(elem[0].row)][round(elem[0].cog_time)];
 
       if(overlap_study){
         area_overlap = overlap_info[id_row][overlap_info_trkid_map[id_row][elem[1].mcTrkId]][1];
@@ -2827,12 +2891,13 @@ void qaCluster::runQa(int sector)
     }
 
     int class_val = 0, idx_sector = 0, idx_row = 0, idx_pad = 0, idx_time = 0;
-    float pT = 0, eta = 0, mass = 0, p = 0, isPrimary = 0, isTagged = 0, overlap_num_other_mc = 0, overlap_area_fraction = 0, overlap_charge_fraction = 0, overlap_external_charge_fraction = 0;
+    float pT = 0, eta = 0, mass = 0, p = 0, isPrimary = 0, isTagged = 0, overlap_num_other_mc = 0, overlap_area_fraction = 0, overlap_charge_fraction = 0, overlap_external_charge_fraction = 0, occ = 0;
     tr_data->Branch("out_class", &class_val);
     tr_data->Branch("out_idx_sector", &idx_sector);
     tr_data->Branch("out_idx_row", &idx_row);
     tr_data->Branch("out_idx_pad", &idx_pad);
     tr_data->Branch("out_idx_time", &idx_time);
+    tr_data->Branch("occupancy", &occ);
 
     if(!realData){
       tr_data->Branch("cluster_pT", &pT);
@@ -2855,6 +2920,7 @@ void qaCluster::runQa(int sector)
       idx_row = digit_map[maxima_digits[element]].row;
       idx_pad = digit_map[maxima_digits[element]].max_pad;
       idx_time = digit_map[maxima_digits[element]].max_time;
+      occ = occupancy[sector][tpcmap.GetROC(idx_row)][round(idx_time)];
       if(!realData){
         pT = cluster_pT[element];
         eta = cluster_eta[element];

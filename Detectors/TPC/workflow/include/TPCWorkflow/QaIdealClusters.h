@@ -314,6 +314,7 @@ class qaCluster : public Task
   void native_clusterizer(tpc2d&, std::vector<std::array<int, 3>>&, std::vector<int>&, std::vector<float>&, std::vector<std::array<float, 3>>&, std::vector<float>&);
 
   std::vector<std::vector<std::vector<int>>> looper_tagger(int, int, std::vector<customCluster>&, std::vector<int>&);
+  void calculateOccupancy(int, tpc2d&);
 
   void remove_loopers_digits(int, std::vector<std::vector<std::vector<int>>>&, std::vector<customCluster>&, std::vector<int>&);
   void remove_loopers_native(int, std::vector<std::vector<std::vector<int>>>&, std::vector<customCluster>&, std::vector<int>&);
@@ -395,6 +396,7 @@ class qaCluster : public Task
   std::array<unsigned int, o2::tpc::constants::MAXSECTOR> number_of_ideal_max, number_of_digit_max, number_of_ideal_max_findable;
   std::array<float, o2::tpc::constants::MAXSECTOR> clones, fractional_clones;
   std::vector<customCluster> native_writer_map;
+  std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXSECTOR> occupancy;
   std::mutex m;
 
   // Training data -> Momentum vector assignment
