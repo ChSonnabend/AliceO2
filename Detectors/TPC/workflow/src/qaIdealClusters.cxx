@@ -148,7 +148,7 @@ bool qaCluster::checkIdx(int idx)
 }
 
 // ---------------------------------
-void qaCluster::read_digits(int sector, std::vector<customCluster>& digit_map)
+void qaCluster::read_digits(int sector, std::vector<customCluster>& digit_map, bool overwrite_time)
 {
 
   if (verbose >= 1)
@@ -178,7 +178,11 @@ void qaCluster::read_digits(int sector, std::vector<customCluster>& digit_map)
     }
   }
 
-  digit_map.resize(counter);
+  if (overwrite_time) {
+    digit_map.resize(counter);
+  } else {
+    digit_map.clear();
+  }
   counter = 0;
 
   for (unsigned int i_digit = 0; i_digit < digits->size(); i_digit++) {
@@ -187,7 +191,7 @@ void qaCluster::read_digits(int sector, std::vector<customCluster>& digit_map)
     current_time = digit.getTimeStamp();
     current_pad = digit.getPad();
 
-    if (overwrite_max_time) {
+    if (overwrite_time) {
       digit_map[counter] = customCluster{sector, digit.getRow(), current_pad, current_time, (float)current_pad, (float)current_time, 0.f, 0.f, digit.getChargeFloat(), digit.getChargeFloat(), (uint8_t)0, -1, -1, -1, (int)counter, 0.f};
       if (current_time > max_time[sector]){
         max_time[sector] = current_time + 1;
@@ -195,7 +199,7 @@ void qaCluster::read_digits(int sector, std::vector<customCluster>& digit_map)
       counter++;
     } else {
       if (current_time < max_time[sector]) {
-        digit_map[counter] = customCluster{sector, digit.getRow(), current_pad, current_time, (float)current_pad, (float)current_time, 0.f, 0.f, digit.getChargeFloat(), digit.getChargeFloat(), (uint8_t)0, -1, -1, -1, (int)counter, 0.f};
+        digit_map.push_back(customCluster{sector, digit.getRow(), current_pad, current_time, (float)current_pad, (float)current_time, 0.f, 0.f, digit.getChargeFloat(), digit.getChargeFloat(), (uint8_t)0, -1, -1, -1, (int)counter, 0.f});
         counter++;
       }
     }
@@ -1241,21 +1245,27 @@ void qaCluster::calculateOccupancy(int sector, tpc2d& map2d)
       padsInROC[region] += map.NPads(row);
     }
   }
+  int time_size_map = map2d[1].size();
   for(int time = 0; time < max_time[sector]; time++){
     for(int region = 0; region < regions.size(); region++){
+      int selection_time_size = 40, time_bins_found = 40;
       for(int row = regions[region][0]; row < regions[region][1]; row++){
+        int row_offset = rowOffset(row), pad_offset = padOffset(row);
         for(int pad = 0; pad < map.NPads(row); pad++){
-          for(int selection_time = -20; selection_time < 21; selection_time++){ // [-20,20] window -> maybe needs adjustment
-          int idx_time = time + selection_time;
-            if(idx_time < 0 || idx_time >= max_time[sector]){
+          for(int selection_time = (int)(-selection_time_size/2); selection_time < (int)(selection_time_size/2 + 1); selection_time++){ // [-20,20] window -> maybe needs adjustment
+            int idx_time = time + selection_time;
+            if((idx_time < 0) || (idx_time >= time_size_map)){
+              if(pad == 0){
+                time_bins_found-=1;
+              }
               continue;
             } else {
-              occupancy[sector][region][time] += (int)(map2d[1][idx_time][row][pad] > -1);
+              occupancy[sector][region][time] += (int)(map2d[1][idx_time][row + global_shift[1] + row_offset][pad + global_shift[2] + pad_offset] > -1);
             }
           }
         }
       }
-      occupancy[sector][region][time] /= 41*padsInROC[region];
+      occupancy[sector][region][time] /= time_bins_found*padsInROC[region];
     }
   }
 }
@@ -1863,7 +1873,7 @@ void qaCluster::runQa(int sector)
   if (mode.find(std::string("native")) != std::string::npos) {
     read_native(sector, digit_map, native_map);
   } else {
-    read_digits(sector, digit_map);
+    read_digits(sector, digit_map, overwrite_max_time);
   }
 
   if(overlap_study){
@@ -1916,7 +1926,7 @@ void qaCluster::runQa(int sector)
   if (mode.find(std::string("occ")) != std::string::npos){
     if (mode.find(std::string("native")) != std::string::npos) {
       std::vector<customCluster> tmp_digit_map;
-      read_digits(sector, tmp_digit_map);
+      read_digits(sector, tmp_digit_map, false);
       fill_map2d(sector, map2d, tmp_digit_map, ideal_map, 1);
       calculateOccupancy(sector, map2d);
       custom::fill_nested_container(map2d[1], -1);

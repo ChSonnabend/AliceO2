@@ -294,7 +294,7 @@ class qaCluster : public Task
   bool checkIdx(int);
 
   // Readers
-  void read_digits(int, std::vector<customCluster>&);
+  void read_digits(int, std::vector<customCluster>&, bool);
   void read_ideal(int, std::vector<customCluster>&);
   void read_native(int, std::vector<customCluster>&, std::vector<customCluster>&);
   void read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>&);
