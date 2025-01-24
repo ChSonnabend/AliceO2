@@ -95,7 +95,9 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
       } else if (intraOpNumThreads == 1) {
         (pImplOrt->sessionOptions).SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
       }
-      LOG(info) << "(ORT) CPU execution provider set with " << intraOpNumThreads << " threads";
+      if (loggingLevel < 2) {
+        LOG(info) << "(ORT) CPU execution provider set with " << intraOpNumThreads << " threads";
+      }
     }
 
     (pImplOrt->sessionOptions).DisableMemPattern();
@@ -138,7 +140,7 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
                   [&](const std::string& str) { return str.c_str(); });
 
     // Print names
-    if (loggingLevel > 1) {
+    if (loggingLevel < 2) {
       LOG(info) << "Input Nodes:";
       for (size_t i = 0; i < mInputNames.size(); i++) {
         LOG(info) << "\t" << mInputNames[i] << " : " << printShape(mInputShapes[i]);

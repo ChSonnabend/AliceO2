@@ -111,7 +111,7 @@ if [[ $BEAMTYPE == "PbPb" && -z $FST_QED ]]; then
   FST_QED=1
 fi
 DIGIQED=
-SIMOPTKEY="Diamond.width[2]=6.;"
+SIMOPTKEY="${SIMOPTKEY:-};Diamond.width[2]=6.;"
 if [[ $FST_QED == 1 ]]; then
   mkdir -p qed
   cd qed
@@ -125,7 +125,7 @@ fi
 
 DIGITOPT=
 DIGITOPTKEYTRD="TRDSimParams.digithreads=${NJOBS};"
-DIGITOPTKEY=${HBFUTILPARAMS}
+DIGITOPTKEY=${DIGITOPTKEY:-}${HBFUTILPARAMS}
 [[ ! -z $ITS_STROBE ]] && DIGITOPTKEY+="ITSAlpideParam.roFrameLengthInBC=$ITS_STROBE;"
 [[ ! -z $MFT_STROBE ]] && DIGITOPTKEY+="MFTAlpideParam.roFrameLengthInBC=$MFT_STROBE;"
 if [ $SPLITTRDDIGI == "1" ]; then
