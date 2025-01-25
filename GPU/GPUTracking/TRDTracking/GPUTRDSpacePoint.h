@@ -60,9 +60,7 @@ class GPUTRDSpacePoint : public o2::trd::CalibratedTracklet
 {
 };
 
-#ifdef GPUCA_NOCOMPAT
 static_assert(sizeof(GPUTRDSpacePoint) == sizeof(o2::trd::CalibratedTracklet), "Incorrect memory layout");
-#endif
 
 } // namespace gpu
 } // namespace GPUCA_NAMESPACE

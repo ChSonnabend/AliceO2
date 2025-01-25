@@ -18,7 +18,7 @@
 #include "GPUReconstructionDeviceBase.h"
 
 #ifdef _WIN32
-extern "C" __declspec(dllexport) GPUCA_NAMESPACE::gpu::GPUReconstruction* GPUReconstruction_Create_OCLconst GPUCA_NAMESPACE::gpu::GPUSettingsDeviceBackend& cfg);
+extern "C" __declspec(dllexport) GPUCA_NAMESPACE::gpu::GPUReconstruction* GPUReconstruction_Create_OCL(const GPUCA_NAMESPACE::gpu::GPUSettingsDeviceBackend& cfg);
 #else
 extern "C" GPUCA_NAMESPACE::gpu::GPUReconstruction* GPUReconstruction_Create_OCL(const GPUCA_NAMESPACE::gpu::GPUSettingsDeviceBackend& cfg);
 #endif
@@ -27,13 +27,14 @@ namespace GPUCA_NAMESPACE::gpu
 {
 struct GPUReconstructionOCLInternals;
 
-class GPUReconstructionOCL : public GPUReconstructionDeviceBase
+class GPUReconstructionOCLBackend : public GPUReconstructionDeviceBase
 {
  public:
-  ~GPUReconstructionOCL() override;
-  GPUReconstructionOCL(const GPUSettingsDeviceBackend& cfg);
+  ~GPUReconstructionOCLBackend() override;
 
  protected:
+  GPUReconstructionOCLBackend(const GPUSettingsDeviceBackend& cfg);
+
   int32_t InitDevice_Runtime() override;
   int32_t ExitDevice_Runtime() override;
   void UpdateAutomaticProcessingSettings() override;
@@ -54,8 +55,6 @@ class GPUReconstructionOCL : public GPUReconstructionDeviceBase
   void ReleaseEvent(deviceEvent ev) override;
   void RecordMarker(deviceEvent* ev, int32_t stream) override;
 
-  virtual int32_t GetOCLPrograms() = 0;
-  virtual bool CheckPlatform(uint32_t i) = 0;
   virtual bool ContextForAllPlatforms() { return false; }
 
   template <class T, int32_t I = 0>
@@ -68,8 +67,17 @@ class GPUReconstructionOCL : public GPUReconstructionDeviceBase
   gpu_reconstruction_kernels::krnlProperties getKernelPropertiesBackend();
 
   GPUReconstructionOCLInternals* mInternals;
+
+  template <class T, int32_t I = 0, typename... Args>
+  int32_t runKernelBackend(const krnlSetupArgs<T, I, Args...>& args);
+  template <class S, class T, int32_t I, bool MULTI>
+  S& getKernelObject();
+
+  int32_t GetOCLPrograms();
+  bool CheckPlatform(uint32_t i);
 };
 
+using GPUReconstructionOCL = GPUReconstructionKernels<GPUReconstructionOCLBackend>;
 } // namespace GPUCA_NAMESPACE::gpu
 
 #endif

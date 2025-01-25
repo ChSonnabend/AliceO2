@@ -69,13 +69,19 @@ if(NOT ALIGPU_BUILD_TYPE STREQUAL "ALIROOT")
   add_custom_command(
       OUTPUT ${GPU_RTC_BIN}.src
       COMMAND cat ${GPUDIR}/Base/cuda/GPUReconstructionCUDAIncludes.h > ${GPU_RTC_BIN}.src
-      COMMAND ${CMAKE_CXX_COMPILER} ${GPU_RTC_DEFINES} ${GPU_RTC_INCLUDES} -std=c++${CMAKE_CUDA_STANDARD} -D__CUDA_ARCH__=${RTC_CUDA_ARCH} -D__CUDACC__ -x c++ -E ${GPU_RTC_SRC} >> ${GPU_RTC_BIN}.src
+      COMMAND ${CMAKE_CXX_COMPILER} ${GPU_RTC_DEFINES} ${GPU_RTC_INCLUDES} -std=c++${CMAKE_CUDA_STANDARD} -D__CUDA_ARCH__=${RTC_CUDA_ARCH} -D__CUDACC__ -x c++ -nostdinc -E ${GPU_RTC_SRC} >> ${GPU_RTC_BIN}.src
       MAIN_DEPENDENCY ${GPU_RTC_SRC}
       IMPLICIT_DEPENDS CXX ${GPU_RTC_SRC}
       COMMAND_EXPAND_LISTS
       COMMENT "Preparing CUDA RTC source file ${GPU_RTC_BIN}.src"
   )
   create_binary_resource(${GPU_RTC_BIN}.src ${GPU_RTC_BIN}.src.o)
+
+  add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_CUDA_SRC_CHK.done
+                     COMMAND ! grep "# [0-9]* \"\\(/usr/\\|.*GCC-Toolchain\\)" ${GPU_RTC_BIN}.src > ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_CUDA_SRC_CHK.done || bash -c "echo ERROR: CUDA RTC sources contain standard headers 1>&2 && exit 1"
+                     COMMENT Checking CUDA RTC File ${GPU_RTC_BIN}.src
+                     DEPENDS ${GPU_RTC_BIN}.src VERBATIM)
+  add_custom_target(${MODULE}_CUDA_SRC_CHK ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_CUDA_SRC_CHK.done)
 
   add_custom_command(
       OUTPUT ${GPU_RTC_BIN}.command

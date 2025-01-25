@@ -22,6 +22,7 @@
 
 #if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE)
 #include <vector>
+#include <functional>
 #endif
 
 class TFile;
@@ -91,10 +92,10 @@ class NDPiecewisePolynomials : public FlatObject
   };
 #endif // !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE)
   /// default constructor
-  NDPiecewisePolynomials() CON_DEFAULT;
+  NDPiecewisePolynomials() = default;
 
   /// default destructor
-  ~NDPiecewisePolynomials() CON_DEFAULT;
+  ~NDPiecewisePolynomials() = default;
 
   /// Copy constructor
   NDPiecewisePolynomials(const NDPiecewisePolynomials& obj) { cloneFromObject(obj, nullptr); }

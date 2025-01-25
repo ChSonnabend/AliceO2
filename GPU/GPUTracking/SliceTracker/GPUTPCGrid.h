@@ -29,7 +29,6 @@ namespace gpu
  * used by GPUTPCTracker to speed-up the hit operations
  * grid axis are named Z,Y to be similar to TPC row coordinates.
  */
-MEM_CLASS_PRE()
 class GPUTPCGrid
 {
  public:

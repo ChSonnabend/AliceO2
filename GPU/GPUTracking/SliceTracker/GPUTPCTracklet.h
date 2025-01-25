@@ -28,7 +28,6 @@ namespace gpu
  * The class describes the reconstructed TPC track candidate.
  * The class is dedicated for internal use by the GPUTPCTracker algorithm.
  */
-MEM_CLASS_PRE()
 class GPUTPCTracklet
 {
  public:
@@ -40,20 +39,18 @@ class GPUTPCTracklet
   GPUhd() int32_t LastRow() const { return mLastRow; }
   GPUhd() int32_t HitWeight() const { return mHitWeight; }
   GPUhd() uint32_t FirstHit() const { return mFirstHit; }
-  GPUhd() MakeType(const MEM_LG(GPUTPCBaseTrackParam) &) Param() const { return mParam; }
+  GPUhd() const GPUTPCBaseTrackParam& Param() const { return mParam; }
 
   GPUhd() void SetFirstRow(int32_t v) { mFirstRow = v; }
   GPUhd() void SetLastRow(int32_t v) { mLastRow = v; }
   GPUhd() void SetFirstHit(uint32_t v) { mFirstHit = v; }
-  MEM_CLASS_PRE2()
-  GPUhd() void SetParam(const MEM_LG2(GPUTPCBaseTrackParam) & v) { mParam = reinterpret_cast<const MEM_LG(GPUTPCBaseTrackParam)&>(v); }
+  GPUhd() void SetParam(const GPUTPCBaseTrackParam& v) { mParam = reinterpret_cast<const GPUTPCBaseTrackParam&>(v); }
   GPUhd() void SetHitWeight(const int32_t w) { mHitWeight = w; }
 
  private:
   int32_t mFirstRow; // first TPC row // TODO: We can use smaller data format here!
   int32_t mLastRow;  // last TPC row
-  MEM_LG(GPUTPCBaseTrackParam)
-  mParam;                 // tracklet parameters
+  GPUTPCBaseTrackParam mParam; // tracklet parameters
   int32_t mHitWeight;     // Hit Weight of Tracklet
   uint32_t mFirstHit;     // first hit in row hit array
 };

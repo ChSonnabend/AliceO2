@@ -56,8 +56,8 @@ class MatLayerCyl : public o2::gpu::FlatObject
 
 #ifndef GPUCA_GPUCODE
   MatLayerCyl();
-  MatLayerCyl(const MatLayerCyl& src) CON_DELETE;
-  ~MatLayerCyl() CON_DEFAULT;
+  MatLayerCyl(const MatLayerCyl& src) = delete;
+  ~MatLayerCyl() = default;
 #endif
 
 #ifndef GPUCA_ALIGPUCODE // this part is unvisible on GPU version

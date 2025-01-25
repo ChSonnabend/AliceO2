@@ -62,11 +62,11 @@ class MultivariatePolynomial : public FlatObject, public MultivariatePolynomialH
   }
 #else
   /// default constructor
-  MultivariatePolynomial() CON_DEFAULT;
+  MultivariatePolynomial() = default;
 #endif
 
   /// default destructor
-  ~MultivariatePolynomial() CON_DEFAULT;
+  ~MultivariatePolynomial() = default;
 
   /// Copy constructor
   MultivariatePolynomial(const MultivariatePolynomial& obj) { this->cloneFromObject(obj, nullptr); }

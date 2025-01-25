@@ -123,10 +123,19 @@ std::shared_ptr<arrow::Table> ArrowHelpers::concatTables(std::vector<std::shared
   return result;
 }
 
-arrow::ChunkedArray* getIndexFromLabel(arrow::Table* table, const char* label)
+arrow::ChunkedArray* getIndexFromLabel(arrow::Table* table, std::string_view label)
 {
   auto field = std::find_if(table->schema()->fields().begin(), table->schema()->fields().end(), [&](std::shared_ptr<arrow::Field> const& f) {
-    return o2::framework::strToUpper(label) == o2::framework::strToUpper(std::string{f->name()});
+    auto caseInsensitiveCompare = [](const std::string_view& str1, const std::string& str2) {
+      return std::ranges::equal(
+        str1, str2,
+        [](char c1, char c2) {
+          return std::tolower(static_cast<unsigned char>(c1)) ==
+                 std::tolower(static_cast<unsigned char>(c2));
+        });
+    };
+
+    return caseInsensitiveCompare(label, f->name());
   });
   if (field == table->schema()->fields().end()) {
     o2::framework::throw_error(o2::framework::runtime_error_f("Unable to find column with label %s", label));

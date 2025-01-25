@@ -17,15 +17,7 @@
 
 #include "GPUCommonDef.h"
 // clang-format off
-#if !defined(GPUCA_NOCOMPAT)
-  // Cannot do anything for ROOT5CINT / OpenCL1, so just disable
-  #define GPUInfo(...)
-  #define GPUImportant(...)
-  #define GPUWarning(...)
-  #define GPUAlarm(...)
-  #define GPUError(...)
-  #define GPUFatal(...)
-#elif defined(GPUCA_GPUCODE_DEVICE) && !defined(GPUCA_GPU_DEBUG_PRINT)
+#if defined(GPUCA_GPUCODE_DEVICE) && !defined(GPUCA_GPU_DEBUG_PRINT)
   // Compile-time disable for performance-reasons
   #define GPUInfo(...)
   #define GPUImportant(...)
@@ -52,7 +44,7 @@
       fmt::fprintf(stderr, string "\n", ##__VA_ARGS__); \
       throw std::exception();                           \
     }
-#elif defined(GPUCA_STANDALONE) || defined(GPUCA_GPUCODE_DEVICE) || (defined(GPUCA_ALIROOT_LIB) && defined(GPUCA_GPUCODE) && defined(__cplusplus) && __cplusplus < 201703L)
+#elif defined(GPUCA_STANDALONE) || defined(GPUCA_GPUCODE_DEVICE) || (defined(GPUCA_ALIROOT_LIB) && defined(GPUCA_GPUCODE))
   // For standalone / CUDA / HIP, we just use printf, which should be available
   // Temporarily, we also have to handle CUDA on AliRoot with O2 defaults due to ROOT / CUDA incompatibilities
   #include <cstdio>
@@ -73,19 +65,11 @@
       }
     #define GPUAlarm(...) GPUWarning(__VA_ARGS__)
     #define GPUError(...) GPUWarning(__VA_ARGS__)
-    #ifdef GPUCA_NOCOMPAT
-      #define GPUFatal(string, ...)                    \
-        {                                              \
-          fprintf(stderr, string "\n", ##__VA_ARGS__); \
-          throw std::exception();                      \
-        }
-    #else
-      #define GPUFatal(string, ...)                  \
-        {                                            \
-          fprintf(stderr, string "\n", __VA_ARGS__); \
-          exit(1);                                   \
-        }
-    #endif
+    #define GPUFatal(string, ...)                  \
+      {                                            \
+        fprintf(stderr, string "\n", __VA_ARGS__); \
+        exit(1);                                   \
+      }
   #endif
 #elif defined(GPUCA_ALIROOT_LIB)
   // Forward to HLT Logging functions for AliRoot

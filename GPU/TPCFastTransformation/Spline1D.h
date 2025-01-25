@@ -161,8 +161,8 @@ class Spline1D
   }
 #else
   /// Disable constructors for the GPU implementation
-  Spline1D() CON_DELETE;
-  Spline1D(const Spline1D&) CON_DELETE;
+  Spline1D() = delete;
+  Spline1D(const Spline1D&) = delete;
 #endif
 
 #if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB)

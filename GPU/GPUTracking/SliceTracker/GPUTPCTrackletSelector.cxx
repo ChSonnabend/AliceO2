@@ -22,7 +22,7 @@
 using namespace GPUCA_NAMESPACE::gpu;
 
 template <>
-GPUdii() void GPUTPCTrackletSelector::Thread<0>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() MEM_LOCAL(GPUSharedMemory) & s, processorType& GPUrestrict() tracker)
+GPUdii() void GPUTPCTrackletSelector::Thread<0>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& s, processorType& GPUrestrict() tracker)
 {
   // select best tracklets and kill clones
 
@@ -39,7 +39,7 @@ GPUdii() void GPUTPCTrackletSelector::Thread<0>(int32_t nBlocks, int32_t nThread
   for (int32_t itr = s.mItr0 + iThread; itr < s.mNTracklets; itr += s.mNThreadsTotal) {
     GPUbarrierWarp();
 
-    GPUglobalref() MEM_GLOBAL(GPUTPCTracklet) & GPUrestrict() tracklet = tracker.Tracklets()[itr];
+    GPUglobalref() GPUTPCTracklet& GPUrestrict() tracklet = tracker.Tracklets()[itr];
 
     int32_t firstRow = tracklet.FirstRow();
     int32_t lastRow = tracklet.LastRow();
@@ -62,7 +62,7 @@ GPUdii() void GPUTPCTrackletSelector::Thread<0>(int32_t nBlocks, int32_t nThread
         gap++;
       }
       if (ih != CALINK_INVAL && ih != CALINK_DEAD_CHANNEL) {
-        GPUglobalref() const MEM_GLOBAL(GPUTPCRow)& row = tracker.Row(irow);
+        GPUglobalref() const GPUTPCRow& row = tracker.Row(irow);
         bool own = (tracker.HitWeight(row, ih) <= w);
         bool sharedOK = nShared <= (nHits < sharingMinNorm ? maxShared : nHits * maxSharedFrac);
         if (own || sharedOK) { // SG!!!

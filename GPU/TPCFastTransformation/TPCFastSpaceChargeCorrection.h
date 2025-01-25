@@ -88,10 +88,10 @@ class TPCFastSpaceChargeCorrection : public FlatObject
   TPCFastSpaceChargeCorrection();
 
   /// Copy constructor: disabled to avoid ambiguity. Use cloneTo[In/Ex]ternalBuffer() instead
-  TPCFastSpaceChargeCorrection(const TPCFastSpaceChargeCorrection&) CON_DELETE;
+  TPCFastSpaceChargeCorrection(const TPCFastSpaceChargeCorrection&) = delete;
 
   /// Assignment operator: disabled to avoid ambiguity. Use cloneTo[In/Ex]ternalBuffer() instead
-  TPCFastSpaceChargeCorrection& operator=(const TPCFastSpaceChargeCorrection&) CON_DELETE;
+  TPCFastSpaceChargeCorrection& operator=(const TPCFastSpaceChargeCorrection&) = delete;
 
   /// Destructor
   ~TPCFastSpaceChargeCorrection();

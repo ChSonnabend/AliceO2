@@ -20,12 +20,12 @@
 using namespace GPUCA_NAMESPACE::gpu;
 
 template <>
-GPUdii() void GPUTPCNeighboursFinder::Thread<0>(int32_t /*nBlocks*/, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() MEM_LOCAL(GPUSharedMemory) & s, processorType& GPUrestrict() tracker)
+GPUdii() void GPUTPCNeighboursFinder::Thread<0>(int32_t /*nBlocks*/, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& s, processorType& GPUrestrict() tracker)
 {
   //* find neighbours
 
 #ifdef GPUCA_GPUCODE
-  for (uint32_t i = iThread; i < sizeof(MEM_PLAIN(GPUTPCRow)) / sizeof(int32_t); i += nThreads) {
+  for (uint32_t i = iThread; i < sizeof(GPUTPCRow) / sizeof(int32_t); i += nThreads) {
     reinterpret_cast<GPUsharedref() int32_t*>(&s.mRow)[i] = reinterpret_cast<GPUglobalref() int32_t*>(&tracker.SliceDataRows()[iBlock])[i];
     if (iBlock >= 2 && iBlock < GPUCA_ROW_COUNT - 2) {
       reinterpret_cast<GPUsharedref() int32_t*>(&s.mRowUp)[i] = reinterpret_cast<GPUglobalref() int32_t*>(&tracker.SliceDataRows()[iBlock + 2])[i];
@@ -33,13 +33,13 @@ GPUdii() void GPUTPCNeighboursFinder::Thread<0>(int32_t /*nBlocks*/, int32_t nTh
     }
   }
   GPUbarrier();
-  const GPUsharedref() MEM_LOCAL(GPUTPCRow) & GPUrestrict() row = s.mRow;
-  const GPUsharedref() MEM_LOCAL(GPUTPCRow) & GPUrestrict() rowUp = s.mRowUp;
-  const GPUsharedref() MEM_LOCAL(GPUTPCRow) & GPUrestrict() rowDn = s.mRowDown;
+  const GPUsharedref() GPUTPCRow& GPUrestrict() row = s.mRow;
+  const GPUsharedref() GPUTPCRow& GPUrestrict() rowUp = s.mRowUp;
+  const GPUsharedref() GPUTPCRow& GPUrestrict() rowDn = s.mRowDown;
 #else
-  const GPUglobalref() MEM_GLOBAL(GPUTPCRow) & GPUrestrict() row = tracker.mData.mRows[iBlock];
-  const GPUglobalref() MEM_GLOBAL(GPUTPCRow) & GPUrestrict() rowUp = tracker.mData.mRows[iBlock + 2];
-  const GPUglobalref() MEM_GLOBAL(GPUTPCRow) & GPUrestrict() rowDn = tracker.mData.mRows[iBlock - 2];
+  const GPUglobalref() GPUTPCRow& GPUrestrict() row = tracker.mData.mRows[iBlock];
+  const GPUglobalref() GPUTPCRow& GPUrestrict() rowUp = tracker.mData.mRows[iBlock + 2];
+  const GPUglobalref() GPUTPCRow& GPUrestrict() rowDn = tracker.mData.mRows[iBlock - 2];
 #endif
 
   if (iThread == 0) {

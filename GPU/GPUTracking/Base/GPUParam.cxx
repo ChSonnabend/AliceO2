@@ -229,9 +229,7 @@ void GPUParam::LoadClusterErrors(bool Print)
   if (Print) {
     typedef std::numeric_limits<float> flt;
     std::cout << std::scientific;
-#if __cplusplus >= 201103L
     std::cout << std::setprecision(flt::max_digits10 + 2);
-#endif
     std::cout << "ParamS0Par[2][3][7]=" << std::endl;
     std::cout << " { " << std::endl;
     for (int32_t i = 0; i < 2; i++) {

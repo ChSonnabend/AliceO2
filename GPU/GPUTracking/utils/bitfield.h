@@ -15,7 +15,7 @@
 #ifndef Q_BITFIELD_H
 #define Q_BITFIELD_H
 
-#if !defined(GPUCA_NOCOMPAT_ALLOPENCL) && !defined(GPUCA_GPUCODE_COMPILEKERNELS)
+#if !defined(GPUCA_GPUCODE_DEVICE) && !defined(GPUCA_GPUCODE_COMPILEKERNELS)
 #include <type_traits>
 #endif
 
@@ -92,7 +92,7 @@ class bitfield
     return retVal;
   }
 
-#if defined(GPUCA_NOCOMPAT_ALLOPENCL) && !defined(GPUCA_GPUCODE_DEVICE)
+#if !defined(GPUCA_GPUCODE_DEVICE)
   static_assert(std::is_integral<S>::value, "Storage type non integral");
   static_assert(sizeof(S) >= sizeof(T), "Storage type has insufficient capacity");
 #endif

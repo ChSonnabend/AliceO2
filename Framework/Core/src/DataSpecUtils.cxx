@@ -16,6 +16,7 @@
 #include "Headers/DataHeaderHelpers.h"
 
 #include <fmt/format.h>
+#include <sstream>
 #include <cstring>
 #include <cinttypes>
 #include <regex>

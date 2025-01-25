@@ -39,6 +39,7 @@ void customize(std::vector<ConfigParamSpec>& workflowOptions)
     {"disable-mc", o2::framework::VariantType::Bool, false, {"disable MC propagation"}},
     {"track-sources", VariantType::String, std::string{GID::ALL}, {"comma-separated list of track sources to use"}},
     {"disable-root-input", VariantType::Bool, false, {"disable root-files input reader"}},
+    {"ignore-tpc-occ", VariantType::Bool, false, {"do not fill TPC occupancy (needs TPC clusters)"}},
     {"configKeyValues", VariantType::String, "", {"Semicolon separated key=value strings ..."}}};
   o2::raw::HBFUtilsInitializer::addConfigOption(options);
   std::swap(workflowOptions, options);
@@ -61,10 +62,14 @@ WorkflowSpec defineDataProcessing(ConfigContext const& configcontext)
 
   GID::mask_t srcTrc = allowedSourcesTrc & GID::getSourcesMask(configcontext.options().get<std::string>("track-sources"));
   GID::mask_t srcCls{};
+  bool fillTPCOcc = !configcontext.options().get<bool>("ignore-tpc-occ");
+  if (fillTPCOcc) {
+    srcCls = srcCls | GID::getSourcesMask("TPC");
+  }
   o2::globaltracking::InputHelper::addInputSpecs(configcontext, specs, srcCls, srcTrc, srcTrc, useMC);
   o2::globaltracking::InputHelper::addInputSpecsPVertex(configcontext, specs, useMC); // P-vertex is always needed
   o2::globaltracking::InputHelper::addInputSpecsSVertex(configcontext, specs);        // S-vertex is always needed
-  specs.emplace_back(o2::svstudy::getSVStudySpec(srcTrc, useMC));
+  specs.emplace_back(o2::svstudy::getSVStudySpec(srcTrc, srcCls, useMC));
 
   // configure dpl timer to inject correct firstTForbit: start from the 1st orbit of TF containing 1st sampled orbit
   o2::raw::HBFUtilsInitializer hbfIni(configcontext, specs);

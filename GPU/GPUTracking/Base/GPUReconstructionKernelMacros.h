@@ -59,7 +59,7 @@
 #else
 #define GPUCA_KRNLGPU_SINGLE(x_class, x_attributes, x_arguments, x_forward, ...) GPUCA_KRNLGPU_SINGLE_DEF(x_class, x_attributes, x_arguments, x_forward, __VA_ARGS__) \
   { \
-    GPUshared() typename GPUCA_M_STRIP_FIRST(x_class)::MEM_LOCAL(GPUSharedMemory) smem; \
+    GPUshared() typename GPUCA_M_STRIP_FIRST(x_class)::GPUSharedMemory smem; \
     GPUCA_M_STRIP_FIRST(x_class)::template Thread<GPUCA_M_KRNL_NUM(x_class)>(get_num_groups(0), get_local_size(0), get_group_id(0), get_local_id(0), smem, GPUCA_M_STRIP_FIRST(x_class)::Processor(GPUCA_CONSMEM)[iSlice_internal] GPUCA_M_STRIP(x_forward)); \
   }
 #endif
@@ -76,7 +76,7 @@
     const int32_t nSliceBlockOffset = get_num_groups(0) * iSlice_internal / nSliceCount; \
     const int32_t sliceBlockId = get_group_id(0) - nSliceBlockOffset; \
     const int32_t sliceGridDim = get_num_groups(0) * (iSlice_internal + 1) / nSliceCount - get_num_groups(0) * (iSlice_internal) / nSliceCount; \
-    GPUshared() typename GPUCA_M_STRIP_FIRST(x_class)::MEM_LOCAL(GPUSharedMemory) smem; \
+    GPUshared() typename GPUCA_M_STRIP_FIRST(x_class)::GPUSharedMemory smem; \
     GPUCA_M_STRIP_FIRST(x_class)::template Thread<GPUCA_M_KRNL_NUM(x_class)>(sliceGridDim, get_local_size(0), sliceBlockId, get_local_id(0), smem, GPUCA_M_STRIP_FIRST(x_class)::Processor(GPUCA_CONSMEM)[firstSlice + iSlice_internal] GPUCA_M_STRIP(x_forward)); \
   }
 #endif

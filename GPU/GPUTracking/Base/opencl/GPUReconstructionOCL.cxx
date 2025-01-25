@@ -33,11 +33,19 @@ using namespace GPUCA_NAMESPACE::gpu;
   }
 
 #define GPUCA_KRNL(x_class, x_attributes, ...) GPUCA_KRNL_PROP(x_class, x_attributes)
-#define GPUCA_KRNL_BACKEND_CLASS GPUReconstructionOCL
+#define GPUCA_KRNL_BACKEND_CLASS GPUReconstructionOCLBackend
 #include "GPUReconstructionKernelList.h"
 #undef GPUCA_KRNL
 
-GPUReconstructionOCL::GPUReconstructionOCL(const GPUSettingsDeviceBackend& cfg) : GPUReconstructionDeviceBase(cfg, sizeof(GPUReconstructionDeviceBase))
+#include "utils/qGetLdBinarySymbols.h"
+QGET_LD_BINARY_SYMBOLS(GPUReconstructionOCLCode_src);
+#ifdef OPENCL_ENABLED_SPIRV
+QGET_LD_BINARY_SYMBOLS(GPUReconstructionOCLCode_spirv);
+#endif
+
+GPUReconstruction* GPUReconstruction_Create_OCL(const GPUSettingsDeviceBackend& cfg) { return new GPUReconstructionOCL(cfg); }
+
+GPUReconstructionOCLBackend::GPUReconstructionOCLBackend(const GPUSettingsDeviceBackend& cfg) : GPUReconstructionDeviceBase(cfg, sizeof(GPUReconstructionDeviceBase))
 {
   if (mMaster == nullptr) {
     mInternals = new GPUReconstructionOCLInternals;
@@ -45,7 +53,7 @@ GPUReconstructionOCL::GPUReconstructionOCL(const GPUSettingsDeviceBackend& cfg) 
   mDeviceBackendSettings.deviceType = DeviceType::OCL;
 }
 
-GPUReconstructionOCL::~GPUReconstructionOCL()
+GPUReconstructionOCLBackend::~GPUReconstructionOCLBackend()
 {
   Exit(); // Make sure we destroy everything (in particular the ITS tracker) before we exit
   if (mMaster == nullptr) {
@@ -53,7 +61,7 @@ GPUReconstructionOCL::~GPUReconstructionOCL()
   }
 }
 
-int32_t GPUReconstructionOCL::GPUFailedMsgAI(const int64_t error, const char* file, int32_t line)
+int32_t GPUReconstructionOCLBackend::GPUFailedMsgAI(const int64_t error, const char* file, int32_t line)
 {
   // Check for OPENCL Error and in the case of an error display the corresponding error string
   if (error == CL_SUCCESS) {
@@ -63,7 +71,7 @@ int32_t GPUReconstructionOCL::GPUFailedMsgAI(const int64_t error, const char* fi
   return 1;
 }
 
-void GPUReconstructionOCL::GPUFailedMsgA(const int64_t error, const char* file, int32_t line)
+void GPUReconstructionOCLBackend::GPUFailedMsgA(const int64_t error, const char* file, int32_t line)
 {
   if (GPUFailedMsgAI(error, file, line)) {
     static bool runningCallbacks = false;
@@ -75,12 +83,12 @@ void GPUReconstructionOCL::GPUFailedMsgA(const int64_t error, const char* file, 
   }
 }
 
-void GPUReconstructionOCL::UpdateAutomaticProcessingSettings()
+void GPUReconstructionOCLBackend::UpdateAutomaticProcessingSettings()
 {
   GPUCA_GPUReconstructionUpdateDefaults();
 }
 
-int32_t GPUReconstructionOCL::InitDevice_Runtime()
+int32_t GPUReconstructionOCLBackend::InitDevice_Runtime()
 {
   if (mMaster == nullptr) {
     cl_int ocl_error;
@@ -386,7 +394,7 @@ int32_t GPUReconstructionOCL::InitDevice_Runtime()
   return (0);
 }
 
-int32_t GPUReconstructionOCL::ExitDevice_Runtime()
+int32_t GPUReconstructionOCLBackend::ExitDevice_Runtime()
 {
   // Uninitialize OPENCL
   SynchronizeGPU();
@@ -418,7 +426,7 @@ int32_t GPUReconstructionOCL::ExitDevice_Runtime()
   return (0);
 }
 
-size_t GPUReconstructionOCL::GPUMemCpy(void* dst, const void* src, size_t size, int32_t stream, int32_t toGPU, deviceEvent* ev, deviceEvent* evList, int32_t nEvents)
+size_t GPUReconstructionOCLBackend::GPUMemCpy(void* dst, const void* src, size_t size, int32_t stream, int32_t toGPU, deviceEvent* ev, deviceEvent* evList, int32_t nEvents)
 {
   if (evList == nullptr) {
     nEvents = 0;
@@ -442,7 +450,7 @@ size_t GPUReconstructionOCL::GPUMemCpy(void* dst, const void* src, size_t size, 
   return size;
 }
 
-size_t GPUReconstructionOCL::WriteToConstantMemory(size_t offset, const void* src, size_t size, int32_t stream, deviceEvent* ev)
+size_t GPUReconstructionOCLBackend::WriteToConstantMemory(size_t offset, const void* src, size_t size, int32_t stream, deviceEvent* ev)
 {
   if (stream == -1) {
     SynchronizeGPU();
@@ -454,11 +462,11 @@ size_t GPUReconstructionOCL::WriteToConstantMemory(size_t offset, const void* sr
   return size;
 }
 
-void GPUReconstructionOCL::ReleaseEvent(deviceEvent ev) { GPUFailedMsg(clReleaseEvent(ev.get<cl_event>())); }
+void GPUReconstructionOCLBackend::ReleaseEvent(deviceEvent ev) { GPUFailedMsg(clReleaseEvent(ev.get<cl_event>())); }
 
-void GPUReconstructionOCL::RecordMarker(deviceEvent* ev, int32_t stream) { GPUFailedMsg(clEnqueueMarkerWithWaitList(mInternals->command_queue[stream], 0, nullptr, ev->getEventList<cl_event>())); }
+void GPUReconstructionOCLBackend::RecordMarker(deviceEvent* ev, int32_t stream) { GPUFailedMsg(clEnqueueMarkerWithWaitList(mInternals->command_queue[stream], 0, nullptr, ev->getEventList<cl_event>())); }
 
-int32_t GPUReconstructionOCL::DoStuckProtection(int32_t stream, deviceEvent event)
+int32_t GPUReconstructionOCLBackend::DoStuckProtection(int32_t stream, deviceEvent event)
 {
   if (mProcessingSettings.stuckProtection) {
     cl_int tmp = 0;
@@ -479,25 +487,25 @@ int32_t GPUReconstructionOCL::DoStuckProtection(int32_t stream, deviceEvent even
   return 0;
 }
 
-void GPUReconstructionOCL::SynchronizeGPU()
+void GPUReconstructionOCLBackend::SynchronizeGPU()
 {
   for (int32_t i = 0; i < mNStreams; i++) {
     GPUFailedMsg(clFinish(mInternals->command_queue[i]));
   }
 }
 
-void GPUReconstructionOCL::SynchronizeStream(int32_t stream) { GPUFailedMsg(clFinish(mInternals->command_queue[stream])); }
+void GPUReconstructionOCLBackend::SynchronizeStream(int32_t stream) { GPUFailedMsg(clFinish(mInternals->command_queue[stream])); }
 
-void GPUReconstructionOCL::SynchronizeEvents(deviceEvent* evList, int32_t nEvents) { GPUFailedMsg(clWaitForEvents(nEvents, evList->getEventList<cl_event>())); }
+void GPUReconstructionOCLBackend::SynchronizeEvents(deviceEvent* evList, int32_t nEvents) { GPUFailedMsg(clWaitForEvents(nEvents, evList->getEventList<cl_event>())); }
 
-void GPUReconstructionOCL::StreamWaitForEvents(int32_t stream, deviceEvent* evList, int32_t nEvents)
+void GPUReconstructionOCLBackend::StreamWaitForEvents(int32_t stream, deviceEvent* evList, int32_t nEvents)
 {
   if (nEvents) {
     GPUFailedMsg(clEnqueueMarkerWithWaitList(mInternals->command_queue[stream], nEvents, evList->getEventList<cl_event>(), nullptr));
   }
 }
 
-bool GPUReconstructionOCL::IsEventDone(deviceEvent* evList, int32_t nEvents)
+bool GPUReconstructionOCLBackend::IsEventDone(deviceEvent* evList, int32_t nEvents)
 {
   cl_int eventdone;
   for (int32_t i = 0; i < nEvents; i++) {
@@ -509,7 +517,7 @@ bool GPUReconstructionOCL::IsEventDone(deviceEvent* evList, int32_t nEvents)
   return true;
 }
 
-int32_t GPUReconstructionOCL::GPUDebug(const char* state, int32_t stream, bool force)
+int32_t GPUReconstructionOCLBackend::GPUDebug(const char* state, int32_t stream, bool force)
 {
   // Wait for OPENCL-Kernel to finish and check for OPENCL errors afterwards, in case of debugmode
   if (!force && mProcessingSettings.debugLevel <= 0) {
@@ -524,4 +532,109 @@ int32_t GPUReconstructionOCL::GPUDebug(const char* state, int32_t stream, bool f
     GPUInfo("GPU Sync Done");
   }
   return (0);
+}
+
+template <class T, int32_t I, typename... Args>
+int32_t GPUReconstructionOCLBackend::runKernelBackend(const krnlSetupArgs<T, I, Args...>& args)
+{
+  cl_kernel k = args.s.y.num > 1 ? getKernelObject<cl_kernel, T, I, true>() : getKernelObject<cl_kernel, T, I, false>();
+  return std::apply([this, &args, &k](auto&... vals) { return runKernelBackendInternal(args.s, k, vals...); }, args.v);
+}
+
+template <class S, class T, int32_t I, bool MULTI>
+S& GPUReconstructionOCLBackend::getKernelObject()
+{
+  static uint32_t krnl = FindKernel<T, I>(MULTI ? 2 : 1);
+  return mInternals->kernels[krnl].first;
+}
+
+int32_t GPUReconstructionOCLBackend::GetOCLPrograms()
+{
+  char platform_version[256] = {};
+  GPUFailedMsg(clGetPlatformInfo(mInternals->platform, CL_PLATFORM_VERSION, sizeof(platform_version), platform_version, nullptr));
+  float ver = 0;
+  sscanf(platform_version, "OpenCL %f", &ver);
+
+  cl_int ocl_error;
+
+  const char* ocl_flags = GPUCA_M_STR(OCL_FLAGS);
+
+#ifdef OPENCL_ENABLED_SPIRV // clang-format off
+  if (ver >= 2.2f && !GetProcessingSettings().oclCompileFromSources) {
+    GPUInfo("Reading OpenCL program from SPIR-V IL (Platform version %4.2f)", ver);
+    mInternals->program = clCreateProgramWithIL(mInternals->context, _binary_GPUReconstructionOCLCode_spirv_start, _binary_GPUReconstructionOCLCode_spirv_len, &ocl_error);
+    ocl_flags = "";
+  } else
+#endif // clang-format on
+  {
+    GPUInfo("Compiling OpenCL program from sources (Platform version %4.2f)", ver);
+    size_t program_sizes[1] = {_binary_GPUReconstructionOCLCode_src_len};
+    char* programs_sources[1] = {_binary_GPUReconstructionOCLCode_src_start};
+    mInternals->program = clCreateProgramWithSource(mInternals->context, (cl_uint)1, (const char**)&programs_sources, program_sizes, &ocl_error);
+  }
+
+  if (GPUFailedMsgI(ocl_error)) {
+    GPUError("Error creating OpenCL program from binary");
+    return 1;
+  }
+
+  if (GPUFailedMsgI(clBuildProgram(mInternals->program, 1, &mInternals->device, ocl_flags, nullptr, nullptr))) {
+    cl_build_status status;
+    if (GPUFailedMsgI(clGetProgramBuildInfo(mInternals->program, mInternals->device, CL_PROGRAM_BUILD_STATUS, sizeof(status), &status, nullptr)) == 0 && status == CL_BUILD_ERROR) {
+      size_t log_size;
+      clGetProgramBuildInfo(mInternals->program, mInternals->device, CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size);
+      std::unique_ptr<char[]> build_log(new char[log_size + 1]);
+      clGetProgramBuildInfo(mInternals->program, mInternals->device, CL_PROGRAM_BUILD_LOG, log_size, build_log.get(), nullptr);
+      build_log[log_size] = 0;
+      GPUError("Build Log:\n\n%s\n", build_log.get());
+    }
+    return 1;
+  }
+
+#define GPUCA_KRNL(...) \
+  GPUCA_KRNL_WRAP(GPUCA_KRNL_LOAD_, __VA_ARGS__)
+#define GPUCA_KRNL_LOAD_single(x_class, ...)              \
+  if (AddKernel<GPUCA_M_KRNL_TEMPLATE(x_class)>(false)) { \
+    return 1;                                             \
+  }
+#define GPUCA_KRNL_LOAD_multi(x_class, ...)              \
+  if (AddKernel<GPUCA_M_KRNL_TEMPLATE(x_class)>(true)) { \
+    return 1;                                            \
+  }
+#include "GPUReconstructionKernelList.h"
+#undef GPUCA_KRNL
+#undef GPUCA_KRNL_LOAD_single
+#undef GPUCA_KRNL_LOAD_multi
+
+  return 0;
+}
+
+bool GPUReconstructionOCLBackend::CheckPlatform(uint32_t i)
+{
+  char platform_version[64] = {}, platform_vendor[64] = {};
+  clGetPlatformInfo(mInternals->platforms[i], CL_PLATFORM_VERSION, sizeof(platform_version), platform_version, nullptr);
+  clGetPlatformInfo(mInternals->platforms[i], CL_PLATFORM_VENDOR, sizeof(platform_vendor), platform_vendor, nullptr);
+  float ver1 = 0;
+  sscanf(platform_version, "OpenCL %f", &ver1);
+  if (ver1 >= 2.2f) {
+    if (mProcessingSettings.debugLevel >= 2) {
+      GPUInfo("OpenCL 2.2 capable platform found");
+    }
+    return true;
+  }
+
+  if (strcmp(platform_vendor, "Advanced Micro Devices, Inc.") == 0 && ver1 >= 2.0f) {
+    float ver2 = 0;
+    const char* pos = strchr(platform_version, '(');
+    if (pos) {
+      sscanf(pos, "(%f)", &ver2);
+    }
+    if ((ver1 >= 2.f && ver2 >= 2000.f) || ver1 >= 2.1f) {
+      if (mProcessingSettings.debugLevel >= 2) {
+        GPUInfo("AMD ROCm OpenCL Platform found");
+      }
+      return true;
+    }
+  }
+  return false;
 }

@@ -50,7 +50,7 @@ T getImpl(boost::property_tree::ptree const& tree, const char* key)
 }
 
 template <typename T>
-  requires base_of_template<std::vector, T>
+  requires VectorConfigValueType<T>
 auto getImpl(boost::property_tree::ptree const& tree, const char* key)
 {
   return o2::framework::vectorFromBranch<typename T::value_type>(tree.get_child(key));

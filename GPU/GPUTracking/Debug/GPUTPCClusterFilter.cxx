@@ -13,6 +13,7 @@
 /// \author David Rohr
 
 #include "GPUTPCClusterFilter.h"
+#ifdef GPUCA_HAVE_O2HEADERS
 #include "DataFormatsTPC/ClusterNative.h"
 
 using namespace o2::gpu;
@@ -29,3 +30,4 @@ bool GPUTPCClusterFilter::filter(uint32_t sector, uint32_t row, o2::tpc::Cluster
   // Note that this function might be called multiple times for the same cluster, in which case the final modified cl reference goes into the output clusters.
   return true;
 }
+#endif

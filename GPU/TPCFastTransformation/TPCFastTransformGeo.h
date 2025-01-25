@@ -65,13 +65,13 @@ class TPCFastTransformGeo
   TPCFastTransformGeo();
 
   /// Copy constructor: disabled to avoid ambiguity. Use cloneFromObject() instead
-  TPCFastTransformGeo(const TPCFastTransformGeo&) CON_DEFAULT;
+  TPCFastTransformGeo(const TPCFastTransformGeo&) = default;
 
   /// Assignment operator: disabled to avoid ambiguity. Use cloneFromObject() instead
-  TPCFastTransformGeo& operator=(const TPCFastTransformGeo&) CON_DEFAULT;
+  TPCFastTransformGeo& operator=(const TPCFastTransformGeo&) = default;
 
   /// Destructor
-  ~TPCFastTransformGeo() CON_DEFAULT;
+  ~TPCFastTransformGeo() = default;
 
   /// _____________  FlatObject functionality, see FlatObject class for description  ____________
 

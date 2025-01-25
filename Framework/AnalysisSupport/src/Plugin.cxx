@@ -155,12 +155,14 @@ struct DiscoverMetadataInAOD : o2::framework::ConfigDiscoveryPlugin {
           LOGP(fatal, "Couldn't open file \"{}\"!", filename);
         }
         std::vector<ConfigParamSpec> results = readMetadata(currentFile);
+        const bool metaDataEmpty = results.empty();
+        auto tables = getListOfTables(currentFile);
+        if (tables.empty() == false) {
+          results.push_back(ConfigParamSpec{"aod-metadata-tables", VariantType::ArrayString, tables, {"Tables in first AOD"}});
+        }
+
         // Found metadata already in the main file.
-        if (!results.empty()) {
-          auto tables = getListOfTables(currentFile);
-          if (tables.empty() == false) {
-            results.push_back(ConfigParamSpec{"aod-metadata-tables", VariantType::ArrayString, tables, {"Tables in first AOD"}});
-          }
+        if (!metaDataEmpty) {
           results.push_back(ConfigParamSpec{"aod-metadata-source", VariantType::String, filename, {"File from which the metadata was extracted."}});
           return results;
         }

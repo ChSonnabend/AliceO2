@@ -59,7 +59,7 @@ template <int64_t BEGIN, int64_t END, int64_t STEP>
 static constexpr bool is_enumeration_v<Enumeration<BEGIN, END, STEP>> = true;
 
 template <typename T>
-concept is_enumeration = is_enumeration_v<T>;
+concept is_enumeration = is_enumeration_v<std::decay_t<T>>;
 
 // Helper struct which builds a DataProcessorSpec from
 // the contents of an AnalysisTask...
@@ -140,46 +140,82 @@ struct AnalysisDataProcessorBuilder {
     DataSpecUtils::updateInputList(inputs, InputSpec{o2::aod::label<R>(), o2::aod::origin<R>(), aod::description(o2::aod::signature<R>()), R.version, Lifetime::Timeframe, inputMetadata});
   }
 
-  template <typename R, typename C, typename... Args>
-  static void inputsFromArgs(R (C::*)(Args...), const char* name, bool value, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>& eInfos, std::vector<StringPair>& bk, std::vector<StringPair>& bku) requires(std::is_lvalue_reference_v<Args>&&...)
+  /// helpers to append expression information for a single argument
+  template <soa::is_table A>
+    requires(!soa::is_filtered_table<std::decay_t<A>>)
+  static void addExpression(int, uint32_t, std::vector<ExpressionInfo>&)
   {
-    // update grouping cache
-    if constexpr (soa::is_iterator<std::decay_t<framework::pack_element_t<0, framework::pack<Args...>>>>) {
-      addGroupingCandidates<Args...>(bk, bku);
-    }
+  }
 
-    // populate input list and expression infos
+  template <soa::is_filtered_table A>
+  static void addExpression(int ai, uint32_t hash, std::vector<ExpressionInfo>& eInfos)
+  {
+    auto fields = soa::createFieldsFromColumns(typename std::decay_t<A>::persistent_columns_t{});
+    eInfos.emplace_back(ai, hash, std::decay_t<A>::hashes(), std::make_shared<arrow::Schema>(fields));
+  }
+
+  template <soa::is_iterator A>
+  static void addExpression(int ai, uint32_t hash, std::vector<ExpressionInfo>& eInfos)
+  {
+    addExpression<typename std::decay_t<A>::parent_t>(ai, hash, eInfos);
+  }
+
+  /// helpers to append InputSpec for a single argument
+  template <soa::is_table A>
+  static void addInput(const char* name, bool value, std::vector<InputSpec>& inputs)
+  {
+    [&name, &value, &inputs]<size_t N, std::array<soa::TableRef, N> refs, size_t... Is>(std::index_sequence<Is...>) mutable {
+      (addOriginalRef<refs[Is]>(name, value, inputs), ...);
+    }.template operator()<A::originals.size(), std::decay_t<A>::originals>(std::make_index_sequence<std::decay_t<A>::originals.size()>());
+  }
+
+  template <soa::is_iterator A>
+  static void addInput(const char* name, bool value, std::vector<InputSpec>& inputs)
+  {
+    addInput<typename std::decay_t<A>::parent_t>(name, value, inputs);
+  }
+
+  /// helper to append the inputs and expression information for normalized arguments
+  template <soa::is_table... As>
+  static void addInputsAndExpressions(uint32_t hash, const char* name, bool value, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>& eInfos)
+  {
     int ai = -1;
-    constexpr auto hash = o2::framework::TypeIdHelpers::uniqueId<R (C::*)(Args...)>();
-    ([&name, &value, &eInfos, &inputs, &hash, &ai]() mutable {
+    ([&ai, &hash, &eInfos, &name, &value, &inputs]() mutable {
       ++ai;
-      using T = std::decay_t<Args>;
-      if constexpr (is_enumeration<T>) {
-        std::vector<ConfigParamSpec> inputMetadata;
-        // FIXME: for the moment we do not support begin, end and step.
-        DataSpecUtils::updateInputList(inputs, InputSpec{"enumeration", "DPL", "ENUM", 0, Lifetime::Enumeration, inputMetadata});
-      } else {
-        // populate expression infos
-        if constexpr (soa::is_filtered_table<T>) {
-          auto fields = soa::createFieldsFromColumns(typename T::persistent_columns_t{});
-          eInfos.emplace_back(ai, hash, T::hashes(), std::make_shared<arrow::Schema>(fields));
-        } else if constexpr (soa::is_filtered_iterator<T>) {
-          auto fields = soa::createFieldsFromColumns(typename T::parent_t::persistent_columns_t{});
-          eInfos.emplace_back(ai, hash, T::parent_t::hashes(), std::make_shared<arrow::Schema>(fields));
-        }
-        // add inputs from the originals
-        auto adder = [&name, &value, &inputs]<size_t N, std::array<soa::TableRef, N> refs, size_t... Is>(std::index_sequence<Is...>) mutable {
-          (addOriginalRef<refs[Is]>(name, value, inputs), ...);
-        };
-        if constexpr (soa::is_table<T> || soa::is_filtered_table<T>) {
-          adder.template operator()<T::originals.size(), T::originals>(std::make_index_sequence<T::originals.size()>());
-        } else if constexpr (soa::is_iterator<T> || soa::is_filtered_iterator<T>) {
-          adder.template operator()<T::parent_t::originals.size(), T::parent_t::originals>(std::make_index_sequence<T::parent_t::originals.size()>());
-        }
-      }
-      return true;
-    }() &&
+      using T = std::decay_t<As>;
+      addExpression<T>(ai, hash, eInfos);
+      addInput<T>(name, value, inputs);
+    }(),
      ...);
+  }
+
+  /// helper to parse the process arguments
+  /// 1. enumeration (must be the only argument)
+  template <typename R, typename C, is_enumeration A>
+  static void inputsFromArgs(R (C::*)(A), const char* /*name*/, bool /*value*/, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>&, std::vector<StringPair>&, std::vector<StringPair>&)
+  {
+    std::vector<ConfigParamSpec> inputMetadata;
+    // FIXME: for the moment we do not support begin, end and step.
+    DataSpecUtils::updateInputList(inputs, InputSpec{"enumeration", "DPL", "ENUM", 0, Lifetime::Enumeration, inputMetadata});
+  }
+
+  /// 2. grouping case - 1st argument is an iterator
+  template <typename R, typename C, soa::is_iterator A, soa::is_table... Args>
+  static void inputsFromArgs(R (C::*)(A, Args...), const char* name, bool value, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>& eInfos, std::vector<StringPair>& bk, std::vector<StringPair>& bku)
+    requires(std::is_lvalue_reference_v<A> && (std::is_lvalue_reference_v<Args> && ...))
+  {
+    addGroupingCandidates<A, Args...>(bk, bku);
+    constexpr auto hash = o2::framework::TypeIdHelpers::uniqueId<R (C::*)(A, Args...)>();
+    addInputsAndExpressions<typename std::decay_t<A>::parent_t, Args...>(hash, name, value, inputs, eInfos);
+  }
+
+  /// 3. generic case
+  template <typename R, typename C, soa::is_table... Args>
+  static void inputsFromArgs(R (C::*)(Args...), const char* name, bool value, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>& eInfos, std::vector<StringPair>&, std::vector<StringPair>&)
+    requires(std::is_lvalue_reference_v<Args> && ...)
+  {
+    constexpr auto hash = o2::framework::TypeIdHelpers::uniqueId<R (C::*)(Args...)>();
+    addInputsAndExpressions<Args...>(hash, name, value, inputs, eInfos);
   }
 
   template <soa::TableRef R>
@@ -498,19 +534,19 @@ DataProcessorSpec adaptAnalysisTask(ConfigContext const& ctx, Args&&... args)
   homogeneous_apply_refs([&inputs](auto& x) { return ConditionManager<std::decay_t<decltype(x)>>::appendCondition(inputs, x); }, *task.get());
 
   /// parse process functions defined by corresponding configurables
-  if constexpr (requires { AnalysisDataProcessorBuilder::inputsFromArgs(&T::process, "default", true, inputs, expressionInfos, bindingsKeys, bindingsKeysUnsorted); }) {
+  if constexpr (requires { &T::process; }) {
     AnalysisDataProcessorBuilder::inputsFromArgs(&T::process, "default", true, inputs, expressionInfos, bindingsKeys, bindingsKeysUnsorted);
   }
   homogeneous_apply_refs(
-    [name = name_str, &expressionInfos, &inputs, &bindingsKeys, &bindingsKeysUnsorted](auto& x) {
-      using D = std::decay_t<decltype(x)>;
-      if constexpr (base_of_template<ProcessConfigurable, D>) {
+    overloaded{
+      [name = name_str, &expressionInfos, &inputs, &bindingsKeys, &bindingsKeysUnsorted](framework::is_process_configurable auto& x) mutable {
         // this pushes (argumentIndex,processHash,schemaPtr,nullptr) into expressionInfos for arguments that are Filtered/filtered_iterators
         AnalysisDataProcessorBuilder::inputsFromArgs(x.process, (name + "/" + x.name).c_str(), x.value, inputs, expressionInfos, bindingsKeys, bindingsKeysUnsorted);
         return true;
-      }
-      return false;
-    },
+      },
+      [](auto&) {
+        return false;
+      }},
     *task.get());
 
   // add preslice declarations to slicing cache definition

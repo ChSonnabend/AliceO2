@@ -22,7 +22,7 @@
 #include "FlatObject.h"
 #include "GPUCommonDef.h"
 
-#if !defined(__CINT__) && !defined(__ROOTCINT__) && !defined(__ROOTCLING__) && !defined(GPUCA_GPUCODE) && !defined(GPUCA_NO_VC) && defined(__cplusplus) && __cplusplus >= 201703L
+#if !defined(__ROOTCLING__) && !defined(GPUCA_GPUCODE) && !defined(GPUCA_NO_VC)
 #include <Vc/Vc>
 #include <Vc/SimdArray>
 #endif
@@ -92,8 +92,8 @@ class Spline2D
   }
 #else
   /// Disable constructors for the GPU implementation
-  Spline2D() CON_DELETE;
-  Spline2D(const Spline2D&) CON_DELETE;
+  Spline2D() = delete;
+  Spline2D(const Spline2D&) = delete;
 #endif
 
 #if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB)

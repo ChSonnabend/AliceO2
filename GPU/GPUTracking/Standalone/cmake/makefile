@@ -4,4 +4,4 @@ all:
 
 clean:
 	+$(MAKE) -C build clean
-	rm -f ca *.so
+	rm -f ca *.so *.pcm *.rootmap

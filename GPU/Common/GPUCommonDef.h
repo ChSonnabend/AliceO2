@@ -30,17 +30,7 @@
 //Some GPU configuration settings, must be included first
 #include "GPUCommonDefSettings.h"
 
-#if !defined(__OPENCL1__) && (!(defined(__CINT__) || defined(__ROOTCINT__)) || defined(__CLING__)) && defined(__cplusplus) && __cplusplus >= 201103L
-  #define GPUCA_NOCOMPAT // C++11 + No old ROOT5 + No old OpenCL
-  #ifndef __OPENCL__
-    #define GPUCA_NOCOMPAT_ALLOPENCL // + No OpenCL at all
-  #endif
-  #ifndef __CINT__
-    #define GPUCA_NOCOMPAT_ALLCINT // + No ROOT CINT at all
-  #endif
-#endif
-
-#if !(defined(__CINT__) || defined(__ROOTCINT__) || defined(__CLING__) || defined(__ROOTCLING__) || defined(G__ROOT)) // No GPU code for ROOT
+#if !(defined(__CLING__) || defined(__ROOTCLING__) || defined(G__ROOT)) // No GPU code for ROOT
   #if defined(__CUDACC__) || defined(__OPENCL__) || defined(__HIPCC__) || defined(__OPENCL_HOST__)
     #define GPUCA_GPUCODE // Compiled by GPU compiler
   #endif
@@ -48,28 +38,6 @@
   #if defined(__CUDA_ARCH__) || defined(__OPENCL__) || defined(__HIP_DEVICE_COMPILE__)
     #define GPUCA_GPUCODE_DEVICE // Executed on device
   #endif
-#endif
-
-// Definitions for C++11 features not supported by CINT / OpenCL
-#ifdef GPUCA_NOCOMPAT
-  #define CON_DELETE = delete
-  #define CON_DEFAULT = default
-  #define GPUCA_CPP11_INIT(...) __VA_ARGS__
-  #if defined(__cplusplus) && __cplusplus >= 201703L
-    #define CONSTEXPR constexpr
-  #else
-    #define CONSTEXPR
-  #endif
-#else
-  #define CON_DELETE
-  #define CON_DEFAULT
-  #define CONSTEXPR
-  #define GPUCA_CPP11_INIT(...)
-#endif
-#if defined(__ROOT__) && !defined(GPUCA_NOCOMPAT)
-  #define VOLATILE // ROOT5 has a problem with volatile in CINT
-#else
-  #define VOLATILE volatile
 #endif
 
 // Set AliRoot / O2 namespace
@@ -82,7 +50,7 @@
   #define GPUCA_NAMESPACE o2
 #endif
 
-#if (defined(__CUDACC__) && defined(GPUCA_CUDA_NO_CONSTANT_MEMORY)) || (defined(__HIPCC__) && defined(GPUCA_HIP_NO_CONSTANT_MEMORY)) || (defined(__OPENCL1__) && defined(GPUCA_OPENCL_NO_CONSTANT_MEMORY)) || (defined(__OPENCLCPP__) && defined(GPUCA_OPENCLCPP_NO_CONSTANT_MEMORY))
+#if (defined(__CUDACC__) && defined(GPUCA_CUDA_NO_CONSTANT_MEMORY)) || (defined(__HIPCC__) && defined(GPUCA_HIP_NO_CONSTANT_MEMORY)) || (defined(__OPENCL__) && defined(GPUCA_OPENCL_NO_CONSTANT_MEMORY))
   #define GPUCA_NO_CONSTANT_MEMORY
 #elif defined(__CUDACC__) || defined(__HIPCC__)
   #define GPUCA_HAS_GLOBAL_SYMBOL_CONSTANT_MEM

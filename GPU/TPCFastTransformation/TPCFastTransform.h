@@ -50,7 +50,7 @@ struct TPCSlowSpaceChargeCorrection {
 
   o2::tpc::SpaceCharge<float>* mCorr{nullptr}; ///< reference space charge corrections
 #else
-  ~TPCSlowSpaceChargeCorrection() CON_DEFAULT;
+  ~TPCSlowSpaceChargeCorrection() = default;
 
   /// setting dummy corrections for GPU
   GPUd() void getCorrections(const float gx, const float gy, const float gz, const int32_t slice, float& gdxC, float& gdyC, float& gdzC) const
@@ -104,10 +104,10 @@ class TPCFastTransform : public FlatObject
   TPCFastTransform();
 
   /// Copy constructor: disabled to avoid ambiguity. Use cloneFromObject() instead
-  TPCFastTransform(const TPCFastTransform&) CON_DELETE;
+  TPCFastTransform(const TPCFastTransform&) = delete;
 
   /// Assignment operator: disabled to avoid ambiguity. Use cloneFromObject() instead
-  TPCFastTransform& operator=(const TPCFastTransform&) CON_DELETE;
+  TPCFastTransform& operator=(const TPCFastTransform&) = delete;
 
   inline void destroy()
   {
@@ -122,7 +122,7 @@ class TPCFastTransform : public FlatObject
     delete mCorrectionSlow;
   }
 #else
-  ~TPCFastTransform() CON_DEFAULT;
+  ~TPCFastTransform() = default;
 #endif
 
   /// _____________  FlatObject functionality, see FlatObject class for description  ____________

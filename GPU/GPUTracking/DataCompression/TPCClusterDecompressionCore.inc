@@ -113,7 +113,7 @@ class TPCClusterDecompressionCore
           timeTmp |= 0xFF000000;
         }
         time = timeTmp + ClusterNative::packTime(CAMath::Max(0.f, param.tpcGeometry.LinearZ2Time(slice, track.Z() + zOffset)));
-        float tmpPad = CAMath::Max(0.f, CAMath::Min((float)param.tpcGeometry.NPads(GPUCA_ROW_COUNT - 1), param.tpcGeometry.LinearY2Pad(slice, row, track.Y())));
+        float tmpPad = CAMath::Max(0.f, CAMath::Min((float)param.tpcGeometry.NPads(GPUCA_ROW_COUNT - 1), track.LinearY2Pad(slice, track.Y(), param.tpcGeometry.PadWidth(row), param.tpcGeometry.NPads(row))));
         pad = cmprClusters.padResA[clusterOffset - trackIndex - 1] + ClusterNative::packPad(tmpPad);
         time = time & 0xFFFFFF;
         pad = (uint16_t)pad;
@@ -136,7 +136,7 @@ class TPCClusterDecompressionCore
         pad = cmprClusters.padA[trackIndex];
       }
       const auto cluster = decompressTrackStore(cmprClusters, clusterOffset, slice, row, pad, time, args...);
-      float y = param.tpcGeometry.LinearPad2Y(slice, row, cluster.getPad());
+      float y = track.LinearPad2Y(slice, cluster.getPad(), param.tpcGeometry.PadWidth(row), param.tpcGeometry.NPads(row));
       float z = param.tpcGeometry.LinearTime2Z(slice, cluster.getTime());
       if (clusterIndex == 0) {
         zOffset = z;

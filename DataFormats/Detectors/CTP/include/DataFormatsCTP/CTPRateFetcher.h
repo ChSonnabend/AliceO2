@@ -32,6 +32,9 @@ class CTPRateFetcher
   double fetchNoPuCorr(o2::ccdb::BasicCCDBManager* ccdb, uint64_t timeStamp, int runNumber, const std::string sourceName);
   void setupRun(int runNumber, o2::ccdb::BasicCCDBManager* ccdb, uint64_t timeStamp, bool initScalers);
   void updateScalers(ctp::CTPRunScalers& scalers);
+  int getRates(std::array<double, 3>& rates, o2::ccdb::BasicCCDBManager* ccdb, int runNumber, const std::string sourceName); // rates at start,stop and middle of the run
+  void setOrbit(bool orb) { mOrbit = orb; }
+  void setOutsideLimits(bool qc) { mOutsideLimits = qc; }
 
  private:
   double fetchCTPratesInputs(uint64_t timeStamp, int input);
@@ -41,6 +44,8 @@ class CTPRateFetcher
 
   double pileUpCorrection(double rate);
   int mRunNumber = -1;
+  bool mOutsideLimits = 0;
+  bool mOrbit = 0;
   o2::ctp::CTPConfiguration mConfig{};
   o2::ctp::CTPRunScalers mScalers{};
   o2::parameters::GRPLHCIFData mLHCIFdata{};

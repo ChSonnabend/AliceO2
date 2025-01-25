@@ -207,6 +207,9 @@ void CCDBPopulator::doUpload(const CcdbObjectInfo& wrp, const gsl::span<const ch
       LOGP(important, "Validated upload to {} / {} for [{}:{}]", mAPI.getURL(), wrp.getPath(), wrp.getStartValidityTimestamp(), wrp.getEndValidityTimestamp());
     }
   }
+  if (wrp.isAdjustableEOV() && !mAPI.isSnapshotMode()) {
+    o2::ccdb::adjustOverriddenEOV(mAPI, wrp);
+  }
 }
 
 void CCDBPopulator::logAsNeeded(long nowMS, const std::string& path, std::string& msg)

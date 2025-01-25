@@ -54,10 +54,10 @@ class CalibdEdxTrackTopologyPol : public o2::gpu::FlatObject
   /// \parma name name of the object
   CalibdEdxTrackTopologyPol(std::string_view fileName, std::string_view name = "CalibdEdxTrackTopologyPol") { loadFromFile(fileName.data(), name.data()); };
   /// Default constructor: creates an empty uninitialized object
-  CalibdEdxTrackTopologyPol() CON_DEFAULT;
+  CalibdEdxTrackTopologyPol() = default;
 
   /// destructor
-  ~CalibdEdxTrackTopologyPol() CON_DEFAULT;
+  ~CalibdEdxTrackTopologyPol() = default;
 #endif
 
 #ifdef GPUCA_HAVE_O2HEADERS

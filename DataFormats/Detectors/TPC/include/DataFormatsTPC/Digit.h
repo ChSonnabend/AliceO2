@@ -36,7 +36,7 @@ class Digit : public DigitBase
 {
  public:
   /// Default constructor
-  GPUdDefault() Digit() CON_DEFAULT;
+  GPUdDefault() Digit() = default;
 
   /// Constructor, initializing values for position, charge, time and common mode
   /// \param cru CRU of the Digit
@@ -46,7 +46,7 @@ class Digit : public DigitBase
   GPUdi() Digit(int cru, float charge, int row, int pad, int time);
 
   /// Destructor
-  GPUdDefault() ~Digit() CON_DEFAULT;
+  GPUdDefault() ~Digit() = default;
 
   /// Get the accumulated charged of the Digit in ADC counts.
   /// The conversion is such that the decimals are simply stripped

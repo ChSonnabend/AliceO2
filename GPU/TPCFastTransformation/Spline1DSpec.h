@@ -66,13 +66,13 @@ class Spline1DContainer : public FlatObject
   /// _____________  C++ constructors / destructors __________________________
 
   /// Default constructor, required by the Root IO
-  Spline1DContainer() CON_DEFAULT;
+  Spline1DContainer() = default;
 
   /// Disable all other constructors
-  Spline1DContainer(const Spline1DContainer&) CON_DELETE;
+  Spline1DContainer(const Spline1DContainer&) = delete;
 
   /// Destructor
-  ~Spline1DContainer() CON_DEFAULT;
+  ~Spline1DContainer() = default;
 
   /// _______________  Construction interface  ________________________
 

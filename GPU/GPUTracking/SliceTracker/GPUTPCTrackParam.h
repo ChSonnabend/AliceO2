@@ -32,7 +32,6 @@ class GPUTPCTrackLinearisation;
  * which is used by the GPUTPCTracker slice tracker.
  *
  */
-MEM_CLASS_PRE()
 class GPUTPCTrackParam
 {
  public:
@@ -40,8 +39,8 @@ class GPUTPCTrackParam
     float bethe, e, theta2, EP2, sigmadE2, k22, k33, k43, k44; // parameters
   };
 
-  GPUd() MakeType(const MEM_LG(GPUTPCBaseTrackParam) &) GetParam() const { return mParam; }
-  GPUd() void SetParam(const MEM_LG(GPUTPCBaseTrackParam) & v) { mParam = v; }
+  GPUd() const GPUTPCBaseTrackParam& GetParam() const { return mParam; }
+  GPUd() void SetParam(const GPUTPCBaseTrackParam& v) { mParam = v; }
   GPUd() void InitParam();
 
   GPUd() float X() const { return mParam.X(); }
@@ -74,7 +73,7 @@ class GPUTPCTrackParam
   GPUd() float GetKappa(float Bz) const { return mParam.GetKappa(Bz); }
   GPUd() float GetCosPhi() const { return mSignCosPhi * CAMath::Sqrt(1 - SinPhi() * SinPhi()); }
 
-  GPUhd() MakeType(const float*) Par() const { return mParam.Par(); }
+  GPUhd() const float* Par() const { return mParam.Par(); }
   GPUhd() const float* Cov() const { return mParam.Cov(); }
 
   GPUd() const float* GetPar() const { return mParam.GetPar(); }
@@ -145,8 +144,7 @@ class GPUTPCTrackParam
 #ifndef GPUCA_GPUCODE
  private:
 #endif //! GPUCA_GPUCODE
-  MEM_LG(GPUTPCBaseTrackParam)
-  mParam; // Track Parameters
+  GPUTPCBaseTrackParam mParam; // Track Parameters
 
  private:
   // WARNING, Track Param Data is copied in the GPU Tracklet Constructor element by element instead of using copy constructor!!!
@@ -157,8 +155,7 @@ class GPUTPCTrackParam
   int32_t mNDF;      // the Number of Degrees of Freedom
 };
 
-MEM_CLASS_PRE()
-GPUdi() void MEM_LG(GPUTPCTrackParam)::InitParam()
+GPUdi() void GPUTPCTrackParam::InitParam()
 {
   // Initialize Tracklet Parameters using default values
   SetSinPhi(0);

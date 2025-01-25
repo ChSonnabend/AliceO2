@@ -41,7 +41,7 @@ class ChebyshevFit1D
     reset(order, xMin, xMax);
   }
 
-  ~ChebyshevFit1D() CON_DEFAULT;
+  ~ChebyshevFit1D() = default;
 
   void reset(int32_t order, double xMin, double xMax);
 

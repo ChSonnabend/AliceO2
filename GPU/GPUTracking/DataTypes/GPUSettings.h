@@ -45,12 +45,9 @@ class GPUSettings
                               RejectionStrategyA = 1,
                               RejectionStrategyB = 2 };
 
-#if !defined(__OPENCL1__)
-  static CONSTEXPR const uint32_t TPC_MAX_TF_TIME_BIN = ((256 * 3564 + 2 * 8 - 2) / 8);
-#endif
+  static constexpr const uint32_t TPC_MAX_TF_TIME_BIN = ((256 * 3564 + 2 * 8 - 2) / 8);
 };
 
-#ifdef GPUCA_NOCOMPAT
 // Settings describing the global run parameters
 struct GPUSettingsGRP {
   // All new members must be sizeof(int32_t) resp. sizeof(float) for alignment reasons!, default value for newly added members for old data will be 0.
@@ -81,7 +78,6 @@ struct GPUSettingsDeviceBackend {
   uint8_t forceDeviceType = 1;                             // Fail if device initialization fails, otherwise falls back to CPU
   GPUReconstruction* master = nullptr;                     // GPUReconstruction master object
 };
-#endif
 
 } // namespace gpu
 } // namespace GPUCA_NAMESPACE

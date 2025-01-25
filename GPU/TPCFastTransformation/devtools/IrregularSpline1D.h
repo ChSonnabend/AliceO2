@@ -133,13 +133,13 @@ class IrregularSpline1D : public FlatObject
   IrregularSpline1D();
 
   /// Copy constructor: disabled to avoid ambiguity. Use cloneFromObject instead
-  IrregularSpline1D(const IrregularSpline1D&) CON_DELETE;
+  IrregularSpline1D(const IrregularSpline1D&) = delete;
 
   /// Assignment operator: disabled to avoid ambiguity. Use cloneFromObject instead
-  IrregularSpline1D& operator=(const IrregularSpline1D&) CON_DELETE;
+  IrregularSpline1D& operator=(const IrregularSpline1D&) = delete;
 
   /// Destructor
-  ~IrregularSpline1D() CON_DEFAULT;
+  ~IrregularSpline1D() = default;
 
   /// _____________  FlatObject functionality, see FlatObject class for description  ____________
 

@@ -321,7 +321,7 @@ enum qConfigRetVal { qcrOK = 0,
 #endif
 #define AddOptionSet(name, type, value, optname, optnameshort, help, ...)
 #define AddSubConfig(name, instance) name instance;
-#if !defined(QCONFIG_GENRTC) && defined(GPUCA_NOCOMPAT) && !defined(GPUCA_GPUCODE_DEVICE)
+#if !defined(QCONFIG_GENRTC) && !defined(GPUCA_GPUCODE_DEVICE)
 #define BeginConfig(name, instance) \
   struct name {                     \
     bool operator==(const name&) const = default;

@@ -63,6 +63,7 @@ void ITSMFTDeadMapBuilder::init(InitContext& ic)
 
   mLocalOutputDir = ic.options().get<std::string>("output-dir");
   mSkipStaticMap = ic.options().get<bool>("skip-static-map");
+  mNoGroupITSLanes = ic.options().get<bool>("no-group-its-lanes");
 
   isEnded = false;
   mTimeStart = o2::ccdb::getCurrentTimestamp();
@@ -245,16 +246,15 @@ void ITSMFTDeadMapBuilder::run(ProcessingContext& pc)
     }
   }
 
-  // do AND operation before unmasking the full ITS lane
-
+  // Save status of single chips in static map before unmasking the full ITS lane
   if (!mSkipStaticMap) {
     for (size_t el = 0; el < mStaticChipStatus.size(); el++) {
       mStaticChipStatus[el] = mStaticChipStatus[el] || ChipStatus[el];
     }
   }
 
-  // for ITS, declaring dead only chips belonging to lane with no hits
-  if (!mRunMFT) {
+  // for ITS, if requested: declaring dead only chips belonging to lanes with no alive chips
+  if (!mRunMFT && !mNoGroupITSLanes) {
     for (uint16_t el = N_CHIPS_ITSIB; el < ChipStatus.size(); el++) {
       if (ChipStatus.at(el)) {
         std::vector<uint16_t> chipincable = getChipIDsOnSameCable(el);
@@ -441,6 +441,7 @@ DataProcessorSpec getITSMFTDeadMapBuilderSpec(std::string datasource, bool doMFT
             {"tf-sampling-history-size", VariantType::Int, 1000, {"Do not check if new TF is contained in a window that is older than N steps."}},
             {"tf-length", VariantType::Int, 32, {"Orbits per TF."}},
             {"skip-static-map", VariantType::Bool, false, {"Do not fill static part of the map."}},
+            {"no-group-its-lanes", VariantType::Bool, false, {"Do not group ITS OB chips into lanes."}},
             {"ccdb-url", VariantType::String, "", {"CCDB url. Ignored if endOfStream is processed."}},
             {"outfile", VariantType::String, objectname_default, {"ROOT object file name."}},
             {"local-output", VariantType::Bool, false, {"Save ROOT tree file locally."}},

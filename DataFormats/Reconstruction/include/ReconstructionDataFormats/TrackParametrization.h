@@ -160,7 +160,7 @@ class TrackParametrization
   GPUd() value_t getZ() const;
   GPUd() value_t getSnp() const;
   GPUd() value_t getTgl() const;
-  GPUd() value_t getQ2Pt() const;
+  GPUhd() value_t getQ2Pt() const;
   GPUd() value_t getCharge2Pt() const;
   GPUd() int getAbsCharge() const;
   GPUd() PID getPID() const;
@@ -357,7 +357,7 @@ GPUdi() auto TrackParametrization<value_T>::getTgl() const -> value_t
 
 //____________________________________________________________
 template <typename value_T>
-GPUdi() auto TrackParametrization<value_T>::getQ2Pt() const -> value_t
+GPUhdi() auto TrackParametrization<value_T>::getQ2Pt() const -> value_t
 {
   return mP[kQ2Pt];
 }

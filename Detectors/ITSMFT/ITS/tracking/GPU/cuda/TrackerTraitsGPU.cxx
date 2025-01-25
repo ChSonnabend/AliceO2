@@ -205,9 +205,6 @@ void TrackerTraitsGPU<nLayers>::computeCellsHybrid(const int iteration)
                         conf.nBlocks,
                         conf.nThreads);
   }
-  // Needed for processNeighbours() which is still on CPU.
-  mTimeFrameGPU->downloadCellsDevice();
-  mTimeFrameGPU->downloadCellsLUTDevice();
 }
 
 template <int nLayers>
@@ -221,11 +218,11 @@ void TrackerTraitsGPU<nLayers>::findCellsNeighboursHybrid(const int iteration)
     mTimeFrameGPU->getCellsNeighboursLUT()[iLayer].clear();
     mTimeFrameGPU->getCellsNeighboursLUT()[iLayer].resize(nextLayerCellsNum, 0);
 
-    if (mTimeFrameGPU->getCells()[iLayer + 1].empty() ||
-        mTimeFrameGPU->getCellsLookupTable()[iLayer].empty()) {
-      mTimeFrameGPU->getCellsNeighbours()[iLayer].clear();
-      continue;
-    }
+    // if (mTimeFrameGPU->getCells()[iLayer + 1].empty() ||
+    //     mTimeFrameGPU->getCellsLookupTable()[iLayer].empty()) {
+    //   mTimeFrameGPU->getCellsNeighbours()[iLayer].clear();
+    //   continue;
+    // }
 
     mTimeFrameGPU->createNeighboursLUTDevice(iLayer, nextLayerCellsNum);
     countCellNeighboursHandler(mTimeFrameGPU->getDeviceArrayCells(),
@@ -267,7 +264,6 @@ void TrackerTraitsGPU<nLayers>::findCellsNeighboursHybrid(const int iteration)
                                 cellsNeighboursLayer[iLayer].size());
   }
   mTimeFrameGPU->createNeighboursDeviceArray();
-  mTimeFrameGPU->downloadCellsDevice();
   mTimeFrameGPU->unregisterRest();
 };
 
@@ -289,55 +285,21 @@ void TrackerTraitsGPU<nLayers>::findRoads(const int iteration)
                                         startLevel,
                                         mTimeFrameGPU->getDeviceArrayCells(),
                                         mTimeFrameGPU->getDeviceCells()[startLayer],
-                                        mTimeFrameGPU->getNCells()[startLayer],
+                                        mTimeFrameGPU->getArrayNCells(),
                                         mTimeFrameGPU->getDeviceArrayUsedClusters(),
-                                        mTimeFrameGPU->getDeviceNeighbours(startLayer - 1),
+                                        mTimeFrameGPU->getDeviceNeighboursAll(),
                                         mTimeFrameGPU->getDeviceNeighboursLUTs(),
                                         mTimeFrameGPU->getDeviceArrayTrackingFrameInfo(),
+                                        trackSeeds,
                                         mBz,
-                                        mTrkParams[0].MaxChi2ClusterAttachment, // float maxChi2ClusterAttachment
+                                        mTrkParams[0].MaxChi2ClusterAttachment,
+                                        mTrkParams[0].MaxChi2NDF,
                                         mTimeFrameGPU->getDevicePropagator(),
                                         mCorrType,
-                                        lastCellId,      // temporary host vector
-                                        lastCellSeed,    // temporary host vector
-                                        updatedCellId,   // temporary host vectors
-                                        updatedCellSeed, // temporary host vectors
                                         conf.nBlocks,
                                         conf.nThreads);
-
-      int level = startLevel;
-      for (int iLayer{startLayer - 1}; iLayer > 0 && level > 2; --iLayer) {
-        lastCellSeed.swap(updatedCellSeed);
-        lastCellId.swap(updatedCellId);
-        std::vector<CellSeed>().swap(updatedCellSeed); /// tame the memory peaks
-        updatedCellId.clear();
-        processNeighboursHandler<nLayers>(iLayer,
-                                          --level,
-                                          mTimeFrameGPU->getDeviceArrayCells(),
-                                          mTimeFrameGPU->getDeviceCells()[iLayer],
-                                          mTimeFrameGPU->getNCells()[iLayer],
-                                          mTimeFrameGPU->getDeviceArrayUsedClusters(),
-                                          mTimeFrameGPU->getDeviceNeighbours(iLayer - 1),
-                                          mTimeFrameGPU->getDeviceNeighboursLUTs(),
-                                          mTimeFrameGPU->getDeviceArrayTrackingFrameInfo(),
-                                          mBz,
-                                          mTrkParams[0].MaxChi2ClusterAttachment, // float maxChi2ClusterAttachment
-                                          mTimeFrameGPU->getDevicePropagator(),
-                                          mCorrType,
-                                          lastCellId,      // temporary host vector
-                                          lastCellSeed,    // temporary host vector
-                                          updatedCellId,   // temporary host vectors
-                                          updatedCellSeed, // temporary host vectors
-                                          conf.nBlocks,
-                                          conf.nThreads);
-      }
-      for (auto& seed : updatedCellSeed) {
-        if (seed.getQ2Pt() > 1.e3 || seed.getChi2() > mTrkParams[0].MaxChi2NDF * ((startLevel + 2) * 2 - 5)) {
-          continue;
-        }
-        trackSeeds.push_back(seed);
-      }
     }
+    // fixme: I don't want to move tracks back and forth, but I need a way to use a thrust::allocator that is aware of our managed memory.
     if (!trackSeeds.size()) {
       LOGP(info, "No track seeds found, skipping track finding");
       continue;
@@ -362,9 +324,6 @@ void TrackerTraitsGPU<nLayers>::findRoads(const int iteration)
     mTimeFrameGPU->downloadTrackITSExtDevice(trackSeeds);
 
     auto& tracks = mTimeFrameGPU->getTrackITSExt();
-    std::sort(tracks.begin(), tracks.end(), [](const TrackITSExt& a, const TrackITSExt& b) {
-      return a.getChi2() < b.getChi2();
-    });
 
     for (auto& track : tracks) {
       if (!track.getChi2()) {

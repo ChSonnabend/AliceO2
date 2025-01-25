@@ -49,7 +49,7 @@ class GPUTPCCFChargeMapFiller : public GPUKernelTemplate
   }
 #endif
 
-  GPUhdi() CONSTEXPR static GPUDataTypes::RecoStep GetRecoStep()
+  GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep()
   {
     return GPUDataTypes::RecoStep::TPCClusterFinding;
   }

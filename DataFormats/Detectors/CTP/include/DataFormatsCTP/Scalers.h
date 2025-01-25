@@ -125,7 +125,7 @@ class CTPRunScalers
   void printLMBRateVsT() const; // prints LMB interaction rate vs time for debugging
   // returns the pair of global (levelled) interaction rate, as well as interpolated
   // rate in Hz at a certain orbit number within the run
-  std::pair<double, double> getRate(uint32_t orbit, int classindex, int type) const;
+  std::pair<double, double> getRate(uint32_t orbit, int classindex, int type, bool qc = 0) const;
 
   /// same with absolute  timestamp (not orbit) as argument
   std::pair<double, double> getRateGivenT(double timestamp, int classindex, int type, bool qc = 0) const;

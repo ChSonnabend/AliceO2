@@ -39,10 +39,10 @@ class PIDResponse
 {
  public:
   /// default constructor
-  PIDResponse() CON_DEFAULT;
+  PIDResponse() = default;
 
   /// default destructor
-  ~PIDResponse() CON_DEFAULT;
+  ~PIDResponse() = default;
 
   /// setters
   GPUd() void setBetheBlochParams(const float betheBlochParams[5]);

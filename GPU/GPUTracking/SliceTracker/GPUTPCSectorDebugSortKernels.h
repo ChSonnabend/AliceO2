@@ -30,7 +30,7 @@ class GPUTPCSectorDebugSortKernels : public GPUKernelTemplate
            hitData = 0,
            startHits = 1,
            sliceTracks = 2 };
-  GPUhdi() CONSTEXPR static GPUDataTypes::RecoStep GetRecoStep() { return GPUDataTypes::RecoStep::TPCSliceTracking; }
+  GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep() { return GPUDataTypes::RecoStep::TPCSliceTracking; }
   typedef GPUTPCTracker processorType;
   GPUhdi() static processorType* Processor(GPUConstantMem& processors) { return processors.tpcTrackers; }
 

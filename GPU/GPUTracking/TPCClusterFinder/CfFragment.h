@@ -41,7 +41,7 @@ struct CfFragment {
   tpccf::TPCTime totalSliceLength = 0;
   tpccf::TPCFragmentTime maxSubSliceLength = 0;
 
-  GPUdDefault() CfFragment() CON_DEFAULT;
+  GPUdDefault() CfFragment() = default;
 
   GPUd() CfFragment(tpccf::TPCTime totalSliceLen, tpccf::TPCFragmentTime maxSubSliceLen) : CfFragment(0, false, 0, totalSliceLen, maxSubSliceLen) {}
 

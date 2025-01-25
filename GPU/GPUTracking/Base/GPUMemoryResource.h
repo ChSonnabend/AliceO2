@@ -23,7 +23,6 @@ namespace GPUCA_NAMESPACE
 namespace gpu
 {
 
-#ifdef GPUCA_NOCOMPAT_ALLOPENCL
 struct GPUMemoryReuse {
   enum Type : int32_t {
     NONE = 0,
@@ -50,7 +49,6 @@ struct GPUMemoryReuse {
   Type type = NONE;
   ID id = 0;
 };
-#endif
 
 class GPUMemoryResource
 {
@@ -81,7 +79,7 @@ class GPUMemoryResource
   GPUMemoryResource(GPUProcessor* proc, void* (GPUProcessor::*setPtr)(void*), MemoryType type, const char* name = "") : mProcessor(proc), mPtr(nullptr), mPtrDevice(nullptr), mSetPointers(setPtr), mName(name), mSize(0), mOverrideSize(0), mReuse(-1), mType(type)
   {
   }
-  GPUMemoryResource(const GPUMemoryResource&) CON_DEFAULT;
+  GPUMemoryResource(const GPUMemoryResource&) = default;
 
   void* SetPointers(void* ptr)
   {

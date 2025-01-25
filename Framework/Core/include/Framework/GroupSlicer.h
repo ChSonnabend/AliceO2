@@ -22,7 +22,6 @@
 
 namespace o2::framework
 {
-
 template <typename G, typename... A>
 struct GroupSlicer {
   using grouping_t = std::decay_t<G>;
@@ -46,34 +45,41 @@ struct GroupSlicer {
     GroupSlicerIterator& operator=(GroupSlicerIterator&&) = default;
 
     template <typename T>
+    auto splittingFunction(T&&)
+    {
+    }
+
+    template <typename T>
+      requires(o2::soa::relatedByIndex<std::decay_t<G>, std::decay_t<T>>())
     auto splittingFunction(T&& table)
     {
       constexpr auto index = framework::has_type_at_v<std::decay_t<T>>(associated_pack_t{});
-      if constexpr (o2::soa::relatedByIndex<std::decay_t<G>, std::decay_t<T>>()) {
-        auto binding = o2::soa::getLabelFromTypeForKey<std::decay_t<T>>(mIndexColumnName);
-        auto bk = std::make_pair(binding, mIndexColumnName);
-        if constexpr (!o2::soa::is_smallgroups<std::decay_t<T>>) {
-          if (table.size() == 0) {
-            return;
-          }
-          sliceInfos[index] = mSlices->getCacheFor(bk);
-        } else {
-          if (table.tableSize() == 0) {
-            return;
-          }
-          sliceInfosUnsorted[index] = mSlices->getCacheUnsortedFor(bk);
+      auto binding = o2::soa::getLabelFromTypeForKey<std::decay_t<T>>(mIndexColumnName);
+      auto bk = std::make_pair(binding, mIndexColumnName);
+      if constexpr (!o2::soa::is_smallgroups<std::decay_t<T>>) {
+        if (table.size() == 0) {
+          return;
         }
+        sliceInfos[index] = mSlices->getCacheFor(bk);
+      } else {
+        if (table.tableSize() == 0) {
+          return;
+        }
+        sliceInfosUnsorted[index] = mSlices->getCacheUnsortedFor(bk);
       }
     }
 
     template <typename T>
+    auto extractingFunction(T&&)
+    {
+    }
+
+    template <soa::is_filtered_table T>
     auto extractingFunction(T&& table)
     {
-      if constexpr (soa::is_filtered_table<std::decay_t<T>>) {
-        constexpr auto index = framework::has_type_at_v<std::decay_t<T>>(associated_pack_t{});
-        selections[index] = &table.getSelectedRows();
-        starts[index] = selections[index]->begin();
-      }
+      constexpr auto index = framework::has_type_at_v<std::decay_t<T>>(associated_pack_t{});
+      selections[index] = &table.getSelectedRows();
+      starts[index] = selections[index]->begin();
     }
 
     GroupSlicerIterator(G& gt, std::tuple<A...>& at, ArrowTableSlicingCache& slices)
@@ -151,83 +157,108 @@ struct GroupSlicer {
       return std::make_tuple(prepareArgument<A>()...);
     }
 
-    template <typename A1>
+    template <soa::is_smallgroups A1>
+      requires(o2::soa::relatedByIndex<std::decay_t<G>, std::decay_t<A1>>() && soa::is_filtered_table<A1>)
     auto prepareArgument()
     {
       constexpr auto index = framework::has_type_at_v<A1>(associated_pack_t{});
       auto& originalTable = std::get<A1>(*mAt);
-
-      if constexpr (o2::soa::relatedByIndex<std::decay_t<G>, std::decay_t<A1>>()) {
-        uint64_t pos;
-        if constexpr (soa::is_filtered_table<std::decay_t<G>>) {
-          pos = groupSelection[position];
-        } else {
-          pos = position;
-        }
-
-        if constexpr (!o2::soa::is_smallgroups<std::decay_t<A1>>) {
-          // optimized split
-          if (originalTable.size() == 0) {
-            return originalTable;
-          }
-          auto oc = sliceInfos[index].getSliceFor(pos);
-          uint64_t offset = oc.first;
-          auto count = oc.second;
-          if constexpr (soa::is_filtered_table<std::decay_t<A1>>) {
-            auto groupedElementsTable = originalTable.asArrowTable()->Slice(offset, count);
-            if (count == 0) {
-              return std::decay_t<A1>{{groupedElementsTable}, soa::SelectionVector{}};
-            }
-
-            // for each grouping element we need to slice the selection vector
-            auto start_iterator = std::lower_bound(starts[index], selections[index]->end(), offset);
-            auto stop_iterator = std::lower_bound(start_iterator, selections[index]->end(), offset + count);
-            starts[index] = stop_iterator;
-            soa::SelectionVector slicedSelection{start_iterator, stop_iterator};
-            std::transform(slicedSelection.begin(), slicedSelection.end(), slicedSelection.begin(),
-                           [&offset](int64_t idx) {
-                             return idx - static_cast<int64_t>(offset);
-                           });
-
-            std::decay_t<A1> typedTable{{groupedElementsTable}, std::move(slicedSelection), offset};
-            typedTable.bindInternalIndicesTo(&originalTable);
-            return typedTable;
-
-          } else {
-            auto groupedElementsTable = originalTable.rawSlice(offset, offset + count - 1);
-            groupedElementsTable.bindInternalIndicesTo(&originalTable);
-            return groupedElementsTable;
-          }
-        } else {
-          // generic split
-          if constexpr (soa::is_filtered_table<std::decay_t<A1>>) {
-            auto selection = sliceInfosUnsorted[index].getSliceFor(pos);
-            // intersect selections
-            o2::soa::SelectionVector s;
-            if (selections[index]->empty()) {
-              if (!selection.empty()) {
-                std::copy(selection.begin(), selection.end(), std::back_inserter(s));
-              }
-            } else {
-              if (!selection.empty()) {
-                if constexpr (std::decay_t<A1>::applyFilters) {
-                  std::set_intersection(selection.begin(), selection.end(), selections[index]->begin(), selections[index]->end(), std::back_inserter(s));
-                } else {
-                  std::copy(selection.begin(), selection.end(), std::back_inserter(s));
-                }
-              }
-            }
-            std::decay_t<A1> typedTable{{originalTable.asArrowTable()}, std::move(s)};
-            typedTable.bindInternalIndicesTo(&originalTable);
-            return typedTable;
-          } else {
-            throw runtime_error("Unsorted grouped table needs to be used with soa::SmallGroups<>");
-          }
+      uint64_t pos;
+      if constexpr (soa::is_filtered_table<std::decay_t<G>>) {
+        pos = groupSelection[position];
+      } else {
+        pos = position;
+      }
+      // generic split
+      auto selection = sliceInfosUnsorted[index].getSliceFor(pos);
+      // intersect selections
+      o2::soa::SelectionVector s;
+      if (selections[index]->empty()) {
+        if (!selection.empty()) {
+          std::copy(selection.begin(), selection.end(), std::back_inserter(s));
         }
       } else {
-        static_assert(!o2::soa::is_smallgroups<std::decay_t<A1>>, "SmallGroups used with a table that is not related by index to the gouping table");
+        if (!selection.empty()) {
+          if constexpr (std::decay_t<A1>::applyFilters) {
+            std::set_intersection(selection.begin(), selection.end(), selections[index]->begin(), selections[index]->end(), std::back_inserter(s));
+          } else {
+            std::copy(selection.begin(), selection.end(), std::back_inserter(s));
+          }
+        }
+      }
+      std::decay_t<A1> typedTable{{originalTable.asArrowTable()}, std::move(s)};
+      typedTable.bindInternalIndicesTo(&originalTable);
+      return typedTable;
+    }
+
+    template <soa::is_filtered_table A1>
+      requires(o2::soa::relatedByIndex<std::decay_t<G>, std::decay_t<A1>>() && !soa::is_smallgroups<A1>)
+    auto prepareArgument()
+    {
+      constexpr auto index = framework::has_type_at_v<A1>(associated_pack_t{});
+      auto& originalTable = std::get<A1>(*mAt);
+      if (originalTable.size() == 0) {
         return originalTable;
       }
+      uint64_t pos;
+      if constexpr (soa::is_filtered_table<std::decay_t<G>>) {
+        pos = groupSelection[position];
+      } else {
+        pos = position;
+      }
+      // optimized split
+      auto oc = sliceInfos[index].getSliceFor(pos);
+      uint64_t offset = oc.first;
+      auto count = oc.second;
+      auto groupedElementsTable = originalTable.asArrowTable()->Slice(offset, count);
+      if (count == 0) {
+        return std::decay_t<A1>{{groupedElementsTable}, soa::SelectionVector{}};
+      }
+
+      // for each grouping element we need to slice the selection vector
+      auto start_iterator = std::lower_bound(starts[index], selections[index]->end(), offset);
+      auto stop_iterator = std::lower_bound(start_iterator, selections[index]->end(), offset + count);
+      starts[index] = stop_iterator;
+      soa::SelectionVector slicedSelection{start_iterator, stop_iterator};
+      std::transform(slicedSelection.begin(), slicedSelection.end(), slicedSelection.begin(),
+                     [&offset](int64_t idx) {
+                       return idx - static_cast<int64_t>(offset);
+                     });
+
+      std::decay_t<A1> typedTable{{groupedElementsTable}, std::move(slicedSelection), offset};
+      typedTable.bindInternalIndicesTo(&originalTable);
+      return typedTable;
+    }
+
+    template <soa::is_table A1>
+      requires(o2::soa::relatedByIndex<std::decay_t<G>, std::decay_t<A1>>() && !soa::is_smallgroups<A1> && !soa::is_filtered_table<A1>)
+    auto prepareArgument()
+    {
+      constexpr auto index = framework::has_type_at_v<A1>(associated_pack_t{});
+      auto& originalTable = std::get<A1>(*mAt);
+      if (originalTable.size() == 0) {
+        return originalTable;
+      }
+      uint64_t pos;
+      if constexpr (soa::is_filtered_table<std::decay_t<G>>) {
+        pos = groupSelection[position];
+      } else {
+        pos = position;
+      }
+      // optimized split
+      auto oc = sliceInfos[index].getSliceFor(pos);
+      uint64_t offset = oc.first;
+      auto count = oc.second;
+      auto groupedElementsTable = originalTable.rawSlice(offset, offset + count - 1);
+      groupedElementsTable.bindInternalIndicesTo(&originalTable);
+      return groupedElementsTable;
+    }
+
+    template <soa::is_table A1>
+      requires(!o2::soa::relatedByIndex<std::decay_t<G>, std::decay_t<A1>>() && !soa::is_smallgroups<A1>)
+    auto prepareArgument()
+    {
+      return std::get<A1>(*mAt);
     }
 
     std::string mIndexColumnName;

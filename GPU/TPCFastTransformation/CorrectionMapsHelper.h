@@ -124,7 +124,7 @@ class CorrectionMapsHelper
   void setUpdatedMapMShape() { mUpdatedFlags |= UpdateFlags::MapMShapeBit; }
   void setUpdatedLumi() { mUpdatedFlags |= UpdateFlags::LumiBit; }
 
-#if !defined(GPUCA_GPUCODE_DEVICE) && defined(GPUCA_NOCOMPAT)
+#if !defined(GPUCA_GPUCODE_DEVICE)
   void setCorrMap(std::unique_ptr<GPUCA_NAMESPACE::gpu::TPCFastTransform>&& m);
   void setCorrMapRef(std::unique_ptr<GPUCA_NAMESPACE::gpu::TPCFastTransform>&& m);
   void setCorrMapMShape(std::unique_ptr<GPUCA_NAMESPACE::gpu::TPCFastTransform>&& m);

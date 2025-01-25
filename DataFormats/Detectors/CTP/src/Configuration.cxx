@@ -608,9 +608,16 @@ int CTPConfiguration::processConfigurationLineRun3v2(std::string& line, int& lev
       break;
     }
     case DESCRIPTORS: {
-      if ((tokens.size() < 2) && (line.find("DTRUE") == std::string::npos)) {
-        LOG(warning) << "Dsecriptor:" << line;
-        break;
+      if ((tokens.size() < 2)) {
+        if (line.find("TRUE") != std::string::npos) {
+          CTPDescriptor desc;
+          desc.name = tokens[0];
+          mDescriptors.push_back(desc);
+          break;
+        } else {
+          LOG(warning) << "Unexpected Descriptor:" << line;
+          break;
+        }
       }
       CTPDescriptor desc;
       desc.name = tokens[0];

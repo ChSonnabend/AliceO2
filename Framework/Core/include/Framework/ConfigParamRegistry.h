@@ -13,14 +13,11 @@
 
 #include "Framework/ConfigParamStore.h"
 #include <boost/property_tree/ptree.hpp>
-#include "Framework/Traits.h"
 
 #include <concepts>
 #include <cstdint>
 #include <memory>
 #include <string>
-#include <cassert>
-#include <type_traits>
 
 template <typename T>
 concept SimpleConfigValueType = std::same_as<T, int> ||
@@ -38,6 +35,13 @@ concept SimpleConfigValueType = std::same_as<T, int> ||
                                 std::same_as<T, bool>;
 
 template <typename T>
+concept VectorConfigValueType = std::same_as<T, std::vector<int>> ||
+                                std::same_as<T, std::vector<float>> ||
+                                std::same_as<T, std::vector<double>> ||
+                                std::same_as<T, std::vector<std::string>> ||
+                                std::same_as<T, std::vector<bool>>;
+
+template <typename T>
 concept StringConfigValueType = std::same_as<T, std::string>;
 
 template <typename T>
@@ -50,7 +54,7 @@ template <typename T>
 concept LabeledArrayLike = requires(T& t) { t.is_labeled_array(); };
 
 template <typename T>
-concept ConfigValueType = SimpleConfigValueType<T> || StringConfigValueType<T> || o2::framework::base_of_template<std::vector, T> || Array2DLike<T> || LabeledArrayLike<T>;
+concept ConfigValueType = SimpleConfigValueType<T> || StringConfigValueType<T> || VectorConfigValueType<T> || Array2DLike<T> || LabeledArrayLike<T>;
 
 namespace o2::framework
 {

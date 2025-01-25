@@ -183,6 +183,37 @@ Bool_t GeneratorHybrid::Init()
     }
     gens[count]->Init(); // TODO: move this to multi-threaded
     addSubGenerator(count, gen);
+    if (mTriggerModes[count] != o2::eventgen::Generator::kTriggerOFF) {
+      gens[count]->setTriggerMode(mTriggerModes[count]);
+      LOG(info) << "Setting Trigger mode of generator " << gen << " to: " << mTriggerModes[count];
+      o2::eventgen::Trigger trigger = nullptr;
+      o2::eventgen::DeepTrigger deeptrigger = nullptr;
+      for (int trg = 0; trg < mTriggerMacros[count].size(); trg++) {
+        if (mTriggerMacros[count][trg].empty() || mTriggerFuncs[count][trg].empty()) {
+          continue;
+        }
+        LOG(info) << "Setting trigger " << trg << " of generator " << gen << " with following parameters";
+        LOG(info) << "Macro filename: " << mTriggerMacros[count][trg];
+        LOG(info) << "Function name: " << mTriggerFuncs[count][trg];
+        trigger = o2::conf::GetFromMacro<o2::eventgen::Trigger>(mTriggerMacros[count][trg], mTriggerFuncs[count][trg], "o2::eventgen::Trigger", "trigger");
+        if (!trigger) {
+          LOG(info) << "Trying to retrieve a \'o2::eventgen::DeepTrigger\' type";
+          deeptrigger = o2::conf::GetFromMacro<o2::eventgen::DeepTrigger>(mTriggerMacros[count][trg], mTriggerFuncs[count][trg], "o2::eventgen::DeepTrigger", "deeptrigger");
+        }
+        if (!trigger && !deeptrigger) {
+          LOG(warn) << "Failed to retrieve \'external trigger\': problem with configuration";
+          LOG(warn) << "Trigger " << trg << " of generator " << gen << " will not be included";
+          continue;
+        } else {
+          LOG(info) << "Trigger " << trg << " of generator " << gen << " successfully set";
+        }
+        if (trigger) {
+          gens[count]->addTrigger(trigger);
+        } else {
+          gens[count]->addDeepTrigger(deeptrigger);
+        }
+      }
+    }
     count++;
   }
   if (mRandomize) {
@@ -240,9 +271,13 @@ Bool_t GeneratorHybrid::Init()
       //   mGenIsInitialized[task] = true;
       // }
     }
-    generator->clearParticles();
-    generator->generateEvent();
-    generator->importParticles();
+    bool isTriggered = false;
+    while (!isTriggered) {
+      generator->clearParticles();
+      generator->generateEvent();
+      generator->importParticles();
+      isTriggered = generator->triggerEvent();
+    }
     LOG(debug) << "eventgen finished for task " << task;
     if (!mStopFlag) {
       if (mGenerationMode == GenMode::kParallel) {
@@ -449,6 +484,68 @@ Bool_t GeneratorHybrid::confSetter(const auto& gen)
     } else {
       mConfigs.push_back("");
     }
+  }
+  if (gen.HasMember("triggers")) {
+    const auto& trigger = gen["triggers"];
+    auto trigger_specs = [this, &trigger]() {
+      mTriggerMacros.push_back({});
+      mTriggerFuncs.push_back({});
+      if (trigger.HasMember("specs")) {
+        for (auto& spec : trigger["specs"].GetArray()) {
+          if (spec.HasMember("macro")) {
+            const auto& macro = spec["macro"].GetString();
+            if (!(strcmp(macro, "") == 0)) {
+              mTriggerMacros.back().push_back(macro);
+            } else {
+              mTriggerMacros.back().push_back("");
+            }
+          } else {
+            mTriggerMacros.back().push_back("");
+          }
+          if (spec.HasMember("function")) {
+            const auto& function = spec["function"].GetString();
+            if (!(strcmp(function, "") == 0)) {
+              mTriggerFuncs.back().push_back(function);
+            } else {
+              mTriggerFuncs.back().push_back("");
+            }
+          } else {
+            mTriggerFuncs.back().push_back("");
+          }
+        }
+      } else {
+        mTriggerMacros.back().push_back("");
+        mTriggerFuncs.back().push_back("");
+      }
+    };
+    if (trigger.HasMember("mode")) {
+      const auto& trmode = trigger["mode"].GetString();
+      if (strcmp(trmode, "or") == 0) {
+        mTriggerModes.push_back(o2::eventgen::Generator::kTriggerOR);
+        trigger_specs();
+      } else if (strcmp(trmode, "and") == 0) {
+        mTriggerModes.push_back(o2::eventgen::Generator::kTriggerAND);
+        trigger_specs();
+      } else if (strcmp(trmode, "off") == 0) {
+        mTriggerModes.push_back(o2::eventgen::Generator::kTriggerOFF);
+        mTriggerMacros.push_back({""});
+        mTriggerFuncs.push_back({""});
+      } else {
+        LOG(warn) << "Wrong trigger mode provided for generator " << name << ", keeping trigger OFF";
+        mTriggerModes.push_back(o2::eventgen::Generator::kTriggerOFF);
+        mTriggerMacros.push_back({""});
+        mTriggerFuncs.push_back({""});
+      }
+    } else {
+      LOG(warn) << "No trigger mode provided for generator " << name << ", turning trigger OFF";
+      mTriggerModes.push_back(o2::eventgen::Generator::kTriggerOFF);
+      mTriggerMacros.push_back({""});
+      mTriggerFuncs.push_back({""});
+    }
+  } else {
+    mTriggerModes.push_back(o2::eventgen::Generator::kTriggerOFF);
+    mTriggerMacros.push_back({""});
+    mTriggerFuncs.push_back({""});
   }
   return true;
 }

@@ -30,7 +30,6 @@ namespace gpu
  * The class is dedicated for internal use by the GPUTPCTracker algorithm.
  * The track parameters at both ends are stored separately in the GPUTPCEndPoint class
  */
-MEM_CLASS_PRE()
 class GPUTPCTrack
 {
  public:
@@ -38,20 +37,19 @@ class GPUTPCTrack
   GPUTPCTrack() : mFirstHitID(0), mNHits(0), mLocalTrackId(-1), mParam()
   {
   }
-  ~GPUTPCTrack() CON_DEFAULT;
+  ~GPUTPCTrack() = default;
 #endif //! GPUCA_GPUCODE
 
   GPUhd() int32_t NHits() const { return mNHits; }
   GPUhd() int32_t LocalTrackId() const { return mLocalTrackId; }
   GPUhd() int32_t FirstHitID() const { return mFirstHitID; }
-  GPUhd() MakeType(const MEM_LG(GPUTPCBaseTrackParam) &) Param() const { return mParam; }
+  GPUhd() const GPUTPCBaseTrackParam& Param() const { return mParam; }
 
   GPUhd() void SetNHits(int32_t v) { mNHits = v; }
   GPUhd() void SetLocalTrackId(int32_t v) { mLocalTrackId = v; }
   GPUhd() void SetFirstHitID(int32_t v) { mFirstHitID = v; }
 
-  MEM_TEMPLATE()
-  GPUhd() void SetParam(const MEM_TYPE(GPUTPCBaseTrackParam) & v) { mParam = v; }
+  GPUhd() void SetParam(const GPUTPCBaseTrackParam& v) { mParam = v; }
 
   // Only if used as replacement for SliceOutTrack
   GPUhd() static int32_t GetSize(int32_t nClust) { return sizeof(GPUTPCTrack) + nClust * sizeof(GPUTPCSliceOutCluster); }
@@ -65,8 +63,7 @@ class GPUTPCTrack
   int32_t mFirstHitID;   // index of the first track cell in the track->cell pointer array
   int32_t mNHits;        // number of track cells
   int32_t mLocalTrackId; // Id of local track this global track belongs to, index of this track itself if it is a local track
-  MEM_LG(GPUTPCBaseTrackParam)
-  mParam; // track parameters
+  GPUTPCBaseTrackParam mParam; // track parameters
 
  private:
 };

@@ -14,9 +14,9 @@
 ///
 /// \author Piotr Konopka, piotr.jan.konopka@cern.ch
 
-#include <boost/test/tools/interface.hpp>
 #include <gsl/span>
 #include <memory>
+#include <stdexcept>
 #define BOOST_TEST_MODULE Test Utilities MergerAlgorithm
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -39,6 +39,7 @@
 #include <TF1.h>
 #include <TGraph.h>
 #include <TProfile.h>
+#include <TCanvas.h>
 
 // using namespace o2::framework;
 using namespace o2::mergers;
@@ -303,6 +304,117 @@ BOOST_AUTO_TEST_CASE(MergerCollection)
   BOOST_CHECK_EQUAL(resultCustom->getSecret(), 9001);
 
   delete target;
+}
+
+TCanvas* createCanvas(std::string name, std::string title, std::vector<std::shared_ptr<TH1I>>& histograms)
+{
+  auto canvas = new TCanvas(name.c_str(), title.c_str(), 100, 100);
+  canvas->Divide(histograms.size(), 1);
+  for (size_t i = 1; const auto& hist : histograms) {
+    canvas->cd(i);
+    hist->Draw();
+    ++i;
+  }
+  return canvas;
+}
+
+auto collectUnderlyingObjects(TCanvas* canvas) -> std::vector<TObject*>
+{
+  auto collectFromTPad = [](TPad* pad, std::vector<TObject*>& objects, const auto& collectFromTPad) {
+    if (!pad) {
+      return;
+    }
+    auto* primitives = pad->GetListOfPrimitives();
+    for (int i = 0; i < primitives->GetSize(); ++i) {
+      auto* primitive = primitives->At(i);
+      if (auto* primitivePad = dynamic_cast<TPad*>(primitive)) {
+        collectFromTPad(primitivePad, objects, collectFromTPad);
+      } else {
+        objects.push_back(primitive);
+      }
+    }
+  };
+
+  std::vector<TObject*> collectedObjects;
+  collectFromTPad(canvas, collectedObjects, collectFromTPad);
+
+  return collectedObjects;
+}
+
+BOOST_AUTO_TEST_CASE(MergerTCanvas)
+{
+  // working example
+  {
+    std::vector<std::shared_ptr<TH1I>> histsC1{
+      std::make_shared<TH1I>("th1", "obj1", bins, min, max),
+      std::make_shared<TH1I>("th2", "obj2", bins, min, max),
+    };
+    histsC1[0]->Fill(5);
+    histsC1[1]->Fill(2);
+    BOOST_CHECK_EQUAL(histsC1[0]->GetBinContent(histsC1[0]->FindBin(5)), 1);
+    BOOST_CHECK_EQUAL(histsC1[1]->GetBinContent(histsC1[1]->FindBin(2)), 1);
+
+    std::vector<std::shared_ptr<TH1I>> histsC2{
+      std::make_shared<TH1I>("th1", "obj1", bins, min, max),
+      std::make_shared<TH1I>("th2", "obj2", bins, min, max),
+    };
+
+    histsC2[0]->Fill(5);
+    histsC2[1]->Fill(2);
+    BOOST_CHECK_EQUAL(histsC2[0]->GetBinContent(histsC2[0]->FindBin(5)), 1);
+    BOOST_CHECK_EQUAL(histsC2[1]->GetBinContent(histsC2[1]->FindBin(2)), 1);
+
+    auto targetCanvas = createCanvas("c1", "test title 1", histsC1);
+    auto otherCanvas = createCanvas("c2", "test title 2", histsC2);
+
+    algorithm::merge(targetCanvas, otherCanvas);
+
+    auto targetObjects = collectUnderlyingObjects(targetCanvas);
+
+    BOOST_CHECK_EQUAL(targetObjects.size(), 2);
+    for (const auto& object : targetObjects) {
+      auto th = static_cast<TH1*>(object);
+      if (std::string(th->GetName()) == "th1") {
+        BOOST_CHECK_EQUAL(th->GetBinContent(th->FindBin(5)), 2);
+      }
+      if (std::string(th->GetName()) == "th2") {
+        BOOST_CHECK_EQUAL(th->GetBinContent(th->FindBin(2)), 2);
+      }
+    }
+  }
+
+  // throw because we try to merge canvases with different number of underlying items
+  {
+    std::vector<std::shared_ptr<TH1I>> histsC1{
+      std::make_shared<TH1I>("th1", "obj1", bins, min, max),
+      std::make_shared<TH1I>("th2", "obj2", bins, min, max),
+    };
+
+    std::vector<std::shared_ptr<TH1I>> histsC2{
+      std::make_shared<TH1I>("th1", "obj1", bins, min, max),
+    };
+
+    auto targetCanvas = createCanvas("c1", "test title 1", histsC1);
+    auto otherCanvas = createCanvas("c2", "test title 2", histsC2);
+
+    BOOST_CHECK_THROW(algorithm::merge(targetCanvas, otherCanvas), std::runtime_error);
+  }
+
+  // throw because we try to merge canvases with different underlying items
+  {
+    std::vector<std::shared_ptr<TH1I>> histsC1{
+      std::make_shared<TH1I>("th1", "obj1", bins, min, max),
+    };
+
+    std::vector<std::shared_ptr<TH1I>> histsC2{
+      std::make_shared<TH1I>("th2", "obj2", bins, min, max),
+    };
+
+    auto targetCanvas = createCanvas("c1", "test title 1", histsC1);
+    auto otherCanvas = createCanvas("c2", "test title 2", histsC2);
+
+    BOOST_CHECK_THROW(algorithm::merge(targetCanvas, otherCanvas), std::runtime_error);
+  }
 }
 
 BOOST_AUTO_TEST_CASE(Deleting)

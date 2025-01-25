@@ -77,8 +77,8 @@ struct CompressedClustersOffsets : public CompressedClustersPtrs_x<size_t, size_
 struct CompressedClustersFlat;
 
 struct CompressedClusters : public CompressedClustersCounters, public CompressedClustersPtrs { // TODO: Need a const version of this, currently the constructor allows to create a non-const version from const CompressedClustersFlat, which should not be allowed
-  CompressedClusters() CON_DEFAULT;
-  ~CompressedClusters() CON_DEFAULT;
+  CompressedClusters() = default;
+  ~CompressedClusters() = default;
   CompressedClusters(const CompressedClustersFlat& c);
 
   void dump();
@@ -87,7 +87,7 @@ struct CompressedClusters : public CompressedClustersCounters, public Compressed
 };
 
 struct CompressedClustersROOT : public CompressedClusters {
-  CompressedClustersROOT() CON_DEFAULT;
+  CompressedClustersROOT() = default;
   CompressedClustersROOT(const CompressedClustersFlat& v) : CompressedClusters(v) {}
   CompressedClustersROOT(const CompressedClusters& v) : CompressedClusters(v) {}
   // flatbuffer used for streaming
@@ -99,7 +99,7 @@ struct CompressedClustersROOT : public CompressedClusters {
 
 struct CompressedClustersFlat : private CompressedClustersCounters, private CompressedClustersOffsets {
   friend struct CompressedClusters;               // We don't want anyone to access the members directly, should only be used to construct a CompressedClusters struct
-  CompressedClustersFlat() CON_DELETE;            // Must not be constructed
+  CompressedClustersFlat() = delete;              // Must not be constructed
   size_t totalDataSize = 0;                       // Total data size of header + content
   const CompressedClusters* ptrForward = nullptr; // Must be 0 if this object is really flat, or can be a ptr to a CompressedClusters struct (abusing the flat structure to forward a ptr to the e.g. root version)
 

@@ -16,9 +16,9 @@
 
 #include "Mergers/MergerAlgorithm.h"
 
-#include "Framework/Logger.h"
 #include "Mergers/MergeInterface.h"
 #include "Mergers/ObjectStore.h"
+#include "Framework/Logger.h"
 
 #include <TEfficiency.h>
 #include <TGraph.h>
@@ -28,7 +28,12 @@
 #include <THn.h>
 #include <THnSparse.h>
 #include <TObjArray.h>
+#include <TObject.h>
 #include <TTree.h>
+#include <TPad.h>
+#include <TCanvas.h>
+#include <algorithm>
+#include <stdexcept>
 
 namespace o2::mergers::algorithm
 {
@@ -41,6 +46,53 @@ size_t estimateTreeSize(TTree* tree)
     totalSize += dynamic_cast<const TBranch*>(branch)->GetTotalSize();
   }
   return totalSize;
+}
+
+// Mergeable objects are kept as primitives in TCanvas object in underlying TPad.
+// TPad is a linked list of primitives of any type (https://root.cern.ch/doc/master/classTPad.html)
+// including other TPads. So in order to collect all mergeable objects from TCanvas
+// we need to recursively transverse whole TPad structure.
+auto collectUnderlyingObjects(TCanvas* canvas) -> std::vector<TObject*>
+{
+  auto collectFromTPad = [](TPad* pad, std::vector<TObject*>& objects, const auto& collectFromTPad) {
+    if (!pad) {
+      return;
+    }
+    auto* primitives = pad->GetListOfPrimitives();
+    for (int i = 0; i < primitives->GetSize(); ++i) {
+      auto* primitive = primitives->At(i);
+      if (auto* primitivePad = dynamic_cast<TPad*>(primitive)) {
+        collectFromTPad(primitivePad, objects, collectFromTPad);
+      } else {
+        objects.push_back(primitive);
+      }
+    }
+  };
+
+  std::vector<TObject*> collectedObjects;
+  collectFromTPad(canvas, collectedObjects, collectFromTPad);
+
+  return collectedObjects;
+}
+
+struct MatchedCollectedObjects {
+  MatchedCollectedObjects(TObject* t, TObject* o) : target(t), other(o) {}
+
+  TObject* target;
+  TObject* other;
+};
+
+auto matchCollectedToPairs(const std::vector<TObject*>& targetObjects, const std::vector<TObject*> otherObjects) -> std::vector<MatchedCollectedObjects>
+{
+  std::vector<MatchedCollectedObjects> matchedObjects;
+  matchedObjects.reserve(std::max(targetObjects.size(), otherObjects.size()));
+  for (const auto& targetObject : targetObjects) {
+    if (const auto found_it = std::ranges::find_if(otherObjects, [&targetObject](TObject* obj) { return std::string_view(targetObject->GetName()) == std::string_view(obj->GetName()); });
+        found_it != otherObjects.end()) {
+      matchedObjects.emplace_back(targetObject, *found_it);
+    }
+  }
+  return matchedObjects;
 }
 
 void merge(TObject* const target, TObject* const other)
@@ -82,6 +134,29 @@ void merge(TObject* const target, TObject* const other)
       }
     }
     delete otherIterator;
+  } else if (auto targetCanvas = dynamic_cast<TCanvas*>(target)) {
+
+    auto otherCanvas = dynamic_cast<TCanvas*>(other);
+    if (otherCanvas == nullptr) {
+      throw std::runtime_error(std::string("The target object '") + target->GetName() +
+                               "' is a TCanvas, while the other object '" + other->GetName() + "' is not.");
+    }
+
+    const auto targetObjects = collectUnderlyingObjects(targetCanvas);
+    const auto otherObjects = collectUnderlyingObjects(otherCanvas);
+    if (targetObjects.size() != otherObjects.size()) {
+      throw std::runtime_error(std::string("Trying to merge canvas: ") + targetCanvas->GetName() + " and canvas " + otherObjects.size() + "but contents are not the same");
+    }
+
+    const auto matched = matchCollectedToPairs(targetObjects, otherObjects);
+    if (targetObjects.size() != matched.size()) {
+      throw std::runtime_error(std::string("Trying to merge canvas: ") + targetCanvas->GetName() + " and canvas " + otherObjects.size() + "but contents are not the same");
+    }
+
+    for (const auto& [targetObject, otherObject] : matched) {
+      merge(targetObject, otherObject);
+    }
+
   } else {
     Long64_t errorCode = 0;
     TObjArray otherCollection;

@@ -49,9 +49,9 @@ class CalibdEdxCorrection
   }
   CalibdEdxCorrection(std::string_view fileName) { loadFromFile(fileName); }
 #else
-  CalibdEdxCorrection() CON_DEFAULT;
+  CalibdEdxCorrection() = default;
 #endif
-  ~CalibdEdxCorrection() CON_DEFAULT;
+  ~CalibdEdxCorrection() = default;
 
   GPUd() float getCorrection(const StackID& stack, ChargeType charge, float tgl = 0, float snp = 0) const
   {

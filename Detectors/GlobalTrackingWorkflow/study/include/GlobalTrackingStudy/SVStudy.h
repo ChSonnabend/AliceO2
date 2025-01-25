@@ -22,7 +22,7 @@
 namespace o2::svstudy
 {
 /// create a processor spec
-o2::framework::DataProcessorSpec getSVStudySpec(o2::dataformats::GlobalTrackID::mask_t srcTracks, bool useMC);
+o2::framework::DataProcessorSpec getSVStudySpec(o2::dataformats::GlobalTrackID::mask_t srcTracks, o2::dataformats::GlobalTrackID::mask_t srcCls, bool useMC);
 
 } // namespace o2::svstudy
 

@@ -44,6 +44,12 @@
 #include "DCAFitter/DCAFitterN.h"
 #include "MathUtils/fit.h"
 #include "GlobalTrackingStudy/V0Ext.h"
+#include "GPUO2InterfaceConfiguration.h"
+// #include "GPUSettingsO2.h"
+#include "GPUParam.h"
+#include "GPUParam.inc"
+#include "GPUO2InterfaceRefit.h"
+#include "GPUO2InterfaceUtils.h"
 
 namespace o2::svstudy
 {
@@ -64,8 +70,8 @@ using timeEst = o2::dataformats::TimeStampWithError<float, float>;
 class SVStudySpec : public Task
 {
  public:
-  SVStudySpec(std::shared_ptr<DataRequest> dr, std::shared_ptr<o2::base::GRPGeomRequest> gr, GTrackID::mask_t src, bool useMC)
-    : mDataRequest(dr), mGGCCDBRequest(gr), mTracksSrc(src), mUseMC(useMC) {}
+  SVStudySpec(std::shared_ptr<DataRequest> dr, std::shared_ptr<o2::base::GRPGeomRequest> gr, GTrackID::mask_t src, bool useTPCCl, bool useMC)
+    : mDataRequest(dr), mGGCCDBRequest(gr), mTracksSrc(src), mUseTPCCl(useTPCCl), mUseMC(useMC) {}
   ~SVStudySpec() final = default;
   void init(InitContext& ic) final;
   void run(ProcessingContext& pc) final;
@@ -83,11 +89,18 @@ class SVStudySpec : public Task
   std::unique_ptr<o2::utils::TreeStreamRedirector> mDBGOut;
   float mSelK0 = -1;
   bool mRefit = false;
+  bool mUseTPCCl = false;
   float mMaxEta = 0.8;
   float mBz = 0;
+  int mNHBPerTF = 0;
+  int mNTPCOccBinLength = 0; ///< TPC occ. histo bin length in TBs
+  float mNTPCOccBinLengthInv;
+  float mTPCTBinMUSInv = 0.f;
   GTrackID::mask_t mTracksSrc{};
   o2::vertexing::DCAFitterN<2> mFitterV0;
+  std::vector<float> mTBinClOccAft, mTBinClOccBef;
   std::unique_ptr<o2::steer::MCKinematicsReader> mcReader; // reader of MC information
+  std::shared_ptr<o2::gpu::GPUParam> mParam = nullptr;
 };
 
 void SVStudySpec::init(InitContext& ic)
@@ -107,6 +120,48 @@ void SVStudySpec::run(ProcessingContext& pc)
   o2::globaltracking::RecoContainer recoData;
   recoData.collectData(pc, *mDataRequest.get()); // select tracks of needed type, with minimal cuts, the real selected will be done in the vertexer
   updateTimeDependentParams(pc);                 // Make sure this is called after recoData.collectData, which may load some conditions
+
+  size_t occupancyMapSizeBytes = o2::gpu::GPUO2InterfaceRefit::fillOccupancyMapGetSize(mNHBPerTF, mParam.get());
+  gsl::span<const unsigned int> TPCRefitterOccMap = recoData.occupancyMapTPC;
+  o2::gpu::GPUO2InterfaceUtils::paramUseExternalOccupancyMap(mParam.get(), mNHBPerTF, TPCRefitterOccMap.data(), occupancyMapSizeBytes);
+
+  mTBinClOccBef.resize(1);
+  mTBinClOccAft.resize(1);
+  if (recoData.inputsTPCclusters && mUseTPCCl) {
+    mNTPCOccBinLength = mParam->rec.tpc.occupancyMapTimeBins;
+    mTBinClOccBef.clear();
+    mTBinClOccAft.clear();
+    // prepare TPC occupancy data
+    if (mNTPCOccBinLength > 1 && recoData.occupancyMapTPC.size()) {
+      mNTPCOccBinLengthInv = 1. / mNTPCOccBinLength;
+      int nTPCBins = mNHBPerTF * o2::constants::lhc::LHCMaxBunches / 8, ninteg = 0;
+      int nTPCOccBins = nTPCBins * mNTPCOccBinLengthInv, sumBins = std::max(1, int(o2::constants::lhc::LHCMaxBunches / 8 * mNTPCOccBinLengthInv));
+      mTBinClOccAft.resize(nTPCOccBins);
+      mTBinClOccBef.resize(nTPCOccBins);
+      float sm = 0., tb = 0.5 * mNTPCOccBinLength;
+      std::vector<float> mltHistTB(nTPCOccBins);
+      for (int i = 0; i < nTPCOccBins; i++) {
+        mltHistTB[i] = mParam->GetUnscaledMult(tb);
+        tb += mNTPCOccBinLength;
+      }
+      for (int i = nTPCOccBins; i--;) {
+        sm += mltHistTB[i];
+        if (i + sumBins < nTPCOccBins) {
+          sm -= mltHistTB[i + sumBins];
+        }
+        mTBinClOccAft[i] = sm;
+      }
+      sm = 0;
+      for (int i = 0; i < nTPCOccBins; i++) {
+        sm += mltHistTB[i];
+        if (i - sumBins > 0) {
+          sm -= mltHistTB[i - sumBins];
+        }
+        mTBinClOccBef[i] = sm;
+      }
+    }
+  }
+
   process(recoData);
 }
 
@@ -133,6 +188,12 @@ void SVStudySpec::updateTimeDependentParams(ProcessingContext& pc)
     mFitterV0.setMaxStep(svparam.maxStep);
     mFitterV0.setMaxSnp(svparam.maxSnp);
     mFitterV0.setMinXSeed(svparam.minXSeed);
+
+    mNHBPerTF = o2::base::GRPGeomHelper::instance().getGRPECS()->getNHBFPerTF();
+    if (!mParam) {
+      // for occupancy estimator
+      mParam = o2::gpu::GPUO2InterfaceUtils::getFullParamShared(0.f, mNHBPerTF);
+    }
   }
   mBz = o2::base::Propagator::Instance()->getNominalBz();
   mFitterV0.setBz(mBz);
@@ -268,8 +329,13 @@ void SVStudySpec::process(o2::globaltracking::RecoContainer& recoData)
     }
     if (v0extVec.size()) {
       const auto& pv = recoData.getPrimaryVertex(pvID);
+      float tpcOccBef = 0., tpcOccAft = 0.;
+      int tb = pv.getTimeStamp().getTimeStamp() * mTPCTBinMUSInv * mNTPCOccBinLengthInv;
+      tpcOccBef = tb < 0 ? mTBinClOccBef[0] : (tb >= mTBinClOccBef.size() ? mTBinClOccBef.back() : mTBinClOccBef[tb]);
+      tpcOccAft = tb < 0 ? mTBinClOccAft[0] : (tb >= mTBinClOccAft.size() ? mTBinClOccAft.back() : mTBinClOccAft[tb]);
+
       (*mDBGOut) << "v0"
-                 << "orbit=" << recoData.startIR.orbit << "tfID=" << tfID
+                 << "orbit=" << recoData.startIR.orbit << "tfID=" << tfID << "tpcOccBef=" << tpcOccBef << "tpcOccAft=" << tpcOccAft
                  << "v0Ext=" << v0extVec
                  << "pv=" << pv
                  << "\n";
@@ -334,29 +400,30 @@ void SVStudySpec::finaliseCCDB(ConcreteDataMatcher& matcher, void* obj)
   }
 }
 
-DataProcessorSpec getSVStudySpec(GTrackID::mask_t srcTracks, bool useMC)
+DataProcessorSpec getSVStudySpec(GTrackID::mask_t srcTracks, GTrackID::mask_t srcCls, bool useMC)
 {
   std::vector<OutputSpec> outputs;
   auto dataRequest = std::make_shared<DataRequest>();
 
   dataRequest->requestTracks(srcTracks, useMC);
+  dataRequest->requestClusters(srcCls, false);
   dataRequest->requestPrimaryVertices(useMC);
   dataRequest->requestSecondaryVertices(useMC);
   dataRequest->inputs.emplace_back("meanvtx", "GLO", "MEANVERTEX", 0, Lifetime::Condition, ccdbParamSpec("GLO/Calib/MeanVertex", {}, 1));
-  auto ggRequest = std::make_shared<o2::base::GRPGeomRequest>(false,                          // orbitResetTime
-                                                              false,                          // GRPECS=true
+  auto ggRequest = std::make_shared<o2::base::GRPGeomRequest>(true,                           // orbitResetTime
+                                                              true,                           // GRPECS=true
                                                               false,                          // GRPLHCIF
                                                               true,                           // GRPMagField
                                                               true,                           // askMatLUT
                                                               o2::base::GRPGeomRequest::None, // geometry
                                                               dataRequest->inputs,
                                                               true);
-
+  bool useTPCcl = srcCls[GTrackID::TPC];
   return DataProcessorSpec{
     "sv-study",
     dataRequest->inputs,
     outputs,
-    AlgorithmSpec{adaptFromTask<SVStudySpec>(dataRequest, ggRequest, srcTracks, useMC)},
+    AlgorithmSpec{adaptFromTask<SVStudySpec>(dataRequest, ggRequest, srcTracks, useTPCcl, useMC)},
     Options{
       {"refit", VariantType::Bool, false, {"refit SVertices"}},
       {"sel-k0", VariantType::Float, -1.f, {"If positive, select K0s with this mass margin"}},

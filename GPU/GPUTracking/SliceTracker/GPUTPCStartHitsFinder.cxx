@@ -19,7 +19,7 @@
 using namespace GPUCA_NAMESPACE::gpu;
 
 template <>
-GPUdii() void GPUTPCStartHitsFinder::Thread<0>(int32_t /*nBlocks*/, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() MEM_LOCAL(GPUSharedMemory) & s, processorType& GPUrestrict() tracker)
+GPUdii() void GPUTPCStartHitsFinder::Thread<0>(int32_t /*nBlocks*/, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& s, processorType& GPUrestrict() tracker)
 {
   // find start hits for tracklets
   if (iThread == 0) {
@@ -32,8 +32,8 @@ GPUdii() void GPUTPCStartHitsFinder::Thread<0>(int32_t /*nBlocks*/, int32_t nThr
     }
   }
   GPUbarrier();
-  GPUglobalref() const MEM_GLOBAL(GPUTPCRow) & GPUrestrict() row = tracker.mData.mRows[s.mIRow];
-  GPUglobalref() const MEM_GLOBAL(GPUTPCRow) & GPUrestrict() rowUp = tracker.mData.mRows[s.mIRow + 2];
+  GPUglobalref() const GPUTPCRow& GPUrestrict() row = tracker.mData.mRows[s.mIRow];
+  GPUglobalref() const GPUTPCRow& GPUrestrict() rowUp = tracker.mData.mRows[s.mIRow + 2];
   for (int32_t ih = iThread; ih < s.mNHits; ih += nThreads) {
     int64_t lHitNumberOffset = row.mHitNumberOffset;
     uint32_t linkUpData = tracker.mData.mLinkUpData[lHitNumberOffset + ih];

@@ -17,8 +17,7 @@
 
 #include "GPUCommonDef.h"
 
-#if !defined(GPUCA_GPUCODE)
-//&& (!defined __cplusplus || __cplusplus < 201402L) // This would enable to custom search also on the CPU if available by the compiler, but it is not always faster, so we stick to std::sort
+#if !defined(GPUCA_GPUCODE) // Could also enable custom search on the CPU, but it is not always faster, so we stick to std::sort
 #include <algorithm>
 #define GPUCA_ALGORITHM_STD
 #endif

@@ -60,20 +60,6 @@ void DigitizerSpec::initDigitizerTask(framework::InitContext& ic)
   }
   mHits = new std::vector<Hit>();
 }
-// helper function which will be offered as a service
-void DigitizerSpec::retrieveHits(const char* brname,
-                                 int sourceID,
-                                 int entryID)
-{
-  auto br = mSimChains[sourceID]->GetBranch(brname);
-  if (!br) {
-    LOG(error) << "No branch found";
-    return;
-  }
-  mHits->clear();
-  br->SetAddress(&mHits);
-  br->GetEntry(entryID);
-}
 
 void DigitizerSpec::run(framework::ProcessingContext& pc)
 {
@@ -156,7 +142,9 @@ void DigitizerSpec::run(framework::ProcessingContext& pc)
       // get the hits for this event and this source
       int source = part->sourceID;
       int entry = part->entryID;
-      retrieveHits("PHSHit", source, entry);
+      mHits->clear();
+      context->retrieveHits(mSimChains, "PHSHit", source, entry, mHits);
+
       part++;
       if (part == eventParts[collID].end() && isLastStream) { // last stream, copy digits directly to output vector
         mDigitizer.processHits(mHits, mDigitsFinal, mDigitsOut, mLabels, entry, source, dt);

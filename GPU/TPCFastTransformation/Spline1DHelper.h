@@ -41,13 +41,13 @@ class Spline1DHelper
   Spline1DHelper();
 
   /// Copy constructor: disabled
-  Spline1DHelper(const Spline1DHelper&) CON_DEFAULT;
+  Spline1DHelper(const Spline1DHelper&) = default;
 
   /// Assignment operator: disabled
-  Spline1DHelper& operator=(const Spline1DHelper&) CON_DEFAULT;
+  Spline1DHelper& operator=(const Spline1DHelper&) = default;
 
   /// Destructor
-  ~Spline1DHelper() CON_DEFAULT;
+  ~Spline1DHelper() = default;
 
   /// _______________  Main functionality  ________________________
 

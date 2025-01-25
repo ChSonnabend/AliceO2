@@ -11,6 +11,7 @@
 #ifndef O2_FRAMEWORK_CONFIGURABLE_H_
 #define O2_FRAMEWORK_CONFIGURABLE_H_
 #include "Framework/ConfigurableKinds.h"
+#include "Framework/Traits.h"
 #include <string>
 #include <vector>
 namespace o2::framework
@@ -94,6 +95,9 @@ struct ProcessConfigurable : Configurable<bool, ConfigParamKind::kProcessFlag> {
   R(T::*process)
   (As...);
 };
+
+template <typename T>
+concept is_process_configurable = base_of_template<ProcessConfigurable, T>;
 
 #define PROCESS_SWITCH(_Class_, _Name_, _Help_, _Default_) \
   decltype(ProcessConfigurable{&_Class_ ::_Name_, #_Name_, _Default_, _Help_}) do##_Name_ = ProcessConfigurable{&_Class_ ::_Name_, #_Name_, _Default_, _Help_};

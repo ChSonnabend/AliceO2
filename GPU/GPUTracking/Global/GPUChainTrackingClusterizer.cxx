@@ -569,7 +569,6 @@ int32_t GPUChainTracking::RunTPCClusterizer_prepare(bool restorePointers)
 }
 #endif
 
-// TODO: Clusterizer not working with OCL1 (Clusterizer on CPU, Tracking on GPU)
 int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 {
   if (param().rec.fwdTPCDigitsAsClusters) {

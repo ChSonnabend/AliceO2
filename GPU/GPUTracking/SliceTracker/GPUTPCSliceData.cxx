@@ -32,7 +32,7 @@ using namespace GPUCA_NAMESPACE::gpu;
 
 #ifndef GPUCA_GPUCODE
 
-void GPUTPCSliceData::InitializeRows(const MEM_CONSTANT(GPUParam) & p)
+void GPUTPCSliceData::InitializeRows(const GPUParam& p)
 {
   // initialisation of rows
   for (int32_t i = 0; i < GPUCA_ROW_COUNT + 1; ++i) {
@@ -109,7 +109,7 @@ void* GPUTPCSliceData::SetPointersRows(void* mem)
 
 #endif
 
-GPUd() void GPUTPCSliceData::GetMaxNBins(GPUconstantref() const MEM_CONSTANT(GPUConstantMem) * mem, GPUTPCRow* GPUrestrict() row, int32_t& maxY, int32_t& maxZ)
+GPUd() void GPUTPCSliceData::GetMaxNBins(GPUconstantref() const GPUConstantMem* mem, GPUTPCRow* GPUrestrict() row, int32_t& maxY, int32_t& maxZ)
 {
   maxY = row->mMaxY * 2.f / GPUCA_MIN_BIN_SIZE + 1;
   maxZ = (mem->param.continuousMaxTimeBin > 0 ? (mem->calibObjects.fastTransformHelper->getCorrMap()->convTimeToZinTimeFrame(0, 0, mem->param.continuousMaxTimeBin)) : mem->param.tpcGeometry.TPCLength()) + 50;
@@ -121,7 +121,7 @@ GPUd() uint32_t GPUTPCSliceData::GetGridSize(uint32_t nHits, uint32_t nRows)
   return 128 * nRows + 4 * nHits;
 }
 
-GPUdi() void GPUTPCSliceData::CreateGrid(GPUconstantref() const MEM_CONSTANT(GPUConstantMem) * mem, GPUTPCRow* GPUrestrict() row, float yMin, float yMax, float zMin, float zMax)
+GPUdi() void GPUTPCSliceData::CreateGrid(GPUconstantref() const GPUConstantMem* mem, GPUTPCRow* GPUrestrict() row, float yMin, float yMax, float zMin, float zMax)
 {
   float dz = zMax - zMin;
   float tfFactor = 1.f;
@@ -172,7 +172,7 @@ GPUdii() void GPUTPCSliceData::SetRowGridEmpty(GPUTPCRow& GPUrestrict() row)
   }
 }
 
-GPUdii() int32_t GPUTPCSliceData::InitFromClusterData(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUconstantref() const MEM_CONSTANT(GPUConstantMem) * GPUrestrict() mem, int32_t iSlice, float* tmpMinMax)
+GPUdii() int32_t GPUTPCSliceData::InitFromClusterData(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUconstantref() const GPUConstantMem* GPUrestrict() mem, int32_t iSlice, float* tmpMinMax)
 {
 #ifdef GPUCA_GPUCODE
   constexpr bool EarlyTransformWithoutClusterNative = false;
@@ -233,7 +233,7 @@ GPUdii() int32_t GPUTPCSliceData::InitFromClusterData(int32_t nBlocks, int32_t n
 
     const uint32_t NumberOfClusters = EarlyTransformWithoutClusterNative ? NumberOfClustersInRow[rowIndex] : mem->ioPtrs.clustersNative->nClusters[iSlice][rowIndex];
     const uint32_t RowOffset = EarlyTransformWithoutClusterNative ? RowOffsets[rowIndex] : (mem->ioPtrs.clustersNative->clusterOffset[iSlice][rowIndex] - mem->ioPtrs.clustersNative->clusterOffset[iSlice][0]);
-    CONSTEXPR const uint32_t maxN = 1u << (sizeof(calink) < 3 ? (sizeof(calink) * 8) : 24);
+    constexpr const uint32_t maxN = 1u << (sizeof(calink) < 3 ? (sizeof(calink) * 8) : 24);
     GPUTPCRow& row = mRows[rowIndex];
     if (iThread == 0) {
       row.mFirstHitInBinOffset = CAMath::nextMultipleOf<GPUCA_ROWALIGNMENT / sizeof(calink)>(GetGridSize(RowOffset, rowIndex) + rowIndex * GPUCA_ROWALIGNMENT / sizeof(int32_t));
@@ -318,7 +318,7 @@ GPUdii() int32_t GPUTPCSliceData::InitFromClusterData(int32_t nBlocks, int32_t n
     GPUbarrier();
     const GPUTPCGrid& grid = row.mGrid;
     const int32_t numberOfBins = grid.N();
-    CONSTEXPR const int32_t maxBins = sizeof(calink) < 4 ? (int32_t)(1ul << (sizeof(calink) * 8)) : 0x7FFFFFFF; // NOLINT: false warning
+    constexpr const int32_t maxBins = sizeof(calink) < 4 ? (int32_t)(1ul << (sizeof(calink) * 8)) : 0x7FFFFFFF; // NOLINT: false warning
     if (sizeof(calink) < 4 && numberOfBins >= maxBins) {
       if (iThread == 0) {
         mem->errorCodes.raiseError(GPUErrors::ERROR_SLICEDATA_BIN_OVERFLOW, iSlice * 1000 + rowIndex, numberOfBins, maxBins);

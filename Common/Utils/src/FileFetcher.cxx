@@ -345,6 +345,9 @@ bool FileFetcher::copyFile(size_t id)
     gSystem->Setenv("XRD_LOGLEVEL", "Dump");
     logsToClean.push_back(fmt::format("log_xrd_{}.txt", uuid));
     gSystem->Setenv("XRD_LOGFILE", logsToClean.back().c_str());
+    LOGP(info, "debug log files for {}: ALIENPY_DEBUG_FILE={} XRD_LOGFILE={}", mInputFiles[id].getOrigName(),
+         getenv("ALIENPY_DEBUG_FILE") ? getenv("ALIENPY_DEBUG_FILE") : "",
+         getenv("XRD_LOGFILE") ? getenv("XRD_LOGFILE") : "");
   }
   auto realCmd = std::regex_replace(std::regex_replace(mCopyCmd, std::regex(R"(\?src)"), mInputFiles[id].getOrigName()), std::regex(R"(\?dst)"), mInputFiles[id].getLocalName());
   auto fullCmd = fmt::format(R"(sh -c "{}" >> {}  2>&1)", realCmd, mCopyCmdLogFile);

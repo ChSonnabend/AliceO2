@@ -28,8 +28,7 @@ using namespace GPUCA_NAMESPACE::gpu;
 // Yc = Y + CAMath::Cos(Phi)/Kappa;
 //
 
-MEM_CLASS_PRE()
-GPUd() float MEM_LG(GPUTPCTrackParam)::GetDist2(const MEM_LG(GPUTPCTrackParam) & GPUrestrict() t) const
+GPUd() float GPUTPCTrackParam::GetDist2(const GPUTPCTrackParam& GPUrestrict() t) const
 {
   // get squared distance between tracks
 
@@ -39,8 +38,7 @@ GPUd() float MEM_LG(GPUTPCTrackParam)::GetDist2(const MEM_LG(GPUTPCTrackParam) &
   return dx * dx + dy * dy + dz * dz;
 }
 
-MEM_CLASS_PRE()
-GPUd() float MEM_LG(GPUTPCTrackParam)::GetDistXZ2(const MEM_LG(GPUTPCTrackParam) & GPUrestrict() t) const
+GPUd() float GPUTPCTrackParam::GetDistXZ2(const GPUTPCTrackParam& GPUrestrict() t) const
 {
   // get squared distance between tracks in X&Z
 
@@ -49,8 +47,7 @@ GPUd() float MEM_LG(GPUTPCTrackParam)::GetDistXZ2(const MEM_LG(GPUTPCTrackParam)
   return dx * dx + dz * dz;
 }
 
-MEM_CLASS_PRE()
-GPUd() float MEM_LG(GPUTPCTrackParam)::GetS(float x, float y, float Bz) const
+GPUd() float GPUTPCTrackParam::GetS(float x, float y, float Bz) const
 {
   //* Get XY path length to the given point
 
@@ -66,8 +63,7 @@ GPUd() float MEM_LG(GPUTPCTrackParam)::GetS(float x, float y, float Bz) const
   return dS;
 }
 
-MEM_CLASS_PRE()
-GPUd() void MEM_LG(GPUTPCTrackParam)::GetDCAPoint(float x, float y, float z, float& GPUrestrict() xp, float& GPUrestrict() yp, float& GPUrestrict() zp, float Bz) const
+GPUd() void GPUTPCTrackParam::GetDCAPoint(float x, float y, float z, float& GPUrestrict() xp, float& GPUrestrict() yp, float& GPUrestrict() zp, float Bz) const
 {
   //* Get the track point closest to the (x,y,z)
 
@@ -97,8 +93,7 @@ GPUd() void MEM_LG(GPUTPCTrackParam)::GetDCAPoint(float x, float y, float z, flo
 //* Transport routines
 //*
 
-MEM_CLASS_PRE()
-GPUd() bool MEM_LG(GPUTPCTrackParam)::TransportToX(float x, GPUTPCTrackLinearisation& GPUrestrict() t0, float Bz, float maxSinPhi, float* GPUrestrict() DL)
+GPUd() bool GPUTPCTrackParam::TransportToX(float x, GPUTPCTrackLinearisation& GPUrestrict() t0, float Bz, float maxSinPhi, float* GPUrestrict() DL)
 {
   //* Transport the track parameters to X=x, using linearization at t0, and the field value Bz
   //* maxSinPhi is the max. allowed value for |t0.SinPhi()|
@@ -218,8 +213,7 @@ GPUd() bool MEM_LG(GPUTPCTrackParam)::TransportToX(float x, GPUTPCTrackLinearisa
   return 1;
 }
 
-MEM_CLASS_PRE()
-GPUd() bool MEM_LG(GPUTPCTrackParam)::TransportToX(float x, float sinPhi0, float cosPhi0, float Bz, float maxSinPhi)
+GPUd() bool GPUTPCTrackParam::TransportToX(float x, float sinPhi0, float cosPhi0, float Bz, float maxSinPhi)
 {
   //* Transport the track parameters to X=x, using linearization at phi0 with 0 curvature,
   //* and the field value Bz
@@ -299,16 +293,14 @@ GPUd() bool MEM_LG(GPUTPCTrackParam)::TransportToX(float x, float sinPhi0, float
   return 1;
 }
 
-MEM_CLASS_PRE()
-GPUd() bool MEM_LG(GPUTPCTrackParam)::TransportToX(float x, float Bz, float maxSinPhi)
+GPUd() bool GPUTPCTrackParam::TransportToX(float x, float Bz, float maxSinPhi)
 {
   //* Transport the track parameters to X=x
   GPUTPCTrackLinearisation t0(*this);
   return TransportToX(x, t0, Bz, maxSinPhi);
 }
 
-MEM_CLASS_PRE()
-GPUd() bool MEM_LG(GPUTPCTrackParam)::TransportToXWithMaterial(float x, GPUTPCTrackLinearisation& GPUrestrict() t0, GPUTPCTrackFitParam& GPUrestrict() par, float Bz, float maxSinPhi)
+GPUd() bool GPUTPCTrackParam::TransportToXWithMaterial(float x, GPUTPCTrackLinearisation& GPUrestrict() t0, GPUTPCTrackFitParam& GPUrestrict() par, float Bz, float maxSinPhi)
 {
   //* Transport the track parameters to X=x  taking into account material budget
 
@@ -326,8 +318,7 @@ GPUd() bool MEM_LG(GPUTPCTrackParam)::TransportToXWithMaterial(float x, GPUTPCTr
   return 1;
 }
 
-MEM_CLASS_PRE()
-GPUd() bool MEM_LG(GPUTPCTrackParam)::TransportToXWithMaterial(float x, GPUTPCTrackFitParam& GPUrestrict() par, float Bz, float maxSinPhi)
+GPUd() bool GPUTPCTrackParam::TransportToXWithMaterial(float x, GPUTPCTrackFitParam& GPUrestrict() par, float Bz, float maxSinPhi)
 {
   //* Transport the track parameters to X=x  taking into account material budget
 
@@ -335,8 +326,7 @@ GPUd() bool MEM_LG(GPUTPCTrackParam)::TransportToXWithMaterial(float x, GPUTPCTr
   return TransportToXWithMaterial(x, t0, par, Bz, maxSinPhi);
 }
 
-MEM_CLASS_PRE()
-GPUd() bool MEM_LG(GPUTPCTrackParam)::TransportToXWithMaterial(float x, float Bz, float maxSinPhi)
+GPUd() bool GPUTPCTrackParam::TransportToXWithMaterial(float x, float Bz, float maxSinPhi)
 {
   //* Transport the track parameters to X=x taking into account material budget
 
@@ -348,8 +338,7 @@ GPUd() bool MEM_LG(GPUTPCTrackParam)::TransportToXWithMaterial(float x, float Bz
 //*
 //*  Multiple scattering and energy losses
 //*
-MEM_CLASS_PRE()
-GPUd() float MEM_LG(GPUTPCTrackParam)::BetheBlochGeant(float bg2, float kp0, float kp1, float kp2, float kp3, float kp4)
+GPUd() float GPUTPCTrackParam::BetheBlochGeant(float bg2, float kp0, float kp1, float kp2, float kp3, float kp4)
 {
   //
   // This is the parameterization of the Bethe-Bloch formula inspired by Geant.
@@ -388,8 +377,7 @@ GPUd() float MEM_LG(GPUTPCTrackParam)::BetheBlochGeant(float bg2, float kp0, flo
   return mK * mZA * (1 + bg2) / bg2 * (0.5f * CAMath::Log(2 * me * bg2 * maxT / (mI * mI)) - bg2 / (1 + bg2) - d2);
 }
 
-MEM_CLASS_PRE()
-GPUd() float MEM_LG(GPUTPCTrackParam)::BetheBlochSolid(float bg)
+GPUd() float GPUTPCTrackParam::BetheBlochSolid(float bg)
 {
   //------------------------------------------------------------------
   // This is an approximation of the Bethe-Bloch formula,
@@ -401,8 +389,7 @@ GPUd() float MEM_LG(GPUTPCTrackParam)::BetheBlochSolid(float bg)
   return BetheBlochGeant(bg);
 }
 
-MEM_CLASS_PRE()
-GPUd() float MEM_LG(GPUTPCTrackParam)::BetheBlochGas(float bg)
+GPUd() float GPUTPCTrackParam::BetheBlochGas(float bg)
 {
   //------------------------------------------------------------------
   // This is an approximation of the Bethe-Bloch formula,
@@ -420,8 +407,7 @@ GPUd() float MEM_LG(GPUTPCTrackParam)::BetheBlochGas(float bg)
   return BetheBlochGeant(bg, rho, x0, x1, mI, mZA);
 }
 
-MEM_CLASS_PRE()
-GPUd() float MEM_LG(GPUTPCTrackParam)::ApproximateBetheBloch(float beta2)
+GPUd() float GPUTPCTrackParam::ApproximateBetheBloch(float beta2)
 {
   //------------------------------------------------------------------
   // This is an approximation of the Bethe-Bloch formula with
@@ -438,8 +424,7 @@ GPUd() float MEM_LG(GPUTPCTrackParam)::ApproximateBetheBloch(float beta2)
   return 0.153e-3f / beta2 * (CAMath::Log(5940 * beta2 / (1 - beta2)) - beta2);
 }
 
-MEM_CLASS_PRE()
-GPUd() void MEM_LG(GPUTPCTrackParam)::CalculateFitParameters(GPUTPCTrackFitParam& par, float mass)
+GPUd() void GPUTPCTrackParam::CalculateFitParameters(GPUTPCTrackFitParam& par, float mass)
 {
   //*!
 
@@ -473,8 +458,7 @@ GPUd() void MEM_LG(GPUTPCTrackParam)::CalculateFitParameters(GPUTPCTrackFitParam
   par.k44 = GetPar(3) * GetPar(3) * k2;
 }
 
-MEM_CLASS_PRE()
-GPUd() bool MEM_LG(GPUTPCTrackParam)::CorrectForMeanMaterial(float xOverX0, float xTimesRho, const GPUTPCTrackFitParam& par)
+GPUd() bool GPUTPCTrackParam::CorrectForMeanMaterial(float xOverX0, float xTimesRho, const GPUTPCTrackFitParam& par)
 {
   //------------------------------------------------------------------
   // This function corrects the track parameters for the crossed material.
@@ -523,8 +507,7 @@ GPUd() bool MEM_LG(GPUTPCTrackParam)::CorrectForMeanMaterial(float xOverX0, floa
 //*
 //* Rotation
 //*
-MEM_CLASS_PRE()
-GPUd() bool MEM_LG(GPUTPCTrackParam)::Rotate(float alpha, float maxSinPhi)
+GPUd() bool GPUTPCTrackParam::Rotate(float alpha, float maxSinPhi)
 {
   //* Rotate the coordinate system in XY on the angle alpha
 
@@ -581,8 +564,7 @@ GPUd() bool MEM_LG(GPUTPCTrackParam)::Rotate(float alpha, float maxSinPhi)
   return 1;
 }
 
-MEM_CLASS_PRE()
-GPUd() bool MEM_LG(GPUTPCTrackParam)::Rotate(float alpha, GPUTPCTrackLinearisation& t0, float maxSinPhi)
+GPUd() bool GPUTPCTrackParam::Rotate(float alpha, GPUTPCTrackLinearisation& t0, float maxSinPhi)
 {
   //* Rotate the coordinate system in XY on the angle alpha
 
@@ -628,8 +610,7 @@ GPUd() bool MEM_LG(GPUTPCTrackParam)::Rotate(float alpha, GPUTPCTrackLinearisati
   return 1;
 }
 
-MEM_CLASS_PRE()
-GPUd() bool MEM_LG(GPUTPCTrackParam)::Filter(float y, float z, float err2Y, float err2Z, float maxSinPhi, bool paramOnly)
+GPUd() bool GPUTPCTrackParam::Filter(float y, float z, float err2Y, float err2Z, float maxSinPhi, bool paramOnly)
 {
   //* Add the y,z measurement with the Kalman filter
 
@@ -690,8 +671,7 @@ GPUd() bool MEM_LG(GPUTPCTrackParam)::Filter(float y, float z, float err2Y, floa
   return 1;
 }
 
-MEM_CLASS_PRE()
-GPUd() bool MEM_LG(GPUTPCTrackParam)::CheckNumericalQuality() const
+GPUd() bool GPUTPCTrackParam::CheckNumericalQuality() const
 {
   //* Check that the track parameters and covariance matrix are reasonable
 
@@ -727,8 +707,7 @@ GPUd() bool MEM_LG(GPUTPCTrackParam)::CheckNumericalQuality() const
   return ok;
 }
 
-MEM_CLASS_PRE()
-GPUd() void MEM_LG(GPUTPCTrackParam)::ConstrainZ(float& z, int32_t sector, float& z0, float& lastZ)
+GPUd() void GPUTPCTrackParam::ConstrainZ(float& z, int32_t sector, float& z0, float& lastZ)
 {
   if (sector < GPUCA_NSLICES / 2) {
     if (z < 0) {
@@ -763,8 +742,7 @@ GPUd() void MEM_LG(GPUTPCTrackParam)::ConstrainZ(float& z, int32_t sector, float
   }
 }
 
-MEM_CLASS_PRE()
-GPUd() void MEM_LG(GPUTPCTrackParam)::ShiftZ(float z1, float z2, float x1, float x2, float bz, float defaultZOffsetOverR)
+GPUd() void GPUTPCTrackParam::ShiftZ(float z1, float z2, float x1, float x2, float bz, float defaultZOffsetOverR)
 {
   const float r1 = CAMath::Max(0.0001f, CAMath::Abs(mParam.mP[4] * bz));
 
@@ -826,8 +804,7 @@ GPUd() void MEM_LG(GPUTPCTrackParam)::ShiftZ(float z1, float z2, float x1, float
 #include <iostream>
 #endif
 
-MEM_CLASS_PRE()
-GPUd() void MEM_LG(GPUTPCTrackParam)::Print() const
+GPUd() void GPUTPCTrackParam::Print() const
 {
   //* print parameters
 
@@ -837,8 +814,7 @@ GPUd() void MEM_LG(GPUTPCTrackParam)::Print() const
 #endif
 }
 
-MEM_CLASS_PRE()
-GPUd() int32_t MEM_LG(GPUTPCTrackParam)::GetPropagatedYZ(float bz, float x, float& projY, float& projZ) const
+GPUd() int32_t GPUTPCTrackParam::GetPropagatedYZ(float bz, float x, float& projY, float& projZ) const
 {
   float k = mParam.mP[4] * bz;
   float dx = x - mParam.mX;

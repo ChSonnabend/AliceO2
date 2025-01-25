@@ -42,8 +42,8 @@ class AliHLTGPUDumpComponent : public AliHLTProcessor
 
   AliHLTGPUDumpComponent();
 
-  AliHLTGPUDumpComponent(const AliHLTGPUDumpComponent&) CON_DELETE;
-  AliHLTGPUDumpComponent& operator=(const AliHLTGPUDumpComponent&) CON_DELETE;
+  AliHLTGPUDumpComponent(const AliHLTGPUDumpComponent&) = delete;
+  AliHLTGPUDumpComponent& operator=(const AliHLTGPUDumpComponent&) = delete;
 
   virtual ~AliHLTGPUDumpComponent();
 

@@ -22,9 +22,7 @@
 #include "GPUO2DataTypes.h"
 #include "GPUTPCTrackParam.h"
 #include "GPUParam.inc"
-#if !defined(__OPENCL1__)
 #include "GPUTPCConvertImpl.h"
-#endif
 
 #if !defined(GPUCA_GPUCODE)
 #include <cstring>

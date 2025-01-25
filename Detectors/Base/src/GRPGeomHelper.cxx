@@ -235,7 +235,7 @@ void GRPGeomHelper::checkUpdates(ProcessingContext& pc)
       for (auto id = DetID::First; id <= DetID::Last; id++) {
         std::string binding = fmt::format("align{}", DetID::getName(id));
         if (pc.inputs().getPos(binding.c_str()) < 0) {
-          return;
+          continue;
         } else {
           pc.inputs().get<std::vector<o2::detectors::AlignParam>*>(binding);
         }

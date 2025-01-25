@@ -28,8 +28,8 @@ template <>
 GPUdii() void GPUTPCSectorDebugSortKernels::Thread<GPUTPCSectorDebugSortKernels::hitData>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() tracker)
 {
   const uint32_t iRow = iBlock;
-  const MEM_GLOBAL(GPUTPCRow) & GPUrestrict() row = tracker.Data().Row(iRow);
-  const MEM_GLOBAL(GPUTPCGrid) & GPUrestrict() grid = row.Grid();
+  const GPUTPCRow& GPUrestrict() row = tracker.Data().Row(iRow);
+  const GPUTPCGrid& GPUrestrict() grid = row.Grid();
   for (uint32_t i = iThread; i < grid.N(); i += nThreads) {
     uint32_t jMin = tracker.Data().FirstHitInBin(row, i);
     uint32_t jMax = tracker.Data().FirstHitInBin(row, i + 1);

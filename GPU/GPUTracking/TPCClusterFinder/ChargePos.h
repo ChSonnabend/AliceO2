@@ -28,7 +28,7 @@ struct ChargePos {
   tpccf::GlobalPad gpad;
   tpccf::TPCFragmentTime timePadded;
 
-  GPUdDefault() ChargePos() CON_DEFAULT;
+  GPUdDefault() ChargePos() = default;
 
   constexpr GPUhdi() ChargePos(tpccf::Row row, tpccf::Pad pad, tpccf::TPCFragmentTime t)
     : gpad(tpcGlobalPadIdx(row, pad)), timePadded(t + GPUCF_PADDING_TIME)

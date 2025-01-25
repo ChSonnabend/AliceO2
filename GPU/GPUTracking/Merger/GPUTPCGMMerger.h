@@ -63,10 +63,10 @@ class GPUTPCGMMerger : public GPUProcessor
 {
  public:
   GPUTPCGMMerger();
-  ~GPUTPCGMMerger() CON_DEFAULT;
-  GPUTPCGMMerger(const GPUTPCGMMerger&) CON_DELETE;
-  const GPUTPCGMMerger& operator=(const GPUTPCGMMerger&) const CON_DELETE;
-  static CONSTEXPR const int32_t NSLICES = GPUCA_NSLICES; //* N slices
+  ~GPUTPCGMMerger() = default;
+  GPUTPCGMMerger(const GPUTPCGMMerger&) = delete;
+  const GPUTPCGMMerger& operator=(const GPUTPCGMMerger&) const = delete;
+  static constexpr const int32_t NSLICES = GPUCA_NSLICES; //* N slices
 
   struct memory {
     GPUAtomic(uint32_t) nRetryRefit;

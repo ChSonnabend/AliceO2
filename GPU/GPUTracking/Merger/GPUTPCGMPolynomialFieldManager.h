@@ -39,7 +39,7 @@ class GPUTPCGMPolynomialFieldManager
                        k2kG,
                        k5kG }; // known fitted polynomial fields, stored in constants
 
-  GPUTPCGMPolynomialFieldManager() CON_DEFAULT;
+  GPUTPCGMPolynomialFieldManager() = default;
 
   /* Get appropriate pre-calculated polynomial field for the given field value nominalFieldkG
  */

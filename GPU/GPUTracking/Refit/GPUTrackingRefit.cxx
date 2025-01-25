@@ -431,7 +431,7 @@ template GPUdni() int32_t GPUTrackingRefit::RefitTrack<GPUTrackingRefit::TrackPa
 #endif
 
 #ifndef GPUCA_GPUCODE
-void GPUTrackingRefit::SetPtrsFromGPUConstantMem(const GPUConstantMem* v, MEM_CONSTANT(GPUParam) * p)
+void GPUTrackingRefit::SetPtrsFromGPUConstantMem(const GPUConstantMem* v, GPUParam* p)
 {
   mPclusterState = v->ioPtrs.mergedTrackHitStates;
   mPclusterNative = v->ioPtrs.clustersNative;

@@ -293,48 +293,51 @@ void GeneratorFactory::setPrimaryGenerator(o2::conf::SimConfig const& conf, Fair
   }
 
   /** triggers **/
+  // to be set via GeneratorFactory only if generator is not hybrid
+  // external settings via JSON are supported in the latter
 
   Trigger trigger = nullptr;
   DeepTrigger deeptrigger = nullptr;
-
-  auto trgconfig = conf.getTrigger();
-  if (trgconfig.empty()) {
-    return;
-  } else if (trgconfig.compare("particle") == 0) {
-    trigger = TriggerParticle(TriggerParticleParam::Instance());
-  } else if (trgconfig.compare("external") == 0) {
-    // external trigger via configuration macro
-    auto& params = TriggerExternalParam::Instance();
-    LOG(info) << "Setting up external trigger with following parameters";
-    LOG(info) << params;
-    auto external_trigger_filename = params.fileName;
-    auto external_trigger_func = params.funcName;
-    trigger = o2::conf::GetFromMacro<o2::eventgen::Trigger>(external_trigger_filename, external_trigger_func, "o2::eventgen::Trigger", "trigger");
-    if (!trigger) {
-      LOG(info) << "Trying to retrieve a \'o2::eventgen::DeepTrigger\' type" << std::endl;
-      deeptrigger = o2::conf::GetFromMacro<o2::eventgen::DeepTrigger>(external_trigger_filename, external_trigger_func, "o2::eventgen::DeepTrigger", "deeptrigger");
-    }
-    if (!trigger && !deeptrigger) {
-      LOG(fatal) << "Failed to retrieve \'external trigger\': problem with configuration ";
-    }
-  } else {
-    LOG(fatal) << "Invalid trigger";
-  }
-
-  /** add trigger to generators **/
-  auto generators = primGen->GetListOfGenerators();
-  for (int igen = 0; igen < generators->GetEntries(); ++igen) {
-    auto generator = dynamic_cast<o2::eventgen::Generator*>(generators->At(igen));
-    if (!generator) {
-      LOG(fatal) << "request to add a trigger to an unsupported generator";
+  if (!(genconfig.compare("hybrid") == 0)) {
+    auto trgconfig = conf.getTrigger();
+    if (trgconfig.empty()) {
       return;
+    } else if (trgconfig.compare("particle") == 0) {
+      trigger = TriggerParticle(TriggerParticleParam::Instance());
+    } else if (trgconfig.compare("external") == 0) {
+      // external trigger via configuration macro
+      auto& params = TriggerExternalParam::Instance();
+      LOG(info) << "Setting up external trigger with following parameters";
+      LOG(info) << params;
+      auto external_trigger_filename = params.fileName;
+      auto external_trigger_func = params.funcName;
+      trigger = o2::conf::GetFromMacro<o2::eventgen::Trigger>(external_trigger_filename, external_trigger_func, "o2::eventgen::Trigger", "trigger");
+      if (!trigger) {
+        LOG(info) << "Trying to retrieve a \'o2::eventgen::DeepTrigger\' type" << std::endl;
+        deeptrigger = o2::conf::GetFromMacro<o2::eventgen::DeepTrigger>(external_trigger_filename, external_trigger_func, "o2::eventgen::DeepTrigger", "deeptrigger");
+      }
+      if (!trigger && !deeptrigger) {
+        LOG(fatal) << "Failed to retrieve \'external trigger\': problem with configuration ";
+      }
+    } else {
+      LOG(fatal) << "Invalid trigger";
     }
-    generator->setTriggerMode(o2::eventgen::Generator::kTriggerOR);
-    if (trigger) {
-      generator->addTrigger(trigger);
-    }
-    if (deeptrigger) {
-      generator->addDeepTrigger(deeptrigger);
+
+    /** add trigger to generators **/
+    auto generators = primGen->GetListOfGenerators();
+    for (int igen = 0; igen < generators->GetEntries(); ++igen) {
+      auto generator = dynamic_cast<o2::eventgen::Generator*>(generators->At(igen));
+      if (!generator) {
+        LOG(fatal) << "request to add a trigger to an unsupported generator";
+        return;
+      }
+      generator->setTriggerMode(o2::eventgen::Generator::kTriggerOR);
+      if (trigger) {
+        generator->addTrigger(trigger);
+      }
+      if (deeptrigger) {
+        generator->addDeepTrigger(deeptrigger);
+      }
     }
   }
 }

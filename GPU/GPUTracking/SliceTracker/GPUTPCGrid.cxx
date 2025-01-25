@@ -20,8 +20,7 @@ using namespace GPUCA_NAMESPACE::gpu;
 #include <cassert>
 #endif
 
-MEM_CLASS_PRE()
-GPUd() void MEM_LG(GPUTPCGrid)::CreateEmpty()
+GPUd() void GPUTPCGrid::CreateEmpty()
 {
   // Create an empty grid
   mYMin = 0.f;
@@ -37,8 +36,7 @@ GPUd() void MEM_LG(GPUTPCGrid)::CreateEmpty()
   mStepZInv = 1.f;
 }
 
-MEM_CLASS_PRE()
-GPUd() void MEM_LG(GPUTPCGrid)::Create(float yMin, float yMax, float zMin, float zMax, int32_t ny, int32_t nz)
+GPUd() void GPUTPCGrid::Create(float yMin, float yMax, float zMin, float zMax, int32_t ny, int32_t nz)
 {
   //* Create the grid
   mYMin = yMin;
@@ -59,8 +57,7 @@ GPUd() void MEM_LG(GPUTPCGrid)::Create(float yMin, float yMax, float zMin, float
   mZMax = mZMin + mNz * sz;
 }
 
-MEM_CLASS_PRE()
-GPUd() int32_t MEM_LG(GPUTPCGrid)::GetBin(float Y, float Z) const
+GPUd() int32_t GPUTPCGrid::GetBin(float Y, float Z) const
 {
   //* get the bin pointer
   const int32_t yBin = static_cast<int32_t>((Y - mYMin) * mStepYInv);
@@ -73,8 +70,7 @@ GPUd() int32_t MEM_LG(GPUTPCGrid)::GetBin(float Y, float Z) const
   return bin;
 }
 
-MEM_CLASS_PRE()
-GPUd() int32_t MEM_LG(GPUTPCGrid)::GetBinBounded(float Y, float Z) const
+GPUd() int32_t GPUTPCGrid::GetBinBounded(float Y, float Z) const
 {
   //* get the bin pointer
   const int32_t yBin = static_cast<int32_t>((Y - mYMin) * mStepYInv);
@@ -89,8 +85,7 @@ GPUd() int32_t MEM_LG(GPUTPCGrid)::GetBinBounded(float Y, float Z) const
   return bin;
 }
 
-MEM_CLASS_PRE()
-GPUd() void MEM_LG(GPUTPCGrid)::GetBin(float Y, float Z, int32_t* const bY, int32_t* const bZ) const
+GPUd() void GPUTPCGrid::GetBin(float Y, float Z, int32_t* const bY, int32_t* const bZ) const
 {
   //* get the bin pointer
 
@@ -114,8 +109,7 @@ GPUd() void MEM_LG(GPUTPCGrid)::GetBin(float Y, float Z, int32_t* const bY, int3
   *bZ = (uint32_t)bbZ;
 }
 
-MEM_CLASS_PRE()
-GPUd() void MEM_LG(GPUTPCGrid)::GetBinArea(float Y, float Z, float dy, float dz, int32_t& bin, int32_t& ny, int32_t& nz) const
+GPUd() void GPUTPCGrid::GetBinArea(float Y, float Z, float dy, float dz, int32_t& bin, int32_t& ny, int32_t& nz) const
 {
   Y -= mYMin;
   int32_t by = (int32_t)((Y - dy) * mStepYInv);

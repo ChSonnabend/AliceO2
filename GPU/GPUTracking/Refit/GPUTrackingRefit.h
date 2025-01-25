@@ -48,9 +48,7 @@ namespace o2::gpu
 class CorrectionMapsHelper;
 class GPUTPCGMTrackParam;
 class GPUTPCGMMergedTrack;
-MEM_CLASS_PRE()
 struct GPUConstantMem;
-MEM_CLASS_PRE()
 struct GPUParam;
 struct GPUTPCGMMergedTrackHit;
 
@@ -58,13 +56,13 @@ class GPUTrackingRefit
 {
  public:
   void SetClusterStateArray(const uint8_t* v) { mPclusterState = v; }
-  void SetPtrsFromGPUConstantMem(const GPUConstantMem* v, MEM_CONSTANT(GPUParam) * p = nullptr);
+  void SetPtrsFromGPUConstantMem(const GPUConstantMem* v, GPUParam* p = nullptr);
   void SetPropagator(const o2::base::Propagator* v) { mPpropagator = v; }
   void SetClusterNative(const o2::tpc::ClusterNativeAccess* v) { mPclusterNative = v; }
   void SetTrackHits(const GPUTPCGMMergedTrackHit* v) { mPtrackHits = v; }
   void SetTrackHitReferences(const uint32_t* v) { mPtrackHitReferences = v; }
   void SetFastTransformHelper(const CorrectionMapsHelper* v) { mPfastTransformHelper = v; }
-  void SetGPUParam(const MEM_CONSTANT(GPUParam) * v) { mPparam = v; }
+  void SetGPUParam(const GPUParam* v) { mPparam = v; }
   GPUd() int32_t RefitTrackAsGPU(GPUTPCGMMergedTrack& trk, bool outward = false, bool resetCov = false) { return RefitTrack<GPUTPCGMMergedTrack, GPUTPCGMTrackParam>(trk, outward, resetCov); }
   GPUd() int32_t RefitTrackAsTrackParCov(GPUTPCGMMergedTrack& trk, bool outward = false, bool resetCov = false) { return RefitTrack<GPUTPCGMMergedTrack, o2::track::TrackParCov>(trk, outward, resetCov); }
   GPUd() int32_t RefitTrackAsGPU(o2::tpc::TrackTPC& trk, bool outward = false, bool resetCov = false) { return RefitTrack<o2::tpc::TrackTPC, GPUTPCGMTrackParam>(trk, outward, resetCov); }
@@ -97,7 +95,7 @@ class GPUTrackingRefit
   const GPUTPCGMMergedTrackHit* mPtrackHits = nullptr;           // Ptr to hits for GPUTPCGMMergedTrack tracks
   const uint32_t* mPtrackHitReferences = nullptr;                // Ptr to hits for TrackTPC tracks
   const CorrectionMapsHelper* mPfastTransformHelper = nullptr;   // Ptr to TPC fast transform object helper
-  const MEM_CONSTANT(GPUParam) * mPparam = nullptr;              // Ptr to GPUParam
+  const GPUParam* mPparam = nullptr;                             // Ptr to GPUParam
   template <class T, class S>
   GPUd() int32_t RefitTrack(T& trk, bool outward, bool resetCov);
   template <class T, class S, class U>

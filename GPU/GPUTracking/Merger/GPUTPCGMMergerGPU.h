@@ -26,7 +26,7 @@ namespace gpu
 class GPUTPCGMMergerGeneral : public GPUKernelTemplate
 {
  public:
-  GPUhdi() CONSTEXPR static GPUDataTypes::RecoStep GetRecoStep() { return GPUDataTypes::RecoStep::TPCMerging; }
+  GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep() { return GPUDataTypes::RecoStep::TPCMerging; }
 #if !defined(GPUCA_ALIROOT_LIB) || !defined(GPUCA_GPUCODE)
   typedef GPUTPCGMMerger processorType;
   GPUhdi() static processorType* Processor(GPUConstantMem& processors)

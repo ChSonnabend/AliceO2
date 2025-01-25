@@ -36,16 +36,6 @@ class GlobalTrackID;
 } // namespace o2
 
 //_____________________________________________________________________________
-#if (defined(__CINT__) || defined(__ROOTCINT__)) && !defined(__CLING__)
-namespace GPUCA_NAMESPACE
-{
-namespace gpu
-{
-template <typename T>
-class GPUTRDTrack_t;
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
-#else
 #if (!defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB)) || defined(GPUCA_HAVE_O2HEADERS)
 #include "GPUTRDInterfaceO2Track.h"
 #endif
@@ -149,7 +139,5 @@ class GPUTRDTrack_t : public T
 
 } // namespace gpu
 } // namespace GPUCA_NAMESPACE
-
-#endif // !((defined(__CINT__) || defined(__ROOTCINT__)) && !defined(__CLING__))
 
 #endif // GPUTRDTRACK_H

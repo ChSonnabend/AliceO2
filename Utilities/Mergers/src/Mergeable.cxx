@@ -9,6 +9,7 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+#include <TCanvas.h>
 #include <TCollection.h>
 #include <TEfficiency.h>
 #include <TGraph.h>
@@ -30,7 +31,8 @@ bool isMergeable(TObject* obj)
          obj->InheritsFrom(THnBase::Class()) ||
          obj->InheritsFrom(TTree::Class()) ||
          obj->InheritsFrom(TGraph::Class()) ||
-         obj->InheritsFrom(TEfficiency::Class());
+         obj->InheritsFrom(TEfficiency::Class()) ||
+         obj->InheritsFrom(TCanvas::Class());
 }
 
 } // namespace o2::mergers

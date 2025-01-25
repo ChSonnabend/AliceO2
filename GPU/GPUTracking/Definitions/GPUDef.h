@@ -19,13 +19,12 @@
 #include "GPUCommonDef.h"
 #include "GPUDefConstantsAndSettings.h"
 #include "GPUDefGPUParameters.h"
-#include "GPUDefOpenCL12Templates.h"
 #include "GPUCommonRtypes.h"
 
 // Macros for masking ptrs in OpenCL kernel calls as uint64_t (The API only allows us to pass buffer objects)
 #ifdef __OPENCL__
   #define GPUPtr1(a, b) uint64_t b
-  #ifdef __OPENCLCPP__
+  #ifdef __OPENCL__
     #define GPUPtr2(a, b) ((__generic a) (a) b)
   #else
     #define GPUPtr2(a, b) ((__global a) (a) b)
@@ -42,7 +41,7 @@
 #endif
 
 #ifdef GPUCA_GPUCODE
-  #define CA_MAKE_SHARED_REF(vartype, varname, varglobal, varshared) const GPUsharedref() MEM_LOCAL(vartype) & __restrict__ varname = varshared;
+  #define CA_MAKE_SHARED_REF(vartype, varname, varglobal, varshared) const GPUsharedref() vartype& __restrict__ varname = varshared;
   #define CA_SHARED_STORAGE(storage) storage
   #define CA_SHARED_CACHE(target, src, size) \
     static_assert((size) % sizeof(int32_t) == 0, "Invalid shared cache size"); \
@@ -53,7 +52,7 @@
     CA_SHARED_CACHE(target, src, size) \
     GPUsharedref() const reftype* __restrict__ ref = (target)
 #else
-  #define CA_MAKE_SHARED_REF(vartype, varname, varglobal, varshared) const GPUglobalref() MEM_GLOBAL(vartype) & __restrict__ varname = varglobal;
+  #define CA_MAKE_SHARED_REF(vartype, varname, varglobal, varshared) const GPUglobalref() vartype & __restrict__ varname = varglobal;
   #define CA_SHARED_STORAGE(storage)
   #define CA_SHARED_CACHE(target, src, size)
   #define CA_SHARED_CACHE_REF(target, src, size, reftype, ref) GPUglobalref() const reftype* __restrict__ ref = src

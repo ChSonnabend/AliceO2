@@ -34,9 +34,9 @@ class GPUTRDTrackletWord
  public:
   GPUd() GPUTRDTrackletWord(uint32_t trackletWord = 0);
   GPUd() GPUTRDTrackletWord(uint32_t trackletWord, int32_t hcid);
-  GPUdDefault() GPUTRDTrackletWord(const GPUTRDTrackletWord& rhs) CON_DEFAULT;
-  GPUdDefault() GPUTRDTrackletWord& operator=(const GPUTRDTrackletWord& rhs) CON_DEFAULT;
-  GPUdDefault() ~GPUTRDTrackletWord() CON_DEFAULT;
+  GPUdDefault() GPUTRDTrackletWord(const GPUTRDTrackletWord& rhs) = default;
+  GPUdDefault() GPUTRDTrackletWord& operator=(const GPUTRDTrackletWord& rhs) = default;
+  GPUdDefault() ~GPUTRDTrackletWord() = default;
 #ifndef GPUCA_GPUCODE_DEVICE
   GPUTRDTrackletWord(const AliTRDtrackletWord& rhs);
   GPUTRDTrackletWord(const AliTRDtrackletMCM& rhs);
@@ -88,9 +88,9 @@ class GPUTRDTrackletWord : private o2::trd::Tracklet64
 {
  public:
   GPUd() GPUTRDTrackletWord(uint64_t trackletWord = 0) : o2::trd::Tracklet64(trackletWord){};
-  GPUdDefault() GPUTRDTrackletWord(const GPUTRDTrackletWord& rhs) CON_DEFAULT;
-  GPUdDefault() GPUTRDTrackletWord& operator=(const GPUTRDTrackletWord& rhs) CON_DEFAULT;
-  GPUdDefault() ~GPUTRDTrackletWord() CON_DEFAULT;
+  GPUdDefault() GPUTRDTrackletWord(const GPUTRDTrackletWord& rhs) = default;
+  GPUdDefault() GPUTRDTrackletWord& operator=(const GPUTRDTrackletWord& rhs) = default;
+  GPUdDefault() ~GPUTRDTrackletWord() = default;
 
   // ----- Override operators < and > to enable tracklet sorting by HCId -----
   GPUd() bool operator<(const GPUTRDTrackletWord& t) const { return (getHCID() < t.getHCID()); }
@@ -106,9 +106,7 @@ class GPUTRDTrackletWord : private o2::trd::Tracklet64
   // IMPORTANT: Do not add members, this class must keep the same memory layout as o2::trd::Tracklet64
 };
 
-#ifdef GPUCA_NOCOMPAT
 static_assert(sizeof(GPUTRDTrackletWord) == sizeof(o2::trd::Tracklet64), "Incorrect memory layout");
-#endif
 
 } // namespace gpu
 } // namespace GPUCA_NAMESPACE

@@ -587,7 +587,7 @@ void setStyle()
   gStyle->Reset("Plain");
   gStyle->SetOptTitle(0);
   gStyle->SetOptStat(0);
-  gStyle->SetPalette(kRainbow);
+  gStyle->SetPalette(kRainBow);
   gStyle->SetCanvasColor(10);
   gStyle->SetCanvasBorderMode(0);
   gStyle->SetFrameLineWidth(1);

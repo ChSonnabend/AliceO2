@@ -116,6 +116,7 @@ class TimeFrameGPU : public TimeFrame
   int* getDeviceNeighboursLUT(const int layer) { return mNeighboursLUTDevice[layer]; }
   gsl::span<int*> getDeviceNeighboursLUTs() { return mNeighboursLUTDevice; }
   gpuPair<int, int>* getDeviceNeighbourPairs(const int layer) { return mNeighbourPairsDevice[layer]; }
+  std::array<int*, nLayers - 2>& getDeviceNeighboursAll() { return mNeighboursDevice; }
   int* getDeviceNeighbours(const int layer) { return mNeighboursDevice[layer]; }
   int** getDeviceNeighboursArray() { return mNeighboursDeviceArray; }
   TrackingFrameInfo* getDeviceTrackingFrameInfo(const int);
@@ -142,6 +143,7 @@ class TimeFrameGPU : public TimeFrame
   // Host-specific getters
   gsl::span<int, nLayers - 1> getNTracklets() { return mNTracklets; }
   gsl::span<int, nLayers - 2> getNCells() { return mNCells; }
+  std::array<int, nLayers - 2>& getArrayNCells() { return mNCells; }
 
   // Host-available device getters
   gsl::span<int*> getDeviceTrackletsLUTs() { return mTrackletsLUTDevice; }

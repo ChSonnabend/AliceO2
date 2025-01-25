@@ -232,6 +232,24 @@ struct is_valid_pair {
   }
 };
 
+struct seed_selector {
+  float maxQ2Pt;
+  float maxChi2;
+
+  GPUhd() seed_selector(float maxQ2Pt, float maxChi2) : maxQ2Pt(maxQ2Pt), maxChi2(maxChi2) {}
+  GPUhd() bool operator()(const CellSeed& seed) const
+  {
+    return !(seed.getQ2Pt() > maxQ2Pt || seed.getChi2() > maxChi2);
+  }
+};
+
+struct compare_track_chi2 {
+  GPUhd() bool operator()(const TrackITSExt& a, const TrackITSExt& b) const
+  {
+    return a.getChi2() < b.getChi2();
+  }
+};
+
 GPUd() gpuSpan<const Vertex> getPrimaryVertices(const int rof,
                                                 const int* roframesPV,
                                                 const int nROF,
@@ -596,7 +614,7 @@ GPUg() void processNeighboursKernel(const int layer,
                                     int* neighboursLUT,
                                     const TrackingFrameInfo** foundTrackingFrameInfo,
                                     const float bz,
-                                    const float MaxChi2ClusterAttachment,
+                                    const float maxChi2ClusterAttachment,
                                     const o2::base::Propagator* propagator,
                                     const o2::base::PropagatorF::MatCorrType matCorrType)
 {
@@ -650,7 +668,7 @@ GPUg() void processNeighboursKernel(const int layer,
       }
 
       auto predChi2{seed.getPredictedChi2Quiet(trHit.positionTrackingFrame, trHit.covarianceTrackingFrame)};
-      if ((predChi2 > MaxChi2ClusterAttachment) || predChi2 < 0.f) {
+      if ((predChi2 > maxChi2ClusterAttachment) || predChi2 < 0.f) {
         continue;
       }
       seed.setChi2(seed.getChi2() + predChi2);
@@ -1172,149 +1190,152 @@ void processNeighboursHandler(const int startLayer,
                               const int startLevel,
                               CellSeed** allCellSeeds,
                               CellSeed* currentCellSeeds,
-                              const unsigned int nCurrentCells,
+                              std::array<int, nLayers - 2>& nCells,
                               const unsigned char** usedClusters,
-                              int* neighbours,
+                              std::array<int*, nLayers - 2>& neighbours,
                               gsl::span<int*> neighboursDeviceLUTs,
                               const TrackingFrameInfo** foundTrackingFrameInfo,
+                              std::vector<CellSeed>& seedsHost,
                               const float bz,
-                              const float MaxChi2ClusterAttachment,
+                              const float maxChi2ClusterAttachment,
+                              const float maxChi2NDF,
                               const o2::base::Propagator* propagator,
                               const o2::base::PropagatorF::MatCorrType matCorrType,
-                              const std::vector<int>& lastCellIdHost,        // temporary host vector
-                              const std::vector<CellSeed>& lastCellSeedHost, // temporary host vector
-                              std::vector<int>& updatedCellIdHost,           // temporary host vector
-                              std::vector<CellSeed>& updatedCellSeedHost,    // temporary host vector
                               const int nBlocks,
                               const int nThreads)
 {
-  thrust::device_vector<int> foundSeedsTable(nCurrentCells + 1); // Shortcut: device_vector skips central memory management, we are relying on the contingency. TODO: fix this.
-  thrust::device_vector<int> lastCellIds(lastCellIdHost);
-  thrust::device_vector<CellSeed> lastCellSeed(lastCellSeedHost);
+  thrust::device_vector<int> foundSeedsTable(nCells[startLayer] + 1); // Shortcut: device_vector skips central memory management, we are relying on the contingency. TODO: fix this.
+                                                                      // thrust::device_vector<int> lastCellIds(lastCellIdHost);
+                                                                      // thrust::device_vector<CellSeed> lastCellSeed(lastCellSeedHost);
+  thrust::device_vector<int> lastCellId, updatedCellId;
+  thrust::device_vector<CellSeed> lastCellSeed, updatedCellSeed;
   gpu::processNeighboursKernel<true><<<nBlocks, nThreads>>>(startLayer,
                                                             startLevel,
                                                             allCellSeeds,
-                                                            lastCellIdHost.empty() ? currentCellSeeds : thrust::raw_pointer_cast(&lastCellSeed[0]), // lastCellSeeds
-                                                            lastCellIdHost.empty() ? nullptr : thrust::raw_pointer_cast(&lastCellIds[0]),           // lastCellIds,
-                                                            lastCellIdHost.empty() ? nCurrentCells : lastCellSeedHost.size(),
-                                                            nullptr,                                       // updatedCellSeeds,
-                                                            nullptr,                                       // updatedCellsIds,
-                                                            thrust::raw_pointer_cast(&foundSeedsTable[0]), // auxiliary only in GPU code to compute the number of cells per iteration
-                                                            usedClusters,                                  // Used clusters
-                                                            neighbours,
+                                                            currentCellSeeds,
+                                                            nullptr,
+                                                            nCells[startLayer],
+                                                            nullptr,
+                                                            nullptr,
+                                                            thrust::raw_pointer_cast(&foundSeedsTable[0]),
+                                                            usedClusters,
+                                                            neighbours[startLayer - 1],
                                                             neighboursDeviceLUTs[startLayer - 1],
                                                             foundTrackingFrameInfo,
                                                             bz,
-                                                            MaxChi2ClusterAttachment,
+                                                            maxChi2ClusterAttachment,
                                                             propagator,
                                                             matCorrType);
-  void *d_temp_storage = nullptr, *d_temp_storage_2 = nullptr;
-  size_t temp_storage_bytes = 0, temp_storage_bytes_2 = 0;
-  gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage,                                // d_temp_storage
+  void* d_temp_storage = nullptr;
+  size_t temp_storage_bytes = 0;
+  gpuCheckError(cub::DeviceScan::ExclusiveSum(nullptr,                                       // d_temp_storage
                                               temp_storage_bytes,                            // temp_storage_bytes
                                               thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_in
                                               thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_out
-                                              nCurrentCells + 1,                             // num_items
-                                              0));
+                                              nCells[startLayer] + 1,                        // num_items
+                                              0));                                           // NOLINT: this is the offset of the sum, not a pointer
   discardResult(cudaMalloc(&d_temp_storage, temp_storage_bytes));
   gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage,                                // d_temp_storage
                                               temp_storage_bytes,                            // temp_storage_bytes
                                               thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_in
                                               thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_out
-                                              nCurrentCells + 1,                             // num_items
-                                              0));
+                                              nCells[startLayer] + 1,                        // num_items
+                                              0));                                           // NOLINT: this is the offset of the sum, not a pointer
 
-  thrust::device_vector<int> updatedCellIds(foundSeedsTable.back()) /*, lastCellIds(foundSeedsTable.back())*/;
-  thrust::device_vector<CellSeed> updatedCellSeeds(foundSeedsTable.back()) /*, lastCellSeeds(foundSeedsTable.back())*/;
+  updatedCellId.resize(foundSeedsTable.back());
+  updatedCellSeed.resize(foundSeedsTable.back());
 
   gpu::processNeighboursKernel<false><<<nBlocks, nThreads>>>(startLayer,
                                                              startLevel,
                                                              allCellSeeds,
-                                                             lastCellIdHost.empty() ? currentCellSeeds : thrust::raw_pointer_cast(&lastCellSeed[0]), // lastCellSeeds
-                                                             lastCellIdHost.empty() ? nullptr : thrust::raw_pointer_cast(&lastCellIds[0]),           // lastCellIds,
-                                                             lastCellIdHost.empty() ? nCurrentCells : lastCellSeedHost.size(),
-                                                             thrust::raw_pointer_cast(&updatedCellSeeds[0]), // updatedCellSeeds
-                                                             thrust::raw_pointer_cast(&updatedCellIds[0]),   // updatedCellsIds
-                                                             thrust::raw_pointer_cast(&foundSeedsTable[0]),  // auxiliary only in GPU code to compute the number of cells per iteration
-                                                             usedClusters,                                   // Used clusters
-                                                             neighbours,
+                                                             currentCellSeeds,
+                                                             nullptr,
+                                                             nCells[startLayer],
+                                                             thrust::raw_pointer_cast(&updatedCellSeed[0]),
+                                                             thrust::raw_pointer_cast(&updatedCellId[0]),
+                                                             thrust::raw_pointer_cast(&foundSeedsTable[0]),
+                                                             usedClusters,
+                                                             neighbours[startLayer - 1],
                                                              neighboursDeviceLUTs[startLayer - 1],
                                                              foundTrackingFrameInfo,
                                                              bz,
-                                                             MaxChi2ClusterAttachment,
+                                                             maxChi2ClusterAttachment,
                                                              propagator,
                                                              matCorrType);
-
-  // Temporary copyback to host to validate the kernel
-  updatedCellIdHost.resize(updatedCellIds.size());
-  updatedCellSeedHost.resize(updatedCellSeeds.size());
-  thrust::copy(updatedCellIds.begin(), updatedCellIds.end(), updatedCellIdHost.begin());
-  thrust::copy(updatedCellSeeds.begin(), updatedCellSeeds.end(), updatedCellSeedHost.begin());
-
-  // int level = startLevel;
-  // for (int iLayer{startLayer - 1}; iLayer > 0 && level > 2; --iLayer) {
-  //   --level;
-  //   lastCellSeeds.swap(updatedCellSeeds);
-  //   lastCellIds.swap(updatedCellIds);
-  //   foundSeedsTable.resize(lastCellSeeds.size() + 1);
-  //   thrust::fill(foundSeedsTable.begin(), foundSeedsTable.end(), 0);
-
-  //   gpu::processNeighboursKernel<true, false><<<1, 1>>>(iLayer,
-  //                                                       level,
-  //                                                       allCellSeeds,
-  //                                                       thrust::raw_pointer_cast(&lastCellSeeds[0]),
-  //                                                       thrust::raw_pointer_cast(&lastCellIds[0]), // currentCellIds,
-  //                                                       lastCellSeeds.size(),
-  //                                                       nullptr,                                       // updatedCellSeeds,
-  //                                                       nullptr,                                       // updatedCellsIds,
-  //                                                       thrust::raw_pointer_cast(&foundSeedsTable[0]), // auxiliary only in GPU code to compute the number of cells per iteration
-  //                                                       usedClusters,                                  // Used clusters
-  //                                                       neighbours,
-  //                                                       neighboursDeviceLUTs[iLayer - 1],
-  //                                                       foundTrackingFrameInfo,
-  //                                                       bz,
-  //                                                       MaxChi2ClusterAttachment,
-  //                                                       propagator,
-  //                                                       matCorrType);
-
-  //   gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage_2,                              // d_temp_storage
-  //                                               temp_storage_bytes,                            // temp_storage_bytes
-  //                                               thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_in
-  //                                               thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_out
-  //                                               foundSeedsTable.size(),                        // num_items
-  //                                               0));
-  //   discardResult(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-  //   gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage_2,                              // d_temp_storage
-  //                                               temp_storage_bytes_2,                          // temp_storage_bytes
-  //                                               thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_in
-  //                                               thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_out
-  //                                               foundSeedsTable.size(),                        // num_items
-  //                                               0));
-  //   updatedCellIds.resize(foundSeedsTable.back(), 0);
-  //   updatedCellSeeds.resize(foundSeedsTable.back(), CellSeed());
-
-  //   gpu::processNeighboursKernel<false><<<1, 1>>>(iLayer,
-  //                                                 level,
-  //                                                 allCellSeeds,
-  //                                                 thrust::raw_pointer_cast(&lastCellSeeds[0]),
-  //                                                 thrust::raw_pointer_cast(&lastCellIds[0]), // currentCellIds,
-  //                                                 lastCellSeeds.size(),
-  //                                                 thrust::raw_pointer_cast(&updatedCellSeeds[0]), // updatedCellSeeds
-  //                                                 thrust::raw_pointer_cast(&updatedCellIds[0]),   // updatedCellsIds
-  //                                                 thrust::raw_pointer_cast(&foundSeedsTable[0]),  // auxiliary only in GPU code to compute the number of cells per iteration
-  //                                                 usedClusters,                                   // Used clusters
-  //                                                 neighbours,
-  //                                                 neighboursDeviceLUTs[iLayer - 1],
-  //                                                 foundTrackingFrameInfo,
-  //                                                 bz,
-  //                                                 MaxChi2ClusterAttachment,
-  //                                                 propagator,
-  //                                                 matCorrType);
-  //   gpu::printCellSeeds<<<1, 1>>>(thrust::raw_pointer_cast(&updatedCellSeeds[0]), updatedCellSeeds.size());
-  // }
-
+  auto t1 = updatedCellSeed.size();
   gpuCheckError(cudaFree(d_temp_storage));
-  gpuCheckError(cudaFree(d_temp_storage_2));
+  int level = startLevel;
+  for (int iLayer{startLayer - 1}; iLayer > 0 && level > 2; --iLayer) {
+    temp_storage_bytes = 0;
+    lastCellSeed.swap(updatedCellSeed);
+    lastCellId.swap(updatedCellId);
+    thrust::device_vector<CellSeed>().swap(updatedCellSeed);
+    thrust::device_vector<int>().swap(updatedCellId);
+    auto lastCellSeedSize{lastCellSeed.size()};
+    foundSeedsTable.resize(nCells[iLayer] + 1);
+    thrust::fill(foundSeedsTable.begin(), foundSeedsTable.end(), 0);
+    --level;
+    gpu::processNeighboursKernel<true><<<nBlocks, nThreads>>>(iLayer,
+                                                              level,
+                                                              allCellSeeds,
+                                                              thrust::raw_pointer_cast(&lastCellSeed[0]),
+                                                              thrust::raw_pointer_cast(&lastCellId[0]),
+                                                              lastCellSeedSize,
+                                                              nullptr,
+                                                              nullptr,
+                                                              thrust::raw_pointer_cast(&foundSeedsTable[0]),
+                                                              usedClusters,
+                                                              neighbours[iLayer - 1],
+                                                              neighboursDeviceLUTs[iLayer - 1],
+                                                              foundTrackingFrameInfo,
+                                                              bz,
+                                                              maxChi2ClusterAttachment,
+                                                              propagator,
+                                                              matCorrType);
+    gpuCheckError(cub::DeviceScan::ExclusiveSum(nullptr,                                       // d_temp_storage
+                                                temp_storage_bytes,                            // temp_storage_bytes
+                                                thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_in
+                                                thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_out
+                                                nCells[iLayer] + 1,                            // num_items
+                                                0));                                           // NOLINT: this is the offset of the sum, not a pointer
+    discardResult(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+    gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage,                                // d_temp_storage
+                                                temp_storage_bytes,                            // temp_storage_bytes
+                                                thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_in
+                                                thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_out
+                                                nCells[iLayer] + 1,                            // num_items
+                                                0));                                           // NOLINT: this is the offset of the sum, not a pointer
+    auto foundSeeds{foundSeedsTable.back()};
+    updatedCellId.resize(foundSeeds);
+    thrust::fill(updatedCellId.begin(), updatedCellId.end(), 0);
+    updatedCellSeed.resize(foundSeeds);
+    thrust::fill(updatedCellSeed.begin(), updatedCellSeed.end(), CellSeed());
+
+    gpu::processNeighboursKernel<false><<<nBlocks, nThreads>>>(iLayer,
+                                                               level,
+                                                               allCellSeeds,
+                                                               thrust::raw_pointer_cast(&lastCellSeed[0]),
+                                                               thrust::raw_pointer_cast(&lastCellId[0]),
+                                                               lastCellSeedSize,
+                                                               thrust::raw_pointer_cast(&updatedCellSeed[0]),
+                                                               thrust::raw_pointer_cast(&updatedCellId[0]),
+                                                               thrust::raw_pointer_cast(&foundSeedsTable[0]),
+                                                               usedClusters,
+                                                               neighbours[iLayer - 1],
+                                                               neighboursDeviceLUTs[iLayer - 1],
+                                                               foundTrackingFrameInfo,
+                                                               bz,
+                                                               maxChi2ClusterAttachment,
+                                                               propagator,
+                                                               matCorrType);
+    gpuCheckError(cudaFree(d_temp_storage));
+  }
+  thrust::device_vector<CellSeed> outSeeds(updatedCellSeed.size());
+  auto end = thrust::copy_if(updatedCellSeed.begin(), updatedCellSeed.end(), outSeeds.begin(), gpu::seed_selector(1.e3, maxChi2NDF * ((startLevel + 2) * 2 - 5)));
+  auto s{end - outSeeds.begin()};
+  std::vector<CellSeed> outSeedsHost(s);
+  thrust::copy(updatedCellSeed.begin(), updatedCellSeed.begin() + s, outSeedsHost.begin());
+  seedsHost.insert(seedsHost.end(), outSeedsHost.begin(), outSeedsHost.end());
 }
 
 void trackSeedHandler(CellSeed* trackSeeds,
@@ -1344,7 +1365,9 @@ void trackSeedHandler(CellSeed* trackSeeds,
     maxChi2NDF,                           // float
     propagator,                           // const o2::base::Propagator*
     matCorrType);                         // o2::base::PropagatorF::MatCorrType
+  thrust::device_ptr<o2::its::TrackITSExt> tr_ptr(tracks);
 
+  thrust::sort(tr_ptr, tr_ptr + nSeeds, gpu::compare_track_chi2());
   gpuCheckError(cudaPeekAtLastError());
   gpuCheckError(cudaDeviceSynchronize());
 }
@@ -1414,19 +1437,17 @@ template void processNeighboursHandler<7>(const int startLayer,
                                           const int startLevel,
                                           CellSeed** allCellSeeds,
                                           CellSeed* currentCellSeeds,
-                                          const unsigned int nCurrentCells,
+                                          std::array<int, 5>& nCells,
                                           const unsigned char** usedClusters,
-                                          int* neighbours,
+                                          std::array<int*, 5>& neighbours,
                                           gsl::span<int*> neighboursDeviceLUTs,
                                           const TrackingFrameInfo** foundTrackingFrameInfo,
+                                          std::vector<CellSeed>& seedsHost,
                                           const float bz,
-                                          const float MaxChi2ClusterAttachment,
+                                          const float maxChi2ClusterAttachment,
+                                          const float maxChi2NDF,
                                           const o2::base::Propagator* propagator,
                                           const o2::base::PropagatorF::MatCorrType matCorrType,
-                                          const std::vector<int>& lastCellIdHost,        // temporary host vector
-                                          const std::vector<CellSeed>& lastCellSeedHost, // temporary host vector
-                                          std::vector<int>& updatedCellIdHost,           // temporary host vector
-                                          std::vector<CellSeed>& updatedCellSeedHost,    // temporary host vector
                                           const int nBlocks,
                                           const int nThreads);
 } // namespace o2::its

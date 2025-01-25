@@ -163,10 +163,10 @@ class MultivariatePolynomialHelper<0, 0, false> : public MultivariatePolynomialP
   MultivariatePolynomialHelper(const uint32_t nDim, const uint32_t degree, const bool interactionOnly) : mDim{nDim}, mDegree{degree}, mInteractionOnly{interactionOnly} { assert(mDegree <= FMaxdegree); };
 
   /// default constructor
-  MultivariatePolynomialHelper() CON_DEFAULT;
+  MultivariatePolynomialHelper() = default;
 
   /// Destructor
-  ~MultivariatePolynomialHelper() CON_DEFAULT;
+  ~MultivariatePolynomialHelper() = default;
 
   /// printing the formula of the polynomial
   void print() const;

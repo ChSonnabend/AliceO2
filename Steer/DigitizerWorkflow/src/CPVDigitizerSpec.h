@@ -54,14 +54,6 @@ class DigitizerSpec final : public o2::base::BaseDPLDigitizer
   void run(framework::ProcessingContext& ctx);
 
  private:
-  /// \brief helper function which will be offered as a service
-  /// \param brname Name of the hit branch
-  /// \param sourceID ID of the source
-  /// \param entryID ID of the entry in the source
-  void retrieveHits(const char* brname,
-                    int sourceID,
-                    int entryID);
-
   void updateTimeDependentParams(framework::ProcessingContext& ctx);
 
   float mReadoutTime = 0.;                                ///< PHOS readout time

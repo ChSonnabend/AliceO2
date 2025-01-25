@@ -28,7 +28,6 @@ using namespace GPUCA_NAMESPACE::gpu;
 #endif
 #include <cstring>
 
-MEM_CLASS_PRE()
 class GPUTPCRow;
 
 #define SemLockName "AliceHLTTPCGPUTrackerInitLockSem"

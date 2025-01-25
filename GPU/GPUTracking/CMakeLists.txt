@@ -22,7 +22,7 @@ endif()
 include(cmake/helpers.cmake)
 
 if(ALIGPU_BUILD_TYPE STREQUAL "ALIROOT")
-  if(ENABLE_CUDA OR ENABLE_OPENCL1 OR ENABLE_OPENCL2 OR ENABLE_HIP)
+  if(ENABLE_CUDA OR ENABLE_OPENCL OR ENABLE_HIP)
     include(FeatureSummary)
     find_package(O2GPU)
   else()
@@ -137,7 +137,6 @@ set(HDRS_INSTALL
     Definitions/GPUDefGPUParameters.h
     Definitions/GPUDef.h
     Definitions/GPUDefMacros.h
-    Definitions/GPUDefOpenCL12Templates.h
     Definitions/GPULogging.h
     Definitions/GPUSettingsList.h
     Global/GPUChainTrackingDefs.h
@@ -416,9 +415,7 @@ if(ALIGPU_BUILD_TYPE STREQUAL "ALIROOT")
                       ${CMAKE_SOURCE_DIR}/GPU/GPUTracking/utils
                       ${CMAKE_SOURCE_DIR}/GPU/GPUTracking/Base/cuda
                       ${CMAKE_SOURCE_DIR}/GPU/GPUTracking/Base/hip
-                      ${CMAKE_SOURCE_DIR}/GPU/GPUTracking/Base/opencl-common
                       ${CMAKE_SOURCE_DIR}/GPU/GPUTracking/Base/opencl
-                      ${CMAKE_SOURCE_DIR}/GPU/GPUTracking/Base/opencl2
                       ${CMAKE_SOURCE_DIR}/GPU/TPCFastTransformation)
   alice_usevc()
 
@@ -525,21 +522,15 @@ endif()
 target_compile_options(${targetName} PRIVATE -Wno-instantiation-after-specialization)
 
 # Add CMake recipes for GPU Tracking librararies
-if(CUDA_ENABLED OR OPENCL1_ENABLED OR OPENCL2_ENABLED OR HIP_ENABLED)
+if(CUDA_ENABLED OR OPENCL_ENABLED OR HIP_ENABLED)
   if(CMAKE_SYSTEM_NAME MATCHES Darwin)
     message(WARNING "GPU Tracking disabled on MacOS")
   else()
     if(CUDA_ENABLED)
       add_subdirectory(Base/cuda)
     endif()
-    if(OPENCL1_ENABLED OR OPENCL2_ENABLED)
-      add_subdirectory(Base/opencl-common)
-    endif()
-    if(OPENCL1_ENABLED)
+    if(OPENCL_ENABLED)
       add_subdirectory(Base/opencl)
-    endif()
-    if(OPENCL2_ENABLED)
-      add_subdirectory(Base/opencl2)
     endif()
     if(HIP_ENABLED)
       add_subdirectory(Base/hip)

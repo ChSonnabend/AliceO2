@@ -55,20 +55,6 @@ void DigitizerSpec::initDigitizerTask(framework::InitContext& ic)
     mDeadTime = o2::cpv::CPVSimParams::Instance().mDeadTime;       // PHOS dead time (should include readout => mReadoutTime< mDeadTime)
   }
 }
-// helper function which will be offered as a service
-void DigitizerSpec::retrieveHits(const char* brname,
-                                 int sourceID,
-                                 int entryID)
-{
-  auto br = mSimChains[sourceID]->GetBranch(brname);
-  if (!br) {
-    LOG(error) << "No branch found";
-    return;
-  }
-  mHits->clear();
-  br->SetAddress(&mHits);
-  br->GetEntry(entryID);
-}
 
 void DigitizerSpec::updateTimeDependentParams(framework::ProcessingContext& ctx)
 {
@@ -165,7 +151,8 @@ void DigitizerSpec::run(framework::ProcessingContext& pc)
       // get the hits for this event and this source
       int source = part->sourceID;
       int entry = part->entryID;
-      retrieveHits("CPVHit", source, entry);
+      mHits->clear();
+      context->retrieveHits(mSimChains, "CPVHit", source, entry, mHits);
       part++;
       if (part == eventParts[collID].end() && isLastStream) { // last stream, copy digits directly to output vector
         mDigitizer.processHits(mHits, mDigitsFinal, mDigitsOut, mLabels, collID, source, dt);

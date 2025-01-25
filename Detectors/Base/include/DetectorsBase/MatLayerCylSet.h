@@ -52,9 +52,9 @@ class MatLayerCylSet : public o2::gpu::FlatObject
 
  public:
 #ifndef GPUCA_GPUCODE
-  MatLayerCylSet() CON_DEFAULT;
-  ~MatLayerCylSet() CON_DEFAULT;
-  MatLayerCylSet(const MatLayerCylSet& src) CON_DELETE;
+  MatLayerCylSet() = default;
+  ~MatLayerCylSet() = default;
+  MatLayerCylSet(const MatLayerCylSet& src) = delete;
 #endif
 
   GPUd() const MatLayerCylSetLayout* get() const { return reinterpret_cast<const MatLayerCylSetLayout*>(mFlatBufferPtr); }

@@ -74,6 +74,7 @@ class Generator : public FairGenerator
   virtual Bool_t generateEvent() = 0;   // generates event (in structure internal to generator)
   virtual Bool_t importParticles() = 0; // fills the mParticles vector (transfer from generator state)
   virtual void updateHeader(o2::dataformats::MCEventHeader* eventHeader) {};
+  Bool_t triggerEvent();
 
   /** setters **/
   void setMomentumUnit(double val) { mMomentumUnit = val; };
@@ -106,7 +107,6 @@ class Generator : public FairGenerator
   /** internal methods **/
   Bool_t addTracks(FairPrimaryGenerator* primGen);
   Bool_t boostEvent();
-  Bool_t triggerEvent();
 
   /** to handle cocktail constituents **/
   void addSubGenerator(int subGeneratorId, std::string const& subGeneratorDescription);

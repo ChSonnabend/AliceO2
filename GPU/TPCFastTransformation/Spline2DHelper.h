@@ -46,13 +46,13 @@ class Spline2DHelper
   Spline2DHelper();
 
   /// Copy constructor: disabled
-  Spline2DHelper(const Spline2DHelper&) CON_DELETE;
+  Spline2DHelper(const Spline2DHelper&) = delete;
 
   /// Assignment operator: disabled
-  Spline2DHelper& operator=(const Spline2DHelper&) CON_DELETE;
+  Spline2DHelper& operator=(const Spline2DHelper&) = delete;
 
   /// Destructor
-  ~Spline2DHelper() CON_DEFAULT;
+  ~Spline2DHelper() = default;
 
   /// _______________  Main functionality  ________________________
 

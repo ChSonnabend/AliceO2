@@ -67,7 +67,7 @@ size_t Filter::designateSubtrees(Node* node, size_t index)
   path.emplace(node, 0);
 
   while (!path.empty()) {
-    auto& top = path.top();
+    auto top = path.top();
     top.node_ptr->index = local_index;
     path.pop();
     if (top.node_ptr->condition != nullptr) {
@@ -277,7 +277,7 @@ Operations createOperations(Filter const& expression)
 
   // while the stack is not empty
   while (!path.empty()) {
-    auto& top = path.top();
+    auto top = path.top();
 
     // create operation spec, pop the node and add its children
     auto operationSpec =
@@ -458,7 +458,7 @@ std::shared_ptr<gandiva::Filter>
 {
   std::shared_ptr<gandiva::Filter> filter;
   auto s = gandiva::Filter::Make(Schema,
-                                 std::move(condition),
+                                 condition,
                                  &filter);
   if (!s.ok()) {
     throw runtime_error_f("Failed to create filter: %s", s.ToString().c_str());

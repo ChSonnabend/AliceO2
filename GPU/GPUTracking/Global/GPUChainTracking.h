@@ -293,7 +293,7 @@ class GPUChainTracking : public GPUChain, GPUReconstructionHelpers::helperDelega
 
   // Synchronization and Locks
   eventStruct* mEvents = nullptr;
-  VOLATILE int32_t mSliceSelectorReady = 0;
+  volatile int32_t mSliceSelectorReady = 0;
   std::array<int8_t, NSLICES> mWriteOutputDone;
 
   std::vector<outputQueueEntry> mOutputQueue;

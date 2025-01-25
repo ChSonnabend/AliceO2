@@ -173,7 +173,7 @@ struct GPUReconstructionOCLInternals {
 };
 
 template <typename K, typename... Args>
-inline int32_t GPUReconstructionOCL::runKernelBackendInternal(const krnlSetupTime& _xyz, K& k, const Args&... args)
+inline int32_t GPUReconstructionOCLBackend::runKernelBackendInternal(const krnlSetupTime& _xyz, K& k, const Args&... args)
 {
   auto& x = _xyz.x;
   auto& y = _xyz.y;
@@ -208,7 +208,7 @@ inline int32_t GPUReconstructionOCL::runKernelBackendInternal(const krnlSetupTim
 }
 
 template <class T, int32_t I>
-int32_t GPUReconstructionOCL::AddKernel(bool multi)
+int32_t GPUReconstructionOCLBackend::AddKernel(bool multi)
 {
   std::string name(GetKernelName<T, I>());
   if (multi) {
@@ -227,7 +227,7 @@ int32_t GPUReconstructionOCL::AddKernel(bool multi)
 }
 
 template <class T, int32_t I>
-inline uint32_t GPUReconstructionOCL::FindKernel(int32_t num)
+inline uint32_t GPUReconstructionOCLBackend::FindKernel(int32_t num)
 {
   std::string name(GetKernelName<T, I>());
   if (num > 1) {

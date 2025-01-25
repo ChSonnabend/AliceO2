@@ -409,4 +409,9 @@ void HistogramRegistry::registerName(const std::string& name)
   mRegisteredNames.push_back(name);
 }
 
+void HistFiller::badHistogramFill(char const* name)
+{
+  LOGF(fatal, "The number of arguments in fill function called for histogram %s is incompatible with histogram dimensions.", name);
+}
+
 } // namespace o2::framework

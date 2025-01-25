@@ -42,7 +42,7 @@ constexpr bool IsDerivedFrom = (std::derived_from<T, Ts> || ...);
 //
 // \parameter T type to be restricted
 template <typename T>
-concept Mergeable = IsDerivedFrom<std::remove_pointer_t<T>, mergers::MergeInterface, TCollection, TH1, TTree, TGraph, TEfficiency, THnBase>;
+concept Mergeable = IsDerivedFrom<std::remove_pointer_t<T>, mergers::MergeInterface, TCollection, TH1, TTree, TGraph, TEfficiency, THnBase, TCanvas>;
 
 // \brief runtime check whether TObject is mergeable
 bool isMergeable(TObject* obj);

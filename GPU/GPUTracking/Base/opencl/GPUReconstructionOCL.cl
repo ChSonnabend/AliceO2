@@ -14,15 +14,10 @@
 
 // clang-format off
 #define __OPENCL__
-#if defined(__cplusplus) && __cplusplus >= 201703L
-  #define __OPENCLCPP__
-#else
-  #define __OPENCL1__
-#endif
 #define GPUCA_GPUTYPE_OPENCL
 
-#ifdef __OPENCLCPP__
-  #ifdef GPUCA_OPENCLCPP_NO_CONSTANT_MEMORY
+#ifdef __OPENCL__
+  #ifdef GPUCA_OPENCL_NO_CONSTANT_MEMORY
     #define GPUCA_NO_CONSTANT_MEMORY
   #endif
   #pragma OPENCL EXTENSION cl_khr_fp64 : enable // Allow double precision variables
@@ -57,9 +52,6 @@
     #define M_PI 3.1415926535f
   #endif
 #else
-  #ifdef GPUCA_OPENCL_NO_CONSTANT_MEMORY
-    #define GPUCA_NO_CONSTANT_MEMORY
-  #endif
   #define nullptr NULL
   #define NULL (0x0)
 #endif
@@ -77,39 +69,16 @@ typedef signed char int8_t;
 #undef assert
 #endif
 #define assert(param)
-#ifndef __OPENCLCPP__
-#define static_assert(...)
-#define GPUCA_OPENCL1
-#endif
 
 #include "GPUConstantMem.h"
-#ifdef __OPENCLCPP__
 #include "GPUReconstructionIncludesDeviceAll.h"
-#else // Workaround, since OpenCL1 cannot digest all files
-#include "GPUTPCTrackParam.cxx"
-#include "GPUTPCTrack.cxx"
-#include "GPUTPCGrid.cxx"
-#include "GPUTPCRow.cxx"
-#include "GPUTPCTracker.cxx"
-
-#include "GPUGeneralKernels.cxx"
-#include "GPUErrors.cxx"
-
-#include "GPUTPCTrackletSelector.cxx"
-#include "GPUTPCNeighboursFinder.cxx"
-#include "GPUTPCNeighboursCleaner.cxx"
-#include "GPUTPCStartHitsFinder.cxx"
-#include "GPUTPCStartHitsSorter.cxx"
-#include "GPUTPCTrackletConstructor.cxx"
-#include "GPUTPCGlobalTracking.cxx"
-#endif
 
 // if (gpu_mem != pTracker.GPUParametersConst()->gpumem) return; //TODO!
 
 #define GPUCA_KRNL(...) GPUCA_KRNL_WRAP(GPUCA_KRNL_LOAD_, __VA_ARGS__)
 #define GPUCA_KRNL_LOAD_single(...) GPUCA_KRNLGPU_SINGLE(__VA_ARGS__)
 #define GPUCA_KRNL_LOAD_multi(...) GPUCA_KRNLGPU_MULTI(__VA_ARGS__)
-#define GPUCA_CONSMEM_PTR GPUglobal() char *gpu_mem, GPUconstant() MEM_CONSTANT(GPUConstantMem) * pConstant,
+#define GPUCA_CONSMEM_PTR GPUglobal() char *gpu_mem, GPUconstant() GPUConstantMem* pConstant,
 #define GPUCA_CONSMEM (*pConstant)
 #include "GPUReconstructionKernelList.h"
 #undef GPUCA_KRNL

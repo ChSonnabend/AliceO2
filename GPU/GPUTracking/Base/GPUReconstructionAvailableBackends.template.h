@@ -14,5 +14,4 @@
 
 #cmakedefine CUDA_ENABLED
 #cmakedefine HIP_ENABLED
-#cmakedefine OPENCL1_ENABLED
-#cmakedefine OPENCL2_ENABLED
+#cmakedefine OPENCL_ENABLED

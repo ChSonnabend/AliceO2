@@ -374,7 +374,7 @@ int32_t GPUTPCTrackerComponent::ConfigureSlices()
   GPUSettingsProcessing devProc;
 
   grp.solenoidBzNominalGPU = fSolenoidBz;
-  grp.continuousMaxTimeBin = 0; // triggered events
+  grp.grpContinuousMaxTimeBin = 0; // triggered events
   if (mNeighboursSearchArea > 0) {
     rec.tpc.neighboursSearchArea = mNeighboursSearchArea;
   }

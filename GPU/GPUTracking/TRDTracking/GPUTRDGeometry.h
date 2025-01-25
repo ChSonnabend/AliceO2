@@ -175,7 +175,7 @@ class GPUTRDGeometry
   GPUd() int32_t GetRowMax(int32_t layer, int32_t stack, int32_t /* sector */) const { return 0; }
   GPUd() bool ChamberInGeometry(int32_t det) const { return false; }
 
-  static CONSTEXPR const int32_t kNstack = 0;
+  static constexpr const int32_t kNstack = 0;
 };
 } // namespace gpu
 } // namespace GPUCA_NAMESPACE

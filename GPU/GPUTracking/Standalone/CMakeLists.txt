@@ -145,7 +145,6 @@ include_directories(${GPU_DIR}/Common
                     ${GPUTRACKING_DIR}/Definitions
                     ${GPUTRACKING_DIR}/DataTypes
                     ${GPUTRACKING_DIR}/Base
-                    ${GPUTRACKING_DIR}/Base/opencl-common
                     ${GPUTRACKING_DIR}/dEdx
                     ${GPUTRACKING_DIR}/TPCConvert
                     ${GPUTRACKING_DIR}/Global

@@ -12,7 +12,7 @@
 /// \file GPUTrackingLinkDef_AliRoot.h
 /// \author David Rohr
 
-#if defined(__CINT__) || defined(__CLING__)
+#if defined(__CLING__)
 
 #pragma link off all globals;
 #pragma link off all classes;

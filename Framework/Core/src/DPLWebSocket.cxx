@@ -167,10 +167,10 @@ struct GUIWebSocketHandler : public WebSocketHandler {
       }
     }
   }
-  void endFragmentation() override{};
-  void control(char const* frame, size_t s) override{};
-  void beginChunk() override{};
-  void endChunk() override{};
+  void endFragmentation() override {};
+  void control(char const* frame, size_t s) override {};
+  void beginChunk() override {};
+  void endChunk() override {};
 
   /// The driver context were we want to accumulate changes
   /// which we got from the websocket.
@@ -415,6 +415,7 @@ void websocket_client_callback(uv_stream_t* stream, ssize_t nread, const uv_buf_
   try {
     LOG(debug) << "Data received from server";
     parse_http_request(buf->base, nread, context->client);
+    free(buf->base);
   } catch (RuntimeErrorRef& ref) {
     auto& err = o2::framework::error_from_ref(ref);
     LOG(error) << "Error while parsing request: " << err.what;

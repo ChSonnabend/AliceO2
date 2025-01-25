@@ -301,6 +301,7 @@ void GPUChainTracking::SanityCheck()
 
 void GPUChainTracking::RunTPCClusterFilter(o2::tpc::ClusterNativeAccess* clusters, std::function<o2::tpc::ClusterNative*(size_t)> allocator, bool applyClusterCuts)
 {
+#ifdef GPUCA_HAVE_O2HEADERS
   GPUTPCClusterFilter clusterFilter(*clusters);
   o2::tpc::ClusterNative* outputBuffer = nullptr;
   for (int32_t iPhase = 0; iPhase < 2; iPhase++) {
@@ -337,4 +338,5 @@ void GPUChainTracking::RunTPCClusterFilter(o2::tpc::ClusterNativeAccess* cluster
       outputBuffer = allocator(countTotal);
     }
   }
+#endif
 }

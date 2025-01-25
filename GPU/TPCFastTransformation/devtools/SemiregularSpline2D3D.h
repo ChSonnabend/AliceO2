@@ -23,7 +23,7 @@
 #include "RegularSpline1D.h"
 #include "FlatObject.h"
 
-#if !defined(__CINT__) && !defined(__ROOTCINT__) && !defined(__ROOTCLING__) && !defined(GPUCA_GPUCODE) && !defined(GPUCA_NO_VC)
+#if !defined(__ROOTCLING__) && !defined(GPUCA_GPUCODE) && !defined(GPUCA_NO_VC)
 #include <Vc/Vc>
 #include <Vc/SimdArray>
 #endif
@@ -58,13 +58,13 @@ class SemiregularSpline2D3D : public FlatObject
   SemiregularSpline2D3D();
 
   /// Copy constructor: disabled to avoid ambiguity. Use cloneFromObject() instead
-  SemiregularSpline2D3D(const SemiregularSpline2D3D&) CON_DELETE;
+  SemiregularSpline2D3D(const SemiregularSpline2D3D&) = delete;
 
   /// Assignment operator: disabled to avoid ambiguity. Use cloneFromObject() instead
-  SemiregularSpline2D3D& operator=(const SemiregularSpline2D3D&) CON_DELETE;
+  SemiregularSpline2D3D& operator=(const SemiregularSpline2D3D&) = delete;
 
   /// Destructor
-  ~SemiregularSpline2D3D() CON_DEFAULT;
+  ~SemiregularSpline2D3D() = default;
 
   /// _____________  FlatObject functionality, see FlatObject class for description  ____________
 
@@ -400,7 +400,7 @@ inline void SemiregularSpline2D3D::getSplineVec(const float* correctedData, floa
   // Same as getSpline, but using vectorized calculation.
   // \param correctedData should be at least 128-bit aligned
 
-#if !defined(__CINT__) && !defined(__ROOTCINT__) && !defined(__ROOTCLING__) && !defined(GPUCA_GPUCODE) && !defined(GPUCA_NO_VC)
+#if !defined(__ROOTCLING__) && !defined(GPUCA_GPUCODE) && !defined(GPUCA_NO_VC)
   //&& !defined(__CLING__)
   /*
     Idea: There are 16 knots important for (u, v).

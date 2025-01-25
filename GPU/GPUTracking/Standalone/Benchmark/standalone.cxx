@@ -265,8 +265,8 @@ int32_t ReadConfiguration(int argc, char** argv)
       configStandalone.gpuType = "CUDA";
     } else if (GPUReconstruction::CheckInstanceAvailable(GPUReconstruction::DeviceType::HIP, configStandalone.proc.debugLevel >= 2)) {
       configStandalone.gpuType = "HIP";
-    } else if (GPUReconstruction::CheckInstanceAvailable(GPUReconstruction::DeviceType::OCL2, configStandalone.proc.debugLevel >= 2)) {
-      configStandalone.gpuType = "OCL2";
+    } else if (GPUReconstruction::CheckInstanceAvailable(GPUReconstruction::DeviceType::OCL, configStandalone.proc.debugLevel >= 2)) {
+      configStandalone.gpuType = "OCL";
     } else if (GPUReconstruction::CheckInstanceAvailable(GPUReconstruction::DeviceType::OCL, configStandalone.proc.debugLevel >= 2)) {
       configStandalone.gpuType = "OCL";
     } else {

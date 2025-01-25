@@ -24,7 +24,6 @@ namespace GPUCA_NAMESPACE
 {
 namespace gpu
 {
-MEM_CLASS_PRE()
 class GPUTPCTracker;
 
 /**
@@ -34,7 +33,6 @@ class GPUTPCTracker;
 class GPUTPCNeighboursFinder : public GPUKernelTemplate
 {
  public:
-  MEM_CLASS_PRE()
   struct GPUSharedMemory {
     int32_t mNHits; // n hits
     float mUpDx; // x distance to the next row
@@ -49,19 +47,17 @@ class GPUTPCNeighboursFinder : public GPUKernelTemplate
     float mA2[GPUCA_NEIGHBOURS_FINDER_MAX_NNEIGHUP][GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNeighboursFinder)];
     calink mB[GPUCA_NEIGHBOURS_FINDER_MAX_NNEIGHUP][GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNeighboursFinder)];
 #endif
-    MEM_LG(GPUTPCRow)
-    mRow, mRowUp, mRowDown;
+    GPUTPCRow mRow, mRowUp, mRowDown;
   };
 
-  typedef GPUconstantref() MEM_GLOBAL(GPUTPCTracker) processorType;
-  GPUhdi() CONSTEXPR static GPUDataTypes::RecoStep GetRecoStep() { return GPUCA_RECO_STEP::TPCSliceTracking; }
-  MEM_TEMPLATE()
-  GPUhdi() static processorType* Processor(MEM_TYPE(GPUConstantMem) & processors)
+  typedef GPUconstantref() GPUTPCTracker processorType;
+  GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep() { return GPUCA_RECO_STEP::TPCSliceTracking; }
+  GPUhdi() static processorType* Processor(GPUConstantMem& processors)
   {
     return processors.tpcTrackers;
   }
   template <int32_t iKernel = defaultKernel>
-  GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() MEM_LOCAL(GPUSharedMemory) & smem, processorType& tracker);
+  GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& tracker);
 };
 } // namespace gpu
 } // namespace GPUCA_NAMESPACE

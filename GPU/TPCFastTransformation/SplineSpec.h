@@ -22,7 +22,7 @@
 #include "GPUCommonDef.h"
 #include "SplineUtil.h"
 
-#if !defined(__CINT__) && !defined(__ROOTCINT__) && !defined(__ROOTCLING__) && !defined(GPUCA_GPUCODE) && !defined(GPUCA_NO_VC) && defined(__cplusplus) && __cplusplus >= 201703L
+#if !defined(__ROOTCLING__) && !defined(GPUCA_GPUCODE) && !defined(GPUCA_NO_VC)
 #include <Vc/Vc>
 #include <Vc/SimdArray>
 #endif
@@ -58,13 +58,13 @@ class SplineContainer : public FlatObject
   /// _____________  C++ constructors / destructors __________________________
 
   /// Default constructor
-  SplineContainer() CON_DEFAULT;
+  SplineContainer() = default;
 
   /// Disable all other constructors
-  SplineContainer(const SplineContainer&) CON_DELETE;
+  SplineContainer(const SplineContainer&) = delete;
 
   /// Destructor
-  ~SplineContainer() CON_DEFAULT;
+  ~SplineContainer() = default;
 
   /// _______________  Construction interface  ________________________
 

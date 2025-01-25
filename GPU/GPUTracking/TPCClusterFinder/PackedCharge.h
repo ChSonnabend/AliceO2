@@ -38,7 +38,7 @@ class PackedCharge
     IsSplitMask = 1 << (ChargeBits + 1),
   };
 
-  GPUdDefault() PackedCharge() CON_DEFAULT;
+  GPUdDefault() PackedCharge() = default;
   GPUdi() explicit PackedCharge(tpccf::Charge q) : PackedCharge(q, false, false) {}
   GPUdi() PackedCharge(tpccf::Charge q, bool peak3x3, bool wasSplit)
   {

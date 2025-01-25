@@ -52,8 +52,11 @@ if(NOT DEFINED GPUCA_HIP_HIPIFY_FROM_CUDA OR "${GPUCA_HIP_HIPIFY_FROM_CUDA}")
     list(APPEND HIP_SOURCES "${GPUCA_HIP_SOURCE_DIR}/${HIP_SOURCE}")
   endforeach()
 
-  add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIPIFIED_CHK.done COMMAND diff -u ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPkernel.template.hip ${CMAKE_CURRENT_SOURCE_DIR}/GPUReconstructionHIPkernel.template.hip && touch ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIPIFIED_CHK.done DEPENDS ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPkernel.template.hip ${CMAKE_CURRENT_SOURCE_DIR}/GPUReconstructionHIPkernel.template.hip)
-  add_custom_target(${MODULE}_HIPIFIED_CHK DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIPIFIED_CHK.done)
+  add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIPIFIED_CHK.done
+                     COMMAND diff -u ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPkernel.template.hip ${CMAKE_CURRENT_SOURCE_DIR}/GPUReconstructionHIPkernel.template.hip > ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIPIFIED_CHK.done
+                     DEPENDS ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPkernel.template.hip ${CMAKE_CURRENT_SOURCE_DIR}/GPUReconstructionHIPkernel.template.hip
+                     COMMENT Checking HIPified file ${CMAKE_CURRENT_SOURCE_DIR}/GPUReconstructionHIPkernel.template.hip)
+  add_custom_target(${MODULE}_HIPIFIED_CHK ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIPIFIED_CHK.done)
 else()
   get_filename_component(GPUCA_HIP_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR} ABSOLUTE)
 endif()
@@ -103,13 +106,20 @@ if(NOT ALIGPU_BUILD_TYPE STREQUAL "ALIROOT")
   add_custom_command(
       OUTPUT ${GPU_RTC_BIN}.src
       COMMAND cat ${GPUDIR}/Base/hip/GPUReconstructionHIPIncludes.h > ${GPU_RTC_BIN}.src
-      COMMAND ${CMAKE_CXX_COMPILER} ${GPU_RTC_DEFINES} ${GPU_RTC_INCLUDES} -std=c++${CMAKE_HIP_STANDARD} -D__HIPCC__ -D__HIP_DEVICE_COMPILE__ -x c++ -E ${GPU_RTC_SRC} >> ${GPU_RTC_BIN}.src
+      COMMAND ${CMAKE_CXX_COMPILER} ${GPU_RTC_DEFINES} ${GPU_RTC_INCLUDES} -std=c++${CMAKE_HIP_STANDARD} -D__HIPCC__ -D__HIP_DEVICE_COMPILE__ -x c++ -nostdinc -E ${GPU_RTC_SRC} >> ${GPU_RTC_BIN}.src
       MAIN_DEPENDENCY ${GPU_RTC_SRC}
       IMPLICIT_DEPENDS CXX ${GPU_RTC_SRC}
+      DEPENDS ${MODULE}_HIPIFIED
       COMMAND_EXPAND_LISTS
       COMMENT "Preparing HIP RTC source file ${GPU_RTC_BIN}.src"
   )
   create_binary_resource(${GPU_RTC_BIN}.src ${GPU_RTC_BIN}.src.o)
+
+  add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIP_SRC_CHK.done
+                     COMMAND ! grep "# [0-9]* \"\\(/usr/\\|.*GCC-Toolchain\\)" ${GPU_RTC_BIN}.src > ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIP_SRC_CHK.done || bash -c "echo ERROR: HIP RTC sources contain standard headers 1>&2 && exit 1"
+                     COMMENT Checking HIP RTC File ${GPU_RTC_BIN}.src
+                     DEPENDS ${GPU_RTC_BIN}.src VERBATIM)
+  add_custom_target(${MODULE}_HIP_SRC_CHK ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIP_SRC_CHK.done)
 
   add_custom_command(
       OUTPUT ${GPU_RTC_BIN}.command
@@ -202,7 +212,7 @@ target_include_directories(${MODULE}_CXX PRIVATE $<TARGET_PROPERTY:${TMP_BASELIB
 target_link_libraries(${targetName} PRIVATE ${MODULE}_CXX)
 
 if(NOT DEFINED GPUCA_HIP_HIPIFY_FROM_CUDA OR "${GPUCA_HIP_HIPIFY_FROM_CUDA}")
-  add_custom_target(${MODULE}_HIPIFIED DEPENDS ${HIP_SOURCES} ${MODULE}_HIPIFIED_CHK)
+  add_custom_target(${MODULE}_HIPIFIED DEPENDS ${HIP_SOURCES})
   add_dependencies(${targetName} ${MODULE}_HIPIFIED)
   add_dependencies(${MODULE}_CXX ${MODULE}_HIPIFIED)
 endif()

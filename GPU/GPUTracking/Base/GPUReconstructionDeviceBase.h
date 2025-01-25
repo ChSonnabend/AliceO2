@@ -25,7 +25,7 @@ namespace GPUCA_NAMESPACE
 {
 namespace gpu
 {
-#if !(defined(__CINT__) || defined(__ROOTCINT__) || defined(__CLING__) || defined(__ROOTCLING__) || defined(G__ROOT))
+#if !(defined(__CLING__) || defined(__ROOTCLING__) || defined(G__ROOT))
 extern template class GPUReconstructionKernels<GPUReconstructionCPUBackend>;
 #endif
 

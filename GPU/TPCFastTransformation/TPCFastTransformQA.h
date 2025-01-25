@@ -46,13 +46,13 @@ class TPCFastTransformQA
   TPCFastTransformQA();
 
   /// Copy constructor: disabled
-  TPCFastTransformQA(const TPCFastTransformQA&) CON_DELETE;
+  TPCFastTransformQA(const TPCFastTransformQA&) = delete;
 
   /// Assignment operator: disabled
-  TPCFastTransformQA& operator=(const TPCFastTransformQA&) CON_DELETE;
+  TPCFastTransformQA& operator=(const TPCFastTransformQA&) = delete;
 
   /// Destructor
-  ~TPCFastTransformQA() CON_DEFAULT;
+  ~TPCFastTransformQA() = default;
 
   /// _______________  Main functionality  ________________________
 

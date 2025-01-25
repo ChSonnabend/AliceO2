@@ -1,0 +1,32 @@
+{
+  "generators": [
+    {
+      "cocktail": [
+        {
+          "name": "pythia8hi",
+          "triggers": {
+            "mode": "or",
+            "specs": [
+              {
+                "macro": "${PWD}/trigger.macro",
+                "function": "trigger_impactb_pythia8(0.,5.)"
+              }
+            ]
+          },
+          "config": ""
+        },
+        {
+          "name": "external",
+          "config": {
+            "fileName": "${O2DPG_MC_CONFIG_ROOT}/MC/config/PWGDQ/external/generator/GeneratorPromptCharmonia.C",
+            "funcName": "GeneratorParamPromptJpsiToElectronEvtGen_pp13TeV()",
+            "iniFile": ""
+          }
+        }
+      ]
+    }
+  ],
+  "fractions": [
+    1
+  ]
+}
