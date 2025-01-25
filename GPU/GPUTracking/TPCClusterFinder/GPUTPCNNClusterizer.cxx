@@ -90,6 +90,27 @@ bool GPUTPCNNClusterizer::isBoundary(int row, int pad, int global_shift, const G
   }
 }
 
+template<class T>
+void GPUTPCNNClusterizer::printInput(int idx, std::vector<T> input_data, processorType& clusterer){
+  int tmp_idx = 0;
+  LOG(info) << idx << " - " << idx + clusterer.nnClusterizerElementSize << " / " << input_data.size();
+  for (int r = -clusterer.nnClusterizerSizeInputRow; r <= clusterer.nnClusterizerSizeInputRow; r++) {
+    for (int p = -clusterer.nnClusterizerSizeInputPad; p <= clusterer.nnClusterizerSizeInputPad; p++) {
+      std::string pad_data = std::to_string((int)(idx/clusterer.nnClusterizerElementSize)) + ": [";
+      for (int t = -clusterer.nnClusterizerSizeInputTime; t <= clusterer.nnClusterizerSizeInputTime; t++) {
+        pad_data += std::to_string((float)input_data[idx + tmp_idx]);
+        tmp_idx++;
+        if(t != clusterer.nnClusterizerSizeInputTime){
+          pad_data += ", ";
+        } else {
+          pad_data += "],";
+        }
+      }
+      LOG(info) << pad_data;
+    }
+  }
+}
+
 template <class T>
 GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int iBlock, int iThread,
                                                 processorType& clusterer,
@@ -128,10 +149,10 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
     central_charges[batch_counter] = central_charge;
 
     // unsigned int batch_offset = batch_counter * clusterer.nnClusterizerElementSize;
+    int row_offset = GPUTPCNNClusterizer::rowOffset(row, clusterer.nnClusterizerSizeInputRow);
     for (int r = -clusterer.nnClusterizerSizeInputRow; r <= clusterer.nnClusterizerSizeInputRow; r++) {
       bool push_mc_label = (r == 0);
       int pad_offset = GPUTPCNNClusterizer::padOffset(row, row + r, clusterer.Param().tpcGeometry);
-      int row_offset = GPUTPCNNClusterizer::rowOffset(row, clusterer.nnClusterizerSizeInputRow);
       for (int p = -clusterer.nnClusterizerSizeInputPad; p <= clusterer.nnClusterizerSizeInputPad; p++) {
         // push_mc_label &= (std::abs(p) < 2); // Use inner 5x5 window
         bool is_boundary = GPUTPCNNClusterizer::isBoundary(row + r + row_offset, pad + p + pad_offset, clusterer.nnClusterizerSizeInputRow, clusterer.Param().tpcGeometry);
@@ -139,7 +160,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
           // push_mc_label &= (std::abs(t) < 2); // Use inner 5x5 window
           if (!is_boundary) {
             ChargePos tmp_pos(row + r, pad + p + pad_offset, time + t);
-            input_data[write_idx] = (T)(chargeMap[tmp_pos].unpack() / central_charge);
+            input_data[write_idx] = (T)((float)chargeMap[tmp_pos].unpack() / central_charge);
             if (push_mc_label) {
               ChargePos tmp_pos_mc(row, pad + p, time + t);
               // CPU_ONLY(labelAcc->collect(tmp_pos, chargeMap[tmp_pos_mc].unpack()));
@@ -238,11 +259,12 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
             continue;
           }
 
-          pc.setFull(central_charges[element] * out_reg[model_output_index + 4], peak_positions[element].pad() + out_reg[model_output_index + 0], out_reg[model_output_index + 2], fragment.start + peak_positions[element].time() + out_reg[model_output_index + 1], out_reg[model_output_index + 3], 0, 0);
+          pc.setFull((int)central_charges[element] * out_reg[model_output_index + 4], (int)peak_positions[element].pad() + out_reg[model_output_index + 0], out_reg[model_output_index + 2], fragment.start + (int)peak_positions[element].time() + out_reg[model_output_index + 1], out_reg[model_output_index + 3], 0, 0);
           // LOG(info) << "Example: " << num_outputs_1 << " " << out_reg.size() << ";; " << out_reg[model_output_index + 4] << "; " << out_reg[model_output_index + 0] << "; " << out_reg[model_output_index + 2] << "; " << out_reg[model_output_index + 1] << "; " << out_reg[model_output_index + 3];
 
           if(std::abs(out_reg[model_output_index + 0]) > 10){
-            LOG(info) << "Found peak outside boundary: " << peak_positions[element].pad() << "; " << peak_positions[element].row() << "; " << peak_positions[element].time();
+            LOG(info) << "Found peak outside boundary, element: " << (int)element << " : " << (int)peak_positions[element].pad() << "; " << (int)peak_positions[element].row() << "; " << (int)peak_positions[element].time() << " - Model output: " << out_reg[model_output_index + 0];
+            // printInput(element * clusterer.nnClusterizerElementSize, input_data, clusterer);
           }
 
           tpc::ClusterNative myCluster;

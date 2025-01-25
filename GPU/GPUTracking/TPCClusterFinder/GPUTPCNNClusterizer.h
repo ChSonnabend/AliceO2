@@ -66,6 +66,9 @@ class GPUTPCNNClusterizer : public GPUKernelTemplate
   static int rowOffset(int, int);
   static bool isBoundary(int, int, int, const GPUTPCGeometry&);
 
+  template<class T>
+  static void printInput(int, std::vector<T>, processorType&);
+
   template <class T>
   static GPUd() void nn_clusterizer(int, int, int, int,
                                     processorType&,
