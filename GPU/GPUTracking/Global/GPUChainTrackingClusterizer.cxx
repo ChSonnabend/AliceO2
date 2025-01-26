@@ -957,9 +957,9 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           if (!GetProcessingSettings().applyNNclusterizer) {
             runKernel<GPUTPCCFClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 1);
           }
-          // else {
-          //   runKernel<GPUTPCNNClusterizer>({GetGrid(std::ceil(clusterer.mPmemory->counters.nClusters / (float)clusterer.nnClusterizerBatchedMode), lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 1);
-          // }
+          else {
+            runKernel<GPUTPCNNClusterizer>({GetGrid(std::ceil(clusterer.mPmemory->counters.nClusters / (float)clusterer.nnClusterizerBatchedMode), lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 1);
+          }
         }
 
         if (GetProcessingSettings().debugLevel >= 3) {

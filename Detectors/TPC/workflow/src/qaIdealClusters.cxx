@@ -19,6 +19,8 @@ void qaCluster::init(InitContext& ic)
   verbose = ic.options().get<int>("verbose");
   mode = ic.options().get<std::string>("mode");
   realData = ic.options().get<int>("real-data");
+  useTrackMCInformation = ic.options().get<int>("read-tracks-mc-information");
+  magneticField = ic.options().get<float>("magnetic-field");
   use_max_cog = ic.options().get<int>("use-max-cog");
   global_shift[0] = (int)((ic.options().get<int>("size-pad") - 1.f) / 2.f);
   global_shift[1] = (int)((ic.options().get<int>("size-time") - 1.f) / 2.f);
@@ -78,7 +80,7 @@ void qaCluster::init(InitContext& ic)
     {"enable-optimizations", std::to_string((int)networkOptimizations)},
     {"enable-profiling", "0"},
     {"profiling-output-path", "."},
-    {"logging-level", "0"}
+    {"logging-level", "3"}
   };
 
   if (mode.find(std::string("network_class")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
@@ -384,10 +386,11 @@ void qaCluster::read_tracking_clusters(bool mc){
   std::vector<TrackTPC>* tpcTracks = nullptr;
   std::vector<o2::tpc::TPCClRefElem>* mCluRefVecInp = nullptr; // index to clusters linear structure in ClusterNativeAccess
   std::vector<o2::MCCompLabel>* mMCTruthInp = nullptr;
+
   tree->SetBranchAddress("TPCTracks", &tpcTracks);
   tree->SetBranchAddress("ClusRefs", &mCluRefVecInp);
 
-  if(mc){
+  if(mc && useTrackMCInformation){
     tree->SetBranchAddress("TPCTracksMCTruth", &mMCTruthInp);
   }
 
@@ -411,7 +414,7 @@ void qaCluster::read_tracking_clusters(bool mc){
   
   // GRPGeomHelper::instance().setRequest(grp_geom);
   // o2::base::GRPGeomHelper::instance().finaliseCCDB(matcher, obj);
-  float B_field = -5.00668; //GPUO2InterfaceUtils::getNominalGPUBz(*GRPGeomHelper::instance().getGRPMagField());
+  float B_field = magneticField; //GPUO2InterfaceUtils::getNominalGPUBz(*GRPGeomHelper::instance().getGRPMagField());
   LOG(info) << "Updating solenoid field " << B_field;
   
   std::vector<std::array<float, 12>> misc_track_data;
@@ -430,7 +433,7 @@ void qaCluster::read_tracking_clusters(bool mc){
   int cluster_counter = 0;
   for (int k = 0; k < nTracks; k++) {
     auto track = (*tpcTracks)[k];
-    if(mc){
+    if(mc && useTrackMCInformation){
       mcTrackIDs = {(*mMCTruthInp)[k].getTrackID(), (*mMCTruthInp)[k].getEventID(), (*mMCTruthInp)[k].getSourceID()};
     }
     std::vector<ClusterNative> assigned_clusters(track.getNClusters());
@@ -1067,7 +1070,7 @@ void qaCluster::native_clusterizer(tpc2d& map2d, std::vector<std::array<int, 3>>
 std::vector<std::vector<std::vector<int>>> qaCluster::looper_tagger(int sector, int counter, std::vector<customCluster>& index_map, std::vector<int>& index_array)
 {
   // looper_tagger_granularity[counter] = 1; // to be removed later: Testing for now
-  int looper_detector_timesize = std::ceil((float)max_time[sector] / (float)looper_tagger_granularity[counter]);
+  int looper_detector_timesize = std::ceil(((float)max_time[sector] + 1) / (float)looper_tagger_granularity[counter]);
 
   std::vector<std::vector<std::vector<float>>> tagger(looper_detector_timesize, std::vector<std::vector<float>>(o2::tpc::constants::MAXGLOBALPADROW)); // time_slice (=std::floor(time/looper_tagger_granularity[counter])), row, pad array -> looper_tagged = 1, else 0
   std::vector<std::vector<std::vector<int>>> tagger_counter(looper_detector_timesize, std::vector<std::vector<int>>(o2::tpc::constants::MAXGLOBALPADROW));
@@ -1085,7 +1088,7 @@ std::vector<std::vector<std::vector<int>>> qaCluster::looper_tagger(int sector, 
       for (int full_time = 0; full_time < looper_tagger_granularity[counter]; full_time++) {
         if ((t * looper_tagger_granularity[counter]) + full_time <= max_time[sector]) {
           looper_tagged_region[(t * looper_tagger_granularity[counter]) + full_time][r].resize(TPC_GEOM[r][2] + 1);
-          std::fill(looper_tagged_region[(t * looper_tagger_granularity[counter]) + full_time][r].begin(), looper_tagged_region[(t * looper_tagger_granularity[counter]) + full_time][r].end(), -1);
+          // std::fill(looper_tagged_region[(t * looper_tagger_granularity[counter]) + full_time][r].begin(), looper_tagged_region[(t * looper_tagger_granularity[counter]) + full_time][r].end(), -1);
         }
       }
       // indv_charges.resize(TPC_GEOM[r][2] + 1);
@@ -1094,6 +1097,7 @@ std::vector<std::vector<std::vector<int>>> qaCluster::looper_tagger(int sector, 
       }
     }
   }
+  custom::fill_nested_container(looper_tagged_region, -1);
 
   // Improvements:
   // - Check the charge sigma -> Looper should have narrow sigma in charge
@@ -3214,6 +3218,8 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
       {"verbose", VariantType::Int, 0, {"Verbosity level"}},
       {"mode", VariantType::String, "matcher,training_data", {"Enables different settings (e.g. creation of training data for NN, running with tpc-native clusters). Options are: training_data, native, network_classification, network_regression, network_full, clusterizer"}},
       {"real-data", VariantType::Int, 0, {"If real data is used. MC kinematics will not be read then"}},
+      {"read-tracks-mc-information", VariantType::Int, 1, {"When reading the tpctracks.root file, whether to read also branch: TPCTracksMCTruth"}},
+      {"magnetic-field", VariantType::Float, -5.f, {"Magnetic field in kilo-Gauss"}},
       {"normalization-mode", VariantType::Int, 1, {"Normalization: 0 = normalization by 1024.f; 1 = normalization by q_center"}},
       {"use-max-cog", VariantType::Int, 1, {"Use maxima for assignment = 0, use CoG's = 1"}},
       {"max-time", VariantType::Int, -1, {"Maximum time allowed for reading data."}},

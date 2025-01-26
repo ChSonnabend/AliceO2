@@ -356,6 +356,8 @@ class qaCluster : public Task
   bool write_native_file = 1;                // Whether or not to write a custom file with native clsuters
   bool native_file_single_branch = 1;        // Whether the native clusters should be written into a single branch
   bool overlap_study = false;                // Whether or not to perform the cluster overlap study
+  bool useTrackMCInformation = true;         // When reading the tpctracks.root file, whether to read also branch "TPCTracksMCTruth" -> has caused some problems...
+  float magneticField = -5.f;                // Magnetic field strength in kG
 
   std::vector<int> looper_tagger_granularity = {5};      // Granularity of looper tagger (time bins in which loopers are excluded in rectangular areas)
   std::vector<int> looper_tagger_timewindow = {20};      // Total time-window size of the looper tagger for evaluating if a region is looper or not
