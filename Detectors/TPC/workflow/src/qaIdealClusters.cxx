@@ -1927,7 +1927,7 @@ void qaCluster::runQa(int sector)
 
   fill_map2d(sector, map2d, digit_map, ideal_map, -1);
 
-  if (mode.find(std::string("occ")) != std::string::npos){
+  if (mode.find(std::string("occ")) != std::string::npos || mode.find(std::string("training_data")) != std::string::npos){
     if (mode.find(std::string("native")) != std::string::npos) {
       std::vector<customCluster> tmp_digit_map;
       read_digits(sector, tmp_digit_map, false);
