@@ -109,6 +109,9 @@ void GPUTPCNNClusterizer::printInput(int idx, std::vector<T> input_data, process
       LOG(info) << pad_data;
     }
   }
+  if(clusterer.nnClusterizerAddIndexData){
+    LOG(info) << "[" << (float)input_data[idx + tmp_idx] << ", " << (float)input_data[idx + tmp_idx + 1] << ", " << (float)input_data[idx + tmp_idx + 2] << "]";
+  }
 }
 
 template <class T>
@@ -233,9 +236,16 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
       }
 
       int model_output_index = element * num_outputs_1;
+
+      // if(get_global_id(0) == 3 && element == (int)(clusterer.nnClusterizerBatchedMode/2)){
+      //   LOG(info) << "NN output - Classfication: " << out_class[element] << "; Regression: " << out_reg[model_output_index + 0] << "; " << out_reg[model_output_index + 1] << "; " << out_reg[model_output_index + 2] << "; " << out_reg[model_output_index + 3] << "; " << out_reg[model_output_index + 4];
+      //   printInput(element * clusterer.nnClusterizerElementSize, input_data, clusterer);
+      // }
+
       if (out_class[element] > clusterer.nnClassThreshold) {
         if ((num_output_classes == 1) || ((num_output_classes > 1) && (out_class[element] < 2))) {
           // CPU_ONLY(labelAcc->collect(peak_positions[element], central_charges[element]));
+
           ClusterAccumulator pc;
 
           ClusterAccumulator dummy_pc;
