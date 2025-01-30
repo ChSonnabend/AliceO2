@@ -784,7 +784,24 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
 void qaCluster::find_maxima(int sector, tpc2d& map2d, std::vector<customCluster>& digit_map, std::vector<int>& maxima_digits)
 {
 
-  bool is_max = true;
+  // --- Changed algorithmically on 30.01.2025 ---
+  // Peak finder like in GPU CF
+  // Checks inner 3x3 like
+  //     ^ _______________
+  // Pad | | >= | >= | > |
+  //     | | >= |  p | > |
+  //     | | >= |  > | > |
+  //     | ---------------  
+  //      -----------------> Time
+  //
+  // And checks for all !=0 (avoid single pad - single time peaks):
+  //     ^ _____________________
+  // Pad | |     |  !=0  |     |
+  //     | | !=0 |   p   | !=0 |
+  //     | |     |  !=0  |     |
+  //     | ---------------------  
+  //      -----------------------> Time
+
   float current_charge = 0;
   int row_offset = 0, pad_offset = 0;
   for (int row = 0; row < o2::tpc::constants::MAXGLOBALPADROW; row++) {
@@ -798,25 +815,30 @@ void qaCluster::find_maxima(int sector, tpc2d& map2d, std::vector<customCluster>
         if (checkIdx(current_idx)) {
 
           current_charge = digit_map[current_idx].qMax;
+          bool is_single_bin = true, is_max = (current_charge >= 3);
 
-          if (map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1] != -1) {
+          if (is_max && map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1] != -1) {
             is_max = (current_charge >= digit_map[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1]].qMax);
+            is_single_bin &= (digit_map[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1]].qMax == 0);
           }
 
           if (is_max && map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset] != -1) {
-            is_max = (current_charge >= digit_map[map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset]].qMax);
+            is_max = (current_charge > digit_map[map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset]].qMax);
+            is_single_bin &= (digit_map[map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset]].qMax == 0);
           }
 
           if (is_max && map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1] != -1) {
-            is_max = (current_charge >= digit_map[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]].qMax);
+            is_max = (current_charge > digit_map[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]].qMax);
+            is_single_bin &= (digit_map[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]].qMax == 0);
           }
 
           if (is_max && map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset] != -1) {
             is_max = (current_charge >= digit_map[map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset]].qMax);
+            is_single_bin &= (digit_map[map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset]].qMax == 0);
           }
 
           if (is_max && map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1] != -1) {
-            is_max = (current_charge >= digit_map[map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1]].qMax);
+            is_max = (current_charge > digit_map[map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1]].qMax);
           }
 
           if (is_max && map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1] != -1) {
@@ -824,18 +846,17 @@ void qaCluster::find_maxima(int sector, tpc2d& map2d, std::vector<customCluster>
           }
 
           if (is_max && map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1] != -1) {
-            is_max = (current_charge >= digit_map[map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]].qMax);
+            is_max = (current_charge > digit_map[map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]].qMax);
           }
 
           if (is_max && map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1] != -1) {
             is_max = (current_charge >= digit_map[map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]].qMax);
           }
 
-          if (is_max) {
+          if (is_max && !is_single_bin) {
             maxima_digits.push_back(current_idx);
             digit_map[current_idx].label = 1; // Preemptive to tag maxima
           }
-          is_max = true;
         }
       }
     }
