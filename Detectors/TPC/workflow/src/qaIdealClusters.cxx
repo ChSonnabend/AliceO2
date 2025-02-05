@@ -2215,7 +2215,34 @@ void qaCluster::runQa(int sector)
     }
   }
 
+  // Checks if digit is assigned / has non-looper assignments
+  std::vector<int> digit_has_non_looper_assignments(maxima_digits.size(), -1); // -1 = has no assignments, 0 = has assignment but is looper, n = has n non-looper assignments
+  std::vector<std::vector<int>> digit_non_looper_assignment_labels(maxima_digits.size());
+  for (int dig_max = 0; dig_max < maxima_digits.size(); dig_max++) {
+    bool digit_has_assignment = false;
+    for (int ass : assignments_id_to_dig[dig_max]) {
+      if (ass != -1) {
+        digit_has_assignment = true;
+        bool is_tagged = false;
+        if (ideal_tagged[ass]) {
+          for (int lbl : ideal_tag_label[ass]) {
+            is_tagged |= (lbl != -1 ? (ideal_map[ass].mcTrkId == lbl) : false);
+          }
+        }
+        if (!is_tagged) {
+          digit_has_non_looper_assignments[dig_max] == -1 ? digit_has_non_looper_assignments[dig_max] = 1 : digit_has_non_looper_assignments[dig_max] += 1;
+          digit_non_looper_assignment_labels[dig_max].push_back(ass);
+        }
+      }
+    }
+    if (digit_has_non_looper_assignments[dig_max] == -1 && digit_has_assignment) {
+      digit_has_non_looper_assignments[dig_max] = 0;
+    }
+  }
+
   if (mode.find(std::string("native")) != std::string::npos && create_output == 1) {
+
+    bool addMomentumData = (mode.find(std::string("track_cluster")) != std::string::npos);
 
     if (verbose >= 3)
       LOG(info) << "Native-Ideal assignment...";
@@ -2302,7 +2329,7 @@ void qaCluster::runQa(int sector)
     // native_writer_map.resize(native_writer_map_size + native_ideal_assignemnt.size());
 
     float sec = sector, nat_row = 0, nat_time = 0, nat_pad = 0, nat_sigma_time = 0, nat_sigma_pad = 0,  nat_qTot = 0, nat_qMax = 0,
-    id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0,
+    id_class = 0, id_sigma_pad = 0, id_sigma_time = 0, id_row = 0, id_time = 0, id_pad = 0, id_qTot = 0, id_qMax = 0, id_idx = 0, id_momX = 1000, id_momY = 1000, id_momZ = 1000, id_mom = 1000,
     area_overlap = 0, charge_overlap = 0, ext_charge_overlap = 0, tot_area = 0, tot_charge = 0, occ = 0;
     native_ideal->Branch("sector", &sec);
     native_ideal->Branch("native_row", &nat_row);
@@ -2312,6 +2339,7 @@ void qaCluster::runQa(int sector)
     native_ideal->Branch("native_sigma_pad", &nat_sigma_pad);
     native_ideal->Branch("native_qMax", &nat_qMax);
     native_ideal->Branch("native_qTot", &nat_qTot);
+    native_ideal->Branch("ideal_class", &id_class);
     native_ideal->Branch("ideal_row", &id_row);
     native_ideal->Branch("ideal_cog_time", &id_time);
     native_ideal->Branch("ideal_cog_pad", &id_pad);
@@ -2319,18 +2347,28 @@ void qaCluster::runQa(int sector)
     native_ideal->Branch("ideal_sigma_pad", &id_sigma_pad);
     native_ideal->Branch("ideal_qMax", &id_qMax);
     native_ideal->Branch("ideal_qTot", &id_qTot);
+    native_ideal->Branch("ideal_index", &id_idx);
+    native_ideal->Branch("ideal_momentum", &id_mom);
+    native_ideal->Branch("ideal_momentumX", &id_momX);
+    native_ideal->Branch("ideal_momentumY", &id_momY);
+    native_ideal->Branch("ideal_momentumZ", &id_momZ);
     native_ideal->Branch("occupancy", &occ);
 
     if(overlap_study){
       native_ideal->Branch("fraction_charge_overlap", &charge_overlap);
       native_ideal->Branch("fraction_area_overlap", &area_overlap);
-      native_ideal->Branch("external_charge_overlap", &ext_charge_overlap);
+      native_ideal->Branch("fraction_external_overlap", &ext_charge_overlap);
       native_ideal->Branch("total_charge", &tot_charge);
       native_ideal->Branch("total_area", &tot_area);
     }
 
     int elem_counter = 0;
     for (auto const elem : native_ideal_assignemnt) {
+      id_mom = 1000;
+      id_momX = 1000;
+      id_momY = 1000;
+      id_momZ = 1000;
+      id_class = -999;
       nat_row = elem[0].row;
       nat_pad = elem[0].cog_pad;
       nat_time = elem[0].cog_time;
@@ -2345,6 +2383,8 @@ void qaCluster::runQa(int sector)
       id_sigma_time = elem[1].sigmaTime;
       id_qTot = elem[1].qTot;
       id_qMax = elem[1].qMax;
+      id_idx = elem[1].index;
+      id_class = digit_has_non_looper_assignments[elem[0].index];
       occ = occupancy[sector][tpcmap.GetROC(elem[0].row)][round(elem[0].cog_time)];
 
       if(overlap_study){
@@ -2353,6 +2393,18 @@ void qaCluster::runQa(int sector)
         ext_charge_overlap = overlap_info[id_row][overlap_info_trkid_map[id_row][elem[1].mcTrkId]][3];
         tot_area = overlap_info[id_row][overlap_info_trkid_map[id_row][elem[1].mcTrkId]][4];
         tot_charge = overlap_info[id_row][overlap_info_trkid_map[id_row][elem[1].mcTrkId]][5];
+      }
+
+      if(addMomentumData && (id_idx != -1)){
+        // net_momX = momentum_vector_map[net_idx][0];
+        // net_momY = momentum_vector_map[net_idx][1];
+        // net_momZ = momentum_vector_map[net_idx][2];
+        if(track_cluster_to_ideal_assignment[id_idx] != -1){
+          id_mom = std::sqrt(std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][0],2) + std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][1],2) + std::pow(momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][2],2));
+          id_momX = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][0];
+          id_momY = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][1];
+          id_momZ = momentum_vectors[sector][track_cluster_to_ideal_assignment[id_idx]][2];
+        }
       }
 
       native_ideal->Fill();
@@ -2447,31 +2499,6 @@ void qaCluster::runQa(int sector)
 
     std::fill(assigned_ideal.begin(), assigned_ideal.end(), 0);
     std::fill(assigned_digit.begin(), assigned_digit.end(), 0);
-
-    // Checks if digit is assigned / has non-looper assignments
-    std::vector<int> digit_has_non_looper_assignments(maxima_digits.size(), -1); // -1 = has no assignments, 0 = has assignment but is looper, n = has n non-looper assignments
-    std::vector<std::vector<int>> digit_non_looper_assignment_labels(maxima_digits.size());
-    for (int dig_max = 0; dig_max < maxima_digits.size(); dig_max++) {
-      bool digit_has_assignment = false;
-      for (int ass : assignments_id_to_dig[dig_max]) {
-        if (ass != -1) {
-          digit_has_assignment = true;
-          bool is_tagged = false;
-          if (ideal_tagged[ass]) {
-            for (int lbl : ideal_tag_label[ass]) {
-              is_tagged |= (lbl != -1 ? (ideal_map[ass].mcTrkId == lbl) : false);
-            }
-          }
-          if (!is_tagged) {
-            digit_has_non_looper_assignments[dig_max] == -1 ? digit_has_non_looper_assignments[dig_max] = 1 : digit_has_non_looper_assignments[dig_max] += 1;
-            digit_non_looper_assignment_labels[dig_max].push_back(ass);
-          }
-        }
-      }
-      if (digit_has_non_looper_assignments[dig_max] == -1 && digit_has_assignment) {
-        digit_has_non_looper_assignments[dig_max] = 0;
-      }
-    }
 
     // Some useful variables
     int map_dig_idx = 0, map_q_idx = 0, check_assignment = 0, index_assignment = -1, current_idx_id = -1, current_idx_dig = -1;
