@@ -900,7 +900,11 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           clusterer.nnClusterizerAddIndexData = GetProcessingSettings().nnClusterizerAddIndexData;
           clusterer.nnClusterizerElementSize = ((2 * clusterer.nnClusterizerSizeInputRow + 1) * (2 * clusterer.nnClusterizerSizeInputPad + 1) * (2 * clusterer.nnClusterizerSizeInputTime + 1)) + (clusterer.nnClusterizerAddIndexData ? 3 : 0);
           clusterer.nnClusterizerBatchedMode = GetProcessingSettings().nnClusterizerBatchedMode;
-          clusterer.nnClusterizerVerbosity = GetProcessingSettings().nnInferenceVerbosity;
+          if (GetProcessingSettings().nnClusterizerVerbosity < 0){
+            clusterer.nnClusterizerVerbosity = GetProcessingSettings().nnInferenceVerbosity;
+          } else {
+            clusterer.nnClusterizerVerbosity = GetProcessingSettings().nnClusterizerVerbosity;
+          }
 
           // Settings for the NN evaluation
           clusterer.nnClassThreshold = GetProcessingSettings().nnClassThreshold;
@@ -949,18 +953,26 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           runKernel<GPUTPCCFClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 0);
         }
 
+        // if (clusterer.nnClusterizerVerbosity < 3) {
+        //   LOG(info) << "[NN CF, SECTOR " << iSlice << "] Fragment " << fragment.index << ", Lane " << lane << ": Found clusters: digits " << clusterer.mPmemory->counters.nPositions << " peaks " << clusterer.mPmemory->counters.nPeaks << " clusters " << clusterer.mPmemory->counters.nClusters;
+        // }
+
         if (doGPU && propagateMCLabels) {
           TransferMemoryResourceLinkToHost(RecoStep::TPCClusterFinding, clusterer.mScratchId, lane);
           if (doGPU) {
             SynchronizeStream(lane);
           }
-          if (!GetProcessingSettings().applyNNclusterizer) {
-            runKernel<GPUTPCCFClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 1);
-          }
-          else {
+          if (GetProcessingSettings().applyNNclusterizer) {
             runKernel<GPUTPCNNClusterizer>({GetGrid(std::ceil(clusterer.mPmemory->counters.nClusters / (float)clusterer.nnClusterizerBatchedMode), lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 1);
           }
+          else {
+            runKernel<GPUTPCCFClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 1);
+          }
         }
+
+        // if (clusterer.nnClusterizerVerbosity < 3) {
+        //   LOG(info) << "[NN CF, SECTOR " << iSlice << "] Fragment " << fragment.index << ", Lane " << lane << ": Found clusters: digits " << clusterer.mPmemory->counters.nPositions << " peaks " << clusterer.mPmemory->counters.nPeaks << " clusters " << clusterer.mPmemory->counters.nClusters;
+        // }
 
         if (GetProcessingSettings().debugLevel >= 3) {
           GPUInfo("Sector %02d Fragment %02d Lane %d: Found clusters: digits %u peaks %u clusters %u", iSlice, fragment.index, lane, (int32_t)clusterer.mPmemory->counters.nPositions, (int32_t)clusterer.mPmemory->counters.nPeaks, (int32_t)clusterer.mPmemory->counters.nClusters);
