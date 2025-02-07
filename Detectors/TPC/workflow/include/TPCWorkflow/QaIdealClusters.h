@@ -65,7 +65,7 @@
 #include "TROOT.h"
 
 using namespace o2;
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 using namespace o2::tpc;
 using namespace o2::framework;
 using namespace o2::ml;
