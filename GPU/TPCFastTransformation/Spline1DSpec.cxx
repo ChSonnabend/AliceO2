@@ -25,12 +25,12 @@
 #include "Spline1DHelper.h"
 #include "TFile.h"
 #include "GPUCommonMath.h"
-templateClassImp(GPUCA_NAMESPACE::gpu::Spline1DContainer);
-templateClassImp(GPUCA_NAMESPACE::gpu::Spline1DSpec);
+templateClassImp(o2::gpu::Spline1DContainer);
+templateClassImp(o2::gpu::Spline1DSpec);
 #endif
 
 using namespace std;
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 #if !defined(GPUCA_GPUCODE)
 
@@ -173,7 +173,6 @@ void Spline1DContainer<DataT>::approximateFunction(
   helper.approximateFunction(*reinterpret_cast<Spline1D<DataT>*>(this), xMin, xMax, F, nAxiliaryDataPoints);
 }
 
-#ifndef GPUCA_ALIROOT_LIB
 template <class DataT>
 int32_t Spline1DContainer<DataT>::writeToFile(TFile& outf, const char* name)
 {
@@ -189,7 +188,6 @@ Spline1DContainer<DataT>* Spline1DContainer<DataT>::readFromFile(
   return FlatObject::readFromFile<Spline1DContainer<DataT>>(inpf, name);
 }
 
-#endif
 #endif
 
 #if !defined(GPUCA_GPUCODE)
@@ -261,7 +259,7 @@ void Spline1DContainer<DataT>::setFutureBufferAddress(char* futureFlatBufferPtr)
   FlatObject::setFutureBufferAddress(futureFlatBufferPtr);
 }
 
-#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB)
+#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE)
 template <class DataT>
 int32_t Spline1DContainer<DataT>::test(const bool draw, const bool drawDataPoints)
 {
@@ -269,7 +267,7 @@ int32_t Spline1DContainer<DataT>::test(const bool draw, const bool drawDataPoint
 }
 #endif // GPUCA_GPUCODE
 
-template class GPUCA_NAMESPACE::gpu::Spline1DContainer<float>;
-template class GPUCA_NAMESPACE::gpu::Spline1DContainer<double>;
-template class GPUCA_NAMESPACE::gpu::Spline1DSpec<float, 0, 2>;
-template class GPUCA_NAMESPACE::gpu::Spline1DSpec<double, 0, 2>;
+template class o2::gpu::Spline1DContainer<float>;
+template class o2::gpu::Spline1DContainer<double>;
+template class o2::gpu::Spline1DSpec<float, 0, 2>;
+template class o2::gpu::Spline1DSpec<double, 0, 2>;

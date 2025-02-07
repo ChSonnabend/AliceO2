@@ -17,7 +17,7 @@
 #endif
 
 #include "GPUDisplay.h"
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 #ifndef GPUCA_NO_ROOT
 #include "Rtypes.h" // Include ROOT header first, to use ROOT and disable replacements

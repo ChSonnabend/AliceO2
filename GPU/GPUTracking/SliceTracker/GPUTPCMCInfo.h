@@ -15,7 +15,7 @@
 #ifndef GPUTPCMCINFO_H
 #define GPUTPCMCINFO_H
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -40,6 +40,6 @@ struct GPUTPCMCInfoCol {
   uint32_t num;
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

@@ -23,13 +23,13 @@ int DigitAdd::sector() const
 
 float DigitAdd::lx() const
 {
-  const GPUCA_NAMESPACE::gpu::GPUTPCGeometry gpuGeom;
+  const o2::gpu::GPUTPCGeometry gpuGeom;
   return gpuGeom.Row2X(mRow);
 }
 
 float DigitAdd::ly() const
 {
-  const GPUCA_NAMESPACE::gpu::GPUTPCGeometry gpuGeom;
+  const o2::gpu::GPUTPCGeometry gpuGeom;
   return gpuGeom.LinearPad2Y(sector(), mRow, getPad());
 }
 
@@ -49,6 +49,6 @@ float DigitAdd::gy() const
 
 float DigitAdd::cpad() const
 {
-  const GPUCA_NAMESPACE::gpu::GPUTPCGeometry gpuGeom;
+  const o2::gpu::GPUTPCGeometry gpuGeom;
   return getPad() - gpuGeom.NPads(mRow) / 2.f;
 }

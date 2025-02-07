@@ -13,6 +13,7 @@
 #if !defined(__CLING__) || defined(__ROOTCLING__)
 #include <Generators/PrimaryGenerator.h>
 #include <Generators/GeneratorFactory.h>
+#include <Generators/Generator.h>
 #include "SimulationDataFormat/O2DatabasePDG.h"
 #include "SimulationDataFormat/MCEventHeader.h"
 #include <SimConfig/SimConfig.h>
@@ -61,6 +62,9 @@ void check_notransport()
 FairRunSim* o2sim_init(bool asservice, bool evalmat = false)
 {
   auto& confref = o2::conf::SimConfig::Instance();
+  // set the global information about the number of events to be generated
+  unsigned int nTotalEvents = confref.getNEvents();
+  o2::eventgen::Generator::setTotalNEvents(nTotalEvents);
   // initialize CCDB service
   auto& ccdbmgr = o2::ccdb::BasicCCDBManager::instance();
   // fix the timestamp early

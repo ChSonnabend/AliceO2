@@ -22,7 +22,7 @@
 #include <cmath>
 #include <iostream>
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -443,4 +443,4 @@ double IrregularSpline2D3DCalibrator::getIntegralDeviationArea(const IrregularSp
 }
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2

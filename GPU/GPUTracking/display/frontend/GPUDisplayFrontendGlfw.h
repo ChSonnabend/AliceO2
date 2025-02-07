@@ -20,7 +20,7 @@
 
 struct GLFWwindow;
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUDisplayFrontendGlfw : public GPUDisplayFrontend
 {
@@ -65,6 +65,6 @@ class GPUDisplayFrontendGlfw : public GPUDisplayFrontend
   uint8_t mLastKeyDown = 0;
   bool mUseIMGui = false;
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

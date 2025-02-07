@@ -29,7 +29,7 @@
 
 class TFile;
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -150,7 +150,7 @@ class SplineContainer : public FlatObject
 
   ///_______________  Test tools  _______________
 
-#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB) // code invisible on GPU and in the standalone compilation
+#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) // code invisible on GPU and in the standalone compilation
   /// Test the class functionality
   static int32_t test(const bool draw = 0, const bool drawDataPoints = 1);
 #endif
@@ -189,9 +189,7 @@ class SplineContainer : public FlatObject
   Spline1D<DataT>* mGrid; //! (transient!!) mXdim grids
   DataT* mParameters;     //! (transient!!) F-dependent parameters of the spline
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(SplineContainer, 1);
-#endif
 };
 
 template <typename DataT>
@@ -550,6 +548,6 @@ class SplineSpec<DataT, XdimT, 1, 3>
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

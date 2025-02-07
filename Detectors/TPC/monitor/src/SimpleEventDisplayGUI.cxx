@@ -774,6 +774,19 @@ void SimpleEventDisplayGUI::drawPadSignal(int event, int x, int y, TObject* o)
     if (mCheckShowClusters->IsDown()) {
       showClusters(roc, row);
     }
+    const auto padTimeValsName = fmt::format("PadTimeVals{}", type[type.Length() - 1]);
+    TCanvas* cPadTimeVals = (TCanvas*)gROOT->GetListOfCanvases()->FindObject(padTimeValsName.data());
+    if (cPadTimeVals) {
+      h = (TH1D*)gROOT->FindObject(("h" + padTimeValsName).data());
+      if (h) {
+        cPadTimeVals->cd();
+        delete cPadTimeVals->GetListOfPrimitives()->FindObject("TLine");
+        TLine l;
+        l.SetLineColor(kRed);
+        const auto timeBin = mSelTimeBin->GetNumberEntry()->GetIntNumber();
+        l.DrawLine(timeBin + 0.5, h->GetYaxis()->GetXmin(), timeBin + 0.5, h->GetYaxis()->GetXmax());
+      }
+    }
     update(Form("%s;%sFFT;PadTimeVals%s;SingleTB", type.Data(), type.Data(), rocType.Data()));
   }
   //   printf("bin=%03d.%03d(%03d)[%05d], name=%s, ROC=%02d content=%.1f, ev: %d\n",row,pad,cpad,chn,h->GetName(), roc, h->GetBinContent(binx,biny), event);
@@ -1195,7 +1208,7 @@ void SimpleEventDisplayGUI::showClusters(int roc, int row)
     selFlags += mCheckClFlags[iFlag]->IsDown() << (iFlag - 1);
   }
   const bool fillSingleTB = mCheckSingleTB->IsDown();
-  const GPUCA_NAMESPACE::gpu::GPUTPCGeometry gpuGeom;
+  const o2::gpu::GPUTPCGeometry gpuGeom;
 
   const int rowMin = fillSingleTB ? 0 : row;
   const int rowMax = fillSingleTB ? constants::MAXGLOBALPADROW : row + 1;

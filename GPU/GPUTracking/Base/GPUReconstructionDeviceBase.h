@@ -17,11 +17,10 @@
 
 #include "GPUReconstructionCPU.h"
 #include <pthread.h>
-#include "GPUReconstructionHelpers.h"
 #include "GPUChain.h"
 #include <vector>
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -61,24 +60,10 @@ class GPUReconstructionDeviceBase : public GPUReconstructionCPU
   size_t GPUMemCpyAlways(bool onGpu, void* dst, const void* src, size_t size, int32_t stream, int32_t toGPU, deviceEvent* ev = nullptr, deviceEvent* evList = nullptr, int32_t nEvents = 1) override;
   size_t WriteToConstantMemory(size_t offset, const void* src, size_t size, int32_t stream = -1, deviceEvent* ev = nullptr) override = 0;
 
-  int32_t StartHelperThreads() override;
-  int32_t StopHelperThreads() override;
-  void RunHelperThreads(int32_t (GPUReconstructionHelpers::helperDelegateBase::*function)(int32_t, int32_t, GPUReconstructionHelpers::helperParam*), GPUReconstructionHelpers::helperDelegateBase* functionCls, int32_t count) override;
-  int32_t HelperError(int32_t iThread) const override { return mHelperParams[iThread].error; }
-  int32_t HelperDone(int32_t iThread) const override { return mHelperParams[iThread].done; }
-  void WaitForHelperThreads() override;
-  void ResetHelperThreads(int32_t helpers) override;
-  void ResetThisHelperThread(GPUReconstructionHelpers::helperParam* par);
-
   int32_t GetGlobalLock(void*& pLock);
   void ReleaseGlobalLock(void* sem);
 
-  static void* helperWrapper_static(void* arg);
-  void* helperWrapper(GPUReconstructionHelpers::helperParam* par);
-
-  int32_t mDeviceId = -1;                                         // Device ID used by backend
-  GPUReconstructionHelpers::helperParam* mHelperParams = nullptr; // Control Struct for helper threads
-  int32_t mNSlaveThreads = 0;                                     // Number of slave threads currently active
+  int32_t mDeviceId = -1; // Device ID used by backend
 
   struct DebugEvents {
     deviceEvent DebugStart, DebugStop; // Debug timer events
@@ -103,6 +88,6 @@ inline size_t GPUReconstructionDeviceBase::GPUMemCpyAlways(bool onGpu, void* dst
   }
 }
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

@@ -1467,6 +1467,7 @@ namespace fv0a
 {
 DECLARE_SOA_INDEX_COLUMN(BC, bc);                             //! BC index
 DECLARE_SOA_COLUMN(Amplitude, amplitude, std::vector<float>); //! Amplitudes of non-zero channels. The channel IDs are given in Channel (at the same index)
+DECLARE_SOA_COLUMN(TimeFV0A, timeFV0A, std::vector<float>);   //! Time of non-zero channels. The channel IDs are given in Channel (at the same index). Only for the FITExtra table
 DECLARE_SOA_COLUMN(Channel, channel, std::vector<uint8_t>);   //! Channel IDs which had non-zero amplitudes. There are at maximum 48 channels.
 DECLARE_SOA_COLUMN(Time, time, float);                        //! Time in ns
 DECLARE_SOA_COLUMN(TriggerMask, triggerMask, uint8_t);        //!
@@ -1475,6 +1476,10 @@ DECLARE_SOA_COLUMN(TriggerMask, triggerMask, uint8_t);        //!
 DECLARE_SOA_TABLE(FV0As, "AOD", "FV0A", //!
                   o2::soa::Index<>, fv0a::BCId, fv0a::Amplitude, fv0a::Channel, fv0a::Time, fv0a::TriggerMask);
 using FV0A = FV0As::iterator;
+
+DECLARE_SOA_TABLE(FV0AsExtra, "AOD", "FV0AEXTRA", //! FV0AsExtra table
+                  o2::soa::Index<>, fv0a::BCId, fv0a::TimeFV0A);
+using FV0AExtra = FV0AsExtra::iterator;
 
 // V0C table for Run2 only
 namespace fv0c
@@ -1493,8 +1498,10 @@ namespace ft0
 {
 DECLARE_SOA_INDEX_COLUMN(BC, bc);                               //! BC index
 DECLARE_SOA_COLUMN(AmplitudeA, amplitudeA, std::vector<float>); //! Amplitudes of non-zero channels on the A-side. The channel IDs are given in ChannelA (at the same index)
+DECLARE_SOA_COLUMN(TimeFT0A, timeFT0A, std::vector<float>);     //! Time of non-zero channels on the A-side. The channel IDs are given in ChannelA (at the same index). Only for the FITExtra table
 DECLARE_SOA_COLUMN(ChannelA, channelA, std::vector<uint8_t>);   //! Channel IDs on the A side which had non-zero amplitudes. There are at maximum 96 channels.
 DECLARE_SOA_COLUMN(AmplitudeC, amplitudeC, std::vector<float>); //! Amplitudes of non-zero channels on the C-side. The channel IDs are given in ChannelC (at the same index)
+DECLARE_SOA_COLUMN(TimeFT0C, timeFT0C, std::vector<float>);     //! Time of non-zero channels on the C-side. The channel IDs are given in ChannelC (at the same index). Only for the FITExtra table
 DECLARE_SOA_COLUMN(ChannelC, channelC, std::vector<uint8_t>);   //! Channel IDs on the C side which had non-zero amplitudes. There are at maximum 112 channels.
 DECLARE_SOA_COLUMN(TimeA, timeA, float);                        //! Average A-side time
 DECLARE_SOA_COLUMN(TimeC, timeC, float);                        //! Average C-side time
@@ -1538,6 +1545,11 @@ DECLARE_SOA_TABLE(FT0s, "AOD", "FT0", //!
                   ft0::SumAmpA<ft0::AmplitudeA>, ft0::SumAmpC<ft0::AmplitudeC>);
 using FT0 = FT0s::iterator;
 
+DECLARE_SOA_TABLE(FT0sExtra, "AOD", "FT0EXTRA", //! FT0sExtra table
+                  o2::soa::Index<>, ft0::BCId,
+                  ft0::TimeFT0A, ft0::TimeFT0C);
+using FT0Extra = FT0sExtra::iterator;
+
 namespace fdd
 {
 DECLARE_SOA_INDEX_COLUMN(BC, bc);                     //! BC index
@@ -1546,6 +1558,9 @@ DECLARE_SOA_COLUMN(AmplitudeC, amplitudeC, float[4]); //! Amplitude in adjacent 
 
 DECLARE_SOA_COLUMN(ChargeA, chargeA, int16_t[8]); //! Amplitude per channel A-side
 DECLARE_SOA_COLUMN(ChargeC, chargeC, int16_t[8]); //! Amplitude per channel C-side
+
+DECLARE_SOA_COLUMN(TimeFDDA, timeFDDA, float[8]); //! Time per channel A-side, only for the FITExtra table
+DECLARE_SOA_COLUMN(TimeFDDC, timeFDDC, float[8]); //! Time per channel C-side, only for the FITExtra table
 
 DECLARE_SOA_COLUMN(TimeA, timeA, float);               //!
 DECLARE_SOA_COLUMN(TimeC, timeC, float);               //!
@@ -1567,6 +1582,11 @@ DECLARE_SOA_TABLE_VERSIONED(FDDs_001, "AOD", "FDD", 1, //! FDD table, version 00
 
 using FDDs = FDDs_001; //! this defines the current default version
 using FDD = FDDs::iterator;
+
+DECLARE_SOA_TABLE(FDDsExtra, "AOD", "FDDEXTRA", //! FDDsExtra table
+                  o2::soa::Index<>, fdd::BCId,
+                  fdd::TimeFDDA, fdd::TimeFDDC);
+using FDDExtra = FDDsExtra::iterator;
 
 namespace v0
 {

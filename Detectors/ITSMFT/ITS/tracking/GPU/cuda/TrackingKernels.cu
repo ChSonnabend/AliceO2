@@ -1066,19 +1066,19 @@ void computeCellsHandler(
     nSigmaCut);               // const float
 }
 
-void countCellNeighboursHandler(CellSeed** cellsLayersDevice,
-                                int* neighboursLUT,
-                                int** cellsLUTs,
-                                gpuPair<int, int>* cellNeighbours,
-                                int* neighboursIndexTable,
-                                const float maxChi2ClusterAttachment,
-                                const float bz,
-                                const int layerIndex,
-                                const unsigned int nCells,
-                                const unsigned int nCellsNext,
-                                const int maxCellNeighbours,
-                                const int nBlocks,
-                                const int nThreads)
+unsigned int countCellNeighboursHandler(CellSeed** cellsLayersDevice,
+                                        int* neighboursLUT,
+                                        int** cellsLUTs,
+                                        gpuPair<int, int>* cellNeighbours,
+                                        int* neighboursIndexTable,
+                                        const float maxChi2ClusterAttachment,
+                                        const float bz,
+                                        const int layerIndex,
+                                        const unsigned int nCells,
+                                        const unsigned int nCellsNext,
+                                        const int maxCellNeighbours,
+                                        const int nBlocks,
+                                        const int nThreads)
 {
   gpu::computeLayerCellNeighboursKernel<true><<<nBlocks, nThreads>>>(
     cellsLayersDevice,
@@ -1091,8 +1091,7 @@ void countCellNeighboursHandler(CellSeed** cellsLayersDevice,
     layerIndex,
     nCells,
     maxCellNeighbours);
-  // gpuCheckError(cudaPeekAtLastError());
-  // gpuCheckError(cudaDeviceSynchronize());
+
   void *d_temp_storage = nullptr, *d_temp_storage_2 = nullptr;
   size_t temp_storage_bytes = 0, temp_storage_bytes_2 = 0;
   gpuCheckError(cub::DeviceScan::InclusiveSum(d_temp_storage,     // d_temp_storage
@@ -1102,17 +1101,19 @@ void countCellNeighboursHandler(CellSeed** cellsLayersDevice,
                                               nCellsNext));       // num_items
 
   discardResult(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-  gpuCheckError(cub::DeviceScan::InclusiveSum(d_temp_storage,       // d_temp_storage
-                                              temp_storage_bytes,   // temp_storage_bytes
-                                              neighboursLUT,        // d_in
-                                              neighboursLUT,        // d_out
-                                              nCellsNext));         // num_items
+  gpuCheckError(cub::DeviceScan::InclusiveSum(d_temp_storage,     // d_temp_storage
+                                              temp_storage_bytes, // temp_storage_bytes
+                                              neighboursLUT,      // d_in
+                                              neighboursLUT,      // d_out
+                                              nCellsNext));       // num_items
+
   gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage_2,     // d_temp_storage
                                               temp_storage_bytes_2, // temp_storage_bytes
                                               neighboursIndexTable, // d_in
                                               neighboursIndexTable, // d_out
                                               nCells + 1,           // num_items
                                               0));                  // NOLINT: this is the offset of the sum, not a pointer
+
   discardResult(cudaMalloc(&d_temp_storage_2, temp_storage_bytes_2));
   gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage_2,     // d_temp_storage
                                               temp_storage_bytes_2, // temp_storage_bytes
@@ -1120,10 +1121,11 @@ void countCellNeighboursHandler(CellSeed** cellsLayersDevice,
                                               neighboursIndexTable, // d_out
                                               nCells + 1,           // num_items
                                               0));                  // NOLINT: this is the offset of the sum, not a pointer
+  unsigned int nNeighbours;
+  gpuCheckError(cudaMemcpy(&nNeighbours, &neighboursLUT[nCellsNext - 1], sizeof(unsigned int), cudaMemcpyDeviceToHost));
   gpuCheckError(cudaFree(d_temp_storage));
   gpuCheckError(cudaFree(d_temp_storage_2));
-  gpuCheckError(cudaPeekAtLastError());
-  gpuCheckError(cudaDeviceSynchronize());
+  return nNeighbours;
 }
 
 void computeCellNeighboursHandler(CellSeed** cellsLayersDevice,

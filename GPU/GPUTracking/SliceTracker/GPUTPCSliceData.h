@@ -21,7 +21,7 @@
 #include "GPUParam.h"
 #include "GPUProcessor.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -192,6 +192,6 @@ GPUdi() void GPUTPCSliceData::SetHitWeight(const GPUTPCRow& row, uint32_t hitInd
 
 GPUdi() int32_t GPUTPCSliceData::HitWeight(const GPUTPCRow& row, uint32_t hitIndex) const { return mHitWeights[row.mHitNumberOffset + hitIndex]; }
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // GPUTPCSLICEDATA_H

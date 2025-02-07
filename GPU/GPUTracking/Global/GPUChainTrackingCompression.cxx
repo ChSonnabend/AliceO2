@@ -16,20 +16,17 @@
 #include "GPULogging.h"
 #include "GPUO2DataTypes.h"
 #include "GPUTrackingInputProvider.h"
-#include <numeric>
-
-#ifdef GPUCA_HAVE_O2HEADERS
 #include "GPUTPCCFChainContext.h"
 #include "TPCClusterDecompressor.h"
-#endif
 #include "utils/strtag.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+#include <numeric>
+
+using namespace o2::gpu;
 using namespace o2::tpc;
 
 int32_t GPUChainTracking::RunTPCCompression()
 {
-#ifdef GPUCA_HAVE_O2HEADERS
   mRec->PushNonPersistentMemory(qStr2Tag("TPCCOMPR"));
   RecoStep myStep = RecoStep::TPCCompression;
   bool doGPU = GetRecoStepsGPU() & RecoStep::TPCCompression;
@@ -199,13 +196,11 @@ int32_t GPUChainTracking::RunTPCCompression()
     ((GPUChainTracking*)GetNextChainInQueue())->mRec->BlockStackedMemory(mRec);
   }
   mRec->PopNonPersistentMemory(RecoStep::TPCCompression, qStr2Tag("TPCCOMPR"));
-#endif
   return 0;
 }
 
 int32_t GPUChainTracking::RunTPCDecompression()
 {
-#ifdef GPUCA_HAVE_O2HEADERS
   if (GetProcessingSettings().tpcUseOldCPUDecoding) {
     const auto& threadContext = GetThreadContext();
     TPCClusterDecompressor decomp;
@@ -419,6 +414,5 @@ int32_t GPUChainTracking::RunTPCDecompression()
     }
     mRec->PopNonPersistentMemory(RecoStep::TPCDecompression, qStr2Tag("TPCDCMPR"));
   }
-#endif
   return 0;
 }

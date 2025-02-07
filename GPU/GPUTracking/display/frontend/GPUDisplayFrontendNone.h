@@ -17,7 +17,7 @@
 
 #include "GPUDisplayFrontend.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUDisplayFrontendNone : public GPUDisplayFrontend
 {
@@ -31,6 +31,6 @@ class GPUDisplayFrontendNone : public GPUDisplayFrontend
   void SetVSync(bool enable) override {}
   void OpenGLPrint(const char* s, float x, float y, float r, float g, float b, float a, bool fromBotton = true) override {}
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

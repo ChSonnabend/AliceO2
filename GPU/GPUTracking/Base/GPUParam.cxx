@@ -20,19 +20,12 @@
 #include "GPUTPCGMPolynomialFieldManager.h"
 #include "GPUDataTypes.h"
 #include "GPUConstantMem.h"
+#include "DetectorsBase/Propagator.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
-#ifdef GPUCA_ALIROOT_LIB
-#include "AliTPCClusterParam.h"
-#include "AliTPCcalibDB.h"
-#include <iostream>
-#endif
 #include <cstring>
 #include <tuple>
-#ifdef GPUCA_HAVE_O2HEADERS
-#include "DetectorsBase/Propagator.h"
-#endif
 
 #include "utils/qconfigrtc.h"
 
@@ -155,7 +148,7 @@ void GPUParam::UpdateSettings(const GPUSettingsGRP* g, const GPUSettingsProcessi
 void GPUParam::UpdateBzOnly(float newSolenoidBz)
 {
   bzkG = newSolenoidBz;
-  bzCLight = bzkG * GPUCA_NAMESPACE::gpu::gpu_common_constants::kCLight;
+  bzCLight = bzkG * o2::gpu::gpu_common_constants::kCLight;
   polynomialField.Reset();
   if (par.assumeConstantBz) {
     GPUTPCGMPolynomialFieldManager::GetPolynomialField(GPUTPCGMPolynomialFieldManager::kUniform, bzkG, polynomialField);
@@ -193,81 +186,6 @@ void GPUParam::UpdateRun3ClusterErrors(const float* yErrorParam, const float* zE
 #endif
 }
 
-#ifndef GPUCA_ALIROOT_LIB
-void GPUParam::LoadClusterErrors(bool Print)
-{
-}
-#else
-
-#include <iomanip>
-#include <iostream>
-void GPUParam::LoadClusterErrors(bool Print)
-{
-  // update of calculated values
-  const AliTPCClusterParam* clparam = AliTPCcalibDB::Instance()->GetClusterParam();
-  if (!clparam) {
-    std::cout << "Error: GPUParam::LoadClusterErrors():: No AliTPCClusterParam instance found !!!! " << std::endl;
-    return;
-  }
-
-  for (int32_t i = 0; i < 2; i++) {
-    for (int32_t j = 0; j < 3; j++) {
-      for (int32_t k = 0; k < 6; k++) {
-        ParamS0Par[i][j][k] = clparam->GetParamS0Par(i, j, k);
-      }
-    }
-  }
-
-  for (int32_t i = 0; i < 2; i++) {
-    for (int32_t j = 0; j < 3; j++) {
-      for (int32_t k = 0; k < 4; k++) {
-        ParamErrorsSeeding0[i][j][k] = clparam->GetParamRMS0(i, j, k);
-      }
-    }
-  }
-
-  if (Print) {
-    typedef std::numeric_limits<float> flt;
-    std::cout << std::scientific;
-    std::cout << std::setprecision(flt::max_digits10 + 2);
-    std::cout << "ParamS0Par[2][3][7]=" << std::endl;
-    std::cout << " { " << std::endl;
-    for (int32_t i = 0; i < 2; i++) {
-      std::cout << "   { " << std::endl;
-      for (int32_t j = 0; j < 3; j++) {
-        std::cout << " { ";
-        for (int32_t k = 0; k < 6; k++) {
-          std::cout << ParamS0Par[i][j][k] << ", ";
-        }
-        std::cout << " }, " << std::endl;
-      }
-      std::cout << "   }, " << std::endl;
-    }
-    std::cout << " }; " << std::endl;
-
-    std::cout << "ParamErrorsSeeding0[2][3][4]=" << std::endl;
-    std::cout << " { " << std::endl;
-    for (int32_t i = 0; i < 2; i++) {
-      std::cout << "   { " << std::endl;
-      for (int32_t j = 0; j < 3; j++) {
-        std::cout << " { ";
-        for (int32_t k = 0; k < 4; k++) {
-          std::cout << ParamErrorsSeeding0[i][j][k] << ", ";
-        }
-        std::cout << " }, " << std::endl;
-      }
-      std::cout << "   }, " << std::endl;
-    }
-    std::cout << " }; " << std::endl;
-
-    const THnBase* waveMap = clparam->GetWaveCorrectionMap();
-    const THnBase* resYMap = clparam->GetResolutionYMap();
-    std::cout << "waveMap = " << (void*)waveMap << std::endl;
-    std::cout << "resYMap = " << (void*)resYMap << std::endl;
-  }
-}
-#endif
-
 void GPUParamRTC::setFrom(const GPUParam& param)
 {
   memcpy((void*)this, (void*)&param, sizeof(param));
@@ -285,4 +203,4 @@ std::string GPUParamRTC::generateRTCCode(const GPUParam& param, bool useConstexp
          qConfigPrintRtc(std::make_tuple(&param.rec.tpc, &param.rec.trd, &param.rec, &param.par), useConstexpr);
 }
 
-static_assert(sizeof(GPUCA_NAMESPACE::gpu::GPUParam) == sizeof(GPUCA_NAMESPACE::gpu::GPUParamRTC), "RTC param size mismatch");
+static_assert(sizeof(o2::gpu::GPUParam) == sizeof(o2::gpu::GPUParamRTC), "RTC param size mismatch");

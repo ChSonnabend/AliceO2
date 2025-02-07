@@ -12,6 +12,7 @@
 #include "Generators/GeneratorService.h"
 #include "Generators/GeneratorFactory.h"
 #include "SimConfig/SimConfig.h"
+#include "Generators/Generator.h"
 #include "DataFormatsCalibration/MeanVertexObject.h"
 
 using namespace o2::eventgen;
@@ -23,6 +24,7 @@ void GeneratorService::initService(std::string const& genName,
   auto localSimConfig = o2::conf::SimConfig::make();
   localSimConfig.getConfigData().mGenerator = genName;
   localSimConfig.getConfigData().mTrigger = triggerName;
+  localSimConfig.getConfigData().mNEvents = o2::eventgen::Generator::getTotalNEvents();
 
   o2::eventgen::GeneratorFactory::setPrimaryGenerator(localSimConfig, &mPrimGen);
 

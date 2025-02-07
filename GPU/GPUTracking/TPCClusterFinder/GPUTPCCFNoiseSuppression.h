@@ -22,7 +22,7 @@
 #include "Array2D.h"
 #include "PackedCharge.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 struct ChargePos;
@@ -40,13 +40,11 @@ class GPUTPCCFNoiseSuppression : public GPUKernelTemplate
     PackedCharge buf[SCRATCH_PAD_WORK_GROUP_SIZE * SCRATCH_PAD_NOISE_N];
   };
 
-#ifdef GPUCA_HAVE_O2HEADERS
   typedef GPUTPCClusterFinder processorType;
   GPUhdi() static processorType* Processor(GPUConstantMem& processors)
   {
     return processors.tpcClusterer;
   }
-#endif
 
   GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep()
   {
@@ -72,6 +70,6 @@ class GPUTPCCFNoiseSuppression : public GPUKernelTemplate
   static GPUd() void findMinimaAndPeaks(const Array2D<PackedCharge>&, const Array2D<uint8_t>&, const GPUSettingsRec&, float, const ChargePos&, ChargePos*, PackedCharge*, uint64_t*, uint64_t*, uint64_t*);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

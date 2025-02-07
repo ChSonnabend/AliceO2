@@ -24,7 +24,7 @@
 #include <list>
 #include <functional>
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -142,6 +142,6 @@ class IrregularSpline2D3DCalibrator
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

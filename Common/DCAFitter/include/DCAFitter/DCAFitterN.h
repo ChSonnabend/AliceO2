@@ -324,6 +324,13 @@ class DCAFitterN
     pnt[2] = tr.getZ();
   }
 
+  GPUdi() void clearLogThrottlers()
+  {
+    mLoggerBadCov.clear();
+    mLoggerBadInv.clear();
+    mLoggerBadProp.clear();
+  }
+
   void setBadCovPolicy(BadCovPolicy v) { mBadCovPolicy = v; }
   BadCovPolicy getBadCovPolicy() const { return mBadCovPolicy; }
 
@@ -1084,10 +1091,16 @@ template <int N, typename... Args>
 GPUd() void DCAFitterN<N, Args...>::print() const
 {
 #ifndef GPUCA_GPUCODE_DEVICE
-  LOG(info) << N << "-prong vertex fitter in " << (mUseAbsDCA ? "abs." : "weighted") << " distance minimization mode";
-  LOG(info) << "Bz: " << mBz << " MaxIter: " << mMaxIter << " MaxChi2: " << mMaxChi2;
+  LOG(info) << N << "-prong vertex fitter in " << (mUseAbsDCA ? "abs." : "weighted") << " distance minimization mode, collinear tracks mode: " << (mIsCollinear ? "ON" : "OFF");
+  LOG(info) << "Bz: " << mBz << " MaxIter: " << mMaxIter << " MaxChi2: " << mMaxChi2 << " MatCorrType: " << int(mMatCorr);
   LOG(info) << "Stopping condition: Max.param change < " << mMinParamChange << " Rel.Chi2 change > " << mMinRelChi2Change;
   LOG(info) << "Discard candidates for : Rvtx > " << getMaxR() << " DZ between tracks > " << mMaxDZIni;
+  LOG(info) << "PropagateToPCA:" << mPropagateToPCA << " WeightedFinalPCA:" << mWeightedFinalPCA << " UsePropagator:" << mUsePropagator << " RefitWithMatCorr:" << mRefitWithMatCorr;
+  std::string rep{};
+  for (int i = 0; i < mCrossings.nDCA; i++) {
+    rep += fmt::format("seed{}:{}/{} ", i, mTrPropDone[i], mPropFailed[i]);
+  }
+  LOG(info) << "Last call: NCand:" << mCurHyp << " from " << mCrossings.nDCA << " seeds, prop.done/failed: " << rep;
 #else
   if (mUseAbsDCA) {
     printf("%d-prong vertex fitter in abs. distance minimization mode\n", N);

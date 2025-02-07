@@ -17,8 +17,8 @@
 #include "Spline2D.h"
 
 #if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) // code invisible on GPU and in the standalone compilation
-templateClassImp(GPUCA_NAMESPACE::gpu::Spline2D);
+templateClassImp(o2::gpu::Spline2D);
 #endif
 
-template class GPUCA_NAMESPACE::gpu::Spline2D<float>;
-template class GPUCA_NAMESPACE::gpu::Spline2D<double>;
+template class o2::gpu::Spline2D<float>;
+template class o2::gpu::Spline2D<double>;

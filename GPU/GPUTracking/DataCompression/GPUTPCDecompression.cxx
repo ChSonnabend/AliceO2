@@ -19,7 +19,7 @@
 #include "GPUMemorySizeScalers.h"
 #include "GPULogging.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 void GPUTPCDecompression::InitializeProcessor() {}
 

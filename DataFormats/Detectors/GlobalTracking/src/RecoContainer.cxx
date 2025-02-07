@@ -1447,7 +1447,7 @@ RecoContainer::GlobalIDSet RecoContainer::getSingleDetectorRefs(GTrackID gidx) c
     table[GTrackID::MCH] = parent0.getMCHRef();
     table[GTrackID::MID] = parent0.getMIDRef();
   }
-  return std::move(table);
+  return table;
 }
 
 //________________________________________________________

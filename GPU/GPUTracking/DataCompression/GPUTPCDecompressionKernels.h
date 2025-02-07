@@ -19,18 +19,9 @@
 #include "GPUO2DataTypes.h"
 #include "GPUParam.h"
 #include "GPUConstantMem.h"
-
-#ifdef GPUCA_HAVE_O2HEADERS
 #include "DataFormatsTPC/CompressedClusters.h"
-#else
-namespace o2::tpc
-{
-struct CompressedClusters {
-};
-} // namespace o2::tpc
-#endif
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 class GPUTPCDecompressionKernels : public GPUKernelTemplate
@@ -70,5 +61,5 @@ class GPUTPCDecompressionUtilKernels : public GPUKernelTemplate
   GPUdi() static bool isClusterKept(const o2::tpc::ClusterNative& cl, const GPUParam& GPUrestrict() param);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 #endif // GPUTPCDECOMPRESSIONKERNELS_H

@@ -24,7 +24,7 @@ template <class T>
 class CalDet;
 } // namespace o2::tpc
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 template <typename T>
@@ -157,6 +157,6 @@ struct TPCPadGainCalib {
   SectorPadGainCorrection<uint16_t> mGainCorrection[GPUCA_NSLICES];
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

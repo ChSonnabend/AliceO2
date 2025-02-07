@@ -17,26 +17,26 @@
 #include "CommonUtils/ConfigurableParam.h"
 #include "CommonUtils/ConfigurableParamHelper.h"
 
-namespace o2
-{
-namespace gloqc
+namespace o2::gloqc
 {
 
 // There are configurable params for TPC-ITS matching
 struct ITSTPCMatchingQCParams : public o2::conf::ConfigurableParamHelper<ITSTPCMatchingQCParams> {
 
-  float minPtITSCut = 0.f;
-  float etaITSCut = 1e10f;
+  int nBinsPt = 100;
+  float minPtITSCut = 0.1;
+  float etaITSCut = 1.4;
   int32_t minNITSClustersCut = 0;
-  int32_t maxChi2PerClusterITS = 100000;
-  float minPtTPCCut = 0.1f;
-  float etaTPCCut = 0.9f;
+  float maxChi2PerClusterITS = 1e10;
+  float minPtTPCCut = 0.1;
+  float etaTPCCut = 1.4;
   int32_t minNTPCClustersCut = 60;
-  float minDCACut = 100.f;
-  float minDCACutY = 10.f;
-  float minPtCut = 0.f;
-  float maxPtCut = 1e10f;
-  float etaCut = 1.e10f;
+  float minDCACut = 100.;
+  float minDCACutY = 10.;
+  float minPtCut = 0.1;
+  float maxPtCut = 20;
+  float etaCut = 1.4;
+  float etaNo0Cut = 0.05;
   float cutK0Mass = 0.05f;
   float maxEtaK0 = 0.8f;
   float K0Scaling = 1.f;
@@ -52,7 +52,7 @@ struct ITSTPCMatchingQCParams : public o2::conf::ConfigurableParamHelper<ITSTPCM
   O2ParamDef(ITSTPCMatchingQCParams, "ITSTPCMatchingQC");
 };
 
-} // namespace gloqc
-} // end namespace o2
+} // namespace o2::gloqc
+  // end namespace o2
 
 #endif

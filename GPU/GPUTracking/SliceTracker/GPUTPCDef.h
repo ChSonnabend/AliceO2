@@ -21,7 +21,7 @@
 #define CALINK_INVAL ((calink) -1)
 #define CALINK_DEAD_CHANNEL ((calink) -2)
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -34,7 +34,7 @@ typedef uint32_t cahit;
 #endif
 struct cahit2 { cahit x, y; };
 }
-} // GPUCA_NAMESPACE::GPU
+} // o2::GPU
 
 #ifdef GPUCA_TPC_RAW_PROPAGATE_PAD_ROW_TIME // Needs full clusterdata
   #define GPUCA_FULL_CLUSTERDATA

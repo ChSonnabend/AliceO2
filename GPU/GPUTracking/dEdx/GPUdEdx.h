@@ -20,28 +20,14 @@
 #include "GPUCommonMath.h"
 #include "GPUParam.h"
 #include "GPUdEdxInfo.h"
-#if defined(GPUCA_HAVE_O2HEADERS)
 #include "DataFormatsTPC/Defs.h"
 #include "CalibdEdxContainer.h"
 #include "GPUDebugStreamer.h"
-#endif
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
-#if !defined(GPUCA_HAVE_O2HEADERS)
-
-class GPUdEdx
-{
- public:
-  GPUd() void clear() {}
-  GPUd() void fillCluster(float qtot, float qmax, int32_t padRow, uint8_t slice, float trackSnp, float trackTgl, const GPUParam& param, const GPUCalibObjectsConst& calib, float z, float pad, float relTime) {}
-  GPUd() void fillSubThreshold(int32_t padRow, const GPUParam& param) {}
-  GPUd() void computedEdx(GPUdEdxInfo& output, const GPUParam& param) {}
-};
-
-#else
 
 class GPUdEdx
 {
@@ -212,8 +198,7 @@ GPUdi() void GPUdEdx::fillSubThreshold(int32_t padRow, const GPUParam& GPUrestri
   mNSubThresh++;
 }
 
-#endif // !GPUCA_HAVE_O2HEADERS
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

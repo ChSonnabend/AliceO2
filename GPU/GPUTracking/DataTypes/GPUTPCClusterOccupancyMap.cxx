@@ -15,7 +15,7 @@
 #include "GPUTPCClusterOccupancyMap.h"
 #include "GPUParam.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 GPUd() uint32_t GPUTPCClusterOccupancyMapBin::getNBins(const GPUParam& param)
 {

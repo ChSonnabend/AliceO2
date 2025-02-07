@@ -20,7 +20,7 @@
 #include "GPUCommonDef.h"
 #include <vector>
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -106,6 +106,6 @@ inline double ChebyshevFit1D::eval(double x)
 }
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

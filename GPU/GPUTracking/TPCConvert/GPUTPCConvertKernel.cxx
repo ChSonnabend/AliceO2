@@ -19,7 +19,7 @@
 #include "GPUO2DataTypes.h"
 #include "GPUTPCConvertImpl.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 template <>
 GPUdii() void GPUTPCConvertKernel::Thread<0>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() processors)

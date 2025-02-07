@@ -20,7 +20,7 @@
 
 #include "GPUCommonDef.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -174,6 +174,6 @@ inline void RegularSpline1D::correctEdges(T* data) const
 }
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

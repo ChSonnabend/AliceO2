@@ -46,7 +46,7 @@ std::string strToUpper(std::string&& str);
 namespace o2::soa
 {
 void accessingInvalidIndexFor(const char* getter);
-void dereferenceWithWrongType();
+void dereferenceWithWrongType(const char* getter, const char* target);
 void missingFilterDeclaration(int hash, int ai);
 void notBoundTable(const char* tableName);
 } // namespace o2::soa
@@ -2473,7 +2473,7 @@ consteval auto getIndexTargets()
       }                                                                                                  \
       auto t = mBinding.get<T>();                                                                        \
       if (O2_BUILTIN_UNLIKELY(t == nullptr)) {                                                           \
-        o2::soa::dereferenceWithWrongType();                                                             \
+        o2::soa::dereferenceWithWrongType(#_Getter_, #_Table_);                                          \
       }                                                                                                  \
       if (O2_BUILTIN_UNLIKELY(!has_##_Getter_())) {                                                      \
         return t->emptySlice();                                                                          \
@@ -2558,7 +2558,7 @@ consteval auto getIndexTargets()
       }                                                                                                  \
       auto t = mBinding.get<T>();                                                                        \
       if (O2_BUILTIN_UNLIKELY(t == nullptr)) {                                                           \
-        o2::soa::dereferenceWithWrongType();                                                             \
+        o2::soa::dereferenceWithWrongType(#_Getter_, #_Table_);                                          \
       }                                                                                                  \
       return getIterators<T>();                                                                          \
     }                                                                                                    \
@@ -2571,7 +2571,7 @@ consteval auto getIndexTargets()
       }                                                                                                  \
       auto t = mBinding.get<T>();                                                                        \
       if (O2_BUILTIN_UNLIKELY(t == nullptr)) {                                                           \
-        o2::soa::dereferenceWithWrongType();                                                             \
+        o2::soa::dereferenceWithWrongType(#_Getter_, #_Table_);                                          \
       }                                                                                                  \
       return getFilteredIterators<T>();                                                                  \
     }                                                                                                    \
@@ -2617,7 +2617,7 @@ consteval auto getIndexTargets()
       }                                                                                                  \
       auto t = mBinding.get<T>();                                                                        \
       if (O2_BUILTIN_UNLIKELY(t == nullptr)) {                                                           \
-        o2::soa::dereferenceWithWrongType();                                                             \
+        o2::soa::dereferenceWithWrongType(#_Getter_, #_Table_);                                          \
       }                                                                                                  \
       return t->rawIteratorAt((*mColumnIterator)[0]);                                                    \
     }                                                                                                    \
@@ -2630,7 +2630,7 @@ consteval auto getIndexTargets()
       }                                                                                                  \
       auto t = mBinding.get<T>();                                                                        \
       if (O2_BUILTIN_UNLIKELY(t == nullptr)) {                                                           \
-        o2::soa::dereferenceWithWrongType();                                                             \
+        o2::soa::dereferenceWithWrongType(#_Getter_, #_Table_);                                          \
       }                                                                                                  \
       return t->rawIteratorAt((*mColumnIterator).back());                                                \
     }                                                                                                    \
@@ -2715,7 +2715,7 @@ consteval auto getIndexTargets()
       }                                                                                                                                                                      \
       auto t = mBinding.get<T>();                                                                                                                                            \
       if (O2_BUILTIN_UNLIKELY(t == nullptr)) {                                                                                                                               \
-        o2::soa::dereferenceWithWrongType();                                                                                                                                 \
+        o2::soa::dereferenceWithWrongType(#_Getter_, #_Table_);                                                                                                              \
       }                                                                                                                                                                      \
       return t->rawIteratorAt(*mColumnIterator);                                                                                                                             \
     }                                                                                                                                                                        \
@@ -2793,7 +2793,7 @@ consteval auto getIndexTargets()
       }                                                                                                                                                            \
       auto t = mBinding.get<T>();                                                                                                                                  \
       if (O2_BUILTIN_UNLIKELY(t == nullptr)) {                                                                                                                     \
-        o2::soa::dereferenceWithWrongType();                                                                                                                       \
+        o2::soa::dereferenceWithWrongType(#_Getter_, "self");                                                                                                      \
       }                                                                                                                                                            \
       return t->rawIteratorAt(*mColumnIterator);                                                                                                                   \
     }                                                                                                                                                              \
@@ -2851,7 +2851,7 @@ consteval auto getIndexTargets()
     {                                                                                                    \
       auto t = mBinding.get<T>();                                                                        \
       if (O2_BUILTIN_UNLIKELY(t == nullptr)) {                                                           \
-        o2::soa::dereferenceWithWrongType();                                                             \
+        o2::soa::dereferenceWithWrongType(#_Getter_, "self");                                            \
       }                                                                                                  \
       if (O2_BUILTIN_UNLIKELY(!has_##_Getter_())) {                                                      \
         return t->emptySlice();                                                                          \
@@ -2912,7 +2912,7 @@ consteval auto getIndexTargets()
     {                                                                                                    \
       auto t = mBinding.get<T>();                                                                        \
       if (O2_BUILTIN_UNLIKELY(t == nullptr)) {                                                           \
-        o2::soa::dereferenceWithWrongType();                                                             \
+        o2::soa::dereferenceWithWrongType(#_Getter_, "self");                                            \
       }                                                                                                  \
       return getIterators<T>();                                                                          \
     }                                                                                                    \

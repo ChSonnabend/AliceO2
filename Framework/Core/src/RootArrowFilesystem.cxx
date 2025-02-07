@@ -25,6 +25,7 @@
 #include <arrow/result.h>
 #include <arrow/status.h>
 #include <fmt/format.h>
+#include <TKey.h>
 
 template class
   std::shared_ptr<arrow::Array>;
@@ -41,22 +42,40 @@ TFileFileSystem::TFileFileSystem(TDirectoryFile* f, size_t readahead, RootObject
   ((TFile*)mFile)->SetReadaheadSize(50 * 1024 * 1024);
 }
 
-std::shared_ptr<VirtualRootFileSystemBase> TFileFileSystem::GetSubFilesystem(arrow::dataset::FileSource source)
+std::shared_ptr<RootObjectHandler> TFileFileSystem::GetObjectHandler(arrow::dataset::FileSource source)
 {
   // We use a plugin to create the actual objects inside the
   // file, so that we can support TTree and RNTuple at the same time
   // without having to depend on both.
   for (auto& capability : mObjectFactory.capabilities) {
     auto objectPath = capability.lfn2objectPath(source.path());
-    void* handle = capability.getHandle(mFile, objectPath);
+    void* handle = capability.getHandle(shared_from_this(), objectPath);
     if (!handle) {
       continue;
     }
+    return std::make_shared<RootObjectHandler>(handle, capability.factory().format());
+  }
+  throw runtime_error_f("Unable to get handler for object %s", source.path().c_str());
+}
+
+bool TFileFileSystem::CheckSupport(arrow::dataset::FileSource source)
+{
+  // We use a plugin to create the actual objects inside the
+  // file, so that we can support TTree and RNTuple at the same time
+  // without having to depend on both.
+  for (auto& capability : mObjectFactory.capabilities) {
+    auto objectPath = capability.lfn2objectPath(source.path());
+
+    void* handle = capability.getHandle(shared_from_this(), objectPath);
     if (handle) {
-      return capability.factory().getSubFilesystem(handle);
+      return true;
     }
   }
+  return false;
+}
 
+std::shared_ptr<VirtualRootFileSystemBase> TFileFileSystem::GetSubFilesystem(arrow::dataset::FileSource source)
+{
   auto directory = (TDirectoryFile*)mFile->GetObjectChecked(source.path().c_str(), TClass::GetClass<TDirectory>());
   if (directory) {
     return std::shared_ptr<VirtualRootFileSystemBase>(new TFileFileSystem(directory, 50 * 1024 * 1024, mObjectFactory));
@@ -233,19 +252,53 @@ arrow::Result<arrow::fs::FileInfo> TBufferFileFS::GetFileInfo(const std::string&
   return result;
 }
 
-std::shared_ptr<VirtualRootFileSystemBase> TBufferFileFS::GetSubFilesystem(arrow::dataset::FileSource source)
+bool TBufferFileFS::CheckSupport(arrow::dataset::FileSource source)
 {
   // We use a plugin to create the actual objects inside the
   // file, so that we can support TTree and RNTuple at the same time
   // without having to depend on both.
   for (auto& capability : mObjectFactory.capabilities) {
+    auto objectPath = capability.lfn2objectPath(source.path());
 
-    void* handle = capability.getBufferHandle(mBuffer, source.path());
-    if (handle) {
-      mFilesystem = capability.factory().getSubFilesystem(handle);
-      break;
+    mBuffer->SetBufferOffset(0);
+    mBuffer->InitMap();
+    TClass* serializedClass = mBuffer->ReadClass();
+    mBuffer->SetBufferOffset(0);
+    mBuffer->ResetMap();
+    mBuffer->Reset();
+    if (!serializedClass) {
+      continue;
+    }
+
+    bool supports = capability.checkSupport(serializedClass->GetName());
+    if (supports) {
+      return true;
     }
   }
-  return mFilesystem;
+  return false;
 }
+
+std::shared_ptr<RootObjectHandler> TBufferFileFS::GetObjectHandler(arrow::dataset::FileSource source)
+{
+  // We use a plugin to create the actual objects inside the
+  // file, so that we can support TTree and RNTuple at the same time
+  // without having to depend on both.
+  for (auto& capability : mObjectFactory.capabilities) {
+    auto objectPath = capability.lfn2objectPath(source.path());
+    void* handle = capability.getHandle(shared_from_this(), objectPath);
+    if (!handle) {
+      continue;
+    }
+    return std::make_shared<RootObjectHandler>(handle, capability.factory().format());
+  }
+  throw runtime_error_f("Unable to get handler for object %s", source.path().c_str());
+}
+
+RootObjectHandler::~RootObjectHandler() noexcept(false)
+{
+  if (payload) {
+    throw runtime_error_f("Payload not owned");
+  }
+}
+
 } // namespace o2::framework

@@ -18,7 +18,7 @@
 #include "GPUDefMacros.h"
 #include "GPULogging.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 #define GPUCA_MAX_ERRORS 255u
 

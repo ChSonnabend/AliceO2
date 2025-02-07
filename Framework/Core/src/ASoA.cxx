@@ -21,9 +21,9 @@ void accessingInvalidIndexFor(const char* getter)
 {
   throw o2::framework::runtime_error_f("Accessing invalid index for %s", getter);
 }
-void dereferenceWithWrongType()
+void dereferenceWithWrongType(const char* getter, const char* target)
 {
-  throw o2::framework::runtime_error_f("Trying to dereference index with a wrong type in _as<>. Note that if you have several compatible index targets in your process() signature, the last one will be the one actually bound to the getter.");
+  throw o2::framework::runtime_error_f("Trying to dereference index with a wrong type in %s_as<T> for base target \"%s\". Note that if you have several compatible index targets in your process() signature, the last one will be the one actually bound.", getter, target);
 }
 void missingFilterDeclaration(int hash, int ai)
 {

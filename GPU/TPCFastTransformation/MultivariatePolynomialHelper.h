@@ -28,7 +28,7 @@
 
 class TLinearFitter;
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 #if !defined(GPUCA_GPUCODE)
@@ -325,6 +325,6 @@ GPUd() constexpr float MultivariatePolynomialHelper<Dim, Degree, InteractionOnly
   return 0;
 }
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

@@ -31,7 +31,7 @@
 #include <iostream>
 #include <iomanip>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 using namespace std;
 
 TPCFastTransformQA::TPCFastTransformQA() {}

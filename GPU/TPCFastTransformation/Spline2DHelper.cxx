@@ -36,7 +36,7 @@
 #include <iostream>
 #include <chrono>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 template <typename DataT>
 Spline2DHelper<DataT>::Spline2DHelper() : mError(), mFdimensions(0), mHelperU1(), mHelperU2()
@@ -405,7 +405,6 @@ void Spline2DHelper<DataT>::approximateDataPoints(
   }
 }
 
-#ifndef GPUCA_ALIROOT_LIB
 template <typename DataT>
 int32_t Spline2DHelper<DataT>::test(const bool draw, const bool drawDataPoints)
 {
@@ -668,7 +667,6 @@ int32_t Spline2DHelper<DataT>::test(const bool draw, const bool drawDataPoints)
 
   return 0;
 }
-#endif
 
-template class GPUCA_NAMESPACE::gpu::Spline2DHelper<float>;
-template class GPUCA_NAMESPACE::gpu::Spline2DHelper<double>;
+template class o2::gpu::Spline2DHelper<float>;
+template class o2::gpu::Spline2DHelper<double>;

@@ -19,7 +19,7 @@
 #include "GPUTPCDef.h"
 #include "GPUCommonMath.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -182,6 +182,6 @@ GPUdi() void GPUTPCTrackParam::InitParam()
   SetZOffset(0);
 }
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // GPUTPCTRACKPARAM_H

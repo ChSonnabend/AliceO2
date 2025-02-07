@@ -384,6 +384,24 @@ bool validateSchema(std::shared_ptr<arrow::Schema> schema)
   return true;
 }
 
+bool validatePhysicalSchema(std::shared_ptr<arrow::Schema> schema)
+{
+  REQUIRE(schema->num_fields() == 12);
+  REQUIRE(schema->field(0)->type()->id() == arrow::float32()->id());
+  REQUIRE(schema->field(1)->type()->id() == arrow::float32()->id());
+  REQUIRE(schema->field(2)->type()->id() == arrow::float32()->id());
+  REQUIRE(schema->field(3)->type()->id() == arrow::float64()->id());
+  REQUIRE(schema->field(4)->type()->id() == arrow::int32()->id());
+  REQUIRE(schema->field(5)->type()->id() == arrow::fixed_size_list(arrow::float32(), 3)->id());
+  REQUIRE(schema->field(6)->type()->id() == arrow::fixed_size_list(arrow::int32(), 2)->id());
+  REQUIRE(schema->field(7)->type()->id() == arrow::boolean()->id());
+  REQUIRE(schema->field(8)->type()->id() == arrow::fixed_size_list(arrow::boolean(), 2)->id());
+  REQUIRE(schema->field(9)->type()->id() == arrow::int32()->id());
+  REQUIRE(schema->field(10)->type()->id() == arrow::list(arrow::int32())->id());
+  REQUIRE(schema->field(11)->type()->id() == arrow::int8()->id());
+  return true;
+}
+
 TEST_CASE("RootTree2Dataset")
 {
   using namespace o2::framework;
@@ -502,12 +520,22 @@ TEST_CASE("RootTree2Dataset")
 
   arrow::dataset::FileSource source("DF_2/tracks", fs);
   REQUIRE(format->IsSupported(source) == true);
-  auto schemaOpt = format->Inspect(source);
-  REQUIRE(schemaOpt.ok());
-  auto schema = *schemaOpt;
+  auto physicalSchema = format->Inspect(source);
+  REQUIRE(physicalSchema.ok());
+  REQUIRE(validatePhysicalSchema(*physicalSchema));
+  // Create the dataset schema rather than using the physical one
+  std::vector<std::shared_ptr<arrow::Field>> fields;
+  for (auto& field : (*(physicalSchema))->fields()) {
+    if (field->name().ends_with("_size")) {
+      continue;
+    }
+    fields.push_back(field);
+  }
+  std::shared_ptr<arrow::Schema> schema = std::make_shared<arrow::Schema>(fields);
+
   validateSchema(schema);
 
-  auto fragment = format->MakeFragment(source, {}, schema);
+  auto fragment = format->MakeFragment(source, {}, *physicalSchema);
   REQUIRE(fragment.ok());
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
   options->dataset_schema = schema;
@@ -537,20 +565,41 @@ TEST_CASE("RootTree2Dataset")
   {
     REQUIRE(success.ok());
     // Let's read it back...
+    auto tfileFs = std::dynamic_pointer_cast<TFileFileSystem>(outFs);
+    REQUIRE(tfileFs.get());
+    REQUIRE(tfileFs->GetFile());
+    REQUIRE(tfileFs->GetFile()->GetObjectChecked("/DF_3", TClass::GetClass("TTree")));
     arrow::dataset::FileSource source2("/DF_3", outFs);
-    auto newTreeFS = outFs->GetSubFilesystem(source2);
 
-    REQUIRE(format->IsSupported(source) == true);
+    REQUIRE(format->IsSupported(source2) == true);
+    tfileFs = std::dynamic_pointer_cast<TFileFileSystem>(source2.filesystem());
+    REQUIRE(tfileFs.get());
+    REQUIRE(tfileFs->GetFile());
+    REQUIRE(tfileFs->GetFile()->GetObjectChecked("/DF_3", TClass::GetClass("TTree")));
 
-    auto schemaOptWritten = format->Inspect(source);
+    auto schemaOptWritten = format->Inspect(source2);
+    tfileFs = std::dynamic_pointer_cast<TFileFileSystem>(source2.filesystem());
+    REQUIRE(tfileFs.get());
+    REQUIRE(tfileFs->GetFile());
+    REQUIRE(tfileFs->GetFile()->GetObjectChecked("/DF_3", TClass::GetClass("TTree")));
     REQUIRE(schemaOptWritten.ok());
     auto schemaWritten = *schemaOptWritten;
-    REQUIRE(validateSchema(schemaWritten));
 
-    auto fragmentWritten = format->MakeFragment(source, {}, schema);
+    REQUIRE(validatePhysicalSchema(schemaWritten));
+    std::vector<std::shared_ptr<arrow::Field>> fields;
+    for (auto& field : schemaWritten->fields()) {
+      if (field->name().ends_with("_size")) {
+        continue;
+      }
+      fields.push_back(field);
+    }
+    std::shared_ptr<arrow::Schema> schema = std::make_shared<arrow::Schema>(fields);
+    REQUIRE(validateSchema(schema));
+
+    auto fragmentWritten = format->MakeFragment(source2, {}, *physicalSchema);
     REQUIRE(fragmentWritten.ok());
     auto optionsWritten = std::make_shared<arrow::dataset::ScanOptions>();
-    options->dataset_schema = schemaWritten;
+    options->dataset_schema = schema;
     auto scannerWritten = format->ScanBatchesAsync(optionsWritten, *fragment);
     REQUIRE(scannerWritten.ok());
     auto batchesWritten = (*scanner)();
@@ -572,7 +621,6 @@ TEST_CASE("RootTree2Dataset")
 
   // And now we can read back the RNTuple into a RecordBatch
   arrow::dataset::FileSource writtenRntupleSource("/rntuple", outFs);
-  auto newRNTupleFS = outFs->GetSubFilesystem(writtenRntupleSource);
 
   REQUIRE(rNtupleFormat->IsSupported(writtenRntupleSource) == true);
 

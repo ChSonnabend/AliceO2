@@ -28,7 +28,7 @@
 
 union hmm_mat4;
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUDisplay;
 class GPUDisplayFrontend;
@@ -131,6 +131,6 @@ class GPUDisplayBackend
 
   std::unique_ptr<GPUDisplayMagneticField> mMagneticFieldVisualization;
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

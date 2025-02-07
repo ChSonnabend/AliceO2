@@ -20,13 +20,15 @@
 #include "GPUROOTDumpCore.h"
 #include <TTree.h>
 #include <TNtuple.h>
-#include <memory>
-#include <stdexcept>
 #else
 class TNtuple;
 #endif
+#ifndef GPUCA_GPUCODE
+#include <memory>
+#include <stdexcept>
+#endif
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -171,6 +173,6 @@ class GPUROOTDump
 };
 #endif
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

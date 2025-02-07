@@ -19,7 +19,7 @@
 #include "GPUCommonAlgorithm.h"
 #include "TPCClusterDecompressionCore.inc"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 using namespace o2::tpc;
 
 template <>

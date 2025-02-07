@@ -57,6 +57,9 @@ const std::unordered_map<FEEConfig::Tags, const std::string> FEEConfig::TagNames
   {Tags::Physics30sigma, "Physics30sigma"},
   {Tags::Physics25sigma, "Physics25sigma"},
   {Tags::Laser10ADCoff, "Laser10ADCoff"},
+  {Tags::TestNoFilters, "TestNoFilter"},
+  {Tags::Physics2025sigma, "Physics2025sigma"},
+  {Tags::Physics30sigmaPbPb, "Physics30sigmaPbPb"},
 };
 
 const std::unordered_map<FEEConfig::PadConfig, const std::string> FEEConfig::PadConfigNames{

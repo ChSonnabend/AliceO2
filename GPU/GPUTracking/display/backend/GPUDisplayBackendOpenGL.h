@@ -19,7 +19,7 @@
 
 #include <vector>
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 struct GLfb {
   uint32_t fb_id = 0, fbCol_id = 0, fbDepth_id = 0;
@@ -120,6 +120,6 @@ class GPUDisplayBackendOpenGL : public GPUDisplayBackend
   GLfb mMixBuffer;
   GLfb mOffscreenBufferMSAA, mOffscreenBuffer;
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

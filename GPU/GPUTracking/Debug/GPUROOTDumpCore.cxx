@@ -19,7 +19,7 @@
 #include <memory>
 #include <TFile.h>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 std::weak_ptr<GPUROOTDumpCore> GPUROOTDumpCore::sInstance;
 

@@ -18,7 +18,7 @@
 #include "GPUTPCBaseTrackParam.h"
 #include "GPUTPCDef.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -55,6 +55,6 @@ class GPUTPCTracklet
   uint32_t mFirstHit;     // first hit in row hit array
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // GPUTPCTRACKLET_H

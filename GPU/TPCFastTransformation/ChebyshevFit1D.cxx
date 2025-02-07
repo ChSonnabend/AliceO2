@@ -20,7 +20,7 @@
 #include "GPUCommonLogger.h"
 #include <cmath>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 void ChebyshevFit1D::reset(int32_t order, double xMin, double xMax)
 {

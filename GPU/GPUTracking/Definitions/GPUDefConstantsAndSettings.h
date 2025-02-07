@@ -22,12 +22,12 @@
 
 #include "GPUCommonDef.h"
 
-#if !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB) && !defined(GPUCA_O2_LIB) && !defined(GPUCA_O2_INTERFACE)
-  #error You are using the CA GPU tracking without defining the build type (O2/AliRoot/Standalone). If you are running an O2 ROOT macro, please include GPUO2Interface.h first!
+#if !defined(GPUCA_STANDALONE) && !defined(GPUCA_O2_LIB) && !defined(GPUCA_O2_INTERFACE)
+  #error You are using the CA GPU tracking without defining the build type (O2/Standalone). If you are running an O2 ROOT macro, please include GPUO2Interface.h first!
 #endif
 
-#if (defined(GPUCA_ALIROOT_LIB) && defined(GPUCA_O2_LIB)) || (defined(GPUCA_ALIROOT_LIB) && defined(GPUCA_STANDALONE)) || (defined(GPUCA_O2_LIB) && defined(GPUCA_STANDALONE))
-  #error Invalid Compile Definitions, need to build for either AliRoot or O2 or Standalone!
+#if (defined(GPUCA_O2_LIB) && defined(GPUCA_STANDALONE))
+  #error Invalid Compile Definitions, need to build for either O2 or Standalone!
 #endif
 
 #define GPUCA_TRACKLET_SELECTOR_MIN_HITS_B5(QPTB5) (CAMath::Abs(QPTB5) > 10 ? 10 : (CAMath::Abs(QPTB5) > 5 ? 15 : 29)) // Minimum hits should depend on Pt, low Pt tracks can have few hits. 29 Hits default, 15 for < 200 mev, 10 for < 100 mev
@@ -51,7 +51,7 @@
 #if defined(GPUCA_NSLICES) || defined(GPUCA_ROW_COUNT)
   #error GPUCA_NSLICES or GPUCA_ROW_COUNT already defined, do not include GPUTPCGeometry.h before!
 #endif
-#if defined(GPUCA_HAVE_O2HEADERS) && defined(GPUCA_TPC_GEOMETRY_O2) && !(defined(ROOT_VERSION_CODE) && ROOT_VERSION_CODE < 393216)
+#if defined(GPUCA_TPC_GEOMETRY_O2) && !(defined(ROOT_VERSION_CODE) && ROOT_VERSION_CODE < 393216)
   //Use definitions from the O2 headers if available for nicer code and type safety
   #include "DataFormatsTPC/Constants.h"
   #define GPUCA_NSLICES o2::tpc::constants::MAXSECTOR

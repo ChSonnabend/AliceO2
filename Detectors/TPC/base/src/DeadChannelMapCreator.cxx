@@ -43,13 +43,7 @@ void DeadChannelMapCreator::loadFEEConfigViaRunInfoTS(long timeStamp)
   if (mObjectValidity[CDBType::ConfigRunInfo].isValid(timeStamp)) {
     return;
   }
-  const auto meta = mCCDBApi.retrieveHeaders(CDBTypeMap.at(CDBType::ConfigRunInfo), {}, timeStamp);
-  mObjectValidity[CDBType::ConfigRunInfo].startvalidity = std::stol(meta.at("Valid-From"));
-  mObjectValidity[CDBType::ConfigRunInfo].endvalidity = std::stol(meta.at("Valid-Until"));
-  const long tag = std::stol(meta.at("Tag"));
-  LOGP(info, "Loading FEE config for time stamp {}, via RunInfo with Tag {}, RunType {}, runNumber {}, validity: {} - {}",
-       timeStamp, tag, meta.at("RunType"), meta.at("runNumber"), meta.at("Valid-From"), meta.at("Valid-Until"));
-  loadFEEConfig(tag, timeStamp);
+  loadFEEConfig(timeStamp);
 }
 
 //______________________________________________________________________________
@@ -59,13 +53,13 @@ void DeadChannelMapCreator::loadFEEConfigViaRunInfo(long timeStampOrRun)
 }
 
 //______________________________________________________________________________
-void DeadChannelMapCreator::loadFEEConfig(long tag, long createdNotAfter)
+void DeadChannelMapCreator::loadFEEConfig(long timeStamp)
 {
-  std::map<std::string, std::string> mm, meta;
-  const std::string createdNotAfterS = (createdNotAfter < 0) ? "" : std::to_string(createdNotAfter);
-  mFEEConfig.reset(mCCDBApi.retrieveFromTFileAny<o2::tpc::FEEConfig>(CDBTypeMap.at(CDBType::ConfigFEE), mm, tag, &meta, "", createdNotAfterS));
+  std::map<std::string, std::string> meta;
+  mFEEConfig.reset(mCCDBApi.retrieveFromTFileAny<o2::tpc::FEEConfig>(CDBTypeMap.at(CDBType::ConfigRunInfo), {}, timeStamp, &meta));
+  const long tag = std::stol(meta.at("Tag"));
   if (!mFEEConfig) {
-    LOGP(error, "Could not load {}/{}, createdNotAfter: {}", CDBTypeMap.at(CDBType::ConfigFEE), tag, createdNotAfterS);
+    LOGP(error, "Could not load {}/{}, createdNotAfter: {}", CDBTypeMap.at(CDBType::ConfigFEE), tag, timeStamp);
     return;
   }
   LOGP(info, "Using FEE config for Tag {}, ETag {}, Last-Modified {}", meta.at("Valid-From"), meta.at("ETag"), meta.at("Last-Modified"));

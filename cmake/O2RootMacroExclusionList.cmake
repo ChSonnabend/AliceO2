@@ -45,11 +45,7 @@ list(APPEND O2_ROOT_MACRO_EXCLUSION_LIST
             GPU/GPUTracking/Standalone/tools/dump.C # Needs AliRoot ALiHLTSystem
             GPU/GPUTracking/Standalone/tools/dumpTRDClusterMatrices.C # Needs AliRoot AliCDBManager, AliGeomManager and AliTRDgeometry
             GPU/GPUTracking/TRDTracking/macros/checkDbgOutput.C # Needs AliRoot TStatToolkit
-            GPU/TPCFastTransformation/alirootMacro/createTPCFastTransform.C # Needs AliTPCCalibDB
-            GPU/TPCFastTransformation/alirootMacro/generateTPCDistortionNTupleAliRoot.C # Needs AliTPCCalibDB
-            GPU/TPCFastTransformation/alirootMacro/initTPCcalibration.C # Needs AliTPCCalibDB
             GPU/TPCFastTransformation/devtools/loadlibs.C # Special macro
-            GPU/TPCFastTransformation/alirootMacro/moveTPCFastTransform.C # Relies on initTPCcalibration.C
             GPU/GPUTracking/TRDTracking/macros/run_trd_tracker.C # Not yet ready
             Detectors/TOF/prototyping/ConvertRun2CalibrationToO2.C
             Generators/share/external/hijing.C

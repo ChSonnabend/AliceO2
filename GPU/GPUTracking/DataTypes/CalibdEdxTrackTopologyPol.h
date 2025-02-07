@@ -19,9 +19,7 @@
 #include "NDPiecewisePolynomials.h"
 #include "GPUCommonDef.h"
 #include "FlatObject.h"
-#ifdef GPUCA_HAVE_O2HEADERS
 #include "DataFormatsTPC/Defs.h"
-#endif
 #ifndef GPUCA_ALIGPUCODE
 #include <string_view>
 #endif
@@ -60,7 +58,6 @@ class CalibdEdxTrackTopologyPol : public o2::gpu::FlatObject
   ~CalibdEdxTrackTopologyPol() = default;
 #endif
 
-#ifdef GPUCA_HAVE_O2HEADERS
   /// \return returns the track topology correction
   /// \param region region of the TPC
   /// \param charge correction for maximum or total charge
@@ -82,7 +79,6 @@ class CalibdEdxTrackTopologyPol : public o2::gpu::FlatObject
     const float corr = (chargeT == ChargeType::Tot) ? getCorrectionqTot(region, tanTheta, sinPhi, z, threshold, charge) : getCorrectionqMax(region, tanTheta, sinPhi, z, relPad, relTime);
     return corr;
   }
-#endif
 
   /// \return returns the track topology correction for qTot
   /// \param region region of the TPC
@@ -128,7 +124,7 @@ class CalibdEdxTrackTopologyPol : public o2::gpu::FlatObject
   /// \param region region of the scaling factor
   GPUd() float getScalingFactorqMax(const int32_t region) const { return mScalingFactorsqMax[region]; };
 
-#if !defined(GPUCA_GPUCODE) && defined(GPUCA_HAVE_O2HEADERS)
+#if !defined(GPUCA_GPUCODE)
   /// \return returns polynomial for qTot
   /// \param region region of the TPC
   const auto& getPolyqTot(const int32_t region) const { return mCalibPolsqTot[region]; }

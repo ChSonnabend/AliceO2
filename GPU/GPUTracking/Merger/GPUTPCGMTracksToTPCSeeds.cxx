@@ -24,7 +24,7 @@
 #include "TObjArray.h"
 #include "AliTPCclusterMI.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 void GPUTPCGMTracksToTPCSeeds::CreateSeedsFromHLTTracks(TObjArray* seeds, AliTPCtracker* tpctracker)
 {

@@ -30,7 +30,7 @@
 #include "GPUTrackParamConvert.h"
 #include "GPUCommonTypeTraits.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 using namespace o2::track;
 using namespace o2::base;
 using namespace o2::tpc;

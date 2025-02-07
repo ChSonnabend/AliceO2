@@ -24,18 +24,16 @@
 #include "GPUTRDTrackletWord.h"
 #include "GPUParam.inc"
 
-#ifdef GPUCA_HAVE_O2HEADERS
 #include "DataFormatsTOF/Cluster.h"
 #include "DataFormatsITSMFT/ROFRecord.h"
 #include "DataFormatsTPC/TrackTPC.h"
 #include "TOFBase/Geo.h"
 #include "ITSBase/GeometryTGeo.h"
-#endif
 #ifdef GPUCA_O2_LIB
 #include "ITSMFTBase/DPLAlpideParam.h"
 #endif
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 void GPUDisplay::DrawGLScene_updateEventData()
 {
@@ -95,9 +93,7 @@ void GPUDisplay::DrawGLScene_updateEventData()
     }
   };
   if (mIOPtrs->trdTracksO2) {
-#ifdef GPUCA_HAVE_O2HEADERS
     tmpDoTRDTracklets(mIOPtrs->trdTracksO2);
-#endif
   } else {
     tmpDoTRDTracklets(mIOPtrs->trdTracks);
   }
@@ -182,10 +178,8 @@ void GPUDisplay::DrawGLScene_updateEventData()
   for (int32_t i = 0; i < mCurrentSpacePointsTRD; i++) {
     while (mParam->par.continuousTracking && trdTriggerRecord < (int32_t)mIOPtrs->nTRDTriggerRecords - 1 && mIOPtrs->trdTrackletIdxFirst[trdTriggerRecord + 1] <= i) {
       trdTriggerRecord++;
-#ifdef GPUCA_HAVE_O2HEADERS
       float trdTime = mIOPtrs->trdTriggerTimes[trdTriggerRecord] * 1e3 / o2::constants::lhc::LHCBunchSpacingNS / o2::tpc::constants::LHCBCPERTIMEBIN;
       trdZoffset = fabsf(mCalib->fastTransformHelper->getCorrMap()->convVertexTimeToZOffset(0, trdTime, mParam->continuousMaxTimeBin));
-#endif
     }
     const auto& sp = mIOPtrs->trdSpacePoints[i];
     int32_t iSec = trdGeometry()->GetSector(mIOPtrs->trdTracklets[i].GetDetector());
@@ -213,7 +207,6 @@ void GPUDisplay::DrawGLScene_updateEventData()
 
   GPUCA_OPENMP(parallel for num_threads(getNumThreads()) reduction(max : mMaxClusterZ))
   for (int32_t i = 0; i < mCurrentClustersTOF; i++) {
-#ifdef GPUCA_HAVE_O2HEADERS
     float4* ptr = &mGlobalPosTOF[i];
     mParam->Slice2Global(mIOPtrs->tofClusters[i].getSector(), mIOPtrs->tofClusters[i].getX() + mCfgH.xAdd, mIOPtrs->tofClusters[i].getY(), mIOPtrs->tofClusters[i].getZ(), &ptr->x, &ptr->y, &ptr->z);
     float ZOffset = 0;
@@ -229,11 +222,9 @@ void GPUDisplay::DrawGLScene_updateEventData()
     ptr->y *= GL_SCALE_FACTOR;
     ptr->z *= GL_SCALE_FACTOR;
     ptr->w = tTOFCLUSTER;
-#endif
   }
 
   if (mCurrentClustersITS) {
-#ifdef GPUCA_HAVE_O2HEADERS
     float itsROFhalfLen = 0;
 #ifdef GPUCA_O2_LIB // Not available in standalone benchmark
     if (mParam->par.continuousTracking) {
@@ -271,6 +262,5 @@ void GPUDisplay::DrawGLScene_updateEventData()
         i++;
       }
     }
-#endif
   }
 }

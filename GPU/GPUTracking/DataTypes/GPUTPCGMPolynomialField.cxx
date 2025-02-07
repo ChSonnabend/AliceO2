@@ -13,9 +13,9 @@
 /// \author Sergey Gorbunov, David Rohr
 
 #include "GPUTPCGMPolynomialField.h"
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
-#if defined(GPUCA_ALIROOT_LIB) & !defined(GPUCA_GPUCODE)
+#if !defined(GPUCA_GPUCODE)
 
 #include "GPUCommonConstants.h"
 #include <iostream>

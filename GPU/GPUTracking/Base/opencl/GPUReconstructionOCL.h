@@ -18,12 +18,12 @@
 #include "GPUReconstructionDeviceBase.h"
 
 #ifdef _WIN32
-extern "C" __declspec(dllexport) GPUCA_NAMESPACE::gpu::GPUReconstruction* GPUReconstruction_Create_OCL(const GPUCA_NAMESPACE::gpu::GPUSettingsDeviceBackend& cfg);
+extern "C" __declspec(dllexport) o2::gpu::GPUReconstruction* GPUReconstruction_Create_OCL(const o2::gpu::GPUSettingsDeviceBackend& cfg);
 #else
-extern "C" GPUCA_NAMESPACE::gpu::GPUReconstruction* GPUReconstruction_Create_OCL(const GPUCA_NAMESPACE::gpu::GPUSettingsDeviceBackend& cfg);
+extern "C" o2::gpu::GPUReconstruction* GPUReconstruction_Create_OCL(const o2::gpu::GPUSettingsDeviceBackend& cfg);
 #endif
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 struct GPUReconstructionOCLInternals;
 
@@ -78,6 +78,6 @@ class GPUReconstructionOCLBackend : public GPUReconstructionDeviceBase
 };
 
 using GPUReconstructionOCL = GPUReconstructionKernels<GPUReconstructionOCLBackend>;
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

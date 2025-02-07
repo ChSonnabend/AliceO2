@@ -21,7 +21,7 @@
 #include <tuple>
 #include <stdexcept>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 static constexpr const char* libName = "lib" LIBRARY_PREFIX "GPUTrackingDisplay" LIBRARY_EXTENSION;
 static constexpr const char* funcName = "GPUTrackingDisplayLoader";

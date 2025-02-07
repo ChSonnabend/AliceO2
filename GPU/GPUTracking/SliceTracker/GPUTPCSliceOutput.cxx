@@ -17,7 +17,7 @@
 #include "GPUCommonMath.h"
 #include <atomic>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 uint32_t GPUTPCSliceOutput::EstimateSize(uint32_t nOfTracks, uint32_t nOfTrackClusters)
 {

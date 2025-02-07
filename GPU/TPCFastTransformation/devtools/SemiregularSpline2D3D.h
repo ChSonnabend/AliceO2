@@ -28,7 +28,7 @@
 #include <Vc/SimdArray>
 #endif
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -183,9 +183,7 @@ class SemiregularSpline2D3D : public FlatObject
   int32_t mNumberOfKnots;
   int32_t mDataIndexMapOffset;
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(SemiregularSpline2D3D, 1);
-#endif
 };
 
 /// ====================================================
@@ -472,6 +470,6 @@ inline void SemiregularSpline2D3D::getSplineVec(const float* correctedData, floa
 #endif
 }
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

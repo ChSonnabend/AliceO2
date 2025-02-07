@@ -414,4 +414,74 @@ void HistFiller::badHistogramFill(char const* name)
   LOGF(fatal, "The number of arguments in fill function called for histogram %s is incompatible with histogram dimensions.", name);
 }
 
+template <typename T>
+HistPtr HistogramRegistry::insertClone(const HistName& histName, const std::shared_ptr<T> originalHist)
+{
+  validateHistName(histName.str, histName.hash);
+  for (auto i = 0u; i < MAX_REGISTRY_SIZE; ++i) {
+    TObject* rawPtr = nullptr;
+    std::visit([&](const auto& sharedPtr) { rawPtr = sharedPtr.get(); }, mRegistryValue[imask(histName.idx + i)]);
+    if (!rawPtr) {
+      registerName(histName.str);
+      mRegistryKey[imask(histName.idx + i)] = histName.hash;
+      mRegistryValue[imask(histName.idx + i)] = std::shared_ptr<T>(static_cast<T*>(originalHist->Clone(histName.str)));
+      lookup += i;
+      return mRegistryValue[imask(histName.idx + i)];
+    }
+  }
+  LOGF(fatal, R"(Internal array of HistogramRegistry "%s" is full.)", mName);
+  return HistPtr();
+}
+
+template HistPtr HistogramRegistry::insertClone(const HistName&, const std::shared_ptr<TH1>);
+template HistPtr HistogramRegistry::insertClone(const HistName&, const std::shared_ptr<TH2>);
+template HistPtr HistogramRegistry::insertClone(const HistName&, const std::shared_ptr<TH3>);
+template HistPtr HistogramRegistry::insertClone(const HistName&, const std::shared_ptr<TProfile>);
+template HistPtr HistogramRegistry::insertClone(const HistName&, const std::shared_ptr<TProfile2D>);
+template HistPtr HistogramRegistry::insertClone(const HistName&, const std::shared_ptr<TProfile3D>);
+template HistPtr HistogramRegistry::insertClone(const HistName&, const std::shared_ptr<THnSparse>);
+template HistPtr HistogramRegistry::insertClone(const HistName&, const std::shared_ptr<THn>);
+template HistPtr HistogramRegistry::insertClone(const HistName&, const std::shared_ptr<StepTHn>);
+
+template <typename T>
+std::shared_ptr<T> HistogramRegistry::add(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2)
+{
+  auto histVariant = add(name, title, histConfigSpec, callSumw2);
+  if (auto histPtr = std::get_if<std::shared_ptr<T>>(&histVariant)) {
+    return *histPtr;
+  } else {
+    throw runtime_error_f(R"(Histogram type specified in add<>("%s") does not match the actual type of the histogram!)", name);
+  }
+}
+
+template <typename T>
+std::shared_ptr<T> HistogramRegistry::add(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2)
+{
+  auto histVariant = add(name, title, histType, axes, callSumw2);
+  if (auto histPtr = std::get_if<std::shared_ptr<T>>(&histVariant)) {
+    return *histPtr;
+  } else {
+    throw runtime_error_f(R"(Histogram type specified in add<>("%s") does not match the actual type of the histogram!)", name);
+  }
+}
+
+template std::shared_ptr<TH1> HistogramRegistry::add<TH1>(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2);
+template std::shared_ptr<TH1> HistogramRegistry::add<TH1>(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2);
+template std::shared_ptr<TH2> HistogramRegistry::add<TH2>(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2);
+template std::shared_ptr<TH2> HistogramRegistry::add<TH2>(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2);
+template std::shared_ptr<TH3> HistogramRegistry::add<TH3>(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2);
+template std::shared_ptr<TH3> HistogramRegistry::add<TH3>(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2);
+template std::shared_ptr<TProfile> HistogramRegistry::add<TProfile>(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2);
+template std::shared_ptr<TProfile> HistogramRegistry::add<TProfile>(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2);
+template std::shared_ptr<TProfile2D> HistogramRegistry::add<TProfile2D>(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2);
+template std::shared_ptr<TProfile2D> HistogramRegistry::add<TProfile2D>(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2);
+template std::shared_ptr<TProfile3D> HistogramRegistry::add<TProfile3D>(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2);
+template std::shared_ptr<TProfile3D> HistogramRegistry::add<TProfile3D>(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2);
+template std::shared_ptr<THn> HistogramRegistry::add<THn>(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2);
+template std::shared_ptr<THn> HistogramRegistry::add<THn>(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2);
+template std::shared_ptr<THnSparse> HistogramRegistry::add<THnSparse>(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2);
+template std::shared_ptr<THnSparse> HistogramRegistry::add<THnSparse>(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2);
+template std::shared_ptr<StepTHn> HistogramRegistry::add<StepTHn>(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2);
+template std::shared_ptr<StepTHn> HistogramRegistry::add<StepTHn>(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2);
+
 } // namespace o2::framework

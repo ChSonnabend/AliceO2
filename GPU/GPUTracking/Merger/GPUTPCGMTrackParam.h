@@ -27,7 +27,7 @@
 
 class AliExternalTrackParam;
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -207,11 +207,6 @@ class GPUTPCGMTrackParam
 
   GPUd() static void RefitTrack(GPUTPCGMMergedTrack& track, int32_t iTrk, GPUTPCGMMerger* merger, int32_t attempt);
 
-#if defined(GPUCA_ALIROOT_LIB) & !defined(GPUCA_GPUCODE)
-  bool GetExtParam(AliExternalTrackParam& T, double alpha) const;
-  void SetExtParam(const AliExternalTrackParam& T);
-#endif
-
   GPUdi() void ConstrainSinPhi(float limit = GPUCA_MAX_SIN_PHI)
   {
     if (mP[2] > limit) {
@@ -291,6 +286,6 @@ GPUdi() float GPUTPCGMTrackParam::GetMirroredY(float Bz) const
   return GetY() - 2.f * CAMath::Sqrt(cosPhi2) / qptBz;
 }
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

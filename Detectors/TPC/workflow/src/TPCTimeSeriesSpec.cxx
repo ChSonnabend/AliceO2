@@ -45,6 +45,7 @@
 #include "TROOT.h"
 #include "ReconstructionDataFormats/MatchInfoTOF.h"
 #include "DataFormatsTOF/Cluster.h"
+#include "DataFormatsFT0/RecPoints.h"
 
 using namespace o2::globaltracking;
 using GTrackID = o2::dataformats::GlobalTrackID;
@@ -206,15 +207,31 @@ class TPCTimeSeries : public Task
       indicesITSTPC[tracksITSTPC[i].getRefTPC().getIndex()] = {i, idxVtx};
     }
 
-    std::vector<std::tuple<int, float, float, o2::track::TrackLTIntegral, double, float>> idxTPCTrackToTOFCluster; // store for each tpc track index the index to the TOF cluster
+    std::vector<std::tuple<int, float, float, o2::track::TrackLTIntegral, double, float, unsigned int>> idxTPCTrackToTOFCluster; // store for each tpc track index the index to the TOF cluster
 
     // get matches to TOF in case skimmed data is produced
     if (mUnbinnedWriter) {
       //   getLTIntegralOut(), ///< L,TOF integral calculated during the propagation
       //  getSignal()  mSignal = 0.0;              ///< TOF time in ps
       o2::track::TrackLTIntegral defLT;
-      idxTPCTrackToTOFCluster = std::vector<std::tuple<int, float, float, o2::track::TrackLTIntegral, double, float>>(tracksTPC.size(), {-1, -999, -999, defLT, 0, 0});
+      idxTPCTrackToTOFCluster = std::vector<std::tuple<int, float, float, o2::track::TrackLTIntegral, double, float, unsigned int>>(tracksTPC.size(), {-1, -999, -999, defLT, 0, 0, 0});
       const std::vector<gsl::span<const o2::dataformats::MatchInfoTOF>> tofMatches{recoData.getTPCTOFMatches(), recoData.getTPCTRDTOFMatches(), recoData.getITSTPCTOFMatches(), recoData.getITSTPCTRDTOFMatches()};
+
+      const auto& ft0rec = recoData.getFT0RecPoints();
+      // fill available FT0-AC event times vs BClong
+      std::map<ULong64_t, short> t0array;
+      for (const auto& t0 : ft0rec) {
+        if (!(t0.isValidTime(1) && t0.isValidTime(2))) { // skip if !(A & C)
+          continue;
+        }
+
+        auto bclong = t0.mIntRecord.differenceInBC(recoData.startIR);
+        if (t0array.find(bclong) == t0array.end()) { // add if it doesn't exist
+          t0array.emplace(std::make_pair(bclong, t0.getCollisionTime(0)));
+        }
+      }
+
+      static const double BC_TIME_INPS_INV = 1E-3 / o2::constants::lhc::LHCBunchSpacingNS;
 
       // loop over ITS-TPC-TRD-TOF and ITS-TPC-TOF tracks an store for each ITS-TPC track the TOF track index
       for (const auto& tofMatch : tofMatches) {
@@ -222,9 +239,54 @@ class TPCTimeSeries : public Task
           auto refTPC = recoData.getTPCContributorGID(tpctofmatch.getTrackRef());
           if (refTPC.isIndexSet()) {
             o2::track::TrackLTIntegral ltIntegral = tpctofmatch.getLTIntegralOut();
-            double signal = tpctofmatch.getSignal();
+            ULong64_t bclongtof = (tpctofmatch.getSignal() - 10000) * BC_TIME_INPS_INV;
+            double t0 = 0; // bclongtof * o2::constants::lhc::LHCBunchSpacingNS * 1E3; // if you want to subtract also the BC uncomment this part (-> tofsignal can be a float)
+            unsigned int mask = 0;
+            if (!(t0array.find(bclongtof) == t0array.end())) { // subtract FT0-AC if it exists in the same BC
+              t0 += t0array.find(bclongtof)->second;
+              mask |= o2::dataformats::MatchInfoTOF::QualityFlags::hasT0sameBC; // 8th bit if FT0-AC in same BC
+            }
+
+            double signal = tpctofmatch.getSignal() - t0;
             float deltaT = tpctofmatch.getDeltaT();
-            idxTPCTrackToTOFCluster[refTPC] = {tpctofmatch.getIdxTOFCl(), tpctofmatch.getDXatTOF(), tpctofmatch.getDZatTOF(), ltIntegral, signal, deltaT};
+
+            float dy = tpctofmatch.getDYatTOF(); // residual orthogonal to the strip (it should be close to zero)
+            bool isMultiHitZ = tpctofmatch.getHitPatternUpDown();
+            bool isMultiHitX = tpctofmatch.getHitPatternLeftRight();
+            bool isMultiStripMatch = tpctofmatch.getChi2() < 1E-9;
+            float chi2 = tpctofmatch.getChi2();
+            bool hasT0_1BCbefore = (t0array.find(bclongtof - 1) != t0array.end());
+            bool hasT0_2BCbefore = (t0array.find(bclongtof - 2) != t0array.end());
+
+            if (isMultiHitX) { // 1nd bit on if multiple hits along X
+              mask |= o2::dataformats::MatchInfoTOF::QualityFlags::isMultiHitX;
+            }
+            if (isMultiHitZ) { // 2nd bit on if multiple hits along Z
+              mask |= o2::dataformats::MatchInfoTOF::QualityFlags::isMultiHitZ;
+            }
+            if (fabs(dy) > 0.5) { // 3rd bit on if Y-residual too large
+              mask |= o2::dataformats::MatchInfoTOF::QualityFlags::badDy;
+            }
+            if (isMultiStripMatch) { // 4th bit on if two strips fired
+              mask |= o2::dataformats::MatchInfoTOF::QualityFlags::isMultiStrip;
+            }
+            if (chi2 > 1E-4) { // 5th bit on if chi2 > 1E-4 -> not inside the pad
+              mask |= o2::dataformats::MatchInfoTOF::QualityFlags::isNotInPad;
+            }
+            if (chi2 > 3) { // 6th bit on if chi2 > 3
+              mask |= o2::dataformats::MatchInfoTOF::QualityFlags::chiGT3;
+            }
+            if (chi2 > 5) { // 7th bit on if chi2 > 5
+              mask |= o2::dataformats::MatchInfoTOF::QualityFlags::chiGT5;
+            }
+            if (hasT0_1BCbefore) { // 9th bit if FT0-AC also BC before
+              mask |= o2::dataformats::MatchInfoTOF::QualityFlags::hasT0_1BCbefore;
+            }
+            if (hasT0_2BCbefore) { // 10th bit if FT0-AC also 2BCs before
+              mask |= o2::dataformats::MatchInfoTOF::QualityFlags::hasT0_1BCbefore;
+            }
+
+            idxTPCTrackToTOFCluster[refTPC] = {tpctofmatch.getIdxTOFCl(), tpctofmatch.getDXatTOF(), tpctofmatch.getDZatTOF(), ltIntegral, signal, deltaT, mask};
           }
         }
       }
@@ -1055,7 +1117,7 @@ class TPCTimeSeries : public Task
     return isGoodTrack;
   }
 
-  void fillDCA(const gsl::span<const TrackTPC> tracksTPC, const gsl::span<const o2::dataformats::TrackTPCITS> tracksITSTPC, const gsl::span<const o2::dataformats::PrimaryVertex> vertices, const int iTrk, const int iThread, const std::unordered_map<unsigned int, std::array<int, 2>>& indicesITSTPC, const gsl::span<const o2::its::TrackITS> tracksITS, const std::vector<std::tuple<int, float, float, o2::track::TrackLTIntegral, double, float>>& idxTPCTrackToTOFCluster, const gsl::span<const o2::tof::Cluster> tofClusters)
+  void fillDCA(const gsl::span<const TrackTPC> tracksTPC, const gsl::span<const o2::dataformats::TrackTPCITS> tracksITSTPC, const gsl::span<const o2::dataformats::PrimaryVertex> vertices, const int iTrk, const int iThread, const std::unordered_map<unsigned int, std::array<int, 2>>& indicesITSTPC, const gsl::span<const o2::its::TrackITS> tracksITS, const std::vector<std::tuple<int, float, float, o2::track::TrackLTIntegral, double, float, unsigned int>>& idxTPCTrackToTOFCluster, const gsl::span<const o2::tof::Cluster> tofClusters)
   {
     const auto& trackFull = tracksTPC[iTrk];
     const bool isGoodTrack = checkTrack(trackFull);
@@ -1444,6 +1506,7 @@ class TPCTimeSeries : public Task
                             << "mDeltaTTOFTPC=" << std::get<5>(idxTPCTrackToTOFCluster[iTrk]) /// delta T- TPC TOF
                             << "vertexTime=" << vertexTime                                    /// time stamp assigned to the vertex
                             << "trackTime0=" << trackTime0                                    /// time stamp assigned to the track
+                            << "TOFmask=" << std::get<6>(idxTPCTrackToTOFCluster[iTrk])       /// delta T- TPC TOF
                             // TPC delta param
                             << "deltaTPCParamInOutTgl=" << deltaTPCParamInOutTgl
                             << "deltaTPCParamInOutQPt=" << deltaTPCParamInOutQPt
@@ -1759,6 +1822,9 @@ o2::framework::DataProcessorSpec getTPCTimeSeriesSpec(const bool disableWriter, 
   srcTracks.set(GTrackID::TPC); // TPC must be always there
   dataRequest->requestTracks(srcTracks, useMC);
   dataRequest->requestClusters(GTrackID::getSourcesMask("TPC"), useMC);
+
+  dataRequest->requestFT0RecPoints(false);
+
   bool tpcOnly = srcTracks == GTrackID::getSourcesMask("TPC");
   if (!tpcOnly) {
     dataRequest->requestPrimaryVertices(useMC);

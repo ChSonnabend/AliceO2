@@ -144,7 +144,7 @@ class Tracklet64
   GPUd() float getPadColFloat(bool applyShift) const { return getPositionFloat() + getMCMCol() * constants::NCOLMCM + 8.f + (applyShift ? 1.f : 0.f); }
 
   // pad column number inside pad row as int can be off by +-1 pad (same function name as for TRD digit)
-  GPUd() int getPadCol(bool applyShift = false) const { return GPUCA_NAMESPACE::gpu::CAMath::Float2IntRn(getPadColFloat(applyShift)); }
+  GPUd() int getPadCol(bool applyShift = false) const { return o2::gpu::CAMath::Float2IntRn(getPadColFloat(applyShift)); }
 
   // translate local position into global y (in cm) not taking into account calibrations (ExB, vDrift, t0)
   GPUd() float getUncalibratedY(bool applyShift = false) const { return (getPadColFloat(applyShift) - (constants::NCOLUMN / 2.f)) * getPadWidth(); }

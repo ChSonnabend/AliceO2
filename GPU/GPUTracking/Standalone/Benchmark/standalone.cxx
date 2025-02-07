@@ -58,24 +58,20 @@
 #endif
 
 #include "GPUO2DataTypes.h"
-#ifdef GPUCA_HAVE_O2HEADERS
 #include "GPUChainITS.h"
-#endif
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 // #define BROKEN_EVENTS
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 extern GPUSettingsStandalone configStandalone;
 }
 
 GPUReconstruction *rec, *recAsync, *recPipeline;
 GPUChainTracking *chainTracking, *chainTrackingAsync, *chainTrackingPipeline;
-#ifdef GPUCA_HAVE_O2HEADERS
 GPUChainITS *chainITS, *chainITSAsync, *chainITSPipeline;
-#endif
 void unique_ptr_aligned_delete(char* v)
 {
   operator delete(v GPUCA_OPERATOR_NEW_ALIGNMENT);
@@ -167,13 +163,8 @@ int32_t ReadConfiguration(int argc, char** argv)
     return 1;
   }
 #endif
-#ifndef GPUCA_HAVE_O2HEADERS
-  configStandalone.runTRD = configStandalone.rundEdx = configStandalone.runCompression = configStandalone.runTransformation = configStandalone.testSyncAsync = configStandalone.testSync = 0;
-  configStandalone.rec.tpc.forceEarlyTransform = 1;
-  configStandalone.runRefit = false;
-#endif
 #ifndef GPUCA_TPC_GEOMETRY_O2
-  configStandalone.rec.tpc.mergerReadFromTrackerDirectly = 0;
+#error Why was configStandalone.rec.tpc.mergerReadFromTrackerDirectly = 0 needed?
   configStandalone.proc.ompKernels = false;
   configStandalone.proc.createO2Output = 0;
   if (configStandalone.rundEdx == -1) {
@@ -421,7 +412,7 @@ int32_t SetupReconstruction()
   }
 
   steps.outputs.clear();
-  steps.outputs.setBits(GPUDataTypes::InOutType::TPCSectorTracks, steps.steps.isSet(GPUDataTypes::RecoStep::TPCSliceTracking) && !recSet.tpc.mergerReadFromTrackerDirectly);
+  steps.outputs.setBits(GPUDataTypes::InOutType::TPCSectorTracks, false);
   steps.outputs.setBits(GPUDataTypes::InOutType::TPCMergedTracks, steps.steps.isSet(GPUDataTypes::RecoStep::TPCMerging));
   steps.outputs.setBits(GPUDataTypes::InOutType::TPCCompressedClusters, steps.steps.isSet(GPUDataTypes::RecoStep::TPCCompression));
   steps.outputs.setBits(GPUDataTypes::InOutType::TRDTracks, steps.steps.isSet(GPUDataTypes::RecoStep::TRDTracking));
@@ -486,7 +477,6 @@ int32_t SetupReconstruction()
     }
   }
 
-#ifdef GPUCA_HAVE_O2HEADERS
   o2::base::Propagator* prop = nullptr;
   prop = o2::base::Propagator::Instance(true);
   prop->setGPUField(&rec->GetParam().polynomialField);
@@ -500,7 +490,6 @@ int32_t SetupReconstruction()
     chainTrackingPipeline->SetO2Propagator(prop);
   }
   procSet.o2PropagatorUseGPUField = true;
-#endif
 
   if (rec->Init()) {
     printf("Error initializing GPUReconstruction!\n");
@@ -680,7 +669,6 @@ int32_t RunBenchmark(GPUReconstruction* recUse, GPUChainTracking* chainTrackingU
       }
     }
 
-#ifdef GPUCA_HAVE_O2HEADERS
     if (tmpRetVal == 0 && configStandalone.testSyncAsync) {
       if (configStandalone.testSyncAsync) {
         printf("Running asynchronous phase\n");
@@ -716,7 +704,6 @@ int32_t RunBenchmark(GPUReconstruction* recUse, GPUChainTracking* chainTrackingU
       }
       recAsync->ClearAllocatedMemory();
     }
-#endif
     if (!configStandalone.proc.doublePipeline) {
       recUse->ClearAllocatedMemory();
     }
@@ -787,14 +774,12 @@ int32_t main(int argc, char** argv)
     chainTrackingPipeline = recPipeline->AddChain<GPUChainTracking>();
     chainTrackingPipeline->SetQAFromForeignChain(chainTracking);
   }
-#ifdef GPUCA_HAVE_O2HEADERS
   if (!configStandalone.proc.doublePipeline) {
     chainITS = rec->AddChain<GPUChainITS>(0);
     if (configStandalone.testSyncAsync) {
       chainITSAsync = recAsync->AddChain<GPUChainITS>(0);
     }
   }
-#endif
 
   if (SetupReconstruction()) {
     return 1;

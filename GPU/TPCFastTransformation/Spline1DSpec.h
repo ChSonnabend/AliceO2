@@ -27,7 +27,7 @@
 
 class TFile;
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -173,7 +173,7 @@ class Spline1DContainer : public FlatObject
 
   ///_______________  Test tools  _______________
 
-#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB) // code invisible on GPU and in the standalone compilation
+#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) // code invisible on GPU and in the standalone compilation
   /// Test the class functionality
   static int32_t test(const bool draw = 0, const bool drawDataPoints = 1);
 #endif
@@ -219,9 +219,7 @@ class Spline1DContainer : public FlatObject
   int32_t* mUtoKnotMap = nullptr; //! (transient!!) pointer to (integer U -> knot index) map inside the mFlatBufferPtr array
   DataT* mParameters = nullptr; //! (transient!!) pointer to F-dependent parameters inside the mFlatBufferPtr array
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(Spline1DContainer, 1);
-#endif
 };
 
 template <typename DataT>
@@ -365,9 +363,7 @@ class Spline1DSpec<DataT, YdimT, 0> : public Spline1DContainer<DataT>
   using TBase::mParameters;
   using TBase::mYdim;
   using TBase::TBase; // inherit constructors and hide them
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(Spline1DSpec, 0);
-#endif
 };
 
 /// ==================================================================================================
@@ -507,9 +503,7 @@ class Spline1DSpec<DataT, YdimT, 2>
   ///  _______  Expert tools: interpolation with given nYdim and external Parameters _______
 
   using TBase::interpolateU;
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(Spline1DSpec, 0);
-#endif
 };
 
 /// ==================================================================================================
@@ -534,6 +528,6 @@ class Spline1DSpec<DataT, 1, 3>
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

@@ -65,9 +65,7 @@ class PIDResponse
   float mMIP = 50.f;
   float mChargeFactor = 2.299999952316284f;
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(PIDResponse, 1);
-#endif
 };
 
 GPUd() void PIDResponse::setBetheBlochParams(const float betheBlochParams[5])

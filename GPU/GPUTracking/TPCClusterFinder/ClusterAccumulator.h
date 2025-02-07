@@ -18,7 +18,7 @@
 #include "clusterFinderDefs.h"
 #include "PackedCharge.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 
 namespace tpc
@@ -74,6 +74,6 @@ class ClusterAccumulator
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

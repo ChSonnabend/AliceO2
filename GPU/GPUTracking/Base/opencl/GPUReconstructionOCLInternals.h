@@ -25,7 +25,7 @@
 #include <memory>
 #include "GPULogging.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 static const char* opencl_error_string(int32_t errorcode)
@@ -244,6 +244,6 @@ inline uint32_t GPUReconstructionOCLBackend::FindKernel(int32_t num)
 }
 
 static_assert(std::is_convertible<cl_event, void*>::value, "OpenCL event type incompatible to deviceEvent");
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

@@ -19,7 +19,7 @@
 #include "GPUCommonMath.h"
 #include "GPUDefMacros.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 template <>
 GPUdii() void GPUTPCStartHitsSorter::Thread<0>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& s, processorType& GPUrestrict() tracker)
 {

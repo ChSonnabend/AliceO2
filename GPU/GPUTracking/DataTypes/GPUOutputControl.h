@@ -20,7 +20,7 @@
 #include <functional>
 #include <new>
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -84,6 +84,6 @@ struct GPUTrackingOutputs {
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

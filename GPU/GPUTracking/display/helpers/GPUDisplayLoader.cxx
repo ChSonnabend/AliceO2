@@ -19,7 +19,7 @@
 #include <tuple>
 #include <stdexcept>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 extern "C" void* GPUTrackingDisplayLoader(const char*, void*);
 

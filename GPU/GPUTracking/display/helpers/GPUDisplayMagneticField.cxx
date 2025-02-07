@@ -28,7 +28,7 @@
 #include "DetectorsBase/Propagator.h"
 #endif
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 GPUDisplayMagneticField::GPUDisplayMagneticField()
 {

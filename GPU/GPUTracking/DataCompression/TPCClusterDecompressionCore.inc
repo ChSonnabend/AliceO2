@@ -27,7 +27,7 @@
 
 using namespace o2::tpc;
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 class TPCClusterDecompressionCore
@@ -185,6 +185,6 @@ class TPCClusterDecompressionCore
     }
   }
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

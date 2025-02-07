@@ -18,7 +18,7 @@
 #include "GPUGeneralKernels.h"
 #include "GPUConstantMem.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 class GPUTPCClusterFinder;
@@ -26,13 +26,11 @@ class GPUTPCClusterFinder;
 class GPUTPCCFGather : public GPUKernelTemplate
 {
  public:
-#ifdef GPUCA_HAVE_O2HEADERS
   typedef GPUTPCClusterFinder processorType;
   GPUhdi() static processorType* Processor(GPUConstantMem& processors)
   {
     return processors.tpcClusterer;
   }
-#endif
 
   GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep()
   {
@@ -43,6 +41,6 @@ class GPUTPCCFGather : public GPUKernelTemplate
   GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer, Args... args);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

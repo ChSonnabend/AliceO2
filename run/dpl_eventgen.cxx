@@ -16,6 +16,7 @@
 #include "SimulationDataFormat/MCTrack.h"
 #include "Framework/runDataProcessing.h"
 #include <Generators/GeneratorService.h>
+#include <Generators/Generator.h>
 #include <CommonUtils/ConfigurableParam.h>
 #include <CommonUtils/RngHelper.h>
 #include <TStopwatch.h> // simple timer from ROOT
@@ -63,6 +64,12 @@ struct GeneratorTask {
     // update config key params
     o2::conf::ConfigurableParam::updateFromFile(iniFile);
     o2::conf::ConfigurableParam::updateFromString((std::string)params);
+    // set the number of events in the static Generator variable gTotalNEvents.
+    // Variable is unset if nEvents exceeds the uint maximum value
+    if (nEvents <= std::numeric_limits<unsigned int>::max()) {
+      unsigned int castNEvents = static_cast<unsigned int>(nEvents);
+      o2::eventgen::Generator::setTotalNEvents(castNEvents);
+    }
     // initialize the service
     if (vtxmode == o2::conf::VertexMode::kDiamondParam) {
       genservice->initService(generator, trigger, o2::eventgen::DiamondParamVertexOption());

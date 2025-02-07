@@ -509,7 +509,7 @@ bool TPCRefitterSpec::processTPCTrack(o2::tpc::TrackTPC tr, o2::MCCompLabel lbl,
       unsigned int absoluteIndex = mTPCClusterIdxStruct->clusterOffset[sector][row] + clusterIndex;
       cl = &mTPCClusterIdxStruct->clusters[sector][row][clusterIndex];
       uint8_t clflags = cl->getFlags();
-      if (mTPCRefitterShMap[absoluteIndex] & GPUCA_NAMESPACE::gpu::GPUTPCGMMergedTrackHit::flagShared) {
+      if (mTPCRefitterShMap[absoluteIndex] & o2::gpu::GPUTPCGMMergedTrackHit::flagShared) {
         clflags |= 0x10;
       }
       clData.clSector.emplace_back(sector);

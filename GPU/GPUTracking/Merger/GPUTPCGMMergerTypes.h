@@ -18,7 +18,7 @@
 #include "GPUTPCDef.h"
 #include "GPUGeneralKernels.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -61,6 +61,6 @@ struct GPUTPCOuterParam {
 
 } // namespace gputpcgmmergertypes
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

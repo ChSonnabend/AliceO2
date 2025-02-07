@@ -23,7 +23,7 @@
 #include "GPUCommonDef.h"
 #include "TPCFastTransform.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -57,15 +57,15 @@ class CorrectionMapsHelper
     mCorrMap->InverseTransformYZtoNominalYZ(slice, row, y, z, ny, nz, mCorrMapRef, mCorrMapMShape, (mScaleInverse ? mLumiScale : 0), (mScaleInverse ? 1 : 0), mLumiScaleMode);
   }
 
-  GPUd() const GPUCA_NAMESPACE::gpu::TPCFastTransform* getCorrMap() const { return mCorrMap; }
-  GPUd() const GPUCA_NAMESPACE::gpu::TPCFastTransform* getCorrMapRef() const { return mCorrMapRef; }
-  GPUd() const GPUCA_NAMESPACE::gpu::TPCFastTransform* getCorrMapMShape() const { return mCorrMapMShape; }
+  GPUd() const o2::gpu::TPCFastTransform* getCorrMap() const { return mCorrMap; }
+  GPUd() const o2::gpu::TPCFastTransform* getCorrMapRef() const { return mCorrMapRef; }
+  GPUd() const o2::gpu::TPCFastTransform* getCorrMapMShape() const { return mCorrMapMShape; }
 
   bool getOwner() const { return mOwner; }
 
-  void setCorrMap(GPUCA_NAMESPACE::gpu::TPCFastTransform* m);
-  void setCorrMapRef(GPUCA_NAMESPACE::gpu::TPCFastTransform* m);
-  void setCorrMapMShape(GPUCA_NAMESPACE::gpu::TPCFastTransform* m);
+  void setCorrMap(o2::gpu::TPCFastTransform* m);
+  void setCorrMapRef(o2::gpu::TPCFastTransform* m);
+  void setCorrMapMShape(o2::gpu::TPCFastTransform* m);
   void reportScaling();
   void setInstLumiCTP(float v)
   {
@@ -125,9 +125,9 @@ class CorrectionMapsHelper
   void setUpdatedLumi() { mUpdatedFlags |= UpdateFlags::LumiBit; }
 
 #if !defined(GPUCA_GPUCODE_DEVICE)
-  void setCorrMap(std::unique_ptr<GPUCA_NAMESPACE::gpu::TPCFastTransform>&& m);
-  void setCorrMapRef(std::unique_ptr<GPUCA_NAMESPACE::gpu::TPCFastTransform>&& m);
-  void setCorrMapMShape(std::unique_ptr<GPUCA_NAMESPACE::gpu::TPCFastTransform>&& m);
+  void setCorrMap(std::unique_ptr<o2::gpu::TPCFastTransform>&& m);
+  void setCorrMapRef(std::unique_ptr<o2::gpu::TPCFastTransform>&& m);
+  void setCorrMapMShape(std::unique_ptr<o2::gpu::TPCFastTransform>&& m);
 #endif
   void setOwner(bool v);
   void acknowledgeUpdate() { mUpdatedFlags = 0; }
@@ -181,15 +181,13 @@ class CorrectionMapsHelper
   float mInstCTPLumiOverride = -1.f;                               // optional value to override inst lumi from CTP
   bool mEnableMShape = false;                                      ///< use v shape correction
   bool mScaleInverse{false};                                       // if set to false the inverse correction is already scaled and will not scaled again
-  GPUCA_NAMESPACE::gpu::TPCFastTransform* mCorrMap{nullptr};       // current transform
-  GPUCA_NAMESPACE::gpu::TPCFastTransform* mCorrMapRef{nullptr};    // reference transform
-  GPUCA_NAMESPACE::gpu::TPCFastTransform* mCorrMapMShape{nullptr}; // correction map for v-shape distortions on A-side
-#ifndef GPUCA_ALIROOT_LIB
+  o2::gpu::TPCFastTransform* mCorrMap{nullptr};                    // current transform
+  o2::gpu::TPCFastTransform* mCorrMapRef{nullptr};                 // reference transform
+  o2::gpu::TPCFastTransform* mCorrMapMShape{nullptr};              // correction map for v-shape distortions on A-side
   ClassDefNV(CorrectionMapsHelper, 6);
-#endif
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

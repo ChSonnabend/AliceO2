@@ -110,7 +110,7 @@ const std::unordered_map<CDBType, const std::string> CDBTypeMap{
   //
   {CDBType::ConfigFEEPad, "TPC/Config/FEEPad"},
   {CDBType::ConfigFEE, "TPC/Config/FEE"},
-  {CDBType::ConfigRunInfo, "TPC/Config/RunInfo"},
+  {CDBType::ConfigRunInfo, "TPC/Config/RunInfoV2"},
   //
   {CDBType::ParDetector, "TPC/Parameter/Detector"},
   {CDBType::ParElectronics, "TPC/Parameter/Electronics"},

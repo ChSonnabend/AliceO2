@@ -17,7 +17,7 @@
 #include "GPUTPCGeometry.h"
 #include "DataFormatsTPC/Constants.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 TPCPadBitMap::TPCPadBitMap()
 {

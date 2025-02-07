@@ -17,7 +17,7 @@
 #ifndef GPUTRDTRACKLETLABELS_H
 #define GPUTRDTRACKLETLABELS_H
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -26,6 +26,6 @@ struct GPUTRDTrackletLabels {
   int32_t mLabel[3];
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // GPUTRDTRACKLETLABELS_H

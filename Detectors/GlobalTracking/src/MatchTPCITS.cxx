@@ -9,6 +9,13 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+#include "GPUO2Interface.h" // Needed for propper settings in GPUParam.h
+#include "GPUParam.h"
+#include "GPUParam.inc"
+#ifdef WITH_OPENMP
+#include <omp.h>
+#endif
+
 #include <TTree.h>
 #include <cassert>
 #include <algorithm>
@@ -50,13 +57,6 @@
 #include "ITS3Reconstruction/IOUtils.h"
 #endif
 
-#include "GPUO2Interface.h" // Needed for propper settings in GPUParam.h
-#include "GPUParam.h"
-#include "GPUParam.inc"
-#ifdef WITH_OPENMP
-#include <omp.h>
-#endif
-
 using namespace o2::globaltracking;
 
 using MatrixDSym4 = ROOT::Math::SMatrix<double, 4, 4, ROOT::Math::MatRepSym<double, 4>>;
@@ -67,6 +67,8 @@ using TrackTunePar = o2::globaltracking::TrackTuneParams;
 constexpr float MatchTPCITS::Tan70, MatchTPCITS::Cos70I2, MatchTPCITS::MaxSnp, MatchTPCITS::MaxTgp;
 
 LinksPoolMT* TPCABSeed::gLinksPool = nullptr;
+
+const o2::gpu::GPUTPCGeometry MatchTPCITS::TPCGeometry{};
 
 //______________________________________________
 MatchTPCITS::MatchTPCITS() = default;
@@ -428,6 +430,12 @@ int MatchTPCITS::addTPCSeed(const o2::track::TrackParCov& _tr, float t0, float t
   if (clRow > mParams->askMinTPCRow[clSect]) {
     return -9;
   }
+  const auto& clus = mTPCClusterIdxStruct->clusters[clSect][clRow][clIdx];
+  uint8_t padFromEdge = uint8_t(clus.getPad());
+  if (padFromEdge > TPCGeometry.NPads(clRow) / 2) {
+    padFromEdge = TPCGeometry.NPads(clRow) - 1 - padFromEdge;
+  }
+
   // create working copy of track param
   bool extConstrained = srcGID.getSource() != GTrackID::TPC;
   if (extConstrained) {
@@ -442,6 +450,8 @@ int MatchTPCITS::addTPCSeed(const o2::track::TrackParCov& _tr, float t0, float t
                 tpcID,
                 srcGID,
                 MinusOne,
+                clRow,
+                padFromEdge,
                 (extConstrained || tpcOrig.hasBothSidesClusters()) ? TrackLocTPC::Constrained : (tpcOrig.hasASideClustersOnly() ? TrackLocTPC::ASide : TrackLocTPC::CSide)});
   // propagate to matching Xref
   const auto& trackTune = TrackTuneParams::Instance();
@@ -2872,7 +2882,7 @@ void MatchTPCITS::dumpTPCOrig(bool acc, int tpcIndex)
   ///< fill debug tree for TPC original tracks (passing pT cut)
   mTimer[SWDBG].Start(false);
   const auto& tpcOrig = mTPCTracksArray[tpcIndex];
-  uint8_t clSect = 0, clRow = 0, prevRow = 0xff;
+  uint8_t clSect = 0, clRow = 0, prevRow = 0xff, padFromEdge = -1;
   uint32_t clIdx = 0;
   int nshared = 0;
   std::array<bool, 152> shMap{};
@@ -2880,13 +2890,18 @@ void MatchTPCITS::dumpTPCOrig(bool acc, int tpcIndex)
   for (int i = 0; i < tpcOrig.getNClusterReferences(); i++) {
     tpcOrig.getClusterReference(mTPCTrackClusIdx, i, clSect, clRow, clIdx);
     unsigned int absoluteIndex = mTPCClusterIdxStruct->clusterOffset[clSect][clRow] + clIdx;
-    if (mTPCRefitterShMap[absoluteIndex] & GPUCA_NAMESPACE::gpu::GPUTPCGMMergedTrackHit::flagShared) {
+    if (mTPCRefitterShMap[absoluteIndex] & o2::gpu::GPUTPCGMMergedTrackHit::flagShared) {
       if (!(prevRow == clRow && prevRawShared)) {
         nshared++;
       }
       prevRow = clRow;
       prevRawShared = true;
     }
+  }
+  const auto& clus = mTPCClusterIdxStruct->clusters[clSect][clRow][clIdx];
+  padFromEdge = uint8_t(clus.getPad());
+  if (padFromEdge > TPCGeometry.NPads(clRow) / 2) {
+    padFromEdge = TPCGeometry.NPads(clRow) - 1 - padFromEdge;
   }
   int tb = tpcOrig.getTime0() * mNTPCOccBinLengthInv;
   float mltTPC = tb < 0 ? mTBinClOcc[0] : (tb >= mTBinClOcc.size() ? mTBinClOcc.back() : mTBinClOcc[tb]);
@@ -2900,6 +2915,7 @@ void MatchTPCITS::dumpTPCOrig(bool acc, int tpcIndex)
              << "time0=" << tpcOrig.getTime0()
              << "trc=" << ((o2::track::TrackParCov&)tpcOrig)
              << "minRow=" << clRow
+             << "padFromEdge=" << padFromEdge
              << "multTPC=" << mltTPC;
   if (mMCTruthON) {
     (*mDBGOut) << "tpcOrig"

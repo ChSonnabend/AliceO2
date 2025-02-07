@@ -58,10 +58,11 @@ class DeadChannelMapCreator
   void load(long timeStampOrRun);
   void loadFEEConfigViaRunInfoTS(long timeStamp);
   void loadFEEConfigViaRunInfo(long timeStampOrRun);
-  void loadFEEConfig(long tag, long createdNotAfter = -1);
+  void loadFEEConfig(long timeStamp = -1);
   void loadIDCPadFlags(long timeStampOrRun);
 
   void setDeadChannelMapIDCPadStatus(const CalDetFlag_t& padStatusMap, PadFlags mask = PadFlags::flagAllNoneGood);
+  void setDeadChannelMapFEEConfig(const FEEConfig& feeConfig) { mDeadChannelMapFEE = feeConfig.getDeadChannelMap(); }
 
   const CalDet<bool>& getDeadChannelMapIDC() const { return mDeadChannelMapIDC; }
   const CalDet<bool>& getDeadChannelMapFEE() const { return mDeadChannelMapFEE; }

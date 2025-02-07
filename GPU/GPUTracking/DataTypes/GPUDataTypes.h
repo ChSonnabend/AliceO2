@@ -91,7 +91,7 @@ class CalibdEdxContainer;
 } // namespace tpc
 } // namespace o2
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -100,9 +100,9 @@ class TPCFastTransform;
 struct TPCPadGainCalib;
 struct TPCZSLinkMapping;
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -326,6 +326,6 @@ struct GPUTrackingInOutPointers {
 #undef ENUM_CLASS
 #undef ENUM_UINT
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

@@ -32,7 +32,7 @@ using ConstMCLabelContainerView = o2::dataformats::ConstMCTruthContainerView<o2:
 } // namespace dataformats
 } // namespace o2
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 class GPUTPCClusterFinder;
@@ -59,6 +59,6 @@ class MCLabelAccumulator
   std::vector<o2::MCCompLabel> mClusterLabels;
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

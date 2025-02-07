@@ -18,7 +18,7 @@
 #include "GPUDisplayFrontend.h"
 #include <pthread.h>
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUDisplayFrontendGlut : public GPUDisplayFrontend
 {
@@ -56,6 +56,6 @@ class GPUDisplayFrontendGlut : public GPUDisplayFrontend
   int32_t mHeight = INIT_HEIGHT;
   bool mFullScreen = false;
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

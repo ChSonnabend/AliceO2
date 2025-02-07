@@ -17,7 +17,7 @@
 
 #ifdef GPUCA_KERNEL_DEBUGGER_OUTPUT
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 void GPUKernelDebugOutput::InitializeProcessor() {}
 

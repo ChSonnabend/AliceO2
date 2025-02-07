@@ -74,7 +74,7 @@ The following parameters need adjustment when extending the FLP-EPN configuratio
     </decltask>
 
     <decltask id="tracker">
-        <exe reachable="true">$ALICEO2_INSTALL_DIR/bin/aliceHLTWrapper Tracker_%collectionIndex%_%taskIndex% 1 --dds --poll-period 100 --input type=pull,size=5000,method=connect,property=EPNReceiverOutputAddress,count=1 --output type=push,size=500,method=bind,property=TrackingOutputAddress,min-port=48000 --library libAliHLTTPC.so --component TPCCATracker --run 167808 --parameter '-GlobalTracking -allowGPU -GPUHelperThreads 4 -loglevel=0x7c'</exe>
+        <exe reachable="true">$ALICEO2_INSTALL_DIR/bin/aliceHLTWrapper Tracker_%collectionIndex%_%taskIndex% 1 --dds --poll-period 100 --input type=pull,size=5000,method=connect,property=EPNReceiverOutputAddress,count=1 --output type=push,size=500,method=bind,property=TrackingOutputAddress,min-port=48000 --library libAliHLTTPC.so --component TPCCATracker --run 167808 --parameter '-GlobalTracking -allowGPU -loglevel=0x7c'</exe>
         <!-- <requirement></requirement> -->
         <properties>
             <id access="read">EPNReceiverOutputAddress</id>

@@ -18,7 +18,7 @@
 #include "clusterFinderDefs.h"
 #include "ChargePos.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 template <typename T, typename Layout>
@@ -121,6 +121,6 @@ using TPCMapMemoryLayout = LinearLayout;
 template <typename T>
 using Array2D = AbstractArray2D<T, TPCMapMemoryLayout<T>>;
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

@@ -36,7 +36,7 @@
 #include "GPUDisplay.h"
 #include <string>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 GPUDisplayBackend::GPUDisplayBackend() = default;
 GPUDisplayBackend::~GPUDisplayBackend() = default;

@@ -23,13 +23,11 @@
 #include "bitmapfile.h"
 #endif
 
-#ifdef GPUCA_HAVE_O2HEADERS
 #include "GPUTPCClusterFilter.h"
-#endif
 
 #define PROFILE_MAX_SIZE (100 * 1024 * 1024)
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 static inline uint32_t RGB(uint8_t r, uint8_t g, uint8_t b) { return (uint32_t)r | ((uint32_t)g << 8) | ((uint32_t)b << 16); }
 
@@ -237,11 +235,9 @@ void GPUChainTracking::PrintOutputStat()
     int32_t nTRDTracklets = 0;
     for (uint32_t k = 0; k < mIOPtrs.nTRDTracks; k++) {
       if (mIOPtrs.trdTracksO2) {
-#ifdef GPUCA_HAVE_O2HEADERS
         auto& trk = mIOPtrs.trdTracksO2[k];
         nTRDTracklets += trk.getNtracklets();
         nTRDTracks += trk.getNtracklets() != 0;
-#endif
       } else {
         auto& trk = mIOPtrs.trdTracks[k];
         nTRDTracklets += trk.getNtracklets();
@@ -255,7 +251,6 @@ void GPUChainTracking::PrintOutputStat()
 
 void GPUChainTracking::SanityCheck()
 {
-#ifdef GPUCA_HAVE_O2HEADERS
   size_t nErrors = 0;
 
   for (uint32_t i = 0; i < mIOPtrs.nOutputTracksTPCO2; i++) {
@@ -296,12 +291,10 @@ void GPUChainTracking::SanityCheck()
   } else {
     GPUError("Sanity check found %lu errors", nErrors);
   }
-#endif
 }
 
 void GPUChainTracking::RunTPCClusterFilter(o2::tpc::ClusterNativeAccess* clusters, std::function<o2::tpc::ClusterNative*(size_t)> allocator, bool applyClusterCuts)
 {
-#ifdef GPUCA_HAVE_O2HEADERS
   GPUTPCClusterFilter clusterFilter(*clusters);
   o2::tpc::ClusterNative* outputBuffer = nullptr;
   for (int32_t iPhase = 0; iPhase < 2; iPhase++) {
@@ -338,5 +331,4 @@ void GPUChainTracking::RunTPCClusterFilter(o2::tpc::ClusterNativeAccess* cluster
       outputBuffer = allocator(countTotal);
     }
   }
-#endif
 }

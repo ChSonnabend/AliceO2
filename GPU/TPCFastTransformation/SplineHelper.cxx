@@ -33,7 +33,7 @@
 #include "GPUCommonMath.h"
 #include <iostream>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 template <typename DataT>
 SplineHelper<DataT>::SplineHelper() : mError(), mXdimensions(0), mFdimensions(0), mNumberOfDataPoints(0), mHelpers()
@@ -578,7 +578,7 @@ int32_t SplineHelper<DataT>::test(const bool draw, const bool drawDataPoints)
   return 0;
 }
 
-template class GPUCA_NAMESPACE::gpu::SplineHelper<float>;
-template class GPUCA_NAMESPACE::gpu::SplineHelper<double>;
+template class o2::gpu::SplineHelper<float>;
+template class o2::gpu::SplineHelper<double>;
 
 #endif

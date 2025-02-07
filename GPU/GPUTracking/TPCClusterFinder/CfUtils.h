@@ -20,7 +20,7 @@
 #include "Array2D.h"
 #include "CfConsts.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 class CfUtils
@@ -274,6 +274,6 @@ class CfUtils
   }
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

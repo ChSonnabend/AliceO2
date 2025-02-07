@@ -293,7 +293,7 @@ void TrackingStudySpec::process(o2::globaltracking::RecoContainer& recoData)
           clRowP = clRow;
         }
         unsigned int absoluteIndex = tpcClusAcc.clusterOffset[clSect][clRow] + clIdx;
-        if (shMap[absoluteIndex] & GPUCA_NAMESPACE::gpu::GPUTPCGMMergedTrackHit::flagShared) {
+        if (shMap[absoluteIndex] & o2::gpu::GPUTPCGMMergedTrackHit::flagShared) {
           trExt.nClTPCShared++;
         }
       }

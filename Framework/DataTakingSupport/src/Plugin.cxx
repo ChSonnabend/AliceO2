@@ -16,6 +16,7 @@
 #include "Framework/RawDeviceService.h"
 #include "Framework/DeviceSpec.h"
 #include <InfoLogger/InfoLogger.hxx>
+#include <fairlogger/Logger.h>
 #include <fairmq/Device.h>
 #include <fairmq/shmem/Monitor.h>
 #include <fairmq/shmem/Common.h>
@@ -66,51 +67,65 @@ auto createInfoLoggerSinkHelper(InfoLogger* logger, InfoLoggerContext* ctx)
     InfoLogger::InfoLogger::Severity severity = InfoLogger::Severity::Undefined;
     int level = InfoLogger::undefinedMessageOption.level;
 
-    if (metadata.severity_name == fair::Logger::SeverityName(fair::Severity::nolog)) {
-      // discard
-      return;
-    } else if (metadata.severity_name == fair::Logger::SeverityName(fair::Severity::fatal)) {
-      severity = InfoLogger::Severity::Fatal;
-      level = 1;
-    } else if (metadata.severity_name == fair::Logger::SeverityName(fair::Severity::error)) {
-      severity = InfoLogger::Severity::Error;
-      level = 2;
-    } else if (metadata.severity_name == fair::Logger::SeverityName(fair::Severity::alarm)) {
-      severity = InfoLogger::Severity::Warning;
-      level = 6;
-    } else if (metadata.severity_name == fair::Logger::SeverityName(fair::Severity::important)) {
-      severity = InfoLogger::Severity::Info;
-      level = 7;
-    } else if (metadata.severity_name == fair::Logger::SeverityName(fair::Severity::warn)) {
-      severity = InfoLogger::Severity::Warning;
-      level = 11;
-    } else if (metadata.severity_name == fair::Logger::SeverityName(fair::Severity::state)) {
-      severity = InfoLogger::Severity::Info;
-      level = 12;
-    } else if (metadata.severity_name == fair::Logger::SeverityName(fair::Severity::info)) {
-      severity = InfoLogger::Severity::Info;
-      level = 13;
-    } else if (metadata.severity_name == fair::Logger::SeverityName(fair::Severity::debug)) {
-      severity = InfoLogger::Severity::Debug;
-      level = 14;
-    } else if (metadata.severity_name == fair::Logger::SeverityName(fair::Severity::detail)) {
-      severity = InfoLogger::Severity::Debug;
-      level = 15;
-    } else if (metadata.severity_name == fair::Logger::SeverityName(fair::Severity::debug1)) {
-      severity = InfoLogger::Severity::Debug;
-      level = 16;
-    } else if (metadata.severity_name == fair::Logger::SeverityName(fair::Severity::debug2)) {
-      severity = InfoLogger::Severity::Debug;
-      level = 17;
-    } else if (metadata.severity_name == fair::Logger::SeverityName(fair::Severity::debug3)) {
-      severity = InfoLogger::Severity::Debug;
-      level = 18;
-    } else if (metadata.severity_name == fair::Logger::SeverityName(fair::Severity::debug4)) {
-      severity = InfoLogger::Severity::Debug;
-      level = 19;
-    } else if (metadata.severity_name == fair::Logger::SeverityName(fair::Severity::trace)) {
-      severity = InfoLogger::Severity::Debug;
-      level = 21;
+    switch (metadata.severity) {
+      case fair::Severity::fatal:
+        severity = InfoLogger::Severity::Fatal;
+        level = 1;
+        break;
+      case fair::Severity::error:
+        severity = InfoLogger::Severity::Error;
+        level = 2;
+        break;
+      case fair::Severity::alarm:
+        severity = InfoLogger::Severity::Warning;
+        level = 6;
+        break;
+      case fair::Severity::important:
+        severity = InfoLogger::Severity::Info;
+        level = 7;
+        break;
+      case fair::Severity::warn:
+        severity = InfoLogger::Severity::Warning;
+        level = 11;
+        break;
+      case fair::Severity::state:
+        severity = InfoLogger::Severity::Info;
+        level = 12;
+        break;
+      case fair::Severity::info:
+        severity = InfoLogger::Severity::Info;
+        level = 13;
+        break;
+      case fair::Severity::debug:
+        severity = InfoLogger::Severity::Debug;
+        level = 14;
+        break;
+      case fair::Severity::detail:
+        severity = InfoLogger::Severity::Debug;
+        level = 15;
+        break;
+      case fair::Severity::debug1:
+        severity = InfoLogger::Severity::Debug;
+        level = 16;
+        break;
+      case fair::Severity::debug2:
+        severity = InfoLogger::Severity::Debug;
+        level = 17;
+        break;
+      case fair::Severity::debug3:
+        severity = InfoLogger::Severity::Debug;
+        level = 18;
+        break;
+      case fair::Severity::debug4:
+        severity = InfoLogger::Severity::Debug;
+        level = 19;
+        break;
+      case fair::Severity::trace:
+        severity = InfoLogger::Severity::Debug;
+        level = 21;
+        break;
+      case fair::Severity::nolog: // discard
+        return;
     }
 
     InfoLogger::InfoLoggerMessageOption opt = {

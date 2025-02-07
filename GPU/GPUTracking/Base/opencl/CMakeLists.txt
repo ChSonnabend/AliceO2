@@ -96,25 +96,6 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
   install(FILES ${HDRS} DESTINATION include/GPU)
 endif()
 
-if(ALIGPU_BUILD_TYPE STREQUAL "ALIROOT")
-  # Generate the dictionary
-  get_directory_property(incdirs INCLUDE_DIRECTORIES)
-  generate_dictionary("Ali${MODULE}" "" "GPUReconstructionOCL.h" "${incdirs} .")
-
-  # Generate the ROOT map
-  generate_rootmap("Ali${MODULE}" "" "")
-
-  # Add a library to the project using the specified source files
-  add_library_tested(Ali${MODULE} SHARED ${SRCS} G__Ali${MODULE}.cxx)
-  target_link_libraries(Ali${MODULE} PUBLIC OpenCL AliGPUTracking)
-
-  # Installation
-  install(TARGETS Ali${MODULE} ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
-
-  install(FILES ${HDRS} DESTINATION include)
-  set(targetName Ali${MODULE})
-endif()
-
 if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
   add_library(${MODULE} SHARED ${SRCS})
   target_link_libraries(${MODULE} GPUTracking OpenCL)

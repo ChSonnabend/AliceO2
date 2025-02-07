@@ -192,13 +192,14 @@ Bool_t GeneratorHybrid::Init()
         if (mTriggerMacros[count][trg].empty() || mTriggerFuncs[count][trg].empty()) {
           continue;
         }
+        std::string expandedMacro = o2::utils::expandShellVarsInFileName(mTriggerMacros[count][trg]);
         LOG(info) << "Setting trigger " << trg << " of generator " << gen << " with following parameters";
-        LOG(info) << "Macro filename: " << mTriggerMacros[count][trg];
+        LOG(info) << "Macro filename: " << expandedMacro;
         LOG(info) << "Function name: " << mTriggerFuncs[count][trg];
-        trigger = o2::conf::GetFromMacro<o2::eventgen::Trigger>(mTriggerMacros[count][trg], mTriggerFuncs[count][trg], "o2::eventgen::Trigger", "trigger");
+        trigger = o2::conf::GetFromMacro<o2::eventgen::Trigger>(expandedMacro, mTriggerFuncs[count][trg], "o2::eventgen::Trigger", "trigger");
         if (!trigger) {
           LOG(info) << "Trying to retrieve a \'o2::eventgen::DeepTrigger\' type";
-          deeptrigger = o2::conf::GetFromMacro<o2::eventgen::DeepTrigger>(mTriggerMacros[count][trg], mTriggerFuncs[count][trg], "o2::eventgen::DeepTrigger", "deeptrigger");
+          deeptrigger = o2::conf::GetFromMacro<o2::eventgen::DeepTrigger>(expandedMacro, mTriggerFuncs[count][trg], "o2::eventgen::DeepTrigger", "deeptrigger");
         }
         if (!trigger && !deeptrigger) {
           LOG(warn) << "Failed to retrieve \'external trigger\': problem with configuration";
@@ -407,7 +408,7 @@ bool GeneratorHybrid::importParticles()
 
   mseqCounter++;
   mEventCounter++;
-  if (mEventCounter == mNEvents) {
+  if (mEventCounter == getTotalNEvents()) {
     LOG(info) << "HybridGen: Stopping TBB task pool";
     mStopFlag = true;
   }

@@ -15,7 +15,7 @@
 #ifndef GPUTRDINTERFACES_H
 #define GPUTRDINTERFACES_H
 
-// This is an interface header for making the TRD tracking portable between O2, AliRoot, and HLT standalone framework
+// This is an interface header for making the TRD tracking portable between O2, and Ru2 format
 
 #include "GPUCommonDef.h"
 #include "GPUCommonMath.h"
@@ -23,7 +23,7 @@
 #include "GPUTPCGMTrackParam.h"
 #include "GPUTRDDef.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -32,110 +32,12 @@ class trackInterface;
 template <typename T>
 class propagatorInterface;
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
-
-#ifdef GPUCA_ALIROOT_LIB // Interface for AliRoot, build only with AliRoot
-#include "AliExternalTrackParam.h"
-#include "AliHLTExternalTrackParam.h"
-#include "AliTrackerBase.h"
-
-namespace GPUCA_NAMESPACE
-{
-namespace gpu
-{
-
-template <>
-class trackInterface<AliExternalTrackParam> : public AliExternalTrackParam
-{
-
- public:
-  trackInterface() : AliExternalTrackParam(){};
-  trackInterface(const trackInterface<AliExternalTrackParam>& param) : AliExternalTrackParam(param){};
-  trackInterface(const AliExternalTrackParam& param) = delete;
-  trackInterface(const AliHLTExternalTrackParam& param) : AliExternalTrackParam()
-  {
-    float paramTmp[5] = {param.fY, param.fZ, param.fSinPhi, param.fTgl, param.fq1Pt};
-    Set(param.fX, param.fAlpha, paramTmp, param.fC);
-  }
-  trackInterface(const GPUTPCGMMergedTrack& trk) : AliExternalTrackParam()
-  {
-    Set(trk.GetParam().GetX(), trk.GetAlpha(), trk.GetParam().GetPar(), trk.GetParam().GetCov());
-  }
-  trackInterface(const gputpcgmmergertypes::GPUTPCOuterParam& param) : AliExternalTrackParam()
-  {
-    Set(param.X, param.alpha, param.P, param.C);
-  }
-
-  // parameter + covariance
-  float getX() const { return GetX(); }
-  float getAlpha() const { return GetAlpha(); }
-  float getY() const { return GetY(); }
-  float getZ() const { return GetZ(); }
-  float getSnp() const { return GetSnp(); }
-  float getTgl() const { return GetTgl(); }
-  float getQ2Pt() const { return GetSigned1Pt(); }
-  float getEta() const { return Eta(); }
-  float getPt() const { return Pt(); }
-  float getSigmaY2() const { return GetSigmaY2(); }
-  float getSigmaZ2() const { return GetSigmaZ2(); }
-
-  const My_Float* getPar() const { return GetParameter(); }
-  const My_Float* getCov() const { return GetCovariance(); }
-  void resetCovariance(float s) { ResetCovariance(10.f); }
-  void updateCovZ2(float) {}
-  bool CheckNumericalQuality() const { return true; }
-
-  // parameter manipulation
-  bool update(const My_Float p[2], const My_Float cov[3]) { return Update(p, cov); }
-  float getPredictedChi2(const My_Float p[2], const My_Float cov[3]) const { return GetPredictedChi2(p, cov); }
-  bool rotate(float alpha) { return Rotate(alpha); }
-
-  void set(float x, float alpha, const float param[5], const float cov[15]) { Set(x, alpha, param, cov); }
-
-  typedef AliExternalTrackParam baseClass;
-};
-
-template <>
-class propagatorInterface<AliTrackerBase> : public AliTrackerBase
-{
-
- public:
-  typedef void propagatorParam;
-  propagatorInterface(const propagatorParam* = nullptr) : AliTrackerBase(), mParam(nullptr){};
-  propagatorInterface(const propagatorInterface<AliTrackerBase>&) = delete;
-  propagatorInterface& operator=(const propagatorInterface<AliTrackerBase>&) = delete;
-
-  bool propagateToX(float x, float maxSnp, float maxStep) { return PropagateTrackToBxByBz(mParam, x, 0.13957f, maxStep, false, maxSnp); }
-  int32_t getPropagatedYZ(float x, float& projY, float& projZ)
-  {
-    Double_t yz[2] = {0.};
-    mParam->GetYZAt(x, GetBz(), yz);
-    projY = yz[0];
-    projZ = yz[1];
-    return 0;
-  }
-
-  void setTrack(trackInterface<AliExternalTrackParam>* trk) { mParam = trk; }
-  void setFitInProjections(bool flag) {}
-
-  float getAlpha() { return (mParam) ? mParam->GetAlpha() : 99999.f; }
-  bool update(const My_Float p[2], const My_Float cov[3]) { return (mParam) ? mParam->update(p, cov) : false; }
-  float getPredictedChi2(const My_Float p[2], const My_Float cov[3]) { return (mParam) ? mParam->getPredictedChi2(p, cov) : 99999.f; }
-  bool rotate(float alpha) { return (mParam) ? mParam->rotate(alpha) : false; }
-
-  trackInterface<AliExternalTrackParam>* mParam;
-};
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
-
-#endif // GPUCA_ALIROOT_LIB
-
-#if defined(GPUCA_HAVE_O2HEADERS) // Interface for O2, build only with O2
+} // namespace o2
 
 #include "DetectorsBase/Propagator.h"
 #include "GPUTRDInterfaceO2Track.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -159,7 +61,7 @@ class propagatorInterface<o2::base::Propagator>
   GPUdi() void setFitInProjections(bool flag) {}
 
   GPUdi() float getAlpha() { return (mParam) ? mParam->getAlpha() : 99999.f; }
-  GPUdi() bool update(const My_Float p[2], const My_Float cov[3])
+  GPUdi() bool update(const float p[2], const float cov[3])
   {
     if (mParam) {
       gpustd::array<float, 2> pTmp = {p[0], p[1]};
@@ -169,7 +71,7 @@ class propagatorInterface<o2::base::Propagator>
       return false;
     }
   }
-  GPUdi() float getPredictedChi2(const My_Float p[2], const My_Float cov[3])
+  GPUdi() float getPredictedChi2(const float p[2], const float cov[3])
   {
     if (mParam) {
       gpustd::array<float, 2> pTmp = {p[0], p[1]};
@@ -186,19 +88,15 @@ class propagatorInterface<o2::base::Propagator>
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
-
-#endif // GPUCA_HAVE_O2HEADERS
+} // namespace o2
 
 #include "GPUTPCGMPropagator.h"
 #include "GPUParam.h"
 #include "GPUDef.h"
-#ifdef GPUCA_HAVE_O2HEADERS
 #include "DataFormatsTPC/TrackTPC.h"
 #include "ReconstructionDataFormats/TrackTPCITS.h"
-#endif
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -222,21 +120,6 @@ class trackInterface<GPUTPCGMTrackParam> : public GPUTPCGMTrackParam
   };
   GPUdDefault() trackInterface(const trackInterface<GPUTPCGMTrackParam>& param) = default;
   GPUdDefault() trackInterface& operator=(const trackInterface<GPUTPCGMTrackParam>& param) = default;
-#ifdef GPUCA_ALIROOT_LIB
-  trackInterface(const AliHLTExternalTrackParam& param) : GPUTPCGMTrackParam(), mAlpha(param.fAlpha)
-  {
-    SetX(param.fX);
-    SetPar(0, param.fY);
-    SetPar(1, param.fZ);
-    SetPar(2, param.fSinPhi);
-    SetPar(3, param.fTgl);
-    SetPar(4, param.fq1Pt);
-    for (int32_t i = 0; i < 15; i++) {
-      SetCov(i, param.fC[i]);
-    }
-  };
-#endif
-#if defined(GPUCA_HAVE_O2HEADERS)
   GPUd() trackInterface(const o2::dataformats::TrackTPCITS& param) : GPUTPCGMTrackParam(), mAlpha(param.getParamOut().getAlpha())
   {
     SetX(param.getParamOut().getX());
@@ -261,7 +144,6 @@ class trackInterface<GPUTPCGMTrackParam> : public GPUTPCGMTrackParam
       SetCov(i, param.getParamOut().getCov()[i]);
     }
   }
-#endif
 
   GPUd() float getX() const
   {
@@ -342,18 +224,18 @@ class propagatorInterface<GPUTPCGMPropagator> : public GPUTPCGMPropagator
     }
     return false;
   }
-  GPUd() bool update(const My_Float p[2], const My_Float cov[3])
+  GPUd() bool update(const float p[2], const float cov[3])
   {
     // TODO sigma_yz not taken into account yet, is not zero due to pad tilting!
     return Update(p[0], p[1], 0, false, cov[0], cov[2]) == 0 ? true : false;
   }
   GPUd() float getAlpha() { return GetAlpha(); }
   // TODO sigma_yz not taken into account yet, is not zero due to pad tilting!
-  GPUd() float getPredictedChi2(const My_Float p[2], const My_Float cov[3]) const { return PredictChi2(p[0], p[1], cov[0], cov[2]); }
+  GPUd() float getPredictedChi2(const float p[2], const float cov[3]) const { return PredictChi2(p[0], p[1], cov[0], cov[2]); }
 
   trackInterface<GPUTPCGMTrackParam>* mTrack;
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // GPUTRDINTERFACES_H

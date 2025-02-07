@@ -17,7 +17,7 @@
 
 #include "clusterFinderDefs.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -192,6 +192,6 @@ GPUconstexpr() uint32_t NoiseSuppressionMinima[NOISE_SUPPRESSION_NEIGHBOR_NUM] =
 
 } // namespace cfconsts
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

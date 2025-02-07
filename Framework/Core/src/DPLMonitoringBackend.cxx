@@ -13,19 +13,12 @@
 #include "Framework/DriverClient.h"
 #include "Framework/ServiceRegistry.h"
 #include "Framework/RuntimeError.h"
+#include "Framework/VariantHelpers.h"
 #include <fmt/format.h>
 #include <sstream>
 
 namespace o2::framework
 {
-
-template <class... Ts>
-struct overloaded : Ts... {
-  using Ts::operator()...;
-};
-template <class... Ts>
-overloaded(Ts...) -> overloaded<Ts...>;
-
 
 DPLMonitoringBackend::DPLMonitoringBackend(ServiceRegistryRef registry)
   : mRegistry{registry}

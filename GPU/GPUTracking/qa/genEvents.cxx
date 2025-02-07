@@ -40,9 +40,9 @@
 
 #include "../utils/qconfig.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 using namespace std;
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 extern GPUSettingsStandalone configStandalone;
 }

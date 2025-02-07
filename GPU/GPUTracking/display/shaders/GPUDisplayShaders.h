@@ -16,7 +16,7 @@
 #define GPUDISPLAYSHADERS_H
 
 #include "GPUCommonDef.h"
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -469,6 +469,6 @@ void main() {
 )";
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

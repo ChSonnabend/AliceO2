@@ -238,6 +238,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
     BOOST_CHECK(meanDA < 0.1);
     BOOST_CHECK(meanDAW < 0.1);
     BOOST_CHECK(meanDW < 0.1);
+    ft.print();
   }
 
   // 2 prongs vertices with collinear tracks (gamma conversion)
@@ -316,6 +317,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
     BOOST_CHECK(meanDA < 2.1);
     BOOST_CHECK(meanDAW < 2.1);
     BOOST_CHECK(meanDW < 2.1);
+    ft.print();
   }
 
   // 2 prongs vertices with one of charges set to 0: Helix : Line
@@ -394,6 +396,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
     BOOST_CHECK(meanDA < 0.1);
     BOOST_CHECK(meanDAW < 0.1);
     BOOST_CHECK(meanDW < 0.1);
+    ft.print();
   }
 
   // 2 prongs vertices with both of charges set to 0: Line : Line
@@ -471,6 +474,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
     BOOST_CHECK(meanDA < 0.1);
     BOOST_CHECK(meanDAW < 0.1);
     BOOST_CHECK(meanDW < 0.1);
+    ft.print();
   }
 
   // 3 prongs vertices
@@ -547,8 +551,8 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
     BOOST_CHECK(meanDA < 0.1);
     BOOST_CHECK(meanDAW < 0.1);
     BOOST_CHECK(meanDW < 0.1);
+    ft.print();
   }
-
   outStream.Close();
 }
 

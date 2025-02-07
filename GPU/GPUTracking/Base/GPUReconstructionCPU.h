@@ -16,7 +16,6 @@
 #define GPURECONSTRUCTIONICPU_H
 
 #include "GPUReconstruction.h"
-#include "GPUReconstructionHelpers.h"
 #include "GPUConstantMem.h"
 #include <stdexcept>
 #include "utils/timer.h"
@@ -26,7 +25,7 @@
 #include "GPUReconstructionKernelIncludes.h"
 #include "GPUReconstructionKernels.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -117,13 +116,6 @@ class GPUReconstructionCPU : public GPUReconstructionKernels<GPUReconstructionCP
   virtual void RecordMarker(deviceEvent* ev, int32_t stream) {}
   virtual void SynchronizeGPU() {}
   virtual void ReleaseEvent(deviceEvent ev) {}
-  virtual int32_t StartHelperThreads() { return 0; }
-  virtual int32_t StopHelperThreads() { return 0; }
-  virtual void RunHelperThreads(int32_t (GPUReconstructionHelpers::helperDelegateBase::*function)(int32_t, int32_t, GPUReconstructionHelpers::helperParam*), GPUReconstructionHelpers::helperDelegateBase* functionCls, int32_t count) {}
-  virtual void WaitForHelperThreads() {}
-  virtual int32_t HelperError(int32_t iThread) const { return 0; }
-  virtual int32_t HelperDone(int32_t iThread) const { return 0; }
-  virtual void ResetHelperThreads(int32_t helpers) {}
 
   size_t TransferMemoryResourceToGPU(GPUMemoryResource* res, int32_t stream = -1, deviceEvent* ev = nullptr, deviceEvent* evList = nullptr, int32_t nEvents = 1) { return TransferMemoryInternal(res, stream, ev, evList, nEvents, true, res->Ptr(), res->PtrDevice()); }
   size_t TransferMemoryResourceToHost(GPUMemoryResource* res, int32_t stream = -1, deviceEvent* ev = nullptr, deviceEvent* evList = nullptr, int32_t nEvents = 1) { return TransferMemoryInternal(res, stream, ev, evList, nEvents, false, res->PtrDevice(), res->Ptr()); }
@@ -294,7 +286,7 @@ HighResTimer& GPUReconstructionCPU::getTimer(const char* name, int32_t num)
   static int32_t id = getNextTimerId();
   timerMeta* timer = getTimerById(id);
   if (timer == nullptr) {
-    int32_t max = std::max<int32_t>({getOMPMaxThreads(), mProcessingSettings.nDeviceHelperThreads + 1, mProcessingSettings.nStreams});
+    int32_t max = std::max<int32_t>({getOMPMaxThreads(), mProcessingSettings.nStreams});
     timer = insertTimer(id, name, J, max, 1, RecoStep::NoRecoStep);
   }
   if (num == -1) {
@@ -307,6 +299,6 @@ HighResTimer& GPUReconstructionCPU::getTimer(const char* name, int32_t num)
 }
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

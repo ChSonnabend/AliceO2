@@ -18,7 +18,7 @@
 #include "GPUCommonDef.h"
 #include "GPUCommonMath.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -128,6 +128,6 @@ class GPUTPCGMBorderTrack
   ClassDefNV(GPUTPCGMBorderTrack, 1);
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

@@ -13,7 +13,7 @@
 /// \author David Rohr
 
 #include "GPUTRDTrackO2.h"
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 #include "GPUTRDTrack.inc"
 #include "ReconstructionDataFormats/GlobalTrackID.h"

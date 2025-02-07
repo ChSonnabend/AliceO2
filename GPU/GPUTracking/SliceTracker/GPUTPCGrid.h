@@ -17,7 +17,7 @@
 
 #include "GPUTPCDef.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -67,6 +67,6 @@ class GPUTPCGrid
   float mStepZInv;  //* inverse bin size in Z
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // GPUTPCGRID_H

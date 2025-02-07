@@ -17,7 +17,7 @@
 
 #include "GPUDef.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 struct GPUMemorySizeScalers {
@@ -84,6 +84,6 @@ struct GPUMemorySizeScalers {
   inline size_t NTPCUnattachedHitsBase1024(int32_t type) { return (returnMaxVal || conservative) ? 1024 : std::min<size_t>(1024, tpcCompressedUnattachedHitsBase1024[type] * factor * temporaryFactor); }
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

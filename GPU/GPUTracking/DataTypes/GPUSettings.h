@@ -22,7 +22,7 @@
 #include <string>
 #endif
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -80,7 +80,7 @@ struct GPUSettingsDeviceBackend {
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #ifdef GPUCA_GPUCODE_DEVICE
 #define QCONFIG_GPU

@@ -20,22 +20,9 @@
 #include "GPUCommonMath.h"
 #include "GPUParam.h"
 #include "GPUO2DataTypes.h"
-
-#ifdef GPUCA_HAVE_O2HEADERS
 #include "DataFormatsTPC/CompressedClusters.h"
-#else
-namespace o2::tpc
-{
-struct CompressedClustersPtrs {
-};
-struct CompressedClusters {
-};
-struct CompressedClustersFlat {
-};
-} // namespace o2::tpc
-#endif
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 class GPUTPCDecompression : public GPUProcessor
@@ -85,5 +72,5 @@ class GPUTPCDecompression : public GPUProcessor
   int16_t mResourceClusterNativeAccess = -1;
   int16_t mResourceNClusterPerSectorRow = -1;
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 #endif // GPUTPCDECOMPRESSION_H

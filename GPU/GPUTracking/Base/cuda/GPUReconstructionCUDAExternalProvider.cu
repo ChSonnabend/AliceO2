@@ -21,7 +21,7 @@
 
 #include <stdexcept>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 #include "GPUConstantMem.h"
 

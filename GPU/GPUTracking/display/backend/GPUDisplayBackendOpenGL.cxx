@@ -30,7 +30,7 @@
 
 #define OPENGL_EMULATE_MULTI_DRAW 0
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 #ifdef GPUCA_BUILD_EVENT_DISPLAY_VULKAN
 #include "utils/qGetLdBinarySymbols.h"

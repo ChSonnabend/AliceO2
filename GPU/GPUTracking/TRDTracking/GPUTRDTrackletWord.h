@@ -24,7 +24,7 @@
 class AliTRDtrackletWord;
 class AliTRDtrackletMCM;
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -73,13 +73,13 @@ class GPUTRDTrackletWord
                           //          bits:   8   4            7          13
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #else // compatibility with Run 3 data types
 
 #include "DataFormatsTRD/Tracklet64.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -109,7 +109,7 @@ class GPUTRDTrackletWord : private o2::trd::Tracklet64
 static_assert(sizeof(GPUTRDTrackletWord) == sizeof(o2::trd::Tracklet64), "Incorrect memory layout");
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // GPUCA_TPC_GEOMETRY_O2
 

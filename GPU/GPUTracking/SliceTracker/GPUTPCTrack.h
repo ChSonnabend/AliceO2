@@ -19,7 +19,7 @@
 #include "GPUTPCDef.h"
 #include "GPUTPCSliceOutCluster.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -68,6 +68,6 @@ class GPUTPCTrack
  private:
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // GPUTPCTRACK_H

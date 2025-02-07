@@ -36,11 +36,9 @@ class GlobalTrackID;
 } // namespace o2
 
 //_____________________________________________________________________________
-#if (!defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB)) || defined(GPUCA_HAVE_O2HEADERS)
 #include "GPUTRDInterfaceO2Track.h"
-#endif
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -98,10 +96,6 @@ class GPUTRDTrack_t : public T
   GPUd() bool getIsFindable(int32_t iLayer) const { return (mFlags >> iLayer) & 0x1; }
   GPUd() int32_t getNmissingConsecLayers(int32_t iLayer) const;
   GPUd() int32_t getIsPenaltyAdded(int32_t iLayer) const { return getIsFindable(iLayer) && getTrackletIndex(iLayer) < 0; }
-  // for AliRoot compatibility. To be removed once HLT/global/AliHLTGlobalEsdConverterComponent.cxx does not require them anymore
-  GPUd() int32_t GetTPCtrackId() const { return mRefGlobalTrackId; }
-  GPUd() bool GetIsStopped() const { return getIsStopped(); }
-  GPUd() int32_t GetNtracklets() const { return getNtracklets(); }
 
   // setters
   GPUd() void setRefGlobalTrackIdRaw(uint32_t id) { mRefGlobalTrackId = id; }
@@ -117,10 +111,6 @@ class GPUTRDTrack_t : public T
   GPUd() void setHasNeighbor() { mIsCrossingNeighbor |= (1U << 6); }
   GPUd() void setHasPadrowCrossing() { mIsCrossingNeighbor |= (1U << 7); }
 
-  // conversion to / from HLT track structure (only for AliRoot)
-  GPUd() void ConvertTo(GPUTRDTrackDataRecord& t) const;
-  GPUd() void ConvertFrom(const GPUTRDTrackDataRecord& t);
-
  protected:
   float mChi2;                       // total chi2.
   float mSignal{-1.f};               // electron Likelihood for track
@@ -132,12 +122,12 @@ class GPUTRDTrack_t : public T
 
  private:
   GPUd() void initialize();
-#if !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB)
+#if !defined(GPUCA_STANDALONE)
   ClassDefNV(GPUTRDTrack_t, 4);
 #endif
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // GPUTRDTRACK_H

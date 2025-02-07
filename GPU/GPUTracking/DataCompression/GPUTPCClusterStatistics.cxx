@@ -20,7 +20,7 @@
 #include <map>
 #include <queue>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 // Small helper to compute Huffman probabilities
 namespace

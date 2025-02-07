@@ -20,7 +20,7 @@
 #include "GPUTPCConvertImpl.h"
 #include "GPUParam.inc"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 using namespace o2::tpc;
 
 GPUd() void GPUTPCGMSliceTrack::Set(const GPUTPCGMMerger* merger, const GPUTPCTrack* sliceTr, float alpha, int32_t slice)
@@ -95,26 +95,15 @@ GPUd() void GPUTPCGMSliceTrack::SetParam2(const GPUTPCGMTrackParam& trk)
 GPUd() bool GPUTPCGMSliceTrack::FilterErrors(const GPUTPCGMMerger* merger, int32_t iSlice, float maxSinPhi, float sinPhiMargin)
 {
   float lastX;
-  if (merger->Param().par.earlyTpcTransform && !merger->Param().rec.tpc.mergerReadFromTrackerDirectly) {
-    lastX = mOrigTrack->OutTrackCluster(mOrigTrack->NHits() - 1).GetX(); // TODO: Why is this needed, Row2X should work, but looses some tracks
-  } else {
-    //float lastX = merger->Param().tpcGeometry.Row2X(mOrigTrack->Cluster(mOrigTrack->NClusters() - 1).GetRow()); // TODO: again, why does this reduce efficiency?
-    float y, z;
-    const GPUTPCSliceOutCluster* clo;
-    int32_t row, index;
-    if (merger->Param().rec.tpc.mergerReadFromTrackerDirectly) {
-      const GPUTPCTracker& trk = merger->GetConstantMem()->tpcTrackers[iSlice];
-      const GPUTPCHitId& ic = trk.TrackHits()[mOrigTrack->FirstHitID() + mOrigTrack->NHits() - 1];
-      index = trk.Data().ClusterDataIndex(trk.Data().Row(ic.RowIndex()), ic.HitIndex()) + merger->GetConstantMem()->ioPtrs.clustersNative->clusterOffset[iSlice][0];
-      row = ic.RowIndex();
-    } else {
-      clo = &mOrigTrack->OutTrackCluster(mOrigTrack->NHits() - 1);
-      index = clo->GetId();
-      row = clo->GetRow();
-    }
-    const ClusterNative& cl = merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[index];
-    GPUTPCConvertImpl::convert(*merger->GetConstantMem(), iSlice, row, cl.getPad(), cl.getTime(), lastX, y, z);
-  }
+  // float lastX = merger->Param().tpcGeometry.Row2X(mOrigTrack->Cluster(mOrigTrack->NClusters() - 1).GetRow()); // TODO: Why is this needed to be set below, Row2X should work, but looses some tracks
+  float y, z;
+  int32_t row, index;
+  const GPUTPCTracker& trk = merger->GetConstantMem()->tpcTrackers[iSlice];
+  const GPUTPCHitId& ic = trk.TrackHits()[mOrigTrack->FirstHitID() + mOrigTrack->NHits() - 1];
+  index = trk.Data().ClusterDataIndex(trk.Data().Row(ic.RowIndex()), ic.HitIndex()) + merger->GetConstantMem()->ioPtrs.clustersNative->clusterOffset[iSlice][0];
+  row = ic.RowIndex();
+  const ClusterNative& cl = merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[index];
+  GPUTPCConvertImpl::convert(*merger->GetConstantMem(), iSlice, row, cl.getPad(), cl.getTime(), lastX, y, z);
 
   const int32_t N = 3;
 

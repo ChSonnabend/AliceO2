@@ -15,7 +15,7 @@
 #include <cstdio>
 #include "GPUDisplay.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 void GPUDisplay::opengl_spline::create(const vecpod<float>& x, const vecpod<float>& y)
 {

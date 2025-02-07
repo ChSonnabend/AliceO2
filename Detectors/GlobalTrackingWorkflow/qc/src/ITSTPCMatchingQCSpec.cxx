@@ -49,6 +49,7 @@ void ITSTPCMatchingQCDevice::init(InitContext& /*ic*/)
   mMatchITSTPCQC->setPtCut(params.minPtCut);
   mMatchITSTPCQC->setMaxPtCut(params.maxPtCut);
   mMatchITSTPCQC->setEtaCut(params.etaCut);
+  mMatchITSTPCQC->setEtaNo0Cut(params.etaNo0Cut);
   mMatchITSTPCQC->setCutK0Mass(params.cutK0Mass);
   mMatchITSTPCQC->setMaxK0Eta(params.maxEtaK0);
   mMatchITSTPCQC->setK0Scaling(params.K0Scaling);

@@ -19,7 +19,7 @@
 #include "GPUTPCGMMergedTrackHit.h"
 #include "GPUTPCClusterOccupancyMap.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -224,6 +224,6 @@ GPUdi() bool GPUParam::rejectEdgeClusterByY(float uncorrectedY, int32_t iRow, fl
 }
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

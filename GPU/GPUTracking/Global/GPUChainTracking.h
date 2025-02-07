@@ -16,7 +16,6 @@
 #define GPUCHAINTRACKING_H
 
 #include "GPUChain.h"
-#include "GPUReconstructionHelpers.h"
 #include "GPUDataTypes.h"
 #include <atomic>
 #include <mutex>
@@ -51,7 +50,7 @@ class MatLayerCylSet;
 }
 } // namespace o2
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -68,7 +67,7 @@ struct GPUTPCCFChainContext;
 struct GPUNewCalibValues;
 struct GPUTriggerOutputs;
 
-class GPUChainTracking : public GPUChain, GPUReconstructionHelpers::helperDelegateBase
+class GPUChainTracking : public GPUChain
 {
   friend class GPUReconstruction;
 
@@ -193,7 +192,6 @@ class GPUChainTracking : public GPUChain, GPUReconstructionHelpers::helperDelega
   void SetCalibObjects(const GPUCalibObjectsConst& obj) { processors()->calibObjects = obj; }
   void SetCalibObjects(const GPUCalibObjects& obj) { memcpy((void*)&processors()->calibObjects, (const void*)&obj, sizeof(obj)); }
   void SetUpdateCalibObjects(const GPUCalibObjectsConst& obj, const GPUNewCalibValues& vals);
-  void LoadClusterErrors();
   void SetSubOutputControl(int32_t i, GPUOutputControl* v) { mSubOutputControls[i] = v; }
   void SetFinalInputCallback(std::function<void()> v) { mWaitForFinalInputs = v; }
 
@@ -315,18 +313,14 @@ class GPUChainTracking : public GPUChain, GPUReconstructionHelpers::helperDelega
   void RunTPCClusterFilter(o2::tpc::ClusterNativeAccess* clusters, std::function<o2::tpc::ClusterNative*(size_t)> allocator, bool applyClusterCuts);
   bool NeedTPCClustersOnGPU();
 
-  std::atomic_flag mLockAtomicOutputBuffer = ATOMIC_FLAG_INIT;
   std::mutex mMutexUpdateCalib;
   std::unique_ptr<GPUChainTrackingFinalContext> mPipelineFinalizationCtx;
   GPUChainTrackingFinalContext* mPipelineNotifyCtx = nullptr;
   std::function<void()> mWaitForFinalInputs;
 
-  int32_t HelperReadEvent(int32_t iSlice, int32_t threadId, GPUReconstructionHelpers::helperParam* par);
-  int32_t HelperOutput(int32_t iSlice, int32_t threadId, GPUReconstructionHelpers::helperParam* par);
-
   int32_t OutputStream() const { return mRec->NStreams() - 2; }
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

@@ -66,81 +66,79 @@ set(SRCS_CXX ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPGenRTC.cxx)
 set(HDRS ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIP.h ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPInternals.h ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPDef.h ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPIncludes.h ${GPUCA_HIP_SOURCE_DIR}/HIPThrustHelpers.h)
 
 # -------------------------------- Prepare RTC -------------------------------------------------------
-if(NOT ALIGPU_BUILD_TYPE STREQUAL "ALIROOT")
-  enable_language(ASM)
-  if(ALIGPU_BUILD_TYPE STREQUAL "O2")
-    set(defineIncludeSrc "O2::${MODULE}")
-  else()
-    set(defineIncludeSrc "${MODULE}")
-  endif()
-  set(GPU_RTC_DEFINES "-D$<JOIN:$<TARGET_PROPERTY:${defineIncludeSrc},COMPILE_DEFINITIONS>,$<SEMICOLON>-D>")
-  set(GPU_RTC_INCLUDES "-I$<JOIN:$<FILTER:$<TARGET_PROPERTY:${defineIncludeSrc},INCLUDE_DIRECTORIES>,EXCLUDE,^/usr/include/?>,$<SEMICOLON>-I>"
-                    -I${CMAKE_SOURCE_DIR}/Detectors/Base/src
-                    -I${CMAKE_SOURCE_DIR}/Detectors/TRD/base/src
-  )
-  if(ALIGPU_BUILD_TYPE STREQUAL "O2")
-    set(GPU_RTC_INCLUDES ${GPU_RTC_INCLUDES} "-I$<JOIN:$<FILTER:$<TARGET_PROPERTY:O2::ITStrackingHIP,INCLUDE_DIRECTORIES>,EXCLUDE,^/usr/include/?>,$<SEMICOLON>-I>")
-  endif()
-
-  # build flags to use for RTC
-  set(GPU_RTC_FLAGS "${CMAKE_HIP_FLAGS} ${CMAKE_HIP_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} -std=c++${CMAKE_HIP_STANDARD}")
-  set(GPU_RTC_FLAGS_ARCH "")
-  foreach(HIP_ARCH ${CMAKE_HIP_ARCHITECTURES})
-    set(GPU_RTC_FLAGS_ARCH "${GPU_RTC_FLAGS_ARCH} --offload-arch=${HIP_ARCH}")
-  endforeach()
-
-  set(GPU_RTC_FLAGS_SEPARATED "${GPU_RTC_FLAGS}")
-  separate_arguments(GPU_RTC_FLAGS_SEPARATED)
-
-  # convenience variables
-  if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
-    get_filename_component(GPUDIR ${CMAKE_SOURCE_DIR}/../ ABSOLUTE)
-  else()
-    set(GPUDIR ${CMAKE_SOURCE_DIR}/GPU/GPUTracking)
-  endif()
-
-  set(GPU_RTC_SRC ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPrtc.hip)
-  set(GPU_RTC_BIN ${CMAKE_CURRENT_BINARY_DIR}/GPUReconstructionHIPrtc)
-
-  # cmake-format: off
-  add_custom_command(
-      OUTPUT ${GPU_RTC_BIN}.src
-      COMMAND cat ${GPUDIR}/Base/hip/GPUReconstructionHIPIncludes.h > ${GPU_RTC_BIN}.src
-      COMMAND ${CMAKE_CXX_COMPILER} ${GPU_RTC_DEFINES} ${GPU_RTC_INCLUDES} -std=c++${CMAKE_HIP_STANDARD} -D__HIPCC__ -D__HIP_DEVICE_COMPILE__ -x c++ -nostdinc -E ${GPU_RTC_SRC} >> ${GPU_RTC_BIN}.src
-      MAIN_DEPENDENCY ${GPU_RTC_SRC}
-      IMPLICIT_DEPENDS CXX ${GPU_RTC_SRC}
-      DEPENDS ${MODULE}_HIPIFIED
-      COMMAND_EXPAND_LISTS
-      COMMENT "Preparing HIP RTC source file ${GPU_RTC_BIN}.src"
-  )
-  create_binary_resource(${GPU_RTC_BIN}.src ${GPU_RTC_BIN}.src.o)
-
-  add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIP_SRC_CHK.done
-                     COMMAND ! grep "# [0-9]* \"\\(/usr/\\|.*GCC-Toolchain\\)" ${GPU_RTC_BIN}.src > ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIP_SRC_CHK.done || bash -c "echo ERROR: HIP RTC sources contain standard headers 1>&2 && exit 1"
-                     COMMENT Checking HIP RTC File ${GPU_RTC_BIN}.src
-                     DEPENDS ${GPU_RTC_BIN}.src VERBATIM)
-  add_custom_target(${MODULE}_HIP_SRC_CHK ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIP_SRC_CHK.done)
-
-  add_custom_command(
-      OUTPUT ${GPU_RTC_BIN}.command
-      COMMAND echo -n "${hip_HIPCC_EXECUTABLE} ${GPU_RTC_FLAGS_SEPARATED} ${GPU_RTC_DEFINES} --genco" > ${GPU_RTC_BIN}.command
-      COMMAND_EXPAND_LISTS
-      VERBATIM
-      COMMENT "Preparing HIP RTC command file ${GPU_RTC_BIN}.command"
-  )
-  create_binary_resource(${GPU_RTC_BIN}.command ${GPU_RTC_BIN}.command.o)
-
-  add_custom_command(
-      OUTPUT ${GPU_RTC_BIN}.command.arch
-      COMMAND echo -n "${GPU_RTC_FLAGS_ARCH}" > ${GPU_RTC_BIN}.command.arch
-      COMMAND_EXPAND_LISTS
-      VERBATIM
-      COMMENT "Preparing HIP RTC ARCH file ${GPU_RTC_BIN}.command.arch"
-  )
-  create_binary_resource(${GPU_RTC_BIN}.command.arch ${GPU_RTC_BIN}.command.arch.o)
-
-  set(SRCS ${SRCS} ${GPU_RTC_BIN}.src.o ${GPU_RTC_BIN}.command.o ${GPU_RTC_BIN}.command.arch.o)
+enable_language(ASM)
+if(ALIGPU_BUILD_TYPE STREQUAL "O2")
+  set(defineIncludeSrc "O2::${MODULE}")
+else()
+  set(defineIncludeSrc "${MODULE}")
 endif()
+set(GPU_RTC_DEFINES "-D$<JOIN:$<TARGET_PROPERTY:${defineIncludeSrc},COMPILE_DEFINITIONS>,$<SEMICOLON>-D>")
+set(GPU_RTC_INCLUDES "-I$<JOIN:$<FILTER:$<TARGET_PROPERTY:${defineIncludeSrc},INCLUDE_DIRECTORIES>,EXCLUDE,^/usr/include/?>,$<SEMICOLON>-I>"
+                  -I${CMAKE_SOURCE_DIR}/Detectors/Base/src
+                  -I${CMAKE_SOURCE_DIR}/Detectors/TRD/base/src
+)
+if(ALIGPU_BUILD_TYPE STREQUAL "O2")
+  set(GPU_RTC_INCLUDES ${GPU_RTC_INCLUDES} "-I$<JOIN:$<FILTER:$<TARGET_PROPERTY:O2::ITStrackingHIP,INCLUDE_DIRECTORIES>,EXCLUDE,^/usr/include/?>,$<SEMICOLON>-I>")
+endif()
+
+# build flags to use for RTC
+set(GPU_RTC_FLAGS "${CMAKE_HIP_FLAGS} ${CMAKE_HIP_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} -std=c++${CMAKE_HIP_STANDARD}")
+set(GPU_RTC_FLAGS_ARCH "")
+foreach(HIP_ARCH ${CMAKE_HIP_ARCHITECTURES})
+  set(GPU_RTC_FLAGS_ARCH "${GPU_RTC_FLAGS_ARCH} --offload-arch=${HIP_ARCH}")
+endforeach()
+
+set(GPU_RTC_FLAGS_SEPARATED "${GPU_RTC_FLAGS}")
+separate_arguments(GPU_RTC_FLAGS_SEPARATED)
+
+# convenience variables
+if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
+  get_filename_component(GPUDIR ${CMAKE_SOURCE_DIR}/../ ABSOLUTE)
+else()
+  set(GPUDIR ${CMAKE_SOURCE_DIR}/GPU/GPUTracking)
+endif()
+
+set(GPU_RTC_SRC ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPrtc.hip)
+set(GPU_RTC_BIN ${CMAKE_CURRENT_BINARY_DIR}/GPUReconstructionHIPrtc)
+
+# cmake-format: off
+add_custom_command(
+    OUTPUT ${GPU_RTC_BIN}.src
+    COMMAND cat ${GPUDIR}/Base/hip/GPUReconstructionHIPIncludes.h > ${GPU_RTC_BIN}.src
+    COMMAND ${CMAKE_CXX_COMPILER} ${GPU_RTC_DEFINES} ${GPU_RTC_INCLUDES} -std=c++${CMAKE_HIP_STANDARD} -D__HIPCC__ -D__HIP_DEVICE_COMPILE__ -x c++ -nostdinc -E ${GPU_RTC_SRC} >> ${GPU_RTC_BIN}.src
+    MAIN_DEPENDENCY ${GPU_RTC_SRC}
+    IMPLICIT_DEPENDS CXX ${GPU_RTC_SRC}
+    DEPENDS ${MODULE}_HIPIFIED
+    COMMAND_EXPAND_LISTS
+    COMMENT "Preparing HIP RTC source file ${GPU_RTC_BIN}.src"
+)
+create_binary_resource(${GPU_RTC_BIN}.src ${GPU_RTC_BIN}.src.o)
+
+add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIP_SRC_CHK.done
+                    COMMAND ! grep "# [0-9]* \"\\(/usr/\\|.*GCC-Toolchain\\)" ${GPU_RTC_BIN}.src > ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIP_SRC_CHK.done || bash -c "echo ERROR: HIP RTC sources contain standard headers 1>&2 && exit 1"
+                    COMMENT Checking HIP RTC File ${GPU_RTC_BIN}.src
+                    DEPENDS ${GPU_RTC_BIN}.src VERBATIM)
+add_custom_target(${MODULE}_HIP_SRC_CHK ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIP_SRC_CHK.done)
+
+add_custom_command(
+    OUTPUT ${GPU_RTC_BIN}.command
+    COMMAND echo -n "${hip_HIPCC_EXECUTABLE} ${GPU_RTC_FLAGS_SEPARATED} ${GPU_RTC_DEFINES} --genco" > ${GPU_RTC_BIN}.command
+    COMMAND_EXPAND_LISTS
+    VERBATIM
+    COMMENT "Preparing HIP RTC command file ${GPU_RTC_BIN}.command"
+)
+create_binary_resource(${GPU_RTC_BIN}.command ${GPU_RTC_BIN}.command.o)
+
+add_custom_command(
+    OUTPUT ${GPU_RTC_BIN}.command.arch
+    COMMAND echo -n "${GPU_RTC_FLAGS_ARCH}" > ${GPU_RTC_BIN}.command.arch
+    COMMAND_EXPAND_LISTS
+    VERBATIM
+    COMMENT "Preparing HIP RTC ARCH file ${GPU_RTC_BIN}.command.arch"
+)
+create_binary_resource(${GPU_RTC_BIN}.command.arch ${GPU_RTC_BIN}.command.arch.o)
+
+set(SRCS ${SRCS} ${GPU_RTC_BIN}.src.o ${GPU_RTC_BIN}.command.o ${GPU_RTC_BIN}.command.arch.o)
 # -------------------------------- End RTC -------------------------------------------------------
 
 if(ALIGPU_BUILD_TYPE STREQUAL "O2")
@@ -165,36 +163,6 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
 #                  PUBLIC_LINK_LIBRARIES O2::GPUCommon hip::host hip::device hip::hipcub roc::rocthrust
 #                  COMPONENT_NAME GPU
 #                  LABELS gpu)
-endif()
-
-if(ALIGPU_BUILD_TYPE STREQUAL "ALIROOT")
-  set(targetName "Ali${MODULE}")
-  set(TMP_BASELIB AliGPUTracking)
-  if(NOT CMAKE_CXX_STANDARD OR CMAKE_CXX_STANDARD LESS 14)
-    message(FATAL_ERROR "HIP support needs at least C++14")
-  endif()
-
-  # Generate the dictionary
-  get_directory_property(incdirs INCLUDE_DIRECTORIES)
-  generate_dictionary("${targetName}" "" "${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIP.h" "${incdirs} .")
-
-  # Generate the ROOT map Dependecies
-  generate_rootmap("${targetName}" "" "")
-
-  # Add a library to the project using the specified source files
-  add_library_tested(${targetName} SHARED ${SRCS})
-  set(SRCS_CXX ${SRCS_CXX} G__${targetName}.cxx) # CMake HIP language feature will parse hip flags to everything that is linked to hip libraries, so add the ROOT dictionary file here
-  target_link_libraries(${targetName} PUBLIC ${TMP_BASELIB})
-
-  # ROOT Cannot load this library, so we have to remove it from the list
-  list(REMOVE_ITEM ALILIBSTESTED ${targetName})
-  set(ALILIBSTESTED ${ALILIBSTESTED} CACHE INTERNAL "ALILIBSTESTED")
-
-  # Installation
-  install(TARGETS ${targetName} ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
-
-  install(FILES ${HDRS} DESTINATION include)
-  include_directories(${GPUCA_HIP_SOURCE_DIR})
 endif()
 
 if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
@@ -229,11 +197,7 @@ endif()
 
 # Special handling of GPU kernels in case of per-kernel compilation / RDC
 if(NOT DEFINED GPUCA_HIP_COMPILE_MODE)
-  if(ALIGPU_BUILD_TYPE STREQUAL "ALIROOT")
-    set(GPUCA_HIP_COMPILE_MODE "onefile")
-  else()
-    set(GPUCA_HIP_COMPILE_MODE "perkernel")
-  endif()
+  set(GPUCA_HIP_COMPILE_MODE "perkernel")
 endif()
 if(GPUCA_HIP_COMPILE_MODE STREQUAL "onefile")
   target_compile_definitions(${targetName} PRIVATE GPUCA_KERNEL_COMPILE_MODE=0)
@@ -285,14 +249,12 @@ if(NOT GPUCA_HIP_COMPILE_MODE STREQUAL "rdc")
   target_link_options(${targetName} PRIVATE $<$<COMPILE_LANGUAGE:HIP>:-fno-gpu-rdc>)
 endif()
 
-if(ALIGPU_BUILD_TYPE STREQUAL "O2" OR GPUCA_CONFIG_O2_EXTENSIONS)
-  add_library(GPUTrackingHIPExternalProvider OBJECT ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPExternalProvider.hip)
-  add_library(O2::GPUTrackingHIPExternalProvider ALIAS GPUTrackingHIPExternalProvider)
-  target_compile_options(GPUTrackingHIPExternalProvider PRIVATE $<$<COMPILE_LANGUAGE:HIP>:-fgpu-rdc>)
-  target_link_options(GPUTrackingHIPExternalProvider PRIVATE $<$<COMPILE_LANGUAGE:HIP>:-fgpu-rdc>)
-  target_compile_definitions(GPUTrackingHIPExternalProvider PRIVATE $<TARGET_PROPERTY:${targetName},COMPILE_DEFINITIONS>)
-  target_include_directories(GPUTrackingHIPExternalProvider PRIVATE $<TARGET_PROPERTY:${targetName},INCLUDE_DIRECTORIES>)
-  if(NOT DEFINED GPUCA_HIP_HIPIFY_FROM_CUDA OR "${GPUCA_HIP_HIPIFY_FROM_CUDA}")
-    add_dependencies(GPUTrackingHIPExternalProvider ${MODULE}_HIPIFIED)
-  endif()
+add_library(GPUTrackingHIPExternalProvider OBJECT ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPExternalProvider.hip)
+add_library(O2::GPUTrackingHIPExternalProvider ALIAS GPUTrackingHIPExternalProvider)
+target_compile_options(GPUTrackingHIPExternalProvider PRIVATE $<$<COMPILE_LANGUAGE:HIP>:-fgpu-rdc>)
+target_link_options(GPUTrackingHIPExternalProvider PRIVATE $<$<COMPILE_LANGUAGE:HIP>:-fgpu-rdc>)
+target_compile_definitions(GPUTrackingHIPExternalProvider PRIVATE $<TARGET_PROPERTY:${targetName},COMPILE_DEFINITIONS>)
+target_include_directories(GPUTrackingHIPExternalProvider PRIVATE $<TARGET_PROPERTY:${targetName},INCLUDE_DIRECTORIES>)
+if(NOT DEFINED GPUCA_HIP_HIPIFY_FROM_CUDA OR "${GPUCA_HIP_HIPIFY_FROM_CUDA}")
+  add_dependencies(GPUTrackingHIPExternalProvider ${MODULE}_HIPIFIED)
 endif()

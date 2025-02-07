@@ -27,6 +27,7 @@
 #include <SimulationDataFormat/PrimaryChunk.h>
 #include <Generators/GeneratorFromFile.h>
 #include <Generators/PrimaryGenerator.h>
+#include <Generators/Generator.h>
 #include <SimConfig/SimConfig.h>
 #include <CommonUtils/ConfigurableParam.h>
 #include <CommonUtils/RngHelper.h>
@@ -86,6 +87,10 @@ class O2PrimaryServerDevice final : public fair::mq::Device
     auto& ccdbmgr = o2::ccdb::BasicCCDBManager::instance();
     ccdbmgr.setURL(conf.getConfigData().mCCDBUrl);
     ccdbmgr.setTimestamp(conf.getTimestamp());
+
+    // set the global information about the number of events to be generated
+    unsigned int nTotalEvents = conf.getNEvents();
+    o2::eventgen::Generator::setTotalNEvents(nTotalEvents);
 
     // init magnetic field as it might be needed by the generator
     if (TGeoGlobalMagField::Instance()->GetField() == nullptr) {

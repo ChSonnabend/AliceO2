@@ -24,7 +24,7 @@
 #include <winbase.h>
 #include <windowsx.h>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 HDC hDC = nullptr;                                    // Private GDI Device Context
 HGLRC hRC = nullptr;                                  // Permanent Rendering Context

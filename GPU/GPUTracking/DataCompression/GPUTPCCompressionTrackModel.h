@@ -31,7 +31,7 @@
 #else // Default internal track model for compression
 #endif
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 // ATTENTION! This track model is used for the data compression.
 // Changes to the propagation and fit will prevent the decompression of data
@@ -100,13 +100,13 @@ class GPUTPCCompressionTrackModel
   GPUd() void getClusterErrors2(int32_t iRow, float z, float sinPhi, float DzDs, float& ErrY2, float& ErrZ2) const;
   GPUd() void resetCovariance();
 
-  GPUd() float LinearPad2Y(int32_t slice, float pad, float padWidth, int8_t npads) const
+  GPUd() float LinearPad2Y(int32_t slice, float pad, float padWidth, uint8_t npads) const
   {
     const float u = (pad - 0.5f * npads) * padWidth;
     return (slice >= GPUCA_NSLICES / 2) ? -u : u;
   }
 
-  GPUd() float LinearY2Pad(int32_t slice, float y, float padWidth, int8_t npads) const
+  GPUd() float LinearY2Pad(int32_t slice, float y, float padWidth, uint8_t npads) const
   {
     const float u = (slice >= GPUCA_NSLICES / 2) ? -y : y;
     return u / padWidth + 0.5f * npads;
@@ -164,6 +164,6 @@ class GPUTPCCompressionTrackModel
   PhysicalTrackModel mTrk;
 #endif
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

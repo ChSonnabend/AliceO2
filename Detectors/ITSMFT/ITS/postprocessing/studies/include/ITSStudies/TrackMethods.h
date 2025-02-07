@@ -53,7 +53,7 @@ class TrackMethods
       o2::tpc::TrackTPC::getClusterReference(tpcClusRefs, i, sectorIndex, rowIndex, clusterIndex, track.getClusterRef());
       unsigned int absoluteIndex = tpcClusAcc.clusterOffset[sectorIndex][rowIndex] + clusterIndex;
       clMap[rowIndex] = true;
-      if (tpcClusShMap[absoluteIndex] & GPUCA_NAMESPACE::gpu::GPUTPCGMMergedTrackHit::flagShared) {
+      if (tpcClusShMap[absoluteIndex] & o2::gpu::GPUTPCGMMergedTrackHit::flagShared) {
         if (!shMap[rowIndex]) {
           shared++;
         }

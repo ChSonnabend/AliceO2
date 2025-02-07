@@ -20,7 +20,7 @@
 #include "GPUCommonMath.h"
 #include "GPUO2DataTypes.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -143,6 +143,6 @@ class GPUTPCGMSliceTrack
   ClassDefNV(GPUTPCGMSliceTrack, 1);
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

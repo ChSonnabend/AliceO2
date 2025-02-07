@@ -22,9 +22,9 @@
 #include <mutex>
 #include <condition_variable>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 struct GPUDisplayGUIWrapperObjects {
   std::unique_ptr<QApplication> app;
@@ -39,7 +39,7 @@ struct GPUDisplayGUIWrapperObjects {
   std::mutex mutex, mutexRet;
   std::condition_variable signal, signalRet;
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 GPUDisplayGUIWrapper::GPUDisplayGUIWrapper()
 {

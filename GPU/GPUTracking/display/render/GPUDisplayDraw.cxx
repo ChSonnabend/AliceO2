@@ -31,18 +31,16 @@
 
 #include <type_traits>
 
-#ifdef GPUCA_HAVE_O2HEADERS
 #include "DataFormatsITS/TrackITS.h"
 #include "SimulationDataFormat/MCCompLabel.h"
 #include "SimulationDataFormat/ConstMCTruthContainer.h"
 #include "GPUTrackParamConvert.h"
-#endif
 
 #ifdef WITH_OPENMP
 #include <omp.h>
 #endif
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 #define GET_CID(slice, i) (mParam->par.earlyTpcTransform ? mIOPtrs->clusterData[slice][i].id : (mIOPtrs->clustersNative->clusterOffset[slice][0] + i))
 
@@ -304,14 +302,12 @@ GPUDisplay::vboList GPUDisplay::DrawTracks(const GPUTPCTracker& tracker, int32_t
 
 void GPUDisplay::DrawTrackITS(int32_t trackId, int32_t iSlice)
 {
-#ifdef GPUCA_HAVE_O2HEADERS
   const auto& trk = mIOPtrs->itsTracks[trackId];
   for (int32_t k = 0; k < trk.getNClusters(); k++) {
     int32_t cid = mIOPtrs->itsTrackClusIdx[trk.getFirstClusterEntry() + k];
     mVertexBuffer[iSlice].emplace_back(mGlobalPosITS[cid].x, mGlobalPosITS[cid].y * mYFactor, mCfgH.projectXY ? 0 : mGlobalPosITS[cid].z);
     mGlobalPosITS[cid].w = tITSATTACHED;
   }
-#endif
 }
 
 GPUDisplay::vboList GPUDisplay::DrawFinalITS()
@@ -402,9 +398,7 @@ void GPUDisplay::DrawFinal(int32_t iSlice, int32_t /*iCol*/, GPUTPCGMPropagator*
       if (std::is_same_v<T, GPUTPCGMMergedTrack> || (!mIOPtrs->tpcLinkTRD && mIOPtrs->trdTracksO2)) {
         if (mChain && ((int32_t)mConfig.showTPCTracksFromO2Format == (int32_t)mChain->GetProcessingSettings().trdTrackModelO2) && mTRDTrackIds[i] != -1 && mIOPtrs->nTRDTracklets) {
           if (mIOPtrs->trdTracksO2) {
-#ifdef GPUCA_HAVE_O2HEADERS
             tmpDoTRDTracklets(mIOPtrs->trdTracksO2[mTRDTrackIds[i]]);
-#endif
           } else {
             tmpDoTRDTracklets(mIOPtrs->trdTracks[mTRDTrackIds[i]]);
           }
@@ -697,7 +691,6 @@ GPUDisplay::vboList GPUDisplay::DrawGridTRD(int32_t sector)
   // TODO: tilted pads ignored at the moment
   size_t startCount = mVertexBufferStart[sector].size();
   size_t startCountInner = mVertexBuffer[sector].size();
-#ifdef GPUCA_HAVE_O2HEADERS
   auto* geo = trdGeometry();
   if (geo) {
     int32_t trdsector = NSLICES / 2 - 1 - sector;
@@ -756,7 +749,6 @@ GPUDisplay::vboList GPUDisplay::DrawGridTRD(int32_t sector)
       }
     }
   }
-#endif
   insertVertexList(sector, startCountInner, mVertexBuffer[sector].size());
   return (vboList(startCount, mVertexBufferStart[sector].size() - startCount, sector));
 }
@@ -908,12 +900,9 @@ size_t GPUDisplay::DrawGLScene_updateVertexList()
       for (int32_t iCol = 0; iCol < mNCollissions; iCol++) {
         mThreadBuffers[numThread].clear();
         for (int32_t iSet = 0; iSet < numThreads; iSet++) {
-#ifdef GPUCA_HAVE_O2HEADERS
           if (mConfig.showTPCTracksFromO2Format) {
             DrawFinal<o2::tpc::TrackTPC>(iSlice, iCol, &prop, mThreadTracks[iSet][iCol][iSlice], mThreadBuffers[numThread]);
-          } else
-#endif
-          {
+          } else {
             DrawFinal<GPUTPCGMMergedTrack>(iSlice, iCol, &prop, mThreadTracks[iSet][iCol][iSlice], mThreadBuffers[numThread]);
           }
         }

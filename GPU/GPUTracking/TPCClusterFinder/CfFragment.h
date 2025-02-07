@@ -18,7 +18,7 @@
 #include "clusterFinderDefs.h"
 #include "GPUCommonMath.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 struct CfFragment {
@@ -117,6 +117,6 @@ struct CfFragment {
   }
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

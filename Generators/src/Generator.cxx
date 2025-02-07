@@ -29,7 +29,7 @@ namespace eventgen
 {
 
 std::atomic<int> Generator::InstanceCounter{0};
-
+unsigned int Generator::gTotalNEvents = 0;
 /*****************************************************************/
 /*****************************************************************/
 

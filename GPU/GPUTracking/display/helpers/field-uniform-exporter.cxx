@@ -21,7 +21,7 @@
 #include "GPUDisplayMagneticField.h"
 
 namespace bpo = boost::program_options;
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 template <std::size_t MAX_DIM1_SEGMENTS, std::size_t MAX_DIM2_SEGMENTS, std::size_t MAX_DIM3_SEGMENTS>
 void saveSegments(std::ofstream& file, int32_t NSegDim1, int32_t NSegDim2, int32_t NSegDim3, GPUDisplayMagneticField::SegmentsUniform<MAX_DIM1_SEGMENTS, MAX_DIM2_SEGMENTS, MAX_DIM3_SEGMENTS>& segments)

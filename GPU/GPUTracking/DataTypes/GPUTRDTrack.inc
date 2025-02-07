@@ -27,7 +27,7 @@ GPUd() GPUTRDTrack_t<T>::GPUTRDTrack_t()
 template <typename T>
 GPUd() void GPUTRDTrack_t<T>::initialize()
 {
-  // set all members to their default values (needed since in-class initialization not possible with AliRoot)
+  // TODO: Use in-class initialization instead of setting all members to their default values
   mChi2 = 0.f;
   mSignal = -1.f;
   mRefGlobalTrackId = 0;
@@ -39,59 +39,6 @@ GPUd() void GPUTRDTrack_t<T>::initialize()
   }
 }
 
-#ifdef GPUCA_ALIROOT_LIB
-#include "AliHLTExternalTrackParam.h"
-#include "GPUTRDTrackData.h"
-
-template <typename T>
-GPUd() GPUTRDTrack_t<T>::GPUTRDTrack_t(const AliHLTExternalTrackParam& t) : T(t)
-{
-  initialize();
-}
-
-template <typename T>
-GPUd() void GPUTRDTrack_t<T>::ConvertTo(GPUTRDTrackDataRecord& t) const
-{
-  //------------------------------------------------------------------
-  // convert to GPU structure
-  //------------------------------------------------------------------
-  t.mAlpha = T::getAlpha();
-  t.fX = T::getX();
-  t.fY = T::getY();
-  t.fZ = T::getZ();
-  t.fq1Pt = T::getQ2Pt();
-  t.mSinPhi = T::getSnp();
-  t.fTgl = T::getTgl();
-  for (int32_t i = 0; i < 15; i++) {
-    t.fC[i] = T::getCov()[i];
-  }
-  t.fTPCTrackID = getRefGlobalTrackIdRaw();
-  for (int32_t i = 0; i < kNLayers; i++) {
-    t.fAttachedTracklets[i] = getTrackletIndex(i);
-  }
-}
-
-template <typename T>
-GPUd() void GPUTRDTrack_t<T>::ConvertFrom(const GPUTRDTrackDataRecord& t)
-{
-  //------------------------------------------------------------------
-  // convert from GPU structure
-  //------------------------------------------------------------------
-  T::set(t.fX, t.mAlpha, &(t.fY), t.fC);
-  setRefGlobalTrackIdRaw(t.fTPCTrackID);
-  mChi2 = 0.f;
-  mSignal = -1.f;
-  mFlags = 0;
-  mIsCrossingNeighbor = 0;
-  mCollisionId = -1;
-  for (int32_t iLayer = 0; iLayer < kNLayers; iLayer++) {
-    mAttachedTracklets[iLayer] = t.fAttachedTracklets[iLayer];
-  }
-}
-
-#endif
-
-#if defined(GPUCA_HAVE_O2HEADERS)
 #include "ReconstructionDataFormats/TrackTPCITS.h"
 #include "DataFormatsTPC/TrackTPC.h"
 
@@ -106,8 +53,6 @@ GPUd() GPUTRDTrack_t<T>::GPUTRDTrack_t(const o2::tpc::TrackTPC& t) : T(t)
 {
   initialize();
 }
-
-#endif
 
 template <typename T>
 GPUd() GPUTRDTrack_t<T>::GPUTRDTrack_t(const GPUTRDTrack_t<T>& t)

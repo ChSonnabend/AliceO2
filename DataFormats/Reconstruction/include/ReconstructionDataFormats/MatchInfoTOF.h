@@ -75,6 +75,17 @@ class MatchInfoTOF
   double getT0true() const { return mT0true; }
   void setT0true(double val) { mT0true = val; }
 
+  enum QualityFlags { isMultiHitX = 0x1 << 0,
+                      isMultiHitZ = 0x1 << 1,
+                      badDy = 0x1 << 2,
+                      isMultiStrip = 0x1 << 3,
+                      isNotInPad = 0x1 << 4,
+                      chiGT3 = 0x1 << 5,
+                      chiGT5 = 0x1 << 6,
+                      hasT0sameBC = 0x1 << 7,
+                      hasT0_1BCbefore = 0x1 << 8,
+                      hasT0_2BCbefore = 0x1 << 9 };
+
  private:
   int mIdLocal;                      // track id in sector of the pair track-TOFcluster
   float mChi2;                       // chi2 of the pair track-TOFcluster

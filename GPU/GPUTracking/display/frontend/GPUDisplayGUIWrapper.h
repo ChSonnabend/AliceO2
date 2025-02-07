@@ -18,7 +18,7 @@
 #include "GPUCommonDef.h"
 #include <memory>
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 struct GPUDisplayGUIWrapperObjects;
 
@@ -39,5 +39,5 @@ class GPUDisplayGUIWrapper
 
   void guiThread();
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 #endif // GPUDISPLAYGUIWRAPPER_H

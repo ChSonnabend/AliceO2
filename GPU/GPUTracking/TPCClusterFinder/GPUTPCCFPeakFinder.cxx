@@ -19,8 +19,8 @@
 #include "PackedCharge.h"
 #include "TPCPadGainCalib.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
-using namespace GPUCA_NAMESPACE::gpu::tpccf;
+using namespace o2::gpu;
+using namespace o2::gpu::tpccf;
 
 template <>
 GPUdii() void GPUTPCCFPeakFinder::Thread<0>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer)

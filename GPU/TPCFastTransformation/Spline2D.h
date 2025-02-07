@@ -29,7 +29,7 @@
 
 class TFile;
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -96,7 +96,7 @@ class Spline2D
   Spline2D(const Spline2D&) = delete;
 #endif
 
-#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB)
+#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE)
   /// read a class object from the file
   static Spline2D* readFromFile(TFile& inpf, const char* name)
   {
@@ -104,12 +104,10 @@ class Spline2D
   }
 #endif
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(Spline2D, 0);
-#endif
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

@@ -17,17 +17,13 @@
 
 #include "GPUCommonDef.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
 struct GPUTPCGMMergedTrackHit {
   uint32_t num;
   uint8_t slice, row, leg, state;
-#ifdef GPUCA_ALIROOT_LIB
-  float x, y, z;
-  uint16_t amp;
-#endif
 
   // NOTE: the lower states must match those from ClusterNative!
   enum hitState { flagSplitPad = 0x1,
@@ -53,6 +49,6 @@ struct GPUTPCGMMergedTrackHitXYZ {
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

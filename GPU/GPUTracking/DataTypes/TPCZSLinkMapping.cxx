@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <cassert>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 TPCZSLinkMapping::TPCZSLinkMapping(o2::tpc::Mapper& mapper)
 {

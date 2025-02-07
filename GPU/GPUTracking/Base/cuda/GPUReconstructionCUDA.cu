@@ -42,7 +42,7 @@ static constexpr size_t REQUIRE_FREE_MEMORY_RESERVED_PER_SM = 40L * 1024 * 1024;
 static constexpr size_t RESERVE_EXTRA_MEM_THRESHOLD = 10L * 1024 * 1024 * 1024;
 static constexpr size_t RESERVE_EXTRA_MEM_OFFSET = 1L * 512 * 1024 * 1024;
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 __global__ void dummyInitKernel(void*) {}
 
@@ -371,7 +371,6 @@ int32_t GPUReconstructionCUDA::InitDevice_Runtime()
     hipLaunchKernelGGL(HIP_KERNEL_NAME(dummyInitKernel), dim3(mBlockCount), dim3(256), 0, 0, mDeviceMemoryBase);
 #endif
 
-#ifndef GPUCA_ALIROOT_LIB
     if (mProcessingSettings.rtc.enable) {
       genAndLoadRTC();
     }
@@ -384,7 +383,6 @@ int32_t GPUReconstructionCUDA::InitDevice_Runtime()
 #undef GPUCA_KRNL
       loadKernelModules(true, false);
     }
-#endif
 #endif
     void* devPtrConstantMem = nullptr;
 #ifndef GPUCA_NO_CONSTANT_MEMORY
@@ -698,7 +696,7 @@ void* GPUReconstructionHIP::getGPUPointer(void* ptr)
 }
 #endif // __HIPCC__
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 template class GPUReconstructionKernels<GPUReconstructionCUDABackend>;
 }

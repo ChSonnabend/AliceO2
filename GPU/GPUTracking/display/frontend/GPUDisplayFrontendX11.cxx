@@ -30,7 +30,7 @@
 
 typedef GLXContext (*glXCreateContextAttribsARBProc)(Display*, GLXFBConfig, GLXContext, Bool, const int32_t*);
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 GPUDisplayFrontendX11::GPUDisplayFrontendX11()
 {

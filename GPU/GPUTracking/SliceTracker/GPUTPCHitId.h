@@ -15,7 +15,7 @@
 #ifndef GPUTPCHITID_H
 #define GPUTPCHITID_H
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -30,6 +30,6 @@ class GPUTPCHitId
   int32_t mId;
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // GPUTPCHITID_H

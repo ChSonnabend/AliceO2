@@ -18,7 +18,7 @@
 #include "GPUCommonAlgorithm.h"
 #include "GPUParam.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 #ifndef GPUCA_GPUCODE_DEVICE
 GPUd() void GPUdEdx::clear()

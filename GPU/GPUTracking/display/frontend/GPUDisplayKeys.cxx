@@ -14,7 +14,7 @@
 
 #include "GPUDisplay.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 const char* HelpText[] = {
   "[ESC]                         Quit",

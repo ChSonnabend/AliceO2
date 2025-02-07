@@ -12,7 +12,7 @@
 #include "CorrectionMapsHelper.h"
 #include "GPUCommonLogger.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 //________________________________________________________
 void CorrectionMapsHelper::clear()

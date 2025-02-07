@@ -7,7 +7,7 @@
 #include "GPUReconstruction.h"
 #include "GPUChainTracking.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 void createGeo()
 {
@@ -16,7 +16,6 @@ void createGeo()
   gm->createPadPlaneArray();
   gm->createClusterMatrixArray();
   o2::trd::GeometryFlat gf(*gm);
-  //if (!gf.readMatricesFromFile()) return; // uncomment this line when the matrices dumped from AliRoot should be used
   gSystem->Load("libO2GPUTracking");
   GPUReconstruction* rec = GPUReconstruction::CreateInstance(GPUReconstruction::DeviceType::CPU);
   GPUChainTracking* chain = rec->AddChain<GPUChainTracking>();

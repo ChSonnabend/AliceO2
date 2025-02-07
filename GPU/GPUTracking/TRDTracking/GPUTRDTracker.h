@@ -30,16 +30,10 @@
 #include <vector>
 #endif
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
-
-#ifdef GPUCA_ALIROOT_LIB
-#define TRD_GEOMETRY_CONST
-#else
-#define TRD_GEOMETRY_CONST const
-#endif
 
 class GPUTRDTrackletWord;
 class GPUTRDGeometry;
@@ -102,7 +96,7 @@ class GPUTRDTracker_t : public GPUProcessor
 
   int16_t MemoryPermanent() const { return mMemoryPermanent; }
 
-  GPUhd() void OverrideGPUGeometry(TRD_GEOMETRY_CONST GPUTRDGeometry* geo) { mGeo = geo; }
+  GPUhd() void OverrideGPUGeometry(const GPUTRDGeometry* geo) { mGeo = geo; }
   void Reset();
   template <class T>
   GPUd() bool PreCheckTrackTRDCandidate(const T& trk) const
@@ -126,7 +120,7 @@ class GPUTRDTracker_t : public GPUProcessor
   GPUd() float GetAngularResolution(float snp) const { return mDyA2 + mDyC2 * (snp - mDyB) * (snp - mDyB); }           // a^2 + c^2 * (snp - b)^2
   GPUd() float ConvertAngleToDy(float snp) const { return mAngleToDyA + mAngleToDyB * snp + mAngleToDyC * snp * snp; } // a + b*snp + c*snp^2 is more accurate than sin(phi) = (dy / xDrift) / sqrt(1+(dy/xDrift)^2)
   GPUd() float GetAngularPull(float dYtracklet, float snp) const;
-  GPUd() void RecalcTrkltCov(const float tilt, const float snp, const float rowSize, My_Float (&cov)[3]);
+  GPUd() void RecalcTrkltCov(const float tilt, const float snp, const float rowSize, float (&cov)[3]);
   GPUd() void FindChambersInRoad(const TRDTRK* t, const float roadY, const float roadZ, const int32_t iLayer, int32_t* det, const float zMax, const float alpha, const float zShiftTrk) const;
   GPUd() bool IsGeoFindable(const TRDTRK* t, const int32_t layer, const float alpha, const float zShiftTrk) const;
   GPUd() void InsertHypothesis(Hypothesis hypo, int32_t& nCurrHypothesis, int32_t idxOffset);
@@ -181,7 +175,7 @@ class GPUTRDTracker_t : public GPUProcessor
   Hypothesis* mHypothesis;                 // array with multiple track hypothesis
   TRDTRK* mCandidates;                     // array of tracks for multiple hypothesis tracking
   GPUTRDSpacePoint* mSpacePoints;          // array with tracklet coordinates in global tracking frame
-  TRD_GEOMETRY_CONST GPUTRDGeometry* mGeo; // TRD geometry
+  const GPUTRDGeometry* mGeo;              // TRD geometry
   /// ---- error parametrization depending on magnetic field ----
   float mRPhiA2;     // parameterization for tracklet position resolution
   float mRPhiB;      // parameterization for tracklet position resolution
@@ -203,6 +197,6 @@ class GPUTRDTracker_t : public GPUProcessor
   GPUTRDTrackerDebug<TRDTRK>* mDebug; // debug output
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // GPUTRDTRACKER_H

@@ -18,7 +18,7 @@
 #include "GPUCommonDef.h"
 #include "GPUDefConstantsAndSettings.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 struct GPUParam;
 struct GPUTPCClusterOccupancyMapBin {
@@ -28,6 +28,6 @@ struct GPUTPCClusterOccupancyMapBin {
   GPUd() static uint32_t getTotalSize(const GPUParam& param);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

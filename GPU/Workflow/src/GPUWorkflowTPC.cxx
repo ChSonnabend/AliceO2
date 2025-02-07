@@ -281,11 +281,15 @@ void GPURecoWorkflowSpec::finaliseCCDBTPC(ConcreteDataMatcher& matcher, void* ob
          mTPCDeadChannelMapCreator->getDeadChannelMapIDC().getSum<int32_t>(), mTPCDeadChannelMapCreator->getDeadChannelMap().getSum<int32_t>());
   } else if (matcher == ConcreteDataMatcher(gDataOriginTPC, "TPCRUNINFO", 0)) {
     copyCalibsToBuffer();
-    mTPCDeadChannelMapCreator->loadFEEConfigViaRunInfoTS(mCreationForCalib);
+    const auto* fee = static_cast<o2::tpc::FEEConfig*>(obj);
+    mTPCDeadChannelMapCreator->setDeadChannelMapFEEConfig(*fee);
     mTPCDeadChannelMapCreator->finalizeDeadChannelMap();
     mdEdxCalibContainerBufferNew.get()->setDeadChannelMap(mTPCDeadChannelMapCreator->getDeadChannelMap());
-    LOGP(info, "Updating dead channel map with the FEE info loaded via TPCRUNINFO for creation time {}: {} / {} dead pads from FEE info / total",
-         mCreationForCalib, mTPCDeadChannelMapCreator->getDeadChannelMapFEE().getSum<int32_t>(), mTPCDeadChannelMapCreator->getDeadChannelMap().getSum<int32_t>());
+    LOGP(info,
+         "Updating dead channel map with the FEE info (tag {}) loaded via TPCRUNINFO"
+         " for creation time {}: {} / {} dead pads from FEE info / total, with",
+         std::underlying_type_t<o2::tpc::FEEConfig::Tags>(fee->tag), mCreationForCalib,
+         mTPCDeadChannelMapCreator->getDeadChannelMapFEE().getSum<int32_t>(), mTPCDeadChannelMapCreator->getDeadChannelMap().getSum<int32_t>());
   } else if (mTPCVDriftHelper->accountCCDBInputs(matcher, obj)) {
   } else if (mCalibObjects.mFastTransformHelper->accountCCDBInputs(matcher, obj)) {
   }
@@ -321,7 +325,7 @@ bool GPURecoWorkflowSpec::fetchCalibsCCDBTPC<GPUCalibObjectsConst>(ProcessingCon
       }
 
       if (mTPCDeadChannelMapCreator->useSource(tpc::SourcesDeadMap::FEEConfig)) {
-        pc.inputs().get<char*>("tpcruninfo");
+        pc.inputs().get<o2::tpc::FEEConfig*>("tpcruninfo");
       }
 
       if (dEdxCalibContainer->isCorrectionCCDB(o2::tpc::CalibsdEdx::CalResidualGainMap)) {

@@ -26,7 +26,7 @@
 #include <Vc/SimdArray>
 #endif
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -194,9 +194,7 @@ class IrregularSpline2D3D : public FlatObject
   IrregularSpline1D mGridU; ///< grid for U axis
   IrregularSpline1D mGridV; ///< grid for V axis
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(IrregularSpline2D3D, 1);
-#endif
 };
 
 /// ====================================================
@@ -374,6 +372,6 @@ GPUdi() void IrregularSpline2D3D::getSplineVec(const float* correctedData, float
 #endif
 }
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

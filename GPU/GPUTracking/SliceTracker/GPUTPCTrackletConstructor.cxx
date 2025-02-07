@@ -23,13 +23,11 @@
 #include "GPUTPCTrackletConstructor.h"
 #include "GPUTPCGlobalTracking.h"
 #include "CorrectionMapsHelper.h"
-#ifdef GPUCA_HAVE_O2HEADERS
 #include "CalibdEdxContainer.h"
-#endif // GPUCA_HAVE_O2HEADERS
 #include "GPUParam.inc"
 #include "GPUCommonMath.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 GPUdii() void GPUTPCTrackletConstructor::InitTracklet(GPUTPCTrackParam& GPUrestrict() tParam)
 {
@@ -378,7 +376,6 @@ GPUdic(2, 1) void GPUTPCTrackletConstructor::UpdateTracklet(int32_t /*nBlocks*/,
         }
       } while (false);
       (void)found;
-#if defined(GPUCA_HAVE_O2HEADERS)
       if (!found && tracker.GetConstantMem()->calibObjects.dEdxCalibContainer) {
         uint32_t pad = CAMath::Float2UIntRn(tracker.Param().tpcGeometry.LinearY2Pad(tracker.ISlice(), iRow, yUncorrected));
         if (pad < tracker.Param().tpcGeometry.NPads(iRow) && tracker.GetConstantMem()->calibObjects.dEdxCalibContainer->isDead(tracker.ISlice(), iRow, pad)) {
@@ -386,7 +383,6 @@ GPUdic(2, 1) void GPUTPCTrackletConstructor::UpdateTracklet(int32_t /*nBlocks*/,
           rowHit = CALINK_DEAD_CHANNEL;
         }
       }
-#endif
     } while (0);
   }
   if (r.mNHits == 8 && r.mNMissed == 0 && rowHit != CALINK_INVAL && rowHit != CALINK_DEAD_CHANNEL && rowHits && tracker.Param().par.continuousTracking && rowHits[r.mFirstRow] != CALINK_INVAL && rowHits[r.mFirstRow] != CALINK_DEAD_CHANNEL && rowHits[r.mLastRow] != CALINK_INVAL && rowHits[r.mLastRow] != CALINK_DEAD_CHANNEL) {

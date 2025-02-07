@@ -17,7 +17,7 @@
 
 #include "GPUDisplayFrontend.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUDisplayFrontendWindows : public GPUDisplayFrontend
 {
@@ -35,6 +35,6 @@ class GPUDisplayFrontendWindows : public GPUDisplayFrontend
  private:
   int32_t FrontendMain() override;
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

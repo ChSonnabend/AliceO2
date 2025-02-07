@@ -28,7 +28,7 @@
 #endif
 #endif
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 /// Class for multivariate polynomials.
@@ -158,9 +158,7 @@ class MultivariatePolynomial : public FlatObject, public MultivariatePolynomialH
   void construct();
 #endif
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(MultivariatePolynomial, 1);
-#endif
 };
 
 //=================================================================================
@@ -177,9 +175,7 @@ void MultivariatePolynomial<Dim, Degree, InteractionOnly>::loadFromFile(TFile& i
     setFromContainer(*polTmp);
     delete polTmp;
   } else {
-#ifndef GPUCA_ALIROOT_LIB
     LOGP(info, "couldnt load object {} from input file", name);
-#endif
   }
 }
 
@@ -188,21 +184,15 @@ void MultivariatePolynomial<Dim, Degree, InteractionOnly>::setFromContainer(cons
 {
   if constexpr (Dim > 0 && Degree > 0) {
     if (this->getDim() != container.mDim) {
-#ifndef GPUCA_ALIROOT_LIB
       LOGP(info, "wrong number of dimensions! this {} container {}", this->getDim(), container.mDim);
-#endif
       return;
     }
     if (this->getDegree() != container.mDegree) {
-#ifndef GPUCA_ALIROOT_LIB
       LOGP(info, "wrong number of degrees! this {} container {}", this->getDegree(), container.mDegree);
-#endif
       return;
     }
     if (this->isInteractionOnly() != container.mInteractionOnly) {
-#ifndef GPUCA_ALIROOT_LIB
       LOGP(info, "InteractionOnly is set for this object to {}, but stored as {} in the container", this->isInteractionOnly(), container.mInteractionOnly);
-#endif
       return;
     }
     setParams(container.mParams.data());
@@ -279,6 +269,6 @@ void MultivariatePolynomial<Dim, Degree, InteractionOnly>::setFutureBufferAddres
   FlatObject::setFutureBufferAddress(futureFlatBufferPtr);
 }
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

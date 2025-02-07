@@ -19,7 +19,7 @@
 #include "GPUITSTrack.h"
 #include "GPUReconstruction.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 #ifndef GPUCA_GPUCODE
 void GPUITSFitter::InitializeProcessor()

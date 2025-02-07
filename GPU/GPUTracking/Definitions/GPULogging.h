@@ -44,9 +44,8 @@
       fmt::fprintf(stderr, string "\n", ##__VA_ARGS__); \
       throw std::exception();                           \
     }
-#elif defined(GPUCA_STANDALONE) || defined(GPUCA_GPUCODE_DEVICE) || (defined(GPUCA_ALIROOT_LIB) && defined(GPUCA_GPUCODE))
+#elif defined(GPUCA_STANDALONE) || defined(GPUCA_GPUCODE_DEVICE)
   // For standalone / CUDA / HIP, we just use printf, which should be available
-  // Temporarily, we also have to handle CUDA on AliRoot with O2 defaults due to ROOT / CUDA incompatibilities
   #include <cstdio>
   #define GPUInfo(string, ...)            \
     {                                     \
@@ -71,38 +70,6 @@
         exit(1);                                   \
       }
   #endif
-#elif defined(GPUCA_ALIROOT_LIB)
-  // Forward to HLT Logging functions for AliRoot
-  #include "AliHLTLogging.h"
-  #define GPUInfo(...) HLTInfo(__VA_ARGS__)
-  #define GPUImportant(...) HLTImportant(__VA_ARGS__)
-  #define GPUWarning(...) HLTWarning(__VA_ARGS__)
-  #define GPUAlarm(...) HLTWarning(__VA_ARGS__)
-  #define GPUError(...) HLTError(__VA_ARGS__)
-  #define GPUFatal(...) HLTFatal(__VA_ARGS__)
-  // Workaround for static functions / classes not deriving from AliHLTLogging
-  namespace AliGPU
-  {
-  namespace gpu
-  {
-  // We pollute the AliGPU::gpu namespace with some anonymous functions that catch the HLT...() magic
-  namespace
-  {
-  AliHLTLogging gAliGPULog; // This creates a couple of bogus instances, but there are plenty anyway
-  template <typename... Args>
-  void LoggingVarargs(Args... args)
-  {
-    gAliGPULog.LoggingVarargs(args...);
-  }
-  template <typename... Args>
-  bool CheckFilter(Args... args)
-  {
-    return gAliGPULog.CheckFilter(args...);
-  }
-  const char* Class_Name() { return "GPU"; };
-  } // namespace
-  } // namespace gpu
-  } // namespace AliGPU
 #elif defined(GPUCA_O2_LIB) || defined(GPUCA_O2_INTERFACE)
   // Forward to O2 LOGF logginf for O2
   #include "GPUCommonLogger.h"

@@ -30,7 +30,6 @@
 #include <algorithm>
 #include <vector>
 
-#ifdef GPUCA_HAVE_O2HEADERS
 #include "clusterFinderDefs.h"
 #include "DataFormatsTPC/ZeroSuppression.h"
 #include "DataFormatsTPC/ZeroSuppressionLinkBased.h"
@@ -40,16 +39,14 @@
 #include "TPCBase/RDHUtils.h"
 #include "TPCBase/CRU.h"
 #include "DetectorsRaw/RDHUtils.h"
-#endif
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 using namespace o2::tpc;
 using namespace o2::tpc::constants;
 using namespace std::string_literals;
 
 void GPUReconstructionConvert::ConvertNativeToClusterData(o2::tpc::ClusterNativeAccess* native, std::unique_ptr<GPUTPCClusterData[]>* clusters, uint32_t* nClusters, const TPCFastTransform* transform, int32_t continuousMaxTimeBin)
 {
-#ifdef GPUCA_HAVE_O2HEADERS
   memset(nClusters, 0, NSLICES * sizeof(nClusters[0]));
   uint32_t offset = 0;
   for (uint32_t i = 0; i < NSLICES; i++) {
@@ -83,12 +80,10 @@ void GPUReconstructionConvert::ConvertNativeToClusterData(o2::tpc::ClusterNative
       offset += native->nClusters[i][j];
     }
   }
-#endif
 }
 
 void GPUReconstructionConvert::ConvertRun2RawToNative(o2::tpc::ClusterNativeAccess& native, std::unique_ptr<ClusterNative[]>& nativeBuffer, const AliHLTTPCRawCluster** rawClusters, uint32_t* nRawClusters)
 {
-#ifdef GPUCA_HAVE_O2HEADERS
   memset((void*)&native, 0, sizeof(native));
   for (uint32_t i = 0; i < NSLICES; i++) {
     for (uint32_t j = 0; j < nRawClusters[i]; j++) {
@@ -115,12 +110,10 @@ void GPUReconstructionConvert::ConvertRun2RawToNative(o2::tpc::ClusterNativeAcce
       c.qTot = org.GetCharge();
     }
   }
-#endif
 }
 
 int32_t GPUReconstructionConvert::GetMaxTimeBin(const ClusterNativeAccess& native)
 {
-#ifdef GPUCA_HAVE_O2HEADERS
   float retVal = 0;
   for (uint32_t i = 0; i < NSLICES; i++) {
     for (uint32_t j = 0; j < GPUCA_ROW_COUNT; j++) {
@@ -132,14 +125,10 @@ int32_t GPUReconstructionConvert::GetMaxTimeBin(const ClusterNativeAccess& nativ
     }
   }
   return ceil(retVal);
-#else
-  return 0;
-#endif
 }
 
 int32_t GPUReconstructionConvert::GetMaxTimeBin(const GPUTrackingInOutDigits& digits)
 {
-#ifdef GPUCA_HAVE_O2HEADERS
   float retVal = 0;
   for (uint32_t i = 0; i < NSLICES; i++) {
     for (uint32_t k = 0; k < digits.nTPCDigits[i]; k++) {
@@ -149,14 +138,10 @@ int32_t GPUReconstructionConvert::GetMaxTimeBin(const GPUTrackingInOutDigits& di
     }
   }
   return ceil(retVal);
-#else
-  return 0;
-#endif
 }
 
 int32_t GPUReconstructionConvert::GetMaxTimeBin(const GPUTrackingInOutZS& zspages)
 {
-#ifdef GPUCA_HAVE_O2HEADERS
   float retVal = 0;
   for (uint32_t i = 0; i < NSLICES; i++) {
     int32_t firstHBF = zspages.slice[i].count[0] ? o2::raw::RDHUtils::getHeartBeatOrbit(*(const o2::header::RAWDataHeader*)zspages.slice[i].zsPtr[0][0]) : 0;
@@ -182,9 +167,6 @@ int32_t GPUReconstructionConvert::GetMaxTimeBin(const GPUTrackingInOutZS& zspage
     }
   }
   return ceil(retVal);
-#else
-  return 0;
-#endif
 }
 
 // ------------------------------------------------- TPC ZS -------------------------------------------------
@@ -1413,11 +1395,9 @@ void GPUReconstructionConvert::RunZSEncoder(const S& in, std::unique_ptr<uint64_
 #endif
 }
 
-#ifdef GPUCA_HAVE_O2HEADERS
 template void GPUReconstructionConvert::RunZSEncoder<GPUTrackingInOutDigits>(const GPUTrackingInOutDigits&, std::unique_ptr<uint64_t[]>*, uint32_t*, o2::raw::RawFileWriter*, const o2::InteractionRecord*, const GPUParam&, int32_t, bool, float, bool, std::function<void(std::vector<o2::tpc::Digit>&)> digitsFilter);
 #ifdef GPUCA_O2_LIB
 template void GPUReconstructionConvert::RunZSEncoder<DigitArray>(const DigitArray&, std::unique_ptr<uint64_t[]>*, uint32_t*, o2::raw::RawFileWriter*, const o2::InteractionRecord*, const GPUParam&, int32_t, bool, float, bool, std::function<void(std::vector<o2::tpc::Digit>&)> digitsFilter);
-#endif
 #endif
 
 void GPUReconstructionConvert::RunZSEncoderCreateMeta(const uint64_t* buffer, const uint32_t* sizes, void** ptrs, GPUTrackingInOutZS* out)
@@ -1436,7 +1416,6 @@ void GPUReconstructionConvert::RunZSEncoderCreateMeta(const uint64_t* buffer, co
 
 void GPUReconstructionConvert::RunZSFilter(std::unique_ptr<o2::tpc::Digit[]>* buffers, const o2::tpc::Digit* const* ptrs, size_t* nsb, const size_t* ns, const GPUParam& param, bool zs12bit, float threshold)
 {
-#ifdef GPUCA_HAVE_O2HEADERS
   for (uint32_t i = 0; i < NSLICES; i++) {
     if (buffers[i].get() != ptrs[i] || nsb != ns) {
       throw std::runtime_error("Not owning digits");
@@ -1459,7 +1438,6 @@ void GPUReconstructionConvert::RunZSFilter(std::unique_ptr<o2::tpc::Digit[]>* bu
     }
     nsb[i] = j;
   }
-#endif
 }
 
 #ifdef GPUCA_O2_LIB

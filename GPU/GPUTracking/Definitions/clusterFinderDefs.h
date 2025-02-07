@@ -54,7 +54,7 @@
 #define CPU_PTR(x) x
 #endif
 
-namespace GPUCA_NAMESPACE::gpu::tpccf
+namespace o2::gpu::tpccf
 {
 
 using SizeT = size_t;
@@ -72,6 +72,6 @@ using Delta2 = short2;
 
 using local_id = short2;
 
-} // namespace GPUCA_NAMESPACE::gpu::tpccf
+} // namespace o2::gpu::tpccf
 
 #endif

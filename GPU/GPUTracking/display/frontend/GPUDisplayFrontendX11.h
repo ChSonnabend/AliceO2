@@ -21,7 +21,7 @@
 #include <unistd.h>
 #include <GL/glxext.h>
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUDisplayFrontendX11 : public GPUDisplayFrontend
 {
@@ -55,6 +55,6 @@ class GPUDisplayFrontendX11 : public GPUDisplayFrontend
   PFNGLXSWAPINTERVALEXTPROC mGlXSwapIntervalEXT = nullptr;
   bool vsync_supported = false;
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

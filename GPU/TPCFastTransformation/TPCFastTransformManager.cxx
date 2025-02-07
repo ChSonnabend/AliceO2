@@ -23,7 +23,7 @@
 #include "TPCFastTransform.h"
 #include "Spline2DHelper.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 TPCFastTransformManager::TPCFastTransformManager()
   : mError(), mOrigTransform(nullptr), fLastTimeBin(0) {}

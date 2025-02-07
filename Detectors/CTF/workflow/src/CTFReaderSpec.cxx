@@ -102,6 +102,7 @@ class CTFReaderSpec : public o2::framework::Task
   std::unique_ptr<TTree> mCTFTree;
   bool mRunning = false;
   bool mUseLocalTFCounter = false;
+  bool mIFRamesOut = false;
   int mConvRunTimeRangesToOrbits = -1; // not defined yet
   int mCTFCounter = 0;
   int mCTFCounterAcc = 0;
@@ -172,9 +173,11 @@ void CTFReaderSpec::init(InitContext& ic)
     const auto& hbfu = o2::raw::HBFUtils::Instance();
     mTFLength = hbfu.nHBFPerTF;
     LOGP(info, "IRFrames will be selected from {}, assumed TF length: {} HBF", mInput.fileIRFrames, mTFLength);
+    mIFRamesOut = true;
   }
   if (!mInput.fileRunTimeSpans.empty()) {
     loadRunTimeSpans(mInput.fileRunTimeSpans);
+    mIFRamesOut = true;
   }
 }
 
@@ -418,11 +421,11 @@ bool CTFReaderSpec::processTF(ProcessingContext& pc)
     runTimeRangesToIRFrameSelector(timingInfo);
   }
   mRunNumberPrev = timingInfo.runNumber;
-
+  gsl::span<const o2::dataformats::IRFrame> irSpan{};
   if (mIRFrameSelector.isSet()) {
     o2::InteractionRecord ir0(0, timingInfo.firstTForbit);
     o2::InteractionRecord ir1(o2::constants::lhc::LHCMaxBunches - 1, timingInfo.firstTForbit < 0xffffffff - (mTFLength - 1) ? timingInfo.firstTForbit + (mTFLength - 1) : 0xffffffff);
-    auto irSpan = mIRFrameSelector.getMatchingFrames({ir0, ir1});
+    irSpan = mIRFrameSelector.getMatchingFrames({ir0, ir1});
     bool acc = true;
     if (mInput.skipSkimmedOutTF) {
       acc = (irSpan.size() > 0) ? !mInput.invertIRFramesSelection : mInput.invertIRFramesSelection;
@@ -435,13 +438,14 @@ bool CTFReaderSpec::processTF(ProcessingContext& pc)
     if (mInput.checkTFLimitBeforeReading) {
       limiter.check(pc, mInput.tfRateLimit, mInput.minSHM);
     }
-    auto outVec = pc.outputs().make<std::vector<o2::dataformats::IRFrame>>(OutputRef{"selIRFrames"}, irSpan.begin(), irSpan.end());
   } else {
     if (mInput.checkTFLimitBeforeReading) {
       limiter.check(pc, mInput.tfRateLimit, mInput.minSHM);
     }
   }
-
+  if (mIFRamesOut) {
+    auto outVec = pc.outputs().make<std::vector<o2::dataformats::IRFrame>>(OutputRef{"selIRFrames"}, irSpan.begin(), irSpan.end());
+  }
   // send CTF Header
   pc.outputs().snapshot({"header", mInput.subspec}, ctfHeader);
 

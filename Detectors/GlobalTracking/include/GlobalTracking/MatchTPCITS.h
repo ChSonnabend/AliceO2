@@ -50,6 +50,7 @@
 #include "ITSReconstruction/RecoGeomHelper.h"
 #include "TPCFastTransform.h"
 #include "GPUO2InterfaceRefit.h"
+#include "GPUTPCGeometry.h"
 #include "GlobalTracking/MatchTPCITSParams.h"
 #include "DataFormatsITSMFT/TopologyDictionary.h"
 #include "DataFormatsITSMFT/TrkClusRef.h"
@@ -132,6 +133,8 @@ struct TrackLocTPC : public o2::track::TrackParCov {
   int sourceID = 0;                     ///< TPC track origin in
   o2::dataformats::GlobalTrackID gid{}; // global track source ID (TPC track may be part of it)
   int matchID = MinusOne;               ///< entry (non if MinusOne) of its matchTPC struct in the mMatchesTPC
+  uint8_t lowestRow = -1;
+  uint8_t padFromEdge = -1;
   Constraint_t constraint{Constrained};
 
   float getCorrectedTime(float dt) const // return time0 corrected for extra drift (to match certain Z)
@@ -143,7 +146,7 @@ struct TrackLocTPC : public o2::track::TrackParCov {
     return constraint == Constrained ? 0.f : (constraint == ASide ? dt : -dt);
   }
 
-  ClassDefNV(TrackLocTPC, 2);
+  ClassDefNV(TrackLocTPC, 3);
 };
 
 ///< ITS track outward parameters propagated to reference X, with time bracket and index of
@@ -738,6 +741,7 @@ class MatchTPCITS
   static constexpr float MaxSnp = 0.9;                 // max snp of ITS or TPC track at xRef to be matched
   static constexpr float MaxTgp = 2.064;               // max tg corresponting to MaxSnp = MaxSnp/std::sqrt(1.-MaxSnp^2)
   static constexpr float MinTBToCleanCache = 600.;     // keep in AB ITS cluster refs cache at most this number of TPC bins
+  static const o2::gpu::GPUTPCGeometry TPCGeometry;
 
   enum TimerIDs { SWTot,
                   SWPrepITS,

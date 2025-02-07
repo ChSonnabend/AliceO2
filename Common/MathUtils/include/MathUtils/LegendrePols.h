@@ -200,7 +200,7 @@ class Legendre2DPolynominal final : public TNamed,
            boost::math::legendre_p(i - j, y);
   }
 
-  inline int getFlatIdx(int i, int j) const { return i * (i - 1) / 2 + j; }
+  inline int getFlatIdx(int i, int j) const { return i * (i + 1) / 2 + j; }
 
   unsigned int fOrder{0};
   std::vector<double> fParams;

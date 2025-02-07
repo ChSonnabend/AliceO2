@@ -23,7 +23,7 @@
 #include "ChargePos.h"
 #include "Array2D.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 using namespace o2::tpc;
 
 void GPUTPCClusterFinder::InitializeProcessor()

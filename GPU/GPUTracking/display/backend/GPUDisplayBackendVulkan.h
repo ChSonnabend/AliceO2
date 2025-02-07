@@ -22,7 +22,7 @@
 #include <unordered_map>
 #include <utils/vecpod.h>
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 class GPUDisplayBackendVulkan : public GPUDisplayBackend
@@ -217,6 +217,6 @@ class GPUDisplayBackendVulkan : public GPUDisplayBackend
 
   vk::Fence mSingleCommitFence;
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

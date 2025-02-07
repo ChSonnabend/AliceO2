@@ -18,7 +18,7 @@
 #include "GPUReconstructionIncludesITS.h"
 #include <algorithm>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 namespace o2::its
 {

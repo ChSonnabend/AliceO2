@@ -17,7 +17,7 @@
 
 #include "GPUTPCTrackParam.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -88,6 +88,6 @@ GPUdi() void GPUTPCTrackLinearisation::Set(float SinPhi1, float CosPhi1, float D
   SetQPt(QPt1);
 }
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // GPUTPCTRACKLINEARISATION_H

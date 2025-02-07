@@ -22,10 +22,12 @@
 #include "Framework/SerializationMethods.h"
 #include "Framework/TableBuilder.h"
 #include "Framework/RuntimeError.h"
+#include "StepTHn.h"
 
 #include <TDataMember.h>
 #include <TDataType.h>
 #include <TArrayL.h>
+#include <THnSparse.h>
 #include <TProfile2D.h>
 #include <fmt/core.h>
 
@@ -404,28 +406,6 @@ constexpr HistogramRegistry::HistName::HistName(const ConstStr<chars...>& hashed
 }
 
 template <typename T>
-std::shared_ptr<T> HistogramRegistry::add(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2)
-{
-  auto histVariant = add(name, title, histConfigSpec, callSumw2);
-  if (auto histPtr = std::get_if<std::shared_ptr<T>>(&histVariant)) {
-    return *histPtr;
-  } else {
-    throw runtime_error_f(R"(Histogram type specified in add<>("%s") does not match the actual type of the histogram!)", name);
-  }
-}
-
-template <typename T>
-std::shared_ptr<T> HistogramRegistry::add(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2)
-{
-  auto histVariant = add(name, title, histType, axes, callSumw2);
-  if (auto histPtr = std::get_if<std::shared_ptr<T>>(&histVariant)) {
-    return *histPtr;
-  } else {
-    throw runtime_error_f(R"(Histogram type specified in add<>("%s") does not match the actual type of the histogram!)", name);
-  }
-}
-
-template <typename T>
 std::shared_ptr<T> HistogramRegistry::add(const std::string& name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2)
 {
   return add<T>(name.c_str(), title, histType, axes, callSumw2);
@@ -445,25 +425,6 @@ template <typename T>
 std::shared_ptr<T> HistogramRegistry::operator()(const HistName& histName)
 {
   return get<T>(histName);
-}
-
-template <typename T>
-HistPtr HistogramRegistry::insertClone(const HistName& histName, const std::shared_ptr<T> originalHist)
-{
-  validateHistName(histName.str, histName.hash);
-  for (auto i = 0u; i < MAX_REGISTRY_SIZE; ++i) {
-    TObject* rawPtr = nullptr;
-    std::visit([&](const auto& sharedPtr) { rawPtr = sharedPtr.get(); }, mRegistryValue[imask(histName.idx + i)]);
-    if (!rawPtr) {
-      registerName(histName.str);
-      mRegistryKey[imask(histName.idx + i)] = histName.hash;
-      mRegistryValue[imask(histName.idx + i)] = std::shared_ptr<T>(static_cast<T*>(originalHist->Clone(histName.str)));
-      lookup += i;
-      return mRegistryValue[imask(histName.idx + i)];
-    }
-  }
-  LOGF(fatal, R"(Internal array of HistogramRegistry "%s" is full.)", mName);
-  return HistPtr();
 }
 
 template <typename T>
@@ -490,6 +451,35 @@ void HistogramRegistry::fill(const HistName& histName, Ts... positionAndWeight)
 extern template void HistogramRegistry::fill(const HistName& histName, double);
 extern template void HistogramRegistry::fill(const HistName& histName, float);
 extern template void HistogramRegistry::fill(const HistName& histName, int);
+
+extern template HistPtr HistogramRegistry::insertClone(const HistName&, const std::shared_ptr<TH1>);
+extern template HistPtr HistogramRegistry::insertClone(const HistName&, const std::shared_ptr<TH2>);
+extern template HistPtr HistogramRegistry::insertClone(const HistName&, const std::shared_ptr<TH3>);
+extern template HistPtr HistogramRegistry::insertClone(const HistName&, const std::shared_ptr<TProfile>);
+extern template HistPtr HistogramRegistry::insertClone(const HistName&, const std::shared_ptr<TProfile2D>);
+extern template HistPtr HistogramRegistry::insertClone(const HistName&, const std::shared_ptr<TProfile3D>);
+extern template HistPtr HistogramRegistry::insertClone(const HistName&, const std::shared_ptr<THnSparse>);
+extern template HistPtr HistogramRegistry::insertClone(const HistName&, const std::shared_ptr<THn>);
+extern template HistPtr HistogramRegistry::insertClone(const HistName&, const std::shared_ptr<StepTHn>);
+
+extern template std::shared_ptr<TH1> HistogramRegistry::add<TH1>(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2);
+extern template std::shared_ptr<TH1> HistogramRegistry::add<TH1>(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2);
+extern template std::shared_ptr<TH2> HistogramRegistry::add<TH2>(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2);
+extern template std::shared_ptr<TH2> HistogramRegistry::add<TH2>(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2);
+extern template std::shared_ptr<TH3> HistogramRegistry::add<TH3>(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2);
+extern template std::shared_ptr<TH3> HistogramRegistry::add<TH3>(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2);
+extern template std::shared_ptr<TProfile> HistogramRegistry::add<TProfile>(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2);
+extern template std::shared_ptr<TProfile> HistogramRegistry::add<TProfile>(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2);
+extern template std::shared_ptr<TProfile2D> HistogramRegistry::add<TProfile2D>(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2);
+extern template std::shared_ptr<TProfile2D> HistogramRegistry::add<TProfile2D>(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2);
+extern template std::shared_ptr<TProfile3D> HistogramRegistry::add<TProfile3D>(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2);
+extern template std::shared_ptr<TProfile3D> HistogramRegistry::add<TProfile3D>(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2);
+extern template std::shared_ptr<THn> HistogramRegistry::add<THn>(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2);
+extern template std::shared_ptr<THn> HistogramRegistry::add<THn>(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2);
+extern template std::shared_ptr<THnSparse> HistogramRegistry::add<THnSparse>(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2);
+extern template std::shared_ptr<THnSparse> HistogramRegistry::add<THnSparse>(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2);
+extern template std::shared_ptr<StepTHn> HistogramRegistry::add<StepTHn>(char const* const name, char const* const title, const HistogramConfigSpec& histConfigSpec, bool callSumw2);
+extern template std::shared_ptr<StepTHn> HistogramRegistry::add<StepTHn>(char const* const name, char const* const title, HistType histType, const std::vector<AxisSpec>& axes, bool callSumw2);
 
 template <typename... Cs, typename T>
 void HistogramRegistry::fill(const HistName& histName, const T& table, const o2::framework::expressions::Filter& filter)

@@ -18,7 +18,7 @@
 #include <mutex>
 #include <condition_variable>
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -29,6 +29,6 @@ struct GPUChainTrackingFinalContext {
   bool ready = false;
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

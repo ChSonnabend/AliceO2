@@ -17,7 +17,7 @@
 
 #include "GPUSettings.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -62,6 +62,6 @@ class GPUDisplayFrontendInterface
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // GPUDISPLAYINTERFACE_H

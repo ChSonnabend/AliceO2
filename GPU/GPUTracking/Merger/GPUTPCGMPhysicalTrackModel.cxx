@@ -15,7 +15,7 @@
 #include "GPUTPCGMPhysicalTrackModel.h"
 #include "GPUCommonMath.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 GPUd() int32_t GPUTPCGMPhysicalTrackModel::PropagateToXBzLight(float x, float Bz, float& GPUrestrict() dLp)
 {

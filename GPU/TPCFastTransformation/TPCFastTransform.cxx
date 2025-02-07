@@ -30,11 +30,11 @@
 #include "GPUCommonLogger.h"
 #endif
 
-#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB)
+#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE)
 #include "TPCSpaceCharge/SpaceCharge.h"
 #endif
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 TPCFastTransform::TPCFastTransform()
   : FlatObject(), mTimeStamp(0), mCorrection(), mApplyCorrection(1), mT0(0.f), mVdrift(0.f), mVdriftCorrY(0.f), mLdriftCorr(0.f), mTOFcorr(0.f), mPrimVtxZ(0.f), mLumi(0.f), mLumiError(0.f), mLumiScaleFactor(1.0f)
@@ -165,7 +165,7 @@ void TPCFastTransform::print() const
 #endif
 }
 
-#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB)
+#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE)
 
 int32_t TPCFastTransform::writeToFile(std::string outFName, std::string name)
 {
@@ -231,7 +231,7 @@ TPCFastTransform* TPCFastTransform::loadFromFile(std::string inpFName, std::stri
 
 #endif
 
-#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB)
+#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE)
 TPCSlowSpaceChargeCorrection::~TPCSlowSpaceChargeCorrection()
 {
   delete mCorr;

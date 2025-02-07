@@ -9,14 +9,9 @@
 # granted to it by virtue of its status as an Intergovernmental Organization
 # or submit itself to any jurisdiction.
 
-# Subdirectories will be compiled with O2 / AliRoot / Standalone To simplify the
+# Subdirectories will be compiled with O2 / Standalone To simplify the
 # CMake, variables are defined for Sources / Headers first. Then, the actual
 # CMake build scripts use these variables.
-#
-# SRCS: Common Sources for all builds HDRS_CINT: Headers for ROOT dictionary
-# (always) HDRS_CINT_ALIROOT: Headers for ROOT dictionary (only in AliRoot)
-# HDRS_CINT_O2: Headers for ROOT dictionary (only for O2) HDRS_INSTALL: Headers
-# for installation only
 
 if(NOT DEFINED GPUCA_NO_FAST_MATH)
   set(GPUCA_NO_FAST_MATH 0)

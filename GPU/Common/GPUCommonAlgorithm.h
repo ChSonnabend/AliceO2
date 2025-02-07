@@ -24,7 +24,7 @@
 
 // ----------------------------- SORTING -----------------------------
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -72,9 +72,9 @@ class GPUCommonAlgorithm
   GPUd() static void IterSwap(I a, I b) noexcept;
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -218,7 +218,7 @@ GPUdi() void GPUCommonAlgorithm::QuickSort(I f, I l) noexcept
 typedef GPUCommonAlgorithm CAAlgo;
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #if (((defined(__CUDACC__) && !defined(__clang__)) || defined(__HIPCC__))) && !defined(GPUCA_GPUCODE_GENRTC) && !defined(GPUCA_GPUCODE_HOSTONLY)
 
@@ -226,7 +226,7 @@ typedef GPUCommonAlgorithm CAAlgo;
 
 #else
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -248,12 +248,12 @@ GPUdi() void GPUCommonAlgorithm::sortDeviceDynamic(T* begin, T* end, const S& co
 }
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // THRUST
 // sort and sortInBlock below are not taken from Thrust, since our implementations are faster
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -329,7 +329,7 @@ GPUdi() void GPUCommonAlgorithm::swap(T& a, T& b)
 #endif
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 // ----------------------------- WORK GROUP FUNCTIONS -----------------------------
 

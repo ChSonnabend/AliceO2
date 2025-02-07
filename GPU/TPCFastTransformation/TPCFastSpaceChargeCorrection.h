@@ -23,7 +23,7 @@
 #include "GPUCommonDef.h"
 #include "GPUCommonMath.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -45,9 +45,7 @@ class TPCFastSpaceChargeCorrection : public FlatObject
   struct RowInfo {
     int32_t splineScenarioID{0}; ///< scenario index (which of Spline2D splines to use)
     size_t dataOffsetBytes[3]{0}; ///< offset for the spline data withing a TPC slice
-#ifndef GPUCA_ALIROOT_LIB
     ClassDefNV(RowInfo, 1);
-#endif
   };
 
   struct RowActiveArea {
@@ -56,9 +54,7 @@ class TPCFastSpaceChargeCorrection : public FlatObject
     float cuMin{0.f};
     float cuMax{0.f};
     float cvMax{0.f};
-#ifndef GPUCA_ALIROOT_LIB
     ClassDefNV(RowActiveArea, 1);
-#endif
   };
 
   struct SliceRowInfo {
@@ -68,16 +64,12 @@ class TPCFastSpaceChargeCorrection : public FlatObject
     float scaleCorrUtoGrid{0.f}; ///< scale corrected U to U-grid coordinate
     float scaleCorrVtoGrid{0.f}; ///< scale corrected V to V-grid coordinate
     RowActiveArea activeArea;
-#ifndef GPUCA_ALIROOT_LIB
     ClassDefNV(SliceRowInfo, 1);
-#endif
   };
 
   struct SliceInfo {
     float vMax{0.f}; ///< Max value of V coordinate
-#ifndef GPUCA_ALIROOT_LIB
     ClassDefNV(SliceInfo, 1);
-#endif
   };
 
   typedef Spline2D<float, 3> SplineType;
@@ -277,9 +269,7 @@ class TPCFastSpaceChargeCorrection : public FlatObject
 
   float fInterpolationSafetyMargin{0.1f}; // 10% area around the TPC row. Outside of this area the interpolation returns the boundary values.
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(TPCFastSpaceChargeCorrection, 3);
-#endif
 };
 
 /// ====================================================
@@ -504,6 +494,6 @@ GPUdi() float TPCFastSpaceChargeCorrection::getMaxDriftLength(int32_t slice) con
 }
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

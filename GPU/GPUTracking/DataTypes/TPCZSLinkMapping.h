@@ -25,7 +25,7 @@ namespace o2::tpc
 class Mapper;
 }
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 struct TPCZSLinkMapping {
@@ -38,6 +38,6 @@ struct TPCZSLinkMapping {
 #endif
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

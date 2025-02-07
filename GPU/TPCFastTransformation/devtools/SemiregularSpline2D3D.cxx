@@ -17,7 +17,7 @@
 
 #include "SemiregularSpline2D3D.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -164,4 +164,4 @@ void SemiregularSpline2D3D::construct(const int32_t numberOfRowsInput, const int
 }
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2

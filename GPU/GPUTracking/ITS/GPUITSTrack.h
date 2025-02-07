@@ -18,7 +18,7 @@
 #include "GPUTPCGMMergerTypes.h"
 #include "GPUTPCGMTrackParam.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUITSTrack : public GPUTPCGMTrackParam
 {
@@ -27,6 +27,6 @@ class GPUITSTrack : public GPUTPCGMTrackParam
   float mAlpha;
   int32_t mClusters[7];
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

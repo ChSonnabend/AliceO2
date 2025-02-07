@@ -36,8 +36,7 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
                              PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}>
                                     $<INSTALL_INTERFACE:include/GPU>)
 
-  target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB
-                             GPUCA_TPC_GEOMETRY_O2 GPUCA_HAVE_O2HEADERS)
+  target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2)
 
   # cuda test, only compile if CUDA
   if(CUDA_ENABLED)
@@ -65,27 +64,4 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
                 LABELS gpu)
   endif()
   install(FILES ${HDRS_INSTALL} DESTINATION include/GPU)
-endif()
-
-if(ALIGPU_BUILD_TYPE STREQUAL "ALIROOT")
-  add_definitions(-DGPUCA_ALIROOT_LIB)
-
-  set(SRCS ${SRCS} ../GPUTracking/utils/EmptyFile.cxx)
-
-  # Add a library to the project using the specified source files
-  add_library_tested(Ali${MODULE} SHARED ${SRCS})
-
-  # Additional compilation flags
-  set_target_properties(Ali${MODULE} PROPERTIES COMPILE_FLAGS "")
-
-  # System dependent: Modify the way the library is build
-  if(${CMAKE_SYSTEM} MATCHES Darwin)
-    set_target_properties(Ali${MODULE}
-                          PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
-  endif(${CMAKE_SYSTEM} MATCHES Darwin)
-
-  # Installation
-  install(TARGETS Ali${MODULE} ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
-
-  install(FILES ${HDRS_INSTALL} DESTINATION include)
 endif()

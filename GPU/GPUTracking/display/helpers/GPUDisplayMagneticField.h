@@ -23,7 +23,7 @@
 #include <Field/MagneticField.h>
 #endif
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUDisplayMagneticField
 {
@@ -141,6 +141,6 @@ class GPUDisplayMagneticField
   std::unique_ptr<DipoleParameterizationUniform> mDipoleParameterization;
   std::vector<vtx> mFieldLineSeedPoints;
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif // GPUDISPLAYMAGNETICFIELD_H

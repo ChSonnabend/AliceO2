@@ -29,7 +29,7 @@
 
 #include "utils/timer.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -322,6 +322,6 @@ class GPUDisplay : public GPUDisplayInterface
   float mYFactor = 1.0f;
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

@@ -19,7 +19,7 @@
 #include "GPUDisplayInterface.h"
 #include <memory>
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUReconstruction;
 class GPUDisplay;
@@ -146,6 +146,6 @@ class GPUDisplayFrontend : public GPUDisplayFrontendInterface
   void ExitDisplay();                        // Callback to clean up the GL Display
   int32_t& drawTextFontSize();
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

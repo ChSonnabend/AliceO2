@@ -556,7 +556,7 @@ void CDBInterface::createFEEConfig()
 
   if (!mUseDefaults) {
     LOGP(info, "trying to load default FEEConfig");
-    mDeadChannelMapCreator.loadFEEConfig(7, 1680525888290); // load oldest physics configuration
+    mDeadChannelMapCreator.loadFEEConfig(1680525888290); // load oldest physics configuration
     if (mFEEConfig) {
       return;
     }

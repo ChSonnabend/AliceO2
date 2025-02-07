@@ -215,7 +215,7 @@ enum struct AODProducerStreamerFlags : uint8_t {
 class AODProducerWorkflowDPL : public Task
 {
  public:
-  AODProducerWorkflowDPL(GID::mask_t src, std::shared_ptr<DataRequest> dataRequest, std::shared_ptr<o2::base::GRPGeomRequest> gr, bool enableSV, bool useMC = true) : mUseMC(useMC), mEnableSV(enableSV), mInputSources(src), mDataRequest(dataRequest), mGGCCDBRequest(gr) {}
+  AODProducerWorkflowDPL(GID::mask_t src, std::shared_ptr<DataRequest> dataRequest, std::shared_ptr<o2::base::GRPGeomRequest> gr, bool enableSV, bool useMC = true, bool enableFITextra = false) : mUseMC(useMC), mEnableSV(enableSV), mEnableFITextra(enableFITextra), mInputSources(src), mDataRequest(dataRequest), mGGCCDBRequest(gr) {}
   ~AODProducerWorkflowDPL() override = default;
   void init(InitContext& ic) final;
   void run(ProcessingContext& pc) final;
@@ -254,6 +254,7 @@ class AODProducerWorkflowDPL : public Task
   int mNThreads = 1;
   bool mUseMC = true;
   bool mEnableSV = true; // enable secondary vertices
+  bool mEnableFITextra = false;
   bool mFieldON = false;
   const float cSpeed = 0.029979246f; // speed of light in TOF units
 
@@ -370,8 +371,11 @@ class AODProducerWorkflowDPL : public Task
   uint32_t mMuonCl = 0xFFFFFF00;               // 15 bits
   uint32_t mMuonClErr = 0xFFFF0000;            // 7 bits
   uint32_t mV0Time = 0xFFFFF000;               // 11 bits
+  uint32_t mV0ChannelTime = 0xFFFFFF00;        // 15 bits
   uint32_t mFDDTime = 0xFFFFF000;              // 11 bits
+  uint32_t mFDDChannelTime = 0xFFFFFF00;       // 15 bits
   uint32_t mT0Time = 0xFFFFFF00;               // 15 bits
+  uint32_t mT0ChannelTime = 0xFFFFFFF0;        // 19 bits
   uint32_t mV0Amplitude = 0xFFFFF000;          // 11 bits
   uint32_t mFDDAmplitude = 0xFFFFF000;         // 11 bits
   uint32_t mT0Amplitude = 0xFFFFF000;          // 11 bits
@@ -482,8 +486,6 @@ class AODProducerWorkflowDPL : public Task
   // using -1 as dummies for AOD
   struct MCLabels {
     uint32_t labelID = -1;
-    uint32_t labelITS = -1;
-    uint32_t labelTPC = -1;
     uint16_t labelMask = 0;
     uint8_t fwdLabelMask = 0;
   };
@@ -670,7 +672,7 @@ class AODProducerWorkflowDPL : public Task
 };
 
 /// create a processor spec
-framework::DataProcessorSpec getAODProducerWorkflowSpec(GID::mask_t src, bool enableSV, bool enableST, bool useMC, bool CTPConfigPerRun);
+framework::DataProcessorSpec getAODProducerWorkflowSpec(GID::mask_t src, bool enableSV, bool enableST, bool useMC, bool CTPConfigPerRun, bool enableFITextra);
 
 // helper interface for calo cells to "befriend" emcal and phos cells
 class CellHelper

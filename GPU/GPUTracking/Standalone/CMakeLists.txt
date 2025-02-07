@@ -122,10 +122,7 @@ if(GPUCA_CONFIG_ROOT)
 else()
   add_definitions(-DGPUCA_NO_ROOT)
 endif()
-if(GPUCA_CONFIG_O2_EXTENSIONS)
-  add_definitions(-DGPUCA_HAVE_O2HEADERS)
-  find_package(Microsoft.GSL REQUIRED HINTS "$ENV{MS_GSL_ROOT}/share/cmake")
-endif()
+find_package(Microsoft.GSL REQUIRED HINTS "$ENV{MS_GSL_ROOT}/share/cmake")
 
 if(GPUCA_CONFIG_FMT)
   find_package(fmt REQUIRED HINTS $ENV{FMT_ROOT})
@@ -154,10 +151,8 @@ include_directories(${GPU_DIR}/Common
                     ${GPUTRACKING_DIR}/qa
                     ${GPUTRACKING_DIR}/SliceTracker
                     ${GPUTRACKING_DIR}/DataCompression
-                    ${GPUTRACKING_DIR}/TRDTracking)
-
-if(GPUCA_CONFIG_O2_EXTENSIONS)
-include_directories(${GPUTRACKING_DIR}/TPCClusterFinder
+                    ${GPUTRACKING_DIR}/TRDTracking
+                    ${GPUTRACKING_DIR}/TPCClusterFinder
                     ${GPUTRACKING_DIR}/ITS
                     ${GPUTRACKING_DIR}/Interface
                     ${O2_DIR}/Common/Field/include
@@ -190,7 +185,6 @@ include_directories(${GPUTRACKING_DIR}/TPCClusterFinder
                     ${O2_DIR}/Detectors/TRD/base/include
                     ${O2_DIR}/Detectors/TRD/base/src
                     ${O2_DIR}/Framework/Foundation/3rdparty/include)
-endif()
 
 # Create main targets
 add_subdirectory(../../ GPU)
@@ -203,33 +197,31 @@ target_compile_definitions(ca PUBLIC $<TARGET_PROPERTY:O2::GPUTracking,COMPILE_D
 target_compile_definitions(standalone_support PUBLIC $<TARGET_PROPERTY:O2::GPUTracking,COMPILE_DEFINITIONS>)
 
 # Add all sources and dependencies to to support based on Config File
-if(GPUCA_CONFIG_O2_EXTENSIONS)
+target_sources(standalone_support PRIVATE
+              ${O2_DIR}/Common/Field/src/MagFieldFast.cxx
+              ${O2_DIR}/DataFormats/Detectors/TPC/src/CompressedClusters.cxx
+              ${O2_DIR}/DataFormats/simulation/src/MCCompLabel.cxx
+              ${O2_DIR}/DataFormats/Reconstruction/src/TrackParametrization.cxx
+              ${O2_DIR}/DataFormats/Reconstruction/src/TrackParametrizationWithError.cxx
+              ${O2_DIR}/DataFormats/Reconstruction/src/Vertex.cxx
+              ${O2_DIR}/DataFormats/Reconstruction/src/TrackLTIntegral.cxx
+              ${O2_DIR}/DataFormats/Reconstruction/src/TrackParametrization.cxx
+              ${O2_DIR}/DataFormats/Reconstruction/src/TrackParametrizationWithError.cxx
+              ${O2_DIR}/Detectors/TRD/base/src/GeometryBase.cxx
+              ${O2_DIR}/Detectors/Base/src/MatLayerCylSet.cxx
+              ${O2_DIR}/Detectors/Base/src/MatLayerCyl.cxx
+              ${O2_DIR}/Detectors/Base/src/Ray.cxx
+              ${O2_DIR}/Detectors/Base/src/Propagator.cxx
+              ${O2_DIR}/Detectors/ITSMFT/ITS/tracking/src/Road.cxx)
+if(CONFIG_O2_ITS_TRAITS)
   target_sources(standalone_support PRIVATE
-               ${O2_DIR}/Common/Field/src/MagFieldFast.cxx
-               ${O2_DIR}/DataFormats/Detectors/TPC/src/CompressedClusters.cxx
-               ${O2_DIR}/DataFormats/simulation/src/MCCompLabel.cxx
-               ${O2_DIR}/DataFormats/Reconstruction/src/TrackParametrization.cxx
-               ${O2_DIR}/DataFormats/Reconstruction/src/TrackParametrizationWithError.cxx
-               ${O2_DIR}/DataFormats/Reconstruction/src/Vertex.cxx
-               ${O2_DIR}/DataFormats/Reconstruction/src/TrackLTIntegral.cxx
-               ${O2_DIR}/DataFormats/Reconstruction/src/TrackParametrization.cxx
-               ${O2_DIR}/DataFormats/Reconstruction/src/TrackParametrizationWithError.cxx
-               ${O2_DIR}/Detectors/TRD/base/src/GeometryBase.cxx
-               ${O2_DIR}/Detectors/Base/src/MatLayerCylSet.cxx
-               ${O2_DIR}/Detectors/Base/src/MatLayerCyl.cxx
-               ${O2_DIR}/Detectors/Base/src/Ray.cxx
-               ${O2_DIR}/Detectors/Base/src/Propagator.cxx
-               ${O2_DIR}/Detectors/ITSMFT/ITS/tracking/src/Road.cxx)
-  if(CONFIG_O2_ITS_TRAITS)
-    target_sources(standalone_support PRIVATE
-        ${O2_DIR}/Detectors/ITSMFT/ITS/tracking/src/PrimaryVertexContext.cxx
-        ${O2_DIR}/Detectors/ITSMFT/ITS/tracking/src/Cluster.cxx
-        ${O2_DIR}/Detectors/ITSMFT/ITS/tracking/src/ClusterLines.cxx
-        ${O2_DIR}/Detectors/ITSMFT/ITS/tracking/src/TrackerTraitsCPU.cxx
-        ${O2_DIR}/Detectors/ITSMFT/ITS/tracking/src/VertexerTraits.cxx
-        ${O2_DIR}/Detectors/ITSMFT/ITS/tracking/src/ROframe.cxx)
-    target_link_libraries(standalone_support PUBLIC Boost::boost)
-  endif()
+      ${O2_DIR}/Detectors/ITSMFT/ITS/tracking/src/PrimaryVertexContext.cxx
+      ${O2_DIR}/Detectors/ITSMFT/ITS/tracking/src/Cluster.cxx
+      ${O2_DIR}/Detectors/ITSMFT/ITS/tracking/src/ClusterLines.cxx
+      ${O2_DIR}/Detectors/ITSMFT/ITS/tracking/src/TrackerTraitsCPU.cxx
+      ${O2_DIR}/Detectors/ITSMFT/ITS/tracking/src/VertexerTraits.cxx
+      ${O2_DIR}/Detectors/ITSMFT/ITS/tracking/src/ROframe.cxx)
+  target_link_libraries(standalone_support PUBLIC Boost::boost)
 endif()
 
 if(GPUCA_CONFIG_FMT)
@@ -258,9 +250,7 @@ if(GPUCA_CONFIG_ROOT)
                              ROOT::Gui
                              ROOT::Tree)
 endif()
-if(GPUCA_CONFIG_O2_EXTENSIONS)
-  target_link_libraries(standalone_support PUBLIC Microsoft.GSL::GSL TPCFastTransformation)
-endif()
+target_link_libraries(standalone_support PUBLIC Microsoft.GSL::GSL TPCFastTransformation)
 
 if(OpenMP_CXX_FOUND)
   target_link_libraries(ca PUBLIC OpenMP::OpenMP_CXX)

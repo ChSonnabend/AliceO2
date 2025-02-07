@@ -159,7 +159,7 @@ void CalculatedEdx::calculatedEdx(o2::tpc::TrackTPC& track, dEdxInfo& output, fl
 
     // check if the cluster is shared
     const unsigned int absoluteIndex = mClusterIndex->clusterOffset[sectorIndex][rowIndex] + clusterIndexNumb;
-    const bool isShared = mRefit ? (mTPCRefitterShMap[absoluteIndex] & GPUCA_NAMESPACE::gpu::GPUTPCGMMergedTrackHit::flagShared) : 0;
+    const bool isShared = mRefit ? (mTPCRefitterShMap[absoluteIndex] & o2::gpu::GPUTPCGMMergedTrackHit::flagShared) : 0;
 
     // get region, pad, stack and stack ID
     const int region = Mapper::REGION[rowIndex];

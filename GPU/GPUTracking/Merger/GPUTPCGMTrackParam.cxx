@@ -40,10 +40,6 @@
 #include "GPUTPCGMMergerTypes.h"
 #include "GPUParam.inc"
 
-#ifdef GPUCA_ALIROOT_LIB
-#include "AliExternalTrackParam.h"
-#endif
-
 #ifdef GPUCA_CADEBUG_ENABLED
 #include "../utils/qconfig.h"
 #include "AliHLTTPCClusterMCData.h"
@@ -54,7 +50,7 @@
 #include <cstdlib>
 #endif
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 using namespace o2::tpc;
 
 GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_t iTrk, GPUTPCGMMergedTrackHit* GPUrestrict() clusters, GPUTPCGMMergedTrackHitXYZ* GPUrestrict() clustersXYZ, int32_t& GPUrestrict() N, int32_t& GPUrestrict() NTolerated, float& GPUrestrict() Alpha, int32_t attempt, float maxSinPhi, gputpcgmmergertypes::GPUTPCOuterParam* GPUrestrict() outerParam)
@@ -1079,59 +1075,6 @@ GPUd() bool GPUTPCGMTrackParam::CheckNumericalQuality(float overrideCovYY) const
   CADEBUG(printf("OK5 %d\n", (int32_t)ok));
   return ok;
 }
-
-#if defined(GPUCA_ALIROOT_LIB) & !defined(GPUCA_GPUCODE)
-bool GPUTPCGMTrackParam::GetExtParam(AliExternalTrackParam& T, double alpha) const
-{
-  //* Convert from GPUTPCGMTrackParam to AliExternalTrackParam parameterisation,
-  //* the angle alpha is the global angle of the local X axis
-
-  bool ok = CheckNumericalQuality();
-
-  double par[5], cov[15];
-  for (int32_t i = 0; i < 5; i++) {
-    par[i] = mP[i];
-  }
-  for (int32_t i = 0; i < 15; i++) {
-    cov[i] = mC[i];
-  }
-
-  if (par[2] > GPUCA_MAX_SIN_PHI) {
-    par[2] = GPUCA_MAX_SIN_PHI;
-  }
-  if (par[2] < -GPUCA_MAX_SIN_PHI) {
-    par[2] = -GPUCA_MAX_SIN_PHI;
-  }
-
-  if (CAMath::Abs(par[4]) < 1.e-5) {
-    par[4] = 1.e-5; // some other software will crash if q/Pt==0
-  }
-  if (CAMath::Abs(par[4]) > 1. / 0.08) {
-    ok = 0; // some other software will crash if q/Pt is too big
-  }
-  T.Set((double)mX, alpha, par, cov);
-  return ok;
-}
-
-void GPUTPCGMTrackParam::SetExtParam(const AliExternalTrackParam& T)
-{
-  //* Convert from AliExternalTrackParam parameterisation
-
-  for (int32_t i = 0; i < 5; i++) {
-    mP[i] = T.GetParameter()[i];
-  }
-  for (int32_t i = 0; i < 15; i++) {
-    mC[i] = T.GetCovariance()[i];
-  }
-  mX = T.GetX();
-  if (mP[2] > GPUCA_MAX_SIN_PHI) {
-    mP[2] = GPUCA_MAX_SIN_PHI;
-  }
-  if (mP[2] < -GPUCA_MAX_SIN_PHI) {
-    mP[2] = -GPUCA_MAX_SIN_PHI;
-  }
-}
-#endif
 
 GPUd() void GPUTPCGMTrackParam::RefitTrack(GPUTPCGMMergedTrack& GPUrestrict() track, int32_t iTrk, GPUTPCGMMerger* GPUrestrict() merger, int32_t attempt) // TODO: Inline me, once __forceinline__ is fixed by HIP
 {

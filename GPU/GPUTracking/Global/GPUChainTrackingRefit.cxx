@@ -16,11 +16,10 @@
 #include "GPULogging.h"
 #include "GPUO2DataTypes.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 int32_t GPUChainTracking::RunRefit()
 {
-#ifdef GPUCA_HAVE_O2HEADERS
   bool doGPU = GetRecoStepsGPU() & RecoStep::Refit;
   GPUTrackingRefitProcessor& Refit = processors()->trackingRefit;
   GPUTrackingRefitProcessor& RefitShadow = doGPU ? processorsShadow()->trackingRefit : Refit;
@@ -40,6 +39,5 @@ int32_t GPUChainTracking::RunRefit()
   }
   //TransferMemoryResourcesToHost(RecoStep::Refit, &Refit, 0);
   SynchronizeStream(0);
-#endif
   return 0;
 }

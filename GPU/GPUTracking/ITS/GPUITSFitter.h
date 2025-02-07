@@ -27,7 +27,7 @@ struct Cluster;
 class Cell;
 } // namespace o2::its
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUITSTrack;
 
@@ -97,6 +97,6 @@ class GPUITSFitter : public GPUProcessor
   int16_t mMemoryResTracks = -1;
   int16_t mMemoryResMemory = -1;
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

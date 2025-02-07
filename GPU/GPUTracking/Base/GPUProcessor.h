@@ -23,7 +23,7 @@
 #include <algorithm>
 #endif
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -158,6 +158,6 @@ class GPUProcessor
   friend class GPUTPCNeighboursFinder;
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

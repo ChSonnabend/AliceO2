@@ -18,8 +18,8 @@
 #include "GPUHostDataTypes.h"
 #endif
 
-using namespace GPUCA_NAMESPACE::gpu;
-using namespace GPUCA_NAMESPACE::gpu::tpccf;
+using namespace o2::gpu;
+using namespace o2::gpu::tpccf;
 
 #if !defined(GPUCA_GPUCODE)
 void GPUTPCCFMCLabelFlattener::setGlobalOffsetsAndAllocate(

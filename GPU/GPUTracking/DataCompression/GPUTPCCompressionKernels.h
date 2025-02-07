@@ -22,7 +22,7 @@ namespace o2::tpc
 struct ClusterNative;
 } // namespace o2::tpc
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUTPCCompressionKernels : public GPUKernelTemplate
 {
@@ -124,6 +124,6 @@ class GPUTPCCompressionGatherKernels : public GPUKernelTemplate
   GPUdii() static void gatherMulti(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() processors);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

@@ -21,7 +21,7 @@
 #include "GPUTPCClusterFinder.h"
 #include "GPUConstantMem.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 struct GPUTPCLinearLabels;
@@ -38,13 +38,11 @@ class GPUTPCCFMCLabelFlattener : public GPUKernelTemplate
     flatten,
   };
 
-#ifdef GPUCA_HAVE_O2HEADERS
   typedef GPUTPCClusterFinder processorType;
   GPUhdi() static processorType* Processor(GPUConstantMem& processors)
   {
     return processors.tpcClusterer;
   }
-#endif
 
   GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep()
   {
@@ -57,6 +55,6 @@ class GPUTPCCFMCLabelFlattener : public GPUKernelTemplate
   static void setGlobalOffsetsAndAllocate(GPUTPCClusterFinder&, GPUTPCLinearLabels&);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

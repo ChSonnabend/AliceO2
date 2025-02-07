@@ -28,7 +28,7 @@
 #include "Spline1DHelperOld.h"
 #include <functional>
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -160,6 +160,6 @@ int32_t SplineHelper<DataT>::setSpline(
 }
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

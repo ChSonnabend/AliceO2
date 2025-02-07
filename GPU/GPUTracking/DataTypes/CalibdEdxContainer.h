@@ -280,9 +280,7 @@ class CalibdEdxContainer : public o2::gpu::FlatObject
   CalDet<float> processThresholdMap(const CalDet<float>& thresholdMap, const float maxThreshold, const int32_t nPadsInRowCl = 2, const int32_t nPadsInPadCl = 2) const;
 #endif
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(CalibdEdxContainer, 2);
-#endif
 };
 
 } // namespace o2::tpc

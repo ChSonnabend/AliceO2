@@ -17,7 +17,7 @@
 
 #include "GPUCommonDef.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 struct GPUSettingsRec;
 struct GPUSettingsProcessing;
@@ -32,6 +32,6 @@ class GPUConfigDump
   static void dumpConfig(const GPUSettingsRec* rec, const GPUSettingsProcessing* proc, const GPUSettingsQA* qa, const GPUSettingsDisplay* display, const GPUSettingsDeviceBackend* device, const GPURecoStepConfiguration* workflow);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

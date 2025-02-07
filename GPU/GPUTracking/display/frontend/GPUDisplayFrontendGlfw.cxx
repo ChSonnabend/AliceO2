@@ -46,7 +46,7 @@ extern "C" int32_t gl3wInit();
 #include <DebugGUI/DebugGUI.h>
 #endif
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 GPUDisplayFrontendGlfw::GPUDisplayFrontendGlfw()
 {

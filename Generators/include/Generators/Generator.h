@@ -85,9 +85,12 @@ class Generator : public FairGenerator
   void setTriggerMode(ETriggerMode_t val) { mTriggerMode = val; };
   void addTrigger(Trigger trigger) { mTriggers.push_back(trigger); };
   void addDeepTrigger(DeepTrigger trigger) { mDeepTriggers.push_back(trigger); };
+  // setter for global number of events
+  static void setTotalNEvents(unsigned int& n) { gTotalNEvents = n; }
 
   /** getters **/
   const std::vector<TParticle>& getParticles() const { return mParticles; }; //!
+  static unsigned int getTotalNEvents() { return gTotalNEvents; };
 
   /** other **/
   void clearParticles() { mParticles.clear(); };
@@ -151,6 +154,9 @@ class Generator : public FairGenerator
   std::unordered_map<int, std::string> mSubGeneratorsIdToDesc;
   // the current ID of the sub-generator used in the current event (if applicable)
   int mSubGeneratorId = -1;
+
+  // global static information about (upper limit of) number of events to be generated
+  static unsigned int gTotalNEvents;
 
   ClassDefOverride(Generator, 2);
 

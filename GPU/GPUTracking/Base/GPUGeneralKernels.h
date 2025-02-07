@@ -32,7 +32,7 @@
 #define GPUCA_CUB cub
 #endif
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -111,7 +111,7 @@ class GPUitoa : public GPUKernelTemplate
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #undef GPUCA_CUB
 

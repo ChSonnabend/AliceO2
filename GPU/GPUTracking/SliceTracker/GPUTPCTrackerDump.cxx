@@ -24,7 +24,7 @@
 #include <algorithm>
 #include <numeric>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 void GPUTPCTracker::DumpOutput(std::ostream& out)
 {

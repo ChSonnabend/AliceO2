@@ -14,7 +14,7 @@
 
 #include "GPUTPCGrid.h"
 #include "GPUCommonMath.h"
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 #if !defined(assert) && !defined(GPUCA_GPUCODE)
 #include <cassert>

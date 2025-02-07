@@ -48,16 +48,19 @@ struct CRUConfig {
 struct FEEConfig {
   /// Tag definitions for TPC/Config/FEE
   enum class Tags : uint8_t {
-    Unspecified = 0,    ///< Unspecified
-    TestWithZS = 1,     ///< Test configuration with ZS
-    Pedestals = 2,      ///< Configuration for Pedestal data taking
-    Pulser = 3,         ///< Configuration for Pulser data taking
-    Laser = 4,          ///< Configuration for Laser data taking
-    Cosmics = 5,        ///< Configuration for Cosmics data taking
-    Physics35sigma = 6, ///< Physics configuration with 3.5 sigma thresholds
-    Physics30sigma = 7, ///< Physics configuration with 3.0 sigma thresholds
-    Physics25sigma = 8, ///< Physics configuration with 2.5 sigma thresholds
-    Laser10ADCoff = 9,  ///< Configuration for Laser data taking with 10ADC offset for special studies
+    Unspecified = 0,         ///< Unspecified
+    TestWithZS = 1,          ///< Test configuration with ZS
+    Pedestals = 2,           ///< Configuration for Pedestal data taking
+    Pulser = 3,              ///< Configuration for Pulser data taking
+    Laser = 4,               ///< Configuration for Laser data taking
+    Cosmics = 5,             ///< Configuration for Cosmics data taking
+    Physics35sigma = 6,      ///< Physics configuration with 3.5 sigma thresholds
+    Physics30sigma = 7,      ///< Physics configuration with 3.0 sigma thresholds
+    Physics25sigma = 8,      ///< Physics configuration with 2.5 sigma thresholds
+    Laser10ADCoff = 9,       ///< Configuration for Laser data taking with 10ADC offset for special studies
+    TestNoFilters = 10,      ///< Test configuration without filters
+    Physics2025sigma = 11,   ///< Physics configuration with 2.0/2.5 sigma thresholds (IROC/OROC)
+    Physics30sigmaPbPb = 12, ///< Physics configuration with 3.0 sigma thresholds for PbPb (using differnet CMC settings wrt. pp config 7)
   };
 
   enum class PadConfig {

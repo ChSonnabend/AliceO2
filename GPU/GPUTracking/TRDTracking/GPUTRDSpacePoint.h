@@ -18,7 +18,7 @@
 
 #ifndef GPUCA_TPC_GEOMETRY_O2 // compatibility to Run 2 data types
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -45,13 +45,13 @@ class GPUTRDSpacePoint
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #else // compatibility with Run 3 data types
 
 #include "DataFormatsTRD/CalibratedTracklet.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -63,7 +63,7 @@ class GPUTRDSpacePoint : public o2::trd::CalibratedTracklet
 static_assert(sizeof(GPUTRDSpacePoint) == sizeof(o2::trd::CalibratedTracklet), "Incorrect memory layout");
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // GPUCA_TPC_GEOMETRY_O2
 

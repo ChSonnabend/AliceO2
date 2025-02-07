@@ -23,7 +23,7 @@
 #include "GPUCommonRtypes.h"
 #endif
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -38,9 +38,7 @@ class TPCFastTransformGeo
   struct SliceInfo {
     float sinAlpha;
     float cosAlpha;
-#ifndef GPUCA_ALIROOT_LIB
     ClassDefNV(SliceInfo, 1);
-#endif
   };
 
   /// The struct contains necessary info about TPC padrow
@@ -54,9 +52,7 @@ class TPCFastTransformGeo
 
     /// get width in U
     GPUd() float getUwidth() const { return -2.f * u0; }
-#ifndef GPUCA_ALIROOT_LIB
     ClassDefNV(RowInfo, 1);
-#endif
   };
 
   /// _____________  Constructors / destructors __________________________
@@ -209,9 +205,7 @@ class TPCFastTransformGeo
   SliceInfo mSliceInfos[NumberOfSlices + 1]; ///< array of slice information [fixed size]
   RowInfo mRowInfos[MaxNumberOfRows + 1];    ///< array of row information [fixed size]
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(TPCFastTransformGeo, 1);
-#endif
 };
 
 // =======================================================================
@@ -338,6 +332,6 @@ GPUdi() float TPCFastTransformGeo::convUtoPad(int32_t row, float u) const
 }
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

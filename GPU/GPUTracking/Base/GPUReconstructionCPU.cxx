@@ -47,8 +47,8 @@ static inline int32_t omp_get_thread_num() { return 0; }
 static inline int32_t omp_get_max_threads() { return 1; }
 #endif
 
-using namespace GPUCA_NAMESPACE::gpu;
-using namespace GPUCA_NAMESPACE::gpu::gpu_reconstruction_kernels;
+using namespace o2::gpu;
+using namespace o2::gpu::gpu_reconstruction_kernels;
 
 constexpr GPUReconstructionCPU::krnlRunRange GPUReconstructionCPU::krnlRunRangeNone;
 constexpr GPUReconstructionCPU::krnlEvent GPUReconstructionCPU::krnlEventNone;

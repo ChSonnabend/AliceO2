@@ -42,7 +42,7 @@ typedef double myfloat;
 int32_t IrregularSpline1DTest()
 {
 
-  using namespace GPUCA_NAMESPACE::gpu;
+  using namespace o2::gpu;
 
   std::cout << "Test roundf(): " << std::endl;
   for (float x = 0.; x <= 1.; x += 0.1) {

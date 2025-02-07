@@ -14,7 +14,7 @@
 
 #include "GPUNewCalibValues.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 void GPUNewCalibValues::updateFrom(const GPUNewCalibValues* from)
 {

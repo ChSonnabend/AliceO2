@@ -18,7 +18,7 @@
 #include "GPUDef.h"
 #include "GPUProcessor.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -54,6 +54,6 @@ class GPUTPCConvert : public GPUProcessor
   int16_t mMemoryResMemory = -1;
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

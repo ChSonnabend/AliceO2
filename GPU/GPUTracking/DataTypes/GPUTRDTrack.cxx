@@ -15,21 +15,18 @@
 #include "GPUTRDTrack.h"
 #include "GPUTRDInterfaces.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 #include "GPUTRDTrack.inc"
 
 #if !defined(GPUCA_GPUCODE)
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
-#ifdef GPUCA_ALIROOT_LIB // Instantiate AliRoot track version
-template class GPUTRDTrack_t<trackInterface<AliExternalTrackParam>>;
-#endif
-#if defined(GPUCA_HAVE_O2HEADERS) && !defined(GPUCA_O2_LIB) // Instantiate O2 track version, for O2 this happens in GPUTRDTrackO2.cxx
+#if !defined(GPUCA_O2_LIB) // Instantiate O2 track version, for O2 this happens in GPUTRDTrackO2.cxx
 template class GPUTRDTrack_t<trackInterface<o2::track::TrackParCov>>;
 #endif
 template class GPUTRDTrack_t<trackInterface<GPUTPCGMTrackParam>>; // Always instatiate GM track version
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 #endif

@@ -11,6 +11,7 @@
 #include "Framework/TableTreeHelpers.h"
 #include "Framework/Logger.h"
 #include "Framework/Endian.h"
+#include "Framework/Signpost.h"
 
 #include "arrow/type_traits.h"
 #include <arrow/dataset/file_base.h>
@@ -21,6 +22,9 @@
 
 #include <memory>
 #include <utility>
+
+O2_DECLARE_DYNAMIC_LOG(tabletree_helpers);
+
 namespace TableTreeHelpers
 {
 static constexpr char const* sizeBranchSuffix = "_size";
@@ -134,6 +138,7 @@ BranchToColumn::BranchToColumn(TBranch* branch, bool VLA, std::string name, EDat
 
 std::pair<std::shared_ptr<arrow::ChunkedArray>, std::shared_ptr<arrow::Field>> BranchToColumn::read(TBuffer* buffer)
 {
+  O2_SIGNPOST_ID_FROM_POINTER(sid, tabletree_helpers, buffer);
   auto totalEntries = mBranch->GetEntries();
   arrow::Status status;
   int readEntries = 0;
@@ -170,7 +175,9 @@ std::pair<std::shared_ptr<arrow::ChunkedArray>, std::shared_ptr<arrow::Field>> B
     }
   } else {
     // other types: use serialized read to build arrays directly
+    size_t branchSize = mBranch->GetTotBytes();
     auto&& result = arrow::AllocateResizableBuffer(mBranch->GetTotBytes(), mPool);
+    O2_SIGNPOST_EVENT_EMIT(tabletree_helpers, sid, "BranchToColumn", "Allocating %ld bytes for %{public}s", branchSize, mBranch->GetName());
     if (!result.ok()) {
       throw runtime_error("Cannot allocate values buffer");
     }
@@ -526,17 +533,20 @@ void TreeToTable::setLabel(const char* label)
   mTableLabel = label;
 }
 
-void TreeToTable::fill(TTree*)
+void TreeToTable::fill(TTree*tree)
 {
   std::vector<std::shared_ptr<arrow::ChunkedArray>> columns;
   std::vector<std::shared_ptr<arrow::Field>> fields;
   static TBufferFile buffer{TBuffer::EMode::kWrite, 4 * 1024 * 1024};
+  O2_SIGNPOST_ID_FROM_POINTER(sid, tabletree_helpers, &buffer);
+  O2_SIGNPOST_START(tabletree_helpers, sid, "TreeToTable", "Filling %{public}s", tree->GetName());
   for (auto& reader : mBranchReaders) {
     buffer.Reset();
     auto arrayAndField = reader->read(&buffer);
     columns.push_back(arrayAndField.first);
     fields.push_back(arrayAndField.second);
   }
+  O2_SIGNPOST_END(tabletree_helpers, sid, "TreeToTable", "Done filling.");
 
   auto schema = std::make_shared<arrow::Schema>(fields, std::make_shared<arrow::KeyValueMetadata>(std::vector{std::string{"label"}}, std::vector{mTableLabel}));
   mTable = arrow::Table::Make(schema, columns);

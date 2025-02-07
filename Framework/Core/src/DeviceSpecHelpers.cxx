@@ -1118,6 +1118,10 @@ void DeviceSpecHelpers::dataProcessorSpecs2DeviceSpecs(const WorkflowSpec& workf
 {
   // Always check for validity of the workflow before instanciating it
   DeviceSpecHelpers::validate(workflow);
+  // In case the workflow is empty, we simply do not need to instanciate any device.
+  if (workflow.empty()) {
+    return;
+  }
   std::vector<LogicalForwardInfo> availableForwardsInfo;
   std::vector<DeviceConnectionEdge> logicalEdges;
   std::vector<DeviceConnectionId> connections;

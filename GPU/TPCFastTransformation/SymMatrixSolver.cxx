@@ -23,11 +23,9 @@
 #include <chrono>
 
 using namespace std;
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
-#ifndef GPUCA_ALIROOT_LIB
-ClassImp(GPUCA_NAMESPACE::gpu::SymMatrixSolver);
-#endif
+ClassImp(o2::gpu::SymMatrixSolver);
 
 void SymMatrixSolver::solve()
 {

@@ -18,7 +18,7 @@
 #include "GPUTPCDef.h"
 #include "GPUTPCGrid.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -79,6 +79,6 @@ class GPUTPCRow
   uint32_t mFirstHitInBinOffset; // offset in Tracker::mRowData to find the FirstHitInBin
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // GPUTPCROW_H

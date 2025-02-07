@@ -17,7 +17,7 @@
 #ifndef ALICEO2_GPUCOMMON_TPCFASTTRANSFORMATION_SPLINEUTIL_H
 #define ALICEO2_GPUCOMMON_TPCFASTTRANSFORMATION_SPLINEUTIL_H
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -39,7 +39,6 @@ class SplineUtil
     //  2 - at least one of the dimensions must be set during runtime
     //  3 - specialization where nYdim==1 (a small add-on on top of the other specs)
 
-    // calculate it as one return statement to make the AliRoot compiler happy
     return (nYdim == 1) ? 3 : ((nXdim > 0 && nYdim > 0) ? 1 : 2);
     /*
     if (nYdim == 1) {
@@ -111,6 +110,6 @@ class SplineUtil::Switch<false, ValTrueT>
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

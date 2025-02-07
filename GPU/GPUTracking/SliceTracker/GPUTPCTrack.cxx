@@ -13,4 +13,4 @@
 /// \author Sergey Gorbunov, David Rohr
 
 #include "GPUTPCTrack.h"
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;

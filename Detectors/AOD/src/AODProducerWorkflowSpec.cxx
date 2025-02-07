@@ -109,6 +109,7 @@ using PVertex = o2::dataformats::PrimaryVertex;
 using GIndex = o2::dataformats::VtxTrackIndex;
 using DataRequest = o2::globaltracking::DataRequest;
 using GID = o2::dataformats::GlobalTrackID;
+using DetID = o2::detectors::DetID;
 using SMatrix55Sym = ROOT::Math::SMatrix<double, 5, 5, ROOT::Math::MatRepSym<double, 5>>;
 
 namespace o2::aodproducer
@@ -1058,9 +1059,9 @@ void AODProducerWorkflowDPL::fillMCTrackLabelsTable(MCTrackLabelCursorType& mcTr
                                                     int vertexId)
 {
   // labelMask (temporary) usage:
-  //   bit 13 -- ITS/TPC or TPC/TOF labels are not equal
+  //   bit 13 -- ITS/TPC with ITS label (track of AB tracklet) different from TPC
   //   bit 14 -- isNoise() == true
-  //   bit 15 -- isFake() == true
+  //   bit 15 -- isFake() == true (defined by the fakeness of the top level global track, i.e. if TOF is present, fake means that the track of the TPC label does not contribute to TOF cluster)
   // labelID = -1 -- label is not set
 
   for (int src = GIndex::NSources; src--;) {
@@ -1084,7 +1085,7 @@ void AODProducerWorkflowDPL::fillMCTrackLabelsTable(MCTrackLabelCursorType& mcTr
 
       if (GIndex::includesSource(src, mInputSources)) {
         auto mcTruth = data.getTrackMCLabel(trackIndex);
-        MCLabels labelHolder;
+        MCLabels labelHolder{};
         if ((src == GIndex::Source::MFT) || (src == GIndex::Source::MFTMCH) || (src == GIndex::Source::MCH) || (src == GIndex::Source::MCHMID)) { // treating mft and fwd labels separately
           if (!needToStore(src == GIndex::Source::MFT ? mGIDToTableMFTID : mGIDToTableFwdID)) {
             continue;
@@ -1110,51 +1111,22 @@ void AODProducerWorkflowDPL::fillMCTrackLabelsTable(MCTrackLabelCursorType& mcTr
             continue;
           }
           if (mcTruth.isValid()) { // if not set, -1 will be stored
-            labelHolder.labelID = (mToStore[mcTruth.getSourceID()][mcTruth.getEventID()])[mcTruth.getTrackID()];
-          }
-          // treating possible mismatches and fakes for global tracks
-          auto contributorsGID = data.getSingleDetectorRefs(trackIndex);
-          bool isSetTPC = contributorsGID[GIndex::Source::TPC].isIndexSet();
-          bool isSetITS = contributorsGID[GIndex::Source::ITS].isIndexSet();
-          bool isSetTOF = contributorsGID[GIndex::Source::TOF].isIndexSet();
-          bool isTOFFake = true;
-          if (isSetTPC && (isSetITS || isSetTOF)) {
-            auto mcTruthTPC = data.getTrackMCLabel(contributorsGID[GIndex::Source::TPC]);
-            if (mcTruthTPC.isValid()) {
-              labelHolder.labelTPC = (mToStore[mcTruthTPC.getSourceID()][mcTruthTPC.getEventID()])[mcTruthTPC.getTrackID()];
-              labelHolder.labelID = labelHolder.labelTPC;
+            labelHolder.labelID = (mToStore[mcTruth.getSourceID()][mcTruth.getEventID()])[mcTruth.getTrackID()]; // defined by TPC if it contributes, otherwise: by ITS
+            if (mcTruth.isFake()) {
+              labelHolder.labelMask |= (0x1 << 15);
             }
-            if (isSetITS) {
-              auto mcTruthITS = data.getTrackMCLabel(contributorsGID[GIndex::Source::ITS]);
-              if (mcTruthITS.isValid()) {
-                labelHolder.labelITS = (mToStore[mcTruthITS.getSourceID()][mcTruthITS.getEventID()])[mcTruthITS.getTrackID()];
-              }
-              if (labelHolder.labelITS != labelHolder.labelTPC) {
-                LOG(debug) << "ITS-TPC MCTruth: labelIDs do not match at " << trackIndex.getIndex() << ", src = " << src;
-                labelHolder.labelMask |= (0x1 << 13);
-              }
-            }
-            if (isSetTOF) {
-              const auto& labelsTOF = data.getTOFClustersMCLabels()->getLabels(contributorsGID[GIndex::Source::TOF]);
-              for (auto& mcLabel : labelsTOF) {
-                if (!mcLabel.isValid()) {
-                  continue;
-                }
-                if (mcLabel == labelHolder.labelTPC) {
-                  isTOFFake = false;
-                  break;
+            if (trackIndex.includesDet(DetID::TPC) && trackIndex.getSource() != GIndex::Source::TPC) { // this is global track
+              auto contributorsGID = data.getSingleDetectorRefs(trackIndex);
+              if (contributorsGID[GIndex::Source::ITSTPC].isIndexSet()) { // there is a match to ITS tracks or ITSAB tracklet!
+                if (data.getTrackMCLabel(contributorsGID[GIndex::Source::ITSTPC]).isFake()) {
+                  labelHolder.labelMask |= (0x1 << 13);
                 }
               }
             }
-          }
-          if (mcTruth.isFake() || (isSetTOF && isTOFFake)) {
-            labelHolder.labelMask |= (0x1 << 15);
-          }
-          if (mcTruth.isNoise()) {
+          } else if (mcTruth.isNoise()) {
             labelHolder.labelMask |= (0x1 << 14);
           }
-          mcTrackLabelCursor(labelHolder.labelID,
-                             labelHolder.labelMask);
+          mcTrackLabelCursor(labelHolder.labelID, labelHolder.labelMask);
         }
       }
     }
@@ -1470,7 +1442,7 @@ void AODProducerWorkflowDPL::countTPCClusters(const o2::globaltracking::RecoCont
       o2::tpc::TrackTPC::getClusterReference(tpcClusRefs, i, sectorIndex, rowIndex, clusterIndex, track.getClusterRef());
       unsigned int absoluteIndex = tpcClusAcc.clusterOffset[sectorIndex][rowIndex] + clusterIndex;
       clMap[rowIndex] = true;
-      if (tpcClusShMap[absoluteIndex] & GPUCA_NAMESPACE::gpu::GPUTPCGMMergedTrackHit::flagShared) {
+      if (tpcClusShMap[absoluteIndex] & o2::gpu::GPUTPCGMMergedTrackHit::flagShared) {
         if (!shMap[rowIndex]) {
           counters.shared++;
         }
@@ -1771,8 +1743,11 @@ void AODProducerWorkflowDPL::init(InitContext& ic)
     mMuonCl = 0xFFFFFFFF;
     mMuonClErr = 0xFFFFFFFF;
     mV0Time = 0xFFFFFFFF;
+    mV0ChannelTime = 0xFFFFFFFF;
     mFDDTime = 0xFFFFFFFF;
+    mFDDChannelTime = 0xFFFFFFFF;
     mT0Time = 0xFFFFFFFF;
+    mT0ChannelTime = 0xFFFFFFFF;
     mV0Amplitude = 0xFFFFFFFF;
     mFDDAmplitude = 0xFFFFFFFF;
     mT0Amplitude = 0xFFFFFFFF;
@@ -1857,8 +1832,11 @@ void AODProducerWorkflowDPL::run(ProcessingContext& pc)
   auto trackedV0Cursor = createTableCursor<o2::aod::TrackedV0s>(pc);
   auto tracked3BodyCurs = createTableCursor<o2::aod::Tracked3Bodys>(pc);
   auto fddCursor = createTableCursor<o2::aod::FDDs>(pc);
+  auto fddExtraCursor = createTableCursor<o2::aod::FDDsExtra>(pc);
   auto ft0Cursor = createTableCursor<o2::aod::FT0s>(pc);
+  auto ft0ExtraCursor = createTableCursor<o2::aod::FT0sExtra>(pc);
   auto fv0aCursor = createTableCursor<o2::aod::FV0As>(pc);
+  auto fv0aExtraCursor = createTableCursor<o2::aod::FV0AsExtra>(pc);
   auto fwdTracksCursor = createTableCursor<o2::aod::StoredFwdTracks>(pc);
   auto fwdTracksCovCursor = createTableCursor<o2::aod::StoredFwdTracksCov>(pc);
   auto fwdTrkClsCursor = createTableCursor<o2::aod::FwdTrkCls>(pc);
@@ -1925,16 +1903,18 @@ void AODProducerWorkflowDPL::run(ProcessingContext& pc)
     tfNumber = mTFNumber;
   }
 
-  std::vector<float> aAmplitudes;
+  std::vector<float> aAmplitudes, aTimes;
   std::vector<uint8_t> aChannels;
   fv0aCursor.reserve(fv0RecPoints.size());
   for (auto& fv0RecPoint : fv0RecPoints) {
     aAmplitudes.clear();
     aChannels.clear();
+    aTimes.clear();
     const auto channelData = fv0RecPoint.getBunchChannelData(fv0ChData);
     for (auto& channel : channelData) {
       if (channel.charge > 0) {
         aAmplitudes.push_back(truncateFloatFraction(channel.charge, mV0Amplitude));
+        aTimes.push_back(truncateFloatFraction(channel.time * 1.E-3, mV0ChannelTime));
         aChannels.push_back(channel.channel);
       }
     }
@@ -1951,6 +1931,11 @@ void AODProducerWorkflowDPL::run(ProcessingContext& pc)
                aChannels,
                truncateFloatFraction(fv0RecPoint.getCollisionGlobalMeanTime() * 1E-3, mV0Time), // ps to ns
                fv0RecPoint.getTrigger().getTriggersignals());
+
+    if (mEnableFITextra) {
+      fv0aExtraCursor(bcID,
+                      aTimes);
+    }
   }
 
   std::vector<float> zdcEnergy, zdcAmplitudes, zdcTime;
@@ -2054,25 +2039,17 @@ void AODProducerWorkflowDPL::run(ProcessingContext& pc)
             [](const std::vector<int>& left, const std::vector<int>& right) { return (left[0] < right[0]); });
 
   // vector of FDD amplitudes
-  int16_t aFDDAmplitudesA[8] = {0u};
-  int16_t aFDDAmplitudesC[8] = {0u};
+  int16_t aFDDAmplitudesA[8] = {0u}, aFDDAmplitudesC[8] = {0u};
+  float aFDDTimesA[8] = {0.f}, aFDDTimesC[8] = {0.f};
   // filling FDD table
   fddCursor.reserve(fddRecPoints.size());
   for (const auto& fddRecPoint : fddRecPoints) {
     for (int i = 0; i < 8; i++) {
       aFDDAmplitudesA[i] = 0;
       aFDDAmplitudesC[i] = 0;
+      aFDDTimesA[i] = 0.f;
+      aFDDTimesC[i] = 0.f;
     }
-
-    const auto channelData = fddRecPoint.getBunchChannelData(fddChData);
-    for (const auto& channel : channelData) {
-      if (channel.mPMNumber < 8) {
-        aFDDAmplitudesC[channel.mPMNumber] = channel.mChargeADC; // amplitude
-      } else {
-        aFDDAmplitudesA[channel.mPMNumber - 8] = channel.mChargeADC; // amplitude
-      }
-    }
-
     uint64_t globalBC = fddRecPoint.getInteractionRecord().toLong();
     uint64_t bc = globalBC;
     auto item = bcsMap.find(bc);
@@ -2082,21 +2059,39 @@ void AODProducerWorkflowDPL::run(ProcessingContext& pc)
     } else {
       LOG(fatal) << "Error: could not find a corresponding BC ID for a FDD rec. point; BC = " << bc;
     }
+    const auto channelData = fddRecPoint.getBunchChannelData(fddChData);
+    for (const auto& channel : channelData) {
+      if (channel.mPMNumber < 8) {
+        aFDDAmplitudesC[channel.mPMNumber] = channel.mChargeADC;                                      // amplitude
+        aFDDTimesC[channel.mPMNumber] = truncateFloatFraction(channel.mTime * 1E-3, mFDDChannelTime); // time
+      } else {
+        aFDDAmplitudesA[channel.mPMNumber - 8] = channel.mChargeADC;                                      // amplitude
+        aFDDTimesA[channel.mPMNumber - 8] = truncateFloatFraction(channel.mTime * 1E-3, mFDDChannelTime); // time
+      }
+    }
+
     fddCursor(bcID,
               aFDDAmplitudesA,
               aFDDAmplitudesC,
               truncateFloatFraction(fddRecPoint.getCollisionTimeA() * 1E-3, mFDDTime), // ps to ns
               truncateFloatFraction(fddRecPoint.getCollisionTimeC() * 1E-3, mFDDTime), // ps to ns
               fddRecPoint.getTrigger().getTriggersignals());
+    if (mEnableFITextra) {
+      fddExtraCursor(bcID,
+                     aFDDTimesA,
+                     aFDDTimesC);
+    }
   }
 
   // filling FT0 table
-  std::vector<float> aAmplitudesA, aAmplitudesC;
+  std::vector<float> aAmplitudesA, aAmplitudesC, aTimesA, aTimesC;
   std::vector<uint8_t> aChannelsA, aChannelsC;
   ft0Cursor.reserve(ft0RecPoints.size());
   for (auto& ft0RecPoint : ft0RecPoints) {
     aAmplitudesA.clear();
     aAmplitudesC.clear();
+    aTimesA.clear();
+    aTimesC.clear();
     aChannelsA.clear();
     aChannelsC.clear();
     const auto channelData = ft0RecPoint.getBunchChannelData(ft0ChData);
@@ -2107,9 +2102,11 @@ void AODProducerWorkflowDPL::run(ProcessingContext& pc)
         if (channel.ChId < nFT0ChannelsAside) {
           aChannelsA.push_back(channel.ChId);
           aAmplitudesA.push_back(truncateFloatFraction(channel.QTCAmpl, mT0Amplitude));
+          aTimesA.push_back(truncateFloatFraction(channel.CFDTime * 1E-3, mT0ChannelTime));
         } else {
           aChannelsC.push_back(channel.ChId - nFT0ChannelsAside);
           aAmplitudesC.push_back(truncateFloatFraction(channel.QTCAmpl, mT0Amplitude));
+          aTimesC.push_back(truncateFloatFraction(channel.CFDTime * 1E-3, mT0ChannelTime));
         }
       }
     }
@@ -2130,6 +2127,11 @@ void AODProducerWorkflowDPL::run(ProcessingContext& pc)
               truncateFloatFraction(ft0RecPoint.getCollisionTimeA() * 1E-3, mT0Time), // ps to ns
               truncateFloatFraction(ft0RecPoint.getCollisionTimeC() * 1E-3, mT0Time), // ps to ns
               ft0RecPoint.getTrigger().getTriggersignals());
+    if (mEnableFITextra) {
+      ft0ExtraCursor(bcID,
+                     aTimesA,
+                     aTimesC);
+    }
   }
 
   if (mUseMC) {
@@ -3101,7 +3103,7 @@ void AODProducerWorkflowDPL::endOfStream(EndOfStreamContext& /*ec*/)
   mStreamer.reset();
 }
 
-DataProcessorSpec getAODProducerWorkflowSpec(GID::mask_t src, bool enableSV, bool enableStrangenessTracking, bool useMC, bool CTPConfigPerRun)
+DataProcessorSpec getAODProducerWorkflowSpec(GID::mask_t src, bool enableSV, bool enableStrangenessTracking, bool useMC, bool CTPConfigPerRun, bool enableFITextra)
 {
   auto dataRequest = std::make_shared<DataRequest>();
   dataRequest->inputs.emplace_back("ctpconfig", "CTP", "CTPCONFIG", 0, Lifetime::Condition, ccdbParamSpec("CTP/Config/Config", CTPConfigPerRun));
@@ -3161,8 +3163,11 @@ DataProcessorSpec getAODProducerWorkflowSpec(GID::mask_t src, bool enableSV, boo
     OutputForTable<Collisions>::spec(),
     OutputForTable<Decay3Bodys>::spec(),
     OutputForTable<FDDs>::spec(),
+    OutputForTable<FDDsExtra>::spec(),
     OutputForTable<FT0s>::spec(),
+    OutputForTable<FT0sExtra>::spec(),
     OutputForTable<FV0As>::spec(),
+    OutputForTable<FV0AsExtra>::spec(),
     OutputForTable<StoredFwdTracks>::spec(),
     OutputForTable<StoredFwdTracksCov>::spec(),
     OutputForTable<StoredMFTTracks>::spec(),
@@ -3212,7 +3217,7 @@ DataProcessorSpec getAODProducerWorkflowSpec(GID::mask_t src, bool enableSV, boo
     "aod-producer-workflow",
     dataRequest->inputs,
     outputs,
-    AlgorithmSpec{adaptFromTask<AODProducerWorkflowDPL>(src, dataRequest, ggRequest, enableSV, useMC)},
+    AlgorithmSpec{adaptFromTask<AODProducerWorkflowDPL>(src, dataRequest, ggRequest, enableSV, useMC, enableFITextra)},
     Options{
       ConfigParamSpec{"run-number", VariantType::Int64, -1L, {"The run-number. If left default we try to get it from DPL header."}},
       ConfigParamSpec{"aod-timeframe-id", VariantType::Int64, -1L, {"Set timeframe number"}},

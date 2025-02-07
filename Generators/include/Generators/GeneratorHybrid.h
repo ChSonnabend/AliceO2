@@ -63,8 +63,6 @@ class GeneratorHybrid : public Generator
   Bool_t importParticles() override;
   void updateHeader(o2::dataformats::MCEventHeader* eventHeader) override;
 
-  void setNEvents(int n) { mNEvents = n; }
-
   Bool_t parseJSON(const std::string& path);
   Bool_t confSetter(const auto& gen);
   template <typename T>
@@ -116,7 +114,6 @@ class GeneratorHybrid : public Generator
   std::atomic<bool> mStopFlag;
   bool mIsInitialized = false;
 
-  int mNEvents = -1; // the number of events to be done, if known (helps initiating cleanup)
   o2::dataformats::MCEventHeader mMCEventHeader; // to capture event headers
 
   enum class GenMode {

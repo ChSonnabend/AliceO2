@@ -34,13 +34,13 @@
 #include "TFile.h"
 #include "GPUCommonMath.h"
 
-templateClassImp(GPUCA_NAMESPACE::gpu::Spline2DContainer);
-templateClassImp(GPUCA_NAMESPACE::gpu::Spline2DSpec);
+templateClassImp(o2::gpu::Spline2DContainer);
+templateClassImp(o2::gpu::Spline2DSpec);
 
 #endif
 
 using namespace std;
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 template <typename DataT>
 void Spline2DContainer<DataT>::destroy()
@@ -215,7 +215,6 @@ void Spline2DContainer<DataT>::approximateFunctionViaDataPoints(
   helper.approximateFunctionViaDataPoints(*reinterpret_cast<Spline2D<DataT>*>(this), x1Min, x1Max, x2Min, x2Max, F, nAuxiliaryDataPointsX1, nAuxiliaryDataPointsX2);
 }
 
-#ifndef GPUCA_ALIROOT_LIB
 template <typename DataT>
 int32_t Spline2DContainer<DataT>::writeToFile(TFile& outf, const char* name)
 {
@@ -236,9 +235,8 @@ int32_t Spline2DContainer<DataT>::test(const bool draw, const bool drawDataPoint
 {
   return Spline2DHelper<DataT>::test(draw, drawDataPoints);
 }
-#endif
 
 #endif // GPUCA_GPUCODE && !GPUCA_STANDALONE
 
-template class GPUCA_NAMESPACE::gpu::Spline2DContainer<float>;
-template class GPUCA_NAMESPACE::gpu::Spline2DContainer<double>;
+template class o2::gpu::Spline2DContainer<float>;
+template class o2::gpu::Spline2DContainer<double>;

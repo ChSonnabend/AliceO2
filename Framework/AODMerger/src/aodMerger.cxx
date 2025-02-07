@@ -128,8 +128,8 @@ int main(int argc, char* argv[])
     printf("Processing input file: %s\n", line.Data());
 
     auto inputFile = TFile::Open(line);
-    if (!inputFile) {
-      printf("Error: Could not open input file %s.\n", line.Data());
+    if (!inputFile || inputFile->IsZombie()) {
+      printf("Error: %s input file %s.\n", !inputFile ? "Could not open" : "Zombie", line.Data());
       if (skipNonExistingFiles) {
         continue;
       } else {

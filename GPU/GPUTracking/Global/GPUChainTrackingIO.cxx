@@ -35,7 +35,6 @@
 #include "TPCZSLinkMapping.h"
 #include "GPUTriggerOutputs.h"
 
-#ifdef GPUCA_HAVE_O2HEADERS
 #include "SimulationDataFormat/MCCompLabel.h"
 #include "SimulationDataFormat/MCTruthContainer.h"
 #include "GPUTPCClusterStatistics.h"
@@ -43,16 +42,13 @@
 #include "GPUHostDataTypes.h"
 #include "DataFormatsTPC/Digit.h"
 #include "CalibdEdxContainer.h"
-#else
-#include "GPUO2FakeClasses.h"
-#endif
 
 #include "TPCFastTransform.h"
 #include "CorrectionMapsHelper.h"
 
 #include "utils/linux_helpers.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 #include "GPUO2DataTypes.h"
 
@@ -78,7 +74,6 @@ void GPUChainTracking::DumpData(const char* filename)
   fwrite(&GPUReconstruction::geometryType, sizeof(GPUReconstruction::geometryType), 1, fp);
   DumpData(fp, mIOPtrs.clusterData, mIOPtrs.nClusterData, InOutPointerType::CLUSTER_DATA);
   DumpData(fp, mIOPtrs.rawClusters, mIOPtrs.nRawClusters, InOutPointerType::RAW_CLUSTERS);
-#ifdef GPUCA_HAVE_O2HEADERS
   if (mIOPtrs.clustersNative) {
     if (DumpData(fp, &mIOPtrs.clustersNative->clustersLinear, &mIOPtrs.clustersNative->nClustersTotal, InOutPointerType::CLUSTERS_NATIVE)) {
       fwrite(&mIOPtrs.clustersNative->nClusters[0][0], sizeof(mIOPtrs.clustersNative->nClusters[0][0]), NSLICES * GPUCA_ROW_COUNT, fp);
@@ -145,7 +140,6 @@ void GPUChainTracking::DumpData(const char* filename)
     uint32_t n = 1;
     DumpData(fp, &mIOPtrs.settingsTF, &n, InOutPointerType::TF_SETTINGS);
   }
-#endif
   DumpData(fp, mIOPtrs.sliceTracks, mIOPtrs.nSliceTracks, InOutPointerType::SLICE_OUT_TRACK);
   DumpData(fp, mIOPtrs.sliceClusters, mIOPtrs.nSliceClusters, InOutPointerType::SLICE_OUT_CLUSTER);
   DumpData(fp, &mIOPtrs.mcLabelsTPC, &mIOPtrs.nMCLabelsTPC, InOutPointerType::MC_LABEL_TPC);
@@ -191,7 +185,6 @@ int32_t GPUChainTracking::ReadData(const char* filename)
   AliHLTTPCRawCluster* ptrRawClusters[NSLICES];
   ReadData(fp, mIOPtrs.rawClusters, mIOPtrs.nRawClusters, mIOMem.rawClusters, InOutPointerType::RAW_CLUSTERS, ptrRawClusters);
   int32_t nClustersTotal = 0;
-#ifdef GPUCA_HAVE_O2HEADERS
   mIOMem.clusterNativeAccess.reset(new ClusterNativeAccess);
   if (ReadData<ClusterNative>(fp, &mIOMem.clusterNativeAccess->clustersLinear, &mIOMem.clusterNativeAccess->nClustersTotal, &mIOMem.clustersNative, InOutPointerType::CLUSTERS_NATIVE)) {
     r = fread(&mIOMem.clusterNativeAccess->nClusters[0][0], sizeof(mIOMem.clusterNativeAccess->nClusters[0][0]), NSLICES * GPUCA_ROW_COUNT, fp);
@@ -248,7 +241,6 @@ int32_t GPUChainTracking::ReadData(const char* filename)
   }
   uint32_t n;
   ReadData(fp, &mIOPtrs.settingsTF, &n, &mIOMem.settingsTF, InOutPointerType::TF_SETTINGS);
-#endif
   ReadData(fp, mIOPtrs.sliceTracks, mIOPtrs.nSliceTracks, mIOMem.sliceTracks, InOutPointerType::SLICE_OUT_TRACK);
   ReadData(fp, mIOPtrs.sliceClusters, mIOPtrs.nSliceClusters, mIOMem.sliceClusters, InOutPointerType::SLICE_OUT_CLUSTER);
   ReadData(fp, &mIOPtrs.mcLabelsTPC, &mIOPtrs.nMCLabelsTPC, &mIOMem.mcLabelsTPC, InOutPointerType::MC_LABEL_TPC);
@@ -329,7 +321,6 @@ void GPUChainTracking::DumpSettings(const char* dir)
     f += "tpczslinkmapping.dump";
     DumpStructToFile(processors()->calibObjects.tpcZSLinkMapping, f.c_str());
   }
-#ifdef GPUCA_HAVE_O2HEADERS
   if (processors()->calibObjects.dEdxCalibContainer != nullptr) {
     f = dir;
     f += "dEdxCalibContainer.dump";
@@ -345,7 +336,6 @@ void GPUChainTracking::DumpSettings(const char* dir)
     f += "trdgeometry.dump";
     DumpStructToFile(processors()->calibObjects.trdGeometry, f.c_str());
   }
-#endif
 }
 
 void GPUChainTracking::ReadSettings(const char* dir)
@@ -379,7 +369,6 @@ void GPUChainTracking::ReadSettings(const char* dir)
   f += "tpczslinkmapping.dump";
   mTPCZSLinkMappingU = ReadStructFromFile<TPCZSLinkMapping>(f.c_str());
   processors()->calibObjects.tpcZSLinkMapping = mTPCZSLinkMappingU.get();
-#ifdef GPUCA_HAVE_O2HEADERS
   f = dir;
   f += "dEdxCalibContainer.dump";
   mdEdxCalibContainerU = ReadFlatObjectFromFile<o2::tpc::CalibdEdxContainer>(f.c_str());
@@ -392,5 +381,4 @@ void GPUChainTracking::ReadSettings(const char* dir)
   f += "trdgeometry.dump";
   mTRDGeometryU = ReadStructFromFile<o2::trd::GeometryFlat>(f.c_str());
   processors()->calibObjects.trdGeometry = mTRDGeometryU.get();
-#endif
 }

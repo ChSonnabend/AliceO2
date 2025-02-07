@@ -40,8 +40,7 @@
 
 #endif
 
-using namespace GPUCA_NAMESPACE::gpu;
-
+using namespace o2::gpu;
 
 void run_trd_tracker(std::string path = "./",
                      std::string inputTracks = "o2match_itstpc.root",

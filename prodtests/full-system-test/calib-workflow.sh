@@ -54,7 +54,6 @@ if [[ $CALIB_ASYNC_EXTRACTTPCCURRENTS == 1 ]]; then
   add_W o2-tpc-integrate-cluster-workflow "${CONFIG_CTPTPC}"
 fi
 if [[ $CALIB_ASYNC_EXTRACTTIMESERIES == 1 ]] ; then
-  CONFIG_TPCTIMESERIES=
   : ${CALIB_ASYNC_SAMPLINGFACTORTIMESERIES:=0.001}
   if [[ ! -z ${CALIB_ASYNC_ENABLEUNBINNEDTIMESERIES:-} ]]; then
     CONFIG_TPCTIMESERIES+=" --enable-unbinned-root-output --sample-unbinned-tsallis --threads ${TPCTIMESERIES_THREADS:-1}"

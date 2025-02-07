@@ -29,7 +29,7 @@ class MatLayerCylSet;
 } // namespace base
 } // namespace o2
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -276,6 +276,6 @@ GPUdi() float GPUTPCGMPropagator::getGlobalY(float X, float Y) const
 }
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

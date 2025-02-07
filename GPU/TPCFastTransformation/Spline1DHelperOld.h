@@ -26,7 +26,7 @@
 #include <functional>
 #include <string>
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -147,7 +147,7 @@ class Spline1DHelperOld
   ///  Gives error string
   const char* getLastError() const { return mError.c_str(); }
 
-#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB) // code invisible on GPU and in the standalone compilation
+#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) // code invisible on GPU and in the standalone compilation
   /// Test the Spline1D class functionality
   static int32_t test(const bool draw = 0, const bool drawDataPoints = 1);
 #endif
@@ -168,12 +168,10 @@ class Spline1DHelperOld
   std::vector<double> mLSMmatrixSderivatives;
   std::vector<double> mLSMmatrixSvalues;
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(Spline1DHelperOld, 0);
-#endif
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

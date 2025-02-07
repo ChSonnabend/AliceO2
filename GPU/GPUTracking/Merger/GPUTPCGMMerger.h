@@ -42,7 +42,7 @@ struct ClusterNative;
 }
 } // namespace o2
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -98,7 +98,6 @@ class GPUTPCGMMerger : public GPUProcessor
   void SetMaxData(const GPUTrackingInOutPointers& io);
   void* SetPointersMerger(void* mem);
   void* SetPointersRefitScratch(void* mem);
-  void* SetPointersRefitScratch2(void* mem);
   void* SetPointersOutput(void* mem);
   void* SetPointersOutputO2(void* mem);
   void* SetPointersOutputO2Clus(void* mem);
@@ -106,8 +105,6 @@ class GPUTPCGMMerger : public GPUProcessor
   void* SetPointersOutputO2Scratch(void* mem);
   void* SetPointersOutputState(void* mem);
   void* SetPointersMemory(void* mem);
-
-  void SetSliceData(int32_t index, const GPUTPCSliceOutput* sliceData) { mkSlices[index] = sliceData; }
 
   GPUhdi() int32_t NOutputTracks() const { return mMemory->nOutputTracks; }
   GPUhdi() const GPUTPCGMMergedTrack* OutputTracks() const { return mOutputTracks; }
@@ -246,8 +243,6 @@ class GPUTPCGMMerger : public GPUProcessor
   int32_t mNextSliceInd[NSLICES];
   int32_t mPrevSliceInd[NSLICES];
 
-  const GPUTPCSliceOutput* mkSlices[NSLICES]; //* array of input slice tracks
-
   int32_t* mTrackLinks;
   int32_t* mTrackCCRoots; // root of the connected component of this track
 
@@ -273,7 +268,6 @@ class GPUTPCGMMerger : public GPUProcessor
   int32_t* mSliceTrackInfoIndex;
   GPUTPCGMMergedTrackHit* mClusters;
   GPUTPCGMMergedTrackHitXYZ* mClustersXYZ;
-  int32_t* mGlobalClusterIDs;
   GPUAtomic(uint32_t) * mClusterAttachment;
   o2::tpc::TrackTPC* mOutputTracksTPCO2;
   uint32_t* mOutputClusRefsTPCO2;
@@ -298,6 +292,6 @@ class GPUTPCGMMerger : public GPUProcessor
   GPUTPCGMLoopData* mLoopData;
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // GPUTPCGMMERGER_H

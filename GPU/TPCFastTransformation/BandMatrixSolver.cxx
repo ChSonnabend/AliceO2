@@ -21,9 +21,9 @@
 #include <chrono>
 
 using namespace std;
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
-templateClassImp(GPUCA_NAMESPACE::gpu::BandMatrixSolver);
+templateClassImp(o2::gpu::BandMatrixSolver);
 
 template <>
 int32_t BandMatrixSolver<0>::test(bool prn)
@@ -193,4 +193,4 @@ int32_t BandMatrixSolver<0>::test(bool prn)
   return ok && ok1;
 }
 
-template class GPUCA_NAMESPACE::gpu::BandMatrixSolver<0>;
+template class o2::gpu::BandMatrixSolver<0>;

@@ -359,13 +359,16 @@ void Aligner::init(TString DataRecFName, TString ConsRecFName)
 void Aligner::terminate()
 {
   fInitialized = kFALSE;
-  LOG(info) << "Closing Evaluation TFile";
   if (fDoEvaluation) {
+    LOG(info) << "Closing Evaluation TFile";
     if (fTFile && fTTree) {
       fTFile->cd();
       fTTree->Write();
       fTFile->Close();
     }
+  }
+  if (!fDisableRecordWriter) {
+    mRecordWriter->terminate();
   }
 }
 

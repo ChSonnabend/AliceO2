@@ -15,7 +15,7 @@
 #include "GPUDataTypes.h"
 #include <cstring>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 constexpr const char* const GPUDataTypes::DEVICE_TYPE_NAMES[];
 constexpr const char* const GPUDataTypes::RECO_STEP_NAMES[];

@@ -27,7 +27,7 @@ namespace o2::tpc
 class Digit;
 } // namespace o2::tpc
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 struct ChargePos;
@@ -41,13 +41,11 @@ class GPUTPCCFChargeMapFiller : public GPUKernelTemplate
     findFragmentStart,
   };
 
-#ifdef GPUCA_HAVE_O2HEADERS
   typedef GPUTPCClusterFinder processorType;
   GPUhdi() static processorType* Processor(GPUConstantMem& processors)
   {
     return processors.tpcClusterer;
   }
-#endif
 
   GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep()
   {
@@ -65,6 +63,6 @@ class GPUTPCCFChargeMapFiller : public GPUKernelTemplate
   static GPUd() size_t findTransition(int32_t, const tpc::Digit*, size_t, size_t);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

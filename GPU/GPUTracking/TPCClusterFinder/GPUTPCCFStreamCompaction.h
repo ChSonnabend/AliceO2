@@ -20,7 +20,7 @@
 #include "GPUConstantMem.h"
 #include "GPUTPCClusterFinder.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 class GPUTPCCFStreamCompaction : public GPUKernelTemplate
@@ -38,13 +38,11 @@ class GPUTPCCFStreamCompaction : public GPUKernelTemplate
   struct GPUSharedMemory : public GPUKernelTemplate::GPUSharedMemoryScan64<int32_t, GPUCA_THREAD_COUNT_SCAN> {
   };
 
-#ifdef GPUCA_HAVE_O2HEADERS
   typedef GPUTPCClusterFinder processorType;
   GPUhdi() static processorType* Processor(GPUConstantMem& processors)
   {
     return processors.tpcClusterer;
   }
-#endif
 
   GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep()
   {
@@ -58,6 +56,6 @@ class GPUTPCCFStreamCompaction : public GPUKernelTemplate
   static GPUd() int32_t CompactionElems(processorType& clusterer, int32_t stage);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

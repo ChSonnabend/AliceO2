@@ -29,11 +29,6 @@
 #include <iostream>
 #include <fstream>
 
-#if defined(GPUCA_ALIROOT_LIB) && !defined(GPUCA_GPUCODE)
-#include "AliHLTDefinitions.h"
-#include "AliHLTSystem.h"
-#endif
-
 #define GPUCA_GPUReconstructionUpdateDefaults()                                             \
   if (mProcessingSettings.trackletConstructorInPipeline < 0) {                              \
     mProcessingSettings.trackletConstructorInPipeline = GPUCA_CONSTRUCTOR_IN_PIPELINE;      \

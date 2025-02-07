@@ -77,7 +77,8 @@ class TimeFrameGPU : public TimeFrame
   void createCellsDevice();
   void createCellsLUTDevice();
   void createNeighboursIndexTablesDevice();
-  void createNeighboursDevice(const unsigned int& layer, std::vector<std::pair<int, int>>& neighbours);
+  void createNeighboursDevice(const unsigned int layer, const unsigned int nNeighbours);
+  void createNeighboursDevice(const unsigned int layer, std::vector<std::pair<int, int>>& neighbours);
   void createNeighboursLUTDevice(const int, const unsigned int);
   void createNeighboursDeviceArray();
   void createTrackITSExtDevice(std::vector<CellSeed>&);
@@ -150,6 +151,9 @@ class TimeFrameGPU : public TimeFrame
   gsl::span<int*> getDeviceCellLUTs() { return mCellsLUTDevice; }
   gsl::span<Tracklet*> getDeviceTracklet() { return mTrackletsDevice; }
   gsl::span<CellSeed*> getDeviceCells() { return mCellsDevice; }
+
+  // Overridden getters
+  int getNumberOfCells() const;
 
  private:
   void allocMemAsync(void**, size_t, Stream*, bool); // Abstract owned and unowned memory allocations
@@ -250,6 +254,12 @@ inline std::vector<unsigned int> TimeFrameGPU<nLayers>::getClusterSizes()
   std::transform(mUnsortedClusters.begin(), mUnsortedClusters.end(), sizes.begin(),
                  [](const auto& v) { return static_cast<unsigned int>(v.size()); });
   return sizes;
+}
+
+template <int nLayers>
+inline int TimeFrameGPU<nLayers>::getNumberOfCells() const
+{
+  return std::accumulate(mNCells.begin(), mNCells.end(), 0);
 }
 
 } // namespace gpu

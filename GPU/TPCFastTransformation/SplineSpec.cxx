@@ -34,13 +34,13 @@
 #include "TFile.h"
 #include "GPUCommonMath.h"
 
-templateClassImp(GPUCA_NAMESPACE::gpu::SplineContainer);
-templateClassImp(GPUCA_NAMESPACE::gpu::SplineSpec);
+templateClassImp(o2::gpu::SplineContainer);
+templateClassImp(o2::gpu::SplineSpec);
 
 #endif
 
 using namespace std;
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 template <typename DataT>
 void SplineContainer<DataT>::destroy()
@@ -206,7 +206,6 @@ void SplineContainer<DataT>::
   helper.approximateFunction(*reinterpret_cast<Spline<DataT>*>(this), xMin, xMax, F, nAuxiliaryDataPoints);
 }
 
-#ifndef GPUCA_ALIROOT_LIB
 template <typename DataT>
 int32_t SplineContainer<DataT>::writeToFile(TFile& outf, const char* name)
 {
@@ -227,9 +226,8 @@ int32_t SplineContainer<DataT>::test(const bool draw, const bool drawDataPoints)
 {
   return SplineHelper<DataT>::test(draw, drawDataPoints);
 }
-#endif
 
 #endif // GPUCA_GPUCODE && !GPUCA_STANDALONE
 
-template class GPUCA_NAMESPACE::gpu::SplineContainer<float>;
-template class GPUCA_NAMESPACE::gpu::SplineContainer<double>;
+template class o2::gpu::SplineContainer<float>;
+template class o2::gpu::SplineContainer<double>;

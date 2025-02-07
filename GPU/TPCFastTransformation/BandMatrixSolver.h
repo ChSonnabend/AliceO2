@@ -25,7 +25,7 @@
 #include <algorithm>
 #include <limits>
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -113,9 +113,7 @@ class BandMatrixSolver
   std::vector<double> mA;
   std::vector<double> mB;
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(BandMatrixSolver, 0);
-#endif
 };
 
 template <>
@@ -260,6 +258,6 @@ inline void BandMatrixSolver<BandWidthT>::solveType1()
 }
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

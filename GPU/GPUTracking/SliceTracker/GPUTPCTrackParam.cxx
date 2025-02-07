@@ -16,7 +16,7 @@
 #include "GPUTPCTrackParam.h"
 #include "GPUTPCGeometry.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 //
 // Circle in XY:

@@ -21,7 +21,7 @@
 #include "bitmapfile.h"
 #endif
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 int32_t GPUDisplay::getNumThreads()
 {

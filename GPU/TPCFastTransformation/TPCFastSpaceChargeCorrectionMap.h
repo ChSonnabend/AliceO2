@@ -21,7 +21,7 @@
 #include "GPUCommonRtypes.h"
 #include <vector>
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -97,12 +97,10 @@ class TPCFastSpaceChargeCorrectionMap
   int32_t mNrows{0};
   std::vector<std::vector<CorrectionPoint>> fDataPoints; //! (transient!!) points with space charge correction
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(TPCFastSpaceChargeCorrectionMap, 0);
-#endif
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

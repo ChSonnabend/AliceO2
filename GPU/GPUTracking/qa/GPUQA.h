@@ -33,7 +33,7 @@ typedef int16_t Color_t;
 
 #if !defined(GPUCA_BUILD_QA) || defined(GPUCA_GPUCODE)
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -60,7 +60,7 @@ class GPUQA
   void UpdateChain(GPUChainTracking* chain) {}
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #else
 
@@ -84,7 +84,7 @@ struct ClusterNativeAccess;
 
 struct AliHLTTPCClusterMCLabel;
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUChainTracking;
 struct GPUParam;
@@ -352,7 +352,7 @@ inline bool GPUQA::SuppressTrack(int32_t iTrack) const { return (mConfig.matchMC
 inline bool GPUQA::SuppressHit(int32_t iHit) const { return (mConfig.matchMCLabels.size() && !mGoodHits[mNEvents - 1][iHit]); }
 inline int32_t GPUQA::HitAttachStatus(int32_t iHit) const { return (mClusterParam.size() && mClusterParam[iHit].fakeAttached ? (mClusterParam[iHit].attached ? 1 : 2) : 0); }
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif
 #endif

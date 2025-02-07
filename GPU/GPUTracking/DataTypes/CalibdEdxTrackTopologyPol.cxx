@@ -9,7 +9,9 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+#ifndef GPUCA_NO_VC
 #include "Rtypes.h"
+#endif
 #include "CalibdEdxTrackTopologyPol.h"
 
 #include <cstddef>

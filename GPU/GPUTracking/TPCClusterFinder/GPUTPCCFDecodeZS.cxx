@@ -23,8 +23,8 @@
 #include "TPCPadGainCalib.h"
 #include "TPCZSLinkMapping.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
-using namespace GPUCA_NAMESPACE::gpu::tpccf;
+using namespace o2::gpu;
+using namespace o2::gpu::tpccf;
 using namespace o2::tpc;
 using namespace o2::tpc::constants;
 

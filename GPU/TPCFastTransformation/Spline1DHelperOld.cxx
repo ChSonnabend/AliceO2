@@ -32,9 +32,9 @@
 #include "GPUCommonMath.h"
 #include <iostream>
 
-templateClassImp(GPUCA_NAMESPACE::gpu::Spline1DHelperOld);
+templateClassImp(o2::gpu::Spline1DHelperOld);
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 template <typename DataT>
 Spline1DHelperOld<DataT>::Spline1DHelperOld() : mError(), mSpline(), mFdimensions(0)
@@ -857,7 +857,6 @@ void Spline1DHelperOld<DataT>::approximateDerivatives(
   }
 }
 
-#ifndef GPUCA_ALIROOT_LIB
 template <typename DataT>
 int32_t Spline1DHelperOld<DataT>::test(const bool draw, const bool drawDataPoints)
 {
@@ -1108,9 +1107,8 @@ int32_t Spline1DHelperOld<DataT>::test(const bool draw, const bool drawDataPoint
   }
   return 0;
 }
-#endif
 
-template class GPUCA_NAMESPACE::gpu::Spline1DHelperOld<float>;
-template class GPUCA_NAMESPACE::gpu::Spline1DHelperOld<double>;
+template class o2::gpu::Spline1DHelperOld<float>;
+template class o2::gpu::Spline1DHelperOld<double>;
 
 #endif

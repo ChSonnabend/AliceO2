@@ -17,10 +17,14 @@
 #include "Framework/Signpost.h"
 #include "Framework/VariantJSONHelpers.h"
 #include "Framework/PluginManager.h"
+#include <TBufferFile.h>
 #include <TDirectory.h>
 #include <TDirectoryFile.h>
 #include <TClass.h>
+#include <arrow/dataset/file_base.h>
+#include <arrow/filesystem/filesystem.h>
 #include <cstddef>
+#include <memory>
 #include <string_view>
 
 O2_DECLARE_DYNAMIC_LOG(capabilities);
@@ -177,14 +181,24 @@ struct ImplementationContext {
   std::vector<RootArrowFactory> implementations;
 };
 
-std::function<void*(TDirectoryFile*, std::string const&)> getHandleByClass(char const* classname)
+std::function<void*(std::shared_ptr<arrow::fs::FileSystem>, std::string const&)> getHandleByClass(char const* classname)
 {
-  return [c = TClass::GetClass(classname)](TDirectoryFile* file, std::string const& path) { return file->GetObjectChecked(path.c_str(), c); };
+  return [c = TClass::GetClass(classname)](std::shared_ptr<arrow::fs::FileSystem> fs, std::string const& path) -> void* {
+    if (auto tfileFS = std::dynamic_pointer_cast<TFileFileSystem>(fs)) {
+      return tfileFS->GetFile()->GetObjectChecked(path.c_str(), c);
+    } else if (auto tbufferFS = std::dynamic_pointer_cast<TBufferFileFS>(fs)) {
+      tbufferFS->GetBuffer()->Reset();
+      return tbufferFS->GetBuffer()->ReadObjectAny(c);
+    }
+    return nullptr;
+  };
 }
 
-std::function<void*(TBufferFile*, std::string const&)> getBufferHandleByClass(char const* classname)
+std::function<bool(char const*)> matchClassByName(std::string_view classname)
 {
-  return [c = TClass::GetClass(classname)](TBufferFile* buffer, std::string const& path) { buffer->Reset(); return buffer->ReadObjectAny(c); };
+  return [c = classname](char const* attempt) -> bool {
+    return c == attempt;
+  };
 }
 
 void lazyLoadFactory(std::vector<RootArrowFactory>& implementations, char const* specs)
@@ -218,7 +232,7 @@ struct RNTupleObjectReadingCapability : o2::framework::RootObjectReadingCapabili
           return "/" + s;
         } },
       .getHandle = getHandleByClass("ROOT::Experimental::RNTuple"),
-      .getBufferHandle = getBufferHandleByClass("ROOT::Experimental::RNTuple"),
+      .checkSupport = matchClassByName("ROOT::Experimental::RNTuple"),
       .factory = [context]() -> RootArrowFactory& {
         lazyLoadFactory(context->implementations, "O2FrameworkAnalysisRNTupleSupport:RNTupleObjectReadingImplementation");
         return context->implementations.back();
@@ -235,7 +249,7 @@ struct TTreeObjectReadingCapability : o2::framework::RootObjectReadingCapability
       .name = "ttree",
       .lfn2objectPath = [](std::string s) { return s; },
       .getHandle = getHandleByClass("TTree"),
-      .getBufferHandle = getBufferHandleByClass("TTree"),
+      .checkSupport = matchClassByName("TTree"),
       .factory = [context]() -> RootArrowFactory& {
         lazyLoadFactory(context->implementations, "O2FrameworkAnalysisTTreeSupport:TTreeObjectReadingImplementation");
         return context->implementations.back();

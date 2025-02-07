@@ -1870,6 +1870,21 @@ void CcdbApi::saveSnapshot(RequestContext& requestContext) const
   }
 }
 
+void CcdbApi::loadFileToMemory(std::vector<char>& dest, std::string const& path,
+                               std::map<std::string, std::string> const& metadata, long timestamp,
+                               std::map<std::string, std::string>* headers, std::string const& etag,
+                               const std::string& createdNotAfter, const std::string& createdNotBefore, bool considerSnapshot) const
+{
+  o2::pmr::vector<char> destP;
+  destP.reserve(dest.size());
+  loadFileToMemory(destP, path, metadata, timestamp, headers, etag, createdNotAfter, createdNotBefore, considerSnapshot);
+  dest.clear();
+  dest.reserve(destP.size());
+  for (const auto c : destP) {
+    dest.push_back(c);
+  }
+}
+
 void CcdbApi::loadFileToMemory(o2::pmr::vector<char>& dest, std::string const& path,
                                std::map<std::string, std::string> const& metadata, long timestamp,
                                std::map<std::string, std::string>* headers, std::string const& etag,

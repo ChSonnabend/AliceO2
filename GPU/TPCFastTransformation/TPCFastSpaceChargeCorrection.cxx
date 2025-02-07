@@ -23,11 +23,9 @@
 #include "Spline2DHelper.h"
 #endif
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
-#ifndef GPUCA_ALIROOT_LIB
 ClassImp(TPCFastSpaceChargeCorrection);
-#endif
 
 TPCFastSpaceChargeCorrection::TPCFastSpaceChargeCorrection()
   : FlatObject(),

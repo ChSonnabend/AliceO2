@@ -56,7 +56,7 @@ class TrackCuts
   /// ITS
   void setMinPtITSCut(float value) { mPtITSCut = value; }
   void setEtaITSCut(float value) { mEtaITSCut = value; }
-  void setMinNClustersITS(float value) { mMinNClustersITS = value; }
+  void setMinNClustersITS(int32_t value) { mMinNClustersITS = value; }
   void setMaxChi2PerClusterITS(float value) { mMaxChi2PerClusterITS = value; }
   void setRequireHitsInITSLayers(int8_t minNRequiredHits, std::set<uint8_t> requiredLayers)
   {

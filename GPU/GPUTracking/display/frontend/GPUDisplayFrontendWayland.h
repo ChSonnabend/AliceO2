@@ -28,7 +28,7 @@ struct xkb_context;
 struct xkb_keymap;
 struct xkb_state;
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUDisplayFrontendWayland : public GPUDisplayFrontend
 {
@@ -85,6 +85,6 @@ class GPUDisplayFrontendWayland : public GPUDisplayFrontend
   int32_t mWidthRequested = 0;
   int32_t mHeightRequested = 0;
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

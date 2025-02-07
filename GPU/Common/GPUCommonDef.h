@@ -40,14 +40,8 @@
   #endif
 #endif
 
-// Set AliRoot / O2 namespace
-#if defined(GPUCA_STANDALONE) || (defined(GPUCA_O2_LIB) && !defined(GPUCA_O2_INTERFACE)) || defined(GPUCA_ALIROOT_LIB) || defined (GPUCA_GPUCODE)
+#if defined(GPUCA_STANDALONE) || (defined(GPUCA_O2_LIB) && !defined(GPUCA_O2_INTERFACE)) || defined (GPUCA_GPUCODE)
   #define GPUCA_ALIGPUCODE
-#endif
-#ifdef GPUCA_ALIROOT_LIB
-  #define GPUCA_NAMESPACE AliGPU
-#else
-  #define GPUCA_NAMESPACE o2
 #endif
 
 #if (defined(__CUDACC__) && defined(GPUCA_CUDA_NO_CONSTANT_MEMORY)) || (defined(__HIPCC__) && defined(GPUCA_HIP_NO_CONSTANT_MEMORY)) || (defined(__OPENCL__) && defined(GPUCA_OPENCL_NO_CONSTANT_MEMORY))
@@ -55,11 +49,8 @@
 #elif defined(__CUDACC__) || defined(__HIPCC__)
   #define GPUCA_HAS_GLOBAL_SYMBOL_CONSTANT_MEM
 #endif
-#if !defined(GPUCA_HAVE_O2HEADERS) && (defined(GPUCA_O2_LIB) || (!defined(GPUCA_ALIROOT_LIB) && !defined(GPUCA_STANDALONE)))
-  #define GPUCA_HAVE_O2HEADERS
-#endif
 
-#if defined(GPUCA_HAVE_O2HEADERS) && !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && defined(DEBUG_STREAMER)
+#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && defined(DEBUG_STREAMER)
 #define GPUCA_DEBUG_STREAMER_CHECK(...) __VA_ARGS__
 #else
 #define GPUCA_DEBUG_STREAMER_CHECK(...)

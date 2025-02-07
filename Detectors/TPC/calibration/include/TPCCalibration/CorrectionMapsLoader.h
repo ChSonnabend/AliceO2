@@ -75,7 +75,7 @@ class CorrectionMapsLoader : public o2::gpu::CorrectionMapsHelper
 
   float mInstLumiCTPFactor = 1.0; // multiplicative factor for inst. lumi
   int mLumiCTPSource = 0;         // 0: main, 1: alternative CTP lumi source
-  std::unique_ptr<GPUCA_NAMESPACE::gpu::TPCFastTransform> mCorrMapMShape{nullptr};
+  std::unique_ptr<o2::gpu::TPCFastTransform> mCorrMapMShape{nullptr};
 #endif
 };
 

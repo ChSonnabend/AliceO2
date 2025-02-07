@@ -116,9 +116,18 @@ void Detector::buildTRKNewVacuumVessel()
   mLayers.emplace_back(10, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(10)}, 80.f, 258.f, 100.e-3);
 
   auto& trkPars = TRKBaseParam::Instance();
-  mLayers[8].setLayout(trkPars.layout);
-  mLayers[9].setLayout(trkPars.layout);
-  mLayers[10].setLayout(trkPars.layout);
+
+  // Middle layers
+  mLayers[3].setLayout(trkPars.layoutML);
+  mLayers[4].setLayout(trkPars.layoutML);
+  mLayers[5].setLayout(trkPars.layoutML);
+  mLayers[6].setLayout(trkPars.layoutML);
+
+  // Outer tracker
+  mLayers[7].setLayout(trkPars.layoutOL);
+  mLayers[8].setLayout(trkPars.layoutOL);
+  mLayers[9].setLayout(trkPars.layoutOL);
+  mLayers[10].setLayout(trkPars.layoutOL);
 }
 
 void Detector::configFromFile(std::string fileName)

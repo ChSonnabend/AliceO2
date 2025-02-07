@@ -23,13 +23,12 @@
 #include "GPUTRDTrackerKernels.h"
 #include "utils/strtag.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 using namespace o2::trd;
 
 template <int32_t I>
 int32_t GPUChainTracking::RunTRDTracking()
 {
-#ifndef GPUCA_ALIROOT_LIB
   auto& Tracker = processors()->getTRDTracker<I>();
   if (!Tracker.IsInitialized()) {
     return 1;
@@ -83,7 +82,6 @@ int32_t GPUChainTracking::RunTRDTracking()
       }
     }
   } else {
-#ifdef GPUCA_HAVE_O2HEADERS
     for (uint32_t i = 0; i < mIOPtrs.nOutputTracksTPCO2; i++) {
       const auto& trk = mIOPtrs.outputTracksTPCO2[i];
 
@@ -112,7 +110,6 @@ int32_t GPUChainTracking::RunTRDTracking()
         return 1;
       }
     }
-#endif
   }
 
   DoTRDGPUTracking<I>();
@@ -122,21 +119,17 @@ int32_t GPUChainTracking::RunTRDTracking()
     mIOPtrs.trdTracks = Tracker.Tracks();
     mIOPtrs.trdTracksO2 = nullptr;
   } else {
-#ifdef GPUCA_HAVE_O2HEADERS
     mIOPtrs.trdTracks = nullptr;
     mIOPtrs.trdTracksO2 = Tracker.Tracks();
-#endif
   }
   mRec->PopNonPersistentMemory(RecoStep::TRDTracking, qStr2Tag("TRDTRACK"));
 
-#endif // GPUCA_ALIROOT_LIB
   return 0;
 }
 
 template <int32_t I, class T>
 int32_t GPUChainTracking::DoTRDGPUTracking(T* externalInstance)
 {
-#ifdef GPUCA_HAVE_O2HEADERS
   bool doGPU = GetRecoStepsGPU() & RecoStep::TRDTracking;
   auto* Tracker = &processors()->getTRDTracker<I>();
   auto* TrackerShadow = doGPU ? &processorsShadow()->getTRDTracker<I>() : Tracker;
@@ -193,7 +186,6 @@ int32_t GPUChainTracking::DoTRDGPUTracking(T* externalInstance)
   if (GetProcessingSettings().debugLevel >= 2) {
     GPUInfo("GPU TRD tracker Finished");
   }
-#endif
   return (0);
 }
 

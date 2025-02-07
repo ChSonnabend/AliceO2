@@ -20,10 +20,9 @@
 #include "CommonUtils/TreeStreamRedirector.h"
 #include "NDPiecewisePolynomials.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
-#ifndef GPUCA_ALIROOT_LIB
 template <uint32_t Dim, uint32_t Degree, bool InteractionOnly>
 void NDPiecewisePolynomials<Dim, Degree, InteractionOnly>::dumpToTree(const uint32_t nSamplingPoints[/* Dim */], const char* outName, const char* treeName, const bool recreateFile) const
 {
@@ -61,7 +60,6 @@ void NDPiecewisePolynomials<Dim, Degree, InteractionOnly>::dumpToTree(const uint
   }
   pcstream.Close();
 }
-#endif // GPUCA_ALIROOT_LIB
 
 #if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE)
 
@@ -74,9 +72,7 @@ void NDPiecewisePolynomials<Dim, Degree, InteractionOnly>::loadFromFile(TFile& i
     setFromContainer(*gridTmp);
     delete gridTmp;
   } else {
-#ifndef GPUCA_ALIROOT_LIB
     LOGP(info, "couldnt load object {} from input file", name);
-#endif
   }
 }
 
@@ -98,9 +94,7 @@ template <uint32_t Dim, uint32_t Degree, bool InteractionOnly>
 void NDPiecewisePolynomials<Dim, Degree, InteractionOnly>::performFits(const std::function<double(const double x[/* Dim */])>& func, const uint32_t nAuxiliaryPoints[/* Dim */])
 {
   const int32_t nTotalFits = getNPolynomials();
-#ifndef GPUCA_ALIROOT_LIB
   LOGP(info, "Perform fitting of {}D-Polynomials of degree {} for a total of {} fits.", Dim, Degree, nTotalFits);
-#endif
 
   MultivariatePolynomialHelper<0, 0, false> pol(Dim, Degree, InteractionOnly);
   TLinearFitter fitter = pol.getTLinearFitter();
@@ -127,9 +121,7 @@ void NDPiecewisePolynomials<Dim, Degree, InteractionOnly>::performFits(const std
   for (;;) {
     const bool debug = !(++counter % printDebugForNFits);
     if (debug) {
-#ifndef GPUCA_ALIROOT_LIB
       LOGP(info, "Performing fit {} out of {}", counter, nTotalFits);
-#endif
     }
 
     checkPos(nPolynomials, pos);
@@ -149,9 +141,7 @@ template <uint32_t Dim, uint32_t Degree, bool InteractionOnly>
 void NDPiecewisePolynomials<Dim, Degree, InteractionOnly>::performFits(const std::vector<float>& x, const std::vector<float>& y)
 {
   const int32_t nTotalFits = getNPolynomials();
-#ifndef GPUCA_ALIROOT_LIB
   LOGP(info, "Perform fitting of {}D-Polynomials of degree {} for a total of {} fits.", Dim, Degree, nTotalFits);
-#endif
 
   // approximate number of points
   uint32_t nPoints = 2 * y.size() / nTotalFits;
@@ -196,16 +186,12 @@ void NDPiecewisePolynomials<Dim, Degree, InteractionOnly>::performFits(const std
   for (int32_t i = 0; i < nTotalFits; ++i) {
     const bool debug = !(++counter % printDebugForNFits);
     if (debug) {
-#ifndef GPUCA_ALIROOT_LIB
       LOGP(info, "Performing fit {} out of {}", counter, nTotalFits);
-#endif
     }
 
     // store values for fitting
     if (dataPointsIndices[i].empty()) {
-#ifndef GPUCA_ALIROOT_LIB
       LOGP(info, "No data points to fit");
-#endif
       continue;
     }
 
@@ -269,7 +255,7 @@ void NDPiecewisePolynomials<Dim, Degree, InteractionOnly>::fitInnerGrid(const st
   std::copy(params.begin(), params.end(), &mParams[index]);
 }
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif // !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE)
 

@@ -5,7 +5,7 @@
 #include "GPUReconstruction.h"
 #include "GPUChainTracking.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 void createLUT()
 {

@@ -104,12 +104,12 @@
     #define GPUbarrier() barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE)
     #define GPUbarrierWarp()
     #if defined(__OPENCL__) && defined(GPUCA_OPENCL_CLANG_C11_ATOMICS)
-      namespace GPUCA_NAMESPACE { namespace gpu {
+      namespace o2 { namespace gpu {
       template <class T> struct oclAtomic;
       template <> struct oclAtomic<uint32_t> {typedef atomic_uint t;};
       static_assert(sizeof(oclAtomic<uint32_t>::t) == sizeof(uint32_t), "Invalid size of atomic type");
       }}
-      #define GPUAtomic(type) GPUCA_NAMESPACE::gpu::oclAtomic<type>::t
+      #define GPUAtomic(type) o2::gpu::oclAtomic<type>::t
     #else
       #define GPUAtomic(type) volatile type
     #endif

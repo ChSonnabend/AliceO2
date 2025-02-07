@@ -14,7 +14,7 @@
 
 #include "GPUGeneralKernels.h"
 #include "GPUConstantMem.h"
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 template <>
 GPUdii() void GPUMemClean16::Thread<0>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() processors, GPUglobalref() void* ptr, uint64_t size)

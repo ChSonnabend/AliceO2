@@ -27,7 +27,7 @@ class TrackITSExt;
 class GPUFrameworkExternalAllocator;
 } // namespace o2::its
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUChainITS : public GPUChain
 {
@@ -56,6 +56,6 @@ class GPUChainITS : public GPUChain
 
   uint32_t mMaxTracks;
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

@@ -289,6 +289,11 @@ DigitizationContext* DigitizationContext::loadFromFile(std::string_view filename
 
 void DigitizationContext::fillQED(std::string_view QEDprefix, int max_events, double qedrate)
 {
+  if (mEventRecords.size() <= 1) {
+    // nothing to do
+    return;
+  }
+
   o2::steer::InteractionSampler qedInteractionSampler;
   qedInteractionSampler.setBunchFilling(mBCFilling);
 

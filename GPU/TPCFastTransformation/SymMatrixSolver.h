@@ -23,7 +23,7 @@
 #include <cassert>
 #include <algorithm>
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -75,12 +75,10 @@ class SymMatrixSolver
   int32_t mShift = 0;
   std::vector<double> mA;
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(SymMatrixSolver, 0);
-#endif
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

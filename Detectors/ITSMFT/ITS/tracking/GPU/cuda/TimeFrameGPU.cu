@@ -406,7 +406,19 @@ void TimeFrameGPU<nLayers>::loadTrackSeedsDevice(std::vector<CellSeed>& seeds)
 }
 
 template <int nLayers>
-void TimeFrameGPU<nLayers>::createNeighboursDevice(const unsigned int& layer, std::vector<std::pair<int, int>>& neighbours)
+void TimeFrameGPU<nLayers>::createNeighboursDevice(const unsigned int layer, const unsigned int nNeighbours)
+{
+  START_GPU_STREAM_TIMER(mGpuStreams[0].get(), "reserving neighbours");
+  LOGP(debug, "gpu-allocation: reserving {} neighbours (pairs), for {} MB.", nNeighbours, nNeighbours * sizeof(gpuPair<int, int>) / MB);
+  allocMemAsync(reinterpret_cast<void**>(&mNeighbourPairsDevice[layer]), nNeighbours * sizeof(gpuPair<int, int>), &(mGpuStreams[0]), getExtAllocator());
+  checkGPUError(cudaMemsetAsync(mNeighbourPairsDevice[layer], -1, nNeighbours * sizeof(gpuPair<int, int>), mGpuStreams[0].get()));
+  LOGP(debug, "gpu-allocation: reserving {} neighbours, for {} MB.", nNeighbours, nNeighbours * sizeof(gpuPair<int, int>) / MB);
+  allocMemAsync(reinterpret_cast<void**>(&mNeighboursDevice[layer]), nNeighbours * sizeof(int), &(mGpuStreams[0]), getExtAllocator());
+  STOP_GPU_STREAM_TIMER(mGpuStreams[0].get());
+}
+
+template <int nLayers>
+void TimeFrameGPU<nLayers>::createNeighboursDevice(const unsigned int layer, std::vector<std::pair<int, int>>& neighbours)
 {
   START_GPU_STREAM_TIMER(mGpuStreams[0].get(), "reserving neighbours");
   mCellsNeighbours[layer].clear();
