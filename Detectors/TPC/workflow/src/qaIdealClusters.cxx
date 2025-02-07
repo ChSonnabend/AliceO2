@@ -84,7 +84,7 @@ void qaCluster::init(InitContext& ic)
   };
 
   if (mode.find(std::string("network_class")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
-    network_classification_paths = custom::splitString(ic.options().get<std::string>("network-classification-paths"), ";");
+    network_classification_paths = custom::splitString(ic.options().get<std::string>("network-classification-paths"), ":");
     int count_net_class = 0;
     if(networkSplitIrocOroc){
       for(auto path : network_classification_paths){
@@ -102,7 +102,7 @@ void qaCluster::init(InitContext& ic)
     }
   }
   if (mode.find(std::string("network_reg")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
-    network_regression_paths = custom::splitString(ic.options().get<std::string>("network-regression-paths"), ";");
+    network_regression_paths = custom::splitString(ic.options().get<std::string>("network-regression-paths"), ":");
     int count_net_reg = 0;
     if(networkSplitIrocOroc){
       for(auto path : network_regression_paths){
