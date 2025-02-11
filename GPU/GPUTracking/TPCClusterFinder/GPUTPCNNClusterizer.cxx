@@ -139,8 +139,8 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int32_t nBlocks, int32_t nThread
   auto start_clusterer_time = std::chrono::high_resolution_clock::now();
 
   uint numElements = CAMath::Min(glo_idx + clusterer.nnClusterizerBatchedMode, clusternum - glo_idx);
-  std::vector<float> central_charges(numElements, -1.f);
-  std::vector<T> input_data(clusterer.nnClusterizerElementSize * numElements, (T)-1.f);
+  std::vector<float> central_charges(numElements, (clusterer.nnBoundaryFillValue));
+  std::vector<T> input_data(clusterer.nnClusterizerElementSize * numElements, (T)(clusterer.nnBoundaryFillValue));
   std::vector<ChargePos> peak_positions(numElements);
   unsigned int write_idx = 0;
 
@@ -192,11 +192,13 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int32_t nBlocks, int32_t nThread
 
   std::vector<int> index_class_2;
   std::vector<float> out_class = clusterer.model_class.inference<T, float>(input_data);
+  std::vector<float> model_probabilities;
   // LOG(info) << "input_data.size(): " << input_data.size() << "; write_idx: " << write_idx << "; out_class.size(): " << out_class.size();
   int num_output_classes = clusterer.model_class.getNumOutputNodes()[0][1];
 
   if (num_output_classes > 1) {
     std::vector<float> tmp_out_class(numElements);
+    model_probabilities = out_class;
     for (int cls_idx = 0; cls_idx < numElements; cls_idx++) {
       auto elem_iterator = out_class.begin() + (unsigned int)(cls_idx * num_output_classes);
       tmp_out_class[cls_idx] = std::distance(elem_iterator, std::max_element(elem_iterator, elem_iterator + num_output_classes));
@@ -220,7 +222,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int32_t nBlocks, int32_t nThread
         }
         fill_counter++;
       }
-      tmp_out_reg_2 = clusterer.model_reg_2.inference<T, float>(input_data);
+      tmp_out_reg_2 = clusterer.model_reg_2.inference<T, float>(tmp_in_reg_2);
     }
 
     input_data.clear();
@@ -255,7 +257,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int32_t nBlocks, int32_t nThread
       // }
 
       if (out_class[element] > clusterer.nnClassThreshold) {
-        if ((num_output_classes == 1) || ((num_output_classes > 1) && (out_class[element] < 2))) {
+        if ((num_output_classes == 1) || ((num_output_classes > 1) && (out_class[element] < 2)) || ((num_output_classes > 1) && (model_probabilities[element * num_output_classes + out_class[element]] > clusterer.nnClassThreshold))) {
           // CPU_ONLY(labelAcc->collect(peak_positions[element], central_charges[element]));
 
           ClusterAccumulator pc;
@@ -318,7 +320,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int32_t nBlocks, int32_t nThread
           }
           CPU_ONLY(labelAcc->commit(peak_positions[element].row(), rowIndex, maxClusterPerRow));
         } else {
-          model_output_index = index_class_2[counter_class_2_idcs] * num_outputs_2;
+          model_output_index = counter_class_2_idcs * num_outputs_2;
           counter_class_2_idcs++;
 
           // Cluster 1
@@ -470,6 +472,9 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int32_t nBlocks, int32_t nThread
     float duration_total = std::chrono::duration<float, std::ratio<1, (long int)(1e9)>>(stop_clusterer_time - start_clusterer_time).count()/(1e9);
     float duration_filling = std::chrono::duration<float, std::ratio<1, (long int)(1e9)>>(stop_filling_time - start_clusterer_time).count()/(1e9);
     LOG(info) << "[NN CF, SECTOR " << clusterer.mISlice << "]" << " (thread: " << iThread << " / " << nThreads << "; block: " << iBlock << "/" << nBlocks << ") Clusterization done for " << glo_idx << " - " << glo_idx + numElements << " / " << clusternum << " in (total time) " << duration_total << " s; " << duration_filling << " (filling time) --> " << numElements / duration_total << " cluster/s";
+    if(num_output_classes > 1){
+      LOG(info) << "[NN CF, SECTOR " << clusterer.mISlice << "]" << " (thread: " << iThread << " / " << nThreads << "; block: " << iBlock << "/" << nBlocks << ") Number of clusters with class 2: " << index_class_2.size();
+    }
   }
 }
 

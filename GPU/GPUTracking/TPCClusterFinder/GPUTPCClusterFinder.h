@@ -155,6 +155,7 @@ class GPUTPCClusterFinder : public GPUProcessor
   int nnClusterizerUseCFregression = 0;
   int nnClusterizerBatchedMode = 1;
   int nnClusterizerVerbosity = 0;
+  float nnBoundaryFillValue = -1;
 
   std::unordered_map<std::string, std::string> OrtOptions;
   OrtModel model_class, model_reg_1, model_reg_2; // For splitting clusters
