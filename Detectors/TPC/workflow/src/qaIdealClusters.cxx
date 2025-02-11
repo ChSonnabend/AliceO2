@@ -2240,9 +2240,47 @@ void qaCluster::runQa(int sector)
     }
   }
 
-  if (mode.find(std::string("native")) != std::string::npos && create_output == 1) {
+  bool addMomentumData = (mode.find(std::string("track_cluster")) != std::string::npos);
 
-    bool addMomentumData = (mode.find(std::string("track_cluster")) != std::string::npos);
+  if(addMomentumData){
+    float precision = 1.f/64; // Defined by ClusterNative.h: unpackPad and unpackTime: scalePadPacked = scaleTimePacked = 64
+    track_cluster_to_ideal_assignment.resize(ideal_map.size());
+    custom::fill_nested_container(track_cluster_to_ideal_assignment, -1);
+    int cluster_counter = -1; // Starting at -1 due to continue statement in the following loop
+    for(auto cls : tracking_clusters[sector]){
+      int check_pad = round(cls.cog_pad), check_time = round(cls.cog_time);
+      int idl_idx = map2d[0][check_time + global_shift[1]][cls.row + global_shift[2] + rowOffset(cls.row)][check_pad + global_shift[0] + padOffset(cls.row)];
+      if(idl_idx == -1 && ((std::abs(std::abs(cls.cog_pad - (int)cls.cog_pad) - 0.5) < precision) || (std::abs(std::abs(cls.cog_time - (int)cls.cog_time) - 0.5) < precision))){
+        if(std::abs(std::abs(check_pad - cls.cog_pad) - 0.5) < precision){
+          if(std::abs(check_pad - cls.cog_pad) < 0.5){
+            check_pad += 1; // Check the adjacent pad just to be sure (if you chose the lower pad before because (round(val) - val) < 0.5, then choose the upper one now)
+          } else {
+            check_pad -= 1;
+          }
+        }
+        if(std::abs(std::abs(check_time - cls.cog_time) - 0.5) < precision){
+          if(std::abs(check_time - cls.cog_time) < 0.5){
+            check_time += 1;
+          } else {
+            check_time -= 1;
+          }
+        }
+        idl_idx = map2d[0][check_time + global_shift[1]][cls.row + global_shift[2] + rowOffset(cls.row)][check_pad + global_shift[0] + padOffset(cls.row)];
+      }
+      cluster_counter++;
+      if(idl_idx == -1){
+        continue;
+      }
+      if(ideal_map[idl_idx].index!=-1){
+        track_cluster_to_ideal_assignment[ideal_map[idl_idx].index] = cluster_counter;
+      }
+      //if ((cls.row == ideal_map[idl_idx].row) && (std::abs(cls.cog_time - ideal_map[idl_idx].cog_time) < precision) && (std::abs(cls.cog_pad - ideal_map[idl_idx].cog_pad) < precision)){
+      //  track_cluster_to_ideal_assignment[idl_idx] = cluster_counter;
+      //}
+    }
+  }
+
+  if (mode.find(std::string("native")) != std::string::npos && create_output == 1) {
 
     if (verbose >= 3)
       LOG(info) << "Native-Ideal assignment...";
@@ -2450,46 +2488,6 @@ void qaCluster::runQa(int sector)
 
     if (verbose >= 3)
       LOG(info) << "[" << sector << "] Network-Ideal assignment...";
-
-    bool addMomentumData = (mode.find(std::string("track_cluster")) != std::string::npos);
-
-    if(addMomentumData){
-      float precision = 1.f/64; // Defined by ClusterNative.h: unpackPad and unpackTime: scalePadPacked = scaleTimePacked = 64
-      track_cluster_to_ideal_assignment.resize(ideal_map.size());
-      custom::fill_nested_container(track_cluster_to_ideal_assignment, -1);
-      int cluster_counter = -1; // Starting at -1 due to continue statement in the following loop
-      for(auto cls : tracking_clusters[sector]){
-        int check_pad = round(cls.cog_pad), check_time = round(cls.cog_time);
-        int idl_idx = map2d[0][check_time + global_shift[1]][cls.row + global_shift[2] + rowOffset(cls.row)][check_pad + global_shift[0] + padOffset(cls.row)];
-        if(idl_idx == -1 && ((std::abs(std::abs(cls.cog_pad - (int)cls.cog_pad) - 0.5) < precision) || (std::abs(std::abs(cls.cog_time - (int)cls.cog_time) - 0.5) < precision))){
-          if(std::abs(std::abs(check_pad - cls.cog_pad) - 0.5) < precision){
-            if(std::abs(check_pad - cls.cog_pad) < 0.5){
-              check_pad += 1; // Check the adjacent pad just to be sure (if you chose the lower pad before because (round(val) - val) < 0.5, then choose the upper one now)
-            } else {
-              check_pad -= 1;
-            }
-          }
-          if(std::abs(std::abs(check_time - cls.cog_time) - 0.5) < precision){
-            if(std::abs(check_time - cls.cog_time) < 0.5){
-              check_time += 1;
-            } else {
-              check_time -= 1;
-            }
-          }
-          idl_idx = map2d[0][check_time + global_shift[1]][cls.row + global_shift[2] + rowOffset(cls.row)][check_pad + global_shift[0] + padOffset(cls.row)];
-        }
-        cluster_counter++;
-        if(idl_idx == -1){
-          continue;
-        }
-        if(ideal_map[idl_idx].index!=-1){
-          track_cluster_to_ideal_assignment[ideal_map[idl_idx].index] = cluster_counter;
-        }
-        //if ((cls.row == ideal_map[idl_idx].row) && (std::abs(cls.cog_time - ideal_map[idl_idx].cog_time) < precision) && (std::abs(cls.cog_pad - ideal_map[idl_idx].cog_pad) < precision)){
-        //  track_cluster_to_ideal_assignment[idl_idx] = cluster_counter;
-        //}
-      }
-    }
 
     // creating training data for the neural network
     int data_size = maxima_digits.size();
