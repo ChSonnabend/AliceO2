@@ -122,32 +122,55 @@ class onnxInference : public Task
     std::vector<int64_t> inputShape{test_size_tensor, models[0].getNumInputNodes()[0][1]};
 
     LOG(info) << "Creating ONNX tensor";
-    std::vector<std::vector<OrtDataType::Float16_t>> input_tensor(execution_threads);
-    std::vector<OrtDataType::Float16_t> input_data(models[0].getNumInputNodes()[0][1] * test_size_tensor, OrtDataType::Float16_t(1.0f)); // Example input
-    for (int i = 0; i < execution_threads; i++) {
-      input_tensor[i] = input_data;
-      // input_tensor[i].resize(test_num_tensors);
-      // for(int j = 0; j < test_num_tensors; j++){
-      // 	input_tensor[i][j] = input_data;
-      // }
-    }
 
-    LOG(info) << "Starting inference";
-    auto start_network_eval = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < test_size_iter; i++) {
-      runONNXGPUModel<OrtDataType::Float16_t, OrtDataType::Float16_t>(input_tensor, execution_threads);
-      if ((i % epochs_measure == 0) && (i != 0)) {
-        auto end_network_eval = std::chrono::high_resolution_clock::now();
-        time = std::chrono::duration<double, std::ratio<1, (unsigned long)1e9>>(end_network_eval - start_network_eval).count() / 1e9;
-        LOG(info) << "Total time: " << time << "s. Timing: " << uint64_t((double)test_size_tensor * epochs_measure * execution_threads / time) << " elements / s";
-        time = 0;
-        start_network_eval = std::chrono::high_resolution_clock::now();
+    if(options_map["dtype"].find("16") != std::string::npos ){
+      std::vector<std::vector<OrtDataType::Float16_t>> input_tensor(execution_threads);
+      std::vector<OrtDataType::Float16_t> input_data(models[0].getNumInputNodes()[0][1] * test_size_tensor, OrtDataType::Float16_t(1.0f)); // Example input
+      for (int i = 0; i < execution_threads; i++) {
+        input_tensor[i] = input_data;
+        // input_tensor[i].resize(test_num_tensors);
+        // for(int j = 0; j < test_num_tensors; j++){
+        // 	input_tensor[i][j] = input_data;
+        // }
+      }
+
+      LOG(info) << "Starting inference";
+      auto start_network_eval = std::chrono::high_resolution_clock::now();
+      for (int i = 0; i < test_size_iter; i++) {
+        // runONNXGPUModel<OrtDataType::Float16_t, OrtDataType::Float16_t>(input_tensor, execution_threads);
+        runONNXGPUModel<OrtDataType::Float16_t, OrtDataType::Float16_t>(input_tensor, execution_threads);
+        if ((i % epochs_measure == 0) && (i != 0)) {
+          auto end_network_eval = std::chrono::high_resolution_clock::now();
+          time = std::chrono::duration<double, std::ratio<1, (unsigned long)1e9>>(end_network_eval - start_network_eval).count() / 1e9;
+          LOG(info) << "Total time: " << time << "s. Timing: " << uint64_t((double)test_size_tensor * epochs_measure * execution_threads / time) << " elements / s";
+          time = 0;
+          start_network_eval = std::chrono::high_resolution_clock::now();
+        }
+      }
+      // for(auto out : output){
+      //   LOG(info) << "Test output: " << out;
+      // }
+    } else {
+      std::vector<std::vector<float>> input_tensor(execution_threads);
+      std::vector<float> input_data(models[0].getNumInputNodes()[0][1] * test_size_tensor, 1.f); // Example input
+      for (int i = 0; i < execution_threads; i++) {
+        input_tensor[i] = input_data;
+      }
+
+      LOG(info) << "Starting inference";
+      auto start_network_eval = std::chrono::high_resolution_clock::now();
+      for (int i = 0; i < test_size_iter; i++) {
+        runONNXGPUModel<float, float>(input_tensor, execution_threads);
+        if ((i % epochs_measure == 0) && (i != 0)) {
+          auto end_network_eval = std::chrono::high_resolution_clock::now();
+          time = std::chrono::duration<double, std::ratio<1, (unsigned long)1e9>>(end_network_eval - start_network_eval).count() / 1e9;
+          LOG(info) << "Total time: " << time << "s. Timing: " << uint64_t((double)test_size_tensor * epochs_measure * execution_threads / time) << " elements / s";
+          time = 0;
+          start_network_eval = std::chrono::high_resolution_clock::now();
+        }
       }
     }
 
-    // for(auto out : output){
-    //   LOG(info) << "Test output: " << out;
-    // }
     pc.services().get<ControlService>().endOfStream();
     pc.services().get<ControlService>().readyToQuit(QuitRequest::Me);
   };
