@@ -2794,7 +2794,7 @@ void qaCluster::runQa(int sector)
     int map_dig_idx = 0, map_q_idx = 0, check_assignment = 0, index_assignment = -1, current_idx_id = -1, current_idx_dig = -1, row_offset = 0, pad_offset = 0, class_label = 0;
     float distance_assignment = 100000.f, current_distance_dig_to_id = 0, current_distance_id_to_dig = 0;
     bool is_min_dist = true, is_tagged = false, find_track_path = (mode.find(std::string("training_data_mom_path")) != std::string::npos);
-    float distance_cluster_track_path = -1.f, cog_tr_pad_offset = (find_track_path ? -0.5 : 0);
+    float distance_cluster_track_path = -1.f;
 
     for (int max_point = 0; max_point < data_size; max_point++) {
       // is_tagged = (bool)digit_tagged[max_point];
@@ -2862,7 +2862,7 @@ void qaCluster::runQa(int sector)
             if (attach_tracks) {
               track_assignment[max_point][counter] = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].index;
             }
-            tr_data_Y_reg[max_point][counter][0] = idl.cog_pad - dig.max_pad + cog_tr_pad_offset;       // pad: Matching is done on integers for digit maxima, but track paths and clusters are offset by 0.5 (center of pad)
+            tr_data_Y_reg[max_point][counter][0] = idl.cog_pad - dig.max_pad                            // pad
             tr_data_Y_reg[max_point][counter][1] = idl.cog_time - dig.max_time;                         // time
             tr_data_Y_reg[max_point][counter][2] = idl.sigmaPad;                                        // sigma pad
             tr_data_Y_reg[max_point][counter][3] = idl.sigmaTime;                                       // sigma time
