@@ -417,8 +417,7 @@ void qaCluster::read_tracking_clusters(bool mc){
   float B_field = magneticField; //GPUO2InterfaceUtils::getNominalGPUBz(*GRPGeomHelper::instance().getGRPMagField());
   LOG(info) << "Updating solenoid field " << B_field;
   
-  std::vector<std::array<float, 12>> misc_track_data;
-  std::vector<std::string> misc_track_data_branch_names = {"NClusters", "Chi2", "hasASideClusters", "hasCSideClusters", "P", "dEdxQtot", "dEdxQmax", "AbsCharge", "Eta", "Phi", "Pt"};
+  std::vector<std::string> misc_track_data_branch_names = {"NClusters", "Chi2", "hasASideClusters", "hasCSideClusters", "hasBothSideClusters", "P", "dEdxQtot", "dEdxQmax", "AbsCharge", "Eta", "Phi", "Pt"};
   
   // const auto& tpcClusRefs = data.getTPCTracksClusterRefs();
   // const auto& tpcClusAcc = // get from tpc-native-clsuters the flat array
@@ -492,8 +491,8 @@ void qaCluster::read_tracking_clusters(bool mc){
         auto glo_pos = global_positions[idx];
         LocalPosition3D loc_point = mapper.GlobalToLocal(GlobalPosition3D(track_point[idx][0], track_point[idx][1], track_point[idx][2] + z_shift), Sector((int)sector));
         if(cluster.getPad() < 0){ LOG(info) << "Found cluster with cog_pad < 0: " << cluster.getPad() << " (Track " << k << ", cluster " << cl << ")"; }
-        customCluster trk_cls{sector, row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), mcTrackIDs[0], mcTrackIDs[1], mcTrackIDs[2], cluster_counter, 0.f, glo_pos.X(), glo_pos.Y(), tpcmap.LinearTime2Z(sector, cluster.getTime())};
-        customCluster trk_path{sector, row, (int)round(tpcmap.LinearY2Pad(sector, row, loc_point.Y())), (int)round(tpcmap.LinearZ2Time(sector, loc_point.Z())), tpcmap.LinearY2Pad(sector, row, loc_point.Y()), tpcmap.LinearZ2Time(sector, loc_point.Z()), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), mcTrackIDs[0], mcTrackIDs[1], mcTrackIDs[2], cluster_counter, 0.f, track_point[idx][0], track_point[idx][1], track_point[idx][2] + z_shift};
+        customCluster trk_cls{sector, row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), mcTrackIDs[0], mcTrackIDs[1], mcTrackIDs[2], cluster_counter, k, glo_pos.X(), glo_pos.Y(), tpcmap.LinearTime2Z(sector, cluster.getTime())};
+        customCluster trk_path{sector, row, (int)round(tpcmap.LinearY2Pad(sector, row, loc_point.Y())), (int)round(tpcmap.LinearZ2Time(sector, loc_point.Z())), tpcmap.LinearY2Pad(sector, row, loc_point.Y()), tpcmap.LinearZ2Time(sector, loc_point.Z()), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), mcTrackIDs[0], mcTrackIDs[1], mcTrackIDs[2], cluster_counter, k, track_point[idx][0], track_point[idx][1], track_point[idx][2] + z_shift};
         // LOG(info) << sector << " " << row << " " << tpcmap.LinearY2Pad(sector, row, track_point[idx][1]) << " " << tpcmap.LinearY2Pad(sector, row, loc_point.Y()) << " " << loc_point.Y() << " " << track_point[idx][1];
         track_paths.push_back(trk_path);
         track_clusters.push_back(trk_cls);
@@ -515,13 +514,14 @@ void qaCluster::read_tracking_clusters(bool mc){
     misc_track_data[k][1] = track.getChi2();
     misc_track_data[k][2] = track.hasASideClusters();
     misc_track_data[k][3] = track.hasCSideClusters();
-    misc_track_data[k][4] = track.getP();
-    misc_track_data[k][5] = track.getdEdx().dEdxTotTPC;
-    misc_track_data[k][6] = track.getdEdx().dEdxMaxTPC;
-    misc_track_data[k][7] = track.getAbsCharge(); // TPC inner param = P / AbsCharge
-    misc_track_data[k][8] = track.getEta();
-    misc_track_data[k][9] = track.getPhi();
-    misc_track_data[k][10] = track.getPt();
+    misc_track_data[k][4] = track.hasBothSidesClusters();
+    misc_track_data[k][5] = track.getP();
+    misc_track_data[k][6] = track.getdEdx().dEdxTotTPC;
+    misc_track_data[k][7] = track.getdEdx().dEdxMaxTPC;
+    misc_track_data[k][8] = track.getAbsCharge(); // TPC inner param = P / AbsCharge
+    misc_track_data[k][9] = track.getEta();
+    misc_track_data[k][10] = track.getPhi();
+    misc_track_data[k][11] = track.getPt();
   }
 
   // Writing some data in between
@@ -2240,7 +2240,7 @@ void qaCluster::runQa(int sector)
     }
   }
 
-  bool addMomentumData = (mode.find(std::string("track_cluster")) != std::string::npos);
+  bool addMomentumData = (mode.find(std::string("track_cluster")) != std::string::npos || mode.find(std::string("training_data_mom")) != std::string::npos || mode.find(std::string("attach_tracks")) != std::string::npos);
 
   if(addMomentumData){
     float precision = 1.f/64; // Defined by ClusterNative.h: unpackPad and unpackTime: scalePadPacked = scaleTimePacked = 64
@@ -2709,47 +2709,6 @@ void qaCluster::runQa(int sector)
 
   if (mode.find(std::string("training_data")) != std::string::npos && create_output == 1) {
 
-    // If momentum data is present assign momenta of tracking clusters to respective ideal clusters in map2d
-    bool addMomentumData = (mode.find(std::string("training_data_mom")) != std::string::npos);
-
-    if(addMomentumData){
-      float precision = 1.f/64; // Defined by ClusterNative.h: unpackPad and unpackTime: scalePadPacked = scaleTimePacked = 64
-      track_cluster_to_ideal_assignment.resize(ideal_map.size());
-      custom::fill_nested_container(track_cluster_to_ideal_assignment, -1);
-      int cluster_counter = -1; // Starting at -1 due to continue statement in the following loop
-      for(auto cls : tracking_clusters[sector]){
-        int check_pad = round(cls.cog_pad), check_time = round(cls.cog_time);
-        int idl_idx = map2d[0][check_time + global_shift[1]][cls.row + global_shift[2] + rowOffset(cls.row)][check_pad + global_shift[0] + padOffset(cls.row)];
-        if(idl_idx == -1 && ((std::abs(std::abs(cls.cog_pad - (int)cls.cog_pad) - 0.5) < precision) || (std::abs(std::abs(cls.cog_time - (int)cls.cog_time) - 0.5) < precision))){
-          if(std::abs(std::abs(check_pad - cls.cog_pad) - 0.5) < precision){
-            if(std::abs(check_pad - cls.cog_pad) < 0.5){
-              check_pad += 1; // Check the adjacent pad just to be sure (if you chose the lower pad before because (round(val) - val) < 0.5, then choose the upper one now)
-            } else {
-              check_pad -= 1;
-            }
-          }
-          if(std::abs(std::abs(check_time - cls.cog_time) - 0.5) < precision){
-            if(std::abs(check_time - cls.cog_time) < 0.5){
-              check_time += 1;
-            } else {
-              check_time -= 1;
-            }
-          }
-          idl_idx = map2d[0][check_time + global_shift[1]][cls.row + global_shift[2] + rowOffset(cls.row)][check_pad + global_shift[0] + padOffset(cls.row)];
-        }
-        cluster_counter++;
-        if(idl_idx == -1){
-          continue;
-        }
-        track_cluster_to_ideal_assignment[idl_idx] = cluster_counter;
-        // if ((cls.row == ideal_map[idl_idx].row) && (std::abs(cls.cog_time - ideal_map[idl_idx].cog_time) < precision) && (std::abs(cls.cog_pad - ideal_map[idl_idx].cog_pad) < precision)){
-        //   track_cluster_to_ideal_assignment[idl_idx] = cluster_counter;
-        // } else {
-        //   LOG(warning) << "Ideal cluster at same index but outside precision (ideal) (sector: " << ideal_map[idl_idx].sector << "; row: " << ideal_map[idl_idx].row << "; pad: " << ideal_map[idl_idx].cog_pad << "; time: " << ideal_map[idl_idx].cog_time << ") ; (tracking) (sector: " << cls.sector << "; row: " << cls.row << "; pad: " << cls.cog_pad << "; time: " << cls.cog_time << ")";
-        // }
-      }
-    }
-
     // Checks if digit is assigned / has non-looper assignments
     std::vector<int> digit_has_non_looper_assignments(maxima_digits.size(), -1); // -1 = has no assignments, 0 = has assignment but is looper, n = has n non-looper assignments
     std::vector<std::vector<int>> digit_non_looper_assignment_labels(maxima_digits.size());
@@ -2812,6 +2771,9 @@ void qaCluster::runQa(int sector)
     o2::MCTrack current_track;
     std::vector<float> cluster_pT, cluster_eta, cluster_mass, cluster_p, cluster_overlap_area_fraction, cluster_overlap_charge_fraction, cluster_overlap_external_charge_fraction;
     std::vector<int> cluster_isPrimary, cluster_isTagged;
+    std::vector<std::vector<int>> track_assignment;
+
+    bool attach_tracks = mode.find(std::string("attach_tracks")) != std::string::npos;
 
     if(!realData){
       cluster_pT.resize(data_size, -1);
@@ -2823,6 +2785,9 @@ void qaCluster::runQa(int sector)
       cluster_overlap_area_fraction.resize(data_size, -1);
       cluster_overlap_charge_fraction.resize(data_size, -1);
       cluster_overlap_external_charge_fraction.resize(data_size, -1);
+    }
+    if (attach_tracks) {
+      track_assignment.resize(data_size, std::vector<int>(5, -1));
     }
 
     // Some useful variables
@@ -2872,10 +2837,11 @@ void qaCluster::runQa(int sector)
           std::vector<float> distance_array(digit_has_non_looper_assignments[max_point], -1);
           for (int counter = 0; counter < digit_has_non_looper_assignments[max_point]; counter++) {
             int ideal_idx = digit_non_looper_assignment_labels[max_point][counter];
+            idl = ideal_map[ideal_idx];
             if(find_track_path && track_cluster_to_ideal_assignment[ideal_idx] != -1){
-              idl = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]];
-            } else {
-              idl = ideal_map[ideal_idx];
+              // idl = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]];
+              idl.cog_pad = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].cog_pad;
+              idl.cog_time = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].cog_time;
             }
             distance_array[counter] = std::pow((dig.max_time - idl.cog_time), 2) + std::pow((dig.max_pad - idl.cog_pad), 2);
           }
@@ -2883,10 +2849,18 @@ void qaCluster::runQa(int sector)
           distance_array.size() > 1 ? sorted_idcs = custom::sort_indices(distance_array) : sorted_idcs = {0};
           for (int counter = 0; counter < digit_has_non_looper_assignments[max_point]; counter++) {
             int ideal_idx = digit_non_looper_assignment_labels[max_point][sorted_idcs[counter]];
+            idl = ideal_map[ideal_idx];
             if(find_track_path && track_cluster_to_ideal_assignment[ideal_idx] != -1){
-              idl = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]];
-            } else {
-              idl = ideal_map[ideal_idx];
+              // idl = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]];
+              idl.cog_pad = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].cog_pad;
+              idl.cog_time = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].cog_time;
+              if(misc_track_data[tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].label][4] == 1) {
+                idl.cog_pad = -999;
+                idl.cog_time = -999;
+              }
+            }
+            if (attach_tracks) {
+              track_assignment[max_point][counter] = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].index;
             }
             tr_data_Y_reg[max_point][counter][0] = idl.cog_pad - dig.max_pad + cog_tr_pad_offset;       // pad: Matching is done on integers for digit maxima, but track paths and clusters are offset by 0.5 (center of pad)
             tr_data_Y_reg[max_point][counter][1] = idl.cog_time - dig.max_time;                         // time
@@ -2950,6 +2924,7 @@ void qaCluster::runQa(int sector)
       }
     }
 
+    std::vector<int> tmp_track_assignment(5, -1);
     int class_val = 0, idx_sector = 0, idx_row = 0, idx_pad = 0, idx_time = 0;
     float pT = 0, eta = 0, mass = 0, p = 0, isPrimary = 0, isTagged = 0, overlap_num_other_mc = 0, overlap_area_fraction = 0, overlap_charge_fraction = 0, overlap_external_charge_fraction = 0, occ = 0;
     tr_data->Branch("out_class", &class_val);
@@ -2971,8 +2946,19 @@ void qaCluster::runQa(int sector)
       tr_data->Branch("cluster_overlap_external_charge_fraction", &overlap_external_charge_fraction);
     }
 
+    if(attach_tracks){
+      tr_data->Branch("attached_track_idx_0", &tmp_track_assignment[0]);
+      tr_data->Branch("attached_track_idx_1", &tmp_track_assignment[1]);
+      tr_data->Branch("attached_track_idx_2", &tmp_track_assignment[2]);
+      tr_data->Branch("attached_track_idx_3", &tmp_track_assignment[3]);
+      tr_data->Branch("attached_track_idx_4", &tmp_track_assignment[4]);
+    }
+
     // Filling elements
     for (int element = 0; element < data_size; element++) {
+      if (tr_data_Y_reg[element][0][0] < -900) { // some value far enough away...
+        continue;
+      }
       atomic_unit = tr_data_X[element];
       trY = tr_data_Y_reg[element];
       class_val = tr_data_Y_class[element];
@@ -2991,6 +2977,9 @@ void qaCluster::runQa(int sector)
         overlap_area_fraction = cluster_overlap_area_fraction[element];
         overlap_charge_fraction = cluster_overlap_charge_fraction[element];
         overlap_external_charge_fraction = cluster_overlap_external_charge_fraction[element];
+      }
+      if(attach_tracks){
+        tmp_track_assignment = track_assignment[element];
       }
       tr_data->Fill();
     }

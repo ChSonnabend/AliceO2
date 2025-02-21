@@ -93,7 +93,7 @@ struct customCluster {
   float sigmaTime = -1.f;
   float qMax = -1.f;
   float qTot = -1.f;
-  uint8_t flag = 0;
+  int flag = 0;
   int mcTrkId = -1;
   int mcEvId = -1;
   int mcSrcId = -1;
@@ -275,7 +275,7 @@ class TPCMap
     const std::vector<float> mPadWidth = {.416f, .420f, .420f, .436f, .6f, .6f, .608f, .588f, .604f, .607f};
 
     const float T_BOUNDARY = 250.f;
-    const float FACTOR_T2Z = 250.f / 512.f;
+    const float FACTOR_T2Z = 250.f / 1024.f;
     const float FACTOR_Z2T = 1.f / FACTOR_T2Z;
 };
 
@@ -399,6 +399,7 @@ class qaCluster : public Task
   std::array<float, o2::tpc::constants::MAXSECTOR> clones, fractional_clones;
   std::vector<customCluster> native_writer_map;
   std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXSECTOR> occupancy;
+  std::vector<std::array<float, 12>> misc_track_data;
   std::mutex m;
 
   // Training data -> Momentum vector assignment

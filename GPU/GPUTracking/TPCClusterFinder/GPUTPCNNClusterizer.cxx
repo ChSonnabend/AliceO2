@@ -257,7 +257,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int32_t nBlocks, int32_t nThread
       // }
 
       if (out_class[element] > clusterer.nnClassThreshold) {
-        if ((num_output_classes == 1) || ((num_output_classes > 1) && (out_class[element] < 2)) || ((num_output_classes > 1) && (model_probabilities[element * num_output_classes + out_class[element]] > clusterer.nnClassThreshold))) {
+        if ((num_output_classes == 1) || ((num_output_classes > 1) && (out_class[element] < 2) && (model_probabilities[element * num_output_classes + out_class[element]] > clusterer.nnClassThreshold))) {
           // CPU_ONLY(labelAcc->collect(peak_positions[element], central_charges[element]));
 
           ClusterAccumulator pc;
@@ -319,7 +319,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int32_t nBlocks, int32_t nThread
             rowIndex = clusterPosInRow[glo_idx + element];
           }
           CPU_ONLY(labelAcc->commit(peak_positions[element].row(), rowIndex, maxClusterPerRow));
-        } else {
+        } else if ((out_class[element] == 2) && (model_probabilities[element * num_output_classes + out_class[element]] > clusterer.nnClassThreshold)) {
           model_output_index = counter_class_2_idcs * num_outputs_2;
           counter_class_2_idcs++;
 
