@@ -2838,11 +2838,11 @@ void qaCluster::runQa(int sector)
           for (int counter = 0; counter < digit_has_non_looper_assignments[max_point]; counter++) {
             int ideal_idx = digit_non_looper_assignment_labels[max_point][counter];
             idl = ideal_map[ideal_idx];
-            if(find_track_path && track_cluster_to_ideal_assignment[ideal_idx] != -1){
-              // idl = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]];
-              idl.cog_pad = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].cog_pad;
-              idl.cog_time = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].cog_time;
-            }
+            // if(find_track_path && track_cluster_to_ideal_assignment[ideal_idx] != -1){
+            //   // idl = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]];
+            //   idl.cog_pad = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].cog_pad;
+            //   idl.cog_time = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].cog_time;
+            // }
             distance_array[counter] = std::pow((dig.max_time - idl.cog_time), 2) + std::pow((dig.max_pad - idl.cog_pad), 2);
           }
 
@@ -2850,15 +2850,15 @@ void qaCluster::runQa(int sector)
           for (int counter = 0; counter < digit_has_non_looper_assignments[max_point]; counter++) {
             int ideal_idx = digit_non_looper_assignment_labels[max_point][sorted_idcs[counter]];
             idl = ideal_map[ideal_idx];
-            if(find_track_path && track_cluster_to_ideal_assignment[ideal_idx] != -1){
-              // idl = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]];
-              idl.cog_pad = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].cog_pad;
-              idl.cog_time = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].cog_time;
-              if(misc_track_data[tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].label][4] == 1) {
-                idl.cog_pad = -999;
-                idl.cog_time = -999;
-              }
-            }
+            // if(find_track_path && track_cluster_to_ideal_assignment[ideal_idx] != -1){
+            //   // idl = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]];
+            //   idl.cog_pad = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].cog_pad;
+            //   idl.cog_time = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].cog_time;
+            //   if(misc_track_data[tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].label][4] == 1) {
+            //     idl.cog_pad = -999;
+            //     idl.cog_time = -999;
+            //   }
+            // }
             if (attach_tracks) {
               track_assignment[max_point][counter] = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].index;
             }
