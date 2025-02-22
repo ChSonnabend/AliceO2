@@ -182,7 +182,7 @@ GPUd() void GPUTPCNNClusterizer::fillInputData(int32_t nBlocks, int32_t nThreads
       is_boundary = is_boundary || GPUTPCNNClusterizer::isBoundary(row + r + row_offset, pad + p, clusterer.nnClusterizerSizeInputRow, clusterer.Param().tpcGeometry);
       for (int t = -clusterer.nnClusterizerSizeInputTime; t <= clusterer.nnClusterizerSizeInputTime; t++) {
         if (!is_boundary) {
-          ChargePos tmp_pos(row + r, pad + p, time - t);
+          ChargePos tmp_pos(row + r, pad + p, time + t);
           if(dtype == 0){
             clusterer.inputData16[write_idx] = (OrtDataType::Float16_t)((float)chargeMap[tmp_pos].unpack() / central_charge);
           } else {
