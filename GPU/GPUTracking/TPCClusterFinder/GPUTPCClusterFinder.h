@@ -155,7 +155,15 @@ class GPUTPCClusterFinder : public GPUProcessor
   int nnClusterizerUseCFregression = 0;
   int nnClusterizerBatchedMode = 1;
   int nnClusterizerVerbosity = 0;
-  float nnBoundaryFillValue = -1;
+
+  // Memory allocation for neural network
+  uint class2_elements = 0;
+  std::vector<float> inputData32;
+  std::vector<OrtDataType::Float16_t> inputData16;
+  std::vector<float> outputDataClass, modelProbabilities, outputDataReg1, outputDataReg2;
+
+  std::vector<ChargePos> peakPositions;
+  std::vector<float> centralCharges;
 
   std::unordered_map<std::string, std::string> OrtOptions;
   OrtModel model_class, model_reg_1, model_reg_2; // For splitting clusters
@@ -169,8 +177,6 @@ class GPUTPCClusterFinder : public GPUProcessor
   void DumpSuppressedPeaks(std::ostream& out);
   void DumpSuppressedPeaksCompacted(std::ostream& out);
   void DumpClusters(std::ostream& out);
-  void DumpToFile();
-  void pushBackMax(const CfFragment&);
 #endif
 };
 

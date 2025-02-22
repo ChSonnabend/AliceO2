@@ -59,14 +59,14 @@ class GPUTPCCFClusterizer : public GPUKernelTemplate
 
   static GPUd() void computeClustersImpl(int32_t, int32_t, int32_t, int32_t, processorType&, const CfFragment&, GPUSharedMemory&, const Array2D<PackedCharge>&, const ChargePos*, const GPUSettingsRec&, MCLabelAccumulator*, uint32_t, uint32_t, uint32_t*, tpc::ClusterNative*, uint32_t*);
 
+  static GPUd() void buildCluster(const GPUSettingsRec&, const Array2D<PackedCharge>&, ChargePos, ChargePos*, PackedCharge*, uint8_t*, ClusterAccumulator*, MCLabelAccumulator*);
+
+  static GPUd() uint32_t sortIntoBuckets(processorType&, const tpc::ClusterNative&, uint32_t, uint32_t, uint32_t*, tpc::ClusterNative*);
+
  private:
   static GPUd() void updateClusterInner(const GPUSettingsRec&, uint16_t, uint16_t, const PackedCharge*, const ChargePos&, ClusterAccumulator*, MCLabelAccumulator*, uint8_t*);
 
   static GPUd() void updateClusterOuter(uint16_t, uint16_t, uint16_t, uint16_t, const PackedCharge*, const ChargePos&, ClusterAccumulator*, MCLabelAccumulator*);
-
-  static GPUd() void buildCluster(const GPUSettingsRec&, const Array2D<PackedCharge>&, ChargePos, ChargePos*, PackedCharge*, uint8_t*, ClusterAccumulator*, MCLabelAccumulator*);
-
-  static GPUd() uint32_t sortIntoBuckets(processorType&, const tpc::ClusterNative&, uint32_t, uint32_t, uint32_t*, tpc::ClusterNative*);
 };
 
 } // namespace o2::gpu

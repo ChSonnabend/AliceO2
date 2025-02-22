@@ -38,6 +38,7 @@ class GPUTPCNNClusterizer : public GPUKernelTemplate
  public:
   static constexpr size_t SCRATCH_PAD_WORK_GROUP_SIZE = GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizer);
   struct GPUSharedMemory {
+    // Regular cluster finder
     ChargePos posBcast[SCRATCH_PAD_WORK_GROUP_SIZE];
     PackedCharge buf[SCRATCH_PAD_WORK_GROUP_SIZE * SCRATCH_PAD_BUILD_N];
     uint8_t innerAboveThreshold[SCRATCH_PAD_WORK_GROUP_SIZE];
@@ -54,43 +55,27 @@ class GPUTPCNNClusterizer : public GPUKernelTemplate
     return GPUDataTypes::RecoStep::TPCClusterFinding;
   }
 
+  // Float16 inmplementation
   template <int32_t iKernel = defaultKernel>
-  GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer, int8_t);
+  GPUd() static void Thread(int32_t, int32_t, int32_t, int32_t, GPUSharedMemory&, processorType&, int8_t = 0, int8_t = 0, int8_t = 0, uint = 0);
 
-  static GPUd() void computeClustersImpl(int32_t, int32_t, int32_t, int32_t, processorType&, const CfFragment&, GPUSharedMemory&, const Array2D<PackedCharge>&, const ChargePos*, const GPUSettingsRec&, MCLabelAccumulator*, uint32_t, uint32_t, uint32_t*, tpc::ClusterNative*, uint32_t*);
+  static GPUd() void fillInputData(int32_t, int32_t, int32_t, int32_t, processorType&, int8_t, uint);
 
-  static int padOffset(int, int, const GPUTPCGeometry&);
-  static int rowOffset(int, int);
-  static bool isBoundary(int, int, int, const GPUTPCGeometry&);
+  static GPUd() void publishClustersReg1(uint, GPUSharedMemory&, processorType&, int8_t, int8_t, int8_t, uint);
+  static GPUd() void publishClustersReg2(uint, GPUSharedMemory&, processorType&, int8_t, int8_t, int8_t, uint);
 
-  template<class T>
-  static void printInput(int, std::vector<T>, processorType&);
+  static void applyNetworkClass(processorType&, int8_t = 0, uint = 0);
 
-  template <class T>
-  static GPUd() void nn_clusterizer(int32_t, int32_t, int32_t, int32_t,
-                                    processorType&,
-                                    const CfFragment&,
-                                    GPUSharedMemory&,
-                                    const Array2D<PackedCharge>&,
-                                    const ChargePos*,
-                                    const GPUSettingsRec&,
-                                    MCLabelAccumulator*,
-                                    uint32_t,
-                                    uint32_t,
-                                    uint32_t*,
-                                    tpc::ClusterNative*,
-                                    uint32_t*);
+  static void applyNetworkReg1(processorType&, int8_t = 0);
 
- private:
-  // ---------------------------------
+  static void applyNetworkReg2(processorType&, int8_t = 0);
 
-  static GPUd() void updateClusterInner(const GPUSettingsRec&, uint16_t, uint16_t, const PackedCharge*, const ChargePos&, ClusterAccumulator*, MCLabelAccumulator*, uint8_t*);
+  
+  private:
 
-  static GPUd() void updateClusterOuter(uint16_t, uint16_t, uint16_t, uint16_t, const PackedCharge*, const ChargePos&, ClusterAccumulator*, MCLabelAccumulator*);
-
-  static GPUd() void buildCluster(const GPUSettingsRec&, const Array2D<PackedCharge>&, ChargePos, ChargePos*, PackedCharge*, uint8_t*, ClusterAccumulator*, MCLabelAccumulator*);
-
-  static GPUd() uint sortIntoBuckets(processorType&, const tpc::ClusterNative&, uint32_t, uint32_t, uint32_t*, tpc::ClusterNative*);
+    static int padOffset(int, int, const GPUTPCGeometry&);
+    static int rowOffset(int, int);
+    static bool isBoundary(int, int, int, const GPUTPCGeometry&);
 };
 
 } // namespace GPUCA_NAMESPACE::gpu

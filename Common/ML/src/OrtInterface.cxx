@@ -113,10 +113,33 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
     } else {
       (pImplOrt->sessionOptions).DisableProfiling();
     }
+
+    mInitialized = true;
+
     (pImplOrt->sessionOptions).SetGraphOptimizationLevel(GraphOptimizationLevel(enableOptimizations));
     (pImplOrt->sessionOptions).SetLogSeverityLevel(OrtLoggingLevel(loggingLevel));
 
-    pImplOrt->env = std::make_shared<Ort::Env>(OrtLoggingLevel(loggingLevel), (optionsMap["onnx-environment-name"].empty() ? "onnx_model_inference" : optionsMap["onnx-environment-name"].c_str()));
+    pImplOrt->env = std::make_shared<Ort::Env>(
+      OrtLoggingLevel(loggingLevel),
+      (optionsMap["onnx-environment-name"].empty() ? "onnx_model_inference" : optionsMap["onnx-environment-name"].c_str()),
+      // Integrate ORT logging into Fairlogger
+      [](void* param, OrtLoggingLevel severity, const char* category, const char* logid, const char* code_location, const char* message) {
+        if (severity == ORT_LOGGING_LEVEL_VERBOSE) {
+          LOG(debug) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+        } else if (severity == ORT_LOGGING_LEVEL_INFO) {
+          LOG(info) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+        } else if (severity == ORT_LOGGING_LEVEL_WARNING) {
+          LOG(warning) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+        } else if (severity == ORT_LOGGING_LEVEL_ERROR) {
+          LOG(error) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+        } else if (severity == ORT_LOGGING_LEVEL_FATAL) {
+          LOG(fatal) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+        } else {
+          LOG(info) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+        }
+      },
+      (void*)3);
+    (pImplOrt->env)->DisableTelemetryEvents(); // Disable telemetry events
     pImplOrt->session = std::make_shared<Ort::Session>(*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions);
 
     for (size_t i = 0; i < (pImplOrt->session)->GetInputCount(); ++i) {
@@ -139,65 +162,7 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
     std::transform(std::begin(mOutputNames), std::end(mOutputNames), std::begin(outputNamesChar),
                   [&](const std::string& str) { return str.c_str(); });
 
-    // Print names
-    if (loggingLevel < 2) {
-      LOG(info) << "Input Nodes:";
-      for (size_t i = 0; i < mInputNames.size(); i++) {
-        LOG(info) << "\t" << mInputNames[i] << " : " << printShape(mInputShapes[i]);
-      }
-
-      LOG(info) << "Output Nodes:";
-      for (size_t i = 0; i < mOutputNames.size(); i++) {
-        LOG(info) << "\t" << mOutputNames[i] << " : " << printShape(mOutputShapes[i]);
-      }
-    }
-    mInitialized = true;
   }
-  (pImplOrt->sessionOptions).SetGraphOptimizationLevel(GraphOptimizationLevel(enableOptimizations));
-  (pImplOrt->sessionOptions).SetLogSeverityLevel(OrtLoggingLevel(loggingLevel));
-
-  pImplOrt->env = std::make_shared<Ort::Env>(
-    OrtLoggingLevel(loggingLevel),
-    (optionsMap["onnx-environment-name"].empty() ? "onnx_model_inference" : optionsMap["onnx-environment-name"].c_str()),
-    // Integrate ORT logging into Fairlogger
-    [](void* param, OrtLoggingLevel severity, const char* category, const char* logid, const char* code_location, const char* message) {
-      if (severity == ORT_LOGGING_LEVEL_VERBOSE) {
-        LOG(debug) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
-      } else if (severity == ORT_LOGGING_LEVEL_INFO) {
-        LOG(info) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
-      } else if (severity == ORT_LOGGING_LEVEL_WARNING) {
-        LOG(warning) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
-      } else if (severity == ORT_LOGGING_LEVEL_ERROR) {
-        LOG(error) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
-      } else if (severity == ORT_LOGGING_LEVEL_FATAL) {
-        LOG(fatal) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
-      } else {
-        LOG(info) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
-      }
-    },
-    (void*)3);
-  (pImplOrt->env)->DisableTelemetryEvents(); // Disable telemetry events
-  pImplOrt->session = std::make_shared<Ort::Session>(*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions);
-
-  for (size_t i = 0; i < (pImplOrt->session)->GetInputCount(); ++i) {
-    mInputNames.push_back((pImplOrt->session)->GetInputNameAllocated(i, pImplOrt->allocator).get());
-  }
-  for (size_t i = 0; i < (pImplOrt->session)->GetInputCount(); ++i) {
-    mInputShapes.emplace_back((pImplOrt->session)->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
-  }
-  for (size_t i = 0; i < (pImplOrt->session)->GetOutputCount(); ++i) {
-    mOutputNames.push_back((pImplOrt->session)->GetOutputNameAllocated(i, pImplOrt->allocator).get());
-  }
-  for (size_t i = 0; i < (pImplOrt->session)->GetOutputCount(); ++i) {
-    mOutputShapes.emplace_back((pImplOrt->session)->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
-  }
-
-  inputNamesChar.resize(mInputNames.size(), nullptr);
-  std::transform(std::begin(mInputNames), std::end(mInputNames), std::begin(inputNamesChar),
-                 [&](const std::string& str) { return str.c_str(); });
-  outputNamesChar.resize(mOutputNames.size(), nullptr);
-  std::transform(std::begin(mOutputNames), std::end(mOutputNames), std::begin(outputNamesChar),
-                 [&](const std::string& str) { return str.c_str(); });
 }
 
 void OrtModel::resetSession()

@@ -159,37 +159,37 @@ set(HDRS_INSTALL
 
 set(SRCS_NO_CINT ${SRCS_NO_CINT} display/GPUDisplayInterface.cxx)
 set(SRCS_NO_CINT
-    ${SRCS_NO_CINT}
-    Global/GPUChainITS.cxx
-    ITS/GPUITSFitter.cxx
-    ITS/GPUITSFitterKernels.cxx
-    dEdx/GPUdEdx.cxx
-    TPCConvert/GPUTPCConvert.cxx
-    TPCConvert/GPUTPCConvertKernel.cxx
-    DataCompression/GPUTPCCompression.cxx
-    DataCompression/GPUTPCCompressionTrackModel.cxx
-    DataCompression/GPUTPCCompressionKernels.cxx
-    DataCompression/GPUTPCDecompression.cxx
-    DataCompression/GPUTPCDecompressionKernels.cxx
-    DataCompression/TPCClusterDecompressor.cxx
-    DataCompression/GPUTPCClusterStatistics.cxx
-    TPCClusterFinder/GPUTPCClusterFinder.cxx
-    TPCClusterFinder/ClusterAccumulator.cxx
-    TPCClusterFinder/MCLabelAccumulator.cxx
-    TPCClusterFinder/GPUTPCCFCheckPadBaseline.cxx
-    TPCClusterFinder/GPUTPCCFStreamCompaction.cxx
-    TPCClusterFinder/GPUTPCCFChargeMapFiller.cxx
-    TPCClusterFinder/GPUTPCCFPeakFinder.cxx
-    TPCClusterFinder/GPUTPCCFNoiseSuppression.cxx
-    TPCClusterFinder/GPUTPCCFClusterizer.cxx
-    TPCClusterFinder/GPUTPCNNClusterizer.cxx
-    TPCClusterFinder/GPUTPCCFDeconvolution.cxx
-    TPCClusterFinder/GPUTPCCFMCLabelFlattener.cxx
-    TPCClusterFinder/GPUTPCCFDecodeZS.cxx
-    TPCClusterFinder/GPUTPCCFGather.cxx
-    Refit/GPUTrackingRefit.cxx
-    Refit/GPUTrackingRefitKernel.cxx
-    Merger/GPUTPCGMO2Output.cxx)
+  ${SRCS_NO_CINT}
+  Global/GPUChainITS.cxx
+  ITS/GPUITSFitter.cxx
+  ITS/GPUITSFitterKernels.cxx
+  dEdx/GPUdEdx.cxx
+  TPCConvert/GPUTPCConvert.cxx
+  TPCConvert/GPUTPCConvertKernel.cxx
+  DataCompression/GPUTPCCompression.cxx
+  DataCompression/GPUTPCCompressionTrackModel.cxx
+  DataCompression/GPUTPCCompressionKernels.cxx
+  DataCompression/GPUTPCDecompression.cxx
+  DataCompression/GPUTPCDecompressionKernels.cxx
+  DataCompression/TPCClusterDecompressor.cxx
+  DataCompression/GPUTPCClusterStatistics.cxx
+  TPCClusterFinder/GPUTPCClusterFinder.cxx
+  TPCClusterFinder/ClusterAccumulator.cxx
+  TPCClusterFinder/MCLabelAccumulator.cxx
+  TPCClusterFinder/GPUTPCCFCheckPadBaseline.cxx
+  TPCClusterFinder/GPUTPCCFStreamCompaction.cxx
+  TPCClusterFinder/GPUTPCCFChargeMapFiller.cxx
+  TPCClusterFinder/GPUTPCCFPeakFinder.cxx
+  TPCClusterFinder/GPUTPCCFNoiseSuppression.cxx
+  TPCClusterFinder/GPUTPCCFClusterizer.cxx
+  TPCClusterFinder/GPUTPCNNClusterizer.cxx
+  TPCClusterFinder/GPUTPCCFDeconvolution.cxx
+  TPCClusterFinder/GPUTPCCFMCLabelFlattener.cxx
+  TPCClusterFinder/GPUTPCCFDecodeZS.cxx
+  TPCClusterFinder/GPUTPCCFGather.cxx
+  Refit/GPUTrackingRefit.cxx
+  Refit/GPUTrackingRefitKernel.cxx
+  Merger/GPUTPCGMO2Output.cxx)
 
 set(SRCS_DATATYPES
     ${SRCS_DATATYPES}
