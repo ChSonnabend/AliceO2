@@ -315,6 +315,7 @@ AddOption(nnClusterizerSizeInputTime, int, 3, "", 0, "Size of the input to the N
 AddOption(nnClusterizerUseCFregression, int, 0, "", 0, "(bool, default = false) If true, use the regression from the native clusterizer and not the NN")
 AddOption(nnClusterizerBatchedMode, unsigned int, 1, "", 0, "(int, default = 1) If >1, the NN is evaluated on batched input of size specified in this variable")
 AddOption(nnClusterizerVerbosity, int, -1, "", 0, "(int, default = -1) If >0, logging messages of the clusterizer will be displayed")
+AddOption(nnClusterizerDumpTrainingData, int, 0, "", 0, "(int, default =0) If >0, input data of the neural network will be dumped in GPUChainTrackingClusterizer as per-file data")
 AddOption(nnClusterizerBoundaryFillValue, int, -1, "", 0, "Fill value for the boundary of the input to the NN")
 AddOption(nnClassificationPath, std::string, "network_class.onnx", "", 0, "The classification network path")
 AddOption(nnClassThreshold, float, 0.5, "", 0, "The cutoff at which clusters will be accepted / rejected.")

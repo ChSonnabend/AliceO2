@@ -182,7 +182,7 @@ GPUd() void GPUTPCNNClusterizer::fillInputData(int32_t nBlocks, int32_t nThreads
       is_boundary = is_boundary || GPUTPCNNClusterizer::isBoundary(row + r + row_offset, pad + p, clusterer.nnClusterizerSizeInputRow, clusterer.Param().tpcGeometry);
       for (int t = -clusterer.nnClusterizerSizeInputTime; t <= clusterer.nnClusterizerSizeInputTime; t++) {
         if (!is_boundary) {
-          ChargePos tmp_pos(row + r, pad + p, time + t);
+          ChargePos tmp_pos(row + r, pad + p, time - t);
           if(dtype == 0){
             clusterer.inputData16[write_idx] = (OrtDataType::Float16_t)((float)chargeMap[tmp_pos].unpack() / central_charge);
           } else {
@@ -204,6 +204,105 @@ GPUd() void GPUTPCNNClusterizer::fillInputData(int32_t nBlocks, int32_t nThreads
       clusterer.inputData32[write_idx + 2] = (float)pad / clusterer.Param().tpcGeometry.NPads(row);
     }
   }
+}
+
+void GPUTPCNNClusterizer::dumpInputData(processorType& clusterer, int dtype) {
+  auto fileName = "tpc_reco_training_data_" + std::to_string(clusterer.mISlice) + ".dat";
+  std::ifstream checkFile(fileName, std::ios::binary);
+  std::ios_base::openmode mode = std::ios::binary;
+  uint32_t batchSize = clusterer.nnClusterizerBatchedMode;
+  uint32_t elementSize = clusterer.nnClusterizerElementSize;
+  
+  if (checkFile.good()) {
+    // File exists, open in append mode
+    mode |= std::ios::app;
+    checkFile.close();
+  } else {
+    // New file, write header
+    std::ofstream newFile(fileName, std::ios::binary);
+    if (!newFile) {
+      LOG(error) << "Could not create output file " << fileName;
+      return;
+    }
+    newFile.write(reinterpret_cast<char*>(&batchSize), sizeof(batchSize));
+    newFile.write(reinterpret_cast<char*>(&elementSize), sizeof(elementSize));
+    newFile.close();
+  }
+
+  std::ofstream outFile(fileName, mode);
+  if (!outFile) {
+    LOG(error) << "Could not open output file " << fileName;
+    return;
+  }
+
+  // Write data for each entry
+  for (size_t entry = 0; entry < batchSize; entry++) {
+    // Write input data
+    int index = entry * elementSize;
+    std::vector<float> data(elementSize);
+    for (size_t i = 0; i < elementSize; i++) {
+      if (dtype == 0) {
+        data[i] = (float)clusterer.inputData16[index + i];
+      } else {
+        data[i] = clusterer.inputData32[index + i];
+      }
+    }
+    outFile.write(reinterpret_cast<char*>(data.data()), elementSize * sizeof(float));
+
+    // Write peak information
+    float peakData[3] = {
+      (float)clusterer.peakPositions[entry].pad(),
+      (float)((clusterer.mPmemory->fragment).start + clusterer.peakPositions[entry].time()),
+      (float)clusterer.centralCharges[entry]
+    };
+    outFile.write(reinterpret_cast<char*>(peakData), 3 * sizeof(float));
+  }
+  outFile.close();
+}
+
+// Companion function to read the data back
+struct TPCTrainingData {
+  std::vector<std::vector<float>> inputData;  // For each entry: input features
+  std::vector<float> peakPads;
+  std::vector<float> peakTimes;
+  std::vector<float> peakCharges;
+};
+
+TPCTrainingData readTrainingData(const std::string& fileName) {
+  std::ifstream inFile(fileName, std::ios::binary);
+  TPCTrainingData result;
+  
+  if (!inFile) {
+    throw std::runtime_error("Could not open input file " + fileName);
+  }
+
+  // Read header
+  uint32_t batchSize, elementSize;
+  inFile.read(reinterpret_cast<char*>(&batchSize), sizeof(batchSize));
+  inFile.read(reinterpret_cast<char*>(&elementSize), sizeof(elementSize));
+
+  // Prepare vectors
+  result.inputData.resize(batchSize);
+  result.peakPads.resize(batchSize);
+  result.peakTimes.resize(batchSize);
+  result.peakCharges.resize(batchSize);
+
+  // Read data for each entry
+  std::vector<float> data(elementSize);
+  float peakData[3];
+  
+  for (size_t entry = 0; entry < batchSize; entry++) {
+    result.inputData[entry].resize(elementSize);
+    inFile.read(reinterpret_cast<char*>(data.data()), elementSize * sizeof(float));
+    inFile.read(reinterpret_cast<char*>(peakData), 3 * sizeof(float));
+    
+    result.inputData[entry] = data;
+    result.peakPads[entry] = peakData[0];
+    result.peakTimes[entry] = peakData[1];
+    result.peakCharges[entry] = peakData[2];
+  }
+
+  return result;
 }
 
 // ---------------------------------
