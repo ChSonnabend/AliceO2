@@ -128,7 +128,7 @@ bool GPUTPCNNClusterizer::isBoundary(int row, int pad, int global_shift, const G
 }
 
 template<class T>
-void GPUTPCNNClusterizer::printInput(int idx, std::vector<T> input_data, processorType& clusterer){
+void GPUTPCNNClusterizer::printInput(int idx, std::vector<T> input_data, processorType& clusterer) {
   int tmp_idx = 0;
   LOG(info) << idx << " - " << idx + clusterer.nnClusterizerElementSize << " / " << input_data.size();
   for (int r = -clusterer.nnClusterizerSizeInputRow; r <= clusterer.nnClusterizerSizeInputRow; r++) {

@@ -134,7 +134,7 @@ void GPUTPCClusterFinder::DumpPeaksCompacted(std::ostream& out)
   }
 }
 
-void GPUTPCClusterFinder::pushBackMax(const CfFragment& f){
+void GPUTPCClusterFinder::pushBackMax(const CfFragment& f) {
   for (unsigned int i = 0; i < mPmemory->counters.nPeaks; i++) {
     std::vector<int> max{(int)mISlice, (int)mPpeakPositions[i].row(), (int)mPpeakPositions[i].pad(), (int)f.toGlobal(mPpeakPositions[i].time())};
     maxima.push_back(max);

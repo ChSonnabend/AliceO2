@@ -177,6 +177,8 @@ class GPUTPCClusterFinder : public GPUProcessor
   void DumpSuppressedPeaks(std::ostream& out);
   void DumpSuppressedPeaksCompacted(std::ostream& out);
   void DumpClusters(std::ostream& out);
+  void pushBackMax(const CfFragment& f);
+  void DumpToFile();
 #endif
 };
 
