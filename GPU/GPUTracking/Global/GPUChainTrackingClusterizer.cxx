@@ -894,6 +894,8 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           clusterer.nnClusterizerElementSize = ((2 * clusterer.nnClusterizerSizeInputRow + 1) * (2 * clusterer.nnClusterizerSizeInputPad + 1) * (2 * clusterer.nnClusterizerSizeInputTime + 1)) + (clusterer.nnClusterizerAddIndexData ? 3 : 0);
           clusterer.nnClusterizerBatchedMode = GetProcessingSettings().nnClusterizerBatchedMode;
           clusterer.nnClusterizerBoundaryFillValue = GetProcessingSettings().nnClusterizerBoundaryFillValue;
+          clusterer.nnClusterizerApplyCfDeconvolution = GetProcessingSettings().nnClusterizerApplyCfDeconvolution;
+          clusterer.nnClusterizerDumpTrainingData = GetProcessingSettings().nnClusterizerDumpTrainingData;
           if (GetProcessingSettings().nnClusterizerVerbosity < 0){
             clusterer.nnClusterizerVerbosity = GetProcessingSettings().nnInferenceVerbosity;
           } else {
@@ -929,7 +931,9 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
               clusterer.OrtOptions["model-path"] = reg_model_paths[1];
               clusterer.model_reg_2.init(clusterer.OrtOptions);
             }
-          } else {
+          }
+
+          if (clusterer.nnClusterizerUseCFregression || clusterer.nnClusterizerApplyCfDeconvolution) {
             runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSlice}});
             DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 4, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
           }
@@ -942,6 +946,10 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           float time_clusterizer = 0, time_fill = 0;
           int evalDtype = clusterer.OrtOptions["dtype"].find("32") != std::string::npos;
           clusterer.outputDataClass.resize(clusterer.mPmemory->counters.nClusters, -1);
+
+          if (clusterer.nnClusterizerDumpTrainingData) {
+            GPUTPCNNClusterizer::digitWriter(clusterer);
+          }
 
           for(int batch = 0; batch < std::ceil((float)clusterer.mPmemory->counters.nClusters / clusterer.nnClusterizerBatchedMode); batch++) {
             uint batchStart = batch * clusterer.nnClusterizerBatchedMode;
@@ -964,10 +972,6 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             auto start0 = std::chrono::high_resolution_clock::now();
             runKernel<GPUTPCNNClusterizer>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, evalDtype, 0, 0, batchStart); // Filling the data
             auto stop0 = std::chrono::high_resolution_clock::now();
-
-            if (clusterer.nnClusterizerDumpTrainingData) {
-              GPUTPCNNClusterizer::dumpInputData(clusterer, evalDtype);
-            }
 
             auto start1 = std::chrono::high_resolution_clock::now();
             GPUTPCNNClusterizer::applyNetworkClass(clusterer, evalDtype);
@@ -999,6 +1003,8 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             LOG(info) << "[NN CF] Apply NN (fragment " << fragment.index << ", lane: " << lane << ", slice: " << iSlice << "): filling data " << time_fill << "s ; clusterizer: " << time_clusterizer << "s ; " << clusterer.mPmemory->counters.nClusters << " clusters --> " << clusterer.mPmemory->counters.nClusters / (time_fill + time_clusterizer) << " clusters/s";
           }
         } else {
+          runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSlice}});
+          DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 4, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
           runKernel<GPUTPCCFClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 0);
         }
 
@@ -1097,6 +1103,13 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
       ReleaseEvent(mEvents->stream[i], doGPU);
     }
   }
+
+  // if (GetProcessingSettings().nnClusterizerDumpTrainingData) {
+  //   for (int i = 0; i < 36; i++){
+  //     // combining reco digits
+  //     GPUTPCNNClusterizer::combineDigitFiles(i);
+  //   }
+  // }
 
   if (GetProcessingSettings().param.tpcTriggerHandling) {
     GPUOutputControl* triggerOutput = mSubOutputControls[GPUTrackingOutputs::getIndex(&GPUTrackingOutputs::tpcTriggerWords)];

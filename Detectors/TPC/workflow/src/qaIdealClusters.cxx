@@ -27,6 +27,7 @@ void qaCluster::init(InitContext& ic)
   global_shift[2] = (int)((ic.options().get<int>("size-row") - 1.f) / 2.f);
   numThreads = ic.options().get<int>("threads");
   inFileDigits = ic.options().get<std::string>("infile-digits");
+  inPathRecoDigits = ic.options().get<std::string>("read-reco-digits");
   inFileNative = ic.options().get<std::string>("infile-native");
   inFileKinematics = ic.options().get<std::string>("infile-kinematics");
   inFileTracks = ic.options().get<std::string>("infile-tracks");
@@ -49,6 +50,7 @@ void qaCluster::init(InitContext& ic)
   training_data_distance_cluster_path = ic.options().get<float>("training-data-distance-cluster-path");
   training_data_distance_cluster_path = std::pow(training_data_distance_cluster_path, 2); // Just to avoid multiple computations and sqrt's later
   overlap_study = (!realData && (mode.find(std::string("overlap")) != std::string::npos || mode.find(std::string("training_data")) != std::string::npos || mode.find(std::string("network")) != std::string::npos || mode.find(std::string("native")) != std::string::npos));
+  read_reco_digits_bool = inPathRecoDigits.find(std::string(";;")) == std::string::npos;
 
   if (ic.options().get<int>("max-time") > 0) {
     custom::fill_nested_container(max_time, ic.options().get<int>("max-time"));
@@ -209,6 +211,49 @@ void qaCluster::read_digits(int sector, std::vector<customCluster>& digit_map, b
 
   digitFile->Close();
   
+}
+
+// ---------------------------------
+void qaCluster::read_reco_digits(int sector, std::vector<customCluster>& digit_map, bool overwrite_time) {
+
+  if (verbose >= 1) 
+    LOG(info) << "[" << sector << "] Reading the reco digits...";
+
+  std::string inputFileDigits = inPathRecoDigits + "/tpcdigits_reco_" + std::to_string(sector) + ".root";
+  TFile* digitFile = TFile::Open(inputFileDigits.c_str()); // inFileDigits will be misused as a path here
+  TTree* digitTree = (TTree*)digitFile->Get("tr_data");
+
+  int sec, row, pad, time, has3x3Peak, isSplit;
+  float charge;
+
+  digitTree->SetBranchAddress("sector", &sec);
+  digitTree->SetBranchAddress("row", &row);
+  digitTree->SetBranchAddress("pad", &pad);
+  digitTree->SetBranchAddress("time", &time);
+  digitTree->SetBranchAddress("charge", &charge);
+  digitTree->SetBranchAddress("has3x3Peak", &has3x3Peak);
+  digitTree->SetBranchAddress("isSplit", &isSplit);
+
+  int numEntries = digitTree->GetEntries();
+  int counter = 0;
+  digit_map.clear();
+
+  for (int i = 0; i < numEntries; i++) {
+    digitTree->GetEntry(i);
+    if (overwrite_time) {
+      digit_map.push_back(customCluster{sec, row, pad, time, (float)pad, (float)time, 0.f, 0.f, charge, charge, has3x3Peak + 2*isSplit, -1, -1, -1, i, 0.f, -1.f, -1.f, -1.f});
+      if (time > max_time[sector]){
+        max_time[sector] = time + 1;
+      }
+    } else {
+      if (time < max_time[sector]) {
+        digit_map.push_back(customCluster{sec, row, pad, time, (float)pad, (float)time, 0.f, 0.f, charge, charge, has3x3Peak + 2*isSplit, -1, -1, -1, counter, 0.f, -1.f, -1.f, -1.f});
+        counter++;
+      }
+    }
+  }
+
+  digitFile->Close();
 }
 
 // ---------------------------------
@@ -1898,7 +1943,11 @@ void qaCluster::runQa(int sector)
   if (mode.find(std::string("native")) != std::string::npos) {
     read_native(sector, digit_map, native_map);
   } else {
-    read_digits(sector, digit_map, overwrite_max_time);
+    if (read_reco_digits_bool) {
+      read_reco_digits(sector, digit_map, overwrite_max_time);
+    } else {
+      read_digits(sector, digit_map, overwrite_max_time);
+    }
   }
 
   if(overlap_study){
@@ -3269,6 +3318,7 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
       {"looper-tagger-threshold-num", VariantType::ArrayInt, std::vector<int>{5}, {"Threshold of number of clusters over which rejection takes place."}},
       {"looper-tagger-threshold-q", VariantType::ArrayFloat, std::vector<float>{70.f}, {"Threshold of charge-per-cluster that should be rejected."}},
       {"infile-digits", VariantType::String, "tpcdigits.root", {"Input file name (digits)"}},
+      {"read-reco-digits", VariantType::String, ";;", {"Specify the path to the folder containing the digits used at reconstruction level. If this path is set, infile-digits will not be used!"}},
       {"infile-native", VariantType::String, "tpc-native-clusters.root", {"Input file name (native)"}},
       {"infile-kinematics", VariantType::String, "collisioncontext.root", {"Input file name (kinematics)"}},
       {"infile-tracks", VariantType::String, "tpctracks.root", {"Input file name (tracks)"}},

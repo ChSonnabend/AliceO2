@@ -12,6 +12,13 @@
 /// \file GPUTPCNNClusterizer.cxx
 /// \author Christian Sonnabend
 
+#include "Rtypes.h"
+#include "TTree.h"
+#include "TFile.h"
+#include "TString.h"
+#include "TSystem.h"
+#include "TROOT.h"
+
 #include "GPUTPCNNClusterizer.h"
 #include "GPUTPCCFClusterizer.h"
 
@@ -213,104 +220,221 @@ GPUd() void GPUTPCNNClusterizer::fillInputData(int32_t nBlocks, int32_t nThreads
   }
 }
 
-void GPUTPCNNClusterizer::dumpInputData(processorType& clusterer, int dtype) {
-  auto fileName = "tpc_reco_training_data_" + std::to_string(clusterer.mISlice) + ".dat";
-  std::ifstream checkFile(fileName, std::ios::binary);
-  std::ios_base::openmode mode = std::ios::binary;
-  uint32_t batchSize = clusterer.nnClusterizerBatchedMode;
-  uint32_t elementSize = clusterer.nnClusterizerElementSize;
+// ---------------------------------
+void GPUTPCNNClusterizer::writeTrainingData(processorType& clusterer, int dtype)
+{
+  std::string outputFile = "custom_nn_training_data_reco_" + std::to_string(clusterer.mISlice) + ".root"; // Fixed string concatenation
+  TTree* tree = nullptr;
+  TFile* file = nullptr;
+  std::vector<std::string> branchNames;
   
-  if (checkFile.good()) {
-    // File exists, open in append mode
-    mode |= std::ios::app;
-    checkFile.close();
-  } else {
-    // New file, write header
-    std::ofstream newFile(fileName, std::ios::binary);
-    if (!newFile) {
-      LOG(error) << "Could not create output file " << fileName;
+  LOG(info) << "Writing training data to file " << outputFile;
+
+  // Open file in UPDATE mode to check if it exists
+  file = new TFile(outputFile.c_str(), "UPDATE");
+  bool fileExists = file && !file->IsZombie();
+
+  // Create branches if they don't exist
+  std::vector<TBranch*> branches;
+  std::vector<float> atomic_unit;
+
+  if (fileExists) {
+    tree = (TTree*)file->Get("tr_data");
+    if (!tree) {
+      LOG(error) << "Could not find tree in file " << outputFile;
+      file->Close();
       return;
     }
-    newFile.write(reinterpret_cast<char*>(&batchSize), sizeof(batchSize));
-    newFile.write(reinterpret_cast<char*>(&elementSize), sizeof(elementSize));
-    newFile.close();
+    
+    // Get existing branches and resize atomic_unit
+    TObjArray* branch_list = tree->GetListOfBranches();
+    atomic_unit.resize(branch_list->GetEntries());
+    
+    // Connect branches to atomic_unit elements
+    for (int i = 0; i < branch_list->GetEntries(); i++) {
+      TBranch* branch = (TBranch*)branch_list->At(i);
+      tree->SetBranchAddress(branch->GetName(), &atomic_unit[i]);
+      branches.push_back(branch);
+    }
+  } else {
+    file = new TFile(outputFile.c_str(), "RECREATE");
+    if (!file || file->IsZombie()) {
+      LOG(error) << "Could not create new file " << outputFile;
+      return;
+    }
+    tree = new TTree("tr_data", "Neural Network Input Data");
+    
+    if (branchNames.empty()) {
+      // Generate default branch names if none provided
+      int branch_idx = 0;
+      for (int r = -clusterer.nnClusterizerSizeInputRow; r <= clusterer.nnClusterizerSizeInputRow; r++) {
+        for (int p = -clusterer.nnClusterizerSizeInputPad; p <= clusterer.nnClusterizerSizeInputPad; p++) {
+          for (int t = -clusterer.nnClusterizerSizeInputTime; t <= clusterer.nnClusterizerSizeInputTime; t++) {
+            branchNames.push_back("in_row_" + std::to_string(r) + "_pad_" + std::to_string(p) + "_time_" + std::to_string(t));
+            branch_idx++;
+          }
+        }
+      }
+    }
+    branchNames.push_back("in_sector");
+    branchNames.push_back("in_row");
+    branchNames.push_back("in_pad");
+    branchNames.push_back("idx_sector");
+    branchNames.push_back("idx_row");
+    branchNames.push_back("idx_pad");
+    branchNames.push_back("idx_time");
+    
+    atomic_unit.resize(branchNames.size());
+    for (size_t i = 0; i < branchNames.size(); i++) {
+      branches.push_back(tree->Branch(branchNames[i].c_str(), &atomic_unit[i], (branchNames[i] + "/F").c_str()));
+    }
   }
 
-  std::ofstream outFile(fileName, mode);
-  if (!outFile) {
-    LOG(error) << "Could not open output file " << fileName;
+  // Fill tree
+  uint size_element = branches.size();
+  for (size_t entry = 0; entry < clusterer.mPmemory->counters.nClusters; entry++) {
+    uint startIndex = entry * clusterer.nnClusterizerElementSize;
+    
+    for (size_t i = 0; i < clusterer.nnClusterizerElementSize; i++) {
+      atomic_unit[i] = (dtype == 0) ? 
+                      static_cast<float>(clusterer.inputData16[startIndex + i]) :
+                      clusterer.inputData32[startIndex + i];
+    }
+
+    // Additional indices
+    if (clusterer.nnClusterizerAddIndexData) {
+      atomic_unit[atomic_unit.size() - 4] = clusterer.mISlice;
+      atomic_unit[atomic_unit.size() - 3] = clusterer.peakPositions[entry].row();
+      atomic_unit[atomic_unit.size() - 2] = clusterer.peakPositions[entry].pad();
+      atomic_unit[atomic_unit.size() - 1] = clusterer.peakPositions[entry].time();
+    }
+    
+    tree->Fill();
+  }
+
+  // Write and cleanup
+  tree->Write("", TObject::kOverwrite);
+  file->Close();
+  delete file;
+}
+
+// ---------------------------------
+void GPUTPCNNClusterizer::digitWriter(processorType& clusterer)
+{
+
+  ROOT::EnableThreadSafety();
+
+  LOG(info) << "Streaming digits for NN clusterizer training, sector " 
+            << clusterer.mISlice << ", fragment " 
+            << clusterer.mPmemory->fragment.index;
+
+  if (gSystem->AccessPathName("digits_stream")) {
+    gSystem->mkdir("digits_stream");
+  }
+
+  std::string outputFile = "digits_stream/tpcdigits_reco_" + std::to_string(clusterer.mISlice) + ".root";
+  TFile* file = TFile::Open(outputFile.c_str(), "UPDATE");
+
+  if (!file || file->IsZombie()) {
+    LOG(error) << "Error opening file: " << outputFile;
     return;
   }
 
-  // Write data for each entry
-  for (size_t entry = 0; entry < batchSize; entry++) {
-    // Write input data
-    int index = entry * elementSize;
-    std::vector<float> data(elementSize);
-    for (size_t i = 0; i < elementSize; i++) {
-      if (dtype == 0) {
-        data[i] = (float)clusterer.inputData16[index + i];
-      } else {
-        data[i] = clusterer.inputData32[index + i];
+  TTree* tree = (TTree*)file->Get("tr_data");
+  std::vector<float> atomic_unit;
+  std::vector<std::string> branchNames = {"sector", "row", "pad", "time", "charge", "has3x3Peak", "isSplit"};
+
+  if (tree) {
+    TObjArray* branch_list = tree->GetListOfBranches();
+    int numBranches = branch_list->GetEntries();
+
+    if (numBranches != branchNames.size()) {
+      LOG(error) << "Mismatch in branch count: expected " << branchNames.size() << ", found " << numBranches;
+      file->Close();
+      delete file;
+      return;
+    }
+
+    atomic_unit.resize(numBranches);
+    for (int i = 0; i < numBranches; i++) {
+      TBranch* branch = (TBranch*)branch_list->At(i);
+      if (branch) {
+        tree->SetBranchAddress(branch->GetName(), &atomic_unit[i]);
       }
     }
-    outFile.write(reinterpret_cast<char*>(data.data()), elementSize * sizeof(float));
+  } else {
+    tree = new TTree("tr_data", "Neural Network Input Data");
+    atomic_unit.resize(branchNames.size());
 
-    // Write peak information
-    float peakData[3] = {
-      (float)clusterer.peakPositions[entry].pad(),
-      (float)((clusterer.mPmemory->fragment).start + clusterer.peakPositions[entry].time()),
-      (float)clusterer.centralCharges[entry]
-    };
-    outFile.write(reinterpret_cast<char*>(peakData), 3 * sizeof(float));
+    for (size_t i = 0; i < branchNames.size(); i++) {
+      tree->Branch(branchNames[i].c_str(), &atomic_unit[i], (branchNames[i] + "/F").c_str());
+    }
   }
-  outFile.close();
+
+  Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
+
+  for (size_t entry = 0; entry < clusterer.mPmemory->counters.nPositions; entry++) {
+    ChargePos pos = clusterer.mPpositions[entry];
+    PackedCharge charge = chargeMap[pos];
+
+    if (charge.unpack() > 0) {
+      atomic_unit = {
+        static_cast<float>(clusterer.mISlice),
+        static_cast<float>(pos.row()),
+        static_cast<float>(pos.pad()),
+        static_cast<float>(pos.time() + clusterer.mPmemory->fragment.start),
+        static_cast<float>(charge.unpack()),  
+        static_cast<float>(charge.has3x3Peak()),
+        static_cast<float>(charge.isSplit())
+      };
+
+      tree->Fill();
+    }
+  }
+
+  tree->Write("", TObject::kOverwrite);
+  file->Write();
+  file->Close();
+  delete file;
+
 }
 
-// Companion function to read the data back
-struct TPCTrainingData {
-  std::vector<std::vector<float>> inputData;  // For each entry: input features
-  std::vector<float> peakPads;
-  std::vector<float> peakTimes;
-  std::vector<float> peakCharges;
-};
+// ---------------------------------
+void GPUTPCNNClusterizer::combineDigitFiles(int sector)
+{
+  LOG(info) << "Combining digit files for sector " << sector;
 
-TPCTrainingData readTrainingData(const std::string& fileName) {
-  std::ifstream inFile(fileName, std::ios::binary);
-  TPCTrainingData result;
-  
-  if (!inFile) {
-    throw std::runtime_error("Could not open input file " + fileName);
+  std::string outputDir = "digits_stream";
+  std::string outputFile = outputDir + "/tpcdigits_reco_" + std::to_string(sector) + ".root";
+
+  // Check if the output directory exists
+  if (gSystem->AccessPathName(outputDir.c_str())) {
+    LOG(error) << "Output directory does not exist: " << outputDir;
+    return;
   }
 
-  // Read header
-  uint32_t batchSize, elementSize;
-  inFile.read(reinterpret_cast<char*>(&batchSize), sizeof(batchSize));
-  inFile.read(reinterpret_cast<char*>(&elementSize), sizeof(elementSize));
-
-  // Prepare vectors
-  result.inputData.resize(batchSize);
-  result.peakPads.resize(batchSize);
-  result.peakTimes.resize(batchSize);
-  result.peakCharges.resize(batchSize);
-
-  // Read data for each entry
-  std::vector<float> data(elementSize);
-  float peakData[3];
-  
-  for (size_t entry = 0; entry < batchSize; entry++) {
-    result.inputData[entry].resize(elementSize);
-    inFile.read(reinterpret_cast<char*>(data.data()), elementSize * sizeof(float));
-    inFile.read(reinterpret_cast<char*>(peakData), 3 * sizeof(float));
-    
-    result.inputData[entry] = data;
-    result.peakPads[entry] = peakData[0];
-    result.peakTimes[entry] = peakData[1];
-    result.peakCharges[entry] = peakData[2];
+  // Find all fragment files for the given sector
+  void* dir = gSystem->OpenDirectory(outputDir.c_str());
+  if (!dir) {
+    LOG(error) << "Error opening directory: " << outputDir;
+    return;
   }
 
-  return result;
+  // Combine the fragment files using hadd
+  std::string haddCommand = "hadd -f " + outputFile + "tpcdigits_reco_" + std::to_string(sector) + "_*.root" ;
+
+  int haddResult = gSystem->Exec(haddCommand.c_str());
+  if (haddResult != 0) {
+    LOG(error) << "Error combining files with hadd, command: " << haddCommand;
+    return;
+  }
+
+  // Remove the individual fragment files
+  gSystem->Exec(("rm -rf " + outputDir + "/tpcdigits_reco_" + std::to_string(sector) + "_*.root").c_str());
+
+  LOG(info) << "Successfully combined digit files for sector " << sector << " into " << outputFile;
 }
+
 
 // ---------------------------------
 GPUd() void GPUTPCNNClusterizer::publishClustersReg1(uint glo_idx, GPUSharedMemory& smem, processorType& clusterer, int8_t dtype, int8_t mode, int8_t onlyMC, uint batchStart)

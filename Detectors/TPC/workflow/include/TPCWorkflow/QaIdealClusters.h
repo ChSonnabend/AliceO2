@@ -295,6 +295,7 @@ class qaCluster : public Task
 
   // Readers
   void read_digits(int, std::vector<customCluster>&, bool);
+  void read_reco_digits(int, std::vector<customCluster>&, bool);
   void read_ideal(int, std::vector<customCluster>&);
   void read_native(int, std::vector<customCluster>&, std::vector<customCluster>&);
   void read_kinematics(std::vector<std::vector<std::vector<o2::MCTrack>>>&);
@@ -383,6 +384,8 @@ class qaCluster : public Task
   std::string networkRegression = "net_regression.onnx";
   std::string outCustomNative = "tpc-cluster-native-custom.root";
   std::string outFileCustomClusters = "custom-clusters.root";
+  bool read_reco_digits_bool = false;
+  std::string inPathRecoDigits = ";;";
 
   std::vector<std::vector<std::array<int, 2>>> adj_mat = {{{0, 0}}, {{1, 0}, {0, 1}, {-1, 0}, {0, -1}}, {{1, 1}, {-1, 1}, {-1, -1}, {1, -1}}, {{2, 0}, {0, -2}, {-2, 0}, {0, 2}}, {{2, 1}, {1, 2}, {-1, 2}, {-2, 1}, {-2, -1}, {-1, -2}, {1, -2}, {2, -1}}, {{2, 2}, {-2, 2}, {-2, -2}, {2, -2}}};
   std::vector<std::vector<float>> TPC_GEOM;
