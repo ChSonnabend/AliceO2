@@ -893,6 +893,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           clusterer.nnClusterizerAddIndexData = GetProcessingSettings().nnClusterizerAddIndexData;
           clusterer.nnClusterizerElementSize = ((2 * clusterer.nnClusterizerSizeInputRow + 1) * (2 * clusterer.nnClusterizerSizeInputPad + 1) * (2 * clusterer.nnClusterizerSizeInputTime + 1)) + (clusterer.nnClusterizerAddIndexData ? 3 : 0);
           clusterer.nnClusterizerBatchedMode = GetProcessingSettings().nnClusterizerBatchedMode;
+          clusterer.nnClusterizerBoundaryFillValue = GetProcessingSettings().nnClusterizerBoundaryFillValue;
           if (GetProcessingSettings().nnClusterizerVerbosity < 0){
             clusterer.nnClusterizerVerbosity = GetProcessingSettings().nnInferenceVerbosity;
           } else {
@@ -946,12 +947,17 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             uint batchStart = batch * clusterer.nnClusterizerBatchedMode;
             uint iSize = CAMath::Min((uint)clusterer.nnClusterizerBatchedMode, (uint)(clusterer.mPmemory->counters.nClusters - batchStart));
 
+            clusterer.peakPositions.clear();
+            clusterer.centralCharges.clear();
+
             clusterer.peakPositions.resize(iSize);
             clusterer.centralCharges.resize(iSize);
 
             if (evalDtype == 1) {
+              // clusterer.inputData32.clear();
               clusterer.inputData32.resize(iSize * clusterer.nnClusterizerElementSize, (float)(GetProcessingSettings().nnClusterizerBoundaryFillValue));
             } else {
+              // clusterer.inputData16.clear();
               clusterer.inputData16.resize(iSize * clusterer.nnClusterizerElementSize, (OrtDataType::Float16_t)((float)GetProcessingSettings().nnClusterizerBoundaryFillValue));
             }
 

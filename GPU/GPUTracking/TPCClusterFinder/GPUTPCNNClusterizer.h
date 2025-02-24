@@ -60,7 +60,7 @@ class GPUTPCNNClusterizer : public GPUKernelTemplate
   GPUd() static void Thread(int32_t, int32_t, int32_t, int32_t, GPUSharedMemory&, processorType&, int8_t = 0, int8_t = 0, int8_t = 0, uint = 0);
 
   template<class T>
-  void printInput(int, std::vector<T>, processorType&);
+  static void printInput(int, std::vector<T>, processorType&);
 
   static GPUd() void fillInputData(int32_t, int32_t, int32_t, int32_t, processorType&, int8_t, uint);
   static void dumpInputData(processorType&, int);

@@ -156,6 +156,7 @@ class GPUTPCClusterFinder : public GPUProcessor
   int nnClusterizerBatchedMode = 1;
   int nnClusterizerVerbosity = 0;
   int nnClusterizerDumpTrainingData = 0;
+  int nnClusterizerBoundaryFillValue = -1;
 
   // Memory allocation for neural network
   uint class2_elements = 0;
