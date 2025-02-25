@@ -333,7 +333,7 @@ void GPUTPCNNClusterizer::writeTrainingData(processorType& clusterer, int dtype)
 }
 
 // ---------------------------------
-void GPUTPCNNClusterizer::digitWriter(processorType& clusterer)
+void GPUTPCNNClusterizer::digitWriter(processorType& clusterer, std::string folder)
 {
 
   ROOT::EnableThreadSafety();
@@ -342,11 +342,11 @@ void GPUTPCNNClusterizer::digitWriter(processorType& clusterer)
             << clusterer.mISlice << ", fragment " 
             << clusterer.mPmemory->fragment.index;
 
-  if (gSystem->AccessPathName("digits_stream")) {
-    gSystem->mkdir("digits_stream");
+  if (gSystem->AccessPathName(folder.c_str())) {
+    gSystem->mkdir(folder.c_str());
   }
 
-  std::string outputFile = "digits_stream/tpcdigits_reco_" + std::to_string(clusterer.mISlice) + ".root";
+  std::string outputFile = folder + "/tpcdigits_reco_" + std::to_string(clusterer.mISlice) + ".root";
   TFile* file = TFile::Open(outputFile.c_str(), "UPDATE");
 
   if (!file || file->IsZombie()) {

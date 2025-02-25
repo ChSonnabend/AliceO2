@@ -846,7 +846,13 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         if (clusterer.mPmemory->counters.nPeaks == 0) {
           continue;
         }
-        if ((GetProcessingSettings().applyNNclusterizer && GetProcessingSettings().nnClusterizerApplyNoiseSupression) || (!GetProcessingSettings().applyNNclusterizer && !GetProcessingSettings().nnClusterizerDumpDigits) || (GetProcessingSettings().nnClusterizerDumpDigits && GetProcessingSettings().nnClusterizerApplyNoiseSupression)) {
+        if (!GetProcessingSettings().applyNNclusterizer) {
+          if(clusterer.nnClusterizerDumpDigits) {
+            GPUTPCNNClusterizer::digitWriter(clusterer, "digits_stream_raw");
+          }
+          runKernel<GPUTPCCFNoiseSuppression, GPUTPCCFNoiseSuppression::noiseSuppression>({GetGrid(clusterer.mPmemory->counters.nPeaks, lane), {iSlice}});
+          runKernel<GPUTPCCFNoiseSuppression, GPUTPCCFNoiseSuppression::updatePeaks>({GetGrid(clusterer.mPmemory->counters.nPeaks, lane), {iSlice}});
+        } else {
           runKernel<GPUTPCCFNoiseSuppression, GPUTPCCFNoiseSuppression::noiseSuppression>({GetGrid(clusterer.mPmemory->counters.nPeaks, lane), {iSlice}});
           runKernel<GPUTPCCFNoiseSuppression, GPUTPCCFNoiseSuppression::updatePeaks>({GetGrid(clusterer.mPmemory->counters.nPeaks, lane), {iSlice}});
         }
@@ -944,10 +950,6 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           int evalDtype = clusterer.OrtOptions["dtype"].find("32") != std::string::npos;
           clusterer.outputDataClass.resize(clusterer.mPmemory->counters.nClusters, -1);
 
-          if (clusterer.nnClusterizerDumpDigits) {
-            GPUTPCNNClusterizer::digitWriter(clusterer);
-          }
-
           for(int batch = 0; batch < std::ceil((float)clusterer.mPmemory->counters.nClusters / clusterer.nnClusterizerBatchedMode); batch++) {
             uint batchStart = batch * clusterer.nnClusterizerBatchedMode;
             uint iSize = CAMath::Min((uint)clusterer.nnClusterizerBatchedMode, (uint)(clusterer.mPmemory->counters.nClusters - batchStart));
@@ -1005,15 +1007,15 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           }
         } else {
 
-          if (!clusterer.nnClusterizerApplyCfDeconvolution && clusterer.nnClusterizerDumpDigits) {
-            GPUTPCNNClusterizer::digitWriter(clusterer);
+          if(clusterer.nnClusterizerDumpDigits) {
+            GPUTPCNNClusterizer::digitWriter(clusterer,  "digits_stream_noise_supressed");
           }
 
           runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSlice}});
           DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 4, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
 
-          if (clusterer.nnClusterizerApplyCfDeconvolution && clusterer.nnClusterizerDumpDigits) {
-            GPUTPCNNClusterizer::digitWriter(clusterer);
+          if(clusterer.nnClusterizerDumpDigits) {
+            GPUTPCNNClusterizer::digitWriter(clusterer, "digits_stream_deconvoluted");
           }
 
           runKernel<GPUTPCCFClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 0);

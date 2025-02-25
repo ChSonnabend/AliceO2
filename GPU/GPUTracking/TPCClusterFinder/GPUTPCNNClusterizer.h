@@ -73,7 +73,7 @@ class GPUTPCNNClusterizer : public GPUKernelTemplate
 
   static GPUd() void fillInputData(int32_t, int32_t, int32_t, int32_t, processorType&, int8_t, uint);
   static void writeTrainingData(processorType&, int);
-  static void digitWriter(processorType&);
+  static void digitWriter(processorType&, std::string = "digits_stream");
   static void combineDigitFiles(int);
 
   static GPUd() void publishClustersReg1(uint, GPUSharedMemory&, processorType&, int8_t, int8_t, uint);
