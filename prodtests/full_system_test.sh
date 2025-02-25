@@ -112,6 +112,7 @@ if [[ $BEAMTYPE == "PbPb" && -z $FST_QED ]]; then
 fi
 DIGIQED=
 SIMOPTKEY="${SIMOPTKEY:-};Diamond.width[2]=6.;"
+FST_BFIELD="${FST_BFIELD:-}ccdb"
 if [[ $FST_QED == 1 ]]; then
   mkdir -p qed
   cd qed
