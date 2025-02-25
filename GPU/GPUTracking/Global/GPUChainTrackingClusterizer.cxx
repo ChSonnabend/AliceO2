@@ -846,11 +846,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         if (clusterer.mPmemory->counters.nPeaks == 0) {
           continue;
         }
-        if (!GetProcessingSettings().applyNNclusterizer) {
-          runKernel<GPUTPCCFNoiseSuppression, GPUTPCCFNoiseSuppression::noiseSuppression>({GetGrid(clusterer.mPmemory->counters.nPeaks, lane), {iSlice}});
-          runKernel<GPUTPCCFNoiseSuppression, GPUTPCCFNoiseSuppression::updatePeaks>({GetGrid(clusterer.mPmemory->counters.nPeaks, lane), {iSlice}});
-        } else {
-          // FIXME: This potentially needs to be removed when I actually apply the NN. For now its only to make the code work
+        if ((GetProcessingSettings().applyNNclusterizer && GetProcessingSettings().nnClusterizerApplyNoiseSupression) || (!GetProcessingSettings().applyNNclusterizer && !GetProcessingSettings().nnClusterizerDumpDigits) || (GetProcessingSettings().nnClusterizerDumpDigits && GetProcessingSettings().nnClusterizerApplyNoiseSupression)) {
           runKernel<GPUTPCCFNoiseSuppression, GPUTPCCFNoiseSuppression::noiseSuppression>({GetGrid(clusterer.mPmemory->counters.nPeaks, lane), {iSlice}});
           runKernel<GPUTPCCFNoiseSuppression, GPUTPCCFNoiseSuppression::updatePeaks>({GetGrid(clusterer.mPmemory->counters.nPeaks, lane), {iSlice}});
         }
@@ -862,6 +858,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         TransferMemoryResourceLinkToHost(RecoStep::TPCClusterFinding, clusterer.mMemoryId, lane);
         DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 3, clusterer, &GPUTPCClusterFinder::DumpSuppressedPeaksCompacted, *mDebugFile);
       }
+
       GPUCA_OPENMP(parallel for if(!doGPU && GetProcessingSettings().ompKernels != 1) num_threads(mRec->SetAndGetNestedLoopOmpFactor(!doGPU, GetProcessingSettings().nTPCClustererLanes)))
       for (int32_t lane = 0; lane < maxLane; lane++) {
         uint32_t iSlice = iSliceBase + lane;
@@ -895,7 +892,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           clusterer.nnClusterizerBatchedMode = GetProcessingSettings().nnClusterizerBatchedMode;
           clusterer.nnClusterizerBoundaryFillValue = GetProcessingSettings().nnClusterizerBoundaryFillValue;
           clusterer.nnClusterizerApplyCfDeconvolution = GetProcessingSettings().nnClusterizerApplyCfDeconvolution;
-          clusterer.nnClusterizerDumpTrainingData = GetProcessingSettings().nnClusterizerDumpTrainingData;
+          clusterer.nnClusterizerDumpDigits = GetProcessingSettings().nnClusterizerDumpDigits;
           if (GetProcessingSettings().nnClusterizerVerbosity < 0){
             clusterer.nnClusterizerVerbosity = GetProcessingSettings().nnInferenceVerbosity;
           } else {
@@ -947,7 +944,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           int evalDtype = clusterer.OrtOptions["dtype"].find("32") != std::string::npos;
           clusterer.outputDataClass.resize(clusterer.mPmemory->counters.nClusters, -1);
 
-          if (clusterer.nnClusterizerDumpTrainingData) {
+          if (clusterer.nnClusterizerDumpDigits) {
             GPUTPCNNClusterizer::digitWriter(clusterer);
           }
 
@@ -970,19 +967,23 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             }
 
             auto start0 = std::chrono::high_resolution_clock::now();
-            runKernel<GPUTPCNNClusterizer>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, evalDtype, 0, 0, batchStart); // Filling the data
+            runKernel<GPUTPCNNClusterizer, GPUTPCNNClusterizer::fillInputNN>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, evalDtype, 0, batchStart); // Filling the data
             auto stop0 = std::chrono::high_resolution_clock::now();
 
             auto start1 = std::chrono::high_resolution_clock::now();
             GPUTPCNNClusterizer::applyNetworkClass(clusterer, evalDtype);
-            runKernel<GPUTPCNNClusterizer>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, evalDtype, 1, 0, batchStart); // Assigning class labels
+            if (clusterer.model_class.getNumOutputNodes()[0][1] > 1){
+              runKernel<GPUTPCNNClusterizer, GPUTPCNNClusterizer::determineClass1Labels>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, evalDtype, 0, batchStart); // Assigning class labels
+            } else {
+              runKernel<GPUTPCNNClusterizer, GPUTPCNNClusterizer::determineClass2Labels>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, evalDtype, 0, batchStart); // Assigning class labels
+            }
 
             if (!clusterer.nnClusterizerUseCFregression) {
               GPUTPCNNClusterizer::applyNetworkReg1(clusterer, evalDtype);
-              runKernel<GPUTPCNNClusterizer>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, evalDtype, 2, 0, batchStart); // Running the NN for regression class 1
+              runKernel<GPUTPCNNClusterizer, GPUTPCNNClusterizer::publishClass1Regression>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, evalDtype, 0, batchStart); // Running the NN for regression class 1
               if (clusterer.model_class.getNumOutputNodes()[0][1] > 1 && reg_model_paths.size() > 1) {
                 GPUTPCNNClusterizer::applyNetworkReg2(clusterer, evalDtype);
-                runKernel<GPUTPCNNClusterizer>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, evalDtype, 4, 0, batchStart); // Running the NN for regression class 2
+                runKernel<GPUTPCNNClusterizer, GPUTPCNNClusterizer::publishClass2Regression>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, evalDtype, 0, batchStart); // Running the NN for regression class 2
               }
             }
             auto stop1 = std::chrono::high_resolution_clock::now();
@@ -994,7 +995,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
           auto start1 = std::chrono::high_resolution_clock::now();
           if(clusterer.nnClusterizerUseCFregression) {
-            runKernel<GPUTPCNNClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, evalDtype, -1, 0, 0); // Running the CF regression kernel - no batching needed: batchStart = 0
+            runKernel<GPUTPCNNClusterizer, GPUTPCNNClusterizer::runCfClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, evalDtype, 0, 0); // Running the CF regression kernel - no batching needed: batchStart = 0
           }
           auto stop1 = std::chrono::high_resolution_clock::now();
           time_clusterizer += std::chrono::duration_cast<std::chrono::nanoseconds>(stop1 - start1).count() / 1e9;
@@ -1003,8 +1004,18 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             LOG(info) << "[NN CF] Apply NN (fragment " << fragment.index << ", lane: " << lane << ", slice: " << iSlice << "): filling data " << time_fill << "s ; clusterizer: " << time_clusterizer << "s ; " << clusterer.mPmemory->counters.nClusters << " clusters --> " << clusterer.mPmemory->counters.nClusters / (time_fill + time_clusterizer) << " clusters/s";
           }
         } else {
+
+          if (!clusterer.nnClusterizerApplyCfDeconvolution && clusterer.nnClusterizerDumpDigits) {
+            GPUTPCNNClusterizer::digitWriter(clusterer);
+          }
+
           runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSlice}});
           DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 4, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
+
+          if (clusterer.nnClusterizerApplyCfDeconvolution && clusterer.nnClusterizerDumpDigits) {
+            GPUTPCNNClusterizer::digitWriter(clusterer);
+          }
+
           runKernel<GPUTPCCFClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 0);
         }
 
@@ -1104,7 +1115,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
     }
   }
 
-  // if (GetProcessingSettings().nnClusterizerDumpTrainingData) {
+  // if (GetProcessingSettings().nnClusterizerDumpDigits) {
   //   for (int i = 0; i < 36; i++){
   //     // combining reco digits
   //     GPUTPCNNClusterizer::combineDigitFiles(i);

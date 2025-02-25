@@ -34,45 +34,59 @@ using namespace o2::gpu;
 using namespace o2::gpu::tpccf;
 
 template <>
-GPUdii() void GPUTPCNNClusterizer::Thread<0>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer, int8_t dtype, int8_t mode, int8_t onlyMC, uint batchStart)
+GPUdii() void GPUTPCNNClusterizer::Thread<GPUTPCNNClusterizer::runCfClusterizer>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer, int8_t dtype, int8_t onlyMC, uint batchStart)
 {
   uint glo_idx = get_global_id(0);
-  if (mode == -1) {
-    if (clusterer.outputDataClass[glo_idx] == 0) { // default clusterizer should not be called in batched mode due to mess-up with thread indices
-      return;
-    }
-    Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
-    CPU_ONLY(MCLabelAccumulator labelAcc(clusterer));
-    tpc::ClusterNative* clusterOut = (onlyMC) ? nullptr : clusterer.mPclusterByRow;
-    o2::gpu::GPUTPCCFClusterizer::GPUSharedMemory smem_new;
-    GPUTPCCFClusterizer::computeClustersImpl(get_num_groups(0), get_local_size(0), get_group_id(0), get_local_id(0), clusterer, clusterer.mPmemory->fragment, smem_new, chargeMap, clusterer.mPfilteredPeakPositions, clusterer.Param().rec, CPU_PTR(&labelAcc), clusterer.mPmemory->counters.nClusters, clusterer.mNMaxClusterPerRow, clusterer.mPclusterInRow, clusterOut, clusterer.mPclusterPosInRow);
-  } else if (mode == 0){
-    GPUTPCNNClusterizer::fillInputData(nBlocks, nThreads, iBlock, iThread, clusterer, dtype, batchStart);
-  } else if (mode == 1) { // Class labels
-    if (clusterer.model_class.getNumOutputNodes()[0][1] == 1) {
-      clusterer.outputDataClass[glo_idx + batchStart] = (int)(clusterer.modelProbabilities[glo_idx] > clusterer.nnClassThreshold);
-    } else {
-      auto elem_iterator = clusterer.modelProbabilities.begin() + (unsigned int)(glo_idx * clusterer.model_class.getNumOutputNodes()[0][1]);
-      uint class_label = std::distance(elem_iterator, std::max_element(elem_iterator, elem_iterator + clusterer.model_class.getNumOutputNodes()[0][1]));
-      clusterer.outputDataClass[glo_idx + batchStart] = class_label;
-    }
-  } else if (mode == 2) { // Publishing for class 1 regression
-    if (glo_idx >= clusterer.mPmemory->counters.nClusters) {
-      return;
-    } else {
-      GPUTPCNNClusterizer::publishClustersReg1(glo_idx, smem, clusterer, dtype, mode, onlyMC, batchStart);
-    }
-  } else if (mode == 3) { // Refilling for class 2 regression -> Deprecated because it needs sequential accumulation
-    return;
-  } else if (mode == 4) { // Publishing for class 2 regression
-    if (glo_idx >= clusterer.mPmemory->counters.nClusters) {
-      return;
-    } else {
-      GPUTPCNNClusterizer::publishClustersReg2(glo_idx, smem, clusterer, dtype, mode, onlyMC, batchStart);
-    }
-  }  else {
+  if (clusterer.outputDataClass[glo_idx] == 0) { // default clusterizer should not be called in batched mode due to mess-up with thread indices
     return;
   }
+  Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
+  CPU_ONLY(MCLabelAccumulator labelAcc(clusterer));
+  tpc::ClusterNative* clusterOut = (onlyMC) ? nullptr : clusterer.mPclusterByRow;
+  o2::gpu::GPUTPCCFClusterizer::GPUSharedMemory smem_new;
+  GPUTPCCFClusterizer::computeClustersImpl(get_num_groups(0), get_local_size(0), get_group_id(0), get_local_id(0), clusterer, clusterer.mPmemory->fragment, smem_new, chargeMap, clusterer.mPfilteredPeakPositions, clusterer.Param().rec, CPU_PTR(&labelAcc), clusterer.mPmemory->counters.nClusters, clusterer.mNMaxClusterPerRow, clusterer.mPclusterInRow, clusterOut, clusterer.mPclusterPosInRow);
+}
+
+template <>
+GPUdii() void GPUTPCNNClusterizer::Thread<GPUTPCNNClusterizer::fillInputNN>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer, int8_t dtype, int8_t onlyMC, uint batchStart)
+{
+  GPUTPCNNClusterizer::fillInputData(nBlocks, nThreads, iBlock, iThread, clusterer, dtype, batchStart);
+}
+
+template <>
+GPUdii() void GPUTPCNNClusterizer::Thread<GPUTPCNNClusterizer::determineClass1Labels>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer, int8_t dtype, int8_t onlyMC, uint batchStart)
+{
+  uint glo_idx = get_global_id(0);
+  clusterer.outputDataClass[glo_idx + batchStart] = (int)(clusterer.modelProbabilities[glo_idx] > clusterer.nnClassThreshold);
+}
+
+template <>
+GPUdii() void GPUTPCNNClusterizer::Thread<GPUTPCNNClusterizer::determineClass2Labels>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer, int8_t dtype, int8_t onlyMC, uint batchStart)
+{
+  uint glo_idx = get_global_id(0);
+  auto elem_iterator = clusterer.modelProbabilities.begin() + (unsigned int)(glo_idx * clusterer.model_class.getNumOutputNodes()[0][1]);
+  uint class_label = std::distance(elem_iterator, std::max_element(elem_iterator, elem_iterator + clusterer.model_class.getNumOutputNodes()[0][1]));
+  clusterer.outputDataClass[glo_idx + batchStart] = class_label;
+}
+
+template <>
+GPUdii() void GPUTPCNNClusterizer::Thread<GPUTPCNNClusterizer::publishClass1Regression>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer, int8_t dtype, int8_t onlyMC, uint batchStart)
+{
+  uint glo_idx = get_global_id(0);
+  if (glo_idx >= clusterer.mPmemory->counters.nClusters) {
+    return;
+  }
+  GPUTPCNNClusterizer::publishClustersReg1(glo_idx, smem, clusterer, dtype, onlyMC, batchStart);
+}
+
+template <>
+GPUdii() void GPUTPCNNClusterizer::Thread<GPUTPCNNClusterizer::publishClass2Regression>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer, int8_t dtype, int8_t onlyMC, uint batchStart)
+{
+  uint glo_idx = get_global_id(0);
+  if (glo_idx >= clusterer.mPmemory->counters.nClusters) {
+    return;
+  }
+  GPUTPCNNClusterizer::publishClustersReg2(glo_idx, smem, clusterer, dtype, onlyMC, batchStart);
 }
 
 
@@ -437,7 +451,7 @@ void GPUTPCNNClusterizer::combineDigitFiles(int sector)
 
 
 // ---------------------------------
-GPUd() void GPUTPCNNClusterizer::publishClustersReg1(uint glo_idx, GPUSharedMemory& smem, processorType& clusterer, int8_t dtype, int8_t mode, int8_t onlyMC, uint batchStart)
+GPUd() void GPUTPCNNClusterizer::publishClustersReg1(uint glo_idx, GPUSharedMemory& smem, processorType& clusterer, int8_t dtype, int8_t onlyMC, uint batchStart)
 {
   Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   CPU_ONLY(MCLabelAccumulator labelAccElem(clusterer));
@@ -509,7 +523,7 @@ GPUd() void GPUTPCNNClusterizer::publishClustersReg1(uint glo_idx, GPUSharedMemo
 }
 
 // ---------------------------------
-GPUd() void GPUTPCNNClusterizer::publishClustersReg2(uint glo_idx, GPUSharedMemory& smem, processorType& clusterer, int8_t dtype, int8_t mode, int8_t onlyMC, uint batchStart)
+GPUd() void GPUTPCNNClusterizer::publishClustersReg2(uint glo_idx, GPUSharedMemory& smem, processorType& clusterer, int8_t dtype, int8_t onlyMC, uint batchStart)
 {
   Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   CPU_ONLY(MCLabelAccumulator labelAccElem(clusterer));
