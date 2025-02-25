@@ -1329,7 +1329,7 @@ void qaCluster::calculateOccupancy(int sector, tpc2d& map2d)
               }
               continue;
             } else {
-              occupancy[sector][region][time] += (int)(map2d[1][idx_time][row + global_shift[1] + row_offset][pad + global_shift[2] + pad_offset] > -1);
+              occupancy[sector][region][time] += (int)(map2d[1][idx_time][row + global_shift[2] + row_offset][pad + global_shift[0] + pad_offset] > -1);
             }
           }
         }
