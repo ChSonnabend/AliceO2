@@ -2907,7 +2907,7 @@ void qaCluster::runQa(int sector)
             //     idl.cog_time = -999;
             //   }
             // }
-            if (attach_tracks) {
+            if (attach_tracks && track_cluster_to_ideal_assignment[ideal_idx] != -1) {
               track_assignment[max_point][counter] = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].index;
             }
             tr_data_Y_reg[max_point][counter][0] = idl.cog_pad - dig.max_pad;                           // pad
