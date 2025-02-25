@@ -223,8 +223,7 @@ void qaCluster::read_reco_digits(int sector, std::vector<customCluster>& digit_m
   TFile* digitFile = TFile::Open(inputFileDigits.c_str()); // inFileDigits will be misused as a path here
   TTree* digitTree = (TTree*)digitFile->Get("tr_data");
 
-  int sec, row, pad, time, has3x3Peak, isSplit;
-  float charge;
+  float sec, row, pad, time, has3x3Peak, isSplit, charge;
 
   digitTree->SetBranchAddress("sector", &sec);
   digitTree->SetBranchAddress("row", &row);
@@ -241,13 +240,13 @@ void qaCluster::read_reco_digits(int sector, std::vector<customCluster>& digit_m
   for (int i = 0; i < numEntries; i++) {
     digitTree->GetEntry(i);
     if (overwrite_time) {
-      digit_map.push_back(customCluster{sec, row, pad, time, (float)pad, (float)time, 0.f, 0.f, charge, charge, has3x3Peak + 2*isSplit, -1, -1, -1, i, 0.f, -1.f, -1.f, -1.f});
+      digit_map.push_back(customCluster{sec, row, pad, time, pad, time, 0.f, 0.f, charge, charge, has3x3Peak + 2*isSplit, -1, -1, -1, i, 0.f, -1.f, -1.f, -1.f});
       if (time > max_time[sector]){
         max_time[sector] = time + 1;
       }
     } else {
       if (time < max_time[sector]) {
-        digit_map.push_back(customCluster{sec, row, pad, time, (float)pad, (float)time, 0.f, 0.f, charge, charge, has3x3Peak + 2*isSplit, -1, -1, -1, counter, 0.f, -1.f, -1.f, -1.f});
+        digit_map.push_back(customCluster{sec, row, pad, time, pad, time, 0.f, 0.f, charge, charge, has3x3Peak + 2*isSplit, -1, -1, -1, counter, 0.f, -1.f, -1.f, -1.f});
         counter++;
       }
     }

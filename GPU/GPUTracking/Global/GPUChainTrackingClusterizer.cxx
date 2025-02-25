@@ -847,7 +847,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           continue;
         }
         if (!GetProcessingSettings().applyNNclusterizer) {
-          if(clusterer.nnClusterizerDumpDigits) {
+          if(GetProcessingSettings().nnClusterizerDumpDigits) {
             GPUTPCNNClusterizer::digitWriter(clusterer, "digits_stream_raw");
           }
           runKernel<GPUTPCCFNoiseSuppression, GPUTPCCFNoiseSuppression::noiseSuppression>({GetGrid(clusterer.mPmemory->counters.nPeaks, lane), {iSlice}});
@@ -1007,14 +1007,14 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           }
         } else {
 
-          if(clusterer.nnClusterizerDumpDigits) {
+          if(GetProcessingSettings().nnClusterizerDumpDigits) {
             GPUTPCNNClusterizer::digitWriter(clusterer,  "digits_stream_noise_supressed");
           }
 
           runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSlice}});
           DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 4, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
 
-          if(clusterer.nnClusterizerDumpDigits) {
+          if(GetProcessingSettings().nnClusterizerDumpDigits) {
             GPUTPCNNClusterizer::digitWriter(clusterer, "digits_stream_deconvoluted");
           }
 
