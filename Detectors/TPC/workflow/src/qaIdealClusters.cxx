@@ -2269,16 +2269,16 @@ void qaCluster::runQa(int sector)
   for (int dig_max = 0; dig_max < maxima_digits.size(); dig_max++) {
     bool digit_has_assignment = false;
     for (int ass : assignments_id_to_dig[dig_max]) {
-      if (ass != -1) {
+      if (ass > -1) {
         digit_has_assignment = true;
         bool is_tagged = false;
-        if (ideal_tagged[ass]) {
+        if (ideal_tagged[ass] > 0) {
           for (int lbl : ideal_tag_label[ass]) {
-            is_tagged |= (lbl != -1 ? (ideal_map[ass].mcTrkId == lbl) : false);
+            is_tagged = (is_tagged || ((ideal_map[ass].mcTrkId == lbl) && (lbl > -1)));
           }
         }
         if (!is_tagged) {
-          digit_has_non_looper_assignments[dig_max] == -1 ? digit_has_non_looper_assignments[dig_max] = 1 : digit_has_non_looper_assignments[dig_max] += 1;
+          (digit_has_non_looper_assignments[dig_max] == -1) ? (digit_has_non_looper_assignments[dig_max] = 1) : (digit_has_non_looper_assignments[dig_max] += 1);
           digit_non_looper_assignment_labels[dig_max].push_back(ass);
         }
       }
@@ -2757,31 +2757,6 @@ void qaCluster::runQa(int sector)
 
   if (mode.find(std::string("training_data")) != std::string::npos && create_output == 1) {
 
-    // Checks if digit is assigned / has non-looper assignments
-    std::vector<int> digit_has_non_looper_assignments(maxima_digits.size(), -1); // -1 = has no assignments, 0 = has assignment but is looper, n = has n non-looper assignments
-    std::vector<std::vector<int>> digit_non_looper_assignment_labels(maxima_digits.size());
-    for (int dig_max = 0; dig_max < maxima_digits.size(); dig_max++) {
-      bool digit_has_assignment = false;
-      for (int ass : assignments_id_to_dig[dig_max]) {
-        if (ass != -1) {
-          digit_has_assignment = true;
-          bool is_tagged = false;
-          if (ideal_tagged[ass]) {
-            for (int lbl : ideal_tag_label[ass]) {
-              is_tagged |= (lbl != -1 ? (ideal_map[ass].mcTrkId == lbl) : false);
-            }
-          }
-          if (!is_tagged) {
-            digit_has_non_looper_assignments[dig_max] == -1 ? digit_has_non_looper_assignments[dig_max] = 1 : digit_has_non_looper_assignments[dig_max] += 1;
-            digit_non_looper_assignment_labels[dig_max].push_back(ass);
-          }
-        }
-      }
-      if (digit_has_non_looper_assignments[dig_max] == -1 && digit_has_assignment) {
-        digit_has_non_looper_assignments[dig_max] = 0;
-      }
-    }
-
     // Creation of training data
     std::vector<int> index_digits(digit_map.size(), 0);
     std::iota(index_digits.begin(), index_digits.end(), 0);
@@ -3004,9 +2979,6 @@ void qaCluster::runQa(int sector)
 
     // Filling elements
     for (int element = 0; element < data_size; element++) {
-      if (tr_data_Y_reg[element][0][0] < -900) { // some value far enough away...
-        continue;
-      }
       atomic_unit = tr_data_X[element];
       trY = tr_data_Y_reg[element];
       class_val = tr_data_Y_class[element];
