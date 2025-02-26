@@ -40,13 +40,11 @@ GPUdii() void GPUTPCNNClusterizer::Thread<GPUTPCNNClusterizer::runCfClusterizer>
   if (clusterer.outputDataClass[glo_idx] == 0) { // default clusterizer should not be called in batched mode due to mess-up with thread indices
     return;
   }
-  if (clusterer.outputDataClass[glo_idx] != 0) {
-    Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
-    CPU_ONLY(MCLabelAccumulator labelAcc(clusterer));
-    tpc::ClusterNative* clusterOut = (onlyMC) ? nullptr : clusterer.mPclusterByRow;
-    o2::gpu::GPUTPCCFClusterizer::GPUSharedMemory smem_new;
-    GPUTPCCFClusterizer::computeClustersImpl(get_num_groups(0), get_local_size(0), get_group_id(0), get_local_id(0), clusterer, clusterer.mPmemory->fragment, smem_new, chargeMap, clusterer.mPfilteredPeakPositions, clusterer.Param().rec, CPU_PTR(&labelAcc), clusterer.mPmemory->counters.nClusters, clusterer.mNMaxClusterPerRow, clusterer.mPclusterInRow, clusterOut, clusterer.mPclusterPosInRow);
-  }
+  Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
+  CPU_ONLY(MCLabelAccumulator labelAcc(clusterer));
+  tpc::ClusterNative* clusterOut = (onlyMC) ? nullptr : clusterer.mPclusterByRow;
+  o2::gpu::GPUTPCCFClusterizer::GPUSharedMemory smem_new;
+  GPUTPCCFClusterizer::computeClustersImpl(get_num_groups(0), get_local_size(0), get_group_id(0), get_local_id(0), clusterer, clusterer.mPmemory->fragment, smem_new, chargeMap, clusterer.mPfilteredPeakPositions, clusterer.Param().rec, CPU_PTR(&labelAcc), clusterer.mPmemory->counters.nClusters, clusterer.mNMaxClusterPerRow, clusterer.mPclusterInRow, clusterOut, clusterer.mPclusterPosInRow);
 }
 
 template <>
@@ -132,19 +130,11 @@ bool GPUTPCNNClusterizer::isBoundary(int row, int pad, int global_shift, const G
   if (pad < 0 || row < 0) { // Faster short-circuit
     return true;
   } else if (row < 63) {
-    if (pad >= static_cast<int>(geo.NPads(row))) {
-      return true;
-    } else {
-      return false;
-    }
+    return (pad >= static_cast<int>(geo.NPads(row)))
   } else if (row < (63 + global_shift)) { // to account for the gap between IROC and OROC. Charge will be set to -1 in order to signal boundary to the neural network
     return true;
   } else if (row <= o2::tpc::constants::MAXGLOBALPADROW - 1 + global_shift) {
-    if (pad >= static_cast<int>(geo.NPads(row - global_shift))) {
-      return true;
-    } else {
-      return false;
-    }
+    return (pad >= static_cast<int>(geo.NPads(row - global_shift)));
   } else {
     return true;
   }
@@ -274,7 +264,7 @@ GPUd() void GPUTPCNNClusterizer::publishClustersReg1(uint glo_idx, GPUSharedMemo
       return;
     }
 
-    pc.setFull(clusterer.centralCharges[glo_idx] * clusterer.outputDataReg1[model_output_index + 4], (float)clusterer.peakPositions[glo_idx].pad() + clusterer.outputDataReg1[model_output_index], clusterer.outputDataReg1[model_output_index + 2], (float)((clusterer.mPmemory->fragment).start) + (float)clusterer.peakPositions[glo_idx].time() + clusterer.outputDataReg1[model_output_index + 1], clusterer.outputDataReg1[model_output_index + 3], 0, 0);
+    pc.setFull(clusterer.centralCharges[glo_idx] * clusterer.outputDataReg1[model_output_index + 4], static_cast<float>clusterer.peakPositions[glo_idx].pad() + clusterer.outputDataReg1[model_output_index], clusterer.outputDataReg1[model_output_index + 2], static_cast<float>(clusterer.mPmemory->fragment).start + static_cast<float>clusterer.peakPositions[glo_idx].time() + clusterer.outputDataReg1[model_output_index + 1], clusterer.outputDataReg1[model_output_index + 3], 0, 0);
 
     // if ((clusterer.peakPositions[glo_idx].row() > 149)) {
     //   LOG(info) << "Cluster: " << clusterer.outputDataReg1[model_output_index] << " / " << clusterer.outputDataReg1[model_output_index + 1] << " / " << clusterer.outputDataReg1[model_output_index + 2] << " / " << clusterer.outputDataReg1[model_output_index + 3] << " / " << clusterer.outputDataReg1[model_output_index + 4];
