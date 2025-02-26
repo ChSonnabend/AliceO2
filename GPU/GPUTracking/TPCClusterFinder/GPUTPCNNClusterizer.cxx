@@ -130,7 +130,7 @@ bool GPUTPCNNClusterizer::isBoundary(int row, int pad, int global_shift, const G
   if (pad < 0 || row < 0) { // Faster short-circuit
     return true;
   } else if (row < 63) {
-    return (pad >= static_cast<int>(geo.NPads(row)))
+    return (pad >= static_cast<int>(geo.NPads(row)));
   } else if (row < (63 + global_shift)) { // to account for the gap between IROC and OROC. Charge will be set to -1 in order to signal boundary to the neural network
     return true;
   } else if (row <= o2::tpc::constants::MAXGLOBALPADROW - 1 + global_shift) {
@@ -264,7 +264,7 @@ GPUd() void GPUTPCNNClusterizer::publishClustersReg1(uint glo_idx, GPUSharedMemo
       return;
     }
 
-    pc.setFull(clusterer.centralCharges[glo_idx] * clusterer.outputDataReg1[model_output_index + 4], static_cast<float>clusterer.peakPositions[glo_idx].pad() + clusterer.outputDataReg1[model_output_index], clusterer.outputDataReg1[model_output_index + 2], static_cast<float>(clusterer.mPmemory->fragment).start + static_cast<float>clusterer.peakPositions[glo_idx].time() + clusterer.outputDataReg1[model_output_index + 1], clusterer.outputDataReg1[model_output_index + 3], 0, 0);
+    pc.setFull(clusterer.centralCharges[glo_idx] * clusterer.outputDataReg1[model_output_index + 4], static_cast<float>(clusterer.peakPositions[glo_idx].pad()) + clusterer.outputDataReg1[model_output_index], clusterer.outputDataReg1[model_output_index + 2], static_cast<float>((clusterer.mPmemory->fragment).start) + static_cast<float>(clusterer.peakPositions[glo_idx].time()) + clusterer.outputDataReg1[model_output_index + 1], clusterer.outputDataReg1[model_output_index + 3], 0, 0);
 
     // if ((clusterer.peakPositions[glo_idx].row() > 149)) {
     //   LOG(info) << "Cluster: " << clusterer.outputDataReg1[model_output_index] << " / " << clusterer.outputDataReg1[model_output_index + 1] << " / " << clusterer.outputDataReg1[model_output_index + 2] << " / " << clusterer.outputDataReg1[model_output_index + 3] << " / " << clusterer.outputDataReg1[model_output_index + 4];
