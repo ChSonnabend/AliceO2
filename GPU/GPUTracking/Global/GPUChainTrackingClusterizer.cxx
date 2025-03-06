@@ -956,9 +956,11 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
             clusterer.peakPositions.clear();
             clusterer.centralCharges.clear();
+            clusterer.clusterFlags.clear();
 
             clusterer.peakPositions.resize(iSize);
             clusterer.centralCharges.resize(iSize);
+            clusterer.clusterFlags.resize(iSize, {0,0});
 
             if (evalDtype == 1) {
               // clusterer.inputData32.clear();
@@ -978,6 +980,10 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
               runKernel<GPUTPCNNClusterizer, GPUTPCNNClusterizer::determineClass1Labels>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, evalDtype, 0, batchStart); // Assigning class labels
             } else {
               runKernel<GPUTPCNNClusterizer, GPUTPCNNClusterizer::determineClass2Labels>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, evalDtype, 0, batchStart); // Assigning class labels
+            }
+
+            if(GetProcessingSettings().removeAllSplitFlags){
+              clusterer.clusterFlags = std::vector<std::vector<bool>>(iSize, {0,0});
             }
 
             if (!clusterer.nnClusterizerUseCFregression) {
@@ -1016,6 +1022,10 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
           if(GetProcessingSettings().nnClusterizerDumpDigits) {
             GPUTPCNNClusterizer::digitWriter(clusterer, "digits_stream_deconvoluted");
+          }
+
+          if(GetProcessingSettings().removeAllSplitFlags){
+            runKernel<GPUTPCNNClusterizer, GPUTPCNNClusterizer::removeAllSplitFlags>({GetGrid(clusterer.mPmemory->counters.nPositions, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 0, 0, 0);
           }
 
           runKernel<GPUTPCCFClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 0);

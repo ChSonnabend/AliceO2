@@ -61,7 +61,8 @@ class GPUTPCNNClusterizer : public GPUKernelTemplate
     determineClass1Labels = 2,
     determineClass2Labels = 3,
     publishClass1Regression = 4,
-    publishClass2Regression = 5
+    publishClass2Regression = 5,
+    removeAllSplitFlags = 6
   };
 
   // Float16 inmplementation

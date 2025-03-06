@@ -128,6 +128,7 @@ class GPUChainTracking : public GPUChain
     std::unique_ptr<GPUTPCDigitsMCInput> tpcDigitMCMap;
     std::unique_ptr<o2::dataformats::ConstMCTruthContainer<o2::MCCompLabel>> clusterNativeMCBuffer;
     std::unique_ptr<GPUSettingsTF[]> settingsTF;
+    std::unique_ptr<std::vector<float>> nnClusterizerQA; // isSplit, isClass0, isClass1, isClass2, rejectedByRegression
   } mIOMem;
 
   // Read / Dump / Clear Data

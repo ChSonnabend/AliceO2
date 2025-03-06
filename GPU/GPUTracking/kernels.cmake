@@ -116,6 +116,7 @@ o2_gpu_add_kernel("GPUTPCNNClusterizer, determineClass1Labels"        "= TPCCLUS
 o2_gpu_add_kernel("GPUTPCNNClusterizer, determineClass2Labels"        "= TPCCLUSTERFINDER"                                    LB      single int8_t dtype int8_t onlyMC uint batchStart)
 o2_gpu_add_kernel("GPUTPCNNClusterizer, publishClass1Regression"      "= TPCCLUSTERFINDER"                                    LB      single int8_t dtype int8_t onlyMC uint batchStart)
 o2_gpu_add_kernel("GPUTPCNNClusterizer, publishClass2Regression"      "= TPCCLUSTERFINDER"                                    LB      single int8_t dtype int8_t onlyMC uint batchStart)
+o2_gpu_add_kernel("GPUTPCNNClusterizer, removeAllSplitFlags"          "= TPCCLUSTERFINDER"                                    LB      single int8_t dtype int8_t onlyMC uint batchStart)
 o2_gpu_add_kernel("GPUTPCCFClusterizer"                               "= TPCCLUSTERFINDER"                                    LB      single int8_t onlyMC)
 o2_gpu_add_kernel("GPUTPCCFMCLabelFlattener, setRowOffsets"           "= TPCCLUSTERFINDER"                                    NO      single)
 o2_gpu_add_kernel("GPUTPCCFMCLabelFlattener, flatten"                 "= TPCCLUSTERFINDER"                                    NO      single GPUTPCLinearLabels* out)
