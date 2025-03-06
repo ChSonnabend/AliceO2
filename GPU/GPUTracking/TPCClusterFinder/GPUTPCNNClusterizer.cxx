@@ -21,6 +21,7 @@
 
 #include "GPUTPCNNClusterizer.h"
 #include "GPUTPCCFClusterizer.h"
+#include "GPUTPCCFDeconvolution.h"
 
 #include "CfConsts.h"
 #include "CfUtils.h"
@@ -696,4 +697,149 @@ GPUdii() void GPUTPCNNClusterizer::Thread<GPUTPCNNClusterizer::removeAllSplitFla
   ChargePos pos = clusterer.mPpositions[glo_idx];
   PackedCharge newCharge(chargeMap[pos].unpack(), chargeMap[pos].has3x3Peak(), false);
   chargeMap[pos] = newCharge;
+}
+
+// ---------------------------------
+template <>
+GPUdii() void GPUTPCNNClusterizer::Thread<GPUTPCNNClusterizer::setDeconvolutionFlags>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer, int8_t dtype, int8_t onlyMC, uint batchStart)
+{
+  Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
+  Array2D<uint8_t> peakMap(clusterer.mPpeakMap);
+  SizeT idx = get_global_id(0);
+
+  o2::gpu::GPUTPCCFDeconvolution::GPUSharedMemory smem2;
+
+  bool iamDummy = (idx >= clusterer.mPmemory->counters.nPositions);
+  idx = iamDummy ? clusterer.mPmemory->counters.nPositions - 1 : idx;
+
+  ChargePos pos = clusterer.mPpositions[idx];
+
+  bool iamPeak = CfUtils::isPeak(peakMap[pos]);
+
+  int8_t peakCount = (iamPeak) ? 1 : 0;
+
+  uint16_t ll = get_local_id(0);
+  uint16_t partId = ll;
+
+  uint16_t in3x3 = 0;
+  bool exclude3x3 = iamPeak || !pos.valid();
+  partId = CfUtils::partition<SCRATCH_PAD_WORK_GROUP_SIZE>(smem2, ll, exclude3x3, SCRATCH_PAD_WORK_GROUP_SIZE, &in3x3);
+
+  if (partId < in3x3) {
+    smem2.posBcast1[partId] = pos;
+  }
+  GPUbarrier();
+
+  CfUtils::blockLoad(
+    peakMap,
+    in3x3,
+    SCRATCH_PAD_WORK_GROUP_SIZE,
+    ll,
+    0,
+    8,
+    cfconsts::InnerNeighbors,
+    smem2.posBcast1,
+    smem2.buf);
+
+  uint8_t aboveThreshold = 0;
+  if (partId < in3x3) {
+    peakCount = GPUTPCNNClusterizer::countPeaksInner(partId, smem2.buf, &aboveThreshold);
+  }
+
+  uint16_t in5x5 = 0;
+  partId = CfUtils::partition<SCRATCH_PAD_WORK_GROUP_SIZE>(smem2, partId, peakCount > 0 && !exclude3x3, in3x3, &in5x5);
+
+  if (partId < in5x5) {
+    smem2.posBcast1[partId] = pos;
+    smem2.aboveThresholdBcast[partId] = aboveThreshold;
+  }
+  GPUbarrier();
+
+  CfUtils::condBlockLoad<uint8_t, true>(
+    peakMap,
+    in5x5,
+    SCRATCH_PAD_WORK_GROUP_SIZE,
+    ll,
+    0,
+    16,
+    cfconsts::OuterNeighbors,
+    smem2.posBcast1,
+    smem2.aboveThresholdBcast,
+    smem2.buf);
+
+  if (partId < in5x5) {
+    peakCount = GPUTPCNNClusterizer::countPeaksOuter(partId, aboveThreshold, smem2.buf);
+    peakCount *= -1;
+  }
+
+  if (iamDummy || !pos.valid()) {
+    return;
+  }
+
+  bool has3x3 = (peakCount > 0);
+  peakCount = CAMath::Abs(int32_t(peakCount));
+  bool split = (peakCount > 1);
+
+  peakCount = (peakCount == 0) ? 1 : peakCount;
+
+  PackedCharge charge = chargeMap[pos];
+  PackedCharge p(charge.unpack(), has3x3, split);
+
+  chargeMap[pos] = p;
+
+}
+
+// ---------------------------------
+template <>
+GPUdii() void GPUTPCNNClusterizer::Thread<GPUTPCNNClusterizer::publishDeconvolutionFlags>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer, int8_t dtype, int8_t onlyMC, uint batchStart)
+{
+  uint idx = get_global_id(0);
+  Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
+  clusterer.clusterFlags[idx][0] = 0;
+  clusterer.clusterFlags[idx][1] = 0;
+
+  for (int p = -2; p <= 2; p++) {
+    for (int t = -2; t <= 2; t++) {
+      ChargePos d = clusterer.peakPositions[idx].delta({p,t});
+      PackedCharge charge = chargeMap[d];
+      if(std::abs(p) < 2 && std::abs(t) < 2){
+        clusterer.clusterFlags[idx][0] += (t != 0 && charge.isSplit());
+        clusterer.clusterFlags[idx][1] += (p != 0 && charge.isSplit());
+      } else {
+        clusterer.clusterFlags[idx][0] += (t != 0 && charge.isSplit() && !charge.has3x3Peak());
+        clusterer.clusterFlags[idx][1] += (p != 0 && charge.isSplit() && !charge.has3x3Peak());
+      }
+    }
+  }
+}
+
+GPUdi() uint8_t GPUTPCNNClusterizer::countPeaksInner(
+  uint16_t ll,
+  const uint8_t* isPeak,
+  uint8_t* aboveThreshold)
+{
+  uint8_t peaks = 0;
+  GPUCA_UNROLL(U(), U())
+  for (uint8_t i = 0; i < 8; i++) {
+    uint8_t p = isPeak[ll * 8 + i];
+    peaks += CfUtils::isPeak(p);
+    *aboveThreshold |= uint8_t(CfUtils::isAboveThreshold(p)) << i;
+  }
+
+  return peaks;
+}
+
+GPUdi() uint8_t GPUTPCNNClusterizer::countPeaksOuter(
+  uint16_t ll,
+  uint8_t aboveThreshold,
+  const uint8_t* isPeak)
+{
+  uint8_t peaks = 0;
+  GPUCA_UNROLL(U(), U())
+  for (uint8_t i = 0; i < 16; i++) {
+    uint8_t p = isPeak[ll * 16 + i];
+    peaks += CfUtils::isPeak(p);
+  }
+
+  return peaks;
 }

@@ -950,6 +950,10 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           int evalDtype = clusterer.OrtOptions["dtype"].find("32") != std::string::npos;
           clusterer.outputDataClass.resize(clusterer.mPmemory->counters.nClusters, -1);
 
+          if(GetProcessingSettings().setDeconvolutionFlags){
+            runKernel<GPUTPCNNClusterizer, GPUTPCNNClusterizer::setDeconvolutionFlags>({GetGrid(clusterer.mPmemory->counters.nPositions, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 0, 0, 0); // Running the NN for regression class 1
+          }
+
           for(int batch = 0; batch < std::ceil((float)clusterer.mPmemory->counters.nClusters / clusterer.nnClusterizerBatchedMode); batch++) {
             uint batchStart = batch * clusterer.nnClusterizerBatchedMode;
             uint iSize = CAMath::Min((uint)clusterer.nnClusterizerBatchedMode, (uint)(clusterer.mPmemory->counters.nClusters - batchStart));
@@ -983,7 +987,10 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             }
 
             if(GetProcessingSettings().removeAllSplitFlags){
-              clusterer.clusterFlags = std::vector<std::vector<bool>>(iSize, {0,0});
+              clusterer.clusterFlags = std::vector<std::vector<int>>(iSize, {0,0});
+            }
+            if(GetProcessingSettings().setDeconvolutionFlags){
+              runKernel<GPUTPCNNClusterizer, GPUTPCNNClusterizer::publishDeconvolutionFlags>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, evalDtype, 0, batchStart); // Running the NN for regression class 1
             }
 
             if (!clusterer.nnClusterizerUseCFregression) {

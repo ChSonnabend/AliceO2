@@ -32,6 +32,7 @@ namespace o2::gpu
 
 class ClusterAccumulator;
 class MCLabelAccumulator;
+class GPUTPCCFDeconvolution;
 
 class GPUTPCNNClusterizer : public GPUKernelTemplate
 {
@@ -62,7 +63,9 @@ class GPUTPCNNClusterizer : public GPUKernelTemplate
     determineClass2Labels = 3,
     publishClass1Regression = 4,
     publishClass2Regression = 5,
-    removeAllSplitFlags = 6
+    removeAllSplitFlags = 6,
+    setDeconvolutionFlags = 7,
+    publishDeconvolutionFlags = 8
   };
 
   // Float16 inmplementation
@@ -81,9 +84,7 @@ class GPUTPCNNClusterizer : public GPUKernelTemplate
   static GPUd() void publishClustersReg2(uint, GPUSharedMemory&, processorType&, int8_t, int8_t, uint);
 
   static void applyNetworkClass(processorType&, int8_t = 0, uint = 0);
-
   static void applyNetworkReg1(processorType&, int8_t = 0);
-
   static void applyNetworkReg2(processorType&, int8_t = 0);
 
   
@@ -92,6 +93,9 @@ class GPUTPCNNClusterizer : public GPUKernelTemplate
     static int padOffset(int, int, const GPUTPCGeometry&);
     static int rowOffset(int, int);
     static bool isBoundary(int, int, int, const GPUTPCGeometry&);
+
+    static GPUdi() uint8_t countPeaksInner(uint16_t, const uint8_t*, uint8_t*);
+    static GPUdi() uint8_t countPeaksOuter(uint16_t, uint8_t, const uint8_t*);
 };
 
 } // namespace GPUCA_NAMESPACE::gpu

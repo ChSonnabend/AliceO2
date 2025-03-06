@@ -166,7 +166,7 @@ class GPUTPCClusterFinder : public GPUProcessor
   std::vector<float> outputDataClass, modelProbabilities, outputDataReg1, outputDataReg2;
 
   std::vector<ChargePos> peakPositions;
-  std::vector<std::vector<bool>> clusterFlags; // mSplitInTime, mSplitInPad. Techincally both flags are set in the same way -> ClusterAccumulator.cxx
+  std::vector<std::vector<int>> clusterFlags; // mSplitInTime, mSplitInPad. Techincally both flags are set in the same way -> ClusterAccumulator.cxx
   std::vector<float> centralCharges;
 
   std::unordered_map<std::string, std::string> OrtOptions;

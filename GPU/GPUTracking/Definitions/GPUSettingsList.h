@@ -323,6 +323,7 @@ AddOption(nnClassThreshold, float, 0.5, "", 0, "The cutoff at which clusters wil
 AddOption(nnRegressionPath, std::string, "network_reg.onnx", "", 0, "The regression network path")
 AddOption(nnSigmoidTrafoClassThreshold, int, 1, "", 0, "If true (default), then the classification threshold is transformed by an inverse sigmoid function. This depends on how the network was trained (with a sigmoid as acitvation function in the last layer or not).")
 AddOption(removeAllSplitFlags, int, 0, "", 0, "Remove all the isSplit for the PackedCharges in the charge map")
+AddOption(setDeconvolutionFlags, int, 0, "", 0, "Set the flags of the charge map identical to the deconvolution kernel flags")
 AddHelp("help", 'h')
 EndConfig()
 #endif // __OPENCL__
