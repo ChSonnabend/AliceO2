@@ -854,17 +854,19 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         RunTPCClusterizer_compactPeaks(clusterer, clustererShadow, 1, doGPU, lane);
         TransferMemoryResourceLinkToHost(RecoStep::TPCClusterFinding, clusterer.mMemoryId, lane);
         DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 3, clusterer, &GPUTPCClusterFinder::DumpSuppressedPeaksCompacted, *mDebugFile);
-      }
+      });
 
-      GPUCA_OPENMP(parallel for if(!doGPU && GetProcessingSettings().ompKernels != 1) num_threads(mRec->SetAndGetNestedLoopOmpFactor(!doGPU, GetProcessingSettings().nTPCClustererLanes)))
-      for (int32_t lane = 0; lane < maxLane; lane++) {
+      mRec->runParallelOuterLoop(doGPU, maxLane, [&](uint32_t lane) {
         uint32_t iSector = iSectorBase + lane;
+        GPUTPCClusterFinder& clusterer = processors()->tpcClusterer[iSector];
+        GPUTPCClusterFinder& clustererShadow = doGPU ? processorsShadow()->tpcClusterer[iSector] : clusterer;
         if (doGPU) {
           SynchronizeStream(lane);
         }
 
         if (fragment.index == 0) {
           deviceEvent* waitEvent = nullptr;
+          if (transferRunning[lane] == 1) {
             waitEvent = &mEvents->stream[lane];
             transferRunning[lane] = 2;
           }
@@ -1046,7 +1048,11 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
       mRec->SetNActiveThreadsOuterLoop(1);
     }
 
+    size_t nClsFirst = nClsTotal;
     bool anyLaneHasData = false;
+    for (int32_t lane = 0; lane < maxLane; lane++) {
+      uint32_t iSector = iSectorBase + lane;
+      std::fill(&tmpNativeAccess->nClusters[iSector][0], &tmpNativeAccess->nClusters[iSector][0] + MAXGLOBALPADROW, 0);
       if (doGPU) {
         SynchronizeStream(lane);
       }
