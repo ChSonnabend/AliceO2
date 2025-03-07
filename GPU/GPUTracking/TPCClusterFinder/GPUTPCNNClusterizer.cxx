@@ -230,11 +230,11 @@ GPUd() void GPUTPCNNClusterizer::fillInputData(int32_t nBlocks, int32_t nThreads
   }
   if (clusterer.nnClusterizerAddIndexData) {
     if(dtype == 0){
-      clusterer.inputData16[write_idx] = (OrtDataType::Float16_t)(clusterer.mISlice / 36.f);
+      clusterer.inputData16[write_idx] = (OrtDataType::Float16_t)(clusterer.mISector / 36.f);
       clusterer.inputData16[write_idx + 1] = (OrtDataType::Float16_t)(row / 152.f);
       clusterer.inputData16[write_idx + 2] = (OrtDataType::Float16_t)(static_cast<float>(pad) / clusterer.Param().tpcGeometry.NPads(row));
     } else {
-      clusterer.inputData32[write_idx] = clusterer.mISlice / 36.f;
+      clusterer.inputData32[write_idx] = clusterer.mISector / 36.f;
       clusterer.inputData32[write_idx + 1] = row / 152.f;
       clusterer.inputData32[write_idx + 2] = static_cast<float>(pad) / clusterer.Param().tpcGeometry.NPads(row);
     }
@@ -476,7 +476,7 @@ GPUd() void GPUTPCNNClusterizer::publishClustersReg2(uint glo_idx, GPUSharedMemo
 // ---------------------------------
 void GPUTPCNNClusterizer::writeTrainingData(processorType& clusterer, int dtype)
 {
-  std::string outputFile = "custom_nn_training_data_reco_" + std::to_string(clusterer.mISlice) + ".root"; // Fixed string concatenation
+  std::string outputFile = "custom_nn_training_data_reco_" + std::to_string(clusterer.mISector) + ".root"; // Fixed string concatenation
   TTree* tree = nullptr;
   TFile* file = nullptr;
   std::vector<std::string> branchNames;
@@ -556,7 +556,7 @@ void GPUTPCNNClusterizer::writeTrainingData(processorType& clusterer, int dtype)
 
     // Additional indices
     if (clusterer.nnClusterizerAddIndexData) {
-      atomic_unit[atomic_unit.size() - 4] = clusterer.mISlice;
+      atomic_unit[atomic_unit.size() - 4] = clusterer.mISector;
       atomic_unit[atomic_unit.size() - 3] = clusterer.peakPositions[entry].row();
       atomic_unit[atomic_unit.size() - 2] = clusterer.peakPositions[entry].pad();
       atomic_unit[atomic_unit.size() - 1] = clusterer.peakPositions[entry].time();
@@ -578,14 +578,14 @@ void GPUTPCNNClusterizer::digitWriter(processorType& clusterer, std::string fold
   ROOT::EnableThreadSafety();
 
   LOG(info) << "Streaming digits for NN clusterizer training, sector " 
-            << clusterer.mISlice << ", fragment " 
+            << clusterer.mISector << ", fragment " 
             << clusterer.mPmemory->fragment.index;
 
   if (gSystem->AccessPathName(folder.c_str())) {
     gSystem->mkdir(folder.c_str());
   }
 
-  std::string outputFile = folder + "/tpcdigits_reco_" + std::to_string(clusterer.mISlice) + ".root";
+  std::string outputFile = folder + "/tpcdigits_reco_" + std::to_string(clusterer.mISector) + ".root";
   TFile* file = TFile::Open(outputFile.c_str(), "UPDATE");
 
   if (!file || file->IsZombie()) {
@@ -632,7 +632,7 @@ void GPUTPCNNClusterizer::digitWriter(processorType& clusterer, std::string fold
 
     if (charge.unpack() > 0) {
       atomic_unit = {
-        static_cast<float>(clusterer.mISlice),
+        static_cast<float>(clusterer.mISector),
         static_cast<float>(pos.row()),
         static_cast<float>(pos.pad()),
         static_cast<float>(pos.time() + clusterer.mPmemory->fragment.start),

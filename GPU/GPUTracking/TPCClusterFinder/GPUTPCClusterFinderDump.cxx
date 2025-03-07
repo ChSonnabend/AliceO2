@@ -136,7 +136,7 @@ void GPUTPCClusterFinder::DumpPeaksCompacted(std::ostream& out)
 
 void GPUTPCClusterFinder::pushBackMax(const CfFragment& f) {
   for (unsigned int i = 0; i < mPmemory->counters.nPeaks; i++) {
-    std::vector<int> max{(int)mISlice, (int)mPpeakPositions[i].row(), (int)mPpeakPositions[i].pad(), (int)f.toGlobal(mPpeakPositions[i].time())};
+    std::vector<int> max{(int)mISector, (int)mPpeakPositions[i].row(), (int)mPpeakPositions[i].pad(), (int)f.toGlobal(mPpeakPositions[i].time())};
     maxima.push_back(max);
   }
   totalPeaks+=mPmemory->counters.nPeaks;
@@ -144,10 +144,10 @@ void GPUTPCClusterFinder::pushBackMax(const CfFragment& f) {
 
 void GPUTPCClusterFinder::DumpToFile(){
 
-  std::cout << "Dumping cluster-maxima for sector " << mISlice << "\n";
+  std::cout << "Dumping cluster-maxima for sector " << mISector << "\n";
 
   std::stringstream fileName;
-  fileName << "mclabels_clusterizer_sector_" << mISlice << ".root";
+  fileName << "mclabels_clusterizer_sector_" << mISector << ".root";
   TFile* outputFile = new TFile(fileName.str().c_str(), "RECREATE");
   TTree* mcTree = new TTree("mcLabelsClusterizer", "MC tree");
 
