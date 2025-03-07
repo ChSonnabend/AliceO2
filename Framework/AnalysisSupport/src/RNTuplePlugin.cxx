@@ -12,6 +12,7 @@
 #include "Framework/RuntimeError.h"
 #include "Framework/RootArrowFilesystem.h"
 #include "Framework/Plugins.h"
+#include "Framework/FairMQResizableBuffer.h"
 #include <ROOT/RNTupleModel.hxx>
 #include <ROOT/RNTupleWriteOptions.hxx>
 #include <ROOT/RNTupleWriter.hxx>
@@ -852,7 +853,10 @@ struct RNTupleObjectReadingImplementation : public RootArrowFactoryPlugin {
     return new RootArrowFactory{
       .options = [context]() { return context->format->DefaultWriteOptions(); },
       .format = [context]() { return context->format; },
-    };
+      .deferredOutputStreamer = [](std::shared_ptr<arrow::dataset::FileFragment> fragment, const std::shared_ptr<arrow::ResizableBuffer>& buffer) -> std::shared_ptr<arrow::io::OutputStream> {
+        auto treeFragment = std::dynamic_pointer_cast<RNTupleFileFragment>(fragment);
+        return std::make_shared<FairMQOutputStream>(buffer);
+      }};
   }
 };
 

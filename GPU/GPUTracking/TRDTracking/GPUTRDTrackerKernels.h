@@ -17,9 +17,7 @@
 
 #include "GPUGeneralKernels.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 class GPUTRDTrackerKernels : public GPUKernelTemplate
@@ -32,7 +30,6 @@ class GPUTRDTrackerKernels : public GPUKernelTemplate
   template <int32_t iKernel = defaultKernel, class T>
   GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& processors, T* externalInstance = nullptr);
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif // GPUTRDTRACKERKERNELSCA_H

@@ -23,9 +23,11 @@ struct LogParsingHelpers {
   enum struct LogLevel {
     Debug,
     Info,
+    Important,
     Warning,
     Alarm,
     Error,
+    Critical,
     Fatal,
     Unknown,
     Size

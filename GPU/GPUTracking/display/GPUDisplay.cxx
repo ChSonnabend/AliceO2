@@ -24,13 +24,10 @@
 #ifndef _WIN32
 #include "../utils/linux_helpers.h"
 #endif
-#ifdef WITH_OPENMP
-#include <omp.h>
-#endif
 
 #include "GPUChainTracking.h"
 #include "GPUQA.h"
-#include "GPUTPCSliceData.h"
+#include "GPUTPCTrackingData.h"
 #include "GPUChainTracking.h"
 #include "GPUTPCTrack.h"
 #include "GPUTPCTracker.h"
@@ -109,11 +106,11 @@ void GPUDisplay::calcXYZ(const float* matrix)
   }*/
 }
 
-void GPUDisplay::SetCollisionFirstCluster(uint32_t collision, int32_t slice, int32_t cluster)
+void GPUDisplay::SetCollisionFirstCluster(uint32_t collision, int32_t sector, int32_t cluster)
 {
   mNCollissions = std::max<uint32_t>(mNCollissions, collision + 1);
   mOverlayTFClusters.resize(mNCollissions);
-  mOverlayTFClusters[collision][slice] = cluster;
+  mOverlayTFClusters[collision][sector] = cluster;
 }
 
 void GPUDisplay::mAnimationCloseAngle(float& newangle, float lastAngle)
@@ -237,7 +234,7 @@ void GPUDisplay::DrawGLScene_cameraAndAnimation(float animateTime, float& mixSla
   // Calculate rotation / translation scaling factors
   float scalefactor = mFrontend->mKeys[mFrontend->KEY_SHIFT] ? 0.2f : 1.0f;
   float rotatescalefactor = scalefactor * 0.25f;
-  if (mCfgL.drawSlice != -1) {
+  if (mCfgL.drawSector != -1) {
     scalefactor *= 0.2f;
   }
   float sqrdist = sqrtf(sqrtf(mViewMatrixP[12] * mViewMatrixP[12] + mViewMatrixP[13] * mViewMatrixP[13] + mViewMatrixP[14] * mViewMatrixP[14]) * GL_SCALE_FACTOR) * 0.8f;
@@ -261,7 +258,7 @@ void GPUDisplay::DrawGLScene_cameraAndAnimation(float animateTime, float& mixSla
 
     mCfgL.pointSize = 2.0f;
     mCfgL.lineWidth = 1.4f;
-    mCfgL.drawSlice = -1;
+    mCfgL.drawSector = -1;
     mCfgH.xAdd = mCfgH.zAdd = 0;
     mCfgR.camLookOrigin = mCfgR.camYUp = false;
     mAngleRollOrigin = -1e9f;
@@ -414,8 +411,8 @@ void GPUDisplay::DrawGLScene_cameraAndAnimation(float animateTime, float& mixSla
 
 void GPUDisplay::DrawGLScene_drawCommands()
 {
-#define LOOP_SLICE for (int32_t iSlice = (mCfgL.drawSlice == -1 ? 0 : mCfgL.drawRelatedSlices ? (mCfgL.drawSlice % (NSLICES / 4)) : mCfgL.drawSlice); iSlice < NSLICES; iSlice += (mCfgL.drawSlice == -1 ? 1 : mCfgL.drawRelatedSlices ? (NSLICES / 4) : NSLICES))
-#define LOOP_SLICE2 for (int32_t iSlice = (mCfgL.drawSlice == -1 ? 0 : mCfgL.drawRelatedSlices ? (mCfgL.drawSlice % (NSLICES / 4)) : mCfgL.drawSlice) % (NSLICES / 2); iSlice < NSLICES / 2; iSlice += (mCfgL.drawSlice == -1 ? 1 : mCfgL.drawRelatedSlices ? (NSLICES / 4) : NSLICES))
+#define LOOP_SECTOR for (int32_t iSector = (mCfgL.drawSector == -1 ? 0 : mCfgL.drawRelatedSectors ? (mCfgL.drawSector % (NSECTORS / 4)) : mCfgL.drawSector); iSector < NSECTORS; iSector += (mCfgL.drawSector == -1 ? 1 : mCfgL.drawRelatedSectors ? (NSECTORS / 4) : NSECTORS))
+#define LOOP_SECTOR2 for (int32_t iSector = (mCfgL.drawSector == -1 ? 0 : mCfgL.drawRelatedSectors ? (mCfgL.drawSector % (NSECTORS / 4)) : mCfgL.drawSector) % (NSECTORS / 2); iSector < NSECTORS / 2; iSector += (mCfgL.drawSector == -1 ? 1 : mCfgL.drawRelatedSectors ? (NSECTORS / 4) : NSECTORS))
 #define LOOP_COLLISION for (int32_t iCol = (mCfgL.showCollision == -1 ? 0 : mCfgL.showCollision); iCol < mNCollissions; iCol += (mCfgL.showCollision == -1 ? 1 : mNCollissions))
 #define LOOP_COLLISION_COL(cmd)  \
   LOOP_COLLISION                 \
@@ -429,37 +426,37 @@ void GPUDisplay::DrawGLScene_drawCommands()
   if (mCfgL.drawGrid) {
     if (mCfgL.drawTPC) {
       SetColorGrid();
-      LOOP_SLICE drawVertices(mGlDLGrid[iSlice], GPUDisplayBackend::LINES);
+      LOOP_SECTOR drawVertices(mGlDLGrid[iSector], GPUDisplayBackend::LINES);
     }
     if (mCfgL.drawTRD) {
       SetColorGridTRD();
-      LOOP_SLICE2 drawVertices(mGlDLGridTRD[iSlice], GPUDisplayBackend::LINES);
+      LOOP_SECTOR2 drawVertices(mGlDLGridTRD[iSector], GPUDisplayBackend::LINES);
     }
   }
   if (mCfgL.drawClusters) {
     if (mCfgL.drawTRD) {
       SetColorTRD();
       mBackend->lineWidthFactor(2);
-      LOOP_SLICE LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSlice][tTRDCLUSTER][iCol], GPUDisplayBackend::LINES));
+      LOOP_SECTOR LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSector][tTRDCLUSTER][iCol], GPUDisplayBackend::LINES));
       if (mCfgL.drawFinal && mCfgL.colorClusters) {
         SetColorFinal();
       }
-      LOOP_SLICE LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSlice][tTRDATTACHED][iCol], GPUDisplayBackend::LINES));
+      LOOP_SECTOR LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSector][tTRDATTACHED][iCol], GPUDisplayBackend::LINES));
       mBackend->lineWidthFactor(1);
     }
     if (mCfgL.drawTOF) {
       SetColorTOF();
       mBackend->pointSizeFactor(2);
-      LOOP_SLICE LOOP_COLLISION_COL(drawVertices(mGlDLPoints[0][tTOFCLUSTER][0], GPUDisplayBackend::POINTS));
+      LOOP_SECTOR LOOP_COLLISION_COL(drawVertices(mGlDLPoints[0][tTOFCLUSTER][0], GPUDisplayBackend::POINTS));
       mBackend->pointSizeFactor(1);
     }
     if (mCfgL.drawITS) {
       SetColorITS();
-      LOOP_SLICE LOOP_COLLISION_COL(drawVertices(mGlDLPoints[0][tITSCLUSTER][0], GPUDisplayBackend::POINTS));
+      LOOP_SECTOR LOOP_COLLISION_COL(drawVertices(mGlDLPoints[0][tITSCLUSTER][0], GPUDisplayBackend::POINTS));
     }
     if (mCfgL.drawTPC) {
       SetColorClusters();
-      LOOP_SLICE LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSlice][tCLUSTER][iCol], GPUDisplayBackend::POINTS));
+      LOOP_SECTOR LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSector][tCLUSTER][iCol], GPUDisplayBackend::POINTS));
 
       if (mCfgL.drawInitLinks) {
         if (mCfgL.excludeClusters) {
@@ -469,7 +466,7 @@ void GPUDisplay::DrawGLScene_drawCommands()
           SetColorInitLinks();
         }
       }
-      LOOP_SLICE LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSlice][tINITLINK][iCol], GPUDisplayBackend::POINTS));
+      LOOP_SECTOR LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSector][tINITLINK][iCol], GPUDisplayBackend::POINTS));
 
       if (mCfgL.drawLinks) {
         if (mCfgL.excludeClusters) {
@@ -481,7 +478,7 @@ void GPUDisplay::DrawGLScene_drawCommands()
       } else {
         SetColorClusters();
       }
-      LOOP_SLICE LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSlice][tLINK][iCol], GPUDisplayBackend::POINTS));
+      LOOP_SECTOR LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSector][tLINK][iCol], GPUDisplayBackend::POINTS));
 
       if (mCfgL.drawSeeds) {
         if (mCfgL.excludeClusters) {
@@ -491,7 +488,7 @@ void GPUDisplay::DrawGLScene_drawCommands()
           SetColorSeeds();
         }
       }
-      LOOP_SLICE LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSlice][tSEED][iCol], GPUDisplayBackend::POINTS));
+      LOOP_SECTOR LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSector][tSEED][iCol], GPUDisplayBackend::POINTS));
 
     skip1:
       SetColorClusters();
@@ -503,7 +500,7 @@ void GPUDisplay::DrawGLScene_drawCommands()
           SetColorTracklets();
         }
       }
-      LOOP_SLICE LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSlice][tTRACKLET][iCol], GPUDisplayBackend::POINTS));
+      LOOP_SECTOR LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSector][tTRACKLET][iCol], GPUDisplayBackend::POINTS));
 
       if (mCfgL.drawTracks) {
         if (mCfgL.excludeClusters) {
@@ -513,20 +510,20 @@ void GPUDisplay::DrawGLScene_drawCommands()
           SetColorTracks();
         }
       }
-      LOOP_SLICE LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSlice][tSLICETRACK][iCol], GPUDisplayBackend::POINTS));
+      LOOP_SECTOR LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSector][tSECTORTRACK][iCol], GPUDisplayBackend::POINTS));
 
     skip2:;
-      if (mCfgL.drawGlobalTracks) {
+      if (mCfgL.drawExtrapolatedTracks) {
         if (mCfgL.excludeClusters) {
           goto skip3;
         }
         if (mCfgL.colorClusters) {
-          SetColorGlobalTracks();
+          SetColorExtrapolatedTracks();
         }
       } else {
         SetColorClusters();
       }
-      LOOP_SLICE LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSlice][tGLOBALTRACK][iCol], GPUDisplayBackend::POINTS));
+      LOOP_SECTOR LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSector][tEXTRAPOLATEDTRACK][iCol], GPUDisplayBackend::POINTS));
       SetColorClusters();
 
       if (mCfgL.drawFinal && mCfgL.propagateTracks < 2) {
@@ -537,7 +534,7 @@ void GPUDisplay::DrawGLScene_drawCommands()
           SetColorFinal();
         }
       }
-      LOOP_SLICE LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSlice][tFINALTRACK][iCol], GPUDisplayBackend::POINTS));
+      LOOP_SECTOR LOOP_COLLISION_COL(drawVertices(mGlDLPoints[iSector][tFINALTRACK][iCol], GPUDisplayBackend::POINTS));
     skip3:;
     }
   }
@@ -546,47 +543,47 @@ void GPUDisplay::DrawGLScene_drawCommands()
     if (mCfgL.drawTPC) {
       if (mCfgL.drawInitLinks) {
         SetColorInitLinks();
-        LOOP_SLICE drawVertices(mGlDLLines[iSlice][tINITLINK], GPUDisplayBackend::LINES);
+        LOOP_SECTOR drawVertices(mGlDLLines[iSector][tINITLINK], GPUDisplayBackend::LINES);
       }
       if (mCfgL.drawLinks) {
         SetColorLinks();
-        LOOP_SLICE drawVertices(mGlDLLines[iSlice][tLINK], GPUDisplayBackend::LINES);
+        LOOP_SECTOR drawVertices(mGlDLLines[iSector][tLINK], GPUDisplayBackend::LINES);
       }
       if (mCfgL.drawSeeds) {
         SetColorSeeds();
-        LOOP_SLICE drawVertices(mGlDLLines[iSlice][tSEED], GPUDisplayBackend::LINE_STRIP);
+        LOOP_SECTOR drawVertices(mGlDLLines[iSector][tSEED], GPUDisplayBackend::LINE_STRIP);
       }
       if (mCfgL.drawTracklets) {
         SetColorTracklets();
-        LOOP_SLICE drawVertices(mGlDLLines[iSlice][tTRACKLET], GPUDisplayBackend::LINE_STRIP);
+        LOOP_SECTOR drawVertices(mGlDLLines[iSector][tTRACKLET], GPUDisplayBackend::LINE_STRIP);
       }
       if (mCfgL.drawTracks) {
         SetColorTracks();
-        LOOP_SLICE drawVertices(mGlDLLines[iSlice][tSLICETRACK], GPUDisplayBackend::LINE_STRIP);
+        LOOP_SECTOR drawVertices(mGlDLLines[iSector][tSECTORTRACK], GPUDisplayBackend::LINE_STRIP);
       }
-      if (mCfgL.drawGlobalTracks) {
-        SetColorGlobalTracks();
-        LOOP_SLICE drawVertices(mGlDLLines[iSlice][tGLOBALTRACK], GPUDisplayBackend::LINE_STRIP);
+      if (mCfgL.drawExtrapolatedTracks) {
+        SetColorExtrapolatedTracks();
+        LOOP_SECTOR drawVertices(mGlDLLines[iSector][tEXTRAPOLATEDTRACK], GPUDisplayBackend::LINE_STRIP);
       }
     }
     if (mCfgL.drawFinal) {
       SetColorFinal();
-      LOOP_SLICE LOOP_COLLISION
+      LOOP_SECTOR LOOP_COLLISION
       {
         if (mCfgL.colorCollisions) {
           SetCollisionColor(iCol);
         }
         if (mCfgL.propagateTracks < 2) {
-          drawVertices(mGlDLFinal[iSlice][iCol][0], GPUDisplayBackend::LINE_STRIP);
+          drawVertices(mGlDLFinal[iSector][iCol][0], GPUDisplayBackend::LINE_STRIP);
         }
         if (mCfgL.propagateTracks > 0 && mCfgL.propagateTracks < 3) {
-          drawVertices(mGlDLFinal[iSlice][iCol][1], GPUDisplayBackend::LINE_STRIP);
+          drawVertices(mGlDLFinal[iSector][iCol][1], GPUDisplayBackend::LINE_STRIP);
         }
         if (mCfgL.propagateTracks == 2) {
-          drawVertices(mGlDLFinal[iSlice][iCol][2], GPUDisplayBackend::LINE_STRIP);
+          drawVertices(mGlDLFinal[iSector][iCol][2], GPUDisplayBackend::LINE_STRIP);
         }
         if (mCfgL.propagateTracks == 3) {
-          drawVertices(mGlDLFinal[iSlice][iCol][3], GPUDisplayBackend::LINE_STRIP);
+          drawVertices(mGlDLFinal[iSector][iCol][3], GPUDisplayBackend::LINE_STRIP);
         }
       }
       if (mCfgH.drawTracksAndFilter ? (mCfgH.drawTPCTracks || mCfgH.drawTRDTracks || mCfgH.drawTOFTracks) : mCfgH.drawITSTracks) {
@@ -598,7 +595,7 @@ void GPUDisplay::DrawGLScene_drawCommands()
         mBackend->pointSizeFactor(3);
       }
       SetColorMarked();
-      LOOP_SLICE LOOP_COLLISION drawVertices(mGlDLPoints[iSlice][tMARKED][iCol], GPUDisplayBackend::POINTS);
+      LOOP_SECTOR LOOP_COLLISION drawVertices(mGlDLPoints[iSector][tMARKED][iCol], GPUDisplayBackend::POINTS);
       if (mCfgH.markFakeClusters) {
         mBackend->pointSizeFactor(1);
       }
@@ -668,9 +665,9 @@ void GPUDisplay::DrawGLScene_internal(float animateTime, bool renderToMixBuffer)
     char info[1024];
     float fps = (double)mFramesDoneFPS / fpstime;
     snprintf(info, 1024,
-             "FPS: %6.2f (Slice: %d, 1:Clusters %d, 2:Prelinks %d, 3:Links %d, 4:Seeds %d, 5:Tracklets %d, 6:Tracks %d, 7:GTracks %d, 8:Merger %d) (%d frames, %d draw calls) "
+             "FPS: %6.2f (Sector: %d, 1:Clusters %d, 2:Prelinks %d, 3:Links %d, 4:Seeds %d, 5:Tracklets %d, 6:Tracks %d, 7:GTracks %d, 8:Merger %d) (%d frames, %d draw calls) "
              "(X %1.2f Y %1.2f Z %1.2f / R %1.2f Phi %1.1f Theta %1.1f) / Yaw %1.1f Pitch %1.1f Roll %1.1f)",
-             fps, mCfgL.drawSlice, mCfgL.drawClusters, mCfgL.drawInitLinks, mCfgL.drawLinks, mCfgL.drawSeeds, mCfgL.drawTracklets, mCfgL.drawTracks, mCfgL.drawGlobalTracks, mCfgL.drawFinal, mFramesDone, mNDrawCalls, mXYZ[0], mXYZ[1], mXYZ[2], mRPhiTheta[0], mRPhiTheta[1] * 180 / CAMath::Pi(),
+             fps, mCfgL.drawSector, mCfgL.drawClusters, mCfgL.drawInitLinks, mCfgL.drawLinks, mCfgL.drawSeeds, mCfgL.drawTracklets, mCfgL.drawTracks, mCfgL.drawExtrapolatedTracks, mCfgL.drawFinal, mFramesDone, mNDrawCalls, mXYZ[0], mXYZ[1], mXYZ[2], mRPhiTheta[0], mRPhiTheta[1] * 180 / CAMath::Pi(),
              mRPhiTheta[2] * 180 / CAMath::Pi(), mAngle[1] * 180 / CAMath::Pi(), mAngle[0] * 180 / CAMath::Pi(), mAngle[2] * 180 / CAMath::Pi());
     if (fpstime > 1.) {
       if (mPrintInfoText & 2) {

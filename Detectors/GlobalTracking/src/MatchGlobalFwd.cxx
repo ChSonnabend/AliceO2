@@ -65,6 +65,9 @@ void MatchGlobalFwd::init()
   mUseMIDMCHMatch = matchingParam.useMIDMatch;
   LOG(info) << "UseMIDMCH Matching = " << (mUseMIDMCHMatch ? "true" : "false");
 
+  mUseTrackTime = matchingParam.useTrackTime;
+  LOG(info) << "Use track time = " << (mUseTrackTime ? "true" : "false");
+
   mSaveMode = matchingParam.saveMode;
   LOG(info) << "Save mode MFTMCH candidates = " << mSaveMode;
 
@@ -216,8 +219,8 @@ bool MatchGlobalFwd::processMCHMIDMatches()
       LOG(debug) << " MCHId: " << MCHId << " --> mMCHID2Work[MCHId]:" << mMCHID2Work[MCHId];
       const auto& IR = MIDMatch.getIR();
       int nBC = IR.differenceInBC(mStartIR);
-      float tMin = nBC * o2::constants::lhc::LHCBunchSpacingMUS;
-      float tMax = (nBC + 1) * o2::constants::lhc::LHCBunchSpacingMUS;
+      float tMin = (nBC - 1) * o2::constants::lhc::LHCBunchSpacingMUS;
+      float tMax = (nBC + 2) * o2::constants::lhc::LHCBunchSpacingMUS;
       thisMuonTrack.setMIDTrackID(MIDId);
       thisMuonTrack.setTimeMUS(MIDMatch.getTimeMUS(mStartIR).first);
       thisMuonTrack.tBracket.set(tMin, tMax);
@@ -435,6 +438,7 @@ void MatchGlobalFwd::ROFMatch(int MFTROFId, int firstMCHROFId, int lastMCHROFId)
 {
   /// Matches MFT tracks on a given ROF with MCH tracks in a range of ROFs
   const auto& thisMFTROF = mMFTTrackROFRec[MFTROFId];
+  const auto& thisMFTBracket = mMFTROFTimes[MFTROFId];
   const auto& firstMCHROF = mMCHTrackROFRec[firstMCHROFId];
   const auto& lastMCHROF = mMCHTrackROFRec[lastMCHROFId];
   int nFakes = 0, nTrue = 0;
@@ -464,6 +468,12 @@ void MatchGlobalFwd::ROFMatch(int MFTROFId, int firstMCHROFId, int lastMCHROFId)
   // loop over all MCH tracks
   for (auto MCHId = firstMCHTrackID; MCHId <= lastMCHTrackID; MCHId++) {
     auto& thisMCHTrack = mMCHWork[MCHId];
+
+    // If enabled, use the muon track time to check if the track is correlated with the MFT ROF
+    if (mUseTrackTime && (thisMFTBracket.isOutside(thisMCHTrack.tBracket))) {
+      continue;
+    }
+
     o2::MCCompLabel matchLabel;
     for (auto MFTId = firstMFTTrackID; MFTId <= lastMFTTrackID; MFTId++) {
       auto& thisMFTTrack = mMFTWork[MFTId];

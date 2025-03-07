@@ -17,23 +17,19 @@
 
 #include "GPUCommonDef.h"
 
-namespace o2
-{
-namespace track
+namespace o2::track
 {
 template <typename>
 class TrackParametrizationWithError;
-} // namespace track
-namespace base
+} // namespace o2::track
+
+namespace o2::base
 {
 template <typename>
 class PropagatorImpl;
-} // namespace base
-} // namespace o2
+} // namespace o2::base
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 typedef o2::track::TrackParametrizationWithError<float> TRDBaseTrack;
@@ -62,7 +58,6 @@ class GPUTRDTracker_t;
 typedef GPUTRDTracker_t<GPUTRDTrack, GPUTRDPropagator> GPUTRDTracker;
 typedef GPUTRDTracker_t<GPUTRDTrackGPU, GPUTRDPropagatorGPU> GPUTRDTrackerGPU;
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif // GPUTRDDEF_H

@@ -18,4 +18,7 @@
 #pragma link C++ class o2::mch::DigitFilterParam + ;
 #pragma link C++ class o2::conf::ConfigurableParamHelper < o2::mch::DigitFilterParam> + ;
 
+#pragma link C++ class o2::mch::DigitModifierParam + ;
+#pragma link C++ class o2::conf::ConfigurableParamHelper < o2::mch::DigitModifierParam> + ;
+
 #endif

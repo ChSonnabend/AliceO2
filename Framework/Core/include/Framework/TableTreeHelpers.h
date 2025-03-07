@@ -11,6 +11,8 @@
 #ifndef O2_FRAMEWORK_TABLETREEHELPERS_H_
 #define O2_FRAMEWORK_TABLETREEHELPERS_H_
 
+#include <arrow/buffer.h>
+#include <arrow/io/interfaces.h>
 #include <arrow/record_batch.h>
 #include "TFile.h"
 #include "TTreeReader.h"
@@ -146,15 +148,25 @@ class TreeToTable
 class FragmentToBatch
 {
  public:
-  FragmentToBatch(arrow::MemoryPool* pool = arrow::default_memory_pool());
+  // The function to be used to create the required stream.
+  using StreamerCreator = std::function<std::shared_ptr<arrow::io::OutputStream>(std::shared_ptr<arrow::dataset::FileFragment>, const std::shared_ptr<arrow::ResizableBuffer>& buffer)>;
+
+  FragmentToBatch(StreamerCreator, std::shared_ptr<arrow::dataset::FileFragment>, arrow::MemoryPool* pool = arrow::default_memory_pool());
   void setLabel(const char* label);
-  void fill(std::shared_ptr<arrow::dataset::FileFragment>, std::shared_ptr<arrow::Schema> dataSetSchema, std::shared_ptr<arrow::dataset::FileFormat>);
+  void fill(std::shared_ptr<arrow::Schema> dataSetSchema, std::shared_ptr<arrow::dataset::FileFormat>);
   std::shared_ptr<arrow::RecordBatch> finalize();
 
+  std::shared_ptr<arrow::io::OutputStream> streamer(std::shared_ptr<arrow::ResizableBuffer> buffer)
+  {
+    return mCreator(mFragment, buffer);
+  }
+
  private:
+  std::shared_ptr<arrow::dataset::FileFragment> mFragment;
   arrow::MemoryPool* mArrowMemoryPool = nullptr;
   std::string mTableLabel;
   std::shared_ptr<arrow::RecordBatch> mRecordBatch;
+  StreamerCreator mCreator;
 };
 
 // -----------------------------------------------------------------------------

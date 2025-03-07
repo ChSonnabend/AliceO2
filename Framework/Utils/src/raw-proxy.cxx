@@ -29,7 +29,7 @@ void customize(std::vector<ConfigParamSpec>& workflowOptions)
 
   workflowOptions.push_back(
     ConfigParamSpec{
-      "dataspec", VariantType::String, "A:FLP/RAWDATA;B:FLP/DISTSUBTIMEFRAME/0", {"selection string for the data to be proxied"}});
+      "dataspec", VariantType::String, "tst:TST/A", {"selection string for the data to be proxied"}});
 
   workflowOptions.push_back(
     ConfigParamSpec{

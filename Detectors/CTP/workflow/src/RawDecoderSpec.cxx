@@ -201,9 +201,9 @@ o2::framework::DataProcessorSpec o2::ctp::reco_workflow::getRawDecoderSpec(bool 
   }
 
   std::vector<o2::framework::OutputSpec> outputs;
+  inputs.emplace_back("ctpconfig", "CTP", "CTPCONFIG", 0, o2::framework::Lifetime::Condition, o2::framework::ccdbParamSpec("CTP/Config/Config", 1));
+  inputs.emplace_back("trigoffset", "CTP", "Trig_Offset", 0, o2::framework::Lifetime::Condition, o2::framework::ccdbParamSpec("CTP/Config/TriggerOffsets"));
   if (digits) {
-    inputs.emplace_back("ctpconfig", "CTP", "CTPCONFIG", 0, o2::framework::Lifetime::Condition, o2::framework::ccdbParamSpec("CTP/Config/Config", 1));
-    inputs.emplace_back("trigoffset", "CTP", "Trig_Offset", 0, o2::framework::Lifetime::Condition, o2::framework::ccdbParamSpec("CTP/Config/TriggerOffsets"));
     outputs.emplace_back("CTP", "DIGITS", 0, o2::framework::Lifetime::Timeframe);
   }
   if (lumi) {
@@ -230,12 +230,10 @@ void RawDecoderSpec::updateTimeDependentParams(framework::ProcessingContext& pc)
     pc.inputs().get<o2::ctp::TriggerOffsetsParam*>("trigoffset");
     const auto& trigOffsParam = o2::ctp::TriggerOffsetsParam::Instance();
     LOG(info) << "updateing TroggerOffsetsParam: inputs L0_L1:" << trigOffsParam.L0_L1 << " classes L0_L1:" << trigOffsParam.L0_L1_classes;
-    if (mDecodeinputs) {
-      const auto ctpcfg = pc.inputs().get<o2::ctp::CTPConfiguration*>("ctpconfig");
-      if (ctpcfg != nullptr) {
-        mDecoder.setCTPConfig(*ctpcfg);
-        LOG(info) << "ctpconfig for run done:" << mDecoder.getCTPConfig().getRunNumber();
-      }
+    const auto ctpcfg = pc.inputs().get<o2::ctp::CTPConfiguration*>("ctpconfig");
+    if (ctpcfg != nullptr) {
+      mDecoder.setCTPConfig(*ctpcfg);
+      LOG(info) << "ctpconfig for run done:" << mDecoder.getCTPConfig().getRunNumber();
     }
   }
 }

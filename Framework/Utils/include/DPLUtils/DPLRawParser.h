@@ -250,6 +250,10 @@ class DPLRawParser
             LOG(warn) << msg << (*this->mInputIterator).spec->binding << " : " << e.what();
           } else if (this->mSeverity == fair::Severity::fatal) {
             LOG(fatal) << msg << (*this->mInputIterator).spec->binding << " : " << e.what();
+          } else if (this->mSeverity == fair::Severity::critical) {
+            LOG(critical) << msg << (*this->mInputIterator).spec->binding << " : " << e.what();
+          } else if (this->mSeverity == fair::Severity::error) {
+            LOG(error) << msg << (*this->mInputIterator).spec->binding << " : " << e.what();
           } else if (this->mSeverity == fair::Severity::info) {
             LOG(info) << msg << (*this->mInputIterator).spec->binding << " : " << e.what();
           } else {

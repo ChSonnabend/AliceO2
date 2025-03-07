@@ -65,7 +65,7 @@ void GPUTPCCompression::SetPointersCompressedClusters(void*& mem, T& c, uint32_t
   computePointerWithAlignment(mem, c.timeDiffU, nClU);
   computePointerWithAlignment(mem, c.sigmaPadU, nClU);
   computePointerWithAlignment(mem, c.sigmaTimeU, nClU);
-  computePointerWithAlignment(mem, c.nSliceRowClusters, GPUCA_ROW_COUNT * NSLICES);
+  computePointerWithAlignment(mem, c.nSliceRowClusters, GPUCA_ROW_COUNT * NSECTORS);
 
   uint32_t nClAreduced = reducedClA ? nClA - nTr : nClA;
 

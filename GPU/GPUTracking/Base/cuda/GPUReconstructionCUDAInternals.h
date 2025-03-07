@@ -23,10 +23,9 @@
 #include <memory>
 #include <string>
 
-namespace o2
+namespace o2::gpu
 {
-namespace gpu
-{
+
 #define GPUFailedMsg(x) GPUFailedMsgA(x, __FILE__, __LINE__)
 #define GPUFailedMsgI(x) GPUFailedMsgAI(x, __FILE__, __LINE__)
 
@@ -85,7 +84,6 @@ class GPUDebugTiming
 
 static_assert(std::is_convertible<cudaEvent_t, void*>::value, "CUDA event type incompatible to deviceEvent");
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

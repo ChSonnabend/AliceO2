@@ -402,6 +402,14 @@ struct SACDelta {
   std::array<IDCDelta<DataT>, SIDES> mSACDelta{};
 };
 
+/// container to be written to CCDB
+template <typename DataT>
+struct SAC {
+  SACZero mSACZero{};
+  SACOne mSACOne{};
+  SACDelta<DataT> mSACDelta{};
+};
+
 struct FourierCoeffSAC {
   std::array<FourierCoeff, SIDES> mCoeff{};
 };

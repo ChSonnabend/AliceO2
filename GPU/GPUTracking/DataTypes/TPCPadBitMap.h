@@ -102,7 +102,7 @@ struct TPCPadBitMap {
   };
 
   uint16_t mPadOffsetPerRow[GPUCA_ROW_COUNT];
-  SectorBitMap mBitMap[GPUCA_NSLICES];
+  SectorBitMap mBitMap[GPUCA_NSECTORS];
 };
 
 } // namespace o2::gpu

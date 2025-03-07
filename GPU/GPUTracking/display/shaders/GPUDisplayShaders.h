@@ -16,9 +16,7 @@
 #define GPUDISPLAYSHADERS_H
 
 #include "GPUCommonDef.h"
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 struct GPUDisplayShaders {
@@ -458,7 +456,7 @@ const float positionScale = 100.0f;
 void main() {
     vec3 position = gl_in[0].gl_Position.xyz;
 
-    for(uint32_t i = 0; i < field_config.StepCount; ++i) {
+    for(uint32_t i = 0; i < field_config.StepCount; i++) {
         gl_Position = um.ModelViewProj * vec4(position/positionScale, 1.0f);
         EmitVertex();
         const vec3 b_vec = Field(position);
@@ -468,7 +466,6 @@ void main() {
 }
 )";
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

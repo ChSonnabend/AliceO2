@@ -194,7 +194,7 @@ void GPURecoWorkflowSpec::init(InitContext& ic)
   // Configure the "GPU workflow" i.e. which steps we run on the GPU (or CPU)
   if (mSpecConfig.outputTracks || mSpecConfig.outputCompClusters || mSpecConfig.outputCompClustersFlat) {
     mConfig->configWorkflow.steps.set(GPUDataTypes::RecoStep::TPCConversion,
-                                      GPUDataTypes::RecoStep::TPCSliceTracking,
+                                      GPUDataTypes::RecoStep::TPCSectorTracking,
                                       GPUDataTypes::RecoStep::TPCMerging);
     mConfig->configWorkflow.outputs.set(GPUDataTypes::InOutType::TPCMergedTracks);
     mConfig->configWorkflow.steps.setBits(GPUDataTypes::RecoStep::TPCdEdx, mConfParam->rundEdx == -1 ? !mConfParam->synchronousProcessing : mConfParam->rundEdx);
@@ -396,7 +396,7 @@ void GPURecoWorkflowSpec::processInputs(ProcessingContext& pc, D& tpcZSmeta, E& 
   constexpr static size_t NEndpoints = o2::gpu::GPUTrackingInOutZS::NENDPOINTS;
 
   if (mSpecConfig.zsOnTheFly || mSpecConfig.zsDecoder) {
-    for (uint32_t i = 0; i < GPUTrackingInOutZS::NSLICES; i++) {
+    for (uint32_t i = 0; i < GPUTrackingInOutZS::NSECTORS; i++) {
       for (uint32_t j = 0; j < GPUTrackingInOutZS::NENDPOINTS; j++) {
         tpcZSmeta.Pointers[i][j].clear();
         tpcZSmeta.Sizes[i][j].clear();
@@ -473,13 +473,13 @@ void GPURecoWorkflowSpec::processInputs(ProcessingContext& pc, D& tpcZSmeta, E& 
     }
 
     int32_t totalCount = 0;
-    for (uint32_t i = 0; i < GPUTrackingInOutZS::NSLICES; i++) {
+    for (uint32_t i = 0; i < GPUTrackingInOutZS::NSECTORS; i++) {
       for (uint32_t j = 0; j < GPUTrackingInOutZS::NENDPOINTS; j++) {
         tpcZSmeta.Pointers2[i][j] = tpcZSmeta.Pointers[i][j].data();
         tpcZSmeta.Sizes2[i][j] = tpcZSmeta.Sizes[i][j].data();
-        tpcZS.slice[i].zsPtr[j] = tpcZSmeta.Pointers2[i][j];
-        tpcZS.slice[i].nZSPtr[j] = tpcZSmeta.Sizes2[i][j];
-        tpcZS.slice[i].count[j] = tpcZSmeta.Pointers[i][j].size();
+        tpcZS.sector[i].zsPtr[j] = tpcZSmeta.Pointers2[i][j];
+        tpcZS.sector[i].nZSPtr[j] = tpcZSmeta.Sizes2[i][j];
+        tpcZS.sector[i].count[j] = tpcZSmeta.Pointers[i][j].size();
         totalCount += tpcZSmeta.Pointers[i][j].size();
       }
     }
@@ -640,9 +640,9 @@ void GPURecoWorkflowSpec::run(ProcessingContext& pc)
       if (!(mTPCSectorMask & (1ul << i))) {
         if (ptrs.tpcZS) {
           for (uint32_t j = 0; j < GPUTrackingInOutZS::NENDPOINTS; j++) {
-            tpcZS.slice[i].zsPtr[j] = nullptr;
-            tpcZS.slice[i].nZSPtr[j] = nullptr;
-            tpcZS.slice[i].count[j] = 0;
+            tpcZS.sector[i].zsPtr[j] = nullptr;
+            tpcZS.sector[i].nZSPtr[j] = nullptr;
+            tpcZS.sector[i].count[j] = 0;
           }
         }
       }

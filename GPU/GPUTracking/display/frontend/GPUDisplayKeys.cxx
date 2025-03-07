@@ -20,8 +20,8 @@ const char* HelpText[] = {
   "[ESC]                         Quit",
   "[n]                           Next event",
   "[r]                           Reset Display Settings",
-  "[l] / [k] / [J]               Draw single slice (next  / previous slice), draw related slices (same plane in phi)",
-  "[;] / [:]                     Show splitting of TPC in slices by extruding volume, [:] resets",
+  "[l] / [k] / [J]               Draw single sector (next  / previous sector), draw related sectors (same plane in phi)",
+  "[;] / [:]                     Show splitting of TPC in sectors by extruding volume, [:] resets",
   "[#]                           Invert colors",
   "[y] / [Y] / [X] / [M]         Start Animation, Add / remove Animation point, Reset Points, Cycle animation camera mode (resets)",
   "[>] / [<]                     Toggle config interpolation during Animation / change Animation interval (via movement)",
@@ -60,7 +60,7 @@ const char* HelpText[] = {
   "[SHIFT]                       Slow Zoom / Move / Rotate",
   "[ALT] / [CTRL] / [ENTER]      Focus camera on origin / orient y-axis upwards (combine with [SHIFT] to lock) / Cycle through modes",
   "[RCTRL] / [RALT]              Rotate model instead of camera / rotate TPC around beamline",
-  "[1] ... [8] / [N]             Enable display of clusters, preseeds, seeds, starthits, tracklets, tracks, global tracks, merged tracks / Show assigned clusters in colors",
+  "[1] ... [8] / [N]             Enable display of clusters, preseeds, seeds, starthits, tracklets, tracks, extrapolated tracks, merged tracks / Show assigned clusters in colors",
   "[F1] / [F2] / [F3] / [F4]     Enable / disable drawing of TPC / TRD / TOF / ITS",
   "[SHIFT] + [F1] to [F4]        Enable / disable track detector filter",
   "[SHIFT] + [F12]               Switch track detector filter between AND and OR mode"
@@ -110,27 +110,27 @@ void GPUDisplay::HandleKey(uint8_t key)
   } else if (key == mFrontend->KEY_ALT) {
     mFrontend->mKeys[mFrontend->KEY_CTRL] = false; // Release CTRL with alt, to avoid orienting along y automatically!
   } else if (key == 'l') {
-    if (mCfgL.drawSlice >= (mCfgL.drawRelatedSlices ? (NSLICES / 4 - 1) : (NSLICES - 1))) {
-      mCfgL.drawSlice = -1;
-      SetInfo("Showing all slices", 1);
+    if (mCfgL.drawSector >= (mCfgL.drawRelatedSectors ? (NSECTORS / 4 - 1) : (NSECTORS - 1))) {
+      mCfgL.drawSector = -1;
+      SetInfo("Showing all sectors", 1);
     } else {
-      mCfgL.drawSlice++;
-      SetInfo("Showing slice %d", mCfgL.drawSlice);
+      mCfgL.drawSector++;
+      SetInfo("Showing sector %d", mCfgL.drawSector);
     }
   } else if (key == 'k') {
-    if (mCfgL.drawSlice <= -1) {
-      mCfgL.drawSlice = mCfgL.drawRelatedSlices ? (NSLICES / 4 - 1) : (NSLICES - 1);
+    if (mCfgL.drawSector <= -1) {
+      mCfgL.drawSector = mCfgL.drawRelatedSectors ? (NSECTORS / 4 - 1) : (NSECTORS - 1);
     } else {
-      mCfgL.drawSlice--;
+      mCfgL.drawSector--;
     }
-    if (mCfgL.drawSlice == -1) {
-      SetInfo("Showing all slices", 1);
+    if (mCfgL.drawSector == -1) {
+      SetInfo("Showing all sectors", 1);
     } else {
-      SetInfo("Showing slice %d", mCfgL.drawSlice);
+      SetInfo("Showing sector %d", mCfgL.drawSector);
     }
   } else if (key == 'J') {
-    mCfgL.drawRelatedSlices ^= 1;
-    SetInfo("Drawing of related slices %s", mCfgL.drawRelatedSlices ? "enabled" : "disabled");
+    mCfgL.drawRelatedSectors ^= 1;
+    SetInfo("Drawing of related sectors %s", mCfgL.drawRelatedSectors ? "enabled" : "disabled");
   } else if (key == 'L') {
     if (mCfgL.showCollision >= mNCollissions - 1) {
       mCfgL.showCollision = -1;
@@ -164,11 +164,11 @@ void GPUDisplay::HandleKey(uint8_t key)
     mPrintInfoText &= 3;
     SetInfo("Info text display - console: %s, onscreen %s", (mPrintInfoText & 2) ? "enabled" : "disabled", (mPrintInfoText & 1) ? "enabled" : "disabled");
   } else if (key == 'j') {
-    if (mCfgH.separateGlobalTracks) {
+    if (mCfgH.separateExtrapolatedTracks) {
       mCfgH.splitCETracks ^= 1;
     }
-    mCfgH.separateGlobalTracks ^= 1;
-    SetInfo("Seperated display of tracks propagated to adjacent sectors %s / of CE tracks %s", mCfgH.separateGlobalTracks ? "enabled" : "disabled", mCfgH.splitCETracks ? "enabled" : "disabled");
+    mCfgH.separateExtrapolatedTracks ^= 1;
+    SetInfo("Seperated display of tracks propagated to adjacent sectors %s / of CE tracks %s", mCfgH.separateExtrapolatedTracks ? "enabled" : "disabled", mCfgH.splitCETracks ? "enabled" : "disabled");
   } else if (key == 'c') {
     if (mCfgH.markClusters == 0) {
       mCfgH.markClusters = 1;
@@ -310,7 +310,7 @@ void GPUDisplay::HandleKey(uint8_t key)
   } else if (key == '6') {
     mCfgL.drawTracks ^= 1;
   } else if (key == '7') {
-    mCfgL.drawGlobalTracks ^= 1;
+    mCfgL.drawExtrapolatedTracks ^= 1;
   } else if (key == '8') {
     mCfgL.drawFinal ^= 1;
   } else if (key == mFrontend->KEY_F1) {

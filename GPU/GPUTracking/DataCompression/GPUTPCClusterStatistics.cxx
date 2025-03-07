@@ -23,7 +23,9 @@
 using namespace o2::gpu;
 
 // Small helper to compute Huffman probabilities
-namespace
+namespace o2::gpu
+{
+namespace // anonymous
 {
 typedef std::vector<bool> HuffCode;
 typedef std::map<uint32_t, HuffCode> HuffCodeMap;
@@ -69,7 +71,7 @@ INode* BuildTree(const double* frequencies, uint32_t UniqueSymbols)
 {
   std::priority_queue<INode*, std::vector<INode*>, NodeCmp> trees;
 
-  for (uint32_t i = 0; i < UniqueSymbols; ++i) {
+  for (uint32_t i = 0; i < UniqueSymbols; i++) {
     if (frequencies[i] != 0) {
       trees.push(new LeafNode(frequencies[i], i));
     }
@@ -101,7 +103,8 @@ void GenerateCodes(const INode* node, const HuffCode& prefix, HuffCodeMap& outCo
     GenerateCodes(in->right, rightPrefix, outCodes);
   }
 }
-} // namespace
+} // anonymous namespace
+} // namespace o2::gpu
 
 void GPUTPCClusterStatistics::RunStatistics(const o2::tpc::ClusterNativeAccess* clustersNative, const o2::tpc::CompressedClusters* clustersCompressed, const GPUParam& param)
 {
@@ -113,10 +116,10 @@ void GPUTPCClusterStatistics::RunStatistics(const o2::tpc::ClusterNativeAccess* 
   mDecoder.decompress(clustersCompressed, clustersNativeDecoded, allocator, param, true);
   std::vector<o2::tpc::ClusterNative> tmpClusters;
   if (param.rec.tpc.rejectionStrategy == GPUSettings::RejectionNone) { // verification does not make sense if we reject clusters during compression
-    for (uint32_t i = 0; i < NSLICES; i++) {
+    for (uint32_t i = 0; i < NSECTORS; i++) {
       for (uint32_t j = 0; j < GPUCA_ROW_COUNT; j++) {
         if (clustersNative->nClusters[i][j] != clustersNativeDecoded.nClusters[i][j]) {
-          GPUError("Number of clusters mismatch slice %u row %u: expected %d v.s. decoded %d", i, j, clustersNative->nClusters[i][j], clustersNativeDecoded.nClusters[i][j]);
+          GPUError("Number of clusters mismatch sector %u row %u: expected %d v.s. decoded %d", i, j, clustersNative->nClusters[i][j], clustersNativeDecoded.nClusters[i][j]);
           decodingErrors++;
           continue;
         }
@@ -136,7 +139,7 @@ void GPUTPCClusterStatistics::RunStatistics(const o2::tpc::ClusterNativeAccess* 
           const o2::tpc::ClusterNative& c2 = clustersNativeDecoded.clusters[i][j][k];
           if (c1.timeFlagsPacked != c2.timeFlagsPacked || c1.padPacked != c2.padPacked || c1.sigmaTimePacked != c2.sigmaTimePacked || c1.sigmaPadPacked != c2.sigmaPadPacked || c1.qMax != c2.qMax || c1.qTot != c2.qTot) {
             if (decodingErrors++ < 100) {
-              GPUWarning("Cluster mismatch: slice %2u row %3u hit %5u: %6d %3d %4d %3d %3d %4d %4d", i, j, k, (int32_t)c1.getTimePacked(), (int32_t)c1.getFlags(), (int32_t)c1.padPacked, (int32_t)c1.sigmaTimePacked, (int32_t)c1.sigmaPadPacked, (int32_t)c1.qMax, (int32_t)c1.qTot);
+              GPUWarning("Cluster mismatch: sector %2u row %3u hit %5u: %6d %3d %4d %3d %3d %4d %4d", i, j, k, (int32_t)c1.getTimePacked(), (int32_t)c1.getFlags(), (int32_t)c1.padPacked, (int32_t)c1.sigmaTimePacked, (int32_t)c1.sigmaPadPacked, (int32_t)c1.qMax, (int32_t)c1.qTot);
               GPUWarning("%45s %6d %3d %4d %3d %3d %4d %4d", "", (int32_t)c2.getTimePacked(), (int32_t)c2.getFlags(), (int32_t)c2.padPacked, (int32_t)c2.sigmaTimePacked, (int32_t)c2.sigmaPadPacked, (int32_t)c2.qMax, (int32_t)c2.qTot);
             }
           }
@@ -155,14 +158,14 @@ void GPUTPCClusterStatistics::RunStatistics(const o2::tpc::ClusterNativeAccess* 
   FillStatistic(mPqMaxA, clustersCompressed->qMaxA, clustersCompressed->nAttachedClusters);
   FillStatistic(mPflagsA, clustersCompressed->flagsA, clustersCompressed->nAttachedClusters);
   FillStatistic(mProwDiffA, clustersCompressed->rowDiffA, clustersCompressed->nAttachedClustersReduced);
-  FillStatistic(mPsliceLegDiffA, clustersCompressed->sliceLegDiffA, clustersCompressed->nAttachedClustersReduced);
+  FillStatistic(mPsectorLegDiffA, clustersCompressed->sliceLegDiffA, clustersCompressed->nAttachedClustersReduced);
   FillStatistic(mPpadResA, clustersCompressed->padResA, clustersCompressed->nAttachedClustersReduced);
   FillStatistic(mPtimeResA, clustersCompressed->timeResA, clustersCompressed->nAttachedClustersReduced);
   FillStatistic(mPsigmaPadA, clustersCompressed->sigmaPadA, clustersCompressed->nAttachedClusters);
   FillStatistic(mPsigmaTimeA, clustersCompressed->sigmaTimeA, clustersCompressed->nAttachedClusters);
   FillStatistic(mPqPtA, clustersCompressed->qPtA, clustersCompressed->nTracks);
   FillStatistic(mProwA, clustersCompressed->rowA, clustersCompressed->nTracks);
-  FillStatistic(mPsliceA, clustersCompressed->sliceA, clustersCompressed->nTracks);
+  FillStatistic(mPsectorA, clustersCompressed->sliceA, clustersCompressed->nTracks);
   FillStatistic(mPtimeA, clustersCompressed->timeA, clustersCompressed->nTracks);
   FillStatistic(mPpadA, clustersCompressed->padA, clustersCompressed->nTracks);
   FillStatistic(mPqTotU, clustersCompressed->qTotU, clustersCompressed->nUnattachedClusters);
@@ -173,12 +176,12 @@ void GPUTPCClusterStatistics::RunStatistics(const o2::tpc::ClusterNativeAccess* 
   FillStatistic(mPsigmaPadU, clustersCompressed->sigmaPadU, clustersCompressed->nUnattachedClusters);
   FillStatistic(mPsigmaTimeU, clustersCompressed->sigmaTimeU, clustersCompressed->nUnattachedClusters);
   FillStatistic<uint16_t, 1>(mPnTrackClusters, clustersCompressed->nTrackClusters, clustersCompressed->nTracks);
-  FillStatistic<uint32_t, 1>(mPnSliceRowClusters, clustersCompressed->nSliceRowClusters, clustersCompressed->nSliceRows);
+  FillStatistic<uint32_t, 1>(mPnSectorRowClusters, clustersCompressed->nSliceRowClusters, clustersCompressed->nSliceRows);
   FillStatisticCombined(mPsigmaA, clustersCompressed->sigmaPadA, clustersCompressed->sigmaTimeA, clustersCompressed->nAttachedClusters, P_MAX_SIGMA);
   FillStatisticCombined(mPsigmaU, clustersCompressed->sigmaPadU, clustersCompressed->sigmaTimeU, clustersCompressed->nUnattachedClusters, P_MAX_SIGMA);
   FillStatisticCombined(mPQA, clustersCompressed->qMaxA, clustersCompressed->qTotA, clustersCompressed->nAttachedClusters, P_MAX_QMAX);
   FillStatisticCombined(mPQU, clustersCompressed->qMaxU, clustersCompressed->qTotU, clustersCompressed->nUnattachedClusters, P_MAX_QMAX);
-  FillStatisticCombined(mProwSliceA, clustersCompressed->rowDiffA, clustersCompressed->sliceLegDiffA, clustersCompressed->nAttachedClustersReduced, GPUCA_ROW_COUNT);
+  FillStatisticCombined(mProwSectorA, clustersCompressed->rowDiffA, clustersCompressed->sliceLegDiffA, clustersCompressed->nAttachedClustersReduced, GPUCA_ROW_COUNT);
   mNTotalClusters += clustersCompressed->nAttachedClusters + clustersCompressed->nUnattachedClusters;
 }
 
@@ -195,15 +198,15 @@ void GPUTPCClusterStatistics::Finish()
   double eQ = Analyze(mPqTotA, "qTot Attached", false);
   eQ += Analyze(mPqMaxA, "qMax Attached", false);
   Analyze(mPflagsA, "flags Attached");
-  double eRowSlice = Analyze(mProwDiffA, "rowDiff Attached", false);
-  eRowSlice += Analyze(mPsliceLegDiffA, "sliceDiff Attached", false);
+  double eRowSector = Analyze(mProwDiffA, "rowDiff Attached", false);
+  eRowSector += Analyze(mPsectorLegDiffA, "sectorDiff Attached", false);
   Analyze(mPpadResA, "padRes Attached");
   Analyze(mPtimeResA, "timeRes Attached");
   double eSigma = Analyze(mPsigmaPadA, "sigmaPad Attached", false);
   eSigma += Analyze(mPsigmaTimeA, "sigmaTime Attached", false);
   Analyze(mPqPtA, "qPt Attached");
   Analyze(mProwA, "row Attached");
-  Analyze(mPsliceA, "slice Attached");
+  Analyze(mPsectorA, "sector Attached");
   Analyze(mPtimeA, "time Attached");
   Analyze(mPpadA, "pad Attached");
   eQ += Analyze(mPqTotU, "qTot Unattached", false);
@@ -214,14 +217,14 @@ void GPUTPCClusterStatistics::Finish()
   eSigma += Analyze(mPsigmaPadU, "sigmaPad Unattached", false);
   eSigma += Analyze(mPsigmaTimeU, "sigmaTime Unattached", false);
   Analyze(mPnTrackClusters, "nClusters in Track");
-  Analyze(mPnSliceRowClusters, "nClusters in Row");
+  Analyze(mPnSectorRowClusters, "nClusters in Row");
   double eSigmaCombined = Analyze(mPsigmaA, "combined sigma Attached");
   eSigmaCombined += Analyze(mPsigmaU, "combined sigma Unattached");
   double eQCombined = Analyze(mPQA, "combined Q Attached");
   eQCombined += Analyze(mPQU, "combined Q Unattached");
-  double eRowSliceCombined = Analyze(mProwSliceA, "combined row/slice Attached");
+  double eRowSectorCombined = Analyze(mProwSectorA, "combined row/sector Attached");
 
-  GPUInfo("Combined Row/Slice: %6.4f --> %6.4f (%6.4f%%)", eRowSlice, eRowSliceCombined, eRowSlice > 1e-1 ? (100. * (eRowSlice - eRowSliceCombined) / eRowSlice) : 0.f);
+  GPUInfo("Combined Row/Sector: %6.4f --> %6.4f (%6.4f%%)", eRowSector, eRowSectorCombined, eRowSector > 1e-1 ? (100. * (eRowSector - eRowSectorCombined) / eRowSector) : 0.f);
   GPUInfo("Combined Sigma: %6.4f --> %6.4f (%6.4f%%)", eSigma, eSigmaCombined, eSigma > 1e-3 ? (100. * (eSigma - eSigmaCombined) / eSigma) : 0.f);
   GPUInfo("Combined Q: %6.4f --> %6.4f (%6.4f%%)", eQ, eQCombined, eQ > 1e-3 ? (100. * (eQ - eQCombined) / eQ) : 0.f);
 
@@ -256,7 +259,7 @@ float GPUTPCClusterStatistics::Analyze(std::vector<int32_t>& p, const char* name
     GenerateCodes(root, HuffCode(), codes);
     delete root;
 
-    for (HuffCodeMap::const_iterator it = codes.begin(); it != codes.end(); ++it) {
+    for (HuffCodeMap::const_iterator it = codes.begin(); it != codes.end(); it++) {
       huffmanSize += it->second.size() * prob[it->first];
     }
 

@@ -270,6 +270,13 @@ void PrimaryGenerator::setVertexMode(o2::conf::VertexMode const& mode, o2::dataf
     LOG(info) << "The mean vertex is set to :";
     mMeanVertex->print();
   }
+  if (mVertexMode == o2::conf::VertexMode::kNoVertex) {
+    setApplyVertex(false);
+    LOG(info) << "Disabling vertexing";
+    mMeanVertex = std::move(std::unique_ptr<o2::dataformats::MeanVertexObject>(new o2::dataformats::MeanVertexObject(0, 0, 0, 0, 0, 0, 0, 0)));
+    LOG(info) << "The mean vertex is set to :";
+    mMeanVertex->print();
+  }
 }
 
 /*****************************************************************/
@@ -298,7 +305,7 @@ void PrimaryGenerator::fixInteractionVertex()
   SmearGausVertexZ(false);
 
   // we use the mMeanVertexObject if initialized (initialize first)
-  if (!mMeanVertex) {
+  if (mMeanVertex.get() == nullptr) {
     if (mVertexMode == o2::conf::VertexMode::kDiamondParam) {
       auto const& param = InteractionDiamondParam::Instance();
       const auto& xyz = param.position;

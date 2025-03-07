@@ -30,9 +30,6 @@ class GPUTPCGMPolynomialField;
 #ifndef GPUCA_GPUCODE
 #include "GPUMemoryResource.h"
 #include "GPUReconstruction.h"
-#ifdef WITH_OPENMP
-#include <omp.h>
-#endif // WITH_OPENMP
 #include <chrono>
 #include <vector>
 
@@ -61,10 +58,10 @@ void* GPUTRDTracker_t<TRDTRK, PROP>::SetPointersBase(void* base)
   //--------------------------------------------------------------------
   // Allocate memory for fixed size objects (needs to be done only once)
   //--------------------------------------------------------------------
-  mMaxThreads = mRec->GetMaxThreads();
+  mMaxBackendThreads = mRec->GetMaxBackendThreads();
   computePointerWithAlignment(base, mR, kNChambers);
-  computePointerWithAlignment(base, mHypothesis, mNCandidates * mMaxThreads);
-  computePointerWithAlignment(base, mCandidates, mNCandidates * 2 * mMaxThreads);
+  computePointerWithAlignment(base, mHypothesis, mNCandidates * mMaxBackendThreads);
+  computePointerWithAlignment(base, mCandidates, mNCandidates * 2 * mMaxBackendThreads);
   return base;
 }
 
@@ -94,7 +91,7 @@ void* GPUTRDTracker_t<TRDTRK, PROP>::SetPointersTracks(void* base)
 }
 
 template <class TRDTRK, class PROP>
-GPUTRDTracker_t<TRDTRK, PROP>::GPUTRDTracker_t() : mR(nullptr), mIsInitialized(false), mGenerateSpacePoints(false), mProcessPerTimeFrame(false), mNAngleHistogramBins(25), mAngleHistogramRange(50), mMemoryPermanent(-1), mMemoryTracklets(-1), mMemoryTracks(-1), mNMaxCollisions(0), mNMaxTracks(0), mNMaxSpacePoints(0), mTracks(nullptr), mTrackAttribs(nullptr), mNCandidates(1), mNTracks(0), mNEvents(0), mMaxThreads(100), mTrackletIndexArray(nullptr), mHypothesis(nullptr), mCandidates(nullptr), mSpacePoints(nullptr), mGeo(nullptr), mRPhiA2(0), mRPhiB(0), mRPhiC2(0), mDyA2(0), mDyB(0), mDyC2(0), mAngleToDyA(0), mAngleToDyB(0), mAngleToDyC(0), mDebugOutput(false), mMaxEta(0.84f), mRoadZ(18.f), mZCorrCoefNRC(1.4f), mTPCVdrift(2.58f), mTPCTDriftOffset(0.f), mDebug(new GPUTRDTrackerDebug<TRDTRK>())
+GPUTRDTracker_t<TRDTRK, PROP>::GPUTRDTracker_t() : mR(nullptr), mIsInitialized(false), mGenerateSpacePoints(false), mProcessPerTimeFrame(false), mNAngleHistogramBins(25), mAngleHistogramRange(50), mMemoryPermanent(-1), mMemoryTracklets(-1), mMemoryTracks(-1), mNMaxCollisions(0), mNMaxTracks(0), mNMaxSpacePoints(0), mTracks(nullptr), mTrackAttribs(nullptr), mNCandidates(1), mNTracks(0), mNEvents(0), mMaxBackendThreads(100), mTrackletIndexArray(nullptr), mHypothesis(nullptr), mCandidates(nullptr), mSpacePoints(nullptr), mGeo(nullptr), mRPhiA2(0), mRPhiB(0), mRPhiC2(0), mDyA2(0), mDyB(0), mDyC2(0), mAngleToDyA(0), mAngleToDyB(0), mAngleToDyC(0), mDebugOutput(false), mMaxEta(0.84f), mRoadZ(18.f), mZCorrCoefNRC(1.4f), mTPCVdrift(2.58f), mTPCTDriftOffset(0.f), mDebug(new GPUTRDTrackerDebug<TRDTRK>())
 {
   //--------------------------------------------------------------------
   // Default constructor
@@ -1108,12 +1105,9 @@ GPUd() bool GPUTRDTracker_t<TRDTRK, PROP>::IsGeoFindable(const TRDTRK* t, const 
 
 
 #ifndef GPUCA_GPUCODE
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 template class GPUTRDTracker_t<GPUTRDTrack, GPUTRDPropagator>;
 template class GPUTRDTracker_t<GPUTRDTrackGPU, GPUTRDPropagatorGPU>;
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 #endif

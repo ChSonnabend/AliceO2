@@ -40,9 +40,7 @@ class HighResTimer
 
   static double GetFrequency();
   static double GetTime();
-#ifndef GPUCODE
   static double Frequency;
-#endif
 };
 
 #endif

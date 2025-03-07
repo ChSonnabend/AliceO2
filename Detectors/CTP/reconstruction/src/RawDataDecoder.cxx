@@ -79,13 +79,13 @@ int RawDataDecoder::addCTPDigit(uint32_t linkCRU, uint32_t orbit, gbtword80_t& d
         if (mErrorIR < mErrorMax) {
           LOG(error) << "Two CTP IRs with the same timestamp:" << ir.bc << " " << ir.orbit << " pld:" << pld << " dig:" << digits[ir];
         }
-        ret = 2;
+        ret = 4;
         mErrorIR++;
         mStickyError = true;
       }
     } else {
       LOG(error) << "Two digits with the same timestamp:" << ir.bc << " " << ir.orbit;
-      ret = 2;
+      ret = 8;
     }
   } else if (linkCRU == o2::ctp::GBTLinkIDClassRec) {
     int32_t BCShiftCorrection = -o2::ctp::TriggerOffsetsParam::Instance().customOffset[o2::detectors::DetID::CTP];
@@ -113,11 +113,11 @@ int RawDataDecoder::addCTPDigit(uint32_t linkCRU, uint32_t orbit, gbtword80_t& d
           mStickyError = true;
         }
         mErrorTCR++;
-        ret = 3;
+        ret = 16;
       }
     } else {
       LOG(error) << "Two digits with the same timestamp:" << ir.bc << " " << ir.orbit;
-      ret = 3;
+      ret = 32;
     }
   } else {
     LOG(error) << "Unxpected  CTP CRU link:" << linkCRU;
@@ -298,7 +298,10 @@ int RawDataDecoder::decodeRaw(o2::framework::InputRecord& inputs, std::vector<o2
       trgclassmask = mCTPConfig.getTriggerClassMask();
     }
     // std::cout << "trgclassmask:" << std::hex << trgclassmask << std::dec << std::endl;
-    shiftInputs(digitsMap, digits, mTFOrbit, trgclassmask);
+    ret = shiftInputs(digitsMap, digits, mTFOrbit, trgclassmask);
+    if (mCheckConsistency) {
+      ret = checkReadoutConsistentncy(digits, trgclassmask);
+    }
   }
   if (mDoDigits && !mDecodeInps) {
     for (auto const& dig : digitsMap) {
@@ -615,13 +618,58 @@ int RawDataDecoder::shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digit
     }
     digits.push_back(dig.second);
   }
+  int ret = 0;
   if (nTwoI) { // Trigger class wo Input
     LOG(error) << "LM:" << nLM << " L0:" << nL0 << " L1:" << nL1 << " TwI:" << nTwI << " Trigger classes wo input:" << nTwoI;
+    ret = 64;
   }
   if (nTwoIlost) {
     LOG(warn) << " Trigger classes wo input from diff latency 1:" << nTwoIlost;
   }
-  return 0;
+  return ret;
+}
+//
+int RawDataDecoder::checkReadoutConsistentncy(o2::pmr::vector<CTPDigit>& digits, uint64_t trgclassmask)
+{
+  int ret = 0;
+  int lost = 0;
+  for (auto const& digit : digits) {
+    // if class mask => inps
+    for (int i = 0; i < digit.CTPClassMask.size(); i++) {
+      if (digit.CTPClassMask[i]) {
+        const CTPClass* cls = mCTPConfig.getCTPClassFromHWIndex(i);
+        uint64_t clsinpmask = cls->descriptor->getInputsMask();
+        uint64_t diginpmask = digit.CTPInputMask.to_ullong();
+        if (!((clsinpmask & diginpmask) == clsinpmask)) {
+          LOG(error) << "CTP class:" << cls->name << " inpmask:" << clsinpmask << " not compatible with inputs mask:" << diginpmask;
+          ret = 128;
+        }
+      }
+    }
+    // if inps => class mask
+    for (auto const& cls : mCTPConfig.getCTPClasses()) {
+      uint64_t clsinpmask = cls.descriptor->getInputsMask();
+      uint64_t diginpmask = digit.CTPInputMask.to_ullong();
+      uint64_t digclsmask = digit.CTPClassMask.to_ullong();
+      if ((clsinpmask & diginpmask) == clsinpmask) {
+        if ((cls.classMask & digclsmask) == 0) {
+          int32_t BCShiftCorrection = -o2::ctp::TriggerOffsetsParam::Instance().customOffset[o2::detectors::DetID::CTP];
+          int32_t offset = BCShiftCorrection + o2::ctp::TriggerOffsetsParam::Instance().LM_L0 + o2::ctp::TriggerOffsetsParam::Instance().L0_L1_classes - 1;
+          offset = o2::constants::lhc::LHCMaxBunches - offset;
+          if (digit.intRecord.bc < offset) {
+            LOG(error) << "CTP class:" << cls.name << " inpmask:" << clsinpmask << " cls mask:" << cls.classMask << " not found in digit:" << digit;
+            ret = 256;
+          } else {
+            lost++;
+          }
+        }
+      }
+    }
+  }
+  if (lost) {
+    LOG(info) << "LOST classes because of shift:" << lost;
+  }
+  return ret;
 }
 //
 int RawDataDecoder::setLumiInp(int lumiinp, std::string inp)

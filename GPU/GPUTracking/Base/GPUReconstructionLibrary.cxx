@@ -22,10 +22,6 @@
 #include <unistd.h>
 #endif
 
-#ifdef WITH_OPENMP
-#include <omp.h>
-#endif
-
 #include "GPUReconstruction.h"
 #include "GPUReconstructionAvailableBackends.h"
 

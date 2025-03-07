@@ -103,11 +103,11 @@ void GPUTPCClusterFinder::RegisterMemoryAllocation()
   if (mRec->GetProcessingSettings().runMC) {
     scratchType |= GPUMemoryResource::MEMORY_HOST | GPUMemoryResource::MEMORY_GPU;
   }
-  mScratchId = mRec->RegisterMemoryAllocation(this, &GPUTPCClusterFinder::SetPointersScratch, scratchType, "TPCClustererScratch", GPUMemoryReuse{GPUMemoryReuse::REUSE_1TO1, GPUMemoryReuse::ClustererScratch, (uint16_t)(mISlice % mRec->GetProcessingSettings().nTPCClustererLanes)});
+  mScratchId = mRec->RegisterMemoryAllocation(this, &GPUTPCClusterFinder::SetPointersScratch, scratchType, "TPCClustererScratch", GPUMemoryReuse{GPUMemoryReuse::REUSE_1TO1, GPUMemoryReuse::ClustererScratch, (uint16_t)(mISector % mRec->GetProcessingSettings().nTPCClustererLanes)});
 
   mMemoryId = mRec->RegisterMemoryAllocation(this, &GPUTPCClusterFinder::SetPointersMemory, GPUMemoryResource::MEMORY_PERMANENT, "TPCClustererMemory");
   mRec->RegisterMemoryAllocation(this, &GPUTPCClusterFinder::SetPointersOutput, GPUMemoryResource::MEMORY_OUTPUT | GPUMemoryResource::MEMORY_STACK, "TPCClustererOutput");
-  mZSId = mRec->RegisterMemoryAllocation(this, &GPUTPCClusterFinder::SetPointersZS, GPUMemoryResource::MEMORY_CUSTOM | GPUMemoryResource::MEMORY_CUSTOM_TRANSFER | GPUMemoryResource::MEMORY_GPU | GPUMemoryResource::MEMORY_STACK, "TPCClustererZSData", GPUMemoryReuse{GPUMemoryReuse::REUSE_1TO1, GPUMemoryReuse::ClustererZS, (uint16_t)(mISlice % mRec->GetProcessingSettings().nTPCClustererLanes)});
+  mZSId = mRec->RegisterMemoryAllocation(this, &GPUTPCClusterFinder::SetPointersZS, GPUMemoryResource::MEMORY_CUSTOM | GPUMemoryResource::MEMORY_CUSTOM_TRANSFER | GPUMemoryResource::MEMORY_GPU | GPUMemoryResource::MEMORY_STACK, "TPCClustererZSData", GPUMemoryReuse{GPUMemoryReuse::REUSE_1TO1, GPUMemoryReuse::ClustererZS, (uint16_t)(mISector % mRec->GetProcessingSettings().nTPCClustererLanes)});
   mZSOffsetId = mRec->RegisterMemoryAllocation(this, &GPUTPCClusterFinder::SetPointersZSOffset, GPUMemoryResource::MEMORY_CUSTOM | GPUMemoryResource::MEMORY_CUSTOM_TRANSFER | GPUMemoryResource::MEMORY_INPUT | GPUMemoryResource::MEMORY_STACK, "TPCClustererZSOffsets");
 }
 

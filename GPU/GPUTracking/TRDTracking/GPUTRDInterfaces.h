@@ -23,23 +23,18 @@
 #include "GPUTPCGMTrackParam.h"
 #include "GPUTRDDef.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 template <typename T>
 class trackInterface;
 template <typename T>
 class propagatorInterface;
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #include "DetectorsBase/Propagator.h"
 #include "GPUTRDInterfaceO2Track.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 GPUdi() trackInterface<o2::track::TrackParCov>::trackInterface(const GPUTPCGMMergedTrack& trk) { set(trk.OuterParam().X, trk.OuterParam().alpha, trk.OuterParam().P, trk.OuterParam().C); }
@@ -87,8 +82,7 @@ class propagatorInterface<o2::base::Propagator>
   const o2::base::Propagator* mProp;
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #include "GPUTPCGMPropagator.h"
 #include "GPUParam.h"
@@ -96,9 +90,7 @@ class propagatorInterface<o2::base::Propagator>
 #include "DataFormatsTPC/TrackTPC.h"
 #include "ReconstructionDataFormats/TrackTPCITS.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 template <>
@@ -235,7 +227,6 @@ class propagatorInterface<GPUTPCGMPropagator> : public GPUTPCGMPropagator
 
   trackInterface<GPUTPCGMTrackParam>* mTrack;
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif // GPUTRDINTERFACES_H

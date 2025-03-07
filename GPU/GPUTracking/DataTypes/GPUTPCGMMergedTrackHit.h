@@ -17,15 +17,14 @@
 
 #include "GPUCommonDef.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 struct GPUTPCGMMergedTrackHit {
   uint32_t num;
-  uint8_t slice, row, leg, state;
+  uint8_t sector, row, leg, state;
 
   // NOTE: the lower states must match those from ClusterNative!
+  // TODO: take them directly from clusterNative header.
   enum hitState { flagSplitPad = 0x1,
                   flagSplitTime = 0x2,
                   flagSplit = 0x3,
@@ -48,7 +47,6 @@ struct GPUTPCGMMergedTrackHitXYZ {
 #endif
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

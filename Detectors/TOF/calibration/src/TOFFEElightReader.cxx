@@ -93,6 +93,28 @@ int TOFFEElightReader::parseFEElightConfig(bool verbose)
     }
   }
 
+  const int istripInPlate[Geo::NSECTORS] = {Geo::NSTRIPC, Geo::NSTRIPB, Geo::NSTRIPA, Geo::NSTRIPB, Geo::NSTRIPC};
+  const int channelInSector = Geo::NPADS * Geo::NSTRIPXSECTOR;
+  for (int isector = 0; isector < Geo::NSECTORS; isector++) {
+    int nstripInPrevPlates = 0;
+    for (int iplate = 0; iplate < Geo::NPLATES; iplate++) {
+      unsigned int mask = mFEElightConfig->getHVConfig(isector, iplate);
+      for (int istrip = 0; istrip < istripInPlate[iplate]; istrip++) {
+        bool isActive = mask & 1; // check first bit/current_strip
+        mask /= 2;                // move to the next bit/strip
+
+        if (!isActive) { // switch off all channels in this strip
+          int index0 = isector * channelInSector + (nstripInPrevPlates + istrip) * Geo::NPADS;
+          int indexF = index0 + Geo::NPADS;
+          for (int index = index0; index < indexF; index++) {
+            mFEElightInfo.mChannelEnabled[index] = 0;
+          }
+        }
+      }
+      nstripInPrevPlates += istripInPlate[iplate];
+    }
+  }
+
   const TOFFEEtriggerConfig* triggerConfig = nullptr;
   for (Int_t iddl = 0; iddl < TOFFEElightConfig::NTRIGGERMAPS; iddl++) {
     triggerConfig = mFEElightConfig->getTriggerConfig(iddl);

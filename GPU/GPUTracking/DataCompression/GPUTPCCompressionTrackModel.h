@@ -17,7 +17,7 @@
 
 // For debugging purposes, we provide means to use other track models
 // #define GPUCA_COMPRESSION_TRACK_MODEL_MERGER
-// #define GPUCA_COMPRESSION_TRACK_MODEL_SLICETRACKER
+// #define GPUCA_COMPRESSION_TRACK_MODEL_SECTORTRACKER
 
 #include "GPUDef.h"
 
@@ -25,7 +25,7 @@
 #include "GPUTPCGMPropagator.h"
 #include "GPUTPCGMTrackParam.h"
 
-#elif defined(GPUCA_COMPRESSION_TRACK_MODEL_SLICETRACKER)
+#elif defined(GPUCA_COMPRESSION_TRACK_MODEL_SECTORTRACKER)
 #include "GPUTPCTrackParam.h"
 
 #else // Default internal track model for compression
@@ -49,7 +49,7 @@ class GPUTPCCompressionTrackModel
   GPUd() int32_t Filter(float y, float z, int32_t iRow);
   GPUd() int32_t Mirror();
 
-#if defined(GPUCA_COMPRESSION_TRACK_MODEL_MERGER) || defined(GPUCA_COMPRESSION_TRACK_MODEL_SLICETRACKER)
+#if defined(GPUCA_COMPRESSION_TRACK_MODEL_MERGER) || defined(GPUCA_COMPRESSION_TRACK_MODEL_SECTORTRACKER)
   GPUd() float X() const
   {
     return mTrk.GetX();
@@ -100,15 +100,15 @@ class GPUTPCCompressionTrackModel
   GPUd() void getClusterErrors2(int32_t iRow, float z, float sinPhi, float DzDs, float& ErrY2, float& ErrZ2) const;
   GPUd() void resetCovariance();
 
-  GPUd() float LinearPad2Y(int32_t slice, float pad, float padWidth, uint8_t npads) const
+  GPUd() float LinearPad2Y(int32_t sector, float pad, float padWidth, uint8_t npads) const
   {
     const float u = (pad - 0.5f * npads) * padWidth;
-    return (slice >= GPUCA_NSLICES / 2) ? -u : u;
+    return (sector >= GPUCA_NSECTORS / 2) ? -u : u;
   }
 
-  GPUd() float LinearY2Pad(int32_t slice, float y, float padWidth, uint8_t npads) const
+  GPUd() float LinearY2Pad(int32_t sector, float y, float padWidth, uint8_t npads) const
   {
-    const float u = (slice >= GPUCA_NSLICES / 2) ? -y : y;
+    const float u = (sector >= GPUCA_NSECTORS / 2) ? -y : y;
     return u / padWidth + 0.5f * npads;
   }
 
@@ -120,7 +120,7 @@ class GPUTPCCompressionTrackModel
   GPUTPCGMTrackParam mTrk;
   const GPUParam* mParam;
 
-#elif defined(GPUCA_COMPRESSION_TRACK_MODEL_SLICETRACKER)
+#elif defined(GPUCA_COMPRESSION_TRACK_MODEL_SECTORTRACKER)
   GPUTPCTrackParam mTrk;
   float mAlpha;
   const GPUParam* mParam;

@@ -17,18 +17,16 @@
 
 #include "GPUCommonDef.h"
 
-#if !defined(GPUCA_NSLICES) && !defined(GPUCA_ROW_COUNT)
+#if !defined(GPUCA_NSECTORS) && !defined(GPUCA_ROW_COUNT)
 #include "DataFormatsTPC/Constants.h"
-#define GPUCA_NSLICES o2::tpc::constants::MAXSECTOR
+#define GPUCA_NSECTORS o2::tpc::constants::MAXSECTOR
 #define GPUCA_ROW_COUNT o2::tpc::constants::MAXGLOBALPADROW
 #ifndef GPUCA_TPC_GEOMETRY_O2
 #define GPUCA_TPC_GEOMETRY_O2
 #endif
 #endif
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 // Copy of TPC constants from AliRoot:TPCGeometry / O2:TPC/Base/Mapper
 // Should be unified, but cannot take the contants from the official headers for now, since we want it to be constexpr
@@ -112,25 +110,25 @@ class GPUTPCGeometry // TODO: Make values constexpr
   GPUd() float PadWidth(int32_t row) const { return (mPadWidth[GetRegion(row)]); }
   GPUd() uint8_t NPads(int32_t row) const { return mNPads[row]; }
 
-  GPUd() float LinearPad2Y(int32_t slice, int32_t row, float pad) const
+  GPUd() float LinearPad2Y(int32_t sector, int32_t row, float pad) const
   {
 #ifdef GPUCA_TPC_GEOMETRY_O2
     const float u = (pad - 0.5f * (mNPads[row] - 1)) * PadWidth(row);
 #else
     const float u = (pad - 0.5f * mNPads[row]) * PadWidth(row);
 #endif
-    return (slice >= GPUCA_NSLICES / 2) ? -u : u;
+    return (sector >= GPUCA_NSECTORS / 2) ? -u : u;
   }
 
-  GPUd() static float LinearTime2Z(int32_t slice, float time)
+  GPUd() static float LinearTime2Z(int32_t sector, float time)
   {
     const float v = 250.f - time * FACTOR_T2Z; // Used in compression, must remain constant at 250cm!
-    return (slice >= GPUCA_NSLICES / 2) ? -v : v;
+    return (sector >= GPUCA_NSECTORS / 2) ? -v : v;
   }
 
-  GPUd() float LinearY2Pad(int32_t slice, int32_t row, float y) const
+  GPUd() float LinearY2Pad(int32_t sector, int32_t row, float y) const
   {
-    const float u = (slice >= GPUCA_NSLICES / 2) ? -y : y;
+    const float u = (sector >= GPUCA_NSECTORS / 2) ? -y : y;
 #ifdef GPUCA_TPC_GEOMETRY_O2
     return u / PadWidth(row) + 0.5f * (mNPads[row] - 1);
 #else
@@ -138,12 +136,11 @@ class GPUTPCGeometry // TODO: Make values constexpr
 #endif
   }
 
-  GPUd() static float LinearZ2Time(int32_t slice, float z)
+  GPUd() static float LinearZ2Time(int32_t sector, float z)
   {
-    const float v = (slice >= GPUCA_NSLICES / 2) ? -z : z;
+    const float v = (sector >= GPUCA_NSECTORS / 2) ? -z : z;
     return (250.f - v) * FACTOR_Z2T; // Used in compression, must remain constant at 250cm
   }
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 #endif

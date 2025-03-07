@@ -19,14 +19,11 @@ using namespace o2::gpu;
 #include "GPUTRDTrack.inc"
 
 #if !defined(GPUCA_GPUCODE)
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 #if !defined(GPUCA_O2_LIB) // Instantiate O2 track version, for O2 this happens in GPUTRDTrackO2.cxx
 template class GPUTRDTrack_t<trackInterface<o2::track::TrackParCov>>;
 #endif
 template class GPUTRDTrack_t<trackInterface<GPUTPCGMTrackParam>>; // Always instatiate GM track version
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 #endif

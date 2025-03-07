@@ -24,7 +24,7 @@
 
 using namespace o2::gpu;
 
-namespace o2::gpu
+namespace o2::gpu::internal
 {
 struct GPUDisplayGUIWrapperObjects {
   std::unique_ptr<QApplication> app;
@@ -39,7 +39,7 @@ struct GPUDisplayGUIWrapperObjects {
   std::mutex mutex, mutexRet;
   std::condition_variable signal, signalRet;
 };
-} // namespace o2::gpu
+} // namespace o2::gpu::internal
 
 GPUDisplayGUIWrapper::GPUDisplayGUIWrapper()
 {
@@ -52,7 +52,7 @@ GPUDisplayGUIWrapper::GPUDisplayGUIWrapper()
       first = true;
     }
   }
-  mO.reset(new GPUDisplayGUIWrapperObjects);
+  mO.reset(new internal::GPUDisplayGUIWrapperObjects);
   mO->t = std::thread(&GPUDisplayGUIWrapper::guiThread, this);
 }
 GPUDisplayGUIWrapper::~GPUDisplayGUIWrapper()

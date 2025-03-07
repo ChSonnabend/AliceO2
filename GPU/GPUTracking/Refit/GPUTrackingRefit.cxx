@@ -63,7 +63,9 @@ void GPUTrackingRefitProcessor::SetMaxData(const GPUTrackingInOutPointers& io)
 }
 #endif
 
-namespace
+namespace o2::gpu::internal
+{
+namespace // anonymous
 {
 template <class T>
 struct refitTrackTypes;
@@ -76,6 +78,7 @@ struct refitTrackTypes<TrackParCov> {
   using propagator = const Propagator*;
 };
 } // anonymous namespace
+} // namespace o2::gpu::internal
 
 template <>
 GPUd() void GPUTrackingRefit::initProp<GPUgeneric() GPUTPCGMPropagator>(GPUTPCGMPropagator& prop) // FIXME: GPUgeneric() needed to make the clang spirv output link correctly
@@ -210,10 +213,10 @@ template <class T, class S>
 GPUd() int32_t GPUTrackingRefit::RefitTrack(T& trkX, bool outward, bool resetCov)
 {
   CADEBUG(int32_t ii; printf("\nRefitting track\n"));
-  typename refitTrackTypes<S>::propagator prop;
+  typename internal::refitTrackTypes<S>::propagator prop;
   S trk;
   float TrackParCovChi2 = 0.f;
-  convertTrack<S, T, typename refitTrackTypes<S>::propagator>(trk, trkX, prop, &TrackParCovChi2);
+  convertTrack<S, T, typename internal::refitTrackTypes<S>::propagator>(trk, trkX, prop, &TrackParCovChi2);
   int32_t begin = 0, count;
   float tOffset;
   if constexpr (std::is_same_v<T, GPUTPCGMMergedTrack>) {
@@ -271,7 +274,7 @@ GPUd() int32_t GPUTrackingRefit::RefitTrack(T& trkX, bool outward, bool resetCov
             break;
           }
           row = hit.row;
-          sector = hit.slice;
+          sector = hit.sector;
           nextState = mPclusterState[hit.num];
         } else if constexpr (std::is_same_v<T, TrackTPC>) {
           cl = &trkX.getCluster(mPtrackHitReferences, i, *mPclusterNative, sector, row);
@@ -417,7 +420,7 @@ GPUd() int32_t GPUTrackingRefit::RefitTrack(T& trkX, bool outward, bool resetCov
     static_assert("Invalid template");
   }
 
-  convertTrack<T, S, typename refitTrackTypes<S>::propagator>(trkX, trk, prop, &TrackParCovChi2);
+  convertTrack<T, S, typename internal::refitTrackTypes<S>::propagator>(trkX, trk, prop, &TrackParCovChi2);
   return nFitted;
 }
 

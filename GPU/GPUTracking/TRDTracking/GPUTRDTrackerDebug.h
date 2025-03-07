@@ -23,9 +23,7 @@
 
 #else
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 template <class T>
@@ -65,8 +63,7 @@ template class GPUTRDTrackerDebug<GPUTRDTrackGPU>;
 template class GPUTRDTrackerDebug<GPUTRDTrack>;
 #endif
 #endif
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif
 #endif // GPUTRDTRACKERDEBUG_H

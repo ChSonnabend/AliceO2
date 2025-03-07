@@ -26,7 +26,7 @@
 using namespace o2::mch;
 
 //_____________________________________________________________________
-Response::Response(Station station)
+Response::Response(Station station) : mStation(station)
 {
   if (station == Station::Type1) {
     mMathieson.setPitch(ResponseParam::Instance().pitchSt1);
@@ -68,9 +68,9 @@ float Response::etocharge(float edepos) const
 //_____________________________________________________________________
 float Response::getAnod(float x) const
 {
-  int n = int(x / mPitch);
-  float wire = (x > 0) ? n + 0.5 : n - 0.5;
-  return wire * mPitch;
+  return (mStation == Station::Type1)
+           ? std::round(x / mPitch) * mPitch
+           : (std::floor(x / mPitch) + 0.5f) * mPitch;
 }
 
 //_____________________________________________________________________

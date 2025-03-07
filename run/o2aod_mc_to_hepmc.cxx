@@ -49,8 +49,32 @@ struct AodToHepmc {
   /** Alias the converter type */
   using Converter = o2::eventgen::AODToHepMC;
 
+  struct : o2::framework::ConfigurableGroup {
+    /** Option for dumping HepMC event structures to disk.  Takes one
+     * argument - the name of the file to write to. */
+    o2::framework::Configurable<std::string> dump{"hepmc-dump", "",
+                                                  "Dump HepMC event to output"};
+    /** Option for only storing particles from the event generator.
+     * Note, if a particle is stored down, then its mothers will also
+     * be stored. */
+    o2::framework::Configurable<bool> onlyGen{"hepmc-only-generated", false,
+                                              "Only export generated"};
+    /** Use HepMC's tree parsing for building event structure */
+    o2::framework::Configurable<bool> useTree{"hepmc-use-tree", false,
+                                              "Export as tree"};
+    /** Floating point precision used when writing to disk */
+    o2::framework::Configurable<int> precision{"hepmc-precision", 8,
+                                               "Export precision in dump"};
+    /** Recenter event at IP=(0,0,0,0). */
+    o2::framework::Configurable<bool> recenter{"hepmc-recenter", false,
+                                               "Recenter the events at (0,0,0,0)"};
+  } configs;
+
   /** Our converter */
   Converter mConverter;
+
+  /** Post-run trigger service **/
+  o2::framework::Service<o2::framework::AODToHepMCPostRun> trigger;
 
   /** @{
    * @name Container types */
@@ -75,9 +99,11 @@ struct AodToHepmc {
   /** @} */
 
   /** Initialize the job */
-  void init(o2::framework::InitContext& ic)
+  void init(o2::framework::InitContext&)
   {
+    mConverter.configs = {(std::string)configs.dump, (bool)configs.onlyGen, (bool)configs.useTree, (int)configs.precision, (bool)configs.recenter};
     mConverter.init();
+    trigger->ptr = &mConverter;
   }
   /** Processing of event to extract extra HepMC information
    *

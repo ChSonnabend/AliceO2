@@ -60,11 +60,6 @@ struct TPCClusterResiduals {
   float snp{};          ///< sin of the phi angle between padrow and track
   unsigned char sec{};  ///< sector number 0..35
   unsigned char dRow{}; ///< distance to previous row in units of pad rows
-  void setDY(float val) { dy = fabs(val) < param::MaxResid ? val : std::copysign(param::MaxResid, val); }
-  void setDZ(float val) { dz = fabs(val) < param::MaxResid ? val : std::copysign(param::MaxResid, val); }
-  void setY(float val) { y = fabs(val) < param::MaxY ? val : std::copysign(param::MaxY, val); }
-  void setZ(float val) { z = fabs(val) < param::MaxZ ? val : std::copysign(param::MaxZ, val); }
-  void setSnp(float val) { snp = fabs(val) < param::MaxTgSlp ? val : std::copysign(param::MaxTgSlp, val); }
   ClassDefNV(TPCClusterResiduals, 4);
 };
 
@@ -120,16 +115,16 @@ struct TrackDataExtended {
 
 /// Structure filled for each track with track quality information and a vector with TPCClusterResiduals
 struct TrackData {
-  o2::dataformats::GlobalTrackID gid{}; ///< global track ID for seeding track
-  o2::track::TrackPar par{};            ///< ITS track at inner TPC radius
-  float dEdxTPC{};                      ///< TPC dEdx information
-  float chi2TPC{};             ///< chi2 of TPC track
-  float chi2ITS{};             ///< chi2 of ITS track
-  float chi2TRD{};             ///< chi2 of TRD track
-  unsigned short nClsTPC{};    ///< number of attached TPC clusters
-  unsigned short nClsITS{};    ///< number of attached ITS clusters
-  unsigned short nTrkltsTRD{}; ///< number of attached TRD tracklets
-  unsigned short clAvailTOF{}; ///< whether or not track seed has a matched TOF cluster
+  o2::dataformats::GlobalTrackID gid{};      ///< global track ID for seeding track
+  o2::track::TrackPar par{};                 ///< ITS track at inner TPC radius
+  float dEdxTPC{};                           ///< TPC dEdx information
+  float chi2TPC{};                           ///< chi2 of TPC track
+  float chi2ITS{};                           ///< chi2 of ITS track
+  float chi2TRD{};                           ///< chi2 of TRD track
+  unsigned short nClsTPC{};                  ///< number of attached TPC clusters
+  unsigned short nClsITS{};                  ///< number of attached ITS clusters
+  unsigned short nTrkltsTRD{};               ///< number of attached TRD tracklets
+  unsigned short clAvailTOF{};               ///< whether or not track seed has a matched TOF cluster
   o2::dataformats::RangeReference<> clIdx{}; ///< index of first cluster residual and total number of cluster residuals of this track
   ClassDefNV(TrackData, 6);
 };
@@ -282,30 +277,30 @@ class TrackInterpolation
   static constexpr float sFloatEps{1.e-7f}; ///< float epsilon for robust linear fitting
   // parameters + settings
   const SpacePointsCalibConfParam* mParams = nullptr;
-  float mTPCTimeBinMUS{.2f};    ///< TPC time bin duration in us
-  float mTPCVDriftRef = -1.;    ///< TPC nominal drift speed in cm/microseconds
-  float mTPCDriftTimeOffsetRef = 0.;                 ///< TPC nominal (e.g. at the start of run) drift time bias in cm/mus
-  float mSqrtS{13600.f};                             ///< centre of mass energy set from LHC IF
-  MatCorrType mMatCorr{MatCorrType::USEMatCorrNONE}; ///< if material correction should be done
-  int mMaxTracksPerTF{-1};                           ///< max number of tracks to be processed per TF (-1 means there is no limit)
-  int mAddTracksForMapPerTF{0};                      ///< in case residuals from different track types are used for vDrift calibration and map creation this defines the statistics for the latter
-  bool mDumpTrackPoints{false};                      ///< dump also track points in ITS, TRD and TOF
-  bool mProcessSeeds{false};                         ///< in case for global tracks also their shorter parts are processed separately
-  bool mProcessITSTPConly{false};                    ///< flag, whether or not to extrapolate ITS-only through TPC
+  float mTPCTimeBinMUS{.2f};                                    ///< TPC time bin duration in us
+  float mTPCVDriftRef = -1.;                                    ///< TPC nominal drift speed in cm/microseconds
+  float mTPCDriftTimeOffsetRef = 0.;                            ///< TPC nominal (e.g. at the start of run) drift time bias in cm/mus
+  float mSqrtS{13600.f};                                        ///< centre of mass energy set from LHC IF
+  MatCorrType mMatCorr{MatCorrType::USEMatCorrNONE};            ///< if material correction should be done
+  int mMaxTracksPerTF{-1};                                      ///< max number of tracks to be processed per TF (-1 means there is no limit)
+  int mAddTracksForMapPerTF{0};                                 ///< in case residuals from different track types are used for vDrift calibration and map creation this defines the statistics for the latter
+  bool mDumpTrackPoints{false};                                 ///< dump also track points in ITS, TRD and TOF
+  bool mProcessSeeds{false};                                    ///< in case for global tracks also their shorter parts are processed separately
+  bool mProcessITSTPConly{false};                               ///< flag, whether or not to extrapolate ITS-only through TPC
   o2::dataformats::GlobalTrackID::mask_t mSourcesConfigured;    ///< the track sources taken into account for extra-/interpolation
   o2::dataformats::GlobalTrackID::mask_t mSourcesConfiguredMap; ///< possible subset of mSourcesConfigured
   bool mSingleSourcesConfigured{true};                          ///< whether mSourcesConfigured == mSourcesConfiguredMap
 
   // input
-  const o2::globaltracking::RecoContainer* mRecoCont = nullptr;                            ///< input reco container
-  std::vector<o2::dataformats::GlobalTrackID> mGIDs{};                                     ///< GIDs of input tracks
-  std::vector<o2::globaltracking::RecoContainer::GlobalIDSet> mGIDtables{};                ///< GIDs of contributors from single detectors for each seed
-  std::vector<float> mTrackTimes{};                                                        ///< time estimates for all input tracks in micro seconds
-  std::vector<o2::track::TrackParCov> mSeeds{};                                            ///< seeding track parameters (ITS tracks)
-  std::map<int, int> mTrackTypes;                                                          ///< mapping of track source to array index in mTrackIndices
-  std::array<std::vector<uint32_t>, 4> mTrackIndices;                                      ///< keep GIDs of input tracks separately for each track type
-  gsl::span<const TPCClRefElem> mTPCTracksClusIdx;                                         ///< input TPC cluster indices from span
-  const ClusterNativeAccess* mTPCClusterIdxStruct = nullptr; ///< struct holding the TPC cluster indices
+  const o2::globaltracking::RecoContainer* mRecoCont = nullptr;             ///< input reco container
+  std::vector<o2::dataformats::GlobalTrackID> mGIDs{};                      ///< GIDs of input tracks
+  std::vector<o2::globaltracking::RecoContainer::GlobalIDSet> mGIDtables{}; ///< GIDs of contributors from single detectors for each seed
+  std::vector<float> mTrackTimes{};                                         ///< time estimates for all input tracks in micro seconds
+  std::vector<o2::track::TrackParCov> mSeeds{};                             ///< seeding track parameters (ITS tracks)
+  std::map<int, int> mTrackTypes;                                           ///< mapping of track source to array index in mTrackIndices
+  std::array<std::vector<uint32_t>, 4> mTrackIndices;                       ///< keep GIDs of input tracks separately for each track type
+  gsl::span<const TPCClRefElem> mTPCTracksClusIdx;                          ///< input TPC cluster indices from span
+  const ClusterNativeAccess* mTPCClusterIdxStruct = nullptr;                ///< struct holding the TPC cluster indices
   // ITS specific input only needed for debugging
   gsl::span<const int> mITSTrackClusIdx;                    ///< input ITS track cluster indices span
   std::vector<o2::BaseCluster<float>> mITSClustersArray;    ///< ITS clusters created in run() method from compact clusters
@@ -329,6 +324,7 @@ class TrackInterpolation
   std::unique_ptr<TPCFastTransform> mFastTransform{}; ///< TPC cluster transformation
   float mBz;                                          ///< required for helix approximation
   bool mInitDone{false};                              ///< initialization done flag
+  size_t mRejectedResiduals{};                        ///< number of rejected residuals
 
   ClassDefNV(TrackInterpolation, 1);
 };

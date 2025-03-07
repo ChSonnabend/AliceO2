@@ -44,6 +44,7 @@
 
 #pragma link C++ struct TOFFEEchannelConfig + ;
 #pragma link C++ struct TOFFEEtriggerConfig + ;
+#pragma link C++ struct TOFFEEmapHVConfig + ;
 #pragma link C++ struct TOFFEElightConfig + ;
 #pragma link C++ struct TOFFEElightReader + ;
 

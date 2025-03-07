@@ -9,7 +9,7 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file GPUReconstructionCUDDef.h
+/// \file GPUReconstructionCUDADef.h
 /// \author David Rohr
 
 #ifndef O2_GPU_GPURECONSTRUCTIONCUDADEF_H

@@ -42,7 +42,6 @@ list(APPEND O2_ROOT_MACRO_EXCLUSION_LIST
             GPU/GPUTracking/Merger/macros/fitPolynomialFieldIts.C # Needs AliRoot AliMagF
             GPU/GPUTracking/Merger/macros/fitPolynomialFieldTpc.C # Needs AliRoot AliMagF
             GPU/GPUTracking/Merger/macros/fitPolynomialFieldTrd.C # Needs AliRoot AliMagF
-            GPU/GPUTracking/Standalone/tools/dump.C # Needs AliRoot ALiHLTSystem
             GPU/GPUTracking/Standalone/tools/dumpTRDClusterMatrices.C # Needs AliRoot AliCDBManager, AliGeomManager and AliTRDgeometry
             GPU/GPUTracking/TRDTracking/macros/checkDbgOutput.C # Needs AliRoot TStatToolkit
             GPU/TPCFastTransformation/devtools/loadlibs.C # Special macro

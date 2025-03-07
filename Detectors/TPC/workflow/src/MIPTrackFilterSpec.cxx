@@ -26,7 +26,9 @@
 #include "DataFormatsTPC/TrackCuts.h"
 #include "DetectorsCalibration/Utils.h"
 #include "Framework/Logger.h"
+#include "DetectorsBase/GRPGeomHelper.h"
 #include "Framework/Task.h"
+#include "DetectorsBase/Propagator.h"
 #include "Framework/DataProcessorSpec.h"
 #include "Framework/ConfigParamRegistry.h"
 #include "TPCWorkflow/ProcessingHelpers.h"
@@ -40,20 +42,27 @@ namespace o2::tpc
 class MIPTrackFilterDevice : public Task
 {
  public:
+  MIPTrackFilterDevice(std::shared_ptr<o2::base::GRPGeomRequest> gr) : mGRPGeomRequest(gr) {}
+
   void init(framework::InitContext& ic) final;
   void run(ProcessingContext& pc) final;
   void endOfStream(EndOfStreamContext& eos) final;
+  void finaliseCCDB(ConcreteDataMatcher& matcher, void* obj) final;
 
  private:
   void sendOutput(DataAllocator& output);
 
+  std::shared_ptr<o2::base::GRPGeomRequest> mGRPGeomRequest;
   TrackCuts mCuts{};                  ///< Tracks cuts object
   std::vector<TrackTPC> mMIPTracks;   ///< Filtered MIP tracks
   unsigned int mProcessEveryNthTF{1}; ///< process every Nth TF only
   int mMaxTracksPerTF{-1};            ///< max number of MIP tracks processed per TF
   uint32_t mTFCounter{0};             ///< counter to keep track of the TFs
   int mProcessNFirstTFs{0};           ///< number of first TFs which are not sampled
+  float mDCACut{-1};                  ///< DCA cut
   bool mSendDummy{false};             ///< send empty data in case TF is skipped
+
+  bool acceptDCA(const TrackTPC& track);
 };
 
 void MIPTrackFilterDevice::init(framework::InitContext& ic)
@@ -89,10 +98,15 @@ void MIPTrackFilterDevice::init(framework::InitContext& ic)
   mCuts.setdEdxMin(mindEdx);
   mCuts.setdEdxMax(maxdEdx);
   mCuts.setCutLooper(cutLoopers);
+
+  mDCACut = ic.options().get<float>("dca-cut");
+
+  o2::base::GRPGeomHelper::instance().setRequest(mGRPGeomRequest);
 }
 
 void MIPTrackFilterDevice::run(ProcessingContext& pc)
 {
+  o2::base::GRPGeomHelper::instance().checkUpdates(pc);
   const auto currentTF = processing_helpers::getCurrentTF(pc);
   if ((mTFCounter++ % mProcessEveryNthTF) && (currentTF >= mProcessNFirstTFs)) {
     LOGP(info, "Skipping TF {}", currentTF);
@@ -111,7 +125,7 @@ void MIPTrackFilterDevice::run(ProcessingContext& pc)
     std::vector<size_t> indices;
     indices.reserve(nTracks);
     for (size_t i = 0; i < nTracks; ++i) {
-      if (mCuts.goodTrack(tracks[i])) {
+      if (mCuts.goodTrack(tracks[i]) && acceptDCA(tracks[i])) {
         indices.emplace_back(i);
       }
     }
@@ -135,12 +149,19 @@ void MIPTrackFilterDevice::run(ProcessingContext& pc)
       mMIPTracks.emplace_back(tracks[indices[i]]);
     }
   } else {
-    std::copy_if(tracks.begin(), tracks.end(), std::back_inserter(mMIPTracks), [this](const auto& track) { return mCuts.goodTrack(track); });
+    std::copy_if(tracks.begin(), tracks.end(), std::back_inserter(mMIPTracks), [this](const auto& track) { return mCuts.goodTrack(track) && acceptDCA(track); });
   }
 
   LOGP(info, "Filtered {} MIP tracks out of {} total tpc tracks", mMIPTracks.size(), tracks.size());
   sendOutput(pc.outputs());
   mMIPTracks.clear();
+}
+
+void MIPTrackFilterDevice::finaliseCCDB(ConcreteDataMatcher& matcher, void* obj)
+{
+  if (o2::base::GRPGeomHelper::instance().finaliseCCDB(matcher, obj)) {
+    return;
+  }
 }
 
 void MIPTrackFilterDevice::sendOutput(DataAllocator& output) { output.snapshot(Output{header::gDataOriginTPC, "MIPS", 0}, mMIPTracks); }
@@ -150,18 +171,44 @@ void MIPTrackFilterDevice::endOfStream(EndOfStreamContext& eos)
   LOG(info) << "Finalizig MIP Tracks filter";
 }
 
+bool MIPTrackFilterDevice::acceptDCA(const TrackTPC& track)
+{
+  if (mDCACut < 0) {
+    return true;
+  }
+
+  auto propagator = o2::base::Propagator::Instance();
+  o2::gpu::gpustd::array<float, 2> dca;
+  const o2::math_utils::Point3D<float> refPoint{0, 0, 0};
+  o2::track::TrackPar propTrack(track);
+  const auto ok = propagator->propagateToDCABxByBz(refPoint, propTrack, 2., o2::base::Propagator::MatCorrType::USEMatCorrLUT, &dca);
+  const auto dcar = std::abs(dca[0]);
+
+  return ok && (dcar < mDCACut);
+}
+
 DataProcessorSpec getMIPTrackFilterSpec()
 {
   std::vector<OutputSpec> outputs;
   outputs.emplace_back(header::gDataOriginTPC, "MIPS", 0, Lifetime::Sporadic);
 
+  std::vector<InputSpec> inputs;
+  inputs.emplace_back("tracks", "TPC", "TRACKS");
+
+  auto ggRequest = std::make_shared<o2::base::GRPGeomRequest>(false,                             // orbitResetTime
+                                                              true,                              // GRPECS=true
+                                                              false,                             // GRPLHCIF
+                                                              true,                              // GRPMagField
+                                                              true,                              // askMatLUT
+                                                              o2::base::GRPGeomRequest::Aligned, // geometry
+                                                              inputs,
+                                                              true);
+
   return DataProcessorSpec{
     "tpc-miptrack-filter",
-    Inputs{
-      InputSpec{"tracks", "TPC", "TRACKS"},
-    },
+    inputs,
     outputs,
-    adaptFromTask<MIPTrackFilterDevice>(),
+    adaptFromTask<MIPTrackFilterDevice>(ggRequest),
     Options{
       {"min-momentum", VariantType::Double, 0.35, {"minimum momentum cut"}},
       {"max-momentum", VariantType::Double, 0.55, {"maximum momentum cut"}},
@@ -172,7 +219,9 @@ DataProcessorSpec getMIPTrackFilterSpec()
       {"maxTracksPerTF", VariantType::Int, -1, {"Maximum number of processed tracks per TF (-1 for processing all tracks)"}},
       {"process-first-n-TFs", VariantType::Int, 1, {"Number of first TFs which are not sampled"}},
       {"send-dummy-data", VariantType::Bool, false, {"Send empty data in case TF is skipped"}},
-      {"dont-cut-loopers", VariantType::Bool, false, {"Do not cut loopers by comparing zout-zin"}}}};
+      {"dont-cut-loopers", VariantType::Bool, false, {"Do not cut loopers by comparing zout-zin"}},
+      {"dca-cut", VariantType::Float, 3.f, {"DCA cut in cm, < 0 to disable"}},
+    }};
 }
 
 } // namespace o2::tpc

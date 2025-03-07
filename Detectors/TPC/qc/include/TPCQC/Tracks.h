@@ -81,19 +81,26 @@ class Tracks
     mUseCutMaxAbsDCArOnHistos = useCutMaxAbsDCArOnHistos;
   }
 
+  // Set PV position
+  void setPVposition(const o2::math_utils::Point3D<float> meanVtxPoint3D)
+  {
+    mPositionOfPV = meanVtxPoint3D;
+  }
+
   /// get ratios of 1D histograms
   std::unordered_map<std::string, std::unique_ptr<TH1>>& getMapHist() { return mMapHist; }
   const std::unordered_map<std::string, std::unique_ptr<TH1>>& getMapHist() const { return mMapHist; }
 
  private:
-  float mCutAbsEta = 1.f;                 // Eta cut
-  int mCutMinnCls = 60;                   // minimum N clusters
-  float mCutMindEdxTot = 20.f;            // dEdxTot min value
-  float mCutMinPtDCAr = 1.5f;             // minimum pT for DCAr plots DCAr vs. phi, eta, nCluster
-  float mSamplingFractionDCAr = 0.1f;     // sampling rate for calculation of DCAr
-  bool mTurnOffHistosForAsync = false;    // Decide whether to turn off some histograms for async to reduce memory
-  float mCutMaxAbsDCAr = 1.f;             // maximum DCAr
-  bool mUseCutMaxAbsDCArOnHistos = false; // Decide whether to use the cut on maximum DCAr for the histograms
+  float mCutAbsEta = 1.f;                         // Eta cut
+  int mCutMinnCls = 60;                           // minimum N clusters
+  float mCutMindEdxTot = 20.f;                    // dEdxTot min value
+  float mCutMinPtDCAr = 1.5f;                     // minimum pT for DCAr plots DCAr vs. phi, eta, nCluster
+  float mSamplingFractionDCAr = 0.1f;             // sampling rate for calculation of DCAr
+  bool mTurnOffHistosForAsync = false;            // Decide whether to turn off some histograms for async to reduce memory
+  float mCutMaxAbsDCAr = 1.f;                     // maximum DCAr
+  bool mUseCutMaxAbsDCArOnHistos = false;         // Decide whether to use the cut on maximum DCAr for the histograms
+  o2::math_utils::Point3D<float> mPositionOfPV{}; // Position of the PV
 
   std::unordered_map<std::string, std::unique_ptr<TH1>> mMapHist;
   std::vector<TH1F> mHist1D{};      ///< Initialize vector of 1D histograms

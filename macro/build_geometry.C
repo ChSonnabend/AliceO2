@@ -22,6 +22,7 @@
 #include "DetectorsPassive/Shil.h"
 #include "DetectorsPassive/Hall.h"
 #include "DetectorsPassive/Pipe.h"
+#include "DetectorsPassive/PipeRun4.h"
 #include <Field/MagneticField.h>
 #include <MFTSimulation/Detector.h>
 #include <MCHSimulation/Detector.h>
@@ -153,8 +154,8 @@ void build_geometry(FairRunSim* run = nullptr)
   // beam pipe
   if (isActivated("PIPE")) {
 #ifdef ENABLE_UPGRADES
-    if (isActivated("IT3")) {
-      run->AddModule(new o2::passive::Pipe("PIPE", "Beam pipe", 1.6f, 0.05f));
+    if (isActivated("IT3") || isActivated("FOC")) {
+      run->AddModule(new o2::passive::PipeRun4("PIPE", "Beam pipe for Run4"));
     } else {
       run->AddModule(new o2::passive::Pipe("PIPE", "Beam pipe"));
     }

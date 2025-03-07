@@ -12,8 +12,7 @@
 /// \file GPUReconstructionCUDAExternalProvider.cu
 /// \author David Rohr
 
-#include "GPUReconstructionCUDADef.h"
-#include "GPUReconstructionCUDAIncludes.h"
+#include "GPUReconstructionCUDAIncludesHost.h"
 
 #include "GPUReconstructionCUDA.h"
 #include "GPUReconstructionCUDAInternals.h"

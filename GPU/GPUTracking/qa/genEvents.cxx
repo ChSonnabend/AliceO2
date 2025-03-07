@@ -47,10 +47,10 @@ namespace o2::gpu
 extern GPUSettingsStandalone configStandalone;
 }
 
-int32_t genEvents::GetSlice(double GlobalPhi)
+int32_t genEvents::GetSector(double GlobalPhi)
 {
   double phi = GlobalPhi;
-  //  std::cout<<" GetSlice: phi = "<<phi<<std::endl;
+  //  std::cout<<" GetSector: phi = "<<phi<<std::endl;
 
   if (phi >= mTwoPi) {
     phi -= mTwoPi;
@@ -58,31 +58,31 @@ int32_t genEvents::GetSlice(double GlobalPhi)
   if (phi < 0) {
     phi += mTwoPi;
   }
-  return (int32_t)(phi / mSliceDAngle);
+  return (int32_t)(phi / mSectorDAngle);
 }
 
-int32_t genEvents::GetDSlice(double LocalPhi) { return GetSlice(LocalPhi + mSliceAngleOffset); }
+int32_t genEvents::GetDSector(double LocalPhi) { return GetSector(LocalPhi + mSectorAngleOffset); }
 
-double genEvents::GetSliceAngle(int32_t iSlice) { return mSliceAngleOffset + iSlice * mSliceDAngle; }
+double genEvents::GetSectorAngle(int32_t iSector) { return mSectorAngleOffset + iSector * mSectorDAngle; }
 
-int32_t genEvents::RecalculateSlice(GPUTPCGMPhysicalTrackModel& t, int32_t& iSlice)
+int32_t genEvents::RecalculateSector(GPUTPCGMPhysicalTrackModel& t, int32_t& iSector)
 {
   double phi = atan2(t.GetY(), t.GetX());
   //  std::cout<<" recalculate: phi = "<<phi<<std::endl;
-  int32_t dSlice = GetDSlice(phi);
+  int32_t dSector = GetDSector(phi);
 
-  if (dSlice == 0) {
+  if (dSector == 0) {
     return 0; // nothing to do
   }
-  //  std::cout<<" dSlice = "<<dSlice<<std::endl;
-  double dAlpha = dSlice * mSliceDAngle;
+  //  std::cout<<" dSector = "<<dSector<<std::endl;
+  double dAlpha = dSector * mSectorDAngle;
   // rotate track on angle dAlpha
 
   t.Rotate(dAlpha);
 
-  iSlice += dSlice;
-  if (iSlice >= 18) {
-    iSlice -= 18;
+  iSector += dSector;
+  if (iSector >= 18) {
+    iSector -= 18;
   }
   return 1;
 }
@@ -197,7 +197,7 @@ int32_t genEvents::GenerateEvent(const GPUParam& param, char* filename)
 
     GPUTPCGMPhysicalTrackModel t;
     double dphi = mTwoPi / nTracks;
-    double phi = mSliceAngleOffset + dphi * itr;
+    double phi = mSectorAngleOffset + dphi * itr;
     double eta = gRandom->Uniform(-1.5, 1.5);
 
     double theta = 2 * std::atan(1. / exp(eta));
@@ -206,8 +206,8 @@ int32_t genEvents::GenerateEvent(const GPUParam& param, char* filename)
     double pt = .08 * std::pow(10, gRandom->Uniform(0, 2.2));
 
     double q = 1.;
-    int32_t iSlice = GetSlice(phi);
-    phi = phi - GetSliceAngle(iSlice);
+    int32_t iSector = GetSector(phi);
+    phi = phi - GetSectorAngle(iSector);
 
     // std::cout<<"phi = "<<phi<<std::endl;
     double x0 = cosf(phi);
@@ -215,8 +215,8 @@ int32_t genEvents::GenerateEvent(const GPUParam& param, char* filename)
     double z0 = tanf(lambda);
     t.Set(x0, y0, z0, pt * x0, pt * y0, pt * z0, q);
 
-    if (RecalculateSlice(t, iSlice) != 0) {
-      std::cout << "Initial slice wrong!!!" << std::endl;
+    if (RecalculateSector(t, iSector) != 0) {
+      std::cout << "Initial sector wrong!!!" << std::endl;
       // exit(0);
     }
 
@@ -227,7 +227,7 @@ int32_t genEvents::GenerateEvent(const GPUParam& param, char* filename)
       int32_t err = 0;
       for (int32_t itry = 0; itry < 1; itry++) {
         float B[3];
-        prop.GetBxByBz(GetSliceAngle(iSlice), t.GetX(), t.GetY(), t.GetZ(), B);
+        prop.GetBxByBz(GetSectorAngle(iSector), t.GetX(), t.GetY(), t.GetZ(), B);
         float dLp = 0;
         err = t.PropagateToXBxByBz(xRow, B[0], B[1], B[2], dLp);
         if (err) {
@@ -242,24 +242,24 @@ int32_t genEvents::GenerateEvent(const GPUParam& param, char* filename)
           break;
         }
         // rotate track coordinate system to current sector
-        int32_t isNewSlice = RecalculateSlice(t, iSlice);
-        if (!isNewSlice) {
+        int32_t isNewSector = RecalculateSector(t, iSector);
+        if (!isNewSector) {
           break;
         } else {
-          std::cout << "track " << itr << ": new slice " << iSlice << " at row " << iRow << std::endl;
+          std::cout << "track " << itr << ": new sector " << iSector << " at row " << iRow << std::endl;
         }
       }
       if (err) {
         break;
       }
-      // std::cout<<" track "<<itr<<": Slice "<<iSlice<<" row "<<iRow<<" params :"<<std::endl;
+      // std::cout<<" track "<<itr<<": Sector "<<iSector<<" row "<<iRow<<" params :"<<std::endl;
       // t.Print();
-      // track at row iRow, slice iSlice
+      // track at row iRow, sector iSector
       if (iRow == 0) { // store MC track at first row
         // std::cout<<std::setprecision( 20 );
         // std::cout<<"track "<<itr<<": x "<<t.X()<<" y "<<t.Y()<<" z "<<t.Z()<<std::endl;
         GPUTPCGMPhysicalTrackModel tg(t); // global coordinates
-        tg.Rotate(-GetSliceAngle(iSlice));
+        tg.Rotate(-GetSectorAngle(iSector));
 
         mcInfo[itr].pid = 2; // pion
         mcInfo[itr].charge = 3 * q;
@@ -278,7 +278,7 @@ int32_t genEvents::GenerateEvent(const GPUParam& param, char* filename)
       float sigmaZ = 0.5;
       const int32_t rowType = iRow < 64 ? 0 : iRow < 128 ? 2 : 1;
       t.UpdateValues();
-      param.GetClusterErrors2(iSlice, rowType, t.GetZ(), t.GetSinPhi(), t.GetDzDs(), -1.f, 0.f, 0.f, sigmaY, sigmaZ);
+      param.GetClusterErrors2(iSector, rowType, t.GetZ(), t.GetSinPhi(), t.GetDzDs(), -1.f, 0.f, 0.f, sigmaY, sigmaZ);
       sigmaY = std::sqrt(sigmaY);
       sigmaZ = std::sqrt(sigmaZ);
       mClusterError[rowType][0]->Fill(sigmaY);
@@ -286,7 +286,7 @@ int32_t genEvents::GenerateEvent(const GPUParam& param, char* filename)
       // std::cout<<sigmaY<<" "<<sigmaY<<std::endl;
       // if( sigmaY > 0.5 ) sigmaY = 0.5;
       // if( sigmaZ > 0.5 ) sigmaZ = 0.5;
-      c.sector = (t.GetZ() >= 0.) ? iSlice : iSlice + 18;
+      c.sector = (t.GetZ() >= 0.) ? iSector : iSector + 18;
       c.row = iRow;
       c.mcID = itr;
       c.x = t.GetX();
@@ -299,9 +299,9 @@ int32_t genEvents::GenerateEvent(const GPUParam& param, char* filename)
 
   std::vector<AliHLTTPCClusterMCLabel> labels;
 
-  std::unique_ptr<GPUTPCClusterData> clSlices[GPUChainTracking::NSLICES];
+  std::unique_ptr<GPUTPCClusterData> clSectors[GPUChainTracking::NSECTORS];
 
-  for (int32_t iSector = 0; iSector < (int32_t)GPUChainTracking::NSLICES; iSector++) // HLT Sector numbering, sectors go from 0 to 35, all spanning all rows from 0 to 158.
+  for (int32_t iSector = 0; iSector < (int32_t)GPUChainTracking::NSECTORS; iSector++) // HLT Sector numbering, sectors go from 0 to 35, all spanning all rows from 0 to 158.
   {
     int32_t nNumberOfHits = 0;
     for (uint32_t i = 0; i < vClusters.size(); i++) {
@@ -313,7 +313,7 @@ int32_t genEvents::GenerateEvent(const GPUParam& param, char* filename)
     mRec->mIOPtrs.nClusterData[iSector] = nNumberOfHits;
 
     GPUTPCClusterData* clusters = new GPUTPCClusterData[nNumberOfHits];
-    clSlices[iSector].reset(clusters);
+    clSectors[iSector].reset(clusters);
     int32_t icl = 0;
     for (uint32_t i = 0; i < vClusters.size(); i++) {
       GenCluster& c = vClusters[i];
@@ -338,7 +338,7 @@ int32_t genEvents::GenerateEvent(const GPUParam& param, char* filename)
     mRec->mIOPtrs.clusterData[iSector] = clusters;
   }
 
-  // Create vector with cluster MC labels, clusters are counter from 0 to clusterId in the order they have been written above. No separation in slices.
+  // Create vector with cluster MC labels, clusters are counter from 0 to clusterId in the order they have been written above. No separation in sectors.
 
   mRec->mIOPtrs.nMCLabelsTPC = labels.size();
   mRec->mIOPtrs.mcLabelsTPC = labels.data();

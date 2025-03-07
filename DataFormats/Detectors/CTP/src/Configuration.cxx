@@ -790,6 +790,17 @@ std::string CTPConfiguration::getClassNameFromHWIndex(int index)
   std::string ret = "not found";
   return ret;
 }
+const CTPClass* CTPConfiguration::getCTPClassFromHWIndex(int index) const
+{
+  const CTPClass* clsfound = nullptr;
+  for (auto const& cls : mCTPClasses) {
+    if (index == cls.getIndex()) {
+      clsfound = &cls;
+      break;
+    }
+  }
+  return clsfound;
+}
 bool CTPConfiguration::isMaskInInputs(const uint64_t& mask) const
 {
   for (auto const& inp : mInputs) {

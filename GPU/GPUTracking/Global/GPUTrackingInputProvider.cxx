@@ -27,8 +27,8 @@ void* GPUTrackingInputProvider::SetPointersInputZS(void* mem)
 {
   if (mRec->GetRecoStepsGPU() & GPUDataTypes::RecoStep::TPCClusterFinding) {
     computePointerWithAlignment(mem, mPzsMeta);
-    computePointerWithAlignment(mem, mPzsSizes, GPUTrackingInOutZS::NSLICES * GPUTrackingInOutZS::NENDPOINTS);
-    computePointerWithAlignment(mem, mPzsPtrs, GPUTrackingInOutZS::NSLICES * GPUTrackingInOutZS::NENDPOINTS);
+    computePointerWithAlignment(mem, mPzsSizes, GPUTrackingInOutZS::NSECTORS * GPUTrackingInOutZS::NENDPOINTS);
+    computePointerWithAlignment(mem, mPzsPtrs, GPUTrackingInOutZS::NSECTORS * GPUTrackingInOutZS::NENDPOINTS);
   }
   return mem;
 }

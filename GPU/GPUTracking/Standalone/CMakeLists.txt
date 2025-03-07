@@ -70,13 +70,8 @@ endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error -Wall -Wextra -Wshadow -Wno-unused-function -Wno-unused-parameter -Wno-unused-local-typedefs -Wno-unknown-pragmas -Wno-write-strings")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -rdynamic -Wl,--no-undefined")
 
-# Check and set settings for optional packages
-if(CONFIG_OPENMP)
-  find_package(OpenMP REQUIRED)
-else()
-  set(OpenMP_FOUND OFF)
-  set(OpenMP_CXX_FOUND OFF)
-endif()
+# Find mandatory packages
+find_package(TBB REQUIRED)
 
 if(GPUCA_CONFIG_VC)
   find_package(Vc REQUIRED)
@@ -149,7 +144,7 @@ include_directories(${GPU_DIR}/Common
                     ${GPUTRACKING_DIR}/Merger
                     ${GPUTRACKING_DIR}/Refit
                     ${GPUTRACKING_DIR}/qa
-                    ${GPUTRACKING_DIR}/SliceTracker
+                    ${GPUTRACKING_DIR}/SectorTracker
                     ${GPUTRACKING_DIR}/DataCompression
                     ${GPUTRACKING_DIR}/TRDTracking
                     ${GPUTRACKING_DIR}/TPCClusterFinder
@@ -251,14 +246,6 @@ if(GPUCA_CONFIG_ROOT)
                              ROOT::Tree)
 endif()
 target_link_libraries(standalone_support PUBLIC Microsoft.GSL::GSL TPCFastTransformation)
-
-if(OpenMP_CXX_FOUND)
-  target_link_libraries(ca PUBLIC OpenMP::OpenMP_CXX)
-  if (CMAKE_CXX_COMPILER STREQUAL "clang++")
-    target_link_libraries(ca PUBLIC -fopenmp)
-    target_link_libraries(GPUTracking PUBLIC -fopenmp)
-  endif()
-endif()
 
 # Installation
 install(TARGETS ca TPCFastTransformation standalone_support)

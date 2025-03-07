@@ -56,7 +56,7 @@ extern "C" {
 ** included as <GL/glcorearb.h>.
 **
 ** glcorearb.h includes only APIs in the latest OpenGL core profile
-** implementation together with APIs in newer ARB extensions which 
+** implementation together with APIs in newer ARB extensions which
 ** can be supported by the core profile. It does not, and never will
 ** include functionality removed from the core profile, such as
 ** fixed-function vertex and fragment processing.
@@ -3952,9 +3952,9 @@ GLAPI void APIENTRY glMaxShaderCompilerThreadsKHR(GLuint count);
 #define GL_KHR_texture_compression_astc_ldr 1
 #endif /* GL_KHR_texture_compression_astc_ldr */
 
-#ifndef GL_KHR_texture_compression_astc_sliced_3d
-#define GL_KHR_texture_compression_astc_sliced_3d 1
-#endif /* GL_KHR_texture_compression_astc_sliced_3d */
+#ifndef GL_KHR_texture_compression_astc_sectord_3d
+#define GL_KHR_texture_compression_astc_sectord_3d 1
+#endif /* GL_KHR_texture_compression_astc_sectord_3d */
 
 #ifndef GL_AMD_framebuffer_multisample_advanced
 #define GL_AMD_framebuffer_multisample_advanced 1

@@ -39,6 +39,7 @@ struct GlobalFwdMatchingParam : public o2::conf::ConfigurableParamHelper<GlobalF
   bool MCMatching = false;                                ///< MFT-MCH matching computed from MCLabels
   double matchPlaneZ = -77.5;                             ///< MFT-MCH matching plane z coordinate
   bool useMIDMatch = false;                               ///< Use input from MCH-MID matching
+  bool useTrackTime = false;                              ///< Use the MCH or MCHMID track time information to select the MFT ROF(s)
   Int_t saveMode = kBestMatch;                            ///< Global Forward Tracks save mode
   float MFTRadLength = 0.042;                             ///< MFT thickness in radiation length
   float alignResidual = 1.;                               ///< Alignment residual for cluster position uncertainty

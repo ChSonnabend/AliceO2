@@ -339,6 +339,7 @@ class MatchGlobalFwd
   o2::itsmft::ChipMappingMFT mMFTMapping;
   bool mMCTruthON = false;      ///< Flag availability of MC truth
   bool mUseMIDMCHMatch = false; ///< Flag for using MCHMID matches (TrackMCHMID)
+  bool mUseTrackTime = false;   ///< Flag for using the MCH or MCHMID track time information to select the MFT ROF(s)
   int mSaveMode = 0;            ///< Output mode [0 = SaveBestMatch; 1 = SaveAllMatches; 2 = SaveTrainingData; 3 = SaveNCandidates]
   int mNCandidates = 5;         ///< Numbers of matching candidates to save in savemode=3
   MatchingType mMatchingType = MATCHINGUNDEFINED;

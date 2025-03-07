@@ -32,9 +32,7 @@
 #include "SimulationDataFormat/ConstMCTruthContainer.h"
 #include "SimulationDataFormat/MCCompLabel.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 struct GPUTPCDigitsMCInput {
@@ -55,7 +53,6 @@ struct GPUTPCLinearLabels {
   std::vector<o2::MCCompLabel> data;
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

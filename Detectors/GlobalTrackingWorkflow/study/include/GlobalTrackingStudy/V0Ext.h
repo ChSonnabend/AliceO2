@@ -26,11 +26,13 @@ struct ProngInfoExt {
   int nClITS = 0;
   int pattITS = 0;
   float chi2ITSTPC = 0.f;
+  uint8_t lowestRow = -1;
+  uint8_t padFromEdge = -1;
   int8_t corrGlo = -1;
   int8_t corrITSTPC = -1;
   int8_t corrITS = -1;
   int8_t corrTPC = -1;
-  ClassDefNV(ProngInfoExt, 2);
+  ClassDefNV(ProngInfoExt, 3);
 };
 
 struct V0Ext {

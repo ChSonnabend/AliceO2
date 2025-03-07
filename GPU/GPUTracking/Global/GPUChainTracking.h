@@ -24,35 +24,24 @@
 #include <vector>
 #include <utility>
 
-namespace o2
-{
-namespace trd
+namespace o2::trd
 {
 class GeometryFlat;
-}
-} // namespace o2
+} // namespace o2::trd
 
-namespace o2
-{
-namespace tpc
+namespace o2::tpc
 {
 struct ClusterNativeAccess;
 struct ClusterNative;
 class CalibdEdxContainer;
-} // namespace tpc
-} // namespace o2
+} // namespace o2::tpc
 
-namespace o2
-{
-namespace base
+namespace o2::base
 {
 class MatLayerCylSet;
-}
-} // namespace o2
+} // namespace o2::base
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 //class GPUTRDTrackerGPU;
 class GPUTPCGPUTracker;
@@ -101,14 +90,14 @@ class GPUChainTracking : public GPUChain
     std::unique_ptr<char[]> tpcCompressedClusters; // TODO: Fix alignment
     std::unique_ptr<GPUTrackingInOutZS> tpcZSmeta;
     std::unique_ptr<GPUTrackingInOutZS::GPUTrackingInOutZSMeta> tpcZSmeta2;
-    std::unique_ptr<o2::tpc::Digit[]> tpcDigits[NSLICES];
+    std::unique_ptr<o2::tpc::Digit[]> tpcDigits[NSECTORS];
     std::unique_ptr<GPUTrackingInOutDigits> digitMap;
-    std::unique_ptr<GPUTPCClusterData[]> clusterData[NSLICES];
-    std::unique_ptr<AliHLTTPCRawCluster[]> rawClusters[NSLICES];
+    std::unique_ptr<GPUTPCClusterData[]> clusterData[NSECTORS];
+    std::unique_ptr<AliHLTTPCRawCluster[]> rawClusters[NSECTORS];
     std::unique_ptr<o2::tpc::ClusterNative[]> clustersNative;
     std::unique_ptr<o2::tpc::ClusterNativeAccess> clusterNativeAccess;
-    std::unique_ptr<GPUTPCTrack[]> sliceTracks[NSLICES];
-    std::unique_ptr<GPUTPCHitId[]> sliceClusters[NSLICES];
+    std::unique_ptr<GPUTPCTrack[]> sectorTracks[NSECTORS];
+    std::unique_ptr<GPUTPCHitId[]> sectorClusters[NSECTORS];
     std::unique_ptr<AliHLTTPCClusterMCLabel[]> mcLabelsTPC;
     std::unique_ptr<GPUTPCMCInfo[]> mcInfosTPC;
     std::unique_ptr<GPUTPCMCInfoCol[]> mcInfosTPCCol;
@@ -123,7 +112,7 @@ class GPUChainTracking : public GPUChain
     std::unique_ptr<GPUTRDTrackGPU[]> trdTracks;
     std::unique_ptr<char[]> clusterNativeMC;
     std::unique_ptr<o2::dataformats::ConstMCTruthContainerView<o2::MCCompLabel>> clusterNativeMCView;
-    std::unique_ptr<char[]> tpcDigitsMC[NSLICES];
+    std::unique_ptr<char[]> tpcDigitsMC[NSECTORS];
     std::unique_ptr<o2::dataformats::ConstMCTruthContainerView<o2::MCCompLabel>[]> tpcDigitMCView;
     std::unique_ptr<GPUTPCDigitsMCInput> tpcDigitMCMap;
     std::unique_ptr<o2::dataformats::ConstMCTruthContainer<o2::MCCompLabel>> clusterNativeMCBuffer;
@@ -150,8 +139,8 @@ class GPUChainTracking : public GPUChain
 
   // Getters for external usage of tracker classes
   GPUTRDTrackerGPU* GetTRDTrackerGPU() { return &processors()->trdTrackerGPU; }
-  GPUTPCTracker* GetTPCSliceTrackers() { return processors()->tpcTrackers; }
-  const GPUTPCTracker* GetTPCSliceTrackers() const { return processors()->tpcTrackers; }
+  GPUTPCTracker* GetTPCSectorTrackers() { return processors()->tpcTrackers; }
+  const GPUTPCTracker* GetTPCSectorTrackers() const { return processors()->tpcTrackers; }
   const GPUTPCGMMerger& GetTPCMerger() const { return processors()->tpcMerger; }
   GPUTPCGMMerger& GetTPCMerger() { return processors()->tpcMerger; }
   GPUDisplayInterface* GetEventDisplay() { return mEventDisplay.get(); }
@@ -165,7 +154,7 @@ class GPUChainTracking : public GPUChain
   // Processing functions
   int32_t RunTPCClusterizer(bool synchronizeOutput = true);
   int32_t ForwardTPCDigits();
-  int32_t RunTPCTrackingSlices();
+  int32_t RunTPCTrackingSectors();
   int32_t RunTPCTrackingMerger(bool synchronizeOutput = true);
   template <int32_t I>
   int32_t RunTRDTracking();
@@ -217,7 +206,7 @@ class GPUChainTracking : public GPUChain
 
   struct eventStruct // Must consist only of void* ptr that will hold the GPU event ptrs!
   {
-    deviceEvent slice[NSLICES];
+    deviceEvent sector[NSECTORS];
     deviceEvent stream[GPUCA_MAX_STREAMS];
     deviceEvent init;
     deviceEvent single;
@@ -232,9 +221,9 @@ class GPUChainTracking : public GPUChain
 
   GPUChainTracking(GPUReconstruction* rec, uint32_t maxTPCHits = GPUCA_MAX_CLUSTERS, uint32_t maxTRDTracklets = GPUCA_MAX_TRD_TRACKLETS);
 
-  int32_t ReadEvent(uint32_t iSlice, int32_t threadId);
-  void WriteOutput(int32_t iSlice, int32_t threadId);
-  int32_t GlobalTracking(uint32_t iSlice, int32_t threadId, bool synchronizeOutput = true);
+  int32_t ReadEvent(uint32_t iSector, int32_t threadId);
+  void WriteOutput(int32_t iSector, int32_t threadId);
+  int32_t ExtrapolationTracking(uint32_t iSector, int32_t threadId, bool synchronizeOutput = true);
 
   int32_t PrepareProfile();
   int32_t DoProfile();
@@ -278,7 +267,7 @@ class GPUChainTracking : public GPUChain
 
   // (Ptrs to) configuration objects
   std::unique_ptr<GPUTPCCFChainContext> mCFContext;
-  bool mTPCSliceScratchOnStack = false;
+  bool mTPCSectorScratchOnStack = false;
   std::unique_ptr<GPUCalibObjectsConst> mNewCalibObjects;
   bool mUpdateNewCalibObjects = false;
   std::unique_ptr<GPUNewCalibValues> mNewCalibValues;
@@ -292,24 +281,24 @@ class GPUChainTracking : public GPUChain
 
   // Synchronization and Locks
   eventStruct* mEvents = nullptr;
-  volatile int32_t mSliceSelectorReady = 0;
-  std::array<int8_t, NSLICES> mWriteOutputDone;
+  volatile int32_t mSectorSelectorReady = 0;
+  std::array<int8_t, NSECTORS> mWriteOutputDone;
 
   std::vector<outputQueueEntry> mOutputQueue;
 
  private:
   int32_t RunChainFinalize();
   void SanityCheck();
-  int32_t RunTPCTrackingSlices_internal();
+  int32_t RunTPCTrackingSectors_internal();
   int32_t RunTPCClusterizer_prepare(bool restorePointers);
 #ifdef GPUCA_TPC_GEOMETRY_O2
-  std::pair<uint32_t, uint32_t> RunTPCClusterizer_transferZS(int32_t iSlice, const CfFragment& fragment, int32_t lane);
+  std::pair<uint32_t, uint32_t> RunTPCClusterizer_transferZS(int32_t iSector, const CfFragment& fragment, int32_t lane);
   void RunTPCClusterizer_compactPeaks(GPUTPCClusterFinder& clusterer, GPUTPCClusterFinder& clustererShadow, int32_t stage, bool doGPU, int32_t lane);
-  std::pair<uint32_t, uint32_t> TPCClusterizerDecodeZSCount(uint32_t iSlice, const CfFragment& fragment);
-  std::pair<uint32_t, uint32_t> TPCClusterizerDecodeZSCountUpdate(uint32_t iSlice, const CfFragment& fragment);
-  void TPCClusterizerEnsureZSOffsets(uint32_t iSlice, const CfFragment& fragment);
+  std::pair<uint32_t, uint32_t> TPCClusterizerDecodeZSCount(uint32_t iSector, const CfFragment& fragment);
+  std::pair<uint32_t, uint32_t> TPCClusterizerDecodeZSCountUpdate(uint32_t iSector, const CfFragment& fragment);
+  void TPCClusterizerEnsureZSOffsets(uint32_t iSector, const CfFragment& fragment);
 #endif
-  void RunTPCTrackingMerger_MergeBorderTracks(int8_t withinSlice, int8_t mergeMode, GPUReconstruction::krnlDeviceType deviceType);
+  void RunTPCTrackingMerger_MergeBorderTracks(int8_t withinSector, int8_t mergeMode, GPUReconstruction::krnlDeviceType deviceType);
   void RunTPCTrackingMerger_Resolve(int8_t useOrigTrackParam, int8_t mergeAll, GPUReconstruction::krnlDeviceType deviceType);
   void RunTPCClusterFilter(o2::tpc::ClusterNativeAccess* clusters, std::function<o2::tpc::ClusterNative*(size_t)> allocator, bool applyClusterCuts);
   bool NeedTPCClustersOnGPU();
@@ -321,7 +310,6 @@ class GPUChainTracking : public GPUChain
 
   int32_t OutputStream() const { return mRec->NStreams() - 2; }
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

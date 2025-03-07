@@ -17,9 +17,7 @@
 
 #include "GPUCommonDef.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 /**
  * @class GPUTPCGMPolynomialField
@@ -289,7 +287,6 @@ GPUdi() float GPUTPCGMPolynomialField::GetFieldItsBz(float x, float y, float z) 
   return bz;
 }
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

@@ -17,9 +17,7 @@
 
 #include "GPUCommonDef.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 class GPUChainTracking;
 struct GPUParam;
@@ -30,7 +28,7 @@ class genEvents
  public:
   genEvents(GPUChainTracking* rec) {}
   void InitEventGenerator() {}
-  int32_t GenerateEvent(const GPUParam& sliceParam, char* filename) { return 1; }
+  int32_t GenerateEvent(const GPUParam& sectorParam, char* filename) { return 1; }
   void FinishEventGenerator() {}
 
   static void RunEventGenerator(GPUChainTracking* rec){};
@@ -43,16 +41,16 @@ class genEvents
  public:
   genEvents(GPUChainTracking* rec) : mRec(rec) {}
   void InitEventGenerator();
-  int32_t GenerateEvent(const GPUParam& sliceParam, char* filename);
+  int32_t GenerateEvent(const GPUParam& sectorParam, char* filename);
   void FinishEventGenerator();
 
   static void RunEventGenerator(GPUChainTracking* rec);
 
  private:
-  int32_t GetSlice(double GlobalPhi);
-  int32_t GetDSlice(double LocalPhi);
-  double GetSliceAngle(int32_t iSlice);
-  int32_t RecalculateSlice(GPUTPCGMPhysicalTrackModel& t, int32_t& iSlice);
+  int32_t GetSector(double GlobalPhi);
+  int32_t GetDSector(double LocalPhi);
+  double GetSectorAngle(int32_t iSector);
+  int32_t RecalculateSector(GPUTPCGMPhysicalTrackModel& t, int32_t& iSector);
   double GetGaus(double sigma);
 
   TH1F* mClusterError[3][2] = {{nullptr, nullptr}, {nullptr, nullptr}, {nullptr, nullptr}};
@@ -68,14 +66,13 @@ class genEvents
   };
 
   const double mTwoPi = 2 * M_PI;
-  const double mSliceDAngle = mTwoPi / 18.;
-  const double mSliceAngleOffset = mSliceDAngle / 2;
+  const double mSectorDAngle = mTwoPi / 18.;
+  const double mSectorAngleOffset = mSectorDAngle / 2;
 
   GPUChainTracking* mRec;
 };
 
 #endif
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

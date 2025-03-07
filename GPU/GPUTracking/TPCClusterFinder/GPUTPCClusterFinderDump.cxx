@@ -33,7 +33,7 @@ void GPUTPCClusterFinder::DumpDigits(std::ostream& out)
 {
   const auto nPositions = mPmemory->counters.nPositions;
 
-  out << "\nClusterer - Digits - Slice " << mISlice << " - Fragment " << mPmemory->fragment.index << ": " << nPositions << "\n";
+  out << "\nClusterer - Digits - Sector " << mISector << " - Fragment " << mPmemory->fragment.index << ": " << nPositions << "\n";
 
   out << std::hex;
   for (size_t i = 0; i < mPmemory->counters.nPositions; i++) {
@@ -45,7 +45,7 @@ void GPUTPCClusterFinder::DumpDigits(std::ostream& out)
 
 void GPUTPCClusterFinder::DumpChargeMap(std::ostream& out, std::string_view title)
 {
-  out << "\nClusterer - " << title << " - Slice " << mISlice << " - Fragment " << mPmemory->fragment.index << "\n";
+  out << "\nClusterer - " << title << " - Sector " << mISector << " - Fragment " << mPmemory->fragment.index << "\n";
   Array2D<uint16_t> map(mPchargeMap);
 
   out << std::hex;
@@ -78,7 +78,7 @@ void GPUTPCClusterFinder::DumpChargeMap(std::ostream& out, std::string_view titl
 
 void GPUTPCClusterFinder::DumpPeakMap(std::ostream& out, std::string_view title)
 {
-  out << "\nClusterer - " << title << " - Slice " << mISlice << " - Fragment " << mPmemory->fragment.index << "\n";
+  out << "\nClusterer - " << title << " - Sector " << mISector << " - Fragment " << mPmemory->fragment.index << "\n";
 
   Array2D<uint8_t> map(mPpeakMap);
 
@@ -114,7 +114,7 @@ void GPUTPCClusterFinder::DumpPeakMap(std::ostream& out, std::string_view title)
 
 void GPUTPCClusterFinder::DumpPeaks(std::ostream& out)
 {
-  out << "\nClusterer - Peaks - Slice " << mISlice << " - Fragment " << mPmemory->fragment.index << "\n";
+  out << "\nClusterer - Peaks - Sector " << mISector << " - Fragment " << mPmemory->fragment.index << "\n";
   for (uint32_t i = 0; i < mPmemory->counters.nPositions; i++) {
     out << int32_t{mPisPeak[i]};
     if ((i + 1) % 100 == 0) {
@@ -127,7 +127,7 @@ void GPUTPCClusterFinder::DumpPeaksCompacted(std::ostream& out)
 {
   const auto nPeaks = mPmemory->counters.nPeaks;
 
-  out << "\nClusterer - Compacted Peaks - Slice " << mISlice << " - Fragment " << mPmemory->fragment.index << ": " << nPeaks << "\n";
+  out << "\nClusterer - Compacted Peaks - Sector " << mISector << " - Fragment " << mPmemory->fragment.index << ": " << nPeaks << "\n";
   for (size_t i = 0; i < nPeaks; i++) {
     const auto& pos = mPpeakPositions[i];
     out << pos.time() << " " << int32_t{pos.pad()} << " " << int32_t{pos.row()} << "\n";
@@ -177,7 +177,7 @@ void GPUTPCClusterFinder::DumpSuppressedPeaks(std::ostream& out)
   const auto& fragment = mPmemory->fragment;
   const auto nPeaks = mPmemory->counters.nPeaks;
 
-  out << "\nClusterer - NoiseSuppression - Slice " << mISlice << " - Fragment " << fragment.index << mISlice << "\n";
+  out << "\nClusterer - NoiseSuppression - Sector " << mISector << " - Fragment " << fragment.index << mISector << "\n";
   for (uint32_t i = 0; i < nPeaks; i++) {
     out << int32_t{mPisPeak[i]};
     if ((i + 1) % 100 == 0) {
@@ -191,7 +191,7 @@ void GPUTPCClusterFinder::DumpSuppressedPeaksCompacted(std::ostream& out)
   const auto& fragment = mPmemory->fragment;
   const auto nPeaks = mPmemory->counters.nClusters;
 
-  out << "\nClusterer - Noise Suppression Peaks Compacted - Slice " << mISlice << " - Fragment " << fragment.index << ": " << nPeaks << "\n";
+  out << "\nClusterer - Noise Suppression Peaks Compacted - Sector " << mISector << " - Fragment " << fragment.index << ": " << nPeaks << "\n";
   for (size_t i = 0; i < nPeaks; i++) {
     const auto& peak = mPfilteredPeakPositions[i];
     out << peak.time() << " " << int32_t{peak.pad()} << " " << int32_t{peak.row()} << "\n";
@@ -200,7 +200,7 @@ void GPUTPCClusterFinder::DumpSuppressedPeaksCompacted(std::ostream& out)
 
 void GPUTPCClusterFinder::DumpClusters(std::ostream& out)
 {
-  out << "\nClusterer - Clusters - Slice " << mISlice << " - Fragment " << mPmemory->fragment.index << "\n";
+  out << "\nClusterer - Clusters - Sector " << mISector << " - Fragment " << mPmemory->fragment.index << "\n";
 
   for (int32_t i = 0; i < GPUCA_ROW_COUNT; i++) {
     size_t N = mPclusterInRow[i];

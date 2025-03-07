@@ -18,9 +18,7 @@
 #include <mutex>
 #include <condition_variable>
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 struct GPUChainTrackingFinalContext {
   GPUReconstruction* rec = nullptr;
@@ -28,7 +26,6 @@ struct GPUChainTrackingFinalContext {
   std::condition_variable cond;
   bool ready = false;
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

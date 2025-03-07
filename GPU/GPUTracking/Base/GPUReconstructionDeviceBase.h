@@ -20,9 +20,7 @@
 #include "GPUChain.h"
 #include <vector>
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 #if !(defined(__CLING__) || defined(__ROOTCLING__) || defined(G__ROOT))
 extern template class GPUReconstructionKernels<GPUReconstructionCPUBackend>;
@@ -52,7 +50,7 @@ class GPUReconstructionDeviceBase : public GPUReconstructionCPU
   int32_t unregisterMemoryForGPU_internal(const void* ptr) override;
   void unregisterRemainingRegisteredMemory();
 
-  virtual const GPUTPCTracker* CPUTracker(int32_t iSlice) { return &processors()->tpcTrackers[iSlice]; }
+  virtual const GPUTPCTracker* CPUTracker(int32_t iSector) { return &processors()->tpcTrackers[iSector]; }
 
   int32_t GPUDebug(const char* state = "UNKNOWN", int32_t stream = -1, bool force = false) override = 0;
   size_t TransferMemoryInternal(GPUMemoryResource* res, int32_t stream, deviceEvent* ev, deviceEvent* evList, int32_t nEvents, bool toGPU, const void* src, void* dst) override;
@@ -87,7 +85,6 @@ inline size_t GPUReconstructionDeviceBase::GPUMemCpyAlways(bool onGpu, void* dst
     return GPUReconstructionCPU::GPUMemCpyAlways(false, dst, src, size, stream, toGPU, ev, evList, nEvents);
   }
 }
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

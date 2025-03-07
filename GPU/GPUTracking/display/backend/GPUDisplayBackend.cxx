@@ -138,12 +138,12 @@ std::vector<char> GPUDisplayBackend::getPixels()
 void GPUDisplayBackend::fillIndirectCmdBuffer()
 {
   mCmdBuffer.clear();
-  mIndirectSliceOffset.resize(GPUCA_NSLICES);
+  mIndirectSectorOffset.resize(GPUCA_NSECTORS);
   // TODO: Check if this can be parallelized
-  for (int32_t iSlice = 0; iSlice < GPUCA_NSLICES; iSlice++) {
-    mIndirectSliceOffset[iSlice] = mCmdBuffer.size();
-    for (uint32_t k = 0; k < mDisplay->vertexBufferStart()[iSlice].size(); k++) {
-      mCmdBuffer.emplace_back(mDisplay->vertexBufferCount()[iSlice][k], 1, mDisplay->vertexBufferStart()[iSlice][k], 0);
+  for (int32_t iSector = 0; iSector < GPUCA_NSECTORS; iSector++) {
+    mIndirectSectorOffset[iSector] = mCmdBuffer.size();
+    for (uint32_t k = 0; k < mDisplay->vertexBufferStart()[iSector].size(); k++) {
+      mCmdBuffer.emplace_back(mDisplay->vertexBufferCount()[iSector][k], 1, mDisplay->vertexBufferStart()[iSector][k], 0);
     }
   }
 }

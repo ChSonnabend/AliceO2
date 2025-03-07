@@ -32,9 +32,7 @@
 #define GPUCA_CUB cub
 #endif
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 struct GPUConstantMem;
 
@@ -110,8 +108,7 @@ class GPUitoa : public GPUKernelTemplate
   GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& processors, GPUglobalref() int32_t* ptr, uint64_t size);
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #undef GPUCA_CUB
 

@@ -37,9 +37,7 @@ class RawFileWriter;
 
 struct AliHLTTPCRawCluster;
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 struct GPUParam;
 struct GPUTPCClusterData;
@@ -50,7 +48,7 @@ struct GPUTrackingInOutZS;
 class GPUReconstructionConvert
 {
  public:
-  constexpr static uint32_t NSLICES = GPUCA_NSLICES;
+  constexpr static uint32_t NSECTORS = GPUCA_NSECTORS;
   static void ConvertNativeToClusterData(o2::tpc::ClusterNativeAccess* native, std::unique_ptr<GPUTPCClusterData[]>* clusters, uint32_t* nClusters, const TPCFastTransform* transform, int32_t continuousMaxTimeBin = 0);
   static void ConvertRun2RawToNative(o2::tpc::ClusterNativeAccess& native, std::unique_ptr<o2::tpc::ClusterNative[]>& nativeBuffer, const AliHLTTPCRawCluster** rawClusters, uint32_t* nRawClusters);
   template <class S>
@@ -63,7 +61,6 @@ class GPUReconstructionConvert
   static std::function<void(std::vector<o2::tpc::Digit>&, const void*, uint32_t, uint32_t)> GetDecoder(int32_t version, const GPUParam* param);
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

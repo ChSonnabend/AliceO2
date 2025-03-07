@@ -23,9 +23,7 @@
 #include <algorithm>
 #endif
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 struct GPUTrackingInOutPointers;
 class GPUReconstruction;
@@ -157,7 +155,6 @@ class GPUProcessor
 
   friend class GPUTPCNeighboursFinder;
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

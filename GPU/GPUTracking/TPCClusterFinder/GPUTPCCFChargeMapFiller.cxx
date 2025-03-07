@@ -64,7 +64,7 @@ GPUd() void GPUTPCCFChargeMapFiller::fillFromDigitsImpl(int32_t nBlocks, int32_t
   ChargePos pos(digit.getRow(), digit.getPad(), fragment.toLocal(digit.getTimeStamp()));
   positions[idx] = pos;
   float q = digit.getChargeFloat();
-  q *= clusterer.GetConstantMem()->calibObjects.tpcPadGain->getGainCorrection(clusterer.mISlice, digit.getRow(), digit.getPad());
+  q *= clusterer.GetConstantMem()->calibObjects.tpcPadGain->getGainCorrection(clusterer.mISector, digit.getRow(), digit.getPad());
   chargeMap[pos] = PackedCharge(q);
 }
 

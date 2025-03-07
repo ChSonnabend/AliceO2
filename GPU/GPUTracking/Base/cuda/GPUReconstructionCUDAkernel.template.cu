@@ -13,8 +13,7 @@
 /// \author David Rohr
 
 #define GPUCA_GPUCODE_COMPILEKERNELS
-#include "GPUReconstructionCUDAIncludes.h"
-#include "GPUReconstructionCUDADef.h"
+#include "GPUReconstructionCUDAIncludesHost.h"
 #define GPUCA_KRNL_REG(args) __launch_bounds__(GPUCA_M_MAX2_3(GPUCA_M_STRIP(args)))
 #define GPUCA_KRNL(...) GPUCA_KRNL_WRAP(GPUCA_KRNL_LOAD_, __VA_ARGS__)
 #define GPUCA_KRNL_LOAD_single(...) GPUCA_KRNLGPU_SINGLE(__VA_ARGS__);

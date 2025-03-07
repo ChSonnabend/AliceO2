@@ -20,6 +20,11 @@
 #include "CCDB/BasicCCDBManager.h"
 #include "DataFormatsCTP/Scalers.h"
 #include "DataFormatsCTP/Configuration.h"
+#include "DataFormatsParameters/GRPLHCIFData.h"
+#include "TGraph.h"
+#include "TMath.h"
+#include "TCanvas.h"
+#include "TStyle.h"
 #include <string>
 #include <map>
 #include <iostream>

@@ -40,6 +40,8 @@
 #include "TPCBase/CRU.h"
 #include "DetectorsRaw/RDHUtils.h"
 
+#include <oneapi/tbb.h>
+
 using namespace o2::gpu;
 using namespace o2::tpc;
 using namespace o2::tpc::constants;
@@ -47,16 +49,16 @@ using namespace std::string_literals;
 
 void GPUReconstructionConvert::ConvertNativeToClusterData(o2::tpc::ClusterNativeAccess* native, std::unique_ptr<GPUTPCClusterData[]>* clusters, uint32_t* nClusters, const TPCFastTransform* transform, int32_t continuousMaxTimeBin)
 {
-  memset(nClusters, 0, NSLICES * sizeof(nClusters[0]));
+  memset(nClusters, 0, NSECTORS * sizeof(nClusters[0]));
   uint32_t offset = 0;
-  for (uint32_t i = 0; i < NSLICES; i++) {
-    uint32_t nClSlice = 0;
+  for (uint32_t i = 0; i < NSECTORS; i++) {
+    uint32_t nClSector = 0;
     for (int32_t j = 0; j < GPUCA_ROW_COUNT; j++) {
-      nClSlice += native->nClusters[i][j];
+      nClSector += native->nClusters[i][j];
     }
-    nClusters[i] = nClSlice;
-    clusters[i].reset(new GPUTPCClusterData[nClSlice]);
-    nClSlice = 0;
+    nClusters[i] = nClSector;
+    clusters[i].reset(new GPUTPCClusterData[nClSector]);
+    nClSector = 0;
     for (int32_t j = 0; j < GPUCA_ROW_COUNT; j++) {
       for (uint32_t k = 0; k < native->nClusters[i][j]; k++) {
         const auto& clin = native->clusters[i][j][k];
@@ -66,7 +68,7 @@ void GPUReconstructionConvert::ConvertNativeToClusterData(o2::tpc::ClusterNative
         } else {
           transform->TransformInTimeFrame(i, j, clin.getPad(), clin.getTime(), x, y, z, continuousMaxTimeBin);
         }
-        auto& clout = clusters[i].get()[nClSlice];
+        auto& clout = clusters[i].get()[nClSector];
         clout.x = x;
         clout.y = y;
         clout.z = z;
@@ -74,7 +76,7 @@ void GPUReconstructionConvert::ConvertNativeToClusterData(o2::tpc::ClusterNative
         clout.amp = clin.qTot;
         clout.flags = clin.getFlags();
         clout.id = offset + k;
-        nClSlice++;
+        nClSector++;
       }
       native->clusterOffset[i][j] = offset;
       offset += native->nClusters[i][j];
@@ -85,7 +87,7 @@ void GPUReconstructionConvert::ConvertNativeToClusterData(o2::tpc::ClusterNative
 void GPUReconstructionConvert::ConvertRun2RawToNative(o2::tpc::ClusterNativeAccess& native, std::unique_ptr<ClusterNative[]>& nativeBuffer, const AliHLTTPCRawCluster** rawClusters, uint32_t* nRawClusters)
 {
   memset((void*)&native, 0, sizeof(native));
-  for (uint32_t i = 0; i < NSLICES; i++) {
+  for (uint32_t i = 0; i < NSECTORS; i++) {
     for (uint32_t j = 0; j < nRawClusters[i]; j++) {
       native.nClusters[i][rawClusters[i][j].GetPadRow()]++;
     }
@@ -94,7 +96,7 @@ void GPUReconstructionConvert::ConvertRun2RawToNative(o2::tpc::ClusterNativeAcce
   nativeBuffer.reset(new ClusterNative[native.nClustersTotal]);
   native.clustersLinear = nativeBuffer.get();
   native.setOffsetPtrs();
-  for (uint32_t i = 0; i < NSLICES; i++) {
+  for (uint32_t i = 0; i < NSECTORS; i++) {
     for (uint32_t j = 0; j < GPUCA_ROW_COUNT; j++) {
       native.nClusters[i][j] = 0;
     }
@@ -115,7 +117,7 @@ void GPUReconstructionConvert::ConvertRun2RawToNative(o2::tpc::ClusterNativeAcce
 int32_t GPUReconstructionConvert::GetMaxTimeBin(const ClusterNativeAccess& native)
 {
   float retVal = 0;
-  for (uint32_t i = 0; i < NSLICES; i++) {
+  for (uint32_t i = 0; i < NSECTORS; i++) {
     for (uint32_t j = 0; j < GPUCA_ROW_COUNT; j++) {
       for (uint32_t k = 0; k < native.nClusters[i][j]; k++) {
         if (native.clusters[i][j][k].getTime() > retVal) {
@@ -130,7 +132,7 @@ int32_t GPUReconstructionConvert::GetMaxTimeBin(const ClusterNativeAccess& nativ
 int32_t GPUReconstructionConvert::GetMaxTimeBin(const GPUTrackingInOutDigits& digits)
 {
   float retVal = 0;
-  for (uint32_t i = 0; i < NSLICES; i++) {
+  for (uint32_t i = 0; i < NSECTORS; i++) {
     for (uint32_t k = 0; k < digits.nTPCDigits[i]; k++) {
       if (digits.tpcDigits[i][k].getTimeStamp() > retVal) {
         retVal = digits.tpcDigits[i][k].getTimeStamp();
@@ -143,12 +145,12 @@ int32_t GPUReconstructionConvert::GetMaxTimeBin(const GPUTrackingInOutDigits& di
 int32_t GPUReconstructionConvert::GetMaxTimeBin(const GPUTrackingInOutZS& zspages)
 {
   float retVal = 0;
-  for (uint32_t i = 0; i < NSLICES; i++) {
-    int32_t firstHBF = zspages.slice[i].count[0] ? o2::raw::RDHUtils::getHeartBeatOrbit(*(const o2::header::RAWDataHeader*)zspages.slice[i].zsPtr[0][0]) : 0;
+  for (uint32_t i = 0; i < NSECTORS; i++) {
+    int32_t firstHBF = zspages.sector[i].count[0] ? o2::raw::RDHUtils::getHeartBeatOrbit(*(const o2::header::RAWDataHeader*)zspages.sector[i].zsPtr[0][0]) : 0;
     for (uint32_t j = 0; j < GPUTrackingInOutZS::NENDPOINTS; j++) {
-      for (uint32_t k = 0; k < zspages.slice[i].count[j]; k++) {
-        const char* page = (const char*)zspages.slice[i].zsPtr[j][k];
-        for (uint32_t l = 0; l < zspages.slice[i].nZSPtr[j][k]; l++) {
+      for (uint32_t k = 0; k < zspages.sector[i].count[j]; k++) {
+        const char* page = (const char*)zspages.sector[i].zsPtr[j][k];
+        for (uint32_t l = 0; l < zspages.sector[i].nZSPtr[j][k]; l++) {
           o2::header::RAWDataHeader* rdh = (o2::header::RAWDataHeader*)(page + l * TPCZSHDR::TPC_ZS_PAGE_SIZE);
           TPCZSHDR* hdr = (TPCZSHDR*)(page + l * TPCZSHDR::TPC_ZS_PAGE_SIZE + sizeof(o2::header::RAWDataHeader));
           int32_t nTimeBinSpan = hdr->nTimeBinSpan;
@@ -172,6 +174,8 @@ int32_t GPUReconstructionConvert::GetMaxTimeBin(const GPUTrackingInOutZS& zspage
 // ------------------------------------------------- TPC ZS -------------------------------------------------
 
 #ifdef GPUCA_TPC_GEOMETRY_O2
+namespace o2::gpu
+{
 namespace // anonymous
 {
 
@@ -1304,6 +1308,7 @@ size_t zsEncoderRun<T>::compare(std::vector<zsPage>* buffer, std::vector<o2::tpc
 }
 
 } // anonymous namespace
+} // namespace o2::gpu
 #endif // GPUCA_TPC_GEOMETRY_O2
 
 template <class S>
@@ -1315,70 +1320,78 @@ void GPUReconstructionConvert::RunZSEncoder(const S& in, std::unique_ptr<uint64_
     throw std::runtime_error("Invalid parameters");
   }
 #ifdef GPUCA_TPC_GEOMETRY_O2
-  std::vector<zsPage> buffer[NSLICES][GPUTrackingInOutZS::NENDPOINTS];
-  uint32_t totalPages = 0;
-  size_t totalSize = 0;
-  size_t nErrors = 0;
-  size_t digitsInput = 0;
-  size_t digitsEncoded = 0;
-  // clang-format off
-  GPUCA_OPENMP(parallel for reduction(+ : totalPages, nErrors, totalSize, digitsInput, digitsEncoded))
-  // clang-format on
-  for (uint32_t i = 0; i < NSLICES; i++) {
-    std::vector<o2::tpc::Digit> tmpBuffer;
-    digitsInput += ZSEncoderGetNDigits(in, i);
-    tmpBuffer.resize(ZSEncoderGetNDigits(in, i));
-    if (threshold > 0.f && !digitsFilter) {
-      auto it = std::copy_if(ZSEncoderGetDigits(in, i), ZSEncoderGetDigits(in, i) + ZSEncoderGetNDigits(in, i), tmpBuffer.begin(), [threshold](auto& v) { return v.getChargeFloat() >= threshold; });
-      tmpBuffer.resize(std::distance(tmpBuffer.begin(), it));
-    } else {
-      std::copy(ZSEncoderGetDigits(in, i), ZSEncoderGetDigits(in, i) + ZSEncoderGetNDigits(in, i), tmpBuffer.begin());
-    }
-
-    if (digitsFilter) {
-      digitsFilter(tmpBuffer);
-      if (threshold > 0.f) {
-        std::vector<o2::tpc::Digit> tmpBuffer2 = std::move(tmpBuffer);
-        tmpBuffer = std::vector<o2::tpc::Digit>(tmpBuffer2.size());
-        auto it = std::copy_if(tmpBuffer2.begin(), tmpBuffer2.end(), tmpBuffer.begin(), [threshold](auto& v) { return v.getChargeFloat() >= threshold; });
+  std::vector<zsPage> buffer[NSECTORS][GPUTrackingInOutZS::NENDPOINTS];
+  struct tmpReductionResult {
+    uint32_t totalPages = 0;
+    size_t totalSize = 0;
+    size_t nErrors = 0;
+    size_t digitsInput = 0;
+    size_t digitsEncoded = 0;
+  };
+  auto reduced = tbb::parallel_reduce(tbb::blocked_range<uint32_t>(0, NSECTORS), tmpReductionResult(), [&](const auto range, auto red) {
+    for (uint32_t i = range.begin(); i < range.end(); i++) {
+      std::vector<o2::tpc::Digit> tmpBuffer;
+      red.digitsInput += ZSEncoderGetNDigits(in, i);
+      tmpBuffer.resize(ZSEncoderGetNDigits(in, i));
+      if (threshold > 0.f && !digitsFilter) {
+        auto it = std::copy_if(ZSEncoderGetDigits(in, i), ZSEncoderGetDigits(in, i) + ZSEncoderGetNDigits(in, i), tmpBuffer.begin(), [threshold](auto& v) { return v.getChargeFloat() >= threshold; });
         tmpBuffer.resize(std::distance(tmpBuffer.begin(), it));
+      } else {
+        std::copy(ZSEncoderGetDigits(in, i), ZSEncoderGetDigits(in, i) + ZSEncoderGetNDigits(in, i), tmpBuffer.begin());
       }
-    }
-    digitsEncoded += tmpBuffer.size();
 
-    auto runZS = [&](auto& encoder) {
-      encoder.zsVersion = version;
-      encoder.init();
-      totalPages += encoder.run(buffer[i], tmpBuffer, &totalSize);
-      if (verify) {
-        nErrors += encoder.compare(buffer[i], tmpBuffer); // Verification
+      if (digitsFilter) {
+        digitsFilter(tmpBuffer);
+        if (threshold > 0.f) {
+          std::vector<o2::tpc::Digit> tmpBuffer2 = std::move(tmpBuffer);
+          tmpBuffer = std::vector<o2::tpc::Digit>(tmpBuffer2.size());
+          auto it = std::copy_if(tmpBuffer2.begin(), tmpBuffer2.end(), tmpBuffer.begin(), [threshold](auto& v) { return v.getChargeFloat() >= threshold; });
+          tmpBuffer.resize(std::distance(tmpBuffer.begin(), it));
+        }
       }
-    };
+      red.digitsEncoded += tmpBuffer.size();
 
-    if (version >= ZSVersion::ZSVersionRowBased10BitADC && version <= ZSVersion::ZSVersionRowBased12BitADC) {
-      zsEncoderRun<zsEncoderRow> enc{{{.iSector = i, .raw = raw, .ir = ir, .param = &param, .padding = padding}}};
-      runZS(enc);
-    } else if (version >= ZSVersion::ZSVersionLinkBasedWithMeta && version <= ZSVersion::ZSVersionDenseLinkBasedV2) {
+      auto runZS = [&](auto& encoder) {
+        encoder.zsVersion = version;
+        encoder.init();
+        red.totalPages += encoder.run(buffer[i], tmpBuffer, &red.totalSize);
+        if (verify) {
+          red.nErrors += encoder.compare(buffer[i], tmpBuffer); // Verification
+        }
+      };
+
+      if (version >= ZSVersion::ZSVersionRowBased10BitADC && version <= ZSVersion::ZSVersionRowBased12BitADC) {
+        zsEncoderRun<zsEncoderRow> enc{{{.iSector = i, .raw = raw, .ir = ir, .param = &param, .padding = padding}}};
+        runZS(enc);
+      } else if (version >= ZSVersion::ZSVersionLinkBasedWithMeta && version <= ZSVersion::ZSVersionDenseLinkBasedV2) {
 #ifdef GPUCA_O2_LIB
-      if (version == ZSVersion::ZSVersionLinkBasedWithMeta) {
-        zsEncoderRun<zsEncoderImprovedLinkBased> enc{{{{.iSector = i, .raw = raw, .ir = ir, .param = &param, .padding = padding}}}};
-        runZS(enc);
-      } else if (version >= ZSVersion::ZSVersionDenseLinkBased && version <= ZSVersion::ZSVersionDenseLinkBasedV2) {
-        zsEncoderRun<zsEncoderDenseLinkBased> enc{{{{.iSector = i, .raw = raw, .ir = ir, .param = &param, .padding = padding}}}};
-        runZS(enc);
-      }
+        if (version == ZSVersion::ZSVersionLinkBasedWithMeta) {
+          zsEncoderRun<zsEncoderImprovedLinkBased> enc{{{{.iSector = i, .raw = raw, .ir = ir, .param = &param, .padding = padding}}}};
+          runZS(enc);
+        } else if (version >= ZSVersion::ZSVersionDenseLinkBased && version <= ZSVersion::ZSVersionDenseLinkBasedV2) {
+          zsEncoderRun<zsEncoderDenseLinkBased> enc{{{{.iSector = i, .raw = raw, .ir = ir, .param = &param, .padding = padding}}}};
+          runZS(enc);
+        }
 #else
-      throw std::runtime_error("Link based ZS encoding not supported in standalone build");
+        throw std::runtime_error("Link based ZS encoding not supported in standalone build");
 #endif
-    } else {
-      throw std::runtime_error("Invalid ZS version "s + std::to_string(version) + ", cannot decode"s);
+      } else {
+        throw std::runtime_error("Invalid ZS version "s + std::to_string(version) + ", cannot decode"s);
+      }
     }
-  }
+    return red; }, [&](const auto& red1, const auto& red2) {
+    auto red = red1;
+    red.totalPages += red2.totalPages;
+    red.totalSize += red2.totalSize;
+    red.nErrors += red2.nErrors;
+    red.digitsInput += red2.digitsInput;
+    red.digitsEncoded += red2.digitsEncoded;
+    return red; });
 
   if (outBuffer) {
-    outBuffer->reset(new uint64_t[totalPages * TPCZSHDR::TPC_ZS_PAGE_SIZE / sizeof(uint64_t)]);
+    outBuffer->reset(new uint64_t[reduced.totalPages * TPCZSHDR::TPC_ZS_PAGE_SIZE / sizeof(uint64_t)]);
     uint64_t offset = 0;
-    for (uint32_t i = 0; i < NSLICES; i++) {
+    for (uint32_t i = 0; i < NSECTORS; i++) {
       for (uint32_t j = 0; j < GPUTrackingInOutZS::NENDPOINTS; j++) {
         memcpy((char*)outBuffer->get() + offset, buffer[i][j].data(), buffer[i][j].size() * TPCZSHDR::TPC_ZS_PAGE_SIZE);
         offset += buffer[i][j].size() * TPCZSHDR::TPC_ZS_PAGE_SIZE;
@@ -1386,12 +1399,12 @@ void GPUReconstructionConvert::RunZSEncoder(const S& in, std::unique_ptr<uint64_
       }
     }
   }
-  if (nErrors) {
-    GPUError("ERROR: %ld INCORRECT SAMPLES DURING ZS ENCODING VERIFICATION!!!", (int64_t)nErrors);
+  if (reduced.nErrors) {
+    GPUError("ERROR: %lu INCORRECT SAMPLES DURING ZS ENCODING VERIFICATION!!!", reduced.nErrors);
   } else if (verify) {
     GPUInfo("ENCODING VERIFICATION PASSED");
   }
-  GPUInfo("TOTAL ENCODED SIZE: %lu (%lu of %lu digits encoded)", totalSize, digitsEncoded, digitsInput);
+  GPUInfo("TOTAL ENCODED SIZE: %lu (%lu of %lu digits encoded)", reduced.totalSize, reduced.digitsEncoded, reduced.digitsInput);
 #endif
 }
 
@@ -1403,20 +1416,20 @@ template void GPUReconstructionConvert::RunZSEncoder<DigitArray>(const DigitArra
 void GPUReconstructionConvert::RunZSEncoderCreateMeta(const uint64_t* buffer, const uint32_t* sizes, void** ptrs, GPUTrackingInOutZS* out)
 {
   uint64_t offset = 0;
-  for (uint32_t i = 0; i < NSLICES; i++) {
+  for (uint32_t i = 0; i < NSECTORS; i++) {
     for (uint32_t j = 0; j < GPUTrackingInOutZS::NENDPOINTS; j++) {
       ptrs[i * GPUTrackingInOutZS::NENDPOINTS + j] = (char*)buffer + offset;
       offset += sizes[i * GPUTrackingInOutZS::NENDPOINTS + j] * TPCZSHDR::TPC_ZS_PAGE_SIZE;
-      out->slice[i].zsPtr[j] = &ptrs[i * GPUTrackingInOutZS::NENDPOINTS + j];
-      out->slice[i].nZSPtr[j] = &sizes[i * GPUTrackingInOutZS::NENDPOINTS + j];
-      out->slice[i].count[j] = 1;
+      out->sector[i].zsPtr[j] = &ptrs[i * GPUTrackingInOutZS::NENDPOINTS + j];
+      out->sector[i].nZSPtr[j] = &sizes[i * GPUTrackingInOutZS::NENDPOINTS + j];
+      out->sector[i].count[j] = 1;
     }
   }
 }
 
 void GPUReconstructionConvert::RunZSFilter(std::unique_ptr<o2::tpc::Digit[]>* buffers, const o2::tpc::Digit* const* ptrs, size_t* nsb, const size_t* ns, const GPUParam& param, bool zs12bit, float threshold)
 {
-  for (uint32_t i = 0; i < NSLICES; i++) {
+  for (uint32_t i = 0; i < NSECTORS; i++) {
     if (buffers[i].get() != ptrs[i] || nsb != ns) {
       throw std::runtime_error("Not owning digits");
     }
@@ -1441,6 +1454,8 @@ void GPUReconstructionConvert::RunZSFilter(std::unique_ptr<o2::tpc::Digit[]>* bu
 }
 
 #ifdef GPUCA_O2_LIB
+namespace o2::gpu::internal
+{
 template <class T>
 static inline auto GetDecoder_internal(const GPUParam* param, int32_t version)
 {
@@ -1466,15 +1481,16 @@ static inline auto GetDecoder_internal(const GPUParam* param, int32_t version)
     enc->decodePage(outBuffer, (const zsPage*)page, endpoint, firstTfOrbit, triggerBC);
   };
 }
+} // namespace o2::gpu::internal
 
 std::function<void(std::vector<o2::tpc::Digit>&, const void*, uint32_t, uint32_t)> GPUReconstructionConvert::GetDecoder(int32_t version, const GPUParam* param)
 {
   if (version >= o2::tpc::ZSVersion::ZSVersionRowBased10BitADC && version <= o2::tpc::ZSVersion::ZSVersionRowBased12BitADC) {
-    return GetDecoder_internal<zsEncoderRow>(param, version);
+    return o2::gpu::internal::GetDecoder_internal<zsEncoderRow>(param, version);
   } else if (version == o2::tpc::ZSVersion::ZSVersionLinkBasedWithMeta) {
-    return GetDecoder_internal<zsEncoderImprovedLinkBased>(param, version);
+    return o2::gpu::internal::GetDecoder_internal<zsEncoderImprovedLinkBased>(param, version);
   } else if (version >= o2::tpc::ZSVersion::ZSVersionDenseLinkBased && version <= o2::tpc::ZSVersion::ZSVersionDenseLinkBasedV2) {
-    return GetDecoder_internal<zsEncoderDenseLinkBased>(param, version);
+    return o2::gpu::internal::GetDecoder_internal<zsEncoderDenseLinkBased>(param, version);
   } else {
     throw std::runtime_error("Invalid ZS version "s + std::to_string(version) + ", cannot create decoder"s);
   }

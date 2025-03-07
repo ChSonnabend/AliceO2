@@ -12,6 +12,7 @@
 #define O2_FRAMEWORK_ROOT_ARROW_FILESYSTEM_H_
 
 #include <TBufferFile.h>
+#include <arrow/buffer.h>
 #include <arrow/dataset/dataset.h>
 #include <arrow/dataset/type_fwd.h>
 #include <arrow/dataset/file_base.h>
@@ -96,6 +97,9 @@ class VirtualRootFileSystemBase : public arrow::fs::FileSystem
 struct RootArrowFactory final {
   std::function<std::shared_ptr<arrow::dataset::FileWriteOptions>()> options = nullptr;
   std::function<std::shared_ptr<arrow::dataset::FileFormat>()> format = nullptr;
+  // Builds an output streamer which is able to read from the source fragment
+  // in a deferred way.
+  std::function<std::shared_ptr<arrow::io::OutputStream>(std::shared_ptr<arrow::dataset::FileFragment>, const std::shared_ptr<arrow::ResizableBuffer>& buffer)> deferredOutputStreamer = nullptr;
 };
 
 struct RootArrowFactoryPlugin {
@@ -143,6 +147,8 @@ class TFileFileSystem : public VirtualRootFileSystemBase
   arrow::Result<arrow::fs::FileInfo> GetFileInfo(const std::string& path) override;
 
   TFileFileSystem(TDirectoryFile* f, size_t readahead, RootObjectReadingFactory&);
+
+  ~TFileFileSystem() override;
 
   std::string type_name() const override
   {

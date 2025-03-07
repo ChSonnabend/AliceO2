@@ -186,7 +186,7 @@ uint32_t GPUDisplayBackendOpenGL::drawVertices(const vboList& v, const drawType 
   GLenum t = types[tt];
   auto first = std::get<0>(v);
   auto count = std::get<1>(v);
-  auto iSlice = std::get<2>(v);
+  auto iSector = std::get<2>(v);
   if (count == 0) {
     return 0;
   }
@@ -195,7 +195,7 @@ uint32_t GPUDisplayBackendOpenGL::drawVertices(const vboList& v, const drawType 
     if (mDisplay->cfgR().openGLCore) {
       CHKERR(glBindVertexArray(mVertexArray));
     }
-    CHKERR(glBindBuffer(GL_ARRAY_BUFFER, mVBOId[iSlice]));
+    CHKERR(glBindBuffer(GL_ARRAY_BUFFER, mVBOId[iSector]));
 #ifndef GPUCA_DISPLAY_OPENGL_CORE
     if (!mDisplay->cfgR().openGLCore) {
       CHKERR(glVertexPointer(3, GL_FLOAT, 0, nullptr));
@@ -208,14 +208,14 @@ uint32_t GPUDisplayBackendOpenGL::drawVertices(const vboList& v, const drawType 
   }
 
   if (mDisplay->cfgR().useGLIndirectDraw) {
-    CHKERR(glMultiDrawArraysIndirect(t, (void*)(size_t)((mIndirectSliceOffset[iSlice] + first) * sizeof(DrawArraysIndirectCommand)), count, 0));
+    CHKERR(glMultiDrawArraysIndirect(t, (void*)(size_t)((mIndirectSectorOffset[iSector] + first) * sizeof(DrawArraysIndirectCommand)), count, 0));
   } else if (OPENGL_EMULATE_MULTI_DRAW) {
     for (uint32_t k = 0; k < count; k++) {
-      CHKERR(glDrawArrays(t, mDisplay->vertexBufferStart()[iSlice][first + k], mDisplay->vertexBufferCount()[iSlice][first + k]));
+      CHKERR(glDrawArrays(t, mDisplay->vertexBufferStart()[iSector][first + k], mDisplay->vertexBufferCount()[iSector][first + k]));
     }
   } else {
-    static_assert(sizeof(GLsizei) == sizeof(*mDisplay->vertexBufferCount()[iSlice].data()), "Invalid counter size does not match GLsizei");
-    CHKERR(glMultiDrawArrays(t, mDisplay->vertexBufferStart()[iSlice].data() + first, ((const GLsizei*)mDisplay->vertexBufferCount()[iSlice].data()) + first, count));
+    static_assert(sizeof(GLsizei) == sizeof(*mDisplay->vertexBufferCount()[iSector].data()), "Invalid counter size does not match GLsizei");
+    CHKERR(glMultiDrawArrays(t, mDisplay->vertexBufferStart()[iSector].data() + first, ((const GLsizei*)mDisplay->vertexBufferCount()[iSector].data()) + first, count));
   }
   return count;
 }
@@ -315,7 +315,7 @@ int32_t GPUDisplayBackendOpenGL::InitBackendA()
     GPUError("Unsupported OpenGL runtime %d.%d < %d.%d", glVersion[0], glVersion[1], GPUDisplayFrontend::GL_MIN_VERSION_MAJOR, GPUDisplayFrontend::GL_MIN_VERSION_MINOR);
     return (1);
   }
-  mVBOId.resize(GPUCA_NSLICES);
+  mVBOId.resize(GPUCA_NSECTORS);
   CHKERR(glCreateBuffers(mVBOId.size(), mVBOId.data()));
   CHKERR(glBindBuffer(GL_ARRAY_BUFFER, mVBOId[0]));
   CHKERR(glGenBuffers(1, &mIndirectId));
@@ -457,7 +457,7 @@ void GPUDisplayBackendOpenGL::loadDataToGPU(size_t totalVertizes)
 {
   // TODO: Check if this can be parallelized
   if (mDisplay->useMultiVBO()) {
-    for (int32_t i = 0; i < GPUCA_NSLICES; i++) {
+    for (int32_t i = 0; i < GPUCA_NSECTORS; i++) {
       CHKERR(glNamedBufferData(mVBOId[i], mDisplay->vertexBuffer()[i].size() * sizeof(mDisplay->vertexBuffer()[i][0]), mDisplay->vertexBuffer()[i].data(), GL_STATIC_DRAW));
     }
   } else {

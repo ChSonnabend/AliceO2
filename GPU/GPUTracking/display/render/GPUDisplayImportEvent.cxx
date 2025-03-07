@@ -33,6 +33,8 @@
 #include "ITSMFTBase/DPLAlpideParam.h"
 #endif
 
+#include <oneapi/tbb.h>
+
 using namespace o2::gpu;
 
 void GPUDisplay::DrawGLScene_updateEventData()
@@ -42,8 +44,8 @@ void GPUDisplay::DrawGLScene_updateEventData()
     mCurrentClusters = mIOPtrs->clustersNative->nClustersTotal;
   } else {
     mCurrentClusters = 0;
-    for (int32_t iSlice = 0; iSlice < NSLICES; iSlice++) {
-      mCurrentClusters += mIOPtrs->nClusterData[iSlice];
+    for (int32_t iSector = 0; iSector < NSECTORS; iSector++) {
+      mCurrentClusters += mIOPtrs->nClusterData[iSector];
     }
   }
   if (mNMaxClusters < mCurrentClusters) {
@@ -126,103 +128,107 @@ void GPUDisplay::DrawGLScene_updateEventData()
   }
   mUpdateTrackFilter = false;
 
-  mMaxClusterZ = 0;
-  GPUCA_OPENMP(parallel for num_threads(getNumThreads()) reduction(max : mMaxClusterZ))
-  for (int32_t iSlice = 0; iSlice < NSLICES; iSlice++) {
-    int32_t row = 0;
-    uint32_t nCls = mParam->par.earlyTpcTransform ? mIOPtrs->nClusterData[iSlice] : mIOPtrs->clustersNative ? mIOPtrs->clustersNative->nClustersSector[iSlice]
-                                                                                                            : 0;
-    for (uint32_t i = 0; i < nCls; i++) {
-      int32_t cid;
-      if (mParam->par.earlyTpcTransform) {
-        const auto& cl = mIOPtrs->clusterData[iSlice][i];
-        cid = cl.id;
-        row = cl.row;
-      } else {
-        cid = mIOPtrs->clustersNative->clusterOffset[iSlice][0] + i;
-        while (row < GPUCA_ROW_COUNT - 1 && mIOPtrs->clustersNative->clusterOffset[iSlice][row + 1] <= (uint32_t)cid) {
-          row++;
+  mMaxClusterZ = tbb::parallel_reduce(tbb::blocked_range<int32_t>(0, NSECTORS, 1), float(0.f), [&](const tbb::blocked_range<int32_t>& r, float maxClusterZ) {
+    for (int32_t iSector = r.begin(); iSector < r.end(); iSector++) {
+      int32_t row = 0;
+      uint32_t nCls = mParam->par.earlyTpcTransform ? mIOPtrs->nClusterData[iSector] : (mIOPtrs->clustersNative ? mIOPtrs->clustersNative->nClustersSector[iSector] : 0);
+      for (uint32_t i = 0; i < nCls; i++) {
+        int32_t cid;
+        if (mParam->par.earlyTpcTransform) {
+          const auto& cl = mIOPtrs->clusterData[iSector][i];
+          cid = cl.id;
+          row = cl.row;
+        } else {
+          cid = mIOPtrs->clustersNative->clusterOffset[iSector][0] + i;
+          while (row < GPUCA_ROW_COUNT - 1 && mIOPtrs->clustersNative->clusterOffset[iSector][row + 1] <= (uint32_t)cid) {
+            row++;
+          }
         }
-      }
-      if (cid >= mNMaxClusters) {
-        throw std::runtime_error("Cluster Buffer Size exceeded");
-      }
-      float4* ptr = &mGlobalPos[cid];
-      if (mParam->par.earlyTpcTransform) {
-        const auto& cl = mIOPtrs->clusterData[iSlice][i];
-        mParam->Slice2Global(iSlice, (mCfgH.clustersOnNominalRow ? mParam->tpcGeometry.Row2X(row) : cl.x) + mCfgH.xAdd, cl.y, cl.z, &ptr->x, &ptr->y, &ptr->z);
-      } else {
-        float x, y, z;
-        const auto& cln = mIOPtrs->clustersNative->clusters[iSlice][0][i];
-        GPUTPCConvertImpl::convert(*mCalib->fastTransform, *mParam, iSlice, row, cln.getPad(), cln.getTime(), x, y, z);
-        if (mCfgH.clustersOnNominalRow) {
-          x = mParam->tpcGeometry.Row2X(row);
+        if (cid >= mNMaxClusters) {
+          throw std::runtime_error("Cluster Buffer Size exceeded");
         }
-        mParam->Slice2Global(iSlice, x + mCfgH.xAdd, y, z, &ptr->x, &ptr->y, &ptr->z);
-      }
+        float4* ptr = &mGlobalPos[cid];
+        if (mParam->par.earlyTpcTransform) {
+          const auto& cl = mIOPtrs->clusterData[iSector][i];
+          mParam->Sector2Global(iSector, (mCfgH.clustersOnNominalRow ? mParam->tpcGeometry.Row2X(row) : cl.x) + mCfgH.xAdd, cl.y, cl.z, &ptr->x, &ptr->y, &ptr->z);
+        } else {
+          float x, y, z;
+          const auto& cln = mIOPtrs->clustersNative->clusters[iSector][0][i];
+          GPUTPCConvertImpl::convert(*mCalib->fastTransform, *mParam, iSector, row, cln.getPad(), cln.getTime(), x, y, z);
+          if (mCfgH.clustersOnNominalRow) {
+            x = mParam->tpcGeometry.Row2X(row);
+          }
+          mParam->Sector2Global(iSector, x + mCfgH.xAdd, y, z, &ptr->x, &ptr->y, &ptr->z);
+        }
 
-      if (fabsf(ptr->z) > mMaxClusterZ) {
-        mMaxClusterZ = fabsf(ptr->z);
+        if (fabsf(ptr->z) > maxClusterZ) {
+          maxClusterZ = fabsf(ptr->z);
+        }
+        ptr->z += iSector < 18 ? mCfgH.zAdd : -mCfgH.zAdd;
+        ptr->x *= GL_SCALE_FACTOR;
+        ptr->y *= GL_SCALE_FACTOR;
+        ptr->z *= GL_SCALE_FACTOR;
+        ptr->w = tCLUSTER;
       }
-      ptr->z += iSlice < 18 ? mCfgH.zAdd : -mCfgH.zAdd;
+    }
+    return maxClusterZ; // clang-format off
+  }, [](const float a, const float b) { return std::max(a, b); }, tbb::simple_partitioner()); // clang-format on
+
+  mMaxClusterZ = tbb::parallel_reduce(tbb::blocked_range<int32_t>(0, mCurrentSpacePointsTRD, 32), float(mMaxClusterZ), [&](const tbb::blocked_range<int32_t>& r, float maxClusterZ) {
+    int32_t trdTriggerRecord = -1;
+    float trdZoffset = 0;
+    for (int i = r.begin(); i < r.end(); i++) {
+      while (mParam->par.continuousTracking && trdTriggerRecord < (int32_t)mIOPtrs->nTRDTriggerRecords - 1 && mIOPtrs->trdTrackletIdxFirst[trdTriggerRecord + 1] <= i) {
+        trdTriggerRecord++; // This requires to go through the data in order I believe
+        float trdTime = mIOPtrs->trdTriggerTimes[trdTriggerRecord] * 1e3 / o2::constants::lhc::LHCBunchSpacingNS / o2::tpc::constants::LHCBCPERTIMEBIN;
+        trdZoffset = fabsf(mCalib->fastTransformHelper->getCorrMap()->convVertexTimeToZOffset(0, trdTime, mParam->continuousMaxTimeBin));
+      }
+      const auto& sp = mIOPtrs->trdSpacePoints[i];
+      int32_t iSec = trdGeometry()->GetSector(mIOPtrs->trdTracklets[i].GetDetector());
+      float4* ptr = &mGlobalPosTRD[i];
+      mParam->Sector2Global(iSec, sp.getX() + mCfgH.xAdd, sp.getY(), sp.getZ(), &ptr->x, &ptr->y, &ptr->z);
+      ptr->z += ptr->z > 0 ? trdZoffset : -trdZoffset;
+      if (fabsf(ptr->z) > maxClusterZ) {
+        maxClusterZ = fabsf(ptr->z);
+      }
       ptr->x *= GL_SCALE_FACTOR;
       ptr->y *= GL_SCALE_FACTOR;
       ptr->z *= GL_SCALE_FACTOR;
-      ptr->w = tCLUSTER;
+      ptr->w = tTRDCLUSTER;
+      ptr = &mGlobalPosTRD2[i];
+      mParam->Sector2Global(iSec, sp.getX() + mCfgH.xAdd + 4.5f, sp.getY() + 1.5f * sp.getDy(), sp.getZ(), &ptr->x, &ptr->y, &ptr->z);
+      ptr->z += ptr->z > 0 ? trdZoffset : -trdZoffset;
+      if (fabsf(ptr->z) > maxClusterZ) {
+        maxClusterZ = fabsf(ptr->z);
+      }
+      ptr->x *= GL_SCALE_FACTOR;
+      ptr->y *= GL_SCALE_FACTOR;
+      ptr->z *= GL_SCALE_FACTOR;
+      ptr->w = tTRDCLUSTER;
     }
-  }
+    return maxClusterZ; // clang-format off
+  }, [](const float a, const float b) { return std::max(a, b); }, tbb::static_partitioner()); // clang-format on
 
-  int32_t trdTriggerRecord = -1;
-  float trdZoffset = 0;
-  GPUCA_OPENMP(parallel for num_threads(getNumThreads()) reduction(max : mMaxClusterZ) firstprivate(trdTriggerRecord, trdZoffset))
-  for (int32_t i = 0; i < mCurrentSpacePointsTRD; i++) {
-    while (mParam->par.continuousTracking && trdTriggerRecord < (int32_t)mIOPtrs->nTRDTriggerRecords - 1 && mIOPtrs->trdTrackletIdxFirst[trdTriggerRecord + 1] <= i) {
-      trdTriggerRecord++;
-      float trdTime = mIOPtrs->trdTriggerTimes[trdTriggerRecord] * 1e3 / o2::constants::lhc::LHCBunchSpacingNS / o2::tpc::constants::LHCBCPERTIMEBIN;
-      trdZoffset = fabsf(mCalib->fastTransformHelper->getCorrMap()->convVertexTimeToZOffset(0, trdTime, mParam->continuousMaxTimeBin));
+  mMaxClusterZ = tbb::parallel_reduce(tbb::blocked_range<int32_t>(0, mCurrentClustersTOF, 32), float(mMaxClusterZ), [&](const tbb::blocked_range<int32_t>& r, float maxClusterZ) {
+    for (int32_t i = r.begin(); i < r.end(); i++) {
+      float4* ptr = &mGlobalPosTOF[i];
+      mParam->Sector2Global(mIOPtrs->tofClusters[i].getSector(), mIOPtrs->tofClusters[i].getX() + mCfgH.xAdd, mIOPtrs->tofClusters[i].getY(), mIOPtrs->tofClusters[i].getZ(), &ptr->x, &ptr->y, &ptr->z);
+      float ZOffset = 0;
+      if (mParam->par.continuousTracking) {
+        float tofTime = mIOPtrs->tofClusters[i].getTime() * 1e-3 / o2::constants::lhc::LHCBunchSpacingNS / o2::tpc::constants::LHCBCPERTIMEBIN;
+        ZOffset = fabsf(mCalib->fastTransformHelper->getCorrMap()->convVertexTimeToZOffset(0, tofTime, mParam->continuousMaxTimeBin));
+        ptr->z += ptr->z > 0 ? ZOffset : -ZOffset;
+      }
+      if (fabsf(ptr->z) > maxClusterZ) {
+        maxClusterZ = fabsf(ptr->z);
+      }
+      ptr->x *= GL_SCALE_FACTOR;
+      ptr->y *= GL_SCALE_FACTOR;
+      ptr->z *= GL_SCALE_FACTOR;
+      ptr->w = tTOFCLUSTER;
     }
-    const auto& sp = mIOPtrs->trdSpacePoints[i];
-    int32_t iSec = trdGeometry()->GetSector(mIOPtrs->trdTracklets[i].GetDetector());
-    float4* ptr = &mGlobalPosTRD[i];
-    mParam->Slice2Global(iSec, sp.getX() + mCfgH.xAdd, sp.getY(), sp.getZ(), &ptr->x, &ptr->y, &ptr->z);
-    ptr->z += ptr->z > 0 ? trdZoffset : -trdZoffset;
-    if (fabsf(ptr->z) > mMaxClusterZ) {
-      mMaxClusterZ = fabsf(ptr->z);
-    }
-    ptr->x *= GL_SCALE_FACTOR;
-    ptr->y *= GL_SCALE_FACTOR;
-    ptr->z *= GL_SCALE_FACTOR;
-    ptr->w = tTRDCLUSTER;
-    ptr = &mGlobalPosTRD2[i];
-    mParam->Slice2Global(iSec, sp.getX() + mCfgH.xAdd + 4.5f, sp.getY() + 1.5f * sp.getDy(), sp.getZ(), &ptr->x, &ptr->y, &ptr->z);
-    ptr->z += ptr->z > 0 ? trdZoffset : -trdZoffset;
-    if (fabsf(ptr->z) > mMaxClusterZ) {
-      mMaxClusterZ = fabsf(ptr->z);
-    }
-    ptr->x *= GL_SCALE_FACTOR;
-    ptr->y *= GL_SCALE_FACTOR;
-    ptr->z *= GL_SCALE_FACTOR;
-    ptr->w = tTRDCLUSTER;
-  }
-
-  GPUCA_OPENMP(parallel for num_threads(getNumThreads()) reduction(max : mMaxClusterZ))
-  for (int32_t i = 0; i < mCurrentClustersTOF; i++) {
-    float4* ptr = &mGlobalPosTOF[i];
-    mParam->Slice2Global(mIOPtrs->tofClusters[i].getSector(), mIOPtrs->tofClusters[i].getX() + mCfgH.xAdd, mIOPtrs->tofClusters[i].getY(), mIOPtrs->tofClusters[i].getZ(), &ptr->x, &ptr->y, &ptr->z);
-    float ZOffset = 0;
-    if (mParam->par.continuousTracking) {
-      float tofTime = mIOPtrs->tofClusters[i].getTime() * 1e-3 / o2::constants::lhc::LHCBunchSpacingNS / o2::tpc::constants::LHCBCPERTIMEBIN;
-      ZOffset = fabsf(mCalib->fastTransformHelper->getCorrMap()->convVertexTimeToZOffset(0, tofTime, mParam->continuousMaxTimeBin));
-      ptr->z += ptr->z > 0 ? ZOffset : -ZOffset;
-    }
-    if (fabsf(ptr->z) > mMaxClusterZ) {
-      mMaxClusterZ = fabsf(ptr->z);
-    }
-    ptr->x *= GL_SCALE_FACTOR;
-    ptr->y *= GL_SCALE_FACTOR;
-    ptr->z *= GL_SCALE_FACTOR;
-    ptr->w = tTOFCLUSTER;
-  }
+    return maxClusterZ; // clang-format off
+  }, [](const float a, const float b) { return std::max(a, b); }); // clang-format on
 
   if (mCurrentClustersITS) {
     float itsROFhalfLen = 0;

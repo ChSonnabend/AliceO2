@@ -23,7 +23,7 @@ namespace o2
 namespace tpc
 {
 
-o2::framework::DataProcessorSpec getCalDetMergerPublisherSpec(uint32_t lanes, bool skipCCDB, bool dumpAfterComplete = false);
+o2::framework::DataProcessorSpec getCalDetMergerPublisherSpec(uint32_t lanes, bool skipCCDB, bool sendToDCS, bool dumpAfterComplete = false);
 
 } // namespace tpc
 } // namespace o2

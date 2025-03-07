@@ -42,13 +42,13 @@ GPUdii() void GPUTPCCFDecodeZS::Thread<GPUTPCCFDecodeZS::decodeZS>(int32_t nBloc
 
 GPUdii() void GPUTPCCFDecodeZS::decode(GPUTPCClusterFinder& clusterer, GPUSharedMemory& s, int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, int32_t firstHBF)
 {
-  const uint32_t slice = clusterer.mISlice;
+  const uint32_t sector = clusterer.mISector;
 #ifdef GPUCA_GPUCODE
   const uint32_t endpoint = clusterer.mPzsOffsets[iBlock].endpoint;
 #else
   const uint32_t endpoint = iBlock;
 #endif
-  const GPUTrackingInOutZS::GPUTrackingInOutZSSlice& zs = clusterer.GetConstantMem()->ioPtrs.tpcZS->slice[slice];
+  const GPUTrackingInOutZS::GPUTrackingInOutZSSector& zs = clusterer.GetConstantMem()->ioPtrs.tpcZS->sector[sector];
   if (zs.count[endpoint] == 0) {
     return;
   }
@@ -179,7 +179,7 @@ GPUdii() void GPUTPCCFDecodeZS::decode(GPUTPCClusterFinder& clusterer, GPUShared
 
                   if (inFragment) {
                     float q = float(byte & mask) * decodeBitsFactor;
-                    q *= clusterer.GetConstantMem()->calibObjects.tpcPadGain->getGainCorrection(slice, row, pad);
+                    q *= clusterer.GetConstantMem()->calibObjects.tpcPadGain->getGainCorrection(sector, row, pad);
                     chargeMap[pos] = PackedCharge(q);
                   }
                   pad++;
@@ -277,7 +277,7 @@ GPUd() size_t GPUTPCCFDecodeZSLink::DecodePage(GPUSharedMemory& smem, processorT
   (void)nDecoded;
 #ifdef GPUCA_CHECK_TPCZS_CORRUPTION
   if (iThread == 0 && nDecoded != decHdr->nADCsamples) {
-    clusterer.raiseError(GPUErrors::ERROR_TPCZS_INVALID_NADC, clusterer.mISlice * 1000 + decHdr->cruID, decHdr->nADCsamples, nDecoded);
+    clusterer.raiseError(GPUErrors::ERROR_TPCZS_INVALID_NADC, clusterer.mISector * 1000 + decHdr->cruID, decHdr->nADCsamples, nDecoded);
     /*#ifndef GPUCA_GPUCODE
             FILE* foo = fopen("dump.bin", "w+b");
             fwrite(pageSrc, 1, o2::raw::RDHUtils::getMemorySize(*rdHdr), foo);
@@ -463,7 +463,7 @@ GPUd() bool GPUTPCCFDecodeZSLink::ChannelIsActive(const uint32_t* chan, uint8_t 
 template <class Decoder>
 GPUd() void GPUTPCCFDecodeZSLinkBase::Decode(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, typename Decoder::GPUSharedMemory& smem, processorType& clusterer, int32_t firstHBF)
 {
-  const uint32_t slice = clusterer.mISlice;
+  const uint32_t sector = clusterer.mISector;
 
 #ifdef GPUCA_GPUCODE
   const uint32_t endpoint = clusterer.mPzsOffsets[iBlock].endpoint;
@@ -471,7 +471,7 @@ GPUd() void GPUTPCCFDecodeZSLinkBase::Decode(int32_t nBlocks, int32_t nThreads, 
   const uint32_t endpoint = iBlock;
 #endif
 
-  const GPUTrackingInOutZS::GPUTrackingInOutZSSlice& zs = clusterer.GetConstantMem()->ioPtrs.tpcZS->slice[slice];
+  const GPUTrackingInOutZS::GPUTrackingInOutZSSector& zs = clusterer.GetConstantMem()->ioPtrs.tpcZS->sector[sector];
   if (zs.count[endpoint] == 0) {
     return;
   }
@@ -514,7 +514,7 @@ GPUd() void GPUTPCCFDecodeZSLinkBase::Decode(int32_t nBlocks, int32_t nThreads, 
   if (iThread == 0 && iBlock < nBlocks - 1) {
     uint32_t maxOffset = clusterer.mPzsOffsets[iBlock + 1].offset;
     if (pageDigitOffset != maxOffset) {
-      clusterer.raiseError(GPUErrors::ERROR_TPCZS_INVALID_OFFSET, clusterer.mISlice * 1000 + endpoint, pageDigitOffset, maxOffset);
+      clusterer.raiseError(GPUErrors::ERROR_TPCZS_INVALID_OFFSET, clusterer.mISector * 1000 + endpoint, pageDigitOffset, maxOffset);
     }
   }
 #endif
@@ -550,12 +550,12 @@ GPUd() o2::tpc::PadPos GPUTPCCFDecodeZSLinkBase::GetPadAndRowFromFEC(processorTy
 
 GPUd() void GPUTPCCFDecodeZSLinkBase::WriteCharge(processorType& clusterer, float charge, PadPos padAndRow, TPCFragmentTime localTime, size_t positionOffset)
 {
-  const uint32_t slice = clusterer.mISlice;
+  const uint32_t sector = clusterer.mISector;
   ChargePos* positions = clusterer.mPpositions;
 #ifdef GPUCA_CHECK_TPCZS_CORRUPTION
   if (padAndRow.getRow() >= GPUCA_ROW_COUNT) {
     positions[positionOffset] = INVALID_CHARGE_POS;
-    clusterer.raiseError(GPUErrors::ERROR_TPCZS_INVALID_ROW, clusterer.mISlice * 1000 + padAndRow.getRow());
+    clusterer.raiseError(GPUErrors::ERROR_TPCZS_INVALID_ROW, clusterer.mISector * 1000 + padAndRow.getRow());
     return;
   }
 #endif
@@ -564,7 +564,7 @@ GPUd() void GPUTPCCFDecodeZSLinkBase::WriteCharge(processorType& clusterer, floa
   ChargePos pos(padAndRow.getRow(), padAndRow.getPad(), localTime);
   positions[positionOffset] = pos;
 
-  charge *= clusterer.GetConstantMem()->calibObjects.tpcPadGain->getGainCorrection(slice, padAndRow.getRow(), padAndRow.getPad());
+  charge *= clusterer.GetConstantMem()->calibObjects.tpcPadGain->getGainCorrection(sector, padAndRow.getRow(), padAndRow.getPad());
   chargeMap[pos] = PackedCharge(charge);
 }
 
@@ -627,7 +627,7 @@ GPUd() uint32_t GPUTPCCFDecodeZSDenseLink::DecodePage(GPUSharedMemory& smem, pro
         nSamplesWrittenTB = FillWithInvalid(clusterer, iThread, nThreads, pageDigitOffset, nSamplesInPage - nSamplesWritten);
 #ifdef GPUCA_CHECK_TPCZS_CORRUPTION
         if (iThread == 0) {
-          clusterer.raiseError(GPUErrors::ERROR_TPCZS_INCOMPLETE_HBF, clusterer.mISlice * 1000 + decHeader->cruID, raw::RDHUtils::getPageCounter(rawDataHeader), raw::RDHUtils::getPageCounter(nextPage));
+          clusterer.raiseError(GPUErrors::ERROR_TPCZS_INCOMPLETE_HBF, clusterer.mISector * 1000 + decHeader->cruID, raw::RDHUtils::getPageCounter(rawDataHeader), raw::RDHUtils::getPageCounter(nextPage));
         }
 #endif
       }
@@ -642,7 +642,7 @@ GPUd() uint32_t GPUTPCCFDecodeZSDenseLink::DecodePage(GPUSharedMemory& smem, pro
 
 #ifdef GPUCA_CHECK_TPCZS_CORRUPTION
   if (iThread == 0 && nSamplesWritten != nSamplesInPage) {
-    clusterer.raiseError(GPUErrors::ERROR_TPCZS_INVALID_NADC, clusterer.mISlice * 1000 + decHeader->cruID, nSamplesInPage, nSamplesWritten);
+    clusterer.raiseError(GPUErrors::ERROR_TPCZS_INVALID_NADC, clusterer.mISector * 1000 + decHeader->cruID, nSamplesInPage, nSamplesWritten);
     /*#ifndef GPUCA_GPUCODE
             FILE* foo = fopen("dump.bin", "w+b");
             fwrite(pageSrc, 1, o2::raw::RDHUtils::getMemorySize(*rdHdr), foo);

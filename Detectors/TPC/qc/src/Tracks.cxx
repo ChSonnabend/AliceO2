@@ -180,9 +180,8 @@ bool Tracks::processTrack(const o2::tpc::TrackTPC& track)
       if (propagator->getMatLUT() && propagator->hasMagFieldSet()) {
         // ---| fill DCA histos |---
         o2::gpu::gpustd::array<float, 2> dca;
-        const o2::math_utils::Point3D<float> refPoint{0, 0, 0};
         o2::track::TrackPar propTrack(track);
-        if (propagator->propagateToDCABxByBz(refPoint, propTrack, 2.f, o2::base::Propagator::MatCorrType::USEMatCorrLUT, &dca)) {
+        if (propagator->propagateToDCABxByBz(mPositionOfPV, propTrack, 2.f, o2::base::Propagator::MatCorrType::USEMatCorrLUT, &dca)) {
           const auto phi = o2::math_utils::to02PiGen(track.getPhi());
           dcaHistPT->Fill(pt, dca[0]);
           dcaHist->Fill(phi, dca[0]);

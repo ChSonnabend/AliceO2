@@ -18,14 +18,12 @@
 #include "GPUCommonDef.h"
 #include "GPUCommonMath.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 /**
  * @class GPUTPCGMBorderTrack
  *
- * The class describes TPC slice tracks at sector borders.
+ * The class describes TPC sector tracks at sector borders.
  * Used in GPUTPCGMMerger
  *
  */
@@ -127,7 +125,6 @@ class GPUTPCGMBorderTrack
 
   ClassDefNV(GPUTPCGMBorderTrack, 1);
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

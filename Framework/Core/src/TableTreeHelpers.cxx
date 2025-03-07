@@ -13,7 +13,6 @@
 #include "Framework/Endian.h"
 #include "Framework/Signpost.h"
 
-#include "arrow/type_traits.h"
 #include <arrow/dataset/file_base.h>
 #include <arrow/record_batch.h>
 #include <arrow/type.h>
@@ -533,7 +532,7 @@ void TreeToTable::setLabel(const char* label)
   mTableLabel = label;
 }
 
-void TreeToTable::fill(TTree*tree)
+void TreeToTable::fill(TTree* tree)
 {
   std::vector<std::shared_ptr<arrow::ChunkedArray>> columns;
   std::vector<std::shared_ptr<arrow::Field>> fields;
@@ -569,8 +568,10 @@ std::shared_ptr<arrow::Table> TreeToTable::finalize()
   return mTable;
 }
 
-FragmentToBatch::FragmentToBatch(arrow::MemoryPool* pool)
-  : mArrowMemoryPool{pool}
+FragmentToBatch::FragmentToBatch(StreamerCreator creator, std::shared_ptr<arrow::dataset::FileFragment> fragment, arrow::MemoryPool* pool)
+  : mFragment{std::move(fragment)},
+    mArrowMemoryPool{pool},
+    mCreator{std::move(creator)}
 {
 }
 
@@ -579,13 +580,14 @@ void FragmentToBatch::setLabel(const char* label)
   mTableLabel = label;
 }
 
-void FragmentToBatch::fill(std::shared_ptr<arrow::dataset::FileFragment> fragment, std::shared_ptr<arrow::Schema> schema, std::shared_ptr<arrow::dataset::FileFormat> format)
+void FragmentToBatch::fill(std::shared_ptr<arrow::Schema> schema, std::shared_ptr<arrow::dataset::FileFormat> format)
 {
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
   options->dataset_schema = schema;
-  auto scanner = format->ScanBatchesAsync(options, fragment);
+  auto scanner = format->ScanBatchesAsync(options, mFragment);
   auto batch = (*scanner)();
   mRecordBatch = *batch.result();
+  // Notice that up to here the buffer was not yet filled.
 }
 
 std::shared_ptr<arrow::RecordBatch> FragmentToBatch::finalize()

@@ -41,7 +41,7 @@ double CTPRateFetcher::fetchNoPuCorr(o2::ccdb::BasicCCDBManager* ccdb, uint64_t 
     if (runNumber < 534202) {
       return fetchCTPratesClassesNoPuCorr(timeStamp, "minbias_TVX_L0", 3); // 2022
     } else {
-      double_t ret = fetchCTPratesClassesNoPuCorr(timeStamp, "CMTVX-B-NOPF");
+      double ret = fetchCTPratesClassesNoPuCorr(timeStamp, "CMTVX-B-NOPF");
       if (ret == -2.) {
         LOG(info) << "Trying different class";
         ret = fetchCTPratesClassesNoPuCorr(timeStamp, "CMTVX-NONE");
@@ -75,6 +75,94 @@ int CTPRateFetcher::getRates(std::array<double, 3>& rates, o2::ccdb::BasicCCDBMa
   rates[0] = rate0;
   rates[1] = rateLast;
   rates[2] = rateM;
+  return 0;
+}
+double CTPRateFetcher::getLumiNoPuCorr(const std::string& classname, int type)
+{
+  if (classname == "zncinp") {
+    return mScalers.getLumiNoPuCorr(26, 7);
+  }
+  std::vector<ctp::CTPClass>& ctpcls = mConfig.getCTPClasses();
+  std::vector<int> clslist = mConfig.getTriggerClassList();
+  int classIndex = -1;
+  for (size_t i = 0; i < clslist.size(); i++) {
+    if (ctpcls[i].name.find(classname) != std::string::npos) {
+      classIndex = i;
+      break;
+    }
+  }
+  if (classIndex == -1) {
+    LOG(warn) << "Trigger class " << classname << " not found in CTPConfiguration";
+    return -1;
+  }
+  return mScalers.getLumiNoPuCorr(classIndex, type);
+}
+double CTPRateFetcher::getLumiWPuCorr(const std::string& classname, int type)
+{
+  std::vector<std::pair<double, double>> scals;
+  if (classname == "zncinp") {
+    scals = mScalers.getRatesForIndex(26, 7);
+  } else {
+    std::vector<ctp::CTPClass>& ctpcls = mConfig.getCTPClasses();
+    std::vector<int> clslist = mConfig.getTriggerClassList();
+    int classIndex = -1;
+    for (size_t i = 0; i < clslist.size(); i++) {
+      if (ctpcls[i].name.find(classname) != std::string::npos) {
+        classIndex = i;
+        break;
+      }
+    }
+    if (classIndex == -1) {
+      LOG(warn) << "Trigger class " << classname << " not found in CTPConfiguration";
+      return -1;
+    }
+    scals = mScalers.getRatesForIndex(classIndex, type);
+  }
+  double lumi = 0;
+  for (auto const& ss : scals) {
+    // std::cout << ss.first << " " << ss.second << " " << pileUpCorrection(ss.first/ss.second) << std::endl;
+    lumi += pileUpCorrection(ss.first / ss.second) * ss.second;
+  }
+  return lumi;
+}
+double CTPRateFetcher::getLumi(const std::string& classname, int type, int puCorr)
+{
+  if (puCorr) {
+    return getLumiWPuCorr(classname, type);
+  } else {
+    return getLumiNoPuCorr(classname, type);
+  }
+}
+
+double CTPRateFetcher::getLumi(o2::ccdb::BasicCCDBManager* ccdb, int runNumber, const std::string sourceName, int puCorr)
+{
+  // setupRun(runNumber, ccdb, timeStamp, 1);
+  if (sourceName.find("ZNC") != std::string::npos) {
+    if (runNumber < 544448) {
+      return getLumi("zncinp", 1, puCorr) / (sourceName.find("hadronic") != std::string::npos ? 28. : 1.);
+    } else {
+      return getLumi("C1ZNC-B-NOPF-CRU", 6, puCorr) / (sourceName.find("hadronic") != std::string::npos ? 28. : 1.);
+    }
+  } else if (sourceName == "T0CE") {
+    return getLumi("CMTVXTCE-B-NOPF", 1, puCorr);
+  } else if (sourceName == "T0SC") {
+    return getLumi("CMTVXTSC-B-NOPF", 1, puCorr);
+  } else if (sourceName == "T0VTX") {
+    if (runNumber < 534202) {
+      return getLumi("minbias_TVX_L0", 3, puCorr); // 2022
+    } else {
+      double ret = getLumi("CMTVX-B-NOPF", 1, puCorr);
+      if (ret == -1.) {
+        LOG(info) << "Trying different class";
+        ret = getLumi("CMTVX-NONE", 1, puCorr);
+        if (ret < 0) {
+          LOG(fatal) << "None of the classes used for lumi found";
+        }
+      }
+      return ret;
+    }
+  }
+  LOG(error) << "CTP Lumi for " << sourceName << " not available";
   return 0;
 }
 //

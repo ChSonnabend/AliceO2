@@ -25,7 +25,7 @@ if(NOT DEFINED GPUCA_HIP_HIPIFY_FROM_CUDA OR "${GPUCA_HIP_HIPIFY_FROM_CUDA}")
   set(GPUCA_HIP_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/hipify)
   file(MAKE_DIRECTORY ${GPUCA_HIP_SOURCE_DIR})
   set(GPUCA_HIP_FILE_LIST GPUReconstructionCUDA.cu GPUReconstructionCUDAExternalProvider.cu GPUReconstructionCUDA.h GPUReconstructionCUDAInternals.h GPUReconstructionCUDAkernel.template.cu CUDAThrustHelpers.h GPUReconstructionCUDADef.h GPUReconstructionCUDAGenRTC.cxx GPUReconstructionCUDAKernels.cu GPUReconstructionCUDArtc.cu)
-  set(GPUCA_HIP_LOCAL_FILE_LIST GPUReconstructionHIPIncludes.h)
+  set(GPUCA_HIP_LOCAL_FILE_LIST GPUReconstructionHIPIncludesHost.h)
   set(HIP_SOURCES "")
   foreach(file ${GPUCA_HIP_FILE_LIST})
     get_filename_component(ABS_CUDA_SORUCE ../cuda/${file} ABSOLUTE)
@@ -55,7 +55,7 @@ if(NOT DEFINED GPUCA_HIP_HIPIFY_FROM_CUDA OR "${GPUCA_HIP_HIPIFY_FROM_CUDA}")
   add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIPIFIED_CHK.done
                      COMMAND diff -u ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPkernel.template.hip ${CMAKE_CURRENT_SOURCE_DIR}/GPUReconstructionHIPkernel.template.hip > ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIPIFIED_CHK.done
                      DEPENDS ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPkernel.template.hip ${CMAKE_CURRENT_SOURCE_DIR}/GPUReconstructionHIPkernel.template.hip
-                     COMMENT Checking HIPified file ${CMAKE_CURRENT_SOURCE_DIR}/GPUReconstructionHIPkernel.template.hip)
+                     COMMENT "Checking HIPified file ${CMAKE_CURRENT_SOURCE_DIR}/GPUReconstructionHIPkernel.template.hip")
   add_custom_target(${MODULE}_HIPIFIED_CHK ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIPIFIED_CHK.done)
 else()
   get_filename_component(GPUCA_HIP_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR} ABSOLUTE)
@@ -63,7 +63,7 @@ endif()
 
 set(SRCS ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIP.hip ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPKernels.hip)
 set(SRCS_CXX ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPGenRTC.cxx)
-set(HDRS ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIP.h ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPInternals.h ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPDef.h ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPIncludes.h ${GPUCA_HIP_SOURCE_DIR}/HIPThrustHelpers.h)
+set(HDRS ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIP.h ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPInternals.h ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPDef.h ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPIncludesHost.h ${GPUCA_HIP_SOURCE_DIR}/HIPThrustHelpers.h)
 
 # -------------------------------- Prepare RTC -------------------------------------------------------
 enable_language(ASM)
@@ -104,7 +104,7 @@ set(GPU_RTC_BIN ${CMAKE_CURRENT_BINARY_DIR}/GPUReconstructionHIPrtc)
 # cmake-format: off
 add_custom_command(
     OUTPUT ${GPU_RTC_BIN}.src
-    COMMAND cat ${GPUDIR}/Base/hip/GPUReconstructionHIPIncludes.h > ${GPU_RTC_BIN}.src
+    COMMAND cp ${GPUDIR}/Base/hip/GPUReconstructionHIPIncludesHost.h ${GPU_RTC_BIN}.src
     COMMAND ${CMAKE_CXX_COMPILER} ${GPU_RTC_DEFINES} ${GPU_RTC_INCLUDES} -std=c++${CMAKE_HIP_STANDARD} -D__HIPCC__ -D__HIP_DEVICE_COMPILE__ -x c++ -nostdinc -E ${GPU_RTC_SRC} >> ${GPU_RTC_BIN}.src
     MAIN_DEPENDENCY ${GPU_RTC_SRC}
     IMPLICIT_DEPENDS CXX ${GPU_RTC_SRC}
@@ -116,7 +116,7 @@ create_binary_resource(${GPU_RTC_BIN}.src ${GPU_RTC_BIN}.src.o)
 
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIP_SRC_CHK.done
                     COMMAND ! grep "# [0-9]* \"\\(/usr/\\|.*GCC-Toolchain\\)" ${GPU_RTC_BIN}.src > ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIP_SRC_CHK.done || bash -c "echo ERROR: HIP RTC sources contain standard headers 1>&2 && exit 1"
-                    COMMENT Checking HIP RTC File ${GPU_RTC_BIN}.src
+                    COMMENT "Checking HIP RTC File ${GPU_RTC_BIN}.src"
                     DEPENDS ${GPU_RTC_BIN}.src VERBATIM)
 add_custom_target(${MODULE}_HIP_SRC_CHK ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIP_SRC_CHK.done)
 
@@ -189,11 +189,7 @@ endif()
 target_link_libraries(${targetName} PRIVATE hip::host hip::device hip::hipcub roc::rocthrust)
 set_target_hip_arch(${targetName})
 
-if(OpenMP_CXX_FOUND)
-  # Must be private, depending libraries might be compiled by compiler not understanding -fopenmp
-  target_compile_definitions(${MODULE}_CXX PRIVATE WITH_OPENMP)
-  target_link_libraries(${MODULE}_CXX PRIVATE OpenMP::OpenMP_CXX)
-endif()
+target_link_libraries(${MODULE}_CXX PRIVATE TBB::tbb)
 
 # Special handling of GPU kernels in case of per-kernel compilation / RDC
 if(NOT DEFINED GPUCA_HIP_COMPILE_MODE)
@@ -217,7 +213,7 @@ elseif(GPUCA_HIP_COMPILE_MODE STREQUAL "perkernel")
   add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/GPUTrackingHIPKernelModules.o
     COMMAND cp -u $<TARGET_OBJECTS:GPUTrackingHIPKernels> ${CMAKE_CURRENT_BINARY_DIR}/hip_kernel_module_fatbin/
-    COMMAND ${CMAKE_LINKER} --relocatable --format binary --output ${CMAKE_CURRENT_BINARY_DIR}/GPUTrackingHIPKernelModules.o $<PATH:RELATIVE_PATH,$<LIST:TRANSFORM,$<PATH:GET_FILENAME,$<TARGET_OBJECTS:GPUTrackingHIPKernels>>,PREPEND,${CMAKE_CURRENT_BINARY_DIR}/hip_kernel_module_fatbin/>,${CMAKE_CURRENT_BINARY_DIR}>
+    COMMAND ${CMAKE_LINKER} -z noexecstack --relocatable --format binary --output ${CMAKE_CURRENT_BINARY_DIR}/GPUTrackingHIPKernelModules.o $<PATH:RELATIVE_PATH,$<LIST:TRANSFORM,$<PATH:GET_FILENAME,$<TARGET_OBJECTS:GPUTrackingHIPKernels>>,PREPEND,${CMAKE_CURRENT_BINARY_DIR}/hip_kernel_module_fatbin/>,${CMAKE_CURRENT_BINARY_DIR}>
     DEPENDS GPUTrackingHIPKernels $<TARGET_OBJECTS:GPUTrackingHIPKernels>
     COMMENT "Compiling fatbin kernels ${CMAKE_CURRENT_BINARY_DIR}/GPUTrackingHIPKernelModules.o"
     VERBATIM

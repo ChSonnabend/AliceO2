@@ -70,6 +70,9 @@ class ITSTrackingInterface
     mMode = mode;
   }
 
+  auto getTracker() const { return mTracker.get(); }
+  auto getVertexer() const { return mVertexer.get(); }
+
   TimeFrame* mTimeFrame = nullptr;
 
  protected:

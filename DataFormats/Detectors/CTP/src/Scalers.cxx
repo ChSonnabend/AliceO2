@@ -657,7 +657,77 @@ void CTPRunScalers::printLMBRateVsT() const
     }
   }
 }
-
+//
+uint64_t CTPRunScalers::getLumiNoPuCorr(int classindex, int type) const
+{
+  if (type < 7) {
+    const auto s0 = mScalerRecordO2[0].scalers[classindex];
+    const auto s1 = mScalerRecordO2[mScalerRecordO2.size() - 1].scalers[classindex];
+    switch (type) {
+      case 1:
+        return (s1.lmBefore - s0.lmBefore);
+      case 2:
+        return (s1.lmAfter - s0.lmAfter);
+      case 3:
+        return (s1.l0Before - s0.l0Before);
+      case 4:
+        return (s1.l0After - s0.l0After);
+      case 5:
+        return (s1.l1Before - s0.l1Before);
+      case 6:
+        return (s1.l1After - s0.l1After);
+      default:
+        LOG(error) << "Wrong type:" << type;
+        return -1; // wrong type
+    }
+  } else if (type == 7) {
+    auto s0 = mScalerRecordO2[0].scalersInps[classindex]; // type CTPScalerO2*
+    auto s1 = mScalerRecordO2[mScalerRecordO2.size() - 1].scalersInps[classindex];
+    return (s1 - s0);
+  } else {
+    LOG(error) << "Wrong type:" << type;
+    return -1; // wrong type
+  }
+};
+//
+std::vector<std::pair<double_t, double_t>> CTPRunScalers::getRatesForIndex(int classindex, int type) const
+{
+  std::vector<std::pair<double_t, double_t>> scals;
+  for (int i = 0; i < mScalerRecordO2.size() - 1; i++) {
+    double_t diff = 0;
+    // double_t timeDiff = mScalerRecordO2[i + 1].epochTime -  mScalerRecordO2[i].epochTime;
+    double_t timeDiff = (mScalerRecordO2[i + 1].intRecord.orbit - mScalerRecordO2[i].intRecord.orbit) * o2::constants::lhc::LHCOrbitMUS / 1.e6;
+    if (type < 7) {
+      const auto s0 = mScalerRecordO2[i].scalers[classindex];
+      const auto s1 = mScalerRecordO2[i + 1].scalers[classindex];
+      if (type == 1) {
+        diff = s1.lmBefore - s0.lmBefore;
+      } else if (type == 2) {
+        diff = s1.lmAfter - s0.lmAfter;
+      } else if (type == 3) {
+        diff = s1.l0Before - s0.l0Before;
+      } else if (type == 4) {
+        diff = s1.l0After - s0.l0After;
+      } else if (type == 5) {
+        diff = s1.l1Before - s0.l1Before;
+      } else if (type == 6) {
+        diff = s1.l1After - s0.l1After;
+      } else {
+        LOG(error) << "Wrong type:" << type;
+        return scals; // wrong type
+      }
+    } else if (type == 7) {
+      auto s0 = mScalerRecordO2[i].scalersInps[classindex]; // type CTPScalerO2*
+      auto s1 = mScalerRecordO2[i + 1].scalersInps[classindex];
+      diff = s1 - s0;
+    } else {
+      LOG(error) << "Wrong type:" << type;
+      return scals; // wrong type
+    }
+    scals.emplace_back(std::pair<double_t, double_t>{diff, timeDiff});
+  }
+  return scals;
+};
 // returns the pair of global (levelled) interaction rate, as well as instantaneous interpolated
 // rate in Hz at a certain orbit number within the run
 // type - 7 : inputs

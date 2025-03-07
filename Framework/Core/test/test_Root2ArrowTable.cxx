@@ -38,6 +38,7 @@
 
 #include <arrow/array/array_primitive.h>
 #include <arrow/array/builder_primitive.h>
+#include <arrow/buffer.h>
 #include <arrow/dataset/scanner.h>
 #include <arrow/record_batch.h>
 #include <arrow/table.h>
@@ -388,6 +389,7 @@ bool validatePhysicalSchema(std::shared_ptr<arrow::Schema> schema)
 {
   REQUIRE(schema->num_fields() == 12);
   REQUIRE(schema->field(0)->type()->id() == arrow::float32()->id());
+  REQUIRE(schema->field(0)->name() == "px");
   REQUIRE(schema->field(1)->type()->id() == arrow::float32()->id());
   REQUIRE(schema->field(2)->type()->id() == arrow::float32()->id());
   REQUIRE(schema->field(3)->type()->id() == arrow::float64()->id());
@@ -541,12 +543,28 @@ TEST_CASE("RootTree2Dataset")
   options->dataset_schema = schema;
   auto scanner = format->ScanBatchesAsync(options, *fragment);
   REQUIRE(scanner.ok());
+
+  // This is batch has deferred contents. Therefore we need to use a DeferredOutputStream to
+  // write it to a real one and read it back with the BufferReader, which is hopefully zero copy
+  std::shared_ptr<arrow::RecordBatch> batch;
+
   auto batches = (*scanner)();
   auto result = batches.result();
   REQUIRE(result.ok());
   REQUIRE((*result)->columns().size() == 11);
   REQUIRE((*result)->num_rows() == 100);
-  validateContents(*result);
+  std::shared_ptr<arrow::ResizableBuffer> buffer = *arrow::AllocateResizableBuffer(1000, 64);
+  auto deferredWriterStream = factory.capabilities[1].factory().deferredOutputStreamer(*fragment, buffer);
+  auto outBatch = arrow::ipc::MakeStreamWriter(deferredWriterStream.get(), schema);
+  auto status = outBatch.ValueOrDie()->WriteRecordBatch(**result);
+  std::shared_ptr<arrow::io::InputStream> bufferReader = std::make_shared<arrow::io::BufferReader>(buffer);
+  auto readerResult = arrow::ipc::RecordBatchStreamReader::Open(bufferReader);
+  auto batchReader = readerResult.ValueOrDie();
+
+  auto next = batchReader->ReadNext(&batch);
+  REQUIRE(batch != nullptr);
+
+  validateContents(batch);
 
   auto* output = new TMemFile("foo", "RECREATE");
   auto outFs = std::make_shared<TFileFileSystem>(output, 0, factory);
@@ -558,7 +576,8 @@ TEST_CASE("RootTree2Dataset")
   // Write to the /DF_3 tree at top level
   arrow::fs::FileLocator locator{outFs, "/DF_3"};
   auto writer = format->MakeWriter(*destination, schema, {}, locator);
-  auto success = writer->get()->Write(*result);
+  auto success = writer->get()->Write(batch);
+  REQUIRE(batch->schema()->field(0)->name() == "px");
   auto rootDestination = std::dynamic_pointer_cast<TDirectoryFileOutputStream>(*destination);
 
   SECTION("Read tree")
@@ -568,7 +587,11 @@ TEST_CASE("RootTree2Dataset")
     auto tfileFs = std::dynamic_pointer_cast<TFileFileSystem>(outFs);
     REQUIRE(tfileFs.get());
     REQUIRE(tfileFs->GetFile());
-    REQUIRE(tfileFs->GetFile()->GetObjectChecked("/DF_3", TClass::GetClass("TTree")));
+    auto* tree = (TTree*)tfileFs->GetFile()->GetObjectChecked("/DF_3", TClass::GetClass("TTree"));
+    REQUIRE(tree != nullptr);
+    REQUIRE(((TBranch*)tree->GetListOfBranches()->At(0))->GetEntries() == 100);
+    REQUIRE(((TBranch*)tree->GetListOfBranches()->At(0))->GetName() == std::string("px"));
+
     arrow::dataset::FileSource source2("/DF_3", outFs);
 
     REQUIRE(format->IsSupported(source2) == true);
@@ -577,6 +600,10 @@ TEST_CASE("RootTree2Dataset")
     REQUIRE(tfileFs->GetFile());
     REQUIRE(tfileFs->GetFile()->GetObjectChecked("/DF_3", TClass::GetClass("TTree")));
 
+    tree = (TTree*)tfileFs->GetFile()->GetObjectChecked("/DF_3", TClass::GetClass("TTree"));
+    REQUIRE(tree != nullptr);
+    REQUIRE(((TBranch*)tree->GetListOfBranches()->At(0))->GetEntries() == 100);
+
     auto schemaOptWritten = format->Inspect(source2);
     tfileFs = std::dynamic_pointer_cast<TFileFileSystem>(source2.filesystem());
     REQUIRE(tfileFs.get());
@@ -584,6 +611,10 @@ TEST_CASE("RootTree2Dataset")
     REQUIRE(tfileFs->GetFile()->GetObjectChecked("/DF_3", TClass::GetClass("TTree")));
     REQUIRE(schemaOptWritten.ok());
     auto schemaWritten = *schemaOptWritten;
+
+    tree = (TTree*)tfileFs->GetFile()->GetObjectChecked("/DF_3", TClass::GetClass("TTree"));
+    REQUIRE(tree != nullptr);
+    REQUIRE(((TBranch*)tree->GetListOfBranches()->At(0))->GetEntries() == 100);
 
     REQUIRE(validatePhysicalSchema(schemaWritten));
     std::vector<std::shared_ptr<arrow::Field>> fields;
@@ -599,23 +630,38 @@ TEST_CASE("RootTree2Dataset")
     auto fragmentWritten = format->MakeFragment(source2, {}, *physicalSchema);
     REQUIRE(fragmentWritten.ok());
     auto optionsWritten = std::make_shared<arrow::dataset::ScanOptions>();
-    options->dataset_schema = schema;
-    auto scannerWritten = format->ScanBatchesAsync(optionsWritten, *fragment);
+    optionsWritten->dataset_schema = schema;
+    auto scannerWritten = format->ScanBatchesAsync(optionsWritten, *fragmentWritten);
     REQUIRE(scannerWritten.ok());
-    auto batchesWritten = (*scanner)();
-    auto resultWritten = batches.result();
+    tree = (TTree*)tfileFs->GetFile()->GetObjectChecked("/DF_3", TClass::GetClass("TTree"));
+    REQUIRE(tree != nullptr);
+    REQUIRE(((TBranch*)tree->GetListOfBranches()->At(0))->GetEntries() == 100);
+    auto batchesWritten = (*scannerWritten)();
+    auto resultWritten = batchesWritten.result();
     REQUIRE(resultWritten.ok());
     REQUIRE((*resultWritten)->columns().size() == 11);
     REQUIRE((*resultWritten)->num_rows() == 100);
-    validateContents(*resultWritten);
+
+    std::shared_ptr<arrow::ResizableBuffer> buffer = *arrow::AllocateResizableBuffer(1000, 64);
+    auto deferredWriterStream2 = factory.capabilities[1].factory().deferredOutputStreamer(*fragmentWritten, buffer);
+    auto outBatch = arrow::ipc::MakeStreamWriter(deferredWriterStream2.get(), schema);
+    auto status = outBatch.ValueOrDie()->WriteRecordBatch(**resultWritten);
+    std::shared_ptr<arrow::io::InputStream> bufferReader = std::make_shared<arrow::io::BufferReader>(buffer);
+    auto readerResult = arrow::ipc::RecordBatchStreamReader::Open(bufferReader);
+    auto batchReader = readerResult.ValueOrDie();
+
+    auto next = batchReader->ReadNext(&batch);
+    REQUIRE(batch != nullptr);
+    validateContents(batch);
   }
+
   arrow::fs::FileLocator rnTupleLocator{outFs, "/rntuple"};
   // We write an RNTuple in the same TMemFile, using /rntuple as a location
   auto rntupleDestination = std::dynamic_pointer_cast<TDirectoryFileOutputStream>(*destination);
 
   {
     auto rNtupleWriter = rNtupleFormat->MakeWriter(*destination, schema, {}, rnTupleLocator);
-    auto rNtupleSuccess = rNtupleWriter->get()->Write(*result);
+    auto rNtupleSuccess = rNtupleWriter->get()->Write(batch);
     REQUIRE(rNtupleSuccess.ok());
   }
 

@@ -31,19 +31,17 @@ using Propagator = PropagatorImpl<float>;
 } // namespace o2::base
 #endif
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 struct GPUSettingsRec;
 struct GPUSettingsGTP;
 struct GPURecoStepConfiguration;
 
-struct GPUParamSlice {
-  float Alpha;              // slice angle
-  float CosAlpha, SinAlpha; // sign and cosine of the slice angle
+struct GPUParamSector {
+  float Alpha;              // sector angle
+  float CosAlpha, SinAlpha; // sign and cosine of the sector angle
   float AngleMin, AngleMax; // minimal and maximal angle
-  float ZMin, ZMax;         // slice Z range
+  float ZMin, ZMax;         // sector Z range
 };
 
 namespace internal
@@ -66,7 +64,7 @@ struct GPUParam_t {
   const uint32_t* occupancyMap;                     // Ptr to TPC occupancy map
   uint32_t occupancyTotal;                          // Total occupancy in the TPC (nCl / nHbf)
 
-  GPUParamSlice SliceParam[GPUCA_NSLICES];
+  GPUParamSector SectorParam[GPUCA_NSECTORS];
 
  protected:
 #ifdef GPUCA_TPC_GEOMETRY_O2
@@ -88,15 +86,15 @@ struct GPUParam : public internal::GPUParam_t<GPUSettingsRec, GPUSettingsParam> 
   void UpdateRun3ClusterErrors(const float* yErrorParam, const float* zErrorParam);
 #endif
 
-  GPUd() float Alpha(int32_t iSlice) const
+  GPUd() float Alpha(int32_t iSector) const
   {
-    if (iSlice >= GPUCA_NSLICES / 2) {
-      iSlice -= GPUCA_NSLICES / 2;
+    if (iSector >= GPUCA_NSECTORS / 2) {
+      iSector -= GPUCA_NSECTORS / 2;
     }
-    if (iSlice >= GPUCA_NSLICES / 4) {
-      iSlice -= GPUCA_NSLICES / 2;
+    if (iSector >= GPUCA_NSECTORS / 4) {
+      iSector -= GPUCA_NSECTORS / 2;
     }
-    return 0.174533f + par.dAlpha * iSlice;
+    return 0.174533f + par.dAlpha * iSector;
   }
   GPUd() float GetClusterErrorSeeding(int32_t yz, int32_t type, float zDiff, float angle2, float unscaledMult) const;
   GPUd() void GetClusterErrorsSeeding2(uint8_t sector, int32_t row, float z, float sinPhi, float DzDs, float time, float& ErrY2, float& ErrZ2) const;
@@ -108,13 +106,12 @@ struct GPUParam : public internal::GPUParam_t<GPUSettingsRec, GPUSettingsParam> 
   GPUd() void UpdateClusterError2ByState(int16_t clusterState, float& ErrY2, float& ErrZ2) const;
   GPUd() float GetUnscaledMult(float time) const;
 
-  GPUd() void Slice2Global(int32_t iSlice, float x, float y, float z, float* X, float* Y, float* Z) const;
-  GPUd() void Global2Slice(int32_t iSlice, float x, float y, float z, float* X, float* Y, float* Z) const;
+  GPUd() void Sector2Global(int32_t iSector, float x, float y, float z, float* X, float* Y, float* Z) const;
+  GPUd() void Global2Sector(int32_t iSector, float x, float y, float z, float* X, float* Y, float* Z) const;
 
   GPUd() bool rejectEdgeClusterByY(float uncorrectedY, int32_t iRow, float trackSigmaY) const;
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

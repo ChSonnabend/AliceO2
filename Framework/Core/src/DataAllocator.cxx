@@ -211,34 +211,6 @@ void doWriteTable(std::shared_ptr<FairMQResizableBuffer> b, arrow::Table* table)
   }
 }
 
-void doWriteBatch(std::shared_ptr<FairMQResizableBuffer> b, arrow::RecordBatch* batch)
-{
-  auto mock = std::make_shared<arrow::io::MockOutputStream>();
-  int64_t expectedSize = 0;
-  auto mockWriter = arrow::ipc::MakeStreamWriter(mock.get(), batch->schema());
-  arrow::Status outStatus = mockWriter.ValueOrDie()->WriteRecordBatch(*batch);
-
-  expectedSize = mock->Tell().ValueOrDie();
-  auto reserve = b->Reserve(expectedSize);
-  if (reserve.ok() == false) {
-    throw std::runtime_error("Unable to reserve memory for table");
-  }
-
-  auto stream = std::make_shared<FairMQOutputStream>(b);
-  // This is a copy maybe we can finally get rid of it by having using the
-  // dataset API?
-  auto outBatch = arrow::ipc::MakeStreamWriter(stream.get(), batch->schema());
-  if (outBatch.ok() == false) {
-    throw ::std::runtime_error("Unable to create batch writer");
-  }
-
-  outStatus = outBatch.ValueOrDie()->WriteRecordBatch(*batch);
-
-  if (outStatus.ok() == false) {
-    throw std::runtime_error("Unable to Write batch");
-  }
-}
-
 void DataAllocator::adopt(const Output& spec, LifetimeHolder<TableBuilder>& tb)
 {
   auto& timingInfo = mRegistry.get<TimingInfo>();
@@ -318,16 +290,35 @@ void DataAllocator::adopt(const Output& spec, LifetimeHolder<FragmentToBatch>& f
     // Serialization happens in here, so that we can
     // get rid of the intermediate tree 2 table object, saving memory.
     auto batch = source.finalize();
-    doWriteBatch(buffer, batch.get());
+    auto mock = std::make_shared<arrow::io::MockOutputStream>();
+    int64_t expectedSize = 0;
+    auto mockWriter = arrow::ipc::MakeStreamWriter(mock.get(), batch->schema());
+    arrow::Status outStatus = mockWriter.ValueOrDie()->WriteRecordBatch(*batch);
+
+    expectedSize = mock->Tell().ValueOrDie();
+    auto reserve = buffer->Reserve(expectedSize);
+    if (reserve.ok() == false) {
+      throw std::runtime_error("Unable to reserve memory for table");
+    }
+
+    auto deferredWriterStream = source.streamer(buffer);
+
+    auto outBatch = arrow::ipc::MakeStreamWriter(deferredWriterStream, batch->schema());
+    if (outBatch.ok() == false) {
+      throw ::std::runtime_error("Unable to create batch writer");
+    }
+
+    outStatus = outBatch.ValueOrDie()->WriteRecordBatch(*batch);
+
+    if (outStatus.ok() == false) {
+      throw std::runtime_error("Unable to Write batch");
+    }
     // deletion happens in the caller
   };
 
-  /// To finalise this we write the table to the buffer.
-  /// FIXME: most likely not a great idea. We should probably write to the buffer
-  ///        directly in the TableBuilder, incrementally.
   auto finalizer = [](std::shared_ptr<FairMQResizableBuffer> b) -> void {
     // This is empty because we already serialised the object when
-    // the LifetimeHolder goes out of scope.
+    // the LifetimeHolder goes out of scope. See code above.
   };
 
   context.addBuffer(std::move(header), buffer, std::move(finalizer), routeIndex);

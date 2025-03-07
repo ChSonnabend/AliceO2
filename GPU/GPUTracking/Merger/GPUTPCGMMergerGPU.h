@@ -19,9 +19,7 @@
 #include "GPUConstantMem.h"
 #include "GPUTPCGMMergerTypes.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 class GPUTPCGMMergerGeneral : public GPUKernelTemplate
 {
@@ -48,18 +46,18 @@ class GPUTPCGMMergerFollowLoopers : public GPUTPCGMMergerGeneral
   GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& merger);
 };
 
-class GPUTPCGMMergerSliceRefit : public GPUTPCGMMergerGeneral
+class GPUTPCGMMergerSectorRefit : public GPUTPCGMMergerGeneral
 {
  public:
   template <int32_t iKernel = defaultKernel>
-  GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& merger, int32_t iSlice);
+  GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& merger, int32_t iSector);
 };
 
 class GPUTPCGMMergerUnpackGlobal : public GPUTPCGMMergerGeneral
 {
  public:
   template <int32_t iKernel = defaultKernel>
-  GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& merger, int32_t iSlice);
+  GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& merger, int32_t iSector);
 };
 
 class GPUTPCGMMergerUnpackSaveNumber : public GPUTPCGMMergerGeneral
@@ -100,7 +98,7 @@ class GPUTPCGMMergerMergeWithinPrepare : public GPUTPCGMMergerGeneral
   GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& merger);
 };
 
-class GPUTPCGMMergerMergeSlicesPrepare : public GPUTPCGMMergerGeneral
+class GPUTPCGMMergerMergeSectorsPrepare : public GPUTPCGMMergerGeneral
 {
  public:
   template <int32_t iKernel = defaultKernel>
@@ -126,7 +124,7 @@ class GPUTPCGMMergerMergeCE : public GPUTPCGMMergerGeneral
   GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& merger);
 };
 
-class GPUTPCGMMergerLinkGlobalTracks : public GPUTPCGMMergerGeneral
+class GPUTPCGMMergerLinkExtrapolatedTracks : public GPUTPCGMMergerGeneral
 {
  public:
   template <int32_t iKernel = defaultKernel>
@@ -182,7 +180,6 @@ class GPUTPCGMMergerMergeLoopers : public GPUTPCGMMergerGeneral
   GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& merger);
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

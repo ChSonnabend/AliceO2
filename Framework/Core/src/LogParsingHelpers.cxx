@@ -17,9 +17,11 @@ namespace o2::framework
 char const* const LogParsingHelpers::LOG_LEVELS[(int)LogParsingHelpers::LogLevel::Size] = {
   "DEBUG",
   "INFO",
+  "IMPORTANT",
   "WARNING",
   "ALARM",
   "ERROR",
+  "CRITICAL",
   "FATAL",
   "UNKNOWN"};
 using LogLevel = o2::framework::LogParsingHelpers::LogLevel;
@@ -59,12 +61,16 @@ LogLevel LogParsingHelpers::parseTokenLevel(std::string_view const s)
   } else if (s.compare(LABELPOS, 7, "[INFO] ") == 0 ||
              s.compare(LABELPOS, 8, "[STATE] ") == 0) {
     return LogLevel::Info;
+  } else if (s.compare(LABELPOS, 12, "[IMPORTANT] ") == 0) {
+    return LogLevel::Important;
   } else if (s.compare(LABELPOS, 7, "[WARN] ") == 0) {
     return LogLevel::Warning;
   } else if (s.compare(LABELPOS, 8, "[ALARM] ") == 0) {
     return LogLevel::Alarm;
   } else if (s.compare(LABELPOS, 8, "[ERROR] ") == 0) {
     return LogLevel::Error;
+  } else if (s.compare(LABELPOS, 11, "[CRITICAL] ") == 0) {
+    return LogLevel::Critical;
   } else if (s.compare(LABELPOS, 8, "[FATAL] ") == 0) {
     return LogLevel::Fatal;
   }

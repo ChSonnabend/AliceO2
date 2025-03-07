@@ -18,9 +18,7 @@
 
 #ifndef GPUCA_TPC_GEOMETRY_O2 // compatibility to Run 2 data types
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 // class to hold the information on the space points
@@ -44,16 +42,13 @@ class GPUTRDSpacePoint
   float mDy; // deflection over drift length
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #else // compatibility with Run 3 data types
 
 #include "DataFormatsTRD/CalibratedTracklet.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 class GPUTRDSpacePoint : public o2::trd::CalibratedTracklet
@@ -62,8 +57,7 @@ class GPUTRDSpacePoint : public o2::trd::CalibratedTracklet
 
 static_assert(sizeof(GPUTRDSpacePoint) == sizeof(o2::trd::CalibratedTracklet), "Incorrect memory layout");
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif // GPUCA_TPC_GEOMETRY_O2
 

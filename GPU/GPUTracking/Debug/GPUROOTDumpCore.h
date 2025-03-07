@@ -21,9 +21,7 @@
 
 class TFile;
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 class GPUROOTDumpCore;
 
@@ -61,7 +59,6 @@ class GPUROOTDumpCore
   std::vector<GPUROOTDumpBase*> mBranches;
 #endif
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

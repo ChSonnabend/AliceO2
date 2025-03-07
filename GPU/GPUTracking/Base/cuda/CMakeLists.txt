@@ -18,7 +18,7 @@ endif()
 message(STATUS "Building GPUTracking with CUDA support ${TMP_TARGET}")
 
 set(SRCS GPUReconstructionCUDA.cu GPUReconstructionCUDAGenRTC.cxx GPUReconstructionCUDAKernels.cu)
-set(HDRS GPUReconstructionCUDA.h GPUReconstructionCUDAInternals.h GPUReconstructionCUDADef.h GPUReconstructionCUDAIncludes.h CUDAThrustHelpers.h)
+set(HDRS GPUReconstructionCUDA.h GPUReconstructionCUDAInternals.h GPUReconstructionCUDADef.h GPUReconstructionCUDAIncludesHost.h CUDAThrustHelpers.h)
 # -------------------------------- Prepare RTC -------------------------------------------------------
 enable_language(ASM)
 if(ALIGPU_BUILD_TYPE STREQUAL "O2")
@@ -67,7 +67,7 @@ set(GPU_RTC_BIN ${CMAKE_CURRENT_BINARY_DIR}/GPUReconstructionCUDArtc)
 # cmake-format: off
 add_custom_command(
     OUTPUT ${GPU_RTC_BIN}.src
-    COMMAND cat ${GPUDIR}/Base/cuda/GPUReconstructionCUDAIncludes.h > ${GPU_RTC_BIN}.src
+    COMMAND cp ${GPUDIR}/Base/cuda/GPUReconstructionCUDAIncludesHost.h ${GPU_RTC_BIN}.src
     COMMAND ${CMAKE_CXX_COMPILER} ${GPU_RTC_DEFINES} ${GPU_RTC_INCLUDES} -std=c++${CMAKE_CUDA_STANDARD} -D__CUDA_ARCH__=${RTC_CUDA_ARCH} -D__CUDACC__ -x c++ -nostdinc -E ${GPU_RTC_SRC} >> ${GPU_RTC_BIN}.src
     MAIN_DEPENDENCY ${GPU_RTC_SRC}
     IMPLICIT_DEPENDS CXX ${GPU_RTC_SRC}
@@ -78,7 +78,7 @@ create_binary_resource(${GPU_RTC_BIN}.src ${GPU_RTC_BIN}.src.o)
 
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_CUDA_SRC_CHK.done
                     COMMAND ! grep "# [0-9]* \"\\(/usr/\\|.*GCC-Toolchain\\)" ${GPU_RTC_BIN}.src > ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_CUDA_SRC_CHK.done || bash -c "echo ERROR: CUDA RTC sources contain standard headers 1>&2 && exit 1"
-                    COMMENT Checking CUDA RTC File ${GPU_RTC_BIN}.src
+                    COMMENT "Checking CUDA RTC File ${GPU_RTC_BIN}.src"
                     DEPENDS ${GPU_RTC_BIN}.src VERBATIM)
 add_custom_target(${MODULE}_CUDA_SRC_CHK ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_CUDA_SRC_CHK.done)
 
@@ -136,12 +136,7 @@ set_target_cuda_arch(${targetName})
 #target_link_options(${targetName} PRIVATE "LINKER:--version-script=${CMAKE_CURRENT_SOURCE_DIR}/version_script.ld")
 #set_target_properties(${targetName} PROPERTIES LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/version_script.ld)
 
-if(OpenMP_CXX_FOUND)
-  # Must be private, depending libraries might be compiled by compiler not understanding -fopenmp
-  target_compile_definitions(${targetName} PRIVATE WITH_OPENMP)
-  target_link_libraries(${targetName} PRIVATE OpenMP::OpenMP_CXX)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -fopenmp")
-endif()
+target_link_libraries(${targetName} PRIVATE TBB::tbb)
 
 # Special handling of GPU kernels in case of per-kernel compilation / RDC
 if(NOT DEFINED GPUCA_CUDA_COMPILE_MODE)
@@ -160,7 +155,7 @@ elseif(GPUCA_CUDA_COMPILE_MODE STREQUAL "perkernel")
   add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/GPUTrackingCUDAKernelModules.o
     COMMAND cp -u $<TARGET_OBJECTS:GPUTrackingCUDAKernels> ${CMAKE_CURRENT_BINARY_DIR}/cuda_kernel_module_fatbin/
-    COMMAND ${CMAKE_LINKER} --relocatable --format binary --output ${CMAKE_CURRENT_BINARY_DIR}/GPUTrackingCUDAKernelModules.o $<PATH:RELATIVE_PATH,$<LIST:TRANSFORM,$<PATH:GET_FILENAME,$<TARGET_OBJECTS:GPUTrackingCUDAKernels>>,PREPEND,${CMAKE_CURRENT_BINARY_DIR}/cuda_kernel_module_fatbin/>,${CMAKE_CURRENT_BINARY_DIR}>
+    COMMAND ${CMAKE_LINKER} -z noexecstack --relocatable --format binary --output ${CMAKE_CURRENT_BINARY_DIR}/GPUTrackingCUDAKernelModules.o $<PATH:RELATIVE_PATH,$<LIST:TRANSFORM,$<PATH:GET_FILENAME,$<TARGET_OBJECTS:GPUTrackingCUDAKernels>>,PREPEND,${CMAKE_CURRENT_BINARY_DIR}/cuda_kernel_module_fatbin/>,${CMAKE_CURRENT_BINARY_DIR}>
     DEPENDS GPUTrackingCUDAKernels $<TARGET_OBJECTS:GPUTrackingCUDAKernels>
     COMMENT "Compiling fatbin kernels ${CMAKE_CURRENT_BINARY_DIR}/GPUTrackingCUDAKernelModules.o"
     VERBATIM

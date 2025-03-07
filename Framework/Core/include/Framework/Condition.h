@@ -42,6 +42,13 @@ struct Condition {
   }
 };
 
+template <typename T>
+concept is_condition = requires(T t) {
+  typename T::type;
+  requires std::same_as<typename T::type*, decltype(t.instance)>;
+  requires std::same_as<std::string, decltype(t.path)>;
+};
+
 /// Can be used to group together a number of Configurables
 /// to overcome the limit of 100 Configurables per task.
 /// In order to do so you can do:
@@ -57,6 +64,9 @@ struct Condition {
 /// group.aCut;
 struct ConditionGroup {
 };
+
+template <typename T>
+concept is_condition_group = std::derived_from<T, ConditionGroup>;
 
 } // namespace o2::framework
 #endif // O2_FRAMEWORK_CONDITION_H_

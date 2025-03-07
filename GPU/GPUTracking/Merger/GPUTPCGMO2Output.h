@@ -18,9 +18,7 @@
 #include "GPUTPCDef.h"
 #include "GPUTPCGMMergerGPU.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 class GPUTPCGMO2Output : public GPUTPCGMMergerGeneral
@@ -34,7 +32,6 @@ class GPUTPCGMO2Output : public GPUTPCGMMergerGeneral
   GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& merger);
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

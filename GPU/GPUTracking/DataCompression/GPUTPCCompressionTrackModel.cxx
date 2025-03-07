@@ -66,7 +66,7 @@ GPUd() int32_t GPUTPCCompressionTrackModel::Mirror()
   return 0;
 }
 
-#elif defined(GPUCA_COMPRESSION_TRACK_MODEL_SLICETRACKER)
+#elif defined(GPUCA_COMPRESSION_TRACK_MODEL_SECTORTRACKER)
 
 #include "GPUTPCTrackLinearisation.h"
 #include "GPUTPCTracker.h"

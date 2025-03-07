@@ -15,6 +15,7 @@
 #include <TStopwatch.h>
 #include "DataFormatsGlobalTracking/RecoContainer.h"
 #include "DataFormatsGlobalTracking/RecoContainerCreateTracksVariadic.h"
+#include "DataFormatsITSMFT/TrkClusRef.h"
 #include "DataFormatsCalibration/MeanVertexObject.h"
 #include "ReconstructionDataFormats/TrackTPCITS.h"
 #include "ReconstructionDataFormats/GlobalTrackID.h"
@@ -113,7 +114,8 @@ void PrimaryVertexingSpec::run(ProcessingContext& pc)
           return true; // just in case this selection was not done on RecoContainer filling level
         }
         auto itsID = recoData.getITSContributorGID(_origID);
-        if (!itsID.isSourceSet() || o2::math_utils::numberOfBitsSet(recoData.getITSTrack(itsID).getPattern() & 7) < minIBHits) {
+        if ((itsID.getSource() == GTrackID::ITS && o2::math_utils::numberOfBitsSet(recoData.getITSTrack(itsID).getPattern() & 7) < minIBHits) ||
+            (itsID.getSource() == GTrackID::ITSAB && o2::math_utils::numberOfBitsSet(recoData.getITSABRef(itsID).pattern & 7) < minIBHits)) { // do not accept ITSAB tracklets
           return true;
         }
         if constexpr (isITSTrack<decltype(_tr)>()) {

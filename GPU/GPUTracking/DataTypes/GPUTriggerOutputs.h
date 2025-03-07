@@ -21,9 +21,7 @@
 #include <unordered_set>
 #include <array>
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 struct GPUTriggerOutputs {
@@ -52,7 +50,6 @@ struct GPUTriggerOutputs {
   static_assert(sizeof(o2::tpc::TriggerInfoDLBZS) % sizeof(uint32_t) == 0);
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

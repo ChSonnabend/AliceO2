@@ -13,6 +13,8 @@ o2_add_library(MCHDigitFiltering
         SOURCES
           src/DigitFilter.cxx
           src/DigitFilterParam.cxx
+          src/DigitModifier.cxx
+          src/DigitModifierParam.cxx
           src/DigitFilteringSpec.cxx
         PUBLIC_LINK_LIBRARIES
           O2::Framework
@@ -27,4 +29,4 @@ o2_add_executable(
         COMPONENT_NAME mch
         PUBLIC_LINK_LIBRARIES O2::MCHDigitFiltering)
 
-o2_target_root_dictionary(MCHDigitFiltering HEADERS include/MCHDigitFiltering/DigitFilterParam.h)
+o2_target_root_dictionary(MCHDigitFiltering HEADERS include/MCHDigitFiltering/DigitFilterParam.h include/MCHDigitFiltering/DigitModifierParam.h)

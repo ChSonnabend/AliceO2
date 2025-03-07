@@ -76,6 +76,7 @@ int main(int argc, char** argv)
     std::cerr << e.what() << ", application will now exit" << std::endl;
     exit(2);
   }
+  int ret = 0;
   std::string action = vm["action"].as<std::string>();
   std::vector<int64_t> vect;
   std::string ccdbPath;
@@ -120,10 +121,10 @@ int main(int argc, char** argv)
       int64_t runnum = vm["run-number"].as<int64_t>();
       metadata["runNumber"] = std::to_string(runnum);
       std::cout << "Storing:" << ccdbPath << " " << metadata["runNumber"] << " tmin:" << tmin << " tmax:" << tmax << " ts:" << tt << std::endl;
-      api.storeAsTFileAny(&(vect), ccdbPath, metadata, tmin, tmax);
+      ret = api.storeAsTFileAny(&(vect), ccdbPath, metadata, tmin, tmax);
     } else {
       std::cout << "Storing:" << ccdbPath << " tmin:" << tmin << " tmax:" << tmax << " ts:" << tt << std::endl;
-      api.storeAsTFileAny(&(vect), ccdbPath, metadata, tmin, tmax);
+      ret = api.storeAsTFileAny(&(vect), ccdbPath, metadata, tmin, tmax);
     }
   }
   //
@@ -132,7 +133,7 @@ int main(int argc, char** argv)
     TFile* f = TFile::Open(file.c_str(), "RECREATE");
     if (f == nullptr) {
       std::cout << "Error: File" << file << " could not be open for writing !!!" << std::endl;
-      return 1;
+      ret++;
     } else {
       std::cout << "File" << file << " being writen." << std::endl;
       f->WriteObject(&vect, "ccdb_object");
@@ -141,5 +142,5 @@ int main(int argc, char** argv)
   } else {
     std::cout << "No file created" << std::endl;
   }
-  return 0;
+  return ret;
 }

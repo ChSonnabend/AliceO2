@@ -93,10 +93,8 @@ constexpr float fixedSizeToFloat(uint32_t value)
 /// write values of map to fileName
 ///
 template <typename DataMap>
-void writeValues(const std::string_view fileName, const DataMap& map, bool onlyFilled = false)
+void writeValues(std::ostream& str, const DataMap& map, bool onlyFilled = false)
 {
-  std::ofstream str(fileName.data(), std::ofstream::out);
-
   for (const auto& [linkInfo, data] : map) {
     if (onlyFilled) {
       if (!std::accumulate(data.begin(), data.end(), uint32_t(0))) {
@@ -117,6 +115,13 @@ void writeValues(const std::string_view fileName, const DataMap& map, bool onlyF
   }
 }
 
+template <typename DataMap>
+void writeValues(const std::string_view fileName, const DataMap& map, bool onlyFilled = false)
+{
+  std::ofstream str(fileName.data(), std::ofstream::out);
+  writeValues(str, map, onlyFilled);
+}
+
 template <class T>
 struct is_map {
   static constexpr bool value = false;
@@ -126,7 +131,8 @@ template <class Key, class Value>
 struct is_map<std::map<Key, Value>> {
   static constexpr bool value = true;
 };
-/// fill cal pad object from HV data map
+
+/// fill cal pad object from HW data map
 /// TODO: Function to be tested
 template <typename DataMap, uint32_t SignificantBitsT = 0>
 typename std::enable_if_t<is_map<DataMap>::value, void>
@@ -251,6 +257,7 @@ o2::tpc::CalDet<float> getCalPad(const std::string_view fileName, const std::str
 /// \param minADCROCType can be either one value for all ROC types, or {IROC, OROC}, or {IROC, OROC1, OROC2, OROC3}
 std::unordered_map<std::string, CalPad> preparePedestalFiles(const CalPad& pedestals, const CalPad& noise, std::vector<float> sigmaNoiseROCType = {3, 3, 3, 3}, std::vector<float> minADCROCType = {2, 2, 2, 2}, float pedestalOffset = 0, bool onlyFilled = false, bool maskBad = true, float noisyChannelThreshold = 1.5, float sigmaNoiseNoisyChannels = 4, float badChannelThreshold = 6, bool fixedSize = false);
 
+DataMapU32 getDataMap(const CalPad& calPad);
 } // namespace o2::tpc::cru_calib_helpers
 
 #endif

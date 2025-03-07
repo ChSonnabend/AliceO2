@@ -23,7 +23,7 @@
 #include <iostream>
 
 const int32_t sort_method = 1; // 0 No sorting, 1 sort after pad, 2 sort after time, 3/4 mixed methods favoring pad / time
-const int32_t slice_diff = 1;
+const int32_t sector_diff = 1;
 const int32_t row_diff = 1;
 const int32_t pad_diff = 1;
 const int32_t time_diff = 1;
@@ -40,7 +40,7 @@ const int32_t track_separate_q = track_based && 1;
 const int32_t track_diffsigma = track_based && 0;
 const int32_t track_separate_sigma = track_based && 1;
 const int32_t truncate_bits = 1;
-const int32_t separate_slices = 0;
+const int32_t separate_sectors = 0;
 const int32_t separate_patches = 0;
 const int32_t separate_sides = 0;
 const int32_t full_row_numbers = 1;
@@ -59,7 +59,7 @@ const int32_t sort_pad_mixed_bins = 100;
 const int32_t sort_time_mixed_bins = 400;
 
 #define EVENT 0
-#define SLICE 1
+#define SECTOR 1
 #define PATCH 2
 #define ROW 3
 #define PAD 4
@@ -95,14 +95,14 @@ const int32_t rr = optimized_negative_values && 0 ? 13 : 14; // We can make them
 const uint32_t field_bits[] = {0, 6, 0, 8, 14, 15, 8, 8, 10, 16, 2, 0, 14, 15, 16, 10, 26, 16, 8, 8, 16, 26, 8, 8, rr, rr, rr, rr, rr, 14};
 const uint32_t significant_bits[] = {0, 6, 0, 8, 14, 15, truncate_sigma, truncate_sigma, truncate_charge, truncate_charge, 2, 0, 14, 15, truncate_charge, truncate_charge, 26, 16, truncate_sigma, truncate_sigma, 16, 26, 8, 8, rr, rr, rr, rr, rr, 14};
 const int32_t nFields = sizeof(field_bits) / sizeof(field_bits[0]);
-const char* field_names[] = {"event", "slice", "patch", "row", "pad", "time", "sigmaPad", "sigmaTime", "qmax", "qtot", "flagPadTime", "trackID", "resTrackPad",
+const char* field_names[] = {"event", "sector", "patch", "row", "pad", "time", "sigmaPad", "sigmaTime", "qmax", "qtot", "flagPadTime", "trackID", "resTrackPad",
                              "resTrackTime", "trackQTot", "trackQMax", "qmaxtot", "sigmapadtime", "diffsigmapad", "diffsigmatime", "diffsigmapadtime", "tracktotmax", "trackfirstrow", "trackrow", "pad_80", "pad_92",
                              "pad_104", "pad_116", "pad_128", "pad_140"};
 
 union cluster_struct {
   struct
   {
-    uint32_t event, slice, patch, row, pad, time, sigmaPad, sigmaTime, qmax, qtot, splitPadTime;
+    uint32_t event, sector, patch, row, pad, time, sigmaPad, sigmaTime, qmax, qtot, splitPadTime;
     int32_t trackID;
     uint32_t resPad, resTime, avgtot, avgmax;
   };
@@ -166,7 +166,7 @@ INode* BuildTree(const double* frequencies, uint32_t UniqueSymbols)
 {
   std::priority_queue<INode*, std::vector<INode*>, NodeCmp> trees;
 
-  for (int32_t i = 0; i < UniqueSymbols; ++i) {
+  for (int32_t i = 0; i < UniqueSymbols; i++) {
     if (frequencies[i] != 0) {
       trees.push(new LeafNode(frequencies[i], i));
     }
@@ -209,7 +209,7 @@ bool clustercompare_padtime_mixed(cluster_struct a, cluster_struct b) { return (
 
 bool clustercompare_timepad_mixed(cluster_struct a, cluster_struct b) { return (a.time / sort_time_mixed_bins < b.time / sort_time_mixed_bins || (a.time / sort_time_mixed_bins == b.time / sort_time_mixed_bins && a.pad < b.pad)); }
 
-bool clustercompare_inevent(cluster_struct a, cluster_struct b) { return (a.slice < b.slice || (a.slice == b.slice && a.patch < b.patch) || (a.slice == b.slice && a.patch == b.patch && a.row < b.row)); }
+bool clustercompare_inevent(cluster_struct a, cluster_struct b) { return (a.sector < b.sector || (a.sector == b.sector && a.patch < b.patch) || (a.sector == b.sector && a.patch == b.patch && a.row < b.row)); }
 
 void do_diff(uint32_t& val, int32_t& last, uint32_t bits, uint32_t maxval = 0)
 {
@@ -327,7 +327,7 @@ int32_t main(int argc, char** argv)
   double* probabilities[nFields];
   int64_t counts[nFields];
   int32_t used[nFields];
-  for (int32_t i = SLICE; i < nFields; i++) {
+  for (int32_t i = SECTOR; i < nFields; i++) {
     if (i == CLUSTER_ID) {
       continue;
     }
@@ -337,18 +337,18 @@ int32_t main(int argc, char** argv)
 
   double rawtotalbytes = 0;
   double entrototalbytes = 0;
-  for (int32_t islice = 0; islice < 36; islice++) {
+  for (int32_t isector = 0; isector < 36; isector++) {
     for (int32_t ipatch = 0; ipatch < 6; ipatch++) {
-      if (separate_slices) {
-        printf("SLICE %d ", islice);
+      if (separate_sectors) {
+        printf("SECTOR %d ", isector);
       }
       if (separate_patches) {
         printf("PATCH %d", ipatch);
       }
-      if (separate_slices || separate_patches) {
+      if (separate_sectors || separate_patches) {
         printf("\n");
       }
-      for (int32_t i = SLICE; i < nFields; i++) {
+      for (int32_t i = SECTOR; i < nFields; i++) {
         if (i == CLUSTER_ID || i == PATCH) {
           continue;
         }
@@ -359,7 +359,7 @@ int32_t main(int argc, char** argv)
 
       size_t nClustersUsed = 0;
 
-      int32_t lastRow = 0, lastPad = 0, lastTime = 0, lastSlice = 0, lastResPad = 0, lastResTime = 0, lastQTot = 0, lastQMax = 0, lastSigmaPad = 0, lastSigmaTime = 0, lastTrack = -1, lastEvent = 0;
+      int32_t lastRow = 0, lastPad = 0, lastTime = 0, lastSector = 0, lastResPad = 0, lastResTime = 0, lastQTot = 0, lastQMax = 0, lastSigmaPad = 0, lastSigmaTime = 0, lastTrack = -1, lastEvent = 0;
 
       for (size_t i = 0; i < nClusters; i++) {
         const cluster_struct& cluster_org = clusters[i];
@@ -368,10 +368,10 @@ int32_t main(int argc, char** argv)
           printf("%d\n", cluster.pad);
         }
 
-        if ((separate_slices && cluster.slice != islice) || (separate_patches && cluster.patch != ipatch)) {
+        if ((separate_sectors && cluster.sector != isector) || (separate_patches && cluster.patch != ipatch)) {
           continue;
         }
-        if (separate_sides && !(cluster.slice < 18 ^ islice < 18)) {
+        if (separate_sides && !(cluster.sector < 18 ^ isector < 18)) {
           continue;
         }
 
@@ -379,7 +379,7 @@ int32_t main(int argc, char** argv)
         uint32_t dSigmaPad, dSigmaTime;
 
         if (cluster.event != lastEvent) {
-          lastRow = lastPad = lastTime = lastSlice = 0;
+          lastRow = lastPad = lastTime = lastSector = 0;
           lastTrack = -1;
         }
 
@@ -387,13 +387,13 @@ int32_t main(int argc, char** argv)
           cluster.row += fgRows[cluster.patch][0];
         }
 
-        if ((slice_diff || res_diff || track_diffqtot || track_diffqmax) && cluster.trackID != -1 && track_based) {
+        if ((sector_diff || res_diff || track_diffqtot || track_diffqmax) && cluster.trackID != -1 && track_based) {
           if (lastTrack != cluster.trackID) {
-            lastSlice = lastResPad = lastResTime = lastQTot = lastQMax = lastSigmaPad = lastSigmaTime = 0;
+            lastSector = lastResPad = lastResTime = lastQTot = lastQMax = lastSigmaPad = lastSigmaTime = 0;
           }
 
-          if (slice_diff) {
-            do_diff(cluster.slice, lastSlice, field_bits[SLICE]);
+          if (sector_diff) {
+            do_diff(cluster.sector, lastSector, field_bits[SECTOR]);
           }
 
           if (res_diff) {
@@ -483,17 +483,17 @@ int32_t main(int argc, char** argv)
         lastTrack = cluster.trackID;
 
         if (print_clusters > 0 || (print_clusters < 0 && i < -print_clusters)) {
-          printf("Event %u Track %d Slice %u Patch %u Row %u Pad %u Time %u sigmaPad %u sigmaTime %u qTot %u qMax %u Flag %u resPad %u resTime %u avgTot %u avgMax %u\n", cluster.event, cluster.trackID, cluster.slice, cluster.patch, cluster.row, cluster.pad, cluster.time, cluster.sigmaPad,
+          printf("Event %u Track %d Sector %u Patch %u Row %u Pad %u Time %u sigmaPad %u sigmaTime %u qTot %u qMax %u Flag %u resPad %u resTime %u avgTot %u avgMax %u\n", cluster.event, cluster.trackID, cluster.sector, cluster.patch, cluster.row, cluster.pad, cluster.time, cluster.sigmaPad,
                  cluster.sigmaTime, cluster.qtot, cluster.qmax, cluster.splitPadTime, cluster.resPad, cluster.resTime, cluster.avgtot, cluster.avgmax);
         }
 
-        for (int32_t j = SLICE; j < nFields; j++) {
+        for (int32_t j = SECTOR; j < nFields; j++) {
           bool forceStore = false;
           if (j == CLUSTER_ID || j == PATCH) {
             continue;
           }
 
-          if (j == SLICE && (track_based == 0 || cluster.trackID == -1)) {
+          if (j == SECTOR && (track_based == 0 || cluster.trackID == -1)) {
             continue;
           }
 
@@ -594,7 +594,7 @@ int32_t main(int argc, char** argv)
       double log2 = log(2.);
       double entropies[nFields];
       double huffmanSizes[nFields];
-      for (int32_t i = SLICE; i < nFields; i++) {
+      for (int32_t i = SECTOR; i < nFields; i++) {
         if (i == CLUSTER_ID || i == PATCH) {
           continue;
         }
@@ -621,7 +621,7 @@ int32_t main(int argc, char** argv)
           GenerateCodes(root, HuffCode(), codes);
           delete root;
 
-          for (HuffCodeMap::const_iterator it = codes.begin(); it != codes.end(); ++it) {
+          for (HuffCodeMap::const_iterator it = codes.begin(); it != codes.end(); it++) {
             huffmanSize += it->second.size() * probabilities[i][it->first];
           }
         }
@@ -631,7 +631,7 @@ int32_t main(int argc, char** argv)
 
       int32_t rawBits = 0;
       double entroTotal = 0., huffmanTotal = 0.;
-      for (int32_t i = SLICE; i < nFields; i++) {
+      for (int32_t i = SECTOR; i < nFields; i++) {
         if (i == CLUSTER_ID || i == PATCH) {
           continue;
         }
@@ -663,7 +663,7 @@ int32_t main(int argc, char** argv)
           used[i] = 1;
         }
       }
-      for (int32_t i = SLICE; i < nFields; i++) {
+      for (int32_t i = SECTOR; i < nFields; i++) {
         if (field_bits[i] == 0) {
           continue;
         }
@@ -672,7 +672,7 @@ int32_t main(int argc, char** argv)
         }
         printf("Field %2d/%16s (count %10ld / used %1d) rawBits %2d huffman %9.6f entropy %9.6f\n", i, field_names[i], counts[i], used[i], field_bits[i], huffmanSizes[i], entropies[i]);
       }
-      rawBits = 79; // Override incorrect calculation: Row is only 6 bit in raw format, and slice is not needed!
+      rawBits = 79; // Override incorrect calculation: Row is only 6 bit in raw format, and sector is not needed!
       printf("Raw Bits: %d - Total Size %f MB Clusters %d\n", rawBits, (double)rawBits * (double)nClustersUsed / 8. / 1.e6, nClustersUsed);
       printf("Huffman Bits: %f - Total Size %f MB\n", huffmanTotal / (double)nClustersUsed, huffmanTotal / 8. / 1.e6);
       printf("Entropy Bits: %f - Total Size %f MB\n", entroTotal / (double)nClustersUsed, entroTotal / 8. / 1.e6);
@@ -680,10 +680,10 @@ int32_t main(int argc, char** argv)
       entrototalbytes += entroTotal;
       rawtotalbytes += (double)rawBits * (double)nClustersUsed;
 
-      if (separate_sides && !separate_slices && islice == 0) {
-        islice = 17;
-      } else if (!separate_slices) {
-        islice = 9999999;
+      if (separate_sides && !separate_sectors && isector == 0) {
+        isector = 17;
+      } else if (!separate_sectors) {
+        isector = 9999999;
       }
 
       if (!separate_patches) {
@@ -692,12 +692,12 @@ int32_t main(int argc, char** argv)
     }
   }
 
-  if (separate_slices || separate_patches || separate_sides) {
+  if (separate_sectors || separate_patches || separate_sides) {
     printf("Total Compression: %f\n", rawtotalbytes / entrototalbytes);
   }
 
   printf("Exiting\n");
-  for (int32_t i = SLICE; i < nFields; i++) {
+  for (int32_t i = SECTOR; i < nFields; i++) {
     if (i == CLUSTER_ID || i == PATCH) {
       continue;
     }

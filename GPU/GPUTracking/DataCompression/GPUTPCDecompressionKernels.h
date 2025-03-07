@@ -37,9 +37,9 @@ class GPUTPCDecompressionKernels : public GPUKernelTemplate
   template <int32_t iKernel = defaultKernel, typename... Args>
   GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() processors, Args... args);
 
-  GPUd() static uint32_t computeLinearTmpBufferIndex(uint32_t slice, uint32_t row, uint32_t maxClustersPerBuffer)
+  GPUd() static uint32_t computeLinearTmpBufferIndex(uint32_t sector, uint32_t row, uint32_t maxClustersPerBuffer)
   {
-    return slice * (GPUCA_ROW_COUNT * maxClustersPerBuffer) + row * maxClustersPerBuffer;
+    return sector * (GPUCA_ROW_COUNT * maxClustersPerBuffer) + row * maxClustersPerBuffer;
   }
 
   template <typename T>

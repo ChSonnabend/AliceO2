@@ -49,6 +49,16 @@ struct TOFFEEtriggerConfig {
 
 //_____________________________________________________________________________
 
+struct TOFFEEmapHVConfig {
+
+  unsigned int mHVstat[Geo::NPLATES]; // 1 bit per strip status inside 5 modules
+  TOFFEEmapHVConfig() = default;
+
+  ClassDefNV(TOFFEEmapHVConfig, 1);
+};
+
+//_____________________________________________________________________________
+
 struct TOFFEElightConfig {
 
   static constexpr int NCHANNELS = 172800;
@@ -61,11 +71,13 @@ struct TOFFEElightConfig {
   // std::array<TOFFEEchannelConfig, NCHANNELS> mChannelConfig;
   TOFFEEchannelConfig mChannelConfig[Geo::kNCrate][Geo::kNTRM - 2][Geo::kNChain][Geo::kNTdc][Geo::kNCh]; // in O2, the number of TRMs is 12, but in the FEE world it is 10
   TOFFEEtriggerConfig mTriggerConfig[NTRIGGERMAPS];
+  TOFFEEmapHVConfig mHVConfig[Geo::NSECTORS];
   TOFFEElightConfig() = default;
   const TOFFEEchannelConfig* getChannelConfig(int icrate, int itrm, int ichain, int itdc, int ich) const;
   const TOFFEEtriggerConfig* getTriggerConfig(int idx) const { return idx < NTRIGGERMAPS ? &mTriggerConfig[idx] : nullptr; }
-
-  ClassDefNV(TOFFEElightConfig, 1);
+  const TOFFEEmapHVConfig* getHVConfig(int isector) const { return (isector < Geo::NSECTORS) ? &mHVConfig[isector] : nullptr; }
+  unsigned int getHVConfig(int isector, int iplate) const { return (isector < Geo::NSECTORS && iplate < Geo::NPLATES) ? mHVConfig[isector].mHVstat[iplate] : 0; }
+  ClassDefNV(TOFFEElightConfig, 2);
 };
 
 } // namespace tof

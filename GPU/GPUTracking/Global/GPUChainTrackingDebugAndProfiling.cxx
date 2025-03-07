@@ -140,7 +140,7 @@ void addToMap(std::string name, std::map<std::string, GPUChainTrackingMemUsage>&
 void GPUChainTracking::PrintMemoryStatistics()
 {
   std::map<std::string, GPUChainTrackingMemUsage> usageMap;
-  for (int32_t i = 0; i < NSLICES; i++) {
+  for (int32_t i = 0; i < NSECTORS; i++) {
 #ifdef GPUCA_TPC_GEOMETRY_O2
     addToMap("TPC Clusterer Sector Peaks", usageMap, processors()->tpcClusterer[i].mPmemory->counters.nPeaks, processors()->tpcClusterer[i].mNMaxPeaks);
     addToMap("TPC Clusterer Sector Clusters", usageMap, processors()->tpcClusterer[i].mPmemory->counters.nClusters, processors()->tpcClusterer[i].mNMaxClusters);
@@ -173,7 +173,7 @@ void GPUChainTracking::PrintMemoryStatistics()
 
 void GPUChainTracking::PrintMemoryRelations()
 {
-  for (int32_t i = 0; i < NSLICES; i++) {
+  for (int32_t i = 0; i < NSECTORS; i++) {
     GPUInfo("MEMREL StartHits NCl %d NTrkl %d", processors()->tpcTrackers[i].NHitsTotal(), *processors()->tpcTrackers[i].NStartHits());
     GPUInfo("MEMREL Tracklets NCl %d NTrkl %d", processors()->tpcTrackers[i].NHitsTotal(), *processors()->tpcTrackers[i].NTracklets());
     GPUInfo("MEMREL Tracklets NCl %d NTrkl %d", processors()->tpcTrackers[i].NHitsTotal(), *processors()->tpcTrackers[i].NRowHits());
@@ -193,7 +193,7 @@ void GPUChainTracking::PrepareDebugOutput()
     WriteToConstantMemory(RecoStep::NoRecoStep, (char*)&processors()->debugOutput - (char*)processors(), &processorsShadow()->debugOutput, sizeof(processors()->debugOutput), -1);
     memset(processors()->debugOutput.memory(), 0, processors()->debugOutput.memorySize() * sizeof(processors()->debugOutput.memory()[0]));
   }
-  runKernel<GPUMemClean16>({{BlockCount(), ThreadCount(), 0, RecoStep::TPCSliceTracking}}, (mRec->IsGPU() ? processorsShadow() : processors())->debugOutput.memory(), processorsShadow()->debugOutput.memorySize() * sizeof(processors()->debugOutput.memory()[0]));
+  runKernel<GPUMemClean16>({{BlockCount(), ThreadCount(), 0, RecoStep::TPCSectorTracking}}, (mRec->IsGPU() ? processorsShadow() : processors())->debugOutput.memory(), processorsShadow()->debugOutput.memorySize() * sizeof(processors()->debugOutput.memory()[0]));
 #endif
 }
 
@@ -272,7 +272,7 @@ void GPUChainTracking::SanityCheck()
       uint8_t sector, row;
       uint32_t cl;
       trk.getClusterReference(mIOPtrs.outputClusRefsTPCO2, j, sector, row, cl);
-      if (sector >= GPUCA_NSLICES || row >= GPUCA_ROW_COUNT) {
+      if (sector >= GPUCA_NSECTORS || row >= GPUCA_ROW_COUNT) {
         if (nErrors++ < 1000) {
           GPUError("Invalid sector / row %d / %d", (int32_t)sector, (int32_t)row);
           continue;
@@ -295,11 +295,12 @@ void GPUChainTracking::SanityCheck()
 
 void GPUChainTracking::RunTPCClusterFilter(o2::tpc::ClusterNativeAccess* clusters, std::function<o2::tpc::ClusterNative*(size_t)> allocator, bool applyClusterCuts)
 {
-  GPUTPCClusterFilter clusterFilter(*clusters);
+  const uint8_t filterType = GetProcessingSettings().tpcApplyClusterFilterOnCPU;
+  GPUTPCClusterFilter clusterFilter(*clusters, filterType);
   o2::tpc::ClusterNative* outputBuffer = nullptr;
   for (int32_t iPhase = 0; iPhase < 2; iPhase++) {
     uint32_t countTotal = 0;
-    for (uint32_t iSector = 0; iSector < GPUCA_NSLICES; iSector++) {
+    for (uint32_t iSector = 0; iSector < GPUCA_NSECTORS; iSector++) {
       for (uint32_t iRow = 0; iRow < GPUCA_ROW_COUNT; iRow++) {
         uint32_t count = 0;
         for (uint32_t k = 0; k < clusters->nClusters[iSector][iRow]; k++) {
@@ -312,7 +313,7 @@ void GPUChainTracking::RunTPCClusterFilter(o2::tpc::ClusterNativeAccess* cluster
           if (param().tpcCutTimeBin > 0) {
             keep = keep && cl.getTime() < param().tpcCutTimeBin;
           }
-          keep = keep && (!GetProcessingSettings().tpcApplyDebugClusterFilter || clusterFilter.filter(iSector, iRow, cl));
+          keep = keep && (!filterType || clusterFilter.filter(iSector, iRow, cl));
           if (iPhase && keep) {
             outputBuffer[countTotal] = cl;
           }

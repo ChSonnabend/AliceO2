@@ -127,6 +127,8 @@ class O2PrimaryServerDevice final : public fair::mq::Device
       } else if (vtxMode == VertexMode::kCCDB) {
         // we need to fetch the CCDB object
         mPrimGen->setVertexMode(vtxMode, ccdbmgr.getForTimeStamp<o2::dataformats::MeanVertexObject>("GLO/Calib/MeanVertex", conf.getTimestamp()));
+      } else if (vtxMode == VertexMode::kCollCxt) {
+        // The vertex will be injected from the outside via setExternalVertex
       } else {
         LOG(fatal) << "Unsupported vertex mode";
       }
@@ -186,13 +188,14 @@ class O2PrimaryServerDevice final : public fair::mq::Device
       const int MAX_RETRY = 100;
       do {
         mStack->Reset();
+        const auto& conf = mSimConfig;
         // see if we the vertex comes from the collision context
-        if (mCollissionContext) {
+        if (mCollissionContext && conf.getVertexMode() == o2::conf::VertexMode::kCollCxt) {
           const auto& vertices = mCollissionContext->getInteractionVertices();
           if (vertices.size() > 0) {
             auto collisionindex = mEventID_to_CollID.at(mEventCounter);
             auto& vertex = vertices.at(collisionindex);
-            LOG(info) << "Setting vertex " << vertex << " for event " << mEventCounter << " for prefix " << mSimConfig.getOutPrefix();
+            LOG(info) << "Setting vertex " << vertex << " for event " << mEventCounter << " for prefix " << mSimConfig.getOutPrefix() << " from CollContext";
             mPrimGen->setExternalVertexForNextEvent(vertex.X(), vertex.Y(), vertex.Z());
           }
         }

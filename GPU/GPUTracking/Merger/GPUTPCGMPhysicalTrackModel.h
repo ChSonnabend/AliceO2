@@ -27,9 +27,7 @@
  *
  */
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 class GPUTPCGMPhysicalTrackModel
 {
@@ -272,7 +270,6 @@ GPUdi() void GPUTPCGMPhysicalTrackModel::Rotate(float alpha)
   RotateLight(alpha);
   UpdateValues();
 }
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

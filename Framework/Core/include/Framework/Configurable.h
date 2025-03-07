@@ -83,7 +83,21 @@ struct Configurable : IP {
 template <typename T, ConfigParamKind K = ConfigParamKind::kGeneric>
 using MutableConfigurable = Configurable<T, K, ConfigurablePolicyMutable<T, K>>;
 
+template <typename T>
+concept is_configurable = requires(T& t) {
+  typename T::type;
+  requires std::same_as<std::string, decltype(t.name)>;
+  &T::operator typename T::type;
+};
+
 using ConfigurableAxis = Configurable<std::vector<double>, ConfigParamKind::kAxisSpec, ConfigurablePolicyConst<std::vector<double>, ConfigParamKind::kAxisSpec>>;
+
+template <typename T>
+concept is_configurable_axis = is_configurable<T>&&
+  requires()
+{
+  T::kind == ConfigParamKind::kAxisSpec;
+};
 
 template <typename R, typename T, typename... As>
 struct ProcessConfigurable : Configurable<bool, ConfigParamKind::kProcessFlag> {
@@ -97,7 +111,7 @@ struct ProcessConfigurable : Configurable<bool, ConfigParamKind::kProcessFlag> {
 };
 
 template <typename T>
-concept is_process_configurable = base_of_template<ProcessConfigurable, T>;
+concept is_process_configurable = is_configurable<T> && requires(T& t) { t.process; };
 
 #define PROCESS_SWITCH(_Class_, _Name_, _Help_, _Default_) \
   decltype(ProcessConfigurable{&_Class_ ::_Name_, #_Name_, _Default_, _Help_}) do##_Name_ = ProcessConfigurable{&_Class_ ::_Name_, #_Name_, _Default_, _Help_};
@@ -127,6 +141,9 @@ std::ostream& operator<<(std::ostream& os, Configurable<T, K, IP> const& c)
 /// group.aCut;
 struct ConfigurableGroup {
 };
+
+template <typename T>
+concept is_configurable_group = std::derived_from<T, ConfigurableGroup>;
 
 } // namespace o2::framework
 #endif // O2_FRAMEWORK_CONFIGURABLE_H_

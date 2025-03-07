@@ -112,8 +112,11 @@ void ransDecodeBenchmark(benchmark::State& st, Args&&... args)
   using input_data_type = std::remove_cv_t<std::remove_reference_t<decltype(inputData)>>;
   using source_type = typename input_data_type::value_type;
 
+#pragma GCC diagnostic push // TODO: Remove me when fixed in GCC
+#pragma GCC diagnostic ignored "-Walloc-size-larger-than="
   EncodeBuffer<source_type> encodeBuffer{inputData.size()};
   DecodeBuffer<source_type> decodeBuffer{inputData.size()};
+#pragma GCC diagnostic pop
 
   const auto histogram = makeDenseHistogram::fromSamples(gsl::span<const source_type>(inputData));
   Metrics<source_type> metrics{histogram};

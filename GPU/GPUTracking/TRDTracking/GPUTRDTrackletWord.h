@@ -24,9 +24,7 @@
 class AliTRDtrackletWord;
 class AliTRDtrackletMCM;
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 class GPUTRDTrackletWord
@@ -72,16 +70,13 @@ class GPUTRDTrackletWord
   uint32_t mTrackletWord; // tracklet word: PID | Z | deflection length | Y
                           //          bits:   8   4            7          13
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #else // compatibility with Run 3 data types
 
 #include "DataFormatsTRD/Tracklet64.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 class GPUTRDTrackletWord : private o2::trd::Tracklet64
@@ -108,8 +103,7 @@ class GPUTRDTrackletWord : private o2::trd::Tracklet64
 
 static_assert(sizeof(GPUTRDTrackletWord) == sizeof(o2::trd::Tracklet64), "Incorrect memory layout");
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif // GPUCA_TPC_GEOMETRY_O2
 

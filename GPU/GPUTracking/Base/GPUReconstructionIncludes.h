@@ -36,8 +36,8 @@
   if (mProcessingSettings.trackletSelectorInPipeline < 0) {                                 \
     mProcessingSettings.trackletSelectorInPipeline = GPUCA_SELECTOR_IN_PIPELINE;            \
   }                                                                                         \
-  if (mProcessingSettings.trackletSelectorSlices < 0) {                                     \
-    mProcessingSettings.trackletSelectorSlices = GPUCA_TRACKLET_SELECTOR_SLICE_COUNT;       \
+  if (mProcessingSettings.trackletSelectorSectors < 0) {                                    \
+    mProcessingSettings.trackletSelectorSectors = GPUCA_TRACKLET_SELECTOR_SECTOR_COUNT;     \
   }                                                                                         \
   if (mProcessingSettings.alternateBorderSort < 0) {                                        \
     mProcessingSettings.alternateBorderSort = GPUCA_ALTERNATE_BORDER_SORT;                  \

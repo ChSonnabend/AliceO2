@@ -70,7 +70,7 @@ BOOST_AUTO_TEST_CASE(CATracking_test1)
   config.configReconstruction.tpc.searchWindowDZDR = 2.5f; //Should always be 2.5 for looper-finding and/or continuous tracking
   config.configReconstruction.tpc.trackReferenceX = refX;
 
-  config.configWorkflow.steps.set(GPUDataTypes::RecoStep::TPCConversion, GPUDataTypes::RecoStep::TPCSliceTracking,
+  config.configWorkflow.steps.set(GPUDataTypes::RecoStep::TPCConversion, GPUDataTypes::RecoStep::TPCSectorTracking,
                                   GPUDataTypes::RecoStep::TPCMerging, GPUDataTypes::RecoStep::TPCCompression, GPUDataTypes::RecoStep::TPCdEdx);
   config.configWorkflow.inputs.set(GPUDataTypes::InOutType::TPCClusters);
   config.configWorkflow.outputs.set(GPUDataTypes::InOutType::TPCMergedTracks);

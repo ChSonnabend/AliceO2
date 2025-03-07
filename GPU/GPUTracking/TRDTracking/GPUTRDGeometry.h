@@ -24,9 +24,7 @@ class TObjArray;
 #include "DataFormatsTRD/Constants.h"
 #include "GPUCommonTransform3D.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 class GPUTRDpadPlane : private o2::trd::PadPlane
@@ -78,7 +76,6 @@ class GPUTRDGeometry : private o2::trd::GeometryFlat
 
   static constexpr int32_t kNstack = o2::trd::constants::NSTACK;
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif // GPUTRDGEOMETRY_H

@@ -12,8 +12,7 @@
 /// \file GPUReconstructionCUDAKernels.cu
 /// \author David Rohr
 
-#include "GPUReconstructionCUDADef.h"
-#include "GPUReconstructionCUDAIncludes.h"
+#include "GPUReconstructionCUDAIncludesHost.h"
 
 #include "GPUReconstructionCUDA.h"
 #include "GPUReconstructionCUDAInternals.h"
@@ -67,7 +66,7 @@ inline void GPUReconstructionCUDABackend::runKernelBackendInternal(const krnlSet
 }
 
 template <class T, int32_t I, typename... Args>
-int32_t GPUReconstructionCUDABackend::runKernelBackend(const krnlSetupArgs<T, I, Args...>& args)
+void GPUReconstructionCUDABackend::runKernelBackend(const krnlSetupArgs<T, I, Args...>& args)
 {
   auto& x = args.s.x;
   auto& z = args.s.z;
@@ -84,7 +83,6 @@ int32_t GPUReconstructionCUDABackend::runKernelBackend(const krnlSetupArgs<T, I,
   if (z.ev) {
     GPUFailedMsg(cudaEventRecord(*(cudaEvent_t*)z.ev, mInternals->Streams[x.stream]));
   }
-  return 0;
 }
 
 #undef GPUCA_KRNL_REG
@@ -93,7 +91,7 @@ int32_t GPUReconstructionCUDABackend::runKernelBackend(const krnlSetupArgs<T, I,
 #if defined(GPUCA_KERNEL_COMPILE_MODE) && GPUCA_KERNEL_COMPILE_MODE == 1
 #define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward, x_types) \
   GPUCA_KRNL_PROP(x_class, x_attributes)                                   \
-  template int32_t GPUReconstructionCUDABackend::runKernelBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>(const krnlSetupArgs<GPUCA_M_KRNL_TEMPLATE(x_class) GPUCA_M_STRIP(x_types)>& args);
+  template void GPUReconstructionCUDABackend::runKernelBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>(const krnlSetupArgs<GPUCA_M_KRNL_TEMPLATE(x_class) GPUCA_M_STRIP(x_types)>& args);
 #else
 #if defined(GPUCA_KERNEL_COMPILE_MODE) && GPUCA_KERNEL_COMPILE_MODE == 2
 #define GPUCA_KRNL_DEFONLY
@@ -102,7 +100,7 @@ int32_t GPUReconstructionCUDABackend::runKernelBackend(const krnlSetupArgs<T, I,
 #define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward, x_types)             \
   GPUCA_KRNL_PROP(x_class, x_attributes)                                               \
   GPUCA_KRNL_WRAP(GPUCA_KRNL_, x_class, x_attributes, x_arguments, x_forward, x_types) \
-  template int32_t GPUReconstructionCUDABackend::runKernelBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>(const krnlSetupArgs<GPUCA_M_KRNL_TEMPLATE(x_class) GPUCA_M_STRIP(x_types)>& args);
+  template void GPUReconstructionCUDABackend::runKernelBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>(const krnlSetupArgs<GPUCA_M_KRNL_TEMPLATE(x_class) GPUCA_M_STRIP(x_types)>& args);
 #ifndef __HIPCC__ // CUDA version
 #define GPUCA_KRNL_CALL_single(x_class, ...) \
   GPUCA_M_CAT(krnl_, GPUCA_M_KRNL_NAME(x_class))<<<x.nBlocks, x.nThreads, 0, me->mInternals->Streams[x.stream]>>>(GPUCA_CONSMEM_CALL y.start, args...);

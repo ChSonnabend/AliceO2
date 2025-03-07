@@ -30,9 +30,7 @@
 #include <vector>
 #endif
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 class GPUTRDTrackletWord;
@@ -167,7 +165,7 @@ class GPUTRDTracker_t : public GPUProcessor
   int32_t mNCandidates;                    // max. track hypothesis per layer
   int32_t mNTracks;                        // number of TPC tracks to be matched
   int32_t mNEvents;                        // number of processed events
-  int32_t mMaxThreads;                     // maximum number of supported threads
+  int32_t mMaxBackendThreads;              // maximum number of supported threads
   // index of first tracklet for each chamber within tracklets array, last entry is total number of tracklets for given collision
   // the array has (kNChambers + 1) * numberOfCollisions entries
   // note, that for collision iColl one has to add an offset corresponding to the index of the first tracklet of iColl to the index stored in mTrackletIndexArray
@@ -196,7 +194,6 @@ class GPUTRDTracker_t : public GPUProcessor
   float mTPCTDriftOffset;             // TPC drift time additive offset
   GPUTRDTrackerDebug<TRDTRK>* mDebug; // debug output
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif // GPUTRDTRACKER_H

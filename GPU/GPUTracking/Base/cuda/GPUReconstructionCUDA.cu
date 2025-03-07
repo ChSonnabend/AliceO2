@@ -13,8 +13,7 @@
 /// \author David Rohr
 
 #define GPUCA_GPUCODE_HOSTONLY
-#include "GPUReconstructionCUDADef.h"
-#include "GPUReconstructionCUDAIncludes.h"
+#include "GPUReconstructionCUDAIncludesHost.h"
 
 #include <cuda_profiler_api.h>
 
@@ -265,7 +264,7 @@ int32_t GPUReconstructionCUDA::InitDevice_Runtime()
       throw std::runtime_error("Invalid warp size on GPU");
     }
     mBlockCount = deviceProp.multiProcessorCount;
-    mMaxThreads = std::max<int32_t>(mMaxThreads, deviceProp.maxThreadsPerBlock * mBlockCount);
+    mMaxBackendThreads = std::max<int32_t>(mMaxBackendThreads, deviceProp.maxThreadsPerBlock * mBlockCount);
 #ifndef __HIPCC__ // CUDA
     mWarpSize = 32;
 #else // HIP
@@ -280,8 +279,8 @@ int32_t GPUReconstructionCUDA::InitDevice_Runtime()
     }
 
 #ifdef GPUCA_USE_TEXTURES
-    if (GPUCA_SLICE_DATA_MEMORY * NSLICES > (size_t)deviceProp.maxTexture1DLinear) {
-      GPUError("Invalid maximum texture size of device: %ld < %ld\n", (int64_t)deviceProp.maxTexture1DLinear, (int64_t)(GPUCA_SLICE_DATA_MEMORY * NSLICES));
+    if (GPUCA_SECTOR_DATA_MEMORY * NSECTORS > (size_t)deviceProp.maxTexture1DLinear) {
+      GPUError("Invalid maximum texture size of device: %ld < %ld\n", (int64_t)deviceProp.maxTexture1DLinear, (int64_t)(GPUCA_SECTOR_DATA_MEMORY * NSECTORS));
       return (1);
     }
 #endif
@@ -409,7 +408,7 @@ int32_t GPUReconstructionCUDA::InitDevice_Runtime()
     mDeviceId = master->mDeviceId;
     mBlockCount = master->mBlockCount;
     mWarpSize = master->mWarpSize;
-    mMaxThreads = master->mMaxThreads;
+    mMaxBackendThreads = master->mMaxBackendThreads;
     mDeviceName = master->mDeviceName;
     mDeviceConstantMem = master->mDeviceConstantMem;
     mDeviceConstantMemList.resize(master->mDeviceConstantMemList.size());
@@ -417,7 +416,7 @@ int32_t GPUReconstructionCUDA::InitDevice_Runtime()
     mInternals = master->mInternals;
     GPUFailedMsg(cudaSetDevice(mDeviceId));
 
-    GPUInfo("CUDA Initialized from master");
+    GPUInfo("CUDA Initialisation successfull (from master)");
   }
 
   for (uint32_t i = 0; i < mEvents.size(); i++) {
@@ -548,10 +547,10 @@ size_t GPUReconstructionCUDA::WriteToConstantMemory(size_t offset, const void* s
 void GPUReconstructionCUDA::ReleaseEvent(deviceEvent ev) {}
 void GPUReconstructionCUDA::RecordMarker(deviceEvent* ev, int32_t stream) { GPUFailedMsg(cudaEventRecord(ev->get<cudaEvent_t>(), mInternals->Streams[stream])); }
 
-std::unique_ptr<GPUReconstruction::GPUThreadContext> GPUReconstructionCUDA::GetThreadContext()
+std::unique_ptr<gpu_reconstruction_kernels::threadContext> GPUReconstructionCUDA::GetThreadContext()
 {
   GPUFailedMsg(cudaSetDevice(mDeviceId));
-  return std::unique_ptr<GPUThreadContext>(new GPUThreadContext);
+  return GPUReconstructionProcessing::GetThreadContext();
 }
 
 void GPUReconstructionCUDA::SynchronizeGPU() { GPUFailedMsg(cudaDeviceSynchronize()); }
@@ -671,9 +670,9 @@ int32_t GPUReconstructionCUDA::PrepareTextures()
 #ifdef GPUCA_USE_TEXTURES
   cudaChannelFormatDesc channelDescu2 = cudaCreateChannelDesc<cahit2>();
   size_t offset;
-  GPUFailedMsg(cudaBindTexture(&offset, &gAliTexRefu2, mProcessorsShadow->tpcTrackers[0].Data().Memory(), &channelDescu2, NSLICES * GPUCA_SLICE_DATA_MEMORY));
+  GPUFailedMsg(cudaBindTexture(&offset, &gAliTexRefu2, mProcessorsShadow->tpcTrackers[0].Data().Memory(), &channelDescu2, NSECTORS * GPUCA_SECTOR_DATA_MEMORY));
   cudaChannelFormatDesc channelDescu = cudaCreateChannelDesc<calink>();
-  GPUFailedMsg(cudaBindTexture(&offset, &gAliTexRefu, mProcessorsShadow->tpcTrackers[0].Data().Memory(), &channelDescu, NSLICES * GPUCA_SLICE_DATA_MEMORY));
+  GPUFailedMsg(cudaBindTexture(&offset, &gAliTexRefu, mProcessorsShadow->tpcTrackers[0].Data().Memory(), &channelDescu, NSECTORS * GPUCA_SECTOR_DATA_MEMORY));
 #endif
   return (0);
 }

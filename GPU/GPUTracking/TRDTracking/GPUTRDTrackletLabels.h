@@ -17,15 +17,12 @@
 #ifndef GPUTRDTRACKLETLABELS_H
 #define GPUTRDTRACKLETLABELS_H
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 struct GPUTRDTrackletLabels {
   int32_t mLabel[3];
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif // GPUTRDTRACKLETLABELS_H

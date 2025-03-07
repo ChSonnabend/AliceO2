@@ -202,9 +202,19 @@ bool _o2_lock_free_stack_push(_o2_lock_free_stack& stack, const int& value, bool
 bool _o2_lock_free_stack_pop(_o2_lock_free_stack& stack, int& value, bool spin = false);
 void* _o2_log_create(char const* name, int stacktrace);
 void _o2_signpost_event_emit(_o2_log_t* log, _o2_signpost_id_t id, char const* name, char const* const format, ...);
+void _o2_singpost_action(_o2_log_t* log, void (*callback)(void*));
 void _o2_signpost_interval_begin(_o2_log_t* log, _o2_signpost_id_t id, char const* name, char const* const format, ...);
 void _o2_signpost_interval_end(_o2_log_t* log, _o2_signpost_id_t id, char const* name, char const* const format, ...);
 void _o2_log_set_stacktrace(_o2_log_t* log, int stacktrace);
+
+// Helper to invoke a callback when the signpost is enabled. The callback
+// gets passed some previously stored context (nullptr for now).
+// TODO: I use a separate function because in the future this might change and I might
+// allow to store some context as part of the activity.
+inline void _o2_signpost_action(_o2_log_t* log, void (*callback)(void*))
+{
+  callback(nullptr);
+}
 
 // This generates a unique id for a signpost. Do not use this directly, use O2_SIGNPOST_ID_GENERATE instead.
 // Notice that this is only valid on a given computer.
@@ -488,6 +498,17 @@ void o2_debug_log_set_stacktrace(_o2_log_t* log, int stacktrace)
 })
 #define O2_SIGNPOST_ID_FROM_POINTER(name, log, pointer) _o2_signpost_id_t name = _o2_signpost_id_make_with_pointer(private_o2_log_##log, pointer)
 #define O2_SIGNPOST_ID_GENERATE(name, log) _o2_signpost_id_t name = _o2_signpost_id_generate_local(private_o2_log_##log)
+
+// Execute the provided callback if the log is enabled. Useful e.g. to dump IgProf profiles
+// only if the signpost is enabled or to add remote telemetry for certain events.
+#define O2_SIGNPOST_ACTION(log, callback) __extension__({             \
+  if (O2_BUILTIN_UNLIKELY(O2_SIGNPOST_ENABLED_MAC(log))) {            \
+    _o2_signpost_action(private_o2_log_##log, callback);              \
+  } else if (O2_BUILTIN_UNLIKELY(private_o2_log_##log->stacktrace)) { \
+    _o2_signpost_action(private_o2_log_##log, callback);              \
+  }                                                                   \
+})
+
 // In case Instruments is attached, we switch to the Apple signpost API otherwise, both one
 // mac and on linux we use our own implementation, using the logger. We can use the same ids because
 // they are compatible between the two implementations, we also use remove_engineering_type to remove
@@ -529,6 +550,16 @@ void o2_debug_log_set_stacktrace(_o2_log_t* log, int stacktrace)
     _o2_signpost_event_emit(private_o2_log_##log, id, name, remove_engineering_type(format).data(), ##__VA_ARGS__); \
   }                                                                                                                 \
   O2_LOG_MACRO_RAW(warn, remove_engineering_type(format).data(), ##__VA_ARGS__);                                    \
+})
+
+// Similar to the above, however it will also print a normal critical message regardless of the signpost being enabled or not.
+#define O2_SIGNPOST_EVENT_EMIT_CRITICAL(log, id, name, format, ...) __extension__({                                 \
+  if (O2_BUILTIN_UNLIKELY(O2_SIGNPOST_ENABLED_MAC(log))) {                                                          \
+    O2_SIGNPOST_EVENT_EMIT_MAC(log, id, name, format, ##__VA_ARGS__);                                               \
+  } else if (O2_BUILTIN_UNLIKELY(private_o2_log_##log->stacktrace)) {                                               \
+    _o2_signpost_event_emit(private_o2_log_##log, id, name, remove_engineering_type(format).data(), ##__VA_ARGS__); \
+  }                                                                                                                 \
+  O2_LOG_MACRO_RAW(critical, remove_engineering_type(format).data(), ##__VA_ARGS__);                                \
 })
 
 #define O2_SIGNPOST_START(log, id, name, format, ...)                                                                   \

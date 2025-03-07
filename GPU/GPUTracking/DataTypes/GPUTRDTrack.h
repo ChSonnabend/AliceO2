@@ -22,25 +22,20 @@
 struct GPUTRDTrackDataRecord;
 class AliHLTExternalTrackParam;
 
-namespace o2
-{
-namespace tpc
+namespace o2::tpc
 {
 class TrackTPC;
-} // namespace tpc
-namespace dataformats
+} // namespace o2::tpc
+namespace o2::dataformats
 {
 class TrackTPCITS;
 class GlobalTrackID;
-} // namespace dataformats
-} // namespace o2
+} // namespace o2::dataformats
 
 //_____________________________________________________________________________
 #include "GPUTRDInterfaceO2Track.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 template <typename T>
@@ -127,7 +122,6 @@ class GPUTRDTrack_t : public T
 #endif
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif // GPUTRDTRACK_H

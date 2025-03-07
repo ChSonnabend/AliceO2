@@ -36,8 +36,12 @@ set(OCL_DEFINECL "-D$<JOIN:$<TARGET_PROPERTY:O2::GPUTracking,COMPILE_DEFINITIONS
             -I${CMAKE_SOURCE_DIR}/DataFormats/Reconstruction/src
 )
 
-set(SRCS GPUReconstructionOCL.cxx)
-set(HDRS GPUReconstructionOCL.h GPUReconstructionOCLInternals.h)
+set(SRCS GPUReconstructionOCL.cxx GPUReconstructionOCLKernels.cxx)
+set(HDRS GPUReconstructionOCL.h GPUReconstructionOCLIncludesHost.h)
+
+if (NOT DEFINED GPUCA_OCL_SPIRV_VERSION)
+  set(GPUCA_OCL_SPIRV_VERSION 1.2)
+endif()
 
 if(OPENCL_ENABLED_SPIRV) # BUILD OpenCL intermediate code for SPIR-V target
   # executes clang to create llvm IL code
@@ -47,7 +51,7 @@ if(OPENCL_ENABLED_SPIRV) # BUILD OpenCL intermediate code for SPIR-V target
       OUTPUT ${CL_BIN}.spirv
       COMMAND ${CMAKE_COMMAND} -E env "PATH=${TMP_LLVM_SPIRV_PATH}:\$$PATH" ${LLVM_CLANG}
               -O0
-              --target=spirv64
+              --target=spirv64v${GPUCA_OCL_SPIRV_VERSION}
               -fno-integrated-objemitter
               -ferror-limit=1000 -Wno-invalid-constexpr -Wno-unused-command-line-argument
               ${OCL_FLAGS}
@@ -106,4 +110,4 @@ endif()
 if(OPENCL_ENABLED_SPIRV)
   target_compile_definitions(${targetName} PRIVATE OPENCL_ENABLED_SPIRV)
 endif()
-target_compile_definitions(${targetName} PRIVATE OCL_FLAGS=$<JOIN:${OCL_FLAGS},\ >)
+target_compile_definitions(${targetName} PRIVATE GPUCA_OCL_BUILD_FLAGS=$<JOIN:${OCL_FLAGS},\ > GPUCA_OCL_SPIRV_VERSION=${GPUCA_OCL_SPIRV_VERSION})

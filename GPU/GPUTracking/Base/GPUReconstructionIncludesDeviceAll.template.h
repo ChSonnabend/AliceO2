@@ -17,12 +17,9 @@
 
 #include "GPUDef.h"
 
-namespace o2
+namespace o2::gpu
 {
-namespace gpu
-{
-}
-} // namespace o2
+} // namespace o2::gpu
 using namespace o2::gpu;
 
 // clang-format off

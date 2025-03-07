@@ -61,5 +61,13 @@ class DsChannelId
 
   ClassDefNV(DsChannelId, 1); // class for MCH readout channel
 };
+
+inline bool operator==(const DsChannelId& a, const DsChannelId& b) { return a.value() == b.value(); }
+inline bool operator!=(const DsChannelId& a, const DsChannelId& b) { return !(a == b); }
+inline bool operator<(const DsChannelId& a, const DsChannelId& b) { return a.value() < b.value(); }
+inline bool operator>(const DsChannelId& a, const DsChannelId& b) { return b < a; }
+inline bool operator<=(const DsChannelId& a, const DsChannelId& b) { return !(a > b); }
+inline bool operator>=(const DsChannelId& a, const DsChannelId& b) { return !(a < b); }
+
 } // namespace o2::mch
 #endif

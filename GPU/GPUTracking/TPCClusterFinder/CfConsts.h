@@ -17,11 +17,7 @@
 
 #include "clusterFinderDefs.h"
 
-namespace o2
-{
-namespace gpu
-{
-namespace cfconsts
+namespace o2::gpu::cfconsts
 {
 
 GPUconstexpr() tpccf::Delta2 InnerNeighbors[8] =
@@ -190,8 +186,6 @@ GPUconstexpr() uint32_t NoiseSuppressionMinima[NOISE_SUPPRESSION_NEIGHBOR_NUM] =
     (1 << 24),
     (1 << 24) | (1 << 25)};
 
-} // namespace cfconsts
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu::cfconsts
 
 #endif

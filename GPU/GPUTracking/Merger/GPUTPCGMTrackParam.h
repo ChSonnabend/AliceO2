@@ -27,9 +27,7 @@
 
 class AliExternalTrackParam;
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 class GPUTPCGMMerger;
 class GPUTPCGMBorderTrack;
@@ -43,7 +41,7 @@ class GPUTPCGMPropagator;
  * @class GPUTPCGMTrackParam
  *
  * GPUTPCGMTrackParam class describes the track parametrisation
- * which is used by the GPUTPCGMTracker slice tracker.
+ * which is used by the GPUTPCGMTracker sector tracker.
  *
  */
 class GPUTPCGMTrackParam
@@ -148,15 +146,15 @@ class GPUTPCGMTrackParam
   GPUd() void MirrorTo(GPUTPCGMPropagator& prop, float toY, float toZ, bool inFlyDirection, const GPUParam& param, uint8_t row, uint8_t clusterState, bool mirrorParameters, int8_t sector);
   GPUd() int32_t MergeDoubleRowClusters(int32_t& ihit, int32_t wayDirection, GPUTPCGMMergedTrackHit* clusters, GPUTPCGMMergedTrackHitXYZ* clustersXYZ, const GPUTPCGMMerger* merger, GPUTPCGMPropagator& prop, float& xx, float& yy, float& zz, int32_t maxN, float clAlpha, uint8_t& clusterState, bool rejectChi2);
 
-  GPUd() bool AttachClustersPropagate(const GPUTPCGMMerger* GPUrestrict() Merger, int32_t slice, int32_t lastRow, int32_t toRow, int32_t iTrack, bool goodLeg, GPUTPCGMPropagator& prop, bool inFlyDirection, float maxSinPhi = GPUCA_MAX_SIN_PHI, bool checkdEdx = false);
-  GPUd() float AttachClusters(const GPUTPCGMMerger* GPUrestrict() Merger, int32_t slice, int32_t iRow, int32_t iTrack, bool goodLeg, GPUTPCGMPropagator& prop); // Returns uncorrectedY for later use
-  GPUd() float AttachClusters(const GPUTPCGMMerger* GPUrestrict() Merger, int32_t slice, int32_t iRow, int32_t iTrack, bool goodLeg, float Y, float Z);
+  GPUd() bool AttachClustersPropagate(const GPUTPCGMMerger* GPUrestrict() Merger, int32_t sector, int32_t lastRow, int32_t toRow, int32_t iTrack, bool goodLeg, GPUTPCGMPropagator& prop, bool inFlyDirection, float maxSinPhi = GPUCA_MAX_SIN_PHI, bool checkdEdx = false);
+  GPUd() float AttachClusters(const GPUTPCGMMerger* GPUrestrict() Merger, int32_t sector, int32_t iRow, int32_t iTrack, bool goodLeg, GPUTPCGMPropagator& prop); // Returns uncorrectedY for later use
+  GPUd() float AttachClusters(const GPUTPCGMMerger* GPUrestrict() Merger, int32_t sector, int32_t iRow, int32_t iTrack, bool goodLeg, float Y, float Z);
   // We force to compile these twice, for RefitLoop and for Fit, for better optimization
   template <int32_t I>
-  GPUd() void AttachClustersMirror(const GPUTPCGMMerger* GPUrestrict() Merger, int32_t slice, int32_t iRow, int32_t iTrack, float toY, GPUTPCGMPropagator& prop, bool phase2 = false);
+  GPUd() void AttachClustersMirror(const GPUTPCGMMerger* GPUrestrict() Merger, int32_t sector, int32_t iRow, int32_t iTrack, float toY, GPUTPCGMPropagator& prop, bool phase2 = false);
   template <int32_t I>
-  GPUd() int32_t FollowCircle(const GPUTPCGMMerger* GPUrestrict() Merger, GPUTPCGMPropagator& prop, int32_t slice, int32_t iRow, int32_t iTrack, float toAlpha, float toX, float toY, int32_t toSlice, int32_t toRow, bool inFlyDirection, bool phase2 = false);
-  GPUd() void StoreAttachMirror(const GPUTPCGMMerger* GPUrestrict() Merger, int32_t slice, int32_t iRow, int32_t iTrack, float toAlpha, float toY, float toX, int32_t toSlice, int32_t toRow, bool inFlyDirection, float alpha);
+  GPUd() int32_t FollowCircle(const GPUTPCGMMerger* GPUrestrict() Merger, GPUTPCGMPropagator& prop, int32_t sector, int32_t iRow, int32_t iTrack, float toAlpha, float toX, float toY, int32_t toSector, int32_t toRow, bool inFlyDirection, bool phase2 = false);
+  GPUd() void StoreAttachMirror(const GPUTPCGMMerger* GPUrestrict() Merger, int32_t sector, int32_t iRow, int32_t iTrack, float toAlpha, float toY, float toX, int32_t toSector, int32_t toRow, bool inFlyDirection, float alpha);
   GPUd() void StoreOuter(gputpcgmmergertypes::GPUTPCOuterParam* outerParam, const GPUTPCGMPropagator& prop, int32_t phase);
   GPUd() static void RefitLoop(const GPUTPCGMMerger* GPUrestrict() Merger, int32_t loopIdx);
 
@@ -187,7 +185,7 @@ class GPUTPCGMTrackParam
   }
 
   GPUd() void Rotate(float alpha);
-  GPUd() void ShiftZ(const GPUTPCGMMerger* merger, int32_t slice, float tzInner, float tzOuter, float x1, float x2);
+  GPUd() void ShiftZ(const GPUTPCGMMerger* merger, int32_t sector, float tzInner, float tzOuter, float x1, float x2);
   GPUd() void ShiftZ2(const GPUTPCGMMergedTrackHit* clusters, GPUTPCGMMergedTrackHitXYZ* clustersXYZ, const GPUTPCGMMerger* merger, int32_t N);
 
   GPUd() static float Reciprocal(float x) { return 1.f / x; }
@@ -235,9 +233,9 @@ struct GPUTPCGMLoopData {
   float toX;
   float alpha;
   float toAlpha;
-  uint8_t slice;
+  uint8_t sector;
   uint8_t row;
-  int8_t toSlice;
+  int8_t toSector;
   uint8_t toRow;
   uint8_t inFlyDirection;
 };
@@ -285,7 +283,6 @@ GPUdi() float GPUTPCGMTrackParam::GetMirroredY(float Bz) const
   }
   return GetY() - 2.f * CAMath::Sqrt(cosPhi2) / qptBz;
 }
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

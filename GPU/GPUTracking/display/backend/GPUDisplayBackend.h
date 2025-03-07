@@ -113,7 +113,7 @@ class GPUDisplayBackend
   bool smoothFont();
 
   GPUDisplay* mDisplay = nullptr;
-  std::vector<int32_t> mIndirectSliceOffset;
+  std::vector<int32_t> mIndirectSectorOffset;
   vecpod<DrawArraysIndirectCommand> mCmdBuffer;
   bool mFreetypeInitialized = false;
   bool mFrontendCompatTextDraw = false;

@@ -17,9 +17,9 @@
 
 #include "GPUReconstructionCPU.h"
 
-namespace o2
-{
-namespace gpu
+#include <ctime>
+
+namespace o2::gpu
 {
 class GPUChain
 {
@@ -51,7 +51,7 @@ class GPUChain
   virtual bool SupportsDoublePipeline() { return false; }
   virtual int32_t FinalizePipelinedProcessing() { return 0; }
 
-  constexpr static int32_t NSLICES = GPUReconstruction::NSLICES;
+  constexpr static int32_t NSECTORS = GPUReconstruction::NSECTORS;
 
   virtual void DumpSettings(const char* dir = "") {}
   virtual void ReadSettings(const char* dir = "") {}
@@ -101,7 +101,7 @@ class GPUChain
   }
   inline bool IsEventDone(deviceEvent* evList, int32_t nEvents = 1) { return mRec->IsEventDone(evList, nEvents); }
   inline void RecordMarker(deviceEvent* ev, int32_t stream) { mRec->RecordMarker(ev, stream); }
-  virtual inline std::unique_ptr<GPUReconstruction::GPUThreadContext> GetThreadContext() { return mRec->GetThreadContext(); }
+  virtual inline std::unique_ptr<gpu_reconstruction_kernels::threadContext> GetThreadContext() { return mRec->GetThreadContext(); }
   inline void SynchronizeGPU() { mRec->SynchronizeGPU(); }
   inline void ReleaseEvent(deviceEvent ev, bool doGPU = true)
   {
@@ -171,7 +171,7 @@ class GPUChain
     mRec->ReadStructFromFile<T>(file, obj);
   }
   template <class S, int32_t I = 0, typename... Args>
-  inline int32_t runKernel(gpu_reconstruction_kernels::krnlSetup&& setup, Args&&... args)
+  inline void runKernel(gpu_reconstruction_kernels::krnlSetup&& setup, Args&&... args)
   {
     return mRec->runKernel<S, I, Args...>(std::forward<gpu_reconstruction_kernels::krnlSetup&&>(setup), std::forward<Args>(args)...);
   }
@@ -282,19 +282,22 @@ template <class T, class S, typename... Args>
 int32_t GPUChain::runRecoStep(RecoStep step, S T::*func, Args... args)
 {
   if (GetRecoSteps().isSet(step)) {
-    if (GetProcessingSettings().debugLevel >= 1) {
-      mRec->getRecoStepTimer(step).Start();
+    auto* timer = GetProcessingSettings().recoTaskTiming ? &mRec->getRecoStepTimer(step) : nullptr;
+    std::clock_t c;
+    if (timer) {
+      timer->timerTotal.Start();
+      c = std::clock();
     }
     int32_t retVal = (reinterpret_cast<T*>(this)->*func)(args...);
-    if (GetProcessingSettings().debugLevel >= 1) {
-      mRec->getRecoStepTimer(step).Stop();
+    if (timer) {
+      timer->timerTotal.Stop();
+      timer->timerCPU += (double)(std::clock() - c) / CLOCKS_PER_SEC;
     }
     return retVal;
   }
-  return false;
+  return 0;
 }
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

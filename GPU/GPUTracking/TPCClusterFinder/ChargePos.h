@@ -17,9 +17,7 @@
 
 #include "clusterFinderDefs.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 #define INVALID_TIME_BIN (-GPUCF_PADDING_TIME - 1)
@@ -60,7 +58,6 @@ struct ChargePos {
 
 inline constexpr ChargePos INVALID_CHARGE_POS{255, 255, INVALID_TIME_BIN};
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

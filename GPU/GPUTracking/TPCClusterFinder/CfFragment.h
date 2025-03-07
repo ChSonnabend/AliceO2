@@ -27,9 +27,9 @@ struct CfFragment {
     OverlapTimebins = 8,
   };
 
-  // Time offset of this sub slice within the entire time slice
+  // Time offset of this sub sector within the entire time sector
   tpccf::TPCTime start = 0;
-  // Number of time bins to process in this slice
+  // Number of time bins to process in this sector
   tpccf::TPCFragmentTime length = 0;
 
   size_t digitsStart = 0; // Start digits in this fragment. Only used when zero suppression is skipped
@@ -38,23 +38,23 @@ struct CfFragment {
 
   bool hasBacklog = false;
   bool hasFuture = false;
-  tpccf::TPCTime totalSliceLength = 0;
-  tpccf::TPCFragmentTime maxSubSliceLength = 0;
+  tpccf::TPCTime totalSectorLength = 0;
+  tpccf::TPCFragmentTime maxSubSectorLength = 0;
 
   GPUdDefault() CfFragment() = default;
 
-  GPUd() CfFragment(tpccf::TPCTime totalSliceLen, tpccf::TPCFragmentTime maxSubSliceLen) : CfFragment(0, false, 0, totalSliceLen, maxSubSliceLen) {}
+  GPUd() CfFragment(tpccf::TPCTime totalSectorLen, tpccf::TPCFragmentTime maxSubSectorLen) : CfFragment(0, false, 0, totalSectorLen, maxSubSectorLen) {}
 
   GPUdi() bool isEnd() const { return length == 0; }
 
   GPUdi() CfFragment next() const
   {
-    return CfFragment{index + 1, hasFuture, tpccf::TPCTime(start + length - (hasFuture ? 2 * OverlapTimebins : 0)), totalSliceLength, maxSubSliceLength};
+    return CfFragment{index + 1, hasFuture, tpccf::TPCTime(start + length - (hasFuture ? 2 * OverlapTimebins : 0)), totalSectorLength, maxSubSectorLength};
   }
 
   GPUdi() uint32_t count() const
   {
-    return (totalSliceLength + maxSubSliceLength - 4 * OverlapTimebins - 1) / (maxSubSliceLength - 2 * OverlapTimebins);
+    return (totalSectorLength + maxSubSectorLength - 4 * OverlapTimebins - 1) / (maxSubSectorLength - 2 * OverlapTimebins);
   }
 
   GPUdi() tpccf::TPCTime first() const
@@ -104,16 +104,16 @@ struct CfFragment {
   }
 
  private:
-  GPUd() CfFragment(uint32_t index_, bool hasBacklog_, tpccf::TPCTime start_, tpccf::TPCTime totalSliceLen, tpccf::TPCFragmentTime maxSubSliceLen)
+  GPUd() CfFragment(uint32_t index_, bool hasBacklog_, tpccf::TPCTime start_, tpccf::TPCTime totalSectorLen, tpccf::TPCFragmentTime maxSubSectorLen)
   {
     this->index = index_;
     this->hasBacklog = hasBacklog_;
     this->start = start_;
-    tpccf::TPCTime remainder = totalSliceLen - start;
-    this->hasFuture = remainder > tpccf::TPCTime(maxSubSliceLen);
-    this->length = hasFuture ? maxSubSliceLen : remainder;
-    this->totalSliceLength = totalSliceLen;
-    this->maxSubSliceLength = maxSubSliceLen;
+    tpccf::TPCTime remainder = totalSectorLen - start;
+    this->hasFuture = remainder > tpccf::TPCTime(maxSubSectorLen);
+    this->length = hasFuture ? maxSubSectorLen : remainder;
+    this->totalSectorLength = totalSectorLen;
+    this->maxSubSectorLength = maxSubSectorLen;
   }
 };
 

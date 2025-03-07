@@ -17,9 +17,7 @@
 
 #include "GPUCommonDef.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 class GPUErrors
@@ -44,7 +42,6 @@ class GPUErrors
   GPUglobalref() uint32_t* mErrors;
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

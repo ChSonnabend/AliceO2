@@ -1288,7 +1288,7 @@ class TPCTimeSeries : public Task
           // make cut around DCA to vertex due to gammas
           if ((std::abs(dcaITSTPCTmp[0]) < maxITSTPCDCAr_comb) && (std::abs(dcaITSTPCTmp[1]) < maxITSTPCDCAz_comb)) {
             // propagate TPC track to ITS track and store delta track parameters
-            if (track.rotate(tracksITS[idxITSTrack].getAlpha()) && propagator->propagateTo(track, trackITSTPCTmp.getX(), false, mMaxSnp, mFineStep, mMatType)) {
+            if (idxITSTrack >= 0 && track.rotate(tracksITS[idxITSTrack].getAlpha()) && propagator->propagateTo(track, trackITSTPCTmp.getX(), false, mMaxSnp, mFineStep, mMatType)) {
               o2::track::TrackPar trackITS(tracksITS[idxITSTrack]);
               const bool propITSOk = propagator->propagateTo(trackITS, trackITSTPCTmp.getX(), false, mMaxSnp, mFineStep, mMatType);
               if (propITSOk) {

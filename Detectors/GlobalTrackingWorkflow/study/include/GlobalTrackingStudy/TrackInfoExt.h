@@ -45,6 +45,7 @@ struct TrackInfoExt {
   uint8_t pattITS = 0;
   uint8_t nClITS = 0;
   uint8_t rowMinTPC = 0;
+  uint8_t padFromEdge = -1;
   uint8_t rowMaxTPC = 0;
   uint8_t rowCountTPC = 0;
 
@@ -55,7 +56,7 @@ struct TrackInfoExt {
   float getTPCInY0() const { return innerTPCPos0[1]; }
   float getTPCInZ0() const { return innerTPCPos0[2]; }
 
-  ClassDefNV(TrackInfoExt, 4);
+  ClassDefNV(TrackInfoExt, 5);
 };
 
 } // namespace dataformats

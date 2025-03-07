@@ -34,21 +34,19 @@
 #include "GPUKernelDebugOutput.h"
 #endif
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 struct GPUConstantMem {
   GPUParam param;
   GPUTPCTracker
-    tpcTrackers[GPUCA_NSLICES];
+    tpcTrackers[GPUCA_NSECTORS];
   GPUTPCConvert tpcConverter;
   GPUTPCCompression tpcCompressor;
   GPUTPCDecompression tpcDecompressor;
   GPUTPCGMMerger tpcMerger;
   GPUTRDTrackerGPU trdTrackerGPU;
   GPUTRDTracker trdTrackerO2;
-  GPUTPCClusterFinder tpcClusterer[GPUCA_NSLICES];
+  GPUTPCClusterFinder tpcClusterer[GPUCA_NSECTORS];
   GPUITSFitter itsFitter;
   GPUTrackingRefitProcessor trackingRefit;
   GPUTrackingInOutPointers ioPtrs;
@@ -90,14 +88,11 @@ union GPUConstantMemCopyable {
 #if defined(GPUCA_GPUCODE)
 static constexpr size_t gGPUConstantMemBufferSize = (sizeof(GPUConstantMem) + sizeof(uint4) - 1);
 #endif
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 #if defined(GPUCA_HAS_GLOBAL_SYMBOL_CONSTANT_MEM) && !defined(GPUCA_GPUCODE_HOSTONLY)
 GPUconstant() o2::gpu::GPUConstantMemCopyable gGPUConstantMemBuffer;
 #endif // GPUCA_HAS_GLOBAL_SYMBOL_CONSTANT_MEM
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 // Must be placed here, to avoid circular header dependency
@@ -120,7 +115,6 @@ GPUdi() void GPUProcessor::raiseError(uint32_t code, uint32_t param1, uint32_t p
   GetConstantMem()->errorCodes.raiseError(code, param1, param2, param3);
 }
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

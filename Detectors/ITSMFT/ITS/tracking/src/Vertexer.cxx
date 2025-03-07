@@ -103,7 +103,6 @@ float Vertexer::clustersToVerticesHybrid(std::function<void(std::string s)> logg
 void Vertexer::getGlobalConfiguration()
 {
   auto& vc = o2::its::VertexerParamConfig::Instance();
-  vc.printKeyValues(true, true);
   auto& grc = o2::its::ITSGpuTrackingParamConfig::Instance();
 
   // This is odd: we override only the parameters for the first iteration.

@@ -165,7 +165,7 @@ int32_t ReadConfiguration(int argc, char** argv)
 #endif
 #ifndef GPUCA_TPC_GEOMETRY_O2
 #error Why was configStandalone.rec.tpc.mergerReadFromTrackerDirectly = 0 needed?
-  configStandalone.proc.ompKernels = false;
+  configStandalone.proc.inKernelParallel = false;
   configStandalone.proc.createO2Output = 0;
   if (configStandalone.rundEdx == -1) {
     configStandalone.rundEdx = 0;
@@ -216,13 +216,17 @@ int32_t ReadConfiguration(int argc, char** argv)
     configStandalone.noprompt = 1;
   }
   if (configStandalone.proc.debugLevel >= 4) {
-    if (configStandalone.proc.ompKernels) {
-      configStandalone.proc.ompKernels = 1;
+    if (configStandalone.proc.inKernelParallel) {
+      configStandalone.proc.inKernelParallel = 1;
     } else {
-      configStandalone.proc.ompThreads = 1;
+      configStandalone.proc.nHostThreads = 1;
     }
   }
   if (configStandalone.setO2Settings) {
+    if (!(configStandalone.inputcontrolmem && configStandalone.outputcontrolmem)) {
+      printf("setO2Settings requires the usage of --inputMemory and --outputMemory as in O2\n");
+      return 1;
+    }
     if (configStandalone.runGPU) {
       configStandalone.proc.forceHostMemoryPoolSize = 1024 * 1024 * 1024;
     }
@@ -578,7 +582,7 @@ int32_t LoadEvent(int32_t iEvent, int32_t x)
   if (!configStandalone.runTransformation) {
     chainTracking->mIOPtrs.clustersNative = nullptr;
   } else {
-    for (int32_t i = 0; i < chainTracking->NSLICES; i++) {
+    for (int32_t i = 0; i < chainTracking->NSECTORS; i++) {
       if (chainTracking->mIOPtrs.rawClusters[i]) {
         if (configStandalone.proc.debugLevel >= 2) {
           printf("Converting Legacy Raw Cluster to Native\n");
@@ -687,7 +691,7 @@ int32_t RunBenchmark(GPUReconstruction* recUse, GPUChainTracking* chainTrackingU
       chainTrackingAsync->mIOPtrs.nMCInfosTPCCol = 0;
       chainTrackingAsync->mIOPtrs.mcLabelsTPC = nullptr;
       chainTrackingAsync->mIOPtrs.nMCLabelsTPC = 0;
-      for (int32_t i = 0; i < chainTracking->NSLICES; i++) {
+      for (int32_t i = 0; i < chainTracking->NSECTORS; i++) {
         chainTrackingAsync->mIOPtrs.clusterData[i] = nullptr;
         chainTrackingAsync->mIOPtrs.nClusterData[i] = 0;
         chainTrackingAsync->mIOPtrs.rawClusters[i] = nullptr;

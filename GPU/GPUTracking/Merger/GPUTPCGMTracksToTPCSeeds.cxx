@@ -62,7 +62,7 @@ void GPUTPCGMTracksToTPCSeeds::CreateSeedsFromHLTTracks(TObjArray* seeds, AliTPC
         continue;
       }
 
-      AliTPCtrackerRow& row = tpctracker->GetRow(cls.slice % 18, cls.row);
+      AliTPCtrackerRow& row = tpctracker->GetRow(cls.sector % 18, cls.row);
       uint32_t clIndexOffline = 0;
       AliTPCclusterMI* clOffline = row.FindNearest2(cls.y, cls.z, 0.01f, 0.01f, clIndexOffline);
       if (!clOffline) {

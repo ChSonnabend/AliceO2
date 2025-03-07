@@ -70,6 +70,7 @@ class Response
   float inclandbfield(float thetawire, float betagamma, float bx) const;
 
  private:
+  Station mStation{};             ///< Station type
   MathiesonOriginal mMathieson{}; ///< Mathieson function
   float mPitch = 0.f;             ///< anode-cathode pitch (cm)
   float mChargeSlope = 0.f;       ///< charge slope used in E to charge conversion

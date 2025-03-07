@@ -159,7 +159,7 @@ void EntropyEncoderSpec::run(ProcessingContext& pc)
 
     const auto& tinfo = pc.services().get<o2::framework::TimingInfo>();
     const auto firstIR = o2::InteractionRecord(0, tinfo.firstTForbit);
-    const float totalT = std::max(mFastTransform->getMaxDriftTime(0), mFastTransform->getMaxDriftTime(GPUCA_NSLICES / 2));
+    const float totalT = std::max(mFastTransform->getMaxDriftTime(0), mFastTransform->getMaxDriftTime(GPUCA_NSECTORS / 2));
 
     unsigned int offset = 0, lasti = 0;
     const unsigned int maxTime = (mParam->continuousMaxTimeBin + 1) * o2::tpc::ClusterNative::scaleTimePacked - 1;
@@ -206,8 +206,8 @@ void EntropyEncoderSpec::run(ProcessingContext& pc)
       }
     }
     offset = 0;
-    unsigned int offsets[GPUCA_NSLICES][GPUCA_ROW_COUNT];
-    for (unsigned int i = 0; i < GPUCA_NSLICES; i++) {
+    unsigned int offsets[GPUCA_NSECTORS][GPUCA_ROW_COUNT];
+    for (unsigned int i = 0; i < GPUCA_NSECTORS; i++) {
       for (unsigned int j = 0; j < GPUCA_ROW_COUNT; j++) {
         if (i * GPUCA_ROW_COUNT + j >= clusters.nSliceRows) {
           break;
@@ -218,7 +218,7 @@ void EntropyEncoderSpec::run(ProcessingContext& pc)
     }
 
 #ifdef WITH_OPENMP
-#pragma omp parallel for num_threads(mNThreads) schedule(static, (GPUCA_NSLICES + mNThreads - 1) / mNThreads) // Static round-robin scheduling with one chunk per thread to ensure correct order of the final vector
+#pragma omp parallel for num_threads(mNThreads) schedule(static, (GPUCA_NSECTORS + mNThreads - 1) / mNThreads) // Static round-robin scheduling with one chunk per thread to ensure correct order of the final vector
 #endif
     for (unsigned int ii = 0; ii < clusters.nSliceRows; ii++) {
       unsigned int i = ii / GPUCA_ROW_COUNT;

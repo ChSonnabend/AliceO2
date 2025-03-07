@@ -319,18 +319,18 @@ struct AnalysisDataProcessorBuilder {
     auto groupingTable = AnalysisDataProcessorBuilder::bindGroupingTable(inputs, processingFunction, infos);
 
     // set filtered tables for partitions with grouping
-    homogeneous_apply_refs([&groupingTable](auto& x) {
-      PartitionManager<std::decay_t<decltype(x)>>::setPartition(x, groupingTable);
-      PartitionManager<std::decay_t<decltype(x)>>::bindInternalIndices(x, &groupingTable);
+    homogeneous_apply_refs([&groupingTable](auto& element) {
+      analysis_task_parsers::setPartition(element, groupingTable);
+      analysis_task_parsers::bindInternalIndicesPartition(element, &groupingTable);
       return true;
     },
                            task);
 
     if constexpr (sizeof...(Associated) == 0) {
       // single argument to process
-      homogeneous_apply_refs([&groupingTable](auto& x) {
-        PartitionManager<std::decay_t<decltype(x)>>::bindExternalIndices(x, &groupingTable);
-        GroupedCombinationManager<std::decay_t<decltype(x)>>::setGroupedCombination(x, groupingTable);
+      homogeneous_apply_refs([&groupingTable](auto& element) {
+        analysis_task_parsers::bindExternalIndicesPartition(element, &groupingTable);
+        analysis_task_parsers::setGroupedCombination(element, groupingTable);
         return true;
       },
                              task);
@@ -353,7 +353,7 @@ struct AnalysisDataProcessorBuilder {
         [&task](auto&... t) mutable {
           (homogeneous_apply_refs(
              [&t](auto& p) {
-               PartitionManager<std::decay_t<decltype(p)>>::bindInternalIndices(p, &t);
+               analysis_task_parsers::bindInternalIndicesPartition(p, &t);
                return true;
              },
              task),
@@ -364,8 +364,8 @@ struct AnalysisDataProcessorBuilder {
       auto binder = [&task, &groupingTable, &associatedTables](auto& x) mutable {
         x.bindExternalIndices(&groupingTable, &std::get<std::decay_t<Associated>>(associatedTables)...);
         homogeneous_apply_refs([&x](auto& t) mutable {
-          PartitionManager<std::decay_t<decltype(t)>>::setPartition(t, x);
-          PartitionManager<std::decay_t<decltype(t)>>::bindExternalIndices(t, &x);
+          analysis_task_parsers::setPartition(t, x);
+          analysis_task_parsers::bindExternalIndicesPartition(t, &x);
           return true;
         },
                                task);
@@ -381,7 +381,7 @@ struct AnalysisDataProcessorBuilder {
 
       // GroupedCombinations bound separately, as they should be set once for all associated tables
       homogeneous_apply_refs([&groupingTable, &associatedTables](auto& t) {
-        GroupedCombinationManager<std::decay_t<decltype(t)>>::setGroupedCombination(t, groupingTable, associatedTables);
+        analysis_task_parsers::setGroupedCombination(t, groupingTable, associatedTables);
         return true;
       },
                              task);
@@ -399,7 +399,7 @@ struct AnalysisDataProcessorBuilder {
 
           // bind partitions and grouping table
           homogeneous_apply_refs([&groupingTable](auto& x) {
-            PartitionManager<std::decay_t<decltype(x)>>::bindExternalIndices(x, &groupingTable);
+            analysis_task_parsers::bindExternalIndicesPartition(x, &groupingTable);
             return true;
           },
                                  task);
@@ -409,7 +409,7 @@ struct AnalysisDataProcessorBuilder {
       } else {
         // bind partitions and grouping table
         homogeneous_apply_refs([&groupingTable](auto& x) {
-          PartitionManager<std::decay_t<decltype(x)>>::bindExternalIndices(x, &groupingTable);
+          analysis_task_parsers::bindExternalIndicesPartition(x, &groupingTable);
           return true;
         },
                                task);
@@ -444,8 +444,8 @@ auto getTaskNameSetProcesses(std::string& outputName, TaskName first, SetDefault
   auto task = std::make_shared<T>(std::forward<A>(args)...);
   for (auto& setting : second.map) {
     homogeneous_apply_refs(
-      [&](auto& x) {
-        return UpdateProcessSwitches<std::decay_t<decltype(x)>>::set(setting, x);
+      [&](auto& element) {
+        return analysis_task_parsers::setProcessSwitch(setting, element);
       },
       *task.get());
   }
@@ -459,8 +459,8 @@ auto getTaskNameSetProcesses(std::string& outputName, SetDefaultProcesses first,
   auto task = std::make_shared<T>(std::forward<A>(args)...);
   for (auto& setting : first.map) {
     homogeneous_apply_refs(
-      [&](auto& x) {
-        return UpdateProcessSwitches<std::decay_t<decltype(x)>>::set(setting, x);
+      [&](auto& element) {
+        return analysis_task_parsers::setProcessSwitch(setting, element);
       },
       *task.get());
   }
@@ -474,8 +474,8 @@ auto getTaskNameSetProcesses(std::string& outputName, SetDefaultProcesses first,
   auto task = std::make_shared<T>(std::forward<A>(args)...);
   for (auto& setting : first.map) {
     homogeneous_apply_refs(
-      [&](auto& x) {
-        return UpdateProcessSwitches<std::decay_t<decltype(x)>>::set(setting, x);
+      [&](auto& element) {
+        return analysis_task_parsers::setProcessSwitch(setting, element);
       },
       *task.get());
   }
@@ -529,9 +529,9 @@ DataProcessorSpec adaptAnalysisTask(ConfigContext const& ctx, Args&&... args)
   std::vector<StringPair> bindingsKeysUnsorted;
 
   /// make sure options and configurables are set before expression infos are created
-  homogeneous_apply_refs([&options, &hash](auto& x) { return OptionManager<std::decay_t<decltype(x)>>::appendOption(options, x); }, *task.get());
+  homogeneous_apply_refs([&options, &hash](auto& element) { return analysis_task_parsers::appendOption(options, element); }, *task.get());
   /// extract conditions and append them as inputs
-  homogeneous_apply_refs([&inputs](auto& x) { return ConditionManager<std::decay_t<decltype(x)>>::appendCondition(inputs, x); }, *task.get());
+  homogeneous_apply_refs([&inputs](auto& element) { return analysis_task_parsers::appendCondition(inputs, element); }, *task.get());
 
   /// parse process functions defined by corresponding configurables
   if constexpr (requires { &T::process; }) {
@@ -550,18 +550,12 @@ DataProcessorSpec adaptAnalysisTask(ConfigContext const& ctx, Args&&... args)
     *task.get());
 
   // add preslice declarations to slicing cache definition
-  homogeneous_apply_refs([&bindingsKeys, &bindingsKeysUnsorted](auto& x) { return PresliceManager<std::decay_t<decltype(x)>>::registerCache(x, bindingsKeys, bindingsKeysUnsorted); }, *task.get());
+  homogeneous_apply_refs([&bindingsKeys, &bindingsKeysUnsorted](auto& element) { return analysis_task_parsers::registerCache(element, bindingsKeys, bindingsKeysUnsorted); }, *task.get());
 
-  // request base tables for spawnable extended tables
+  // request base tables for spawnable extended tables and indices to be built
   // this checks for duplications
-  homogeneous_apply_refs([&inputs](auto& x) {
-    return SpawnManager<std::decay_t<decltype(x)>>::requestInputs(inputs, x);
-  },
-                         *task.get());
-
-  // request base tables for indices to be built
-  homogeneous_apply_refs([&inputs](auto& x) {
-    return IndexManager<std::decay_t<decltype(x)>>::requestInputs(inputs, x);
+  homogeneous_apply_refs([&inputs](auto& element) {
+    return analysis_task_parsers::requestInputs(inputs, element);
   },
                          *task.get());
 
@@ -570,40 +564,36 @@ DataProcessorSpec adaptAnalysisTask(ConfigContext const& ctx, Args&&... args)
     LOG(warn) << "Task " << name_str << " has no inputs";
   }
 
-  homogeneous_apply_refs([&outputs, &hash](auto& x) { return OutputManager<std::decay_t<decltype(x)>>::appendOutput(outputs, x, hash); }, *task.get());
+  homogeneous_apply_refs([&outputs, &hash](auto& element) { return analysis_task_parsers::appendOutput(outputs, element, hash); }, *task.get());
 
   auto requiredServices = CommonServices::defaultServices();
   auto arrowServices = CommonServices::arrowServices();
   requiredServices.insert(requiredServices.end(), arrowServices.begin(), arrowServices.end());
-  homogeneous_apply_refs([&requiredServices](auto& x) { return ServiceManager<std::decay_t<decltype(x)>>::add(requiredServices, x); }, *task.get());
+  homogeneous_apply_refs([&requiredServices](auto& element) { return analysis_task_parsers::addService(requiredServices, element); }, *task.get());
 
   auto algo = AlgorithmSpec::InitCallback{[task = task, expressionInfos, bindingsKeys, bindingsKeysUnsorted](InitContext& ic) mutable {
-    homogeneous_apply_refs([&ic](auto&& x) { return OptionManager<std::decay_t<decltype(x)>>::prepare(ic, x); }, *task.get());
-    homogeneous_apply_refs([&ic](auto&& x) { return ServiceManager<std::decay_t<decltype(x)>>::prepare(ic, x); }, *task.get());
+    homogeneous_apply_refs([&ic](auto&& element) { return analysis_task_parsers::prepareOption(ic, element); }, *task.get());
+    homogeneous_apply_refs([&ic](auto&& element) { return analysis_task_parsers::prepareService(ic, element); }, *task.get());
 
     auto& callbacks = ic.services().get<CallbackService>();
     auto endofdatacb = [task](EndOfStreamContext& eosContext) {
-      homogeneous_apply_refs([&eosContext](auto&& x) {
-          using X = std::decay_t<decltype(x)>;
-          ServiceManager<X>::postRun(eosContext, x);
-          return OutputManager<X>::postRun(eosContext, x); },
+      homogeneous_apply_refs([&eosContext](auto& element) {
+          analysis_task_parsers::postRunService(eosContext, element);
+          analysis_task_parsers::postRunOutput(eosContext, element);
+          return true; },
                              *task.get());
       eosContext.services().get<ControlService>().readyToQuit(QuitRequest::Me);
     };
 
     callbacks.set<CallbackService::Id::EndOfStream>(endofdatacb);
 
-    /// update configurables in filters
+    /// update configurables in filters and partitions
     homogeneous_apply_refs(
-      [&ic](auto& x) -> bool { return FilterManager<std::decay_t<decltype(x)>>::updatePlaceholders(x, ic); },
-      *task.get());
-    /// update configurables in partitions
-    homogeneous_apply_refs(
-      [&ic](auto& x) -> bool { PartitionManager<std::decay_t<decltype(x)>>::updatePlaceholders(x, ic); return true; },
+      [&ic](auto& element) -> bool { return analysis_task_parsers::updatePlaceholders(ic, element); },
       *task.get());
     /// create for filters gandiva trees matched to schemas and store the pointers into expressionInfos
-    homogeneous_apply_refs([&expressionInfos](auto& x) {
-      return FilterManager<std::decay_t<decltype(x)>>::createExpressionTrees(x, expressionInfos);
+    homogeneous_apply_refs([&expressionInfos](auto& element) {
+      return analysis_task_parsers::createExpressionTrees(expressionInfos, element);
     },
                            *task.get());
 
@@ -614,33 +604,30 @@ DataProcessorSpec adaptAnalysisTask(ConfigContext const& ctx, Args&&... args)
     ic.services().get<ArrowTableSlicingCacheDef>().setCaches(std::move(bindingsKeys));
     ic.services().get<ArrowTableSlicingCacheDef>().setCachesUnsorted(std::move(bindingsKeysUnsorted));
     // initialize global caches
-    homogeneous_apply_refs([&ic](auto& x) {
-      return CacheManager<std::decay_t<decltype(x)>>::initialize(ic, x);
+    homogeneous_apply_refs([&ic](auto& element) {
+      return analysis_task_parsers::preInitializeCache(ic, element);
     },
                            *(task.get()));
 
     return [task, expressionInfos](ProcessingContext& pc) mutable {
       // load the ccdb object from their cache
-      homogeneous_apply_refs([&pc](auto&& x) { return ConditionManager<std::decay_t<decltype(x)>>::newDataframe(pc.inputs(), x); }, *task.get());
+      homogeneous_apply_refs([&pc](auto& element) { return analysis_task_parsers::newDataframeCondition(pc.inputs(), element); }, *task.get());
       // reset partitions once per dataframe
-      homogeneous_apply_refs([](auto&& x) { return PartitionManager<std::decay_t<decltype(x)>>::newDataframe(x); }, *task.get());
+      homogeneous_apply_refs([](auto& element) { return analysis_task_parsers::newDataframePartition(element); }, *task.get());
       // reset selections for the next dataframe
       for (auto& info : expressionInfos) {
         info.resetSelection = true;
       }
       // reset pre-slice for the next dataframe
       auto slices = pc.services().get<ArrowTableSlicingCache>();
-      homogeneous_apply_refs([&pc, &slices](auto& x) {
-        return PresliceManager<std::decay_t<decltype(x)>>::updateSliceInfo(x, slices);
+      homogeneous_apply_refs([&pc, &slices](auto& element) {
+        return analysis_task_parsers::updateSliceInfo(element, slices);
       },
                              *(task.get()));
       // initialize local caches
-      homogeneous_apply_refs([&pc](auto& x) {
-        return CacheManager<std::decay_t<decltype(x)>>::initialize(pc, x);
-      },
-                             *(task.get()));
+      homogeneous_apply_refs([&pc](auto& element) { return analysis_task_parsers::initializeCache(pc, element); }, *(task.get()));
       // prepare outputs
-      homogeneous_apply_refs([&pc](auto&& x) { return OutputManager<std::decay_t<decltype(x)>>::prepare(pc, x); }, *task.get());
+      homogeneous_apply_refs([&pc](auto& element) { return analysis_task_parsers::prepareOutput(pc, element); }, *task.get());
       // execute run()
       if constexpr (requires { task->run(pc); }) {
         task->run(pc);
@@ -662,7 +649,7 @@ DataProcessorSpec adaptAnalysisTask(ConfigContext const& ctx, Args&&... args)
         },
         *task.get());
       // finalize outputs
-      homogeneous_apply_refs([&pc](auto&& x) { return OutputManager<std::decay_t<decltype(x)>>::finalize(pc, x); }, *task.get());
+      homogeneous_apply_refs([&pc](auto& element) { return analysis_task_parsers::finalizeOutput(pc, element); }, *task.get());
     };
   }};
 

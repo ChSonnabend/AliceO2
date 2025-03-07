@@ -391,8 +391,11 @@ bool SimConfig::parseVertexModeString(std::string const& vertexstring, VertexMod
   } else if (vertexstring == "kCCDB") {
     mode = VertexMode::kCCDB;
     return true;
+  } else if (vertexstring == "kCollContext") {
+    mode = VertexMode::kCollCxt;
+    return true;
   }
-  LOG(error) << "Vertex mode must be one of kNoVertex, kDiamondParam, kCCDB";
+  LOG(error) << "Vertex mode must be one of kNoVertex, kDiamondParam, kCCDB, kCollContext";
   return false;
 }
 

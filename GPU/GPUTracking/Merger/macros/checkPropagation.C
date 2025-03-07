@@ -1,3 +1,14 @@
+// Copyright 2019-2020 CERN and copyright holders of ALICE O2.
+// See https://alice-o2.web.cern.ch/copyright for details of the copyright holders.
+// All rights not expressly granted are reserved.
+//
+// This software is distributed under the terms of the GNU General Public
+// License v3 (GPL Version 3), copied verbatim in the file "COPYING".
+//
+// In applying this license CERN does not waive the privileges and immunities
+// granted to it by virtue of its status as an Intergovernmental Organization
+// or submit itself to any jurisdiction.
+
 #if !defined(__CLING__) || defined(__ROOTCLING__)
 #include "Riostream.h"
 #include "TFile.h"
@@ -12,13 +23,13 @@
 using namespace o2::gpu;
 
 const double kTwoPi = TMath::TwoPi(); // 2.*kPi;
-const double kSliceDAngle = kTwoPi / 18.;
-const double kSliceAngleOffset = kSliceDAngle / 2;
+const double kSectorDAngle = kTwoPi / 18.;
+const double kSectorAngleOffset = kSectorDAngle / 2;
 
-int32_t GetSlice(double GlobalPhi)
+int32_t GetSector(double GlobalPhi)
 {
   double phi = GlobalPhi;
-  //  std::cout<<" GetSlice: phi = "<<phi<<std::endl;
+  //  std::cout<<" GetSector: phi = "<<phi<<std::endl;
 
   if (phi >= kTwoPi) {
     phi -= kTwoPi;
@@ -26,33 +37,33 @@ int32_t GetSlice(double GlobalPhi)
   if (phi < 0) {
     phi += kTwoPi;
   }
-  return (int32_t)(phi / kSliceDAngle);
+  return (int32_t)(phi / kSectorDAngle);
 }
 
-int32_t GetDSlice(double LocalPhi) { return GetSlice(LocalPhi + kSliceAngleOffset); }
+int32_t GetDSector(double LocalPhi) { return GetSector(LocalPhi + kSectorAngleOffset); }
 
-double GetSliceAngle(int32_t iSlice) { return kSliceAngleOffset + iSlice * kSliceDAngle; }
+double GetSectorAngle(int32_t iSector) { return kSectorAngleOffset + iSector * kSectorDAngle; }
 
-int32_t RecalculateSlice(GPUTPCGMPhysicalTrackModel& t, AliExternalTrackParam& t0, int32_t& iSlice)
+int32_t RecalculateSector(GPUTPCGMPhysicalTrackModel& t, AliExternalTrackParam& t0, int32_t& iSector)
 {
   double phi = atan2(t.GetY(), t.GetX());
   //  std::cout<<" recalculate: phi = "<<phi<<std::endl;
-  int32_t dSlice = GetDSlice(phi);
+  int32_t dSector = GetDSector(phi);
 
-  if (dSlice == 0) {
+  if (dSector == 0) {
     return 0; // nothing to do
   }
-  //  std::cout<<" dSlice = "<<dSlice<<std::endl;
-  double dAlpha = dSlice * kSliceDAngle;
+  //  std::cout<<" dSector = "<<dSector<<std::endl;
+  double dAlpha = dSector * kSectorDAngle;
 
-  iSlice += dSlice;
-  if (iSlice >= 18) {
-    iSlice -= 18;
+  iSector += dSector;
+  if (iSector >= 18) {
+    iSector -= 18;
   }
 
   // rotate track on angle dAlpha
   t.Rotate(dAlpha);
-  t0.Rotate(GetSliceAngle(iSlice));
+  t0.Rotate(GetSectorAngle(iSector));
 
   return 1;
 }
@@ -88,15 +99,15 @@ int32_t checkPropagation()
     std::cout << "Track " << itr << ":" << std::endl;
 
     double dphi = kTwoPi / nTracks;
-    double phi = kSliceAngleOffset + dphi * itr;
+    double phi = kSectorAngleOffset + dphi * itr;
     double eta = gRandom->Uniform(-1.5, 1.5);
     double theta = 2 * TMath::ATan(1. / TMath::Exp(eta));
     double lambda = theta - TMath::Pi() / 2;
     // double theta = gRandom->Uniform(-60,60)*TMath::Pi()/180.;
     double pt = .1 * std::pow(10, gRandom->Uniform(0, 2.2));
     double q = 1.;
-    int32_t iSlice = GetSlice(phi);
-    phi = phi - GetSliceAngle(iSlice);
+    int32_t iSector = GetSector(phi);
+    phi = phi - GetSectorAngle(iSector);
 
     // std::cout<<"phi = "<<phi<<std::endl;
 
@@ -111,7 +122,7 @@ int32_t checkPropagation()
 
     AliExternalTrackParam t0;
     {
-      double alpha = GetSliceAngle(iSlice);
+      double alpha = GetSectorAngle(iSector);
       double p[5] = {t.GetY(), t.GetZ(), t.GetSinPhi(), t.GetDzDs(), t.GetQPt()};
       double cv[15];
       for (int32_t i = 0; i < 15; i++) {
@@ -120,8 +131,8 @@ int32_t checkPropagation()
       t0 = AliExternalTrackParam(x0, alpha, p, cv);
     }
 
-    if (RecalculateSlice(t, t0, iSlice) != 0) {
-      std::cout << "Initial slice wrong!!!" << std::endl;
+    if (RecalculateSector(t, t0, iSector) != 0) {
+      std::cout << "Initial sector wrong!!!" << std::endl;
       // exit(0);
     }
     AliHLTTPCGeometry geo;
@@ -132,7 +143,7 @@ int32_t checkPropagation()
       // transport to row
       int32_t err = 0;
       for (int32_t itry = 0; itry < 1; itry++) {
-        double alpha = GetSliceAngle(iSlice);
+        double alpha = GetSectorAngle(iSector);
         float B[3];
         prop.GetBxByBz(alpha, t.GetX(), t.GetY(), t.GetZ(), B);
         // B[0]=0;
@@ -158,19 +169,19 @@ int32_t checkPropagation()
           break;
         }
         // rotate track coordinate system to current sector
-        int32_t isNewSlice = RecalculateSlice(t, t0, iSlice);
-        if (!isNewSlice) {
+        int32_t isNewSector = RecalculateSector(t, t0, iSector);
+        if (!isNewSector) {
           break;
         } else {
-          std::cout << "track " << itr << ": new slice " << iSlice << " at row " << iRow << std::endl;
+          std::cout << "track " << itr << ": new sector " << iSector << " at row " << iRow << std::endl;
         }
       }
       if (err) {
         break;
       }
-      // std::cout<<" track "<<itr<<": Slice "<<iSlice<<" row "<<iRow<<" params :"<<std::endl;
+      // std::cout<<" track "<<itr<<": Sector "<<iSector<<" row "<<iRow<<" params :"<<std::endl;
       // t.Print();
-      // track at row iRow, slice iSlice
+      // track at row iRow, sector iSector
       t.UpdateValues();
 
       double dx = 1.e4 * (t.GetX() - t0.GetX());

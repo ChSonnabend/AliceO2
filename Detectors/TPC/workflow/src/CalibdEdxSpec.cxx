@@ -134,7 +134,7 @@ class CalibdEdxDevice : public Task
 
     if (mDumpToFile) {
       mCalib->dumpToFile("calibdEdx_Obj.root", "calib");
-      mCalib->getCalib().writeToFile("calibdEdx.root", "ccdb_object");
+      mCalib->getCalib().writeToFile("calibdEdx.root");
       if (mDumpToFile > 1) {
         mCalib->writeTTree("calibdEdx.histo.tree.root");
       }

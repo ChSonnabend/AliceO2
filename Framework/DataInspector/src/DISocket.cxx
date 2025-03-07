@@ -73,7 +73,7 @@ DIMessage::~DIMessage()
 DISocket::DISocket(const std::string& address, int port) : ioContext(), socket(ioContext)
 {
   try {
-    auto ip_address = boost::asio::ip::address::from_string(address);
+    auto ip_address = boost::asio::ip::make_address(address);
     socket.connect(boost::asio::ip::tcp::endpoint(ip_address, port));
   }
   ASIO_CATCH("DISocket::DISocket")

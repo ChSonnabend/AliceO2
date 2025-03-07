@@ -18,9 +18,7 @@
 #include "GPUParam.h"
 #include <string>
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 namespace gpu_rtc
 {
@@ -38,7 +36,6 @@ struct GPUParamRTC : public internal::GPUParam_t<gpu_rtc::GPUSettingsRec, gpu_rt
   static std::string generateRTCCode(const GPUParam& param, bool useConstexpr);
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

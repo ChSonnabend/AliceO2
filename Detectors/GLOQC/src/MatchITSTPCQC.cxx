@@ -386,11 +386,11 @@ bool MatchITSTPCQC::init()
       mPhiPhysPrimDen[i]->Sumw2();
       mFractionITSTPCmatchPhysPrim[i] = new TEfficiency(Form("mFractionITSTPCmatchPhysPrim_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks vs Pt (physical primary), wrt %s tracks %s; Pt [GeV/c]; Eff", title[i].c_str(), etaSel[i].c_str()), nbinsPt, xbinsPt);
 
-      m1OverPtPhysPrimNum[i] = new TH1D(Form("m1OverPtPhysPrimNum_%s", title[i].c_str()), Form("1/Pt distribution of matched tracks (physical primary), wrt %s tracks %s; 1/Pt [c/GeV]; dNd1/Pt", title[i].c_str(), etaSel[i].c_str()), 2 * mPtBins, -1. / mPtCut, 1. / mPtCut);
+      m1OverPtPhysPrimNum[i] = new TH1D(Form("m1OverPtPhysPrimNum_%s", title[i].c_str()), Form("1/Pt distribution of matched tracks (physical primary), wrt %s tracks %s; 1/Pt [c/GeV]; dNd1/Pt", title[i].c_str(), etaSel[i].c_str()), 2 * mPtBins, -20., 20.);
       m1OverPtPhysPrimNum[i]->Sumw2();
-      m1OverPtPhysPrimDen[i] = new TH1D(Form("m1OverPtPhysPrimDen_%s", title[i].c_str()), Form("1/PtPt distribution of %s tracks (physical primary) %s; 1/Pt [c/GeV]; dNd1/Pt", title[i].c_str(), etaSel[i].c_str()), 2 * mPtBins, -1. / mPtCut, 1. / mPtCut);
+      m1OverPtPhysPrimDen[i] = new TH1D(Form("m1OverPtPhysPrimDen_%s", title[i].c_str()), Form("1/PtPt distribution of %s tracks (physical primary) %s; 1/Pt [c/GeV]; dNd1/Pt", title[i].c_str(), etaSel[i].c_str()), 2 * mPtBins, -20., 20.);
       m1OverPtPhysPrimDen[i]->Sumw2();
-      mFractionITSTPCmatchPhysPrim1OverPt[i] = new TEfficiency(Form("mFractionITSTPCmatchPhysPrim1OverPt_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks vs 1/Pt (physical primary), wrt %s tracks %s; 1/Pt [c/GeV]; Eff", title[i].c_str(), etaSel[i].c_str()), 2 * mPtBins, -1. / mPtCut, 1. / mPtCut);
+      mFractionITSTPCmatchPhysPrim1OverPt[i] = new TEfficiency(Form("mFractionITSTPCmatchPhysPrim1OverPt_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks vs 1/Pt (physical primary), wrt %s tracks %s; 1/Pt [c/GeV]; Eff", title[i].c_str(), etaSel[i].c_str()), 2 * mPtBins, -20., 20.);
     }
   }
 

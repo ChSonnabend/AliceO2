@@ -24,18 +24,18 @@ using namespace o2::gpu;
 template <>
 GPUdii() void GPUTPCConvertKernel::Thread<0>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() processors)
 {
-  const int32_t iSlice = iBlock / GPUCA_ROW_COUNT;
+  const int32_t iSector = iBlock / GPUCA_ROW_COUNT;
   const int32_t iRow = iBlock % GPUCA_ROW_COUNT;
   GPUTPCConvert& GPUrestrict() convert = processors.tpcConverter;
   const o2::tpc::ClusterNativeAccess* GPUrestrict() native = processors.ioPtrs.clustersNative;
-  GPUTPCClusterData* GPUrestrict() clusters = convert.mMemory->clusters[iSlice];
-  const int32_t idOffset = native->clusterOffset[iSlice][iRow];
-  const int32_t indexOffset = native->clusterOffset[iSlice][iRow] - native->clusterOffset[iSlice][0];
+  GPUTPCClusterData* GPUrestrict() clusters = convert.mMemory -> clusters[iSector];
+  const int32_t idOffset = native->clusterOffset[iSector][iRow];
+  const int32_t indexOffset = native->clusterOffset[iSector][iRow] - native->clusterOffset[iSector][0];
 
-  for (uint32_t k = get_local_id(0); k < native->nClusters[iSlice][iRow]; k += get_local_size(0)) {
-    const auto& GPUrestrict() clin = native->clusters[iSlice][iRow][k];
+  for (uint32_t k = get_local_id(0); k < native->nClusters[iSector][iRow]; k += get_local_size(0)) {
+    const auto& GPUrestrict() clin = native -> clusters[iSector][iRow][k];
     float x, y, z;
-    GPUTPCConvertImpl::convert(processors, iSlice, iRow, clin.getPad(), clin.getTime(), x, y, z);
+    GPUTPCConvertImpl::convert(processors, iSector, iRow, clin.getPad(), clin.getTime(), x, y, z);
     auto& GPUrestrict() clout = clusters[indexOffset + k];
     clout.x = x;
     clout.y = y;

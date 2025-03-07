@@ -15,6 +15,7 @@ o2_add_library(DetectorsPassive
                        src/Dipole.cxx
                        src/Compensator.cxx
                        src/Pipe.cxx
+                       src/PipeRun4.cxx
                        src/Magnet.cxx
                        src/PassiveContFact.cxx
                        src/FrameStructure.cxx
@@ -32,6 +33,7 @@ o2_target_root_dictionary(DetectorsPassive
                                   include/DetectorsPassive/Magnet.h
                                   include/DetectorsPassive/PassiveContFact.h
                                   include/DetectorsPassive/Pipe.h
+                                  include/DetectorsPassive/PipeRun4.h
                                   include/DetectorsPassive/FrameStructure.h
                                   include/DetectorsPassive/Shil.h
                                   include/DetectorsPassive/Hall.h

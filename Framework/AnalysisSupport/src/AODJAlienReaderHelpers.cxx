@@ -10,10 +10,12 @@
 // or submit itself to any jurisdiction.
 
 #include "AODJAlienReaderHelpers.h"
+#include <memory>
 #include "Framework/TableTreeHelpers.h"
 #include "Framework/AnalysisHelpers.h"
 #include "Framework/DataProcessingStats.h"
 #include "Framework/RootTableBuilderHelpers.h"
+#include "Framework/RootArrowFilesystem.h"
 #include "Framework/AlgorithmSpec.h"
 #include "Framework/ConfigParamRegistry.h"
 #include "Framework/ControlService.h"
@@ -41,6 +43,8 @@
 #include <arrow/io/interfaces.h>
 #include <arrow/table.h>
 #include <arrow/util/key_value_metadata.h>
+#include <arrow/dataset/dataset.h>
+#include <arrow/dataset/file_base.h>
 
 using namespace o2;
 using namespace o2::aod;
@@ -272,11 +276,13 @@ AlgorithmSpec AODJAlienReaderHelpers::rootFileReaderCallback(ConfigContext const
             // Origin file name for derived output map
             auto o2 = Output(TFFileNameHeader);
             auto fileAndFolder = didir->getFileFolder(dh, fcnt, ntf);
-            std::string currentFilename(fileAndFolder.file->GetName());
-            if (strcmp(fileAndFolder.file->GetEndpointUrl()->GetProtocol(), "file") == 0 && fileAndFolder.file->GetEndpointUrl()->GetFile()[0] != '/') {
+            auto rootFS = std::dynamic_pointer_cast<TFileFileSystem>(fileAndFolder.filesystem());
+            auto* f = dynamic_cast<TFile*>(rootFS->GetFile());
+            std::string currentFilename(f->GetFile()->GetName());
+            if (strcmp(f->GetEndpointUrl()->GetProtocol(), "file") == 0 && f->GetEndpointUrl()->GetFile()[0] != '/') {
               // This is not an absolute local path. Make it absolute.
               static std::string pwd = gSystem->pwd() + std::string("/");
-              currentFilename = pwd + std::string(fileAndFolder.file->GetName());
+              currentFilename = pwd + std::string(f->GetName());
             }
             outputs.make<std::string>(o2) = currentFilename;
           }
@@ -312,7 +318,9 @@ AlgorithmSpec AODJAlienReaderHelpers::rootFileReaderCallback(ConfigContext const
       auto concrete = DataSpecUtils::asConcreteDataMatcher(firstRoute.matcher);
       auto dh = header::DataHeader(concrete.description, concrete.origin, concrete.subSpec);
       auto fileAndFolder = didir->getFileFolder(dh, fcnt, ntf);
-      if (!fileAndFolder.file) {
+
+      // In case the filesource is empty, move to the next one.
+      if (fileAndFolder.path().empty()) {
         fcnt += 1;
         ntf = 0;
         if (didir->atEnd(fcnt)) {

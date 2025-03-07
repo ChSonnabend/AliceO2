@@ -159,9 +159,6 @@ class AlignmentTask
     }
 
     doReAlign = ic.options().get<bool>("do-realign");
-    if (doReAlign) {
-      LOG(info) << "Re-alignment mode";
-    }
 
     if (mCCDBRequest) {
       LOG(info) << "Loading magnetic field and reference geometry from CCDB";
@@ -181,9 +178,9 @@ class AlignmentTask
         LOG(fatal) << "No GRP file";
       }
 
-      auto geoIdealFile = ic.options().get<string>("geo-file-ideal");
-      if (std::filesystem::exists(geoIdealFile)) {
-        base::GeometryManager::loadGeometry(geoIdealFile.c_str());
+      IdealGeoFileName = ic.options().get<string>("geo-file-ideal");
+      if (std::filesystem::exists(IdealGeoFileName)) {
+        base::GeometryManager::loadGeometry(IdealGeoFileName.c_str());
         transformation = geo::transformationFromTGeoManager(*gGeoManager);
         for (int i = 0; i < 156; i++) {
           int iDEN = GetDetElemId(i);
@@ -193,9 +190,9 @@ class AlignmentTask
         LOG(fatal) << "No ideal geometry";
       }
 
-      auto geoRefFile = ic.options().get<string>("geo-file-ref");
-      if (std::filesystem::exists(geoRefFile)) {
-        base::GeometryManager::loadGeometry(geoRefFile.c_str());
+      RefGeoFileName = ic.options().get<string>("geo-file-ref");
+      if (std::filesystem::exists(RefGeoFileName)) {
+        base::GeometryManager::loadGeometry(RefGeoFileName.c_str());
         transformation = geo::transformationFromTGeoManager(*gGeoManager);
         for (int i = 0; i < 156; i++) {
           int iDEN = GetDetElemId(i);
@@ -203,6 +200,22 @@ class AlignmentTask
         }
       } else {
         LOG(fatal) << "No reference geometry";
+      }
+
+      if (doReAlign) {
+        LOG(info) << "Re-alignment mode";
+        LOG(info) << "Loading re-alignment geometry";
+        NewGeoFileName = ic.options().get<string>("geo-file-new");
+        if (std::filesystem::exists(NewGeoFileName)) {
+          base::GeometryManager::loadGeometry(NewGeoFileName.c_str());
+          transformation = geo::transformationFromTGeoManager(*gGeoManager);
+          for (int i = 0; i < 156; i++) {
+            int iDEN = GetDetElemId(i);
+            transformNew[iDEN] = transformation(iDEN);
+          }
+        } else {
+          LOG(fatal) << "No re-alignment geometry";
+        }
       }
     }
 
@@ -384,21 +397,6 @@ class AlignmentTask
       for (int i = 0; i < 156; i++) {
         int iDEN = GetDetElemId(i);
         transformIdeal[iDEN] = transformation(iDEN);
-      }
-    }
-
-    // Load new geometry if we need to do re-align
-    if (doReAlign) {
-      if (NewGeoFileName != "") {
-        LOG(info) << "Loading re-alignment geometry";
-        base::GeometryManager::loadGeometry(NewGeoFileName.c_str());
-        transformation = geo::transformationFromTGeoManager(*gGeoManager);
-        for (int i = 0; i < 156; i++) {
-          int iDEN = GetDetElemId(i);
-          transformNew[iDEN] = transformation(iDEN);
-        }
-      } else {
-        LOG(fatal) << "No re-alignment geometry";
       }
     }
 
@@ -875,6 +873,7 @@ class AlignmentTask
   const string mchFileName{"mchtracks.root"};
   const string muonFileName{"muontracks.root"};
   string outFileName{"Alignment"};
+  string IdealGeoFileName{""};
   string RefGeoFileName{""};
   string NewGeoFileName{""};
   bool doAlign{false};
@@ -918,6 +917,7 @@ o2::framework::DataProcessorSpec getAlignmentSpec(bool disableCCDB)
     outputSpecs,
     AlgorithmSpec{o2::framework::adaptFromTask<AlignmentTask>(ccdbRequest)},
     Options{{"geo-file-ref", VariantType::String, o2::base::NameConf::getAlignedGeomFileName(), {"Name of the reference geometry file"}},
+            {"geo-file-new", VariantType::String, "", {"Name of the new geometry file"}},
             {"geo-file-ideal", VariantType::String, o2::base::NameConf::getGeomFileName(), {"Name of the ideal geometry file"}},
             {"grp-file", VariantType::String, o2::base::NameConf::getGRPFileName(), {"Name of the grp file"}},
             {"do-align", VariantType::Bool, false, {"Switch for alignment, otherwise only residuals will be stored"}},

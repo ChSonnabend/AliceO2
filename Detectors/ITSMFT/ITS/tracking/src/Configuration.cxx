@@ -28,6 +28,28 @@ std::string asString(TrackingMode mode)
   return "unknown";
 }
 
+std::string TrackingParameters::asString() const
+{
+  std::string str = fmt::format("NZb:{} NPhB:{} NROFIt:{} PerVtx:{} DropFail:{} ClSh:{} TtklMinPt:{:.2f} MinCl:{}",
+                                ZBins, PhiBins, nROFsPerIterations, PerPrimaryVertexProcessing, DropTFUponFailure, ClusterSharing, TrackletMinPt, MinTrackLength);
+  bool first = true;
+  for (int il = NLayers; il >= MinTrackLength; il--) {
+    int slot = NLayers - il;
+    if (slot < (int)MinPt.size() && MinPt[slot] > 0) {
+      if (first) {
+        first = false;
+        str += " MinPt: ";
+      }
+      str += fmt::format("L{}:{:.2f} ", il, MinPt[slot]);
+    }
+  }
+  str += " SystErrY/Z:";
+  for (size_t i = 0; i < SystErrorY2.size(); i++) {
+    str += fmt::format("{:.2e}/{:.2e} ", SystErrorY2[i], SystErrorZ2[i]);
+  }
+  return str;
+}
+
 std::ostream& operator<<(std::ostream& os, TrackingMode v)
 {
   os << asString(v);

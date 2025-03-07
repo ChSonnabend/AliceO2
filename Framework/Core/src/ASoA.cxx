@@ -50,6 +50,20 @@ SelectionVector selectionToVector(gandiva::Selection const& sel)
   return rows;
 }
 
+SelectionVector sliceSelection(gsl::span<int64_t const> const& mSelectedRows, int64_t nrows, uint64_t offset)
+{
+  auto start = offset;
+  auto end = start + nrows;
+  auto start_iterator = std::lower_bound(mSelectedRows.begin(), mSelectedRows.end(), start);
+  auto stop_iterator = std::lower_bound(start_iterator, mSelectedRows.end(), end);
+  SelectionVector slicedSelection{start_iterator, stop_iterator};
+  std::transform(slicedSelection.begin(), slicedSelection.end(), slicedSelection.begin(),
+                 [&start](int64_t idx) {
+                   return idx - static_cast<int64_t>(start);
+                 });
+  return slicedSelection;
+}
+
 std::shared_ptr<arrow::Table> ArrowHelpers::joinTables(std::vector<std::shared_ptr<arrow::Table>>&& tables)
 {
   if (tables.size() == 1) {
@@ -176,5 +190,38 @@ std::string strToUpper(std::string&& str)
 {
   std::transform(str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::toupper(c); });
   return str;
+}
+
+bool PreslicePolicyBase::isMissing() const
+{
+  return binding == "[MISSING]";
+}
+
+StringPair const& PreslicePolicyBase::getBindingKey() const
+{
+  return bindingKey;
+}
+
+void PreslicePolicySorted::updateSliceInfo(SliceInfoPtr&& si)
+{
+  sliceInfo = si;
+}
+
+void PreslicePolicyGeneral::updateSliceInfo(SliceInfoUnsortedPtr&& si)
+{
+  sliceInfo = si;
+}
+
+std::shared_ptr<arrow::Table> PreslicePolicySorted::getSliceFor(int value, std::shared_ptr<arrow::Table> const& input, uint64_t& offset) const
+{
+  auto [offset_, count] = this->sliceInfo.getSliceFor(value);
+  auto output = input->Slice(offset_, count);
+  offset = static_cast<int64_t>(offset_);
+  return output;
+}
+
+gsl::span<const int64_t> PreslicePolicyGeneral::getSliceFor(int value) const
+{
+  return this->sliceInfo.getSliceFor(value);
 }
 } // namespace o2::framework

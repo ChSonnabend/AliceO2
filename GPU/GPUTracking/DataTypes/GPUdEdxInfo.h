@@ -17,12 +17,9 @@
 
 #include "DataFormatsTPC/dEdxInfo.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 using GPUdEdxInfo = o2::tpc::dEdxInfo;
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

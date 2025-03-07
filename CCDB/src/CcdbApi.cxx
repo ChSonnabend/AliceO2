@@ -1461,7 +1461,7 @@ std::map<std::string, std::string> CcdbApi::retrieveHeaders(std::string const& p
 
   if (!mSnapshotCachePath.empty()) {
     // protect this sensitive section by a multi-process named semaphore
-    auto semaphore_barrier = std::make_unique<CCDBSemaphore>(mSnapshotCachePath, path);
+    auto semaphore_barrier = std::make_unique<CCDBSemaphore>(mSnapshotCachePath + std::string("_headers"), path);
 
     std::string logfile = mSnapshotCachePath + "/log";
     std::fstream out(logfile, ios_base::out | ios_base::app);

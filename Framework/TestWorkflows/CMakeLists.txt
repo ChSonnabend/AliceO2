@@ -119,6 +119,10 @@ o2_add_dpl_workflow(simple-sink
                   SOURCES src/o2SimpleSink.cxx
                   COMPONENT_NAME TestWorkflows)
 
+o2_add_dpl_workflow(simple-processor
+                  SOURCES src/o2SimpleProcessor.cxx
+                  COMPONENT_NAME TestWorkflows)
+
 o2_add_dpl_workflow(analysis-workflow
                   SOURCES src/o2AnalysisWorkflow.cxx
                   COMPONENT_NAME TestWorkflows)

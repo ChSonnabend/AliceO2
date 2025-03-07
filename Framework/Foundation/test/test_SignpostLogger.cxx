@@ -63,4 +63,11 @@ int main(int argc, char** argv)
   O2_SIGNPOST_ID_GENERATE(idStacktrace, SignpostStacktrace);
   O2_LOG_ENABLE(SignpostStacktrace);
   O2_SIGNPOST_EVENT_EMIT_ERROR(SignpostStacktrace, idStacktrace, "Test category", "An error with stacktrace %d \n", 1);
+  // Test actions associtated to a given debug stream.
+  static bool testMustCall = false;
+  static bool testMustNotCall = false;
+  O2_SIGNPOST_ACTION(SignpostStacktrace, [](void *) { testMustCall = true; });
+  O2_LOG_DISABLE(SignpostStacktrace);
+  O2_SIGNPOST_ACTION(SignpostStacktrace, [](void *) { testMustNotCall = true; });
+  return testMustCall && (!testMustNotCall) ? 0 : 1;
 }

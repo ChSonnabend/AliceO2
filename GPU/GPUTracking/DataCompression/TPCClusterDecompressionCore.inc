@@ -47,7 +47,7 @@ class TPCClusterDecompressionCore
     return clusterVector.back();
   }
 
-  GPUhi() static auto decompressTrackStore(const CompressedClusters& clustersCompressed, const uint32_t offset, uint32_t slice, uint32_t row, uint32_t pad, uint32_t time, std::vector<ClusterNative> (&clusters)[GPUCA_NSLICES][GPUCA_ROW_COUNT], std::atomic_flag (&locks)[GPUCA_NSLICES][GPUCA_ROW_COUNT])
+  GPUhi() static auto decompressTrackStore(const CompressedClusters& clustersCompressed, const uint32_t offset, uint32_t slice, uint32_t row, uint32_t pad, uint32_t time, std::vector<ClusterNative> (&clusters)[GPUCA_NSECTORS][GPUCA_ROW_COUNT], std::atomic_flag (&locks)[GPUCA_NSECTORS][GPUCA_ROW_COUNT])
   {
     std::vector<ClusterNative>& clusterVector = clusters[slice][row];
     auto& lock = locks[slice][row];
@@ -85,14 +85,14 @@ class TPCClusterDecompressionCore
       uint32_t pad = 0, time = 0;
       if (clusterIndex != 0) {
         uint8_t tmpSlice = cmprClusters.sliceLegDiffA[clusterOffset - trackIndex - 1];
-        bool changeLeg = (tmpSlice >= GPUCA_NSLICES);
+        bool changeLeg = (tmpSlice >= GPUCA_NSECTORS);
         if (changeLeg) {
-          tmpSlice -= GPUCA_NSLICES;
+          tmpSlice -= GPUCA_NSECTORS;
         }
         if (cmprClusters.nComppressionModes & GPUSettings::CompressionDifferences) {
           slice += tmpSlice;
-          if (slice >= GPUCA_NSLICES) {
-            slice -= GPUCA_NSLICES;
+          if (slice >= GPUCA_NSECTORS) {
+            slice -= GPUCA_NSECTORS;
           }
           row += cmprClusters.rowDiffA[clusterOffset - trackIndex - 1];
           if (row >= GPUCA_ROW_COUNT) {
@@ -105,7 +105,7 @@ class TPCClusterDecompressionCore
         if (changeLeg && track.Mirror()) {
           break;
         }
-        if (track.Propagate(param.tpcGeometry.Row2X(row), param.SliceParam[slice].Alpha)) {
+        if (track.Propagate(param.tpcGeometry.Row2X(row), param.SectorParam[slice].Alpha)) {
           break;
         }
         uint32_t timeTmp = cmprClusters.timeResA[clusterOffset - trackIndex - 1];
@@ -140,7 +140,7 @@ class TPCClusterDecompressionCore
       float z = param.tpcGeometry.LinearTime2Z(slice, cluster.getTime());
       if (clusterIndex == 0) {
         zOffset = z;
-        track.Init(param.tpcGeometry.Row2X(row), y, z - zOffset, param.SliceParam[slice].Alpha, cmprClusters.qPtA[trackIndex], param);
+        track.Init(param.tpcGeometry.Row2X(row), y, z - zOffset, param.SectorParam[slice].Alpha, cmprClusters.qPtA[trackIndex], param);
       }
       if (clusterIndex + 1 < cmprClusters.nTrackClusters[trackIndex] && track.Filter(y, z - zOffset, row)) {
         break;

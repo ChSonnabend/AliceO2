@@ -66,6 +66,7 @@ enum class CDBType {
   CalSAC1,              ///< I_1(t) = <I(r,\phi,t) / I_0(r,\phi)>_{r,\phi}
   CalSACDelta,          ///< \Delta I(r,\phi,t) = I(r,\phi,t) / ( I_0(r,\phi) * I_1(t) )
   CalSACFourier,        ///< Fourier coefficients of CalSAC1
+  CalSAC,               ///< CalSAC0, CalSAC1 and CalSACDelta
                         ///
   CalITPC0,             ///< 2D average TPC clusters for longer time interval
   CalITPC1,             ///< 1D integrated TPC clusters
@@ -133,6 +134,7 @@ const std::unordered_map<CDBType, const std::string> CDBTypeMap{
   {CDBType::CalSAC0, "TPC/Calib/SAC_0"},
   {CDBType::CalSAC1, "TPC/Calib/SAC_1"},
   {CDBType::CalSACDelta, "TPC/Calib/SAC_DELTA"},
+  {CDBType::CalSAC, "TPC/Calib/SAC"},
   {CDBType::CalSACFourier, "TPC/Calib/SAC_FOURIER"},
   // ITPCCs
   {CDBType::CalITPC0, "TPC/Calib/ITPCC_0"},

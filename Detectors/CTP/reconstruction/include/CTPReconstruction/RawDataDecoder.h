@@ -45,6 +45,7 @@ class RawDataDecoder
   void setMAXErrors(int m) { mErrorMax = m; }
   int setLumiInp(int lumiinp, std::string inp);
   void setCTPConfig(CTPConfiguration cfg) { mCTPConfig = std::move(cfg); };
+  void setCheckConsistency(bool check) { mCheckConsistency = check; }
   uint32_t getIRRejected() const { return mIRRejected; }
   uint32_t getTCRRejected() const { return mTCRRejected; }
   std::vector<uint32_t>& getTFOrbits() { return mTFOrbits; }
@@ -54,12 +55,14 @@ class RawDataDecoder
   int init();
   static int shiftNew(const o2::InteractionRecord& irin, uint32_t TFOrbit, std::bitset<48>& inpmask, int64_t shift, int level, std::map<o2::InteractionRecord, CTPDigit>& digmap);
   static int shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digitsMap, o2::pmr::vector<CTPDigit>& digits, uint32_t TFOrbit, uint64_t trgclassmask = 0xffffffffffffffff);
+  int checkReadoutConsistentncy(o2::pmr::vector<CTPDigit>& digits, uint64_t trgclassmask = 0xffffffffffffffff);
 
  private:
   static constexpr uint32_t TF_TRIGGERTYPE_MASK = 0x800;
   static constexpr uint32_t HB_TRIGGERTYPE_MASK = 0x2;
   // true: full inps decoding includine latency shifts here; false: latency shifts in CTF decoder
   bool mDecodeInps = false;
+  bool mCheckConsistency = false;
   // for digits
   bool mDoDigits = true;
   std::vector<CTPDigit> mOutputDigits;

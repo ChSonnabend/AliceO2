@@ -18,18 +18,13 @@
 #include "GPUDef.h"
 #include "GPUProcessor.h"
 
-namespace o2
-{
-namespace tpc
+namespace o2::tpc
 {
 struct ClusterNative;
 struct ClusterNativeAccess;
-} // namespace tpc
-} // namespace o2
+} // namespace o2::tpc
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 struct GPUTrackingInOutZS;
@@ -90,7 +85,6 @@ class GPUTrackingInputProvider : public GPUProcessor
   uint32_t* mErrorCodes = nullptr;
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

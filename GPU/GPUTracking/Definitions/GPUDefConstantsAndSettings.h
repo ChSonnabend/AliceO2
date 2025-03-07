@@ -48,17 +48,17 @@
 
 #define TPC_MAX_TIME_BIN_TRIGGERED 600
 
-#if defined(GPUCA_NSLICES) || defined(GPUCA_ROW_COUNT)
-  #error GPUCA_NSLICES or GPUCA_ROW_COUNT already defined, do not include GPUTPCGeometry.h before!
+#if defined(GPUCA_NSECTORS) || defined(GPUCA_ROW_COUNT)
+  #error GPUCA_NSECTORS or GPUCA_ROW_COUNT already defined, do not include GPUTPCGeometry.h before!
 #endif
 #if defined(GPUCA_TPC_GEOMETRY_O2) && !(defined(ROOT_VERSION_CODE) && ROOT_VERSION_CODE < 393216)
   //Use definitions from the O2 headers if available for nicer code and type safety
   #include "DataFormatsTPC/Constants.h"
-  #define GPUCA_NSLICES o2::tpc::constants::MAXSECTOR
+  #define GPUCA_NSECTORS o2::tpc::constants::MAXSECTOR
   #define GPUCA_ROW_COUNT o2::tpc::constants::MAXGLOBALPADROW
 #else
   //Define it manually, if O2 headers not available, ROOT5, and OpenCL 1.2, which do not know C++11.
-  #define GPUCA_NSLICES 36
+  #define GPUCA_NSECTORS 36
   #ifdef GPUCA_TPC_GEOMETRY_O2
     #define GPUCA_ROW_COUNT 152
   #else

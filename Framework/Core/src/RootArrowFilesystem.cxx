@@ -42,6 +42,12 @@ TFileFileSystem::TFileFileSystem(TDirectoryFile* f, size_t readahead, RootObject
   ((TFile*)mFile)->SetReadaheadSize(50 * 1024 * 1024);
 }
 
+TFileFileSystem::~TFileFileSystem()
+{
+  mFile->Close();
+  delete mFile;
+}
+
 std::shared_ptr<RootObjectHandler> TFileFileSystem::GetObjectHandler(arrow::dataset::FileSource source)
 {
   // We use a plugin to create the actual objects inside the

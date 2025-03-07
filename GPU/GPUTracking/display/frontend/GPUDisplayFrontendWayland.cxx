@@ -39,16 +39,8 @@
 
 using namespace o2::gpu;
 
-GPUDisplayFrontendWayland::GPUDisplayFrontendWayland()
+namespace o2::gpu::internal
 {
-  mFrontendType = TYPE_WAYLAND;
-  mFrontendName = "Wayland";
-}
-
-void GPUDisplayFrontendWayland::OpenGLPrint(const char* s, float x, float y, float r, float g, float b, float a, bool fromBotton)
-{
-}
-
 template <class T, class... Args>
 struct CCallWrapper {
   std::function<T(Args...)> func;
@@ -58,6 +50,17 @@ struct CCallWrapper {
     return funcwrap->func(std::forward<Args>(args)...);
   }
 };
+} // namespace o2::gpu::internal
+
+GPUDisplayFrontendWayland::GPUDisplayFrontendWayland()
+{
+  mFrontendType = TYPE_WAYLAND;
+  mFrontendName = "Wayland";
+}
+
+void GPUDisplayFrontendWayland::OpenGLPrint(const char* s, float x, float y, float r, float g, float b, float a, bool fromBotton)
+{
+}
 
 int32_t GPUDisplayFrontendWayland::GetKey(uint32_t key, uint32_t state)
 {
@@ -283,7 +286,7 @@ int32_t GPUDisplayFrontendWayland::FrontendMain()
       wl_keyboard_add_listener(mKeyboard, &keyboard_listener, this);
     }
   };
-  auto seat_capabilities_c = CCallWrapper<void, wl_seat*, uint32_t>{[seat_capabilities](wl_seat* seat, uint32_t capabilities) { seat_capabilities(seat, capabilities); }};
+  auto seat_capabilities_c = internal::CCallWrapper<void, wl_seat*, uint32_t>{[seat_capabilities](wl_seat* seat, uint32_t capabilities) { seat_capabilities(seat, capabilities); }};
 
   auto seat_name = [](void* data, struct wl_seat* seat, const char* name) {
     if (((GPUDisplayFrontendWayland*)data)->mDisplay->param()->par.debugLevel >= 2) {
@@ -317,7 +320,7 @@ int32_t GPUDisplayFrontendWayland::FrontendMain()
     }
   };
 
-  auto registry_global_c = CCallWrapper<void, wl_registry*, uint32_t, const char*, uint32_t>{[registry_global](wl_registry* registry, uint32_t name, const char* interface, uint32_t version) { registry_global(registry, name, interface, version); }};
+  auto registry_global_c = internal::CCallWrapper<void, wl_registry*, uint32_t, const char*, uint32_t>{[registry_global](wl_registry* registry, uint32_t name, const char* interface, uint32_t version) { registry_global(registry, name, interface, version); }};
   auto registry_global_remove = [](void* a, wl_registry* b, uint32_t c) {};
   const wl_registry_listener registry_listener = {.global = &registry_global_c.callback, .global_remove = registry_global_remove};
 

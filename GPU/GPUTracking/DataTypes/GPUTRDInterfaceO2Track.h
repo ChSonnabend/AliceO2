@@ -17,9 +17,7 @@
 
 // This is the interface for the GPUTRDTrack based on the O2 track type
 #include "GPUCommonDef.h"
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 template <typename T>
 class trackInterface;
@@ -28,8 +26,7 @@ namespace gputpcgmmergertypes
 {
 struct GPUTPCOuterParam;
 } // namespace gputpcgmmergertypes
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #include "ReconstructionDataFormats/Track.h"
 #include "ReconstructionDataFormats/TrackTPCITS.h"
@@ -38,9 +35,7 @@ struct GPUTPCOuterParam;
 #include "ReconstructionDataFormats/TrackLTIntegral.h"
 #include "CommonConstants/LHCConstants.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 template <>
@@ -94,7 +89,6 @@ class trackInterface<o2::track::TrackParCov> : public o2::track::TrackParCov
   ClassDefNV(trackInterface, 1);
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

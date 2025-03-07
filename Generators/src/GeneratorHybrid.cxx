@@ -390,6 +390,26 @@ bool GeneratorHybrid::importParticles()
     for (auto subIndex : subGenIndex) {
       LOG(info) << "Importing particles for task " << subIndex;
       auto subParticles = gens[subIndex]->getParticles();
+
+      // The particles carry mother and daughter indices, which are relative
+      // to the sub-generator. We need to adjust these indices to reflect that particles
+      // are now embedded into a cocktail.
+      auto offset = mParticles.size();
+      for (auto& p : subParticles) {
+        for (int i = 0; i < 2; ++i) {
+          if (p.GetMother(i) != -1) {
+            const auto newindex = p.GetMother(i) + offset;
+            p.SetMother(i, newindex);
+          }
+        }
+        if (p.GetNDaughters() > 0) {
+          for (int i = 0; i < 2; ++i) {
+            const auto newindex = p.GetDaughter(i) + offset;
+            p.SetDaughter(i, newindex);
+          }
+        }
+      }
+
       mParticles.insert(mParticles.end(), subParticles.begin(), subParticles.end());
       // fetch the event Header information from the underlying generator
       gens[subIndex]->updateHeader(&mMCEventHeader);

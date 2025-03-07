@@ -37,7 +37,8 @@ enum class SimFieldMode {
 enum class VertexMode {
   kNoVertex = 0,     // no vertexing should be applied in the generator
   kDiamondParam = 1, // Diamond param will influence vertexing
-  kCCDB = 2          // vertex should be taken from CCDB (Calib/MeanVertex object)
+  kCCDB = 2,         // vertex should be taken from CCDB (Calib/MeanVertex object)
+  kCollCxt = 3       // vertex should be taken from collision context
 };
 
 enum class TimeStampMode {

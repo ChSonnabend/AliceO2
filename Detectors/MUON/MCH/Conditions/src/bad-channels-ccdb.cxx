@@ -10,6 +10,7 @@
 // or submit itself to any jurisdiction.
 
 #include <boost/program_options.hpp>
+#include <algorithm>
 #include <ctime>
 #include <fstream>
 #include <iterator>
@@ -209,9 +210,12 @@ void uploadBadChannels(const std::string ccdbUrl,
                        const std::string badChannelType,
                        uint64_t startTimestamp,
                        uint64_t endTimestamp,
-                       const BadChannelsVector& bv,
+                       BadChannelsVector& bv,
                        bool makeDefault)
 {
+  std::sort(bv.begin(), bv.end());
+  bv.erase(std::unique(bv.begin(), bv.end()), bv.end());
+
   std::cout << std::endl;
   o2::ccdb::CcdbApi api;
   api.init(ccdbUrl);

@@ -12,10 +12,8 @@
 #ifndef SLICECACHE_H
 #define SLICECACHE_H
 
-#include "Framework/ServiceHandle.h"
 #include "Framework/ArrowTableSlicingCache.h"
 #include <arrow/array.h>
-#include <string_view>
 #include <gsl/span>
 
 namespace o2::framework
@@ -23,6 +21,9 @@ namespace o2::framework
 struct SliceCache {
   ArrowTableSlicingCache* ptr = nullptr;
 };
+
+template <typename T>
+concept is_slice_cache = std::same_as<T, SliceCache>;
 } // namespace o2::framework
 
 #endif // SLICECACHE_H

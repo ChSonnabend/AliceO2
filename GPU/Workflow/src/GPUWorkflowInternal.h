@@ -29,10 +29,10 @@ namespace gpurecoworkflow_internals
 {
 
 struct GPURecoWorkflowSpec_TPCZSBuffers {
-  std::vector<const void*> Pointers[GPUTrackingInOutZS::NSLICES][GPUTrackingInOutZS::NENDPOINTS];
-  std::vector<uint32_t> Sizes[GPUTrackingInOutZS::NSLICES][GPUTrackingInOutZS::NENDPOINTS];
-  const void** Pointers2[GPUTrackingInOutZS::NSLICES][GPUTrackingInOutZS::NENDPOINTS];
-  const uint32_t* Sizes2[GPUTrackingInOutZS::NSLICES][GPUTrackingInOutZS::NENDPOINTS];
+  std::vector<const void*> Pointers[GPUTrackingInOutZS::NSECTORS][GPUTrackingInOutZS::NENDPOINTS];
+  std::vector<uint32_t> Sizes[GPUTrackingInOutZS::NSECTORS][GPUTrackingInOutZS::NENDPOINTS];
+  const void** Pointers2[GPUTrackingInOutZS::NSECTORS][GPUTrackingInOutZS::NENDPOINTS];
+  const uint32_t* Sizes2[GPUTrackingInOutZS::NSECTORS][GPUTrackingInOutZS::NENDPOINTS];
 };
 
 struct GPURecoWorkflow_QueueObject {

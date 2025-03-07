@@ -219,7 +219,4 @@ if(GPUCA_EVENT_DISPLAY_QT)
   target_link_libraries(${targetName} PRIVATE Qt5::Widgets)
 endif()
 
-if(OpenMP_CXX_FOUND)
-  target_compile_definitions(${targetName} PRIVATE WITH_OPENMP)
-  target_link_libraries(${targetName} PRIVATE OpenMP::OpenMP_CXX)
-endif()
+target_link_libraries(${targetName} PRIVATE TBB::tbb)

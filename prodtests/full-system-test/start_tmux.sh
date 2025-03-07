@@ -106,8 +106,8 @@ if [[ -z $SHM_MANAGER_SHMID ]]; then
     exit 1
   fi
 fi
-[[ ! -z $FST_TMUX_DD_WAIT ]] && FST_SLEEP2=$FST_TMUX_DD_WAIT
 [[ ${O2_GPU_RTC:-0} == 1 ]] && FST_SLEEP2=60
+[[ ! -z $FST_TMUX_DD_WAIT ]] && FST_SLEEP2=$FST_TMUX_DD_WAIT
 
 if workflow_has_parameter CALIB_PROXIES; then
   CALIB_COMMAND="$GEN_TOPO_MYDIR/aggregator-workflow.sh"

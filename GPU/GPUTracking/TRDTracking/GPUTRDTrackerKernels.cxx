@@ -16,9 +16,8 @@
 #include "GPUTRDGeometry.h"
 #include "GPUConstantMem.h"
 #include "GPUCommonTypeTraits.h"
-#if defined(WITH_OPENMP) && !defined(GPUCA_GPUCODE)
-#include "GPUReconstruction.h"
-#endif
+
+#include "GPUReconstructionThreading.h"
 
 using namespace o2::gpu;
 
@@ -33,10 +32,9 @@ GPUdii() void GPUTRDTrackerKernels::Thread(int32_t nBlocks, int32_t nThreads, in
     }
   }
 #endif
-  GPUCA_OPENMP(parallel for if(!trdTracker->GetRec().GetProcessingSettings().ompKernels) num_threads(trdTracker->GetRec().GetProcessingSettings().ompThreads))
-  for (int32_t i = get_global_id(0); i < trdTracker->NTracks(); i += get_global_size(0)) {
+  GPUCA_TBB_KERNEL_LOOP(trdTracker->GetRec(), int32_t, i, trdTracker->NTracks(), {
     trdTracker->DoTrackingThread(i, get_global_id(0));
-  }
+  });
 }
 
 #if !defined(GPUCA_GPUCODE) || defined(GPUCA_GPUCODE_DEVICE) // FIXME: DR: WORKAROUND to avoid CUDA bug creating host symbols for device code.

@@ -63,6 +63,7 @@ struct TrackingParameters {
   int CellMinimumLevel();
   int CellsPerRoad() const { return NLayers - 2; }
   int TrackletsPerRoad() const { return NLayers - 1; }
+  std::string asString() const;
 
   int NLayers = 7;
   int DeltaROF = 0;

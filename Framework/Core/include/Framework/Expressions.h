@@ -418,6 +418,9 @@ struct Filter {
   size_t designateSubtrees(Node* node, size_t index = 0);
 };
 
+template <typename T>
+concept is_filter = std::same_as<T, Filter>;
+
 using Projector = Filter;
 
 /// Function for creating gandiva selection from our internal filter tree

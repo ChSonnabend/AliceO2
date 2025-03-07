@@ -25,9 +25,7 @@ extern "C" __declspec(dllexport) o2::gpu::GPUReconstruction* GPUReconstruction_C
 extern "C" o2::gpu::GPUReconstruction* GPUReconstruction_Create_CUDA(const o2::gpu::GPUSettingsDeviceBackend& cfg);
 #endif
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 struct GPUReconstructionCUDAInternals;
 
@@ -44,7 +42,7 @@ class GPUReconstructionCUDABackend : public GPUReconstructionDeviceBase
   void PrintKernelOccupancies() override;
 
   template <class T, int32_t I = 0, typename... Args>
-  int32_t runKernelBackend(const krnlSetupArgs<T, I, Args...>& args);
+  void runKernelBackend(const krnlSetupArgs<T, I, Args...>& args);
   template <class T, int32_t I = 0, typename... Args>
   void runKernelBackendInternal(const krnlSetupTime& _xyz, const Args&... args);
   template <class T, int32_t I = 0>
@@ -71,7 +69,7 @@ class GPUReconstructionCUDA : public GPUReconstructionKernels<GPUReconstructionC
   int32_t ExitDevice_Runtime() override;
   void UpdateAutomaticProcessingSettings() override;
 
-  std::unique_ptr<GPUThreadContext> GetThreadContext() override;
+  std::unique_ptr<gpu_reconstruction_kernels::threadContext> GetThreadContext() override;
   void SynchronizeGPU() override;
   int32_t GPUDebug(const char* state = "UNKNOWN", int32_t stream = -1, bool force = false) override;
   void SynchronizeStream(int32_t stream) override;
@@ -104,7 +102,6 @@ class GPUReconstructionCUDA : public GPUReconstructionKernels<GPUReconstructionC
   const char *mRtcSrcExtension = ".src", *mRtcBinExtension = ".o";
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

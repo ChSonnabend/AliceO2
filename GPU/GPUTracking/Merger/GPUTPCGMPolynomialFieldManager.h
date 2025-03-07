@@ -18,13 +18,10 @@
 #include "GPUCommonDef.h"
 class AliMagF;
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 class GPUTPCGMPolynomialField;
-}
-} // namespace o2
+} // namespace o2::gpu
 
 /**
  * @class GPUTPCGMPolynomialFieldManager

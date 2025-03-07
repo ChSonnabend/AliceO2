@@ -38,7 +38,8 @@ void customize(std::vector<ConfigParamSpec>& workflowOptions)
 {
   // option allowing to set parameters
   std::vector<o2::framework::ConfigParamSpec> options{
-    {"enable-mc", o2::framework::VariantType::Bool, false, {"enable MC propagation"}},
+    {"use-mc", o2::framework::VariantType::Bool, false, {"use MC information"}},
+    {"disable-mc", o2::framework::VariantType::Bool, false, {"disable MC usage"}},
     {"enable-cosmics", o2::framework::VariantType::Bool, false, {"enable reading cosmics"}},
     {"track-sources", VariantType::String, std::string{GID::ALL}, {"comma-separated list of track sources to use"}},
     {"cluster-sources", VariantType::String, std::string{GID::ALL}, {"comma-separated list of cluster sources to use"}},
@@ -61,7 +62,7 @@ WorkflowSpec defineDataProcessing(ConfigContext const& configcontext)
 
   // Update the (declared) parameters if changed from the command line
   o2::conf::ConfigurableParam::updateFromString(configcontext.options().get<std::string>("configKeyValues"));
-  auto useMC = configcontext.options().get<bool>("enable-mc");
+  auto useMC = configcontext.options().get<bool>("use-mc");
   auto sclOpt = o2::tpc::CorrectionMapsLoader::parseGlobalOptions(configcontext.options());
   const auto enableCosmics = configcontext.options().get<bool>("enable-cosmics");
 

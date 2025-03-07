@@ -53,7 +53,7 @@ struct pipelinePrepareMessage {
   size_t magicWord = MAGIC_WORD;
   DataProcessingHeader::StartTime timeSliceId;
   GPUSettingsTF tfSettings;
-  size_t pointerCounts[GPUTrackingInOutZS::NSLICES][GPUTrackingInOutZS::NENDPOINTS];
+  size_t pointerCounts[GPUTrackingInOutZS::NSECTORS][GPUTrackingInOutZS::NENDPOINTS];
   size_t pointersTotal;
   bool flagEndOfStream;
 };
@@ -181,12 +181,12 @@ int32_t GPURecoWorkflowSpec::handlePipeline(ProcessingContext& pc, GPUTrackingIn
 
     size_t ptrsTotal = 0;
     const void* firstPtr = nullptr;
-    for (uint32_t i = 0; i < GPUTrackingInOutZS::NSLICES; i++) {
+    for (uint32_t i = 0; i < GPUTrackingInOutZS::NSECTORS; i++) {
       for (uint32_t j = 0; j < GPUTrackingInOutZS::NENDPOINTS; j++) {
-        if (firstPtr == nullptr && ptrs.tpcZS->slice[i].count[j]) {
-          firstPtr = ptrs.tpcZS->slice[i].zsPtr[j][0];
+        if (firstPtr == nullptr && ptrs.tpcZS->sector[i].count[j]) {
+          firstPtr = ptrs.tpcZS->sector[i].zsPtr[j][0];
         }
-        ptrsTotal += ptrs.tpcZS->slice[i].count[j];
+        ptrsTotal += ptrs.tpcZS->sector[i].count[j];
       }
     }
 
@@ -202,11 +202,11 @@ int32_t GPURecoWorkflowSpec::handlePipeline(ProcessingContext& pc, GPUTrackingIn
     size_t* ptrBuffer = messageBuffer.data() + sizeof(preMessage) / sizeof(size_t);
     size_t ptrsCopied = 0;
     int32_t lastRegion = -1;
-    for (uint32_t i = 0; i < GPUTrackingInOutZS::NSLICES; i++) {
+    for (uint32_t i = 0; i < GPUTrackingInOutZS::NSECTORS; i++) {
       for (uint32_t j = 0; j < GPUTrackingInOutZS::NENDPOINTS; j++) {
-        preMessage.pointerCounts[i][j] = ptrs.tpcZS->slice[i].count[j];
-        for (uint32_t k = 0; k < ptrs.tpcZS->slice[i].count[j]; k++) {
-          const void* curPtr = ptrs.tpcZS->slice[i].zsPtr[j][k];
+        preMessage.pointerCounts[i][j] = ptrs.tpcZS->sector[i].count[j];
+        for (uint32_t k = 0; k < ptrs.tpcZS->sector[i].count[j]; k++) {
+          const void* curPtr = ptrs.tpcZS->sector[i].zsPtr[j][k];
           bool regionFound = lastRegion != -1 && (size_t)curPtr >= (size_t)mRegionInfos[lastRegion].ptr && (size_t)curPtr < (size_t)mRegionInfos[lastRegion].ptr + mRegionInfos[lastRegion].size;
           if (!regionFound) {
             for (uint32_t l = 0; l < mRegionInfos.size(); l++) {
@@ -221,11 +221,11 @@ int32_t GPURecoWorkflowSpec::handlePipeline(ProcessingContext& pc, GPUTrackingIn
             LOG(fatal) << "Found a TPC ZS pointer outside of shared memory";
           }
           ptrBuffer[ptrsCopied + k] = (size_t)curPtr - (size_t)mRegionInfos[lastRegion].ptr;
-          ptrBuffer[ptrsTotal + ptrsCopied + k] = ptrs.tpcZS->slice[i].nZSPtr[j][k];
+          ptrBuffer[ptrsTotal + ptrsCopied + k] = ptrs.tpcZS->sector[i].nZSPtr[j][k];
           ptrBuffer[2 * ptrsTotal + ptrsCopied + k] = mRegionInfos[lastRegion].managed;
           ptrBuffer[3 * ptrsTotal + ptrsCopied + k] = mRegionInfos[lastRegion].id;
         }
-        ptrsCopied += ptrs.tpcZS->slice[i].count[j];
+        ptrsCopied += ptrs.tpcZS->sector[i].count[j];
       }
     }
 
@@ -353,10 +353,10 @@ void GPURecoWorkflowSpec::RunReceiveThread()
     context->tpcZSmeta.Pointers[0][0].resize(m->pointersTotal);
     context->tpcZSmeta.Sizes[0][0].resize(m->pointersTotal);
     int32_t lastRegion = -1;
-    for (uint32_t i = 0; i < GPUTrackingInOutZS::NSLICES; i++) {
+    for (uint32_t i = 0; i < GPUTrackingInOutZS::NSECTORS; i++) {
       for (uint32_t j = 0; j < GPUTrackingInOutZS::NENDPOINTS; j++) {
-        context->tpcZS.slice[i].count[j] = m->pointerCounts[i][j];
-        for (uint32_t k = 0; k < context->tpcZS.slice[i].count[j]; k++) {
+        context->tpcZS.sector[i].count[j] = m->pointerCounts[i][j];
+        for (uint32_t k = 0; k < context->tpcZS.sector[i].count[j]; k++) {
           bool regionManaged = ptrBuffer[2 * m->pointersTotal + ptrsCopied + k];
           size_t regionId = ptrBuffer[3 * m->pointersTotal + ptrsCopied + k];
           bool regionFound = lastRegion != -1 && mRegionInfos[lastRegion].managed == regionManaged && mRegionInfos[lastRegion].id == regionId;
@@ -375,9 +375,9 @@ void GPURecoWorkflowSpec::RunReceiveThread()
           context->tpcZSmeta.Pointers[0][0][ptrsCopied + k] = (void*)(ptrBuffer[ptrsCopied + k] + (size_t)mRegionInfos[lastRegion].ptr);
           context->tpcZSmeta.Sizes[0][0][ptrsCopied + k] = ptrBuffer[m->pointersTotal + ptrsCopied + k];
         }
-        context->tpcZS.slice[i].zsPtr[j] = context->tpcZSmeta.Pointers[0][0].data() + ptrsCopied;
-        context->tpcZS.slice[i].nZSPtr[j] = context->tpcZSmeta.Sizes[0][0].data() + ptrsCopied;
-        ptrsCopied += context->tpcZS.slice[i].count[j];
+        context->tpcZS.sector[i].zsPtr[j] = context->tpcZSmeta.Pointers[0][0].data() + ptrsCopied;
+        context->tpcZS.sector[i].nZSPtr[j] = context->tpcZSmeta.Sizes[0][0].data() + ptrsCopied;
+        ptrsCopied += context->tpcZS.sector[i].count[j];
       }
     }
     context->ptrs.tpcZS = &context->tpcZS;

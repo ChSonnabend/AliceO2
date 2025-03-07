@@ -27,9 +27,7 @@ namespace o2::tpc
 struct ClusterNative;
 } // namespace o2::tpc
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 struct ClusterNativeAccess;
 
@@ -48,7 +46,7 @@ class GPUReconstructionTimeframe
   static constexpr int32_t TIME_ORBIT = 1000000000 / ORBIT_RATE;
 
  private:
-  constexpr static uint32_t NSLICES = GPUReconstruction::NSLICES;
+  constexpr static uint32_t NSECTORS = GPUReconstruction::NSECTORS;
 
   void SetDisplayInformation(int32_t iCol);
 
@@ -73,7 +71,6 @@ class GPUReconstructionTimeframe
   std::vector<int8_t> mEventUsed;
   std::vector<std::tuple<GPUTrackingInOutPointers, GPUChainTracking::InOutMemory, o2::tpc::ClusterNativeAccess>> mShiftedEvents;
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

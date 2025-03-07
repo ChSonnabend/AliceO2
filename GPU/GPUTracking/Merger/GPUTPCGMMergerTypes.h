@@ -18,11 +18,7 @@
 #include "GPUTPCDef.h"
 #include "GPUGeneralKernels.h"
 
-namespace o2
-{
-namespace gpu
-{
-namespace gputpcgmmergertypes
+namespace o2::gpu::gputpcgmmergertypes
 {
 
 enum attachTypes { attachAttached = 0x40000000,
@@ -59,8 +55,6 @@ struct GPUTPCOuterParam {
   float C[15];
 };
 
-} // namespace gputpcgmmergertypes
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu::gputpcgmmergertypes
 
 #endif

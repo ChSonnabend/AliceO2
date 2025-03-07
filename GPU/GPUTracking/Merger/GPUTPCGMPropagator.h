@@ -20,18 +20,13 @@
 #include "GPUTPCGMPolynomialField.h"
 #include "GPUCommonMath.h"
 
-namespace o2
-{
-namespace base
+namespace o2::base
 {
 struct MatBudget;
 class MatLayerCylSet;
-} // namespace base
-} // namespace o2
+} // namespace o2::base
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 class GPUTPCGMTrackParam;
 struct GPUParam;
@@ -275,7 +270,6 @@ GPUdi() float GPUTPCGMPropagator::getGlobalY(float X, float Y) const
   return getGlobalY(mCosAlpha, mSinAlpha, X, Y);
 }
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

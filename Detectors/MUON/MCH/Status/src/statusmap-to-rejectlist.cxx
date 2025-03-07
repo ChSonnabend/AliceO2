@@ -116,6 +116,35 @@ void printContent(const std::string inFile, const uint32_t mask)
 }
 
 //____________________________________________________________________________________
+void dumpContent(const std::string inFile, const size_t iTF, const uint32_t mask)
+{
+  /// print the content of the status map of the given TF with the given mask
+
+  auto [dataFile, dataReader] = loadData(inFile);
+  TTreeReaderValue<o2::mch::StatusMap> statusMap(*dataReader, "statusmaps");
+
+  if (dataReader->SetEntry(iTF) != TTreeReader::kEntryValid) {
+    LOGP(error, "invalid TF index {} (number of TFs = {})", iTF, dataReader->GetEntries());
+    exit(3);
+  }
+
+  LOGP(info, "status map content for TF {} with statusMask=0x{:x}:", iTF, mask);
+
+  for (const auto& status : *statusMap) {
+    if ((mask & status.second) != 0) {
+      auto channel = status.first;
+      if (!channel.isValid()) {
+        LOGP(error, "invalid channel with status {}", status.second);
+      } else {
+        LOGP(info, "{} status {}", asString(channel), status.second);
+      }
+    }
+  }
+
+  dataFile->Close();
+}
+
+//____________________________________________________________________________________
 BadChannelsVector statusMap2RejectList(const std::string inFile, const size_t iTF, const uint32_t mask)
 {
   /// convert the status map of the given TF into a reject list with the given mask
@@ -174,6 +203,7 @@ int main(int argc, char** argv)
   size_t iTF;
   uint32_t mask;
   bool print;
+  bool dump;
 
   auto tnow = std::chrono::system_clock::now().time_since_epoch();
   using namespace std::chrono_literals;
@@ -193,6 +223,7 @@ int main(int argc, char** argv)
       ("tf,i", po::value<size_t>(&iTF)->default_value(0), "index of the TF to process")
       ("mask,m", po::value<uint32_t>(&mask)->default_value(defaultMask), "mask to apply to the statusMap to produce the RejectList")
       ("print,p",po::bool_switch(&print),"print the content of the input file without processing it")
+      ("dump,d",po::bool_switch(&dump),"dump the raw content of the input file without processing it")
         ;
   // clang-format on
 
@@ -214,7 +245,9 @@ int main(int argc, char** argv)
     exit(1);
   }
 
-  if (print) {
+  if (dump) {
+    dumpContent(inFile, iTF, mask);
+  } else if (print) {
     printContent(inFile, mask);
   } else {
     auto bv = statusMap2RejectList(inFile, iTF, mask);

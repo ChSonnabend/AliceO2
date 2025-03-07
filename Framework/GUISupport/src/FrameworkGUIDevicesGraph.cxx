@@ -694,9 +694,17 @@ void showTopologyNodeGraph(WorkspaceGUIState& state,
     ImGui::BeginGroup(); // Lock horizontal position
     ImGui::TextUnformatted(node->Name);
     switch (info.maxLogLevel) {
+      case LogLevel::Critical:
+        ImGui::SameLine();
+        ImGui::TextColored(ERROR_MESSAGE_COLOR, "%s", ICON_FA_EXCLAMATION_CIRCLE);
+        break;
       case LogLevel::Error:
         ImGui::SameLine();
         ImGui::TextColored(ERROR_MESSAGE_COLOR, "%s", ICON_FA_EXCLAMATION_CIRCLE);
+        break;
+      case LogLevel::Alarm:
+        ImGui::SameLine();
+        ImGui::TextColored(WARNING_MESSAGE_COLOR, "%s", ICON_FA_EXCLAMATION_TRIANGLE);
         break;
       case LogLevel::Warning:
         ImGui::SameLine();

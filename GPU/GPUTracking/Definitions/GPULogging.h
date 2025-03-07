@@ -24,6 +24,7 @@
   #define GPUWarning(...)
   #define GPUAlarm(...)
   #define GPUError(...)
+  #define GPUCritical(...)
   #define GPUFatal(...)
 #elif defined(GPUCA_STANDALONE) && !defined(GPUCA_GPUCODE_DEVICE) && !defined(GPUCA_NO_FMT)
   #include <cstdio>
@@ -38,6 +39,7 @@
       fmt::fprintf(stderr, string "\n", ##__VA_ARGS__); \
     }
   #define GPUError(...) GPUWarning(__VA_ARGS__)
+  #define GPUCritical(...) GPUWarning(__VA_ARGS__)
   #define GPUAlarm(...) GPUWarning(__VA_ARGS__)
   #define GPUFatal(string, ...)                         \
     {                                                   \
@@ -64,6 +66,7 @@
       }
     #define GPUAlarm(...) GPUWarning(__VA_ARGS__)
     #define GPUError(...) GPUWarning(__VA_ARGS__)
+    #define GPUCritical(...) GPUWarning(__VA_ARGS__)
     #define GPUFatal(string, ...)                  \
       {                                            \
         fprintf(stderr, string "\n", __VA_ARGS__); \
@@ -78,6 +81,7 @@
   #define GPUWarning(...) LOGF(warning, __VA_ARGS__)
   #define GPUAlarm(...) LOGF(alarm, __VA_ARGS__)
   #define GPUError(...) LOGF(error, __VA_ARGS__)
+  #define GPUCritical(...) LOGF(critical, __VA_ARGS__)
   #define GPUFatal(...) LOGF(fatal, __VA_ARGS__)
 #endif
 

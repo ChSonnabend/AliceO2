@@ -23,6 +23,8 @@
 #include "MCHStatus/StatusMap.h"
 #include "MCHDigitFiltering/DigitFilter.h"
 #include "MCHDigitFiltering/DigitFilterParam.h"
+#include "MCHDigitFiltering/DigitModifier.h"
+#include "MCHDigitFiltering/DigitModifierParam.h"
 #include "SimulationDataFormat/MCCompLabel.h"
 #include "SimulationDataFormat/MCTruthContainer.h"
 #include <fmt/format.h>
@@ -48,6 +50,10 @@ class DigitFilteringTask
     mRejectBackground = DigitFilterParam::Instance().rejectBackground;
     mStatusMask = DigitFilterParam::Instance().statusMask;
     mTimeCalib = DigitFilterParam::Instance().timeOffset;
+
+    mUpdateDigitsST1 = DigitModifierParam::Instance().updateST1;
+    mUpdateDigitsST2 = DigitModifierParam::Instance().updateST2;
+
     auto stop = [this]() {
       LOG(info) << "digit filtering duration = "
                 << std::chrono::duration<double, std::milli>(mElapsedTime).count() << " ms";
@@ -82,6 +88,11 @@ class DigitFilteringTask
 
     auto tStart = std::chrono::high_resolution_clock::now();
 
+    const auto& tinfo = pc.services().get<o2::framework::TimingInfo>();
+    if (tinfo.runNumber != 0) {
+      mRunNumber = tinfo.runNumber;
+    }
+
     if (mSanityCheck) {
       LOGP(info, "performing sanity checks");
       auto error = sanityCheck(iRofs, iDigits);
@@ -101,8 +112,12 @@ class DigitFilteringTask
     auto oLabels = mUseMC ? &pc.outputs().make<MCTruthContainer<MCCompLabel>>(OutputRef{"labels"}) : nullptr;
 
     if (!abort) {
-      bool selectSignal = false;
 
+      mDigitModifier = createDigitModifier(mRunNumber,
+                                           mUpdateDigitsST1,
+                                           mUpdateDigitsST2);
+
+      bool selectSignal = false;
       mIsGoodDigit = createDigitFilter(mMinADC,
                                        mRejectBackground,
                                        selectSignal,
@@ -114,20 +129,29 @@ class DigitFilteringTask
       // the clustering resolution will suffer.
       // That's why we only apply the "reject background" filter, which
       // is a loose background cut that does not penalize the signal
+
       int cursor{0};
       for (const auto& irof : iRofs) {
         const auto digits = iDigits.subspan(irof.getFirstIdx(), irof.getNEntries());
 
         // filter the digits from the current ROF
         for (auto i = 0; i < digits.size(); i++) {
-          const auto& d = digits[i];
-          if (mIsGoodDigit(d)) {
-            oDigits.emplace_back(d);
+          auto digit = digits[i];
+
+          // modify the digit if needed
+          if (mDigitModifier) {
+            mDigitModifier(digit);
+          }
+
+          // check the digit quality
+          if (mIsGoodDigit(digit)) {
+            oDigits.emplace_back(digit);
             if (iLabels) {
               oLabels->addElements(oLabels->getIndexedSize(), iLabels->getLabels(i + irof.getFirstIdx()));
             }
           }
         }
+
         int nofGoodDigits = oDigits.size() - cursor;
         if (nofGoodDigits > 0) {
           // we create an ouput ROF only if at least one digit from
@@ -160,6 +184,7 @@ class DigitFilteringTask
   }
 
  private:
+  int mRunNumber{0};
   bool mRejectBackground{false};
   bool mSanityCheck{false};
   bool mUseMC{false};
@@ -167,7 +192,10 @@ class DigitFilteringTask
   int mMinADC{1};
   int32_t mTimeCalib{0};
   uint32_t mStatusMask{0};
+  bool mUpdateDigitsST1{false};
+  bool mUpdateDigitsST2{false};
   DigitFilter mIsGoodDigit;
+  DigitModifier mDigitModifier;
   std::chrono::duration<double> mElapsedTime{};
 };
 

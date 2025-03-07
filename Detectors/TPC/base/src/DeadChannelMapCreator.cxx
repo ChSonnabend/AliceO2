@@ -43,6 +43,11 @@ void DeadChannelMapCreator::loadFEEConfigViaRunInfoTS(long timeStamp)
   if (mObjectValidity[CDBType::ConfigRunInfo].isValid(timeStamp)) {
     return;
   }
+
+  const auto meta = mCCDBApi.retrieveHeaders(CDBTypeMap.at(CDBType::ConfigRunInfo), {}, timeStamp);
+  mObjectValidity[CDBType::ConfigRunInfo].startvalidity = std::stol(meta.at("Valid-From"));
+  mObjectValidity[CDBType::ConfigRunInfo].endvalidity = std::stol(meta.at("Valid-Until"));
+
   loadFEEConfig(timeStamp);
 }
 
@@ -57,9 +62,12 @@ void DeadChannelMapCreator::loadFEEConfig(long timeStamp)
 {
   std::map<std::string, std::string> meta;
   mFEEConfig.reset(mCCDBApi.retrieveFromTFileAny<o2::tpc::FEEConfig>(CDBTypeMap.at(CDBType::ConfigRunInfo), {}, timeStamp, &meta));
-  const long tag = std::stol(meta.at("Tag"));
+  std::string redirect = "not found";
+  if (meta.find("Redirect") != meta.end()) {
+    redirect = meta.at("Redirect");
+  }
   if (!mFEEConfig) {
-    LOGP(error, "Could not load {}/{}, createdNotAfter: {}", CDBTypeMap.at(CDBType::ConfigFEE), tag, timeStamp);
+    LOGP(error, "Could not load {} redirected from {} with Redirect={}, createdNotAfter: {}", CDBTypeMap.at(CDBType::ConfigFEE), CDBTypeMap.at(CDBType::ConfigRunInfo), redirect, timeStamp);
     return;
   }
   LOGP(info, "Using FEE config for Tag {}, ETag {}, Last-Modified {}", meta.at("Valid-From"), meta.at("ETag"), meta.at("Last-Modified"));

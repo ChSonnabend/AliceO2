@@ -28,9 +28,7 @@ class TNtuple;
 #include <stdexcept>
 #endif
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 #if !defined(GPUCA_NO_ROOT) && !defined(GPUCA_GPUCODE)
 namespace
@@ -172,7 +170,6 @@ class GPUROOTDump
   }
 };
 #endif
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

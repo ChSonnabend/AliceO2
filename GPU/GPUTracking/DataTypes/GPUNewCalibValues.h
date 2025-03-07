@@ -17,9 +17,7 @@
 
 #include "GPUCommonDef.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 struct GPUNewCalibValues {
@@ -33,7 +31,6 @@ struct GPUNewCalibValues {
   void updateFrom(const GPUNewCalibValues* from);
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

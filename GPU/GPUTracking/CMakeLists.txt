@@ -30,25 +30,24 @@ endif()
 
 # General sources
 set(SRCS
-    SliceTracker/GPUTPCTrack.cxx
-    SliceTracker/GPUTPCTrackParam.cxx
-    SliceTracker/GPUTPCStartHitsFinder.cxx
-    SliceTracker/GPUTPCStartHitsSorter.cxx
-    SliceTracker/GPUTPCNeighboursCleaner.cxx
-    SliceTracker/GPUTPCTracker.cxx
-    SliceTracker/GPUTPCSliceData.cxx
-    SliceTracker/GPUTPCSliceOutput.cxx
-    SliceTracker/GPUTPCTrackletConstructor.cxx
-    SliceTracker/GPUTPCSectorDebugSortKernels.cxx
-    SliceTracker/GPUTPCCreateOccupancyMap.cxx
-    SliceTracker/GPUTPCNeighboursFinder.cxx
-    SliceTracker/GPUTPCGrid.cxx
-    SliceTracker/GPUTPCTrackletSelector.cxx
-    SliceTracker/GPUTPCRow.cxx
-    SliceTracker/GPUTPCGlobalTracking.cxx
-    SliceTracker/GPUTPCCreateSliceData.cxx
+    SectorTracker/GPUTPCTrack.cxx
+    SectorTracker/GPUTPCTrackParam.cxx
+    SectorTracker/GPUTPCStartHitsFinder.cxx
+    SectorTracker/GPUTPCStartHitsSorter.cxx
+    SectorTracker/GPUTPCNeighboursCleaner.cxx
+    SectorTracker/GPUTPCTracker.cxx
+    SectorTracker/GPUTPCTrackingData.cxx
+    SectorTracker/GPUTPCSectorOutput.cxx
+    SectorTracker/GPUTPCTrackletConstructor.cxx
+    SectorTracker/GPUTPCSectorDebugSortKernels.cxx
+    SectorTracker/GPUTPCCreateOccupancyMap.cxx
+    SectorTracker/GPUTPCNeighboursFinder.cxx
+    SectorTracker/GPUTPCGrid.cxx
+    SectorTracker/GPUTPCTrackletSelector.cxx
+    SectorTracker/GPUTPCExtrapolationTracking.cxx
+    SectorTracker/GPUTPCCreateTrackingData.cxx
     Merger/GPUTPCGMMerger.cxx
-    Merger/GPUTPCGMSliceTrack.cxx
+    Merger/GPUTPCGMSectorTrack.cxx
     Merger/GPUTPCGMTrackParam.cxx
     Merger/GPUTPCGMPropagator.cxx
     Merger/GPUTPCGlobalDebugSortKernels.cxx
@@ -62,7 +61,7 @@ set(SRCS
 
 set(SRCS_DATATYPES DataTypes/GPUDataTypes.cxx DataTypes/GPUConfigDump.cxx DataTypes/GPUTPCGMPolynomialField.cxx)
 
-set(HDRS_CINT_O2 Merger/GPUTPCGMTrackParam.h Merger/GPUTPCGMMergedTrack.h Merger/GPUTPCGMSliceTrack.h Merger/GPUTPCGMBorderTrack.h TRDTracking/GPUTRDInterfaces.h)
+set(HDRS_CINT_O2 Merger/GPUTPCGMTrackParam.h Merger/GPUTPCGMMergedTrack.h Merger/GPUTPCGMSectorTrack.h Merger/GPUTPCGMBorderTrack.h TRDTracking/GPUTRDInterfaces.h)
 set(HDRS_CINT_DATATYPES DataTypes/GPUTPCGMMergedTrackHit.h)
 set(HDRS_CINT_O2_ADDITIONAL DataTypes/GPUSettings.h Definitions/GPUSettingsList.h DataTypes/GPUDataTypes.h DataTypes/GPUTRDTrack.h DataTypes/CalibdEdxTrackTopologyPol.h DataTypes/CalibdEdxTrackTopologySpline.h) # Manual dependencies for ROOT dictionary generation
 
@@ -71,6 +70,7 @@ set(SRCS_NO_CINT
     DataTypes/GPUNewCalibValues.cxx
     DataTypes/GPUTPCClusterOccupancyMap.cxx
     Base/GPUReconstruction.cxx
+    Base/GPUReconstructionProcessing.cxx
     Base/GPUReconstructionCPU.cxx
     Base/GPUProcessor.cxx
     Base/GPUMemoryResource.cxx
@@ -87,14 +87,14 @@ set(SRCS_NO_CINT
     Debug/GPUTPCClusterFilter.cxx
     utils/timer.cxx)
 
-set(SRCS_NO_H SliceTracker/GPUTPCTrackerDump.cxx
+set(SRCS_NO_H SectorTracker/GPUTPCTrackerDump.cxx
               Merger/GPUTPCGMMergerDump.cxx
               Base/GPUReconstructionLibrary.cxx
               Global/GPUChainTrackingClusterizer.cxx
               Global/GPUChainTrackingTransformation.cxx
               Global/GPUChainTrackingTRD.cxx
               Global/GPUChainTrackingRefit.cxx
-              Global/GPUChainTrackingSliceTracker.cxx
+              Global/GPUChainTrackingSectorTracker.cxx
               Global/GPUChainTrackingMerger.cxx
               Global/GPUChainTrackingCompression.cxx
               Global/GPUChainTrackingDebugAndProfiling.cxx
@@ -105,6 +105,8 @@ set(HDRS_INSTALL
     Base/GPUParam.inc
     Base/GPUParamRTC.h
     Base/GPUReconstructionIncludes.h
+    Base/GPUReconstructionThreading.h
+    Base/GPUReconstructionIO.h
     Base/GPUReconstructionIncludesITS.h
     Base/GPUReconstructionKernelMacros.h
     Base/GPUReconstructionKernels.h
@@ -136,15 +138,15 @@ set(HDRS_INSTALL
     qa/GPUQAHelper.h
     qconfigoptions.h
     Refit/GPUTrackParamConvert.h
-    SliceTracker/GPUTPCBaseTrackParam.h
-    SliceTracker/GPUTPCClusterData.h
-    SliceTracker/GPUTPCDef.h
-    SliceTracker/GPUTPCHit.h
-    SliceTracker/GPUTPCHitId.h
-    SliceTracker/GPUTPCMCInfo.h
-    SliceTracker/GPUTPCSliceOutCluster.h
-    SliceTracker/GPUTPCTracklet.h
-    SliceTracker/GPUTPCTrackLinearisation.h
+    SectorTracker/GPUTPCBaseTrackParam.h
+    SectorTracker/GPUTPCClusterData.h
+    SectorTracker/GPUTPCDef.h
+    SectorTracker/GPUTPCHit.h
+    SectorTracker/GPUTPCHitId.h
+    SectorTracker/GPUTPCMCInfo.h
+    SectorTracker/GPUTPCSectorOutCluster.h
+    SectorTracker/GPUTPCTracklet.h
+    SectorTracker/GPUTPCTrackLinearisation.h
     TPCConvert/GPUTPCConvertImpl.h
     TRDTracking/GPUTRDGeometry.h
     TRDTracking/GPUTRDInterfaces.h
@@ -297,7 +299,7 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
                                             Definitions
                                             DataTypes
                                             Base
-                                            SliceTracker
+                                            SectorTracker
                                             TPCConvert
                                             dEdx
                                             ITS
@@ -380,12 +382,7 @@ if(GPUCA_QA)
   target_compile_definitions(${targetName} PRIVATE GPUCA_BUILD_QA)
 endif()
 
-if(OpenMP_CXX_FOUND)
-  message(STATUS "GPU: Using OpenMP: ${OpenMP_CXX_SPEC_DATE}")
-  # Must be private, depending libraries might be compiled by compiler not understanding -fopenmp
-  target_compile_definitions(${targetName} PRIVATE WITH_OPENMP)
-  target_link_libraries(${targetName} PRIVATE OpenMP::OpenMP_CXX)
-endif()
+target_link_libraries(${targetName} PRIVATE TBB::tbb)
 
 target_compile_options(${targetName} PRIVATE -Wno-instantiation-after-specialization)
 

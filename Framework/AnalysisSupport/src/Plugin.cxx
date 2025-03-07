@@ -85,20 +85,48 @@ std::vector<std::string> getListOfTables(std::unique_ptr<TFile>& f)
 {
   std::vector<std::string> r;
   TList* keyList = f->GetListOfKeys();
+  // We should handle two cases, one where the list of tables in a  TDirectory,
+  // the other one where the dataframe number is just a prefix
+  std::string first = "";
 
   for (auto key : *keyList) {
-    if (!std::string_view(key->GetName()).starts_with("DF_")) {
+    if (!std::string_view(key->GetName()).starts_with("DF_") && !std::string_view(key->GetName()).starts_with("/DF_")) {
       continue;
     }
-    auto* d = (TDirectory*)f->Get(key->GetName());
-    TList* branchList = d->GetListOfKeys();
-    for (auto b : *branchList) {
-      r.emplace_back(b->GetName());
+    auto* d = (TDirectory*)f->GetObjectChecked(key->GetName(), TClass::GetClass("TDirectory"));
+    // Objects are in a folder, list it.
+    if (d) {
+      TList* branchList = d->GetListOfKeys();
+      for (auto b : *branchList) {
+        r.emplace_back(b->GetName());
+      }
+      break;
     }
-    break;
+
+    void* v = f->GetObjectChecked(key->GetName(), TClass::GetClass("ROOT::Experimental::RNTuple"));
+    if (v) {
+      std::string s = key->GetName();
+      size_t pos = s.find('-');
+      // Check if '-' is found
+      // Skip metaData and parentFiles
+      if (pos == std::string::npos) {
+        continue;
+      }
+      std::string t = s.substr(pos + 1);
+      // If we find a duplicate table name, it means we are in the next DF and we can stop.
+      if (t == first) {
+        break;
+      }
+      if (first.empty()) {
+        first = t;
+      }
+      // Create a new string starting after the '-'
+      r.emplace_back(t);
+    }
   }
   return r;
 }
+
 auto readMetadata(std::unique_ptr<TFile>& currentFile) -> std::vector<ConfigParamSpec>
 {
   // Get the metadata, if any

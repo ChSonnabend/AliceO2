@@ -7,5 +7,5 @@ alienv load O2/latest
 
 o2-sim -n 1
 
-export ROOT_INCLUDE_PATH=$ROOT_INCLUDE_PATH:/home/qon/alice/GPU/Common/:/home/qon/alice/GPU/GPUTracking/Base:/home/qon/alice/GPU/GPUTracking/SliceTracker:/home/qon/alice/GPU/GPUTracking/Merger:/home/qon/alice/GPU/GPUTracking/TRDTracking
+export ROOT_INCLUDE_PATH=$ROOT_INCLUDE_PATH:/home/qon/alice/GPU/Common/:/home/qon/alice/GPU/GPUTracking/Base:/home/qon/alice/GPU/GPUTracking/SectorTracker:/home/qon/alice/GPU/GPUTracking/Merger:/home/qon/alice/GPU/GPUTracking/TRDTracking
 root -l -q -b createGeo.C+

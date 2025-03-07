@@ -12,14 +12,15 @@
 /// \file GPUDisplayBackendVulkan.cxx
 /// \author David Rohr
 
+#define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #include <vulkan/vulkan.hpp>
-#include <mutex>
-
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 #include "GPUCommonDef.h"
 #include "GPUDisplayBackendVulkan.h"
 #include "GPUDisplay.h"
+
+#include <mutex>
 
 using namespace o2::gpu;
 
@@ -337,6 +338,7 @@ double GPUDisplayBackendVulkan::checkDevice(vk::PhysicalDevice device, const std
 
 void GPUDisplayBackendVulkan::createDevice()
 {
+  VULKAN_HPP_DEFAULT_DISPATCHER.init();
   vk::ApplicationInfo appInfo{};
   appInfo.pApplicationName = "GPU CA Standalone display";
   appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -353,28 +355,28 @@ void GPUDisplayBackendVulkan::createDevice()
 
   const std::vector<const char*> reqValidationLayers = {
     "VK_LAYER_KHRONOS_validation"};
-  auto debugCallback = [](VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) -> VkBool32 {
+  auto debugCallback = [](vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageType, const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) -> VkBool32 {
     static int32_t throwOnError = getenv("GPUCA_VULKAN_VALIDATION_THROW") ? atoi(getenv("GPUCA_VULKAN_VALIDATION_THROW")) : 0;
     static bool showVulkanValidationInfo = getenv("GPUCA_VULKAN_VALIDATION_INFO") && atoi(getenv("GPUCA_VULKAN_VALIDATION_INFO"));
     switch (messageSeverity) {
-      case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+      case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose:
         if (showVulkanValidationInfo) {
           GPUInfo("%s", pCallbackData->pMessage);
         }
         break;
-      case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+      case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning:
         GPUWarning("%s", pCallbackData->pMessage);
         if (throwOnError > 1) {
           throw std::logic_error("break_on_validation_warning");
         }
         break;
-      case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+      case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError:
         GPUError("%s", pCallbackData->pMessage);
         if (throwOnError) {
           throw std::logic_error("break_on_validation_error");
         }
         break;
-      case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+      case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo:
       default:
         GPUInfo("%s", pCallbackData->pMessage);
         break;
@@ -403,10 +405,11 @@ void GPUDisplayBackendVulkan::createDevice()
   instanceCreateInfo.ppEnabledExtensionNames = reqInstanceExtensions.data();
 
   mInstance = vk::createInstance(instanceCreateInfo, nullptr);
-  mDLD = {mInstance, mDL.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr")};
+  VULKAN_HPP_DEFAULT_DISPATCHER.init(mInstance);
 
   if (mEnableValidationLayers) {
-    mDebugMessenger = mInstance.createDebugUtilsMessengerEXT(debugCreateInfo, nullptr, mDLD);
+    GPUInfo("Enabling Vulkan Validation Layers");
+    mDebugMessenger = mInstance.createDebugUtilsMessengerEXT(debugCreateInfo, nullptr);
   }
   std::vector<vk::ExtensionProperties> extensions = vk::enumerateInstanceExtensionProperties(nullptr);
   if (mDisplay->param()->par.debugLevel >= 3) {
@@ -480,6 +483,7 @@ void GPUDisplayBackendVulkan::createDevice()
   deviceCreateInfo.enabledLayerCount = instanceCreateInfo.enabledLayerCount;
   deviceCreateInfo.ppEnabledLayerNames = instanceCreateInfo.ppEnabledLayerNames;
   mDevice = mPhysicalDevice.createDevice(deviceCreateInfo, nullptr);
+  VULKAN_HPP_DEFAULT_DISPATCHER.init(mDevice);
   mGraphicsQueue = mDevice.getQueue(mGraphicsFamily, 0);
 
   vk::CommandPoolCreateInfo poolInfo{};
@@ -494,7 +498,7 @@ void GPUDisplayBackendVulkan::clearDevice()
   mDevice.destroy(nullptr);
   mInstance.destroySurfaceKHR(mSurface, nullptr);
   if (mEnableValidationLayers) {
-    mInstance.destroyDebugUtilsMessengerEXT(mDebugMessenger, nullptr, mDLD);
+    mInstance.destroyDebugUtilsMessengerEXT(mDebugMessenger, nullptr);
   }
 }
 
@@ -1465,7 +1469,7 @@ uint32_t GPUDisplayBackendVulkan::drawVertices(const vboList& v, const drawType 
 {
   auto first = std::get<0>(v);
   auto count = std::get<1>(v);
-  auto iSlice = std::get<2>(v);
+  auto iSector = std::get<2>(v);
   if (count == 0) {
     return 0;
   }
@@ -1478,10 +1482,10 @@ uint32_t GPUDisplayBackendVulkan::drawVertices(const vboList& v, const drawType 
     mCurrentCommandBufferLastPipeline = tt;
   }
   if (mDisplay->cfgR().useGLIndirectDraw) {
-    mCurrentCommandBuffer.drawIndirect(mIndirectCommandBuffer.buffer, (mIndirectSliceOffset[iSlice] + first) * sizeof(DrawArraysIndirectCommand), count, sizeof(DrawArraysIndirectCommand));
+    mCurrentCommandBuffer.drawIndirect(mIndirectCommandBuffer.buffer, (mIndirectSectorOffset[iSector] + first) * sizeof(DrawArraysIndirectCommand), count, sizeof(DrawArraysIndirectCommand));
   } else {
     for (uint32_t k = 0; k < count; k++) {
-      mCurrentCommandBuffer.draw(mDisplay->vertexBufferCount()[iSlice][first + k], 1, mDisplay->vertexBufferStart()[iSlice][first + k], 0);
+      mCurrentCommandBuffer.draw(mDisplay->vertexBufferCount()[iSector][first + k], 1, mDisplay->vertexBufferStart()[iSector][first + k], 0);
     }
   }
 

@@ -72,23 +72,23 @@ int32_t GPUReconstructionTimeframe::ReadEventShifted(int32_t iEvent, float shift
   mReadEvent(iEvent);
   if (config.overlayRaw) {
     float shiftTTotal = (((double)config.timeFrameLen - DRIFT_TIME) * ((double)TPCZ / (double)DRIFT_TIME) - shiftZ) / mChain->GetTPCTransformHelper()->getCorrMap()->getVDrift();
-    for (uint32_t iSlice = 0; iSlice < NSLICES; iSlice++) {
-      for (uint32_t j = 0; j < mChain->mIOPtrs.nRawClusters[iSlice]; j++) {
-        auto& tmp = mChain->mIOMem.rawClusters[iSlice][j];
+    for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
+      for (uint32_t j = 0; j < mChain->mIOPtrs.nRawClusters[iSector]; j++) {
+        auto& tmp = mChain->mIOMem.rawClusters[iSector][j];
         tmp.fTime += shiftTTotal;
       }
     }
   }
   if (shiftZ != 0.f) {
-    for (uint32_t iSlice = 0; iSlice < NSLICES; iSlice++) {
-      for (uint32_t j = 0; j < mChain->mIOPtrs.nClusterData[iSlice]; j++) {
-        auto& tmp = mChain->mIOMem.clusterData[iSlice][j];
-        tmp.z += iSlice < NSLICES / 2 ? shiftZ : -shiftZ;
+    for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
+      for (uint32_t j = 0; j < mChain->mIOPtrs.nClusterData[iSector]; j++) {
+        auto& tmp = mChain->mIOMem.clusterData[iSector][j];
+        tmp.z += iSector < NSECTORS / 2 ? shiftZ : -shiftZ;
       }
     }
     for (uint32_t i = 0; i < mChain->mIOPtrs.nMCInfosTPC; i++) {
       auto& tmp = mChain->mIOMem.mcInfosTPC[i];
-      tmp.z += i < NSLICES / 2 ? shiftZ : -shiftZ;
+      tmp.z += i < NSECTORS / 2 ? shiftZ : -shiftZ;
     }
   }
 
@@ -97,40 +97,40 @@ int32_t GPUReconstructionTimeframe::ReadEventShifted(int32_t iEvent, float shift
   uint32_t removed = 0;
   if (minZ > -1e6 || maxZ > -1e6) {
     uint32_t currentClusterTotal = 0;
-    for (uint32_t iSlice = 0; iSlice < NSLICES; iSlice++) {
-      uint32_t currentClusterSlice = 0;
-      bool doRaw = config.overlayRaw && mChain->mIOPtrs.nClusterData[iSlice] == mChain->mIOPtrs.nRawClusters[iSlice];
-      for (uint32_t i = 0; i < mChain->mIOPtrs.nClusterData[iSlice]; i++) {
-        float sign = iSlice < NSLICES / 2 ? 1 : -1;
-        if (sign * mChain->mIOMem.clusterData[iSlice][i].z >= minZ && sign * mChain->mIOMem.clusterData[iSlice][i].z <= maxZ) {
-          if (currentClusterSlice != i) {
-            mChain->mIOMem.clusterData[iSlice][currentClusterSlice] = mChain->mIOMem.clusterData[iSlice][i];
+    for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
+      uint32_t currentClusterSector = 0;
+      bool doRaw = config.overlayRaw && mChain->mIOPtrs.nClusterData[iSector] == mChain->mIOPtrs.nRawClusters[iSector];
+      for (uint32_t i = 0; i < mChain->mIOPtrs.nClusterData[iSector]; i++) {
+        float sign = iSector < NSECTORS / 2 ? 1 : -1;
+        if (sign * mChain->mIOMem.clusterData[iSector][i].z >= minZ && sign * mChain->mIOMem.clusterData[iSector][i].z <= maxZ) {
+          if (currentClusterSector != i) {
+            mChain->mIOMem.clusterData[iSector][currentClusterSector] = mChain->mIOMem.clusterData[iSector][i];
             if (doRaw) {
-              mChain->mIOMem.rawClusters[iSlice][currentClusterSlice] = mChain->mIOMem.rawClusters[iSlice][i];
+              mChain->mIOMem.rawClusters[iSector][currentClusterSector] = mChain->mIOMem.rawClusters[iSector][i];
             }
           }
           if (mChain->mIOPtrs.nMCLabelsTPC > currentClusterTotal && nClusters != currentClusterTotal) {
             mChain->mIOMem.mcLabelsTPC[nClusters] = mChain->mIOMem.mcLabelsTPC[currentClusterTotal];
           }
-          // GPUInfo("Keeping Cluster ID %d (ID in slice %d) Z=%f (sector %d) --> %d (slice %d)", currentClusterTotal, i, mChain->mIOMem.clusterData[iSlice][i].fZ, iSlice, nClusters, currentClusterSlice);
-          currentClusterSlice++;
+          // GPUInfo("Keeping Cluster ID %d (ID in sector %d) Z=%f (sector %d) --> %d (sector %d)", currentClusterTotal, i, mChain->mIOMem.clusterData[iSector][i].fZ, iSector, nClusters, currentClusterSector);
+          currentClusterSector++;
           nClusters++;
         } else {
-          // GPUInfo("Removing Cluster ID %d (ID in slice %d) Z=%f (sector %d)", currentClusterTotal, i, mChain->mIOMem.clusterData[iSlice][i].fZ, iSlice);
+          // GPUInfo("Removing Cluster ID %d (ID in sector %d) Z=%f (sector %d)", currentClusterTotal, i, mChain->mIOMem.clusterData[iSector][i].fZ, iSector);
           removed++;
         }
         currentClusterTotal++;
       }
-      mChain->mIOPtrs.nClusterData[iSlice] = currentClusterSlice;
+      mChain->mIOPtrs.nClusterData[iSector] = currentClusterSector;
       if (doRaw) {
-        mChain->mIOPtrs.nRawClusters[iSlice] = currentClusterSlice;
+        mChain->mIOPtrs.nRawClusters[iSector] = currentClusterSector;
       }
     }
     if (mChain->mIOPtrs.nMCLabelsTPC) {
       mChain->mIOPtrs.nMCLabelsTPC = nClusters;
     }
   } else {
-    for (uint32_t i = 0; i < NSLICES; i++) {
+    for (uint32_t i = 0; i < NSECTORS; i++) {
       nClusters += mChain->mIOPtrs.nClusterData[i];
     }
   }
@@ -151,7 +151,7 @@ void GPUReconstructionTimeframe::MergeShiftedEvents()
   mChain->ClearIOPointers();
   for (uint32_t i = 0; i < mShiftedEvents.size(); i++) {
     auto& ptr = std::get<0>(mShiftedEvents[i]);
-    for (uint32_t j = 0; j < NSLICES; j++) {
+    for (uint32_t j = 0; j < NSECTORS; j++) {
       mChain->mIOPtrs.nClusterData[j] += ptr.nClusterData[j];
       if (config.overlayRaw) {
         mChain->mIOPtrs.nRawClusters[j] += ptr.nRawClusters[j];
@@ -164,9 +164,9 @@ void GPUReconstructionTimeframe::MergeShiftedEvents()
   }
   uint32_t nClustersTotal = 0;
   uint32_t nClustersTotalRaw = 0;
-  uint32_t nClustersSliceOffset[NSLICES] = {0};
-  for (uint32_t i = 0; i < NSLICES; i++) {
-    nClustersSliceOffset[i] = nClustersTotal;
+  uint32_t nClustersSectorOffset[NSECTORS] = {0};
+  for (uint32_t i = 0; i < NSECTORS; i++) {
+    nClustersSectorOffset[i] = nClustersTotal;
     nClustersTotal += mChain->mIOPtrs.nClusterData[i];
     nClustersTotalRaw += mChain->mIOPtrs.nRawClusters[i];
   }
@@ -183,23 +183,23 @@ void GPUReconstructionTimeframe::MergeShiftedEvents()
 
   uint32_t nTrackOffset = 0;
   uint32_t nColOffset = 0;
-  uint32_t nClustersEventOffset[NSLICES] = {0};
+  uint32_t nClustersEventOffset[NSECTORS] = {0};
   for (uint32_t i = 0; i < mShiftedEvents.size(); i++) {
     auto& ptr = std::get<0>(mShiftedEvents[i]);
     uint32_t inEventOffset = 0;
-    for (uint32_t j = 0; j < NSLICES; j++) {
+    for (uint32_t j = 0; j < NSECTORS; j++) {
       memcpy((void*)&mChain->mIOMem.clusterData[j][nClustersEventOffset[j]], (void*)ptr.clusterData[j], ptr.nClusterData[j] * sizeof(ptr.clusterData[j][0]));
       if (nClustersTotalRaw) {
         memcpy((void*)&mChain->mIOMem.rawClusters[j][nClustersEventOffset[j]], (void*)ptr.rawClusters[j], ptr.nRawClusters[j] * sizeof(ptr.rawClusters[j][0]));
       }
       if (mChain->mIOPtrs.nMCLabelsTPC) {
-        memcpy((void*)&mChain->mIOMem.mcLabelsTPC[nClustersSliceOffset[j] + nClustersEventOffset[j]], (void*)&ptr.mcLabelsTPC[inEventOffset], ptr.nClusterData[j] * sizeof(ptr.mcLabelsTPC[0]));
+        memcpy((void*)&mChain->mIOMem.mcLabelsTPC[nClustersSectorOffset[j] + nClustersEventOffset[j]], (void*)&ptr.mcLabelsTPC[inEventOffset], ptr.nClusterData[j] * sizeof(ptr.mcLabelsTPC[0]));
       }
       for (uint32_t k = 0; k < ptr.nClusterData[j]; k++) {
-        mChain->mIOMem.clusterData[j][nClustersEventOffset[j] + k].id = nClustersSliceOffset[j] + nClustersEventOffset[j] + k;
+        mChain->mIOMem.clusterData[j][nClustersEventOffset[j] + k].id = nClustersSectorOffset[j] + nClustersEventOffset[j] + k;
         if (mChain->mIOPtrs.nMCLabelsTPC) {
           for (int32_t l = 0; l < 3; l++) {
-            auto& label = mChain->mIOMem.mcLabelsTPC[nClustersSliceOffset[j] + nClustersEventOffset[j] + k].fClusterID[l];
+            auto& label = mChain->mIOMem.mcLabelsTPC[nClustersSectorOffset[j] + nClustersEventOffset[j] + k].fClusterID[l];
             if (label.fMCID >= 0) {
               label.fMCID += nTrackOffset;
             }
@@ -364,9 +364,9 @@ int32_t GPUReconstructionTimeframe::LoadMergedEvents(int32_t iEvent)
 void GPUReconstructionTimeframe::SetDisplayInformation(int32_t iCol)
 {
   if (mChain->GetEventDisplay()) {
-    for (uint32_t sl = 0; sl < NSLICES; sl++) {
+    for (uint32_t sl = 0; sl < NSECTORS; sl++) {
       mChain->GetEventDisplay()->SetCollisionFirstCluster(iCol, sl, mChain->mIOPtrs.nClusterData[sl]);
     }
-    mChain->GetEventDisplay()->SetCollisionFirstCluster(iCol, NSLICES, mChain->mIOPtrs.nMCInfosTPC);
+    mChain->GetEventDisplay()->SetCollisionFirstCluster(iCol, NSECTORS, mChain->mIOPtrs.nMCInfosTPC);
   }
 }

@@ -334,7 +334,8 @@ void TrackInterpolation::process()
       extrapolateTrack(iSeed);
     }
   }
-  LOG(info) << "Could process " << mTrackData.size() << " tracks successfully";
+  LOG(info) << "Could process " << mTrackData.size() << " tracks successfully. " << mRejectedResiduals << " residuals were rejected. " << mClRes.size() << " residuals were accepted.";
+  mRejectedResiduals = 0;
 }
 
 void TrackInterpolation::interpolateTrack(int iSeed)
@@ -404,7 +405,7 @@ void TrackInterpolation::interpolateTrack(int iSeed)
     mCache[iRow].szy[ExtOut] = trkWork.getSigmaZY();
     mCache[iRow].sz2[ExtOut] = trkWork.getSigmaZ2();
     mCache[iRow].snp[ExtOut] = trkWork.getSnp();
-    //printf("Track alpha at row %i: %.2f, Y(%.2f), Z(%.2f)\n", iRow, trkWork.getAlpha(), trkWork.getY(), trkWork.getZ());
+    // printf("Track alpha at row %i: %.2f, Y(%.2f), Z(%.2f)\n", iRow, trkWork.getAlpha(), trkWork.getY(), trkWork.getZ());
   }
 
   // start from outermost cluster with outer refit and back propagation
@@ -431,7 +432,7 @@ void TrackInterpolation::interpolateTrack(int iSeed)
     // TODO: check if reset of covariance matrix is needed here (or, in case TOF point is not available at outermost TRD layer)
     if (!trkWork.update(clTOFYZ, clTOFCov)) {
       LOG(debug) << "Failed to update extrapolated ITS track with TOF cluster";
-      //LOGF(info, "trkWork.y=%f, cl.y=%f, trkWork.z=%f, cl.z=%f", trkWork.getY(), clTOFYZ[0], trkWork.getZ(), clTOFYZ[1]);
+      // LOGF(info, "trkWork.y=%f, cl.y=%f, trkWork.z=%f, cl.z=%f", trkWork.getY(), clTOFYZ[0], trkWork.getZ(), clTOFYZ[1]);
       return;
     }
   }
@@ -509,7 +510,7 @@ void TrackInterpolation::interpolateTrack(int iSeed)
     }
     if (!propagator->PropagateToXBxByBz(trkWork, param::RowX[iRow], mParams->maxSnp, mParams->maxStep, mMatCorr)) {
       LOG(debug) << "Failed on back propagation";
-      //printf("trkX(%.2f), clX(%.2f), clY(%.2f), clZ(%.2f), alphaTOF(%.2f)\n", trkWork.getX(), param::RowX[iRow], clTOFYZ[0], clTOFYZ[1], clTOFAlpha);
+      // printf("trkX(%.2f), clX(%.2f), clY(%.2f), clZ(%.2f), alphaTOF(%.2f)\n", trkWork.getX(), param::RowX[iRow], clTOFYZ[0], clTOFYZ[1], clTOFAlpha);
       return;
     }
     mCache[iRow].y[ExtIn] = trkWork.getY();
@@ -535,15 +536,14 @@ void TrackInterpolation::interpolateTrack(int iSeed)
     // simple average w/o weighting for angle
     mCache[iRow].snp[Int] = (mCache[iRow].snp[ExtOut] + mCache[iRow].snp[ExtIn]) / 2.f;
 
-    TPCClusterResiduals res;
-    res.setDY(mCache[iRow].clY - mCache[iRow].y[Int]);
-    res.setDZ(mCache[iRow].clZ - mCache[iRow].z[Int]);
-    res.setY(mCache[iRow].y[Int]);
-    res.setZ(mCache[iRow].z[Int]);
-    res.setSnp(mCache[iRow].snp[Int]);
-    res.sec = mCache[iRow].clSec;
-    res.dRow = deltaRow;
-    clusterResiduals.push_back(std::move(res));
+    const auto dY = mCache[iRow].clY - mCache[iRow].y[Int];
+    const auto dZ = mCache[iRow].clZ - mCache[iRow].z[Int];
+    const auto y = mCache[iRow].y[Int];
+    const auto z = mCache[iRow].z[Int];
+    const auto snp = mCache[iRow].snp[Int];
+    const auto sec = mCache[iRow].clSec;
+    clusterResiduals.emplace_back(dY, dZ, y, z, snp, sec, deltaRow);
+
     deltaRow = 1;
   }
   trackData.chi2TRD = gidTable[GTrackID::TRD].isIndexSet() ? mRecoCont->getITSTPCTRDTrack<o2::trd::TrackTRD>(gidTable[GTrackID::ITSTPCTRD]).getChi2() : 0;
@@ -567,8 +567,17 @@ void TrackInterpolation::interpolateTrack(int iSeed)
         continue;
       }
       ++nClValidated;
-      float tgPhi = clusterResiduals[iCl].snp / std::sqrt((1.f - clusterResiduals[iCl].snp) * (1.f + clusterResiduals[iCl].snp));
-      mClRes.emplace_back(clusterResiduals[iCl].dy, clusterResiduals[iCl].dz, tgPhi, clusterResiduals[iCl].y, clusterResiduals[iCl].z, iRow, clusterResiduals[iCl].sec);
+      const float tgPhi = clusterResiduals[iCl].snp / std::sqrt((1.f - clusterResiduals[iCl].snp) * (1.f + clusterResiduals[iCl].snp));
+      const auto dy = clusterResiduals[iCl].dy;
+      const auto dz = clusterResiduals[iCl].dz;
+      const auto y = clusterResiduals[iCl].y;
+      const auto z = clusterResiduals[iCl].z;
+      const auto sec = clusterResiduals[iCl].sec;
+      if ((std::abs(dy) < param::MaxResid) && (std::abs(dz) < param::MaxResid) && (std::abs(y) < param::MaxY) && (std::abs(z) < param::MaxZ) && (std::abs(tgPhi) < param::MaxTgSlp)) {
+        mClRes.emplace_back(dy, dz, tgPhi, y, z, iRow, sec);
+      } else {
+        ++mRejectedResiduals;
+      }
     }
     trackData.clIdx.setEntries(nClValidated);
     mTrackData.push_back(std::move(trackData));
@@ -645,16 +654,17 @@ void TrackInterpolation::extrapolateTrack(int iSeed)
     if (!propagator->PropagateToXBxByBz(trkWork, x, mParams->maxSnp, mParams->maxStep, mMatCorr)) {
       return;
     }
-    TPCClusterResiduals res;
-    res.setDY(y - trkWork.getY());
-    res.setDZ(z - trkWork.getZ());
-    res.setY(trkWork.getY());
-    res.setZ(trkWork.getZ());
-    res.setSnp(trkWork.getSnp());
-    res.sec = sector;
-    res.dRow = row - rowPrev;
+
+    const auto dY = y - trkWork.getY();
+    const auto dZ = z - trkWork.getZ();
+    const auto ty = trkWork.getY();
+    const auto tz = trkWork.getZ();
+    const auto snp = trkWork.getSnp();
+    const auto sec = sector;
+
+    clusterResiduals.emplace_back(dY, dZ, ty, tz, snp, sec, row - rowPrev);
+
     rowPrev = row;
-    clusterResiduals.push_back(std::move(res));
     ++nMeasurements;
   }
   trackData.chi2TPC = trkTPC.getChi2();
@@ -683,8 +693,17 @@ void TrackInterpolation::extrapolateTrack(int iSeed)
         continue;
       }
       ++nClValidated;
-      float tgPhi = clusterResiduals[iCl].snp / std::sqrt((1.f - clusterResiduals[iCl].snp) * (1.f + clusterResiduals[iCl].snp));
-      mClRes.emplace_back(clusterResiduals[iCl].dy, clusterResiduals[iCl].dz, tgPhi, clusterResiduals[iCl].y, clusterResiduals[iCl].z, iRow, clusterResiduals[iCl].sec);
+      const float tgPhi = clusterResiduals[iCl].snp / std::sqrt((1.f - clusterResiduals[iCl].snp) * (1.f + clusterResiduals[iCl].snp));
+      const auto dy = clusterResiduals[iCl].dy;
+      const auto dz = clusterResiduals[iCl].dz;
+      const auto y = clusterResiduals[iCl].y;
+      const auto z = clusterResiduals[iCl].z;
+      const auto sec = clusterResiduals[iCl].sec;
+      if ((std::abs(dy) < param::MaxResid) && (std::abs(dz) < param::MaxResid) && (std::abs(y) < param::MaxY) && (std::abs(z) < param::MaxZ) && (std::abs(tgPhi) < param::MaxTgSlp)) {
+        mClRes.emplace_back(dy, dz, tgPhi, y, z, iRow, sec);
+      } else {
+        ++mRejectedResiduals;
+      }
     }
     trackData.clIdx.setEntries(nClValidated);
     mTrackData.push_back(std::move(trackData));

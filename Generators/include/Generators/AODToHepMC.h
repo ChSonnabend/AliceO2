@@ -257,25 +257,20 @@ struct AODToHepMC {
    * framework::OptionManager<AODToHepMC> that propagates the options
    * to the program.
    */
-  struct : framework::ConfigurableGroup {
+  struct {
     /** Option for dumping HepMC event structures to disk.  Takes one
      * argument - the name of the file to write to. */
-    framework::Configurable<std::string> dump{"hepmc-dump", "",
-                                              "Dump HepMC event to output"};
+    std::string dump{""};
     /** Option for only storing particles from the event generator.
      * Note, if a particle is stored down, then its mothers will also
      * be stored. */
-    framework::Configurable<bool> onlyGen{"hepmc-only-generated", false,
-                                          "Only export generated"};
+    bool onlyGen{false};
     /** Use HepMC's tree parsing for building event structure */
-    framework::Configurable<bool> useTree{"hepmc-use-tree", false,
-                                          "Export as tree"};
+    bool useTree{false};
     /** Floating point precision used when writing to disk */
-    framework::Configurable<int> precision{"hepmc-precision", 8,
-                                           "Export precision in dump"};
+    int precision{8};
     /** Recenter event at IP=(0,0,0,0). */
-    framework::Configurable<bool> recenter{"hepmc-recenter", false,
-                                           "Recenter the events at (0,0,0,0)"};
+    bool recenter{false};
   } configs;
   /**
    * @{
@@ -585,99 +580,27 @@ struct AODToHepMC {
 
 namespace framework
 {
-/**
- * This specialisation of o2::framework::OutputManager ensures that
- * we can call the post-processing routine of o2::eventgen::AODToHepMC
- * and thus ensure that the possible HepMC is written to disk.
- *
- * The O2 framework (via o2::framework::adoptAnalysisTask<T>) inspects
- * the members of the passed class (@c T) and creates
- * o2::framework::OutputManager callbacks for every member.  The
- * default template for this does nothing.
- *
- * Thus, to delegate a call to a member of the analysis task (of class
- * @c T), we can specialise the @c o2::framework::OutputManager
- * template on the @e member type.  We will then effectively have
- * call-backs for
- *
- * - @c appendOutput - when the task is constructed
- * - @c prepare - when a new set of data is recieved
- * - @c finalize - when a set of data has been processed
- * - @c postRun - when the run is over
- *
- * Concretely, we use the @c postRun to flush the HepMC data file
- * to disk.
- *
- * For this to work, the AODToHepMC object must be a member of the
- * "Task" class, e.g.,
- *
- * @code
- * struct Task {
- *   o2::eventgen::AODToHepMC mConverter;
- *   ...
- * };
- *
- * WorkflowSpec defineDataProcessing(ConfigContext const& cfg) {
- *   return WorkflowSpec{adaptAnalysisTask<Task>(cfg)};
- * }
- * @endcode
- */
-template <>
-struct OutputManager<eventgen::AODToHepMC> {
-  /** Type of the target */
-  using Target = eventgen::AODToHepMC;
-  /** Called when task is constructed */
-  static bool appendOutput(std::vector<OutputSpec>&, Target&, uint32_t) { return true; }
-  /** Called when new data is received */
-  static bool prepare(ProcessingContext&, Target&) { return true; }
-  /** Called when all data has been received */
-  static bool postRun(EndOfStreamContext&, Target& t) { return t.postRun(); }
-  /** Called when the job finishes */
-  static bool finalize(ProcessingContext&, Target& t) { return true; }
-};
-
-/**
- * Spacialisation to pull in configurables from the converter.
- *
- * Ideally, the converter should simply derive from ConfigurableGroup
- * and all should flow automatically, but that doesn't work for some
- * reason.
- *
- * For this to work, the AODToHepMC object must be a member of the
- * "Task" class, e.g.,
- *
- * @code
- * struct Task {
- *   o2::eventgen::AODToHepMC mConverter;
- *   ...
- * };
- *
- * WorkflowSpec defineDataProcessing(ConfigContext const& cfg) {
- *   return WorkflowSpec{adaptAnalysisTask<Task>(cfg)};
- * }
- * @endcode
- */
-template <>
-struct OptionManager<eventgen::AODToHepMC> {
-  /** type of the target */
-  using Target = eventgen::AODToHepMC;
-  /** Called when the task is constructed */
-  static bool
-    appendOption(std::vector<o2::framework::ConfigParamSpec>& options,
-                 Target& target)
+struct AODToHepMCPostRun {
+  static AODToHepMCPostRun& instance()
   {
-    OptionManager<ConfigurableGroup>::appendOption(options, target.configs);
-    return true;
+    static AODToHepMCPostRun inst{};
+    return inst;
   }
-  /** Called when options are processed */
-  static bool
-    prepare(o2::framework::InitContext& ic, Target& target)
-  {
-    OptionManager<ConfigurableGroup>::prepare(ic, target.configs);
-    return true;
-  }
-};
 
+  AODToHepMCPostRun(eventgen::AODToHepMC* ptr_ = nullptr)
+    : ptr{ptr_}
+  {
+  }
+
+  void endOfStream()
+  {
+    if (ptr != nullptr) {
+      ptr->postRun();
+    }
+  }
+
+  eventgen::AODToHepMC* ptr = nullptr;
+};
 } // namespace framework
 } // namespace o2
 

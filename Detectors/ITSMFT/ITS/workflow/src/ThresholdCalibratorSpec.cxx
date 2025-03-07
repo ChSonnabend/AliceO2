@@ -371,8 +371,10 @@ void ITSThresholdCalibrator::initThresholdTree(bool recreate /*=true*/)
   mThresholdTree = new TTree("ITS_calib_tree", "ITS_calib_tree");
   mThresholdTree->Branch("chipid", &vChipid, "vChipID[1024]/S");
   mThresholdTree->Branch("row", &vRow, "vRow[1024]/S");
-  if (mScanType == 'T') {
-    mThresholdTree->Branch("thr", &vThreshold, "vThreshold[1024]/S");
+  if (mScanType == 'T' || mScanType == 'V' || mScanType == 'I') {
+    std::string bName = mScanType == 'T' ? "thr" : mScanType == 'V' ? "vcasn"
+                                                                    : "ithr";
+    mThresholdTree->Branch(bName.c_str(), &vThreshold, "vThreshold[1024]/S");
     mThresholdTree->Branch("noise", &vNoise, "vNoise[1024]/F");
     mThresholdTree->Branch("spoints", &vPoints, "vPoints[1024]/b");
     mThresholdTree->Branch("success", &vSuccess, "vSuccess[1024]/O");
@@ -384,7 +386,7 @@ void ITSThresholdCalibrator::initThresholdTree(bool recreate /*=true*/)
   } else if (mScanType == 'P') {
     mThresholdTree->Branch("n_hits", &vThreshold, "vThreshold[1024]/S");
     mThresholdTree->Branch("strobedel", &vMixData, "vMixData[1024]/S");
-  } else if (mScanType == 'p') {
+  } else if (mScanType == 'p' || mScanType == 't') {
     mThresholdTree->Branch("n_hits", &vThreshold, "vThreshold[1024]/S");
     mThresholdTree->Branch("strobedel", &vMixData, "vMixData[1024]/S");
     mThresholdTree->Branch("charge", &vCharge, "vCharge[1024]/b");
@@ -675,7 +677,7 @@ void ITSThresholdCalibrator::extractThresholdRow(const short int& chipID, const 
         this->mDeadPixID[chipID].push_back(col_i * 1000 + row);
       }
     }
-  } else if (this->mScanType == 'P' || this->mScanType == 'p' || mScanType == 'R') {
+  } else if (this->mScanType == 'P' || this->mScanType == 'p' || mScanType == 'R' || mScanType == 't') {
     // Loop over all columns (pixels) in the row
     for (short int var1_i = 0; var1_i < this->N_RANGE; var1_i++) {
       for (short int chg_i = 0; chg_i < this->N_RANGE2; chg_i++) {
@@ -742,7 +744,7 @@ void ITSThresholdCalibrator::extractThresholdRow(const short int& chipID, const 
       mSlopeTree->Fill();
     }
 
-  } else { // threshold, vcasn, ithr
+  } else { // threshold, vcasn, ithr, vresetd_2d
 
     short int iRU = getRUID(chipID);
 #ifdef WITH_OPENMP
@@ -779,11 +781,11 @@ void ITSThresholdCalibrator::extractThresholdRow(const short int& chipID, const 
     }
 
     // Fill the ScTree tree
-    if (mScanType == 'T') { // TODO: store also for other scans?
-      for (int ichg = mMin; ichg <= mMax; ichg++) {
+    if (mScanType == 'T' || mScanType == 'V' || mScanType == 'I') { // TODO: store also for other scans?
+      for (int ichg = mMin; ichg <= mMax; ichg += mStep) {
         for (short int col_i = 0; col_i < this->N_COL; col_i += mColStep) {
           vCharge[col_i] = ichg;
-          vHits[col_i] = mPixelHits[chipID][row][col_i][0][ichg - mMin];
+          vHits[col_i] = mPixelHits[chipID][row][col_i][0][(ichg - mMin) / mStep];
         }
         mScTree->Fill();
       }
@@ -791,7 +793,7 @@ void ITSThresholdCalibrator::extractThresholdRow(const short int& chipID, const 
   } // end of the else
 
   // Saves threshold information to internal memory
-  if (mScanType != 'P' && mScanType != 'p' && mScanType != 'R' && mScanType != 'r') {
+  if (mScanType != 'P' && mScanType != 'p' && mScanType != 't' && mScanType != 'R' && mScanType != 'r') {
     this->saveThreshold();
   }
 }
@@ -799,12 +801,10 @@ void ITSThresholdCalibrator::extractThresholdRow(const short int& chipID, const 
 //////////////////////////////////////////////////////////////////////////////
 void ITSThresholdCalibrator::saveThreshold()
 {
-  // In the case of a full threshold scan, write to TTree
-  if (this->mScanType == 'T' || this->mScanType == 'D' || this->mScanType == 'A' || this->mScanType == 'P' || this->mScanType == 'p' || this->mScanType == 'R' || this->mScanType == 'r') {
-    this->mThresholdTree->Fill();
-  }
+  // write to TTree
+  this->mThresholdTree->Fill();
 
-  if (this->mScanType != 'D' && this->mScanType != 'A' && this->mScanType != 'P' && this->mScanType != 'p' && this->mScanType != 'R' && this->mScanType != 'r') {
+  if (this->mScanType == 'V' || this->mScanType == 'I' || this->mScanType == 'T') {
     // Save info in a map for later averaging
     int sumT = 0, sumSqT = 0, sumN = 0, sumSqN = 0;
     int countSuccess = 0, countUnsuccess = 0;
@@ -957,6 +957,7 @@ void ITSThresholdCalibrator::setRunType(const short int& runtype)
     // ATTENTION: with back bias (VCASNBB) put max vcasn to 130 (default is 80)
     // 4 rows per chip
     this->mScanType = 'V';
+    this->initThresholdTree();
     this->mMin = inMinVcasn; // 30 is the default
     this->mMax = inMaxVcasn; // 80 is the default
     this->N_RANGE = mMax - mMin + 1;
@@ -967,6 +968,7 @@ void ITSThresholdCalibrator::setRunType(const short int& runtype)
     // S-curve is backwards from VCASN case, otherwise same
     // 4 rows per chip
     this->mScanType = 'I';
+    this->initThresholdTree();
     this->mMin = inMinIthr; // 25 is the default
     this->mMax = inMaxIthr; // 100 is the default
     this->N_RANGE = mMax - mMin + 1;
@@ -1003,13 +1005,28 @@ void ITSThresholdCalibrator::setRunType(const short int& runtype)
     this->mStrobeWindow = 5; // it's 4 but it corresponds to 4+1 (as from alpide manual)
     this->N_RANGE = (mMax - mMin) / mStep + 1;
     this->mCheckExactRow = true;
-  } else if (runtype == TOT_CALIBRATION || runtype == TOT_CALIBRATION_1_ROW) {
+  } else if (runtype == TOT_CALIBRATION_1_ROW) {
     // Pulse length scan 2D (charge vs strobe delay)
     this->mScanType = 'p'; // small p, just to distinguish from capital P
     this->initThresholdTree();
     this->mFitType = NO_FIT;
-    this->mMin = (runtype == TOT_CALIBRATION) ? 300 : 0;
-    this->mMax = (runtype == TOT_CALIBRATION) ? 1100 : 2000; // strobe delay goes from 0 to 2000 or 1100 (included) in steps of 10
+    this->mMin = 0;
+    this->mMax = 2000; // strobe delay goes from 0 to 2000 in steps of 10
+    this->mStep = 10;
+    this->mStrobeWindow = 2; // it's 1 but it corresponds to 1+1 (as from alpide manual)
+    this->N_RANGE = (mMax - mMin) / mStep + 1;
+    this->mMin2 = 0;   // charge min
+    this->mMax2 = 170; // charge max
+    this->mStep2 = 1;  // step for the charge
+    this->N_RANGE2 = (mMax2 - mMin2) / mStep2 + 1;
+    this->mCheckExactRow = true;
+  } else if (runtype == TOT_CALIBRATION) {
+    // TOT calibration (like pulse shape 2D but with a reduced range in both strobe delay and charge)
+    this->mScanType = 't';
+    this->initThresholdTree();
+    this->mFitType = NO_FIT;
+    this->mMin = 300;
+    this->mMax = 1100; // strobe delay goes from 300 to 1100 (included) in steps of 10
     this->mStep = 10;
     this->mStrobeWindow = 2; // it's 1 but it corresponds to 1+1 (as from alpide manual)
     this->N_RANGE = (mMax - mMin) / mStep + 1;
@@ -1017,13 +1034,9 @@ void ITSThresholdCalibrator::setRunType(const short int& runtype)
     this->mMax2 = 60;                 // charge max
     this->mStep2 = 30;                // step for the charge
     this->mCalculate2DParams = false; // do not calculate time over threshold, pulse length, etc..
-    if (runtype == TOT_CALIBRATION_1_ROW) {
-      this->mMin2 = 0;   // charge min
-      this->mMax2 = 170; // charge max
-      this->mStep2 = 1;  // step for the charge
-    }
     this->N_RANGE2 = (mMax2 - mMin2) / mStep2 + 1;
     this->mCheckExactRow = true;
+
   } else if (runtype == VRESETD_150 || runtype == VRESETD_300 || runtype == VRESETD_2D) {
     this->mScanType = 'R'; // capital R is for 1D scan
     if (runtype == VRESETD_150 || runtype == VRESETD_300) {
@@ -1060,7 +1073,7 @@ void ITSThresholdCalibrator::setRunType(const short int& runtype)
       if (saveTree) {
         this->initThresholdTree();
       }
-      this->mFitType = (mScanType == 'D' || mScanType == 'A' || mScanType == 'P' || mScanType == 'p') ? NO_FIT : mFitType;
+      this->mFitType = (mScanType == 'D' || mScanType == 'A' || mScanType == 'P' || mScanType == 'p' || mScanType == 't') ? NO_FIT : mFitType;
       this->mCheckExactRow = (mScanType == 'D' || mScanType == 'A') ? false : true;
       if (scaleNinj) {
         nInjScaled = nInj / 3;
@@ -1264,7 +1277,7 @@ std::vector<float> ITSThresholdCalibrator::calculatePulseParams2D(const short in
 void ITSThresholdCalibrator::extractAndUpdate(const short int& chipID, const short int& row)
 {
   // In threshold scan case, reset mThresholdTree before writing to a new file
-  if ((this->mScanType == 'T' || this->mScanType == 'D' || this->mScanType == 'A' || this->mScanType == 'P' || this->mScanType == 'p' || mScanType == 'R' || mScanType == 'r') && ((this->mRowCounter)++ == N_ROWS_PER_FILE)) {
+  if ((this->mRowCounter)++ == N_ROWS_PER_FILE) {
     // Finalize output and create a new TTree and ROOT file
     this->finalizeOutput();
     this->initThresholdTree();
@@ -1353,7 +1366,7 @@ void ITSThresholdCalibrator::run(ProcessingContext& pc)
           loopval = !mCdwVersion ? (short int)((calib.calibUserField >> 16) & 0xff) : (short int)((calib.calibUserField >> 16) & 0xffff);
         }
 
-        if (this->mScanType == 'p' || this->mScanType == 'r') {
+        if (this->mScanType == 'p' || this->mScanType == 't' || this->mScanType == 'r') {
           realcharge = 170 - ((short int)(calib.calibUserField >> 32)) & 0x1fff; // not existing with CDW v0
         }
 
@@ -1363,9 +1376,12 @@ void ITSThresholdCalibrator::run(ProcessingContext& pc)
         cwcnt = (short int)(calib.calibCounter);
         // count the last N injections
         short int checkVal = (mScanType == 'I') ? mMin : mMax;
-        if ((mScanType != 'r' && loopval == checkVal) || (mScanType == 'r' && realcharge == mMax2)) {
+        if ((mScanType != 'r' && mScanType != 'p' && mScanType != 't' && loopval == checkVal) ||
+            (mScanType == 'r' && realcharge == mMax2) ||
+            (mScanType == 'p' && realcharge == mMin2) ||
+            (mScanType == 't' && loopval == checkVal && realcharge == mMax2)) {
           mCdwCntRU[iRU][row]++;
-          mLoopVal[iRU][row] = loopval; // keep loop val (relevant for VRESET2D scan only)
+          mLoopVal[iRU][row] = loopval; // keep loop val (relevant for VRESET2D and TOT_1ROW scan only)
         }
         if (this->mVerboseOutput) {
           LOG(info) << "RU: " << iRU << " CDWcounter: " << cwcnt << " row: " << row << " Loopval: " << loopval << " realcharge: " << realcharge << " confDBv: " << mCdwVersion;
@@ -1393,18 +1409,17 @@ void ITSThresholdCalibrator::run(ProcessingContext& pc)
       cwcnt = 0;
     }
 
-    if (loopval > this->mMax || loopval < this->mMin || ((mScanType == 'p' || mScanType == 'r') && (realcharge > this->mMax2 || realcharge < this->mMin2))) {
+    if (loopval > this->mMax || loopval < this->mMin || ((mScanType == 'p' || mScanType == 't' || mScanType == 'r') && (realcharge > this->mMax2 || realcharge < this->mMin2))) {
       if (this->mVerboseOutput) {
         LOG(warning) << "CW issues - loopval value " << loopval << " out of range for min " << this->mMin
                      << " and max " << this->mMax << " (range: " << N_RANGE << ")";
-        if (mScanType == 'p' || mScanType == 'r') {
+        if (mScanType == 'p' || mScanType == 'r' || mScanType == 't') {
           LOG(warning) << " and/or realcharge value " << realcharge << " out of range from min " << this->mMin2
                        << " and max " << this->mMax2 << " (range: " << N_RANGE2 << ")";
         }
       }
     } else {
       std::vector<short int> mChips;
-      std::map<short int, bool> mChipsForbRows;
       // loop to retrieve list of chips and start tagging bad dcols if the hits does not come from this row
       for (unsigned int idig = rofIndex; idig < rofIndex + rofNEntries; idig++) { // gets chipid
         auto& d = digits[idig];
@@ -1425,17 +1440,6 @@ void ITSThresholdCalibrator::run(ProcessingContext& pc)
         short int ru = getRUID(chipID);
         mActiveLinks[ru][getLinkID(chipID, ru)] = true;
         // check rows and allocate memory
-        if (mScanType != 'r' && mForbiddenRows.count(chipID)) {
-          for (int iforb = mForbiddenRows[chipID].size() - 1; iforb >= 0; iforb--) {
-            if (mForbiddenRows[chipID][iforb] == row) {
-              mChipsForbRows[chipID] = true;
-              break;
-            }
-          }
-        }
-        if (mChipsForbRows[chipID]) {
-          continue;
-        }
         if (!this->mPixelHits.count(chipID)) {
           if (mScanType == 'D' || mScanType == 'A') { // for digital and analog scan initialize the full matrix for each chipID
             for (int irow = 0; irow < 512; irow++) {
@@ -1461,7 +1465,7 @@ void ITSThresholdCalibrator::run(ProcessingContext& pc)
           continue;
         }
 
-        if (!mChipsForbRows[chipID] && (!mCheckExactRow || d.getRow() == row) && (mMeb < 0 || cwcnt % 3 == mMeb)) { // row has NOT to be forbidden and we ignore hits coming from other rows (potential masking issue on chip)
+        if ((!mCheckExactRow || d.getRow() == row) && (mMeb < 0 || cwcnt % 3 == mMeb)) { // row has NOT to be forbidden and we ignore hits coming from other rows (potential masking issue on chip)
           // Increment the number of counts for this pixel
           this->mPixelHits[chipID][d.getRow()][col][chgPoint][loopPoint]++;
         }
@@ -1492,7 +1496,16 @@ void ITSThresholdCalibrator::run(ProcessingContext& pc)
     }
     // Check if scan of a row is finished: only for specific scans!
     bool passCondition = (mCdwCntRU[ruIndex][row] >= nInjScaled * nL);
-    if (mScanType != 'D' && mScanType != 'A' && mScanType != 'P' && mScanType != 'p' && mScanType != 'R' && passCondition) {
+    if (mScanType == 'p' || mScanType == 't') {
+      passCondition = passCondition && (mLoopVal[ruIndex][row] == mMax);
+      if (mVerboseOutput) {
+        LOG(info) << "PassCondition: " << passCondition << " - (mCdwCntRU,mLoopVal) of RU" << ruIndex << " row " << row << " = (" << mCdwCntRU[ruIndex][row] << ", " << mLoopVal[ruIndex][row] << ")";
+      }
+    } else if (mVerboseOutput) {
+      LOG(info) << "PassCondition: " << passCondition << " - mCdwCntRU of RU" << ruIndex << " row " << row << " = " << mCdwCntRU[ruIndex][row];
+    }
+
+    if (mScanType != 'D' && mScanType != 'A' && mScanType != 'P' && mScanType != 'R' && passCondition) {
       // extract data from the row
       for (short int iChip = 0; iChip < chipEnabled.size(); iChip++) {
         short int chipID = chipEnabled[iChip];
@@ -1503,10 +1516,9 @@ void ITSThresholdCalibrator::run(ProcessingContext& pc)
           if (mPixelHits.count(chipID)) {
             if (mPixelHits[chipID].count(row)) { // make sure the row exists
               extractAndUpdate(chipID, row);
-              if (mScanType != 'r' || (mScanType == 'r' && mLoopVal[ruIndex][row] == mMax)) {
+              if (mScanType != 'p' && (mScanType != 'r' || mLoopVal[ruIndex][row] == mMax)) { // do not erase for scantype = p because in finalize() we have calculate2Dparams
                 mPixelHits[chipID].erase(row);
               }
-              mForbiddenRows[chipID].push_back(row);
             }
           }
         }
@@ -1889,11 +1901,15 @@ void ITSThresholdCalibrator::finalize()
       if (mVerboseOutput) {
         LOG(info) << "Extracting hits from pulse shape scan or vresetd scan, chip " << itchip->first;
       }
-      auto itrow = this->mPixelHits[itchip->first].cbegin();
-      while (itrow != mPixelHits[itchip->first].cend()) {    // in case there are multiple rows, for now it's 1 row
-        this->extractAndUpdate(itchip->first, itrow->first); // fill the tree
-        ++itrow;
+
+      if (mScanType != 'p') { // done already in run()
+        auto itrow = this->mPixelHits[itchip->first].cbegin();
+        while (itrow != mPixelHits[itchip->first].cend()) {    // in case there are multiple rows, for now it's 1 row
+          this->extractAndUpdate(itchip->first, itrow->first); // fill the tree - for mScanType = p, it is done already in run()
+          ++itrow;
+        }
       }
+
       if (mCalculate2DParams && (mScanType == 'P' || mScanType == 'p')) {
         this->addDatabaseEntry(itchip->first, name, mScanType == 'P' ? calculatePulseParams(itchip->first) : calculatePulseParams2D(itchip->first), false);
       }

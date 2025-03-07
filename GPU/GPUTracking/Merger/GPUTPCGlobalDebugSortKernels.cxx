@@ -26,7 +26,7 @@ using namespace o2::gpu;
 template <>
 GPUdii() void GPUTPCGlobalDebugSortKernels::Thread<GPUTPCGlobalDebugSortKernels::clearIds>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() merger, int8_t)
 {
-  for (int32_t i = iBlock * nThreads + iThread; i < GPUCA_NSLICES * merger.NMaxSingleSliceTracks(); i++) {
+  for (int32_t i = iBlock * nThreads + iThread; i < GPUCA_NSECTORS * merger.NMaxSingleSectorTracks(); i++) {
     merger.TrackIDs()[i] = -1;
   }
 }
@@ -37,12 +37,12 @@ GPUdii() void GPUTPCGlobalDebugSortKernels::Thread<GPUTPCGlobalDebugSortKernels:
   if (iThread) {
     return;
   }
-  int32_t iStart = parameter ? GPUCA_NSLICES : 0;
-  int32_t iEnd = iStart + GPUCA_NSLICES;
+  int32_t iStart = parameter ? GPUCA_NSECTORS : 0;
+  int32_t iEnd = iStart + GPUCA_NSECTORS;
   for (int32_t i = iStart + iBlock; i < iEnd; i += nBlocks) {
-    const int32_t offset = merger.SliceTrackInfoFirst(i);
+    const int32_t offset = merger.SectorTrackInfoFirst(i);
     int32_t* GPUrestrict() tmp = merger.TmpSortMemory() + offset;
-    const int32_t n = merger.SliceTrackInfoLast(i) - merger.SliceTrackInfoFirst(i);
+    const int32_t n = merger.SectorTrackInfoLast(i) - merger.SectorTrackInfoFirst(i);
     if (n < 2) {
       continue;
     }
@@ -50,17 +50,17 @@ GPUdii() void GPUTPCGlobalDebugSortKernels::Thread<GPUTPCGlobalDebugSortKernels:
       tmp[j] = j;
     }
     GPUCommonAlgorithm::sort(tmp, tmp + n, [&merger, offset](const int32_t& aa, const int32_t& bb) {
-      const auto& a = merger.SliceTrackInfos()[offset + aa];
-      const auto& b = merger.SliceTrackInfos()[offset + bb];
+      const auto& a = merger.SectorTrackInfos()[offset + aa];
+      const auto& b = merger.SectorTrackInfos()[offset + bb];
       return (a.X() != b.X()) ? (a.X() < b.X()) : (a.Y() != b.Y()) ? (a.Y() < b.Y())
                                                                    : (a.Z() < b.Z());
     });
     for (int32_t j = 0; j < n; j++) {
       if (tmp[j] >= 0 && tmp[j] != j) {
-        auto getTrackIDIndex = [&merger](const int32_t iSlice, const int32_t iTrack) {
-          const int32_t kEnd = merger.NMaxSingleSliceTracks();
+        auto getTrackIDIndex = [&merger](const int32_t iSector, const int32_t iTrack) {
+          const int32_t kEnd = merger.NMaxSingleSectorTracks();
           for (int32_t k = 0; k < kEnd; k++) {
-            if (merger.TrackIDs()[iSlice * merger.NMaxSingleSliceTracks() + k] == iTrack) {
+            if (merger.TrackIDs()[iSector * merger.NMaxSingleSectorTracks() + k] == iTrack) {
               return k;
             }
           }
@@ -70,23 +70,23 @@ GPUdii() void GPUTPCGlobalDebugSortKernels::Thread<GPUTPCGlobalDebugSortKernels:
           return -1;
         };
         int32_t firstIdx = j;
-        auto firstItem = merger.SliceTrackInfos()[offset + firstIdx];
+        auto firstItem = merger.SectorTrackInfos()[offset + firstIdx];
         int32_t firstTrackIDIndex = parameter ? 0 : getTrackIDIndex(i, offset + firstIdx);
         int32_t currIdx = firstIdx;
         int32_t sourceIdx = tmp[currIdx];
         do {
           tmp[currIdx] = -1;
-          merger.SliceTrackInfos()[offset + currIdx] = merger.SliceTrackInfos()[offset + sourceIdx];
+          merger.SectorTrackInfos()[offset + currIdx] = merger.SectorTrackInfos()[offset + sourceIdx];
           if (!parameter) {
-            merger.TrackIDs()[i * merger.NMaxSingleSliceTracks() + getTrackIDIndex(i, offset + sourceIdx)] = offset + currIdx;
+            merger.TrackIDs()[i * merger.NMaxSingleSectorTracks() + getTrackIDIndex(i, offset + sourceIdx)] = offset + currIdx;
           }
           currIdx = sourceIdx;
           sourceIdx = tmp[currIdx];
         } while (sourceIdx != firstIdx);
         tmp[currIdx] = -1;
-        merger.SliceTrackInfos()[offset + currIdx] = firstItem;
+        merger.SectorTrackInfos()[offset + currIdx] = firstItem;
         if (!parameter) {
-          merger.TrackIDs()[i * merger.NMaxSingleSliceTracks() + firstTrackIDIndex] = offset + currIdx;
+          merger.TrackIDs()[i * merger.NMaxSingleSectorTracks() + firstTrackIDIndex] = offset + currIdx;
         }
       }
     }
@@ -94,7 +94,7 @@ GPUdii() void GPUTPCGlobalDebugSortKernels::Thread<GPUTPCGlobalDebugSortKernels:
 }
 
 template <>
-GPUdii() void GPUTPCGlobalDebugSortKernels::Thread<GPUTPCGlobalDebugSortKernels::globalTracks1>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() merger, int8_t parameter)
+GPUdii() void GPUTPCGlobalDebugSortKernels::Thread<GPUTPCGlobalDebugSortKernels::extrapolatedTracks1>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() merger, int8_t parameter)
 {
   if (iThread || iBlock) {
     return;
@@ -112,7 +112,7 @@ GPUdii() void GPUTPCGlobalDebugSortKernels::Thread<GPUTPCGlobalDebugSortKernels:
 }
 
 template <>
-GPUdii() void GPUTPCGlobalDebugSortKernels::Thread<GPUTPCGlobalDebugSortKernels::globalTracks2>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() merger, int8_t parameter)
+GPUdii() void GPUTPCGlobalDebugSortKernels::Thread<GPUTPCGlobalDebugSortKernels::extrapolatedTracks2>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() merger, int8_t parameter)
 {
   if (iBlock) {
     return;
@@ -143,7 +143,7 @@ GPUdii() void GPUTPCGlobalDebugSortKernels::Thread<GPUTPCGlobalDebugSortKernels:
     }
   }
   GPUbarrier();
-  for (int32_t i = 0; i < 2 * GPUCA_NSLICES; i++) {
+  for (int32_t i = 0; i < 2 * GPUCA_NSECTORS; i++) {
     for (uint32_t k = iThread; k < merger.TmpCounter()[i]; k += nThreads) {
       merger.BorderTracks(i)[k].SetTrackID(tmp2[merger.BorderTracks(i)[k].TrackID()]);
     }

@@ -159,6 +159,10 @@ bool IndexColumnBuilder::findSingle(int idx)
     }
   }
 
+  if (mPosition < mSourceSize && valueAt(mPosition) < idx) {
+    ++mPosition;
+  }
+
   return (mPosition < mSourceSize && valueAt(mPosition) == idx);
 }
 
@@ -174,6 +178,10 @@ bool IndexColumnBuilder::findSlice(int idx)
       mValuePos -= step;
       count = step;
     }
+  }
+
+  if (mValuePos < mValuesArrow->length() && mValuesArrow->Value(mValuePos) <= idx) {
+    ++mPosition;
   }
 
   return (mValuePos < mValuesArrow->length() && mValuesArrow->Value(mValuePos) == idx);

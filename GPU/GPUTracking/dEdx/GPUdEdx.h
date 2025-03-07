@@ -24,9 +24,7 @@
 #include "CalibdEdxContainer.h"
 #include "GPUDebugStreamer.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 class GPUdEdx
@@ -34,7 +32,7 @@ class GPUdEdx
  public:
   // The driver must call clear(), fill clusters row by row outside-in, then run computedEdx() to get the result
   GPUd() void clear();
-  GPUd() void fillCluster(float qtot, float qmax, int32_t padRow, uint8_t slice, float trackSnp, float trackTgl, const GPUParam& param, const GPUCalibObjectsConst& calib, float z, float pad, float relTime);
+  GPUd() void fillCluster(float qtot, float qmax, int32_t padRow, uint8_t sector, float trackSnp, float trackTgl, const GPUParam& param, const GPUCalibObjectsConst& calib, float z, float pad, float relTime);
   GPUd() void fillSubThreshold(int32_t padRow, const GPUParam& param);
   GPUd() void computedEdx(GPUdEdxInfo& output, const GPUParam& param);
 
@@ -94,7 +92,7 @@ GPUdi() void GPUdEdx::checkSubThresh(int32_t roc)
   mLastROC = roc;
 }
 
-GPUdnii() void GPUdEdx::fillCluster(float qtot, float qmax, int32_t padRow, uint8_t slice, float trackSnp, float trackTgl, const GPUParam& GPUrestrict() param, const GPUCalibObjectsConst& calib, float z, float pad, float relTime)
+GPUdnii() void GPUdEdx::fillCluster(float qtot, float qmax, int32_t padRow, uint8_t sector, float trackSnp, float trackTgl, const GPUParam& GPUrestrict() param, const GPUCalibObjectsConst& calib, float z, float pad, float relTime)
 {
   if (mCount >= MAX_NCL) {
     return;
@@ -123,10 +121,10 @@ GPUdnii() void GPUdEdx::fillCluster(float qtot, float qmax, int32_t padRow, uint
   const float absRelPad = CAMath::Abs(pad - padPos);
   const int32_t region = param.tpcGeometry.GetRegion(padRow);
   z = CAMath::Abs(z);
-  const float threshold = calibContainer->getZeroSupressionThreshold(slice, padRow, padPos); // TODO: Use the mean zero supresion threshold of all pads in the cluster?
+  const float threshold = calibContainer->getZeroSupressionThreshold(sector, padRow, padPos); // TODO: Use the mean zero supresion threshold of all pads in the cluster?
   const bool useFullGainMap = calibContainer->isUsageOfFullGainMap();
   float qTotIn = qtot;
-  const float fullGainMapGain = calibContainer->getGain(slice, padRow, padPos);
+  const float fullGainMapGain = calibContainer->getGain(sector, padRow, padPos);
   if (useFullGainMap) {
     qmax /= fullGainMapGain;
     qtot /= fullGainMapGain;
@@ -140,7 +138,7 @@ GPUdnii() void GPUdEdx::fillCluster(float qtot, float qmax, int32_t padRow, uint
   qtot /= qTotTopologyCorr;
 
   tpc::StackID stack{
-    slice,
+    sector,
     static_cast<tpc::GEMstack>(roc)};
 
   const float qMaxResidualCorr = calibContainer->getResidualCorrection(stack, tpc::ChargeType::Max, trackTgl, trackSnp);
@@ -148,7 +146,7 @@ GPUdnii() void GPUdEdx::fillCluster(float qtot, float qmax, int32_t padRow, uint
   qmax /= qMaxResidualCorr;
   qtot /= qTotResidualCorr;
 
-  const float residualGainMapGain = calibContainer->getResidualGain(slice, padRow, padPos);
+  const float residualGainMapGain = calibContainer->getResidualGain(sector, padRow, padPos);
   qmax /= residualGainMapGain;
   qtot /= residualGainMapGain;
 
@@ -164,13 +162,13 @@ GPUdnii() void GPUdEdx::fillCluster(float qtot, float qmax, int32_t padRow, uint
 
   GPUCA_DEBUG_STREAMER_CHECK(if (o2::utils::DebugStreamer::checkStream(o2::utils::StreamFlags::streamdEdx)) {
     float padlx = param.tpcGeometry.Row2X(padRow);
-    float padly = param.tpcGeometry.LinearPad2Y(slice, padRow, padPos);
+    float padly = param.tpcGeometry.LinearPad2Y(sector, padRow, padPos);
     o2::utils::DebugStreamer::instance()->getStreamer("debug_dedx", "UPDATE") << o2::utils::DebugStreamer::instance()->getUniqueTreeName("tree_dedx").data()
                                                                               << "qTot=" << mChargeTot[mCount - 1]
                                                                               << "qMax=" << mChargeMax[mCount - 1]
                                                                               << "region=" << region
                                                                               << "padRow=" << padRow
-                                                                              << "sector=" << slice
+                                                                              << "sector=" << sector
                                                                               << "lx=" << padlx
                                                                               << "ly=" << padly
                                                                               << "tanTheta=" << tanTheta
@@ -198,7 +196,6 @@ GPUdi() void GPUdEdx::fillSubThreshold(int32_t padRow, const GPUParam& GPUrestri
   mNSubThresh++;
 }
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

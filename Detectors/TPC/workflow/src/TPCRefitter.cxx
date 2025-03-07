@@ -637,6 +637,11 @@ bool TPCRefitterSpec::processTPCTrack(o2::tpc::TrackTPC tr, o2::MCCompLabel lbl,
                   << "dcazRef=" << dcazRef;
     }
 
+    if (mUseMC) {
+      (*streamer) << "tpc"
+                  << "mcLabel=" << lbl;
+    }
+
     (*streamer) << "tpc"
                 << "\n";
   }

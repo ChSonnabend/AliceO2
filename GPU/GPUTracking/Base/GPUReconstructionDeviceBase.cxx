@@ -16,7 +16,7 @@
 #include "GPUReconstructionIncludes.h"
 
 #include "GPUTPCTracker.h"
-#include "GPUTPCSliceOutput.h"
+#include "GPUTPCSectorOutput.h"
 
 using namespace o2::gpu;
 
@@ -102,7 +102,6 @@ int32_t GPUReconstructionDeviceBase::InitDevice()
     GPUError("Too many straems requested %d > %d\n", mProcessingSettings.nStreams, GPUCA_MAX_STREAMS);
     return (1);
   }
-  mThreadId = GetThread();
 
   void* semLock = nullptr;
   if (mProcessingSettings.globalInitMutex && GetGlobalLock(semLock)) {

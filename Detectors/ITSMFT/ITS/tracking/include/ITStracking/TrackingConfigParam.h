@@ -55,9 +55,14 @@ struct VertexerParamConfig : public o2::conf::ConfigurableParamHelper<VertexerPa
 
 struct TrackerParamConfig : public o2::conf::ConfigurableParamHelper<TrackerParamConfig> {
   // Use TGeo for mat. budget
+  static const int MaxIter = 4;
+  static const int MinTrackLenght = 4;
+  static const int MaxTrackLenght = 7;
   bool useMatCorrTGeo = false;  // use full geometry to corect for material budget accounting in the fits. Default is to use the material budget LUT.
   bool useFastMaterial = false; // use faster material approximation for material budget accounting in the fits.
   int deltaRof = 0;             // configure the width of the window in ROFs to be considered for the tracking.
+  int minTrackLgtIter[MaxIter] = {};                                        // minimum track length at each iteration, used only if >0, otherwise use code defaults
+  float minPtIterLgt[MaxIter * (MaxTrackLenght - MinTrackLenght + 1)] = {}; // min.pT for given track length at this iteration, used only if >0, otherwise use code defaults
   float sysErrY2[7] = {0};      // systematic error^2 in Y per layer
   float sysErrZ2[7] = {0};      // systematic error^2 in Z per layer
   float maxChi2ClusterAttachment = -1.f;

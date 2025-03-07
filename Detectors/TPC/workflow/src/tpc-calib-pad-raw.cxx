@@ -61,6 +61,7 @@ void customize(std::vector<ConfigParamSpec>& workflowOptions)
     {"configFile", VariantType::String, "", {"configuration file for configurable parameters"}},
     {"calib-type", VariantType::String, "pedestal", {"Calibration type to run: pedestal, pulser, ce"}},
     {"no-write-ccdb", VariantType::Bool, false, {"skip sending the calibration output to CCDB"}},
+    {"send-to-dcs-ccdb", VariantType::Bool, false, {"Send values to DCS DB"}},
     {"lanes", VariantType::Int, defaultlanes, {"Number of parallel processing lanes."}},
     {"sectors", VariantType::String, sectorDefault.c_str(), {"List of TPC sectors, comma separated ranges, e.g. 0-3,7,9-15"}},
   };
@@ -83,6 +84,7 @@ WorkflowSpec defineDataProcessing(ConfigContext const& config)
 
   std::string inputSpec = config.options().get<std::string>("input-spec");
   const auto skipCCDB = config.options().get<bool>("no-write-ccdb");
+  const auto sendToDCS = config.options().get<bool>("send-to-dcs-ccdb");
   const auto publishAfterTFs = config.options().get<uint32_t>("publish-after-tfs");
 
   const auto tpcsectors = o2::RangeTokenizer::tokenize<int>(config.options().get<std::string>("sectors"));
@@ -121,7 +123,7 @@ WorkflowSpec defineDataProcessing(ConfigContext const& config)
     workflow.emplace_back(getTPCCalibPadRawSpec(inputSpec, ilane, range, publishAfterTFs, rawType));
   }
 
-  workflow.emplace_back(getCalDetMergerPublisherSpec(nLanes, skipCCDB, publishAfterTFs > 0));
+  workflow.emplace_back(getCalDetMergerPublisherSpec(nLanes, skipCCDB, sendToDCS, publishAfterTFs > 0));
 
   return workflow;
 }

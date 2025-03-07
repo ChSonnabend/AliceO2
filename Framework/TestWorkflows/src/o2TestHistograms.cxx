@@ -40,7 +40,7 @@ struct EtaAndClsHistogramsSimple {
   OutputObj<TH2F> etaClsH{TH2F("eta_vs_pt", "#eta vs pT", 102, -2.01, 2.01, 100, 0, 10)};
   Produces<o2::aod::SkimmedExampleTrack> skimEx;
 
-  void process(aod::Tracks const& tracks)
+  void process(aod::Tracks const& tracks, aod::FT0s const&)
   {
     LOGP(info, "Invoking the simple one");
     for (auto& track : tracks) {
@@ -54,7 +54,7 @@ struct EtaAndClsHistogramsIUSimple {
   OutputObj<TH2F> etaClsH{TH2F("eta_vs_pt", "#eta vs pT", 102, -2.01, 2.01, 100, 0, 10)};
   Produces<o2::aod::SkimmedExampleTrack> skimEx;
 
-  void process(aod::TracksIU const& tracks)
+  void process(aod::TracksIU const& tracks, aod::FT0s const&)
   {
     LOGP(info, "Invoking the simple one");
     for (auto& track : tracks) {

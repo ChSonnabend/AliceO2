@@ -252,6 +252,9 @@ class HistogramRegistry
   std::array<HistPtr, MAX_REGISTRY_SIZE> mRegistryValue{};
 };
 
+template <typename T>
+concept is_histogram_registry = std::same_as<T, HistogramRegistry>;
+
 //--------------------------------------------------------------------------------------------------
 //--------------------------------------------------------------------------------------------------
 // Implementation of HistFiller template functions.

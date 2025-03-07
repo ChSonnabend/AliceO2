@@ -130,9 +130,6 @@ std::unordered_map<std::string, CalPad> cru_calib_helpers::preparePedestalFiles(
   pedestalsThreshold["PedestalsPhys"] = CalPad("Pedestals");
   pedestalsThreshold["ThresholdMapPhys"] = CalPad("ThresholdMap");
 
-  auto& pedestalsCRU = pedestalsThreshold["Pedestals"];
-  auto& thresholdCRU = pedestalsThreshold["ThresholdMap"];
-
   // ===| prepare values |===
   for (size_t iroc = 0; iroc < pedestals.getData().size(); ++iroc) {
     const ROC roc(iroc);
@@ -179,7 +176,7 @@ std::unordered_map<std::string, CalPad> cru_calib_helpers::preparePedestalFiles(
       }
 
       float noise = std::abs(rocNoise.getValue(ipad)); // it seems with the new fitting procedure, the noise can also be negative, since in gaus sigma is quadratic
-      float noiseCorr = noise - (0.847601 + 0.031514 * traceLength);
+      const float noiseCorr = noise - (0.847601 + 0.031514 * traceLength);
       if ((pedestal <= 0) || (pedestal > 150) || (noise <= 0) || (noise > 50)) {
         LOGP(info, "Bad pedestal or noise value in ROC {:2}, CRU {:3}, fec in CRU: {:2}, SAMPA: {}, channel: {:2}, pedestal: {:.4f}, noise {:.4f}", iroc, cruID, fecInPartition, sampa, sampaChannel, pedestal, noise);
         if (maskBad) {
@@ -229,4 +226,49 @@ std::unordered_map<std::string, CalPad> cru_calib_helpers::preparePedestalFiles(
   }
 
   return pedestalsThreshold;
+}
+
+cru_calib_helpers::DataMapU32 cru_calib_helpers::getDataMap(const CalPad& calPad)
+{
+  const auto& mapper = Mapper::instance();
+
+  DataMapU32 dataMap;
+
+  for (size_t iroc = 0; iroc < calPad.getData().size(); ++iroc) {
+    const ROC roc(iroc);
+
+    const auto& calRoc = calPad.getCalArray(iroc);
+
+    const int padOffset = roc.isOROC() ? mapper.getPadsInIROC() : 0;
+
+    // skip empty ROCs
+    if (!(std::abs(calRoc.getSum()) > 0)) {
+      continue;
+    }
+
+    // loop over pads
+    for (size_t ipad = 0; ipad < calRoc.getData().size(); ++ipad) {
+      const int globalPad = ipad + padOffset;
+      const FECInfo& fecInfo = mapper.fecInfo(globalPad);
+      const CRU cru = mapper.getCRU(roc.getSector(), globalPad);
+      const uint32_t region = cru.region();
+      const int cruID = cru.number();
+      const int sampa = fecInfo.getSampaChip();
+      const int sampaChannel = fecInfo.getSampaChannel();
+
+      const PartitionInfo& partInfo = mapper.getMapPartitionInfo()[cru.partition()];
+      const int nFECs = partInfo.getNumberOfFECs();
+      const int fecOffset = (nFECs + 1) / 2;
+      const int fecInPartition = fecInfo.getIndex() - partInfo.getSectorFECOffset();
+      const int dataWrapperID = fecInPartition >= fecOffset;
+      const int globalLinkID = (fecInPartition % fecOffset) + dataWrapperID * 12;
+
+      const int hwChannel = getHWChannel(sampa, sampaChannel, region % 2);
+
+      const auto value = calRoc.getValue(ipad);
+      dataMap[LinkInfo(cruID, globalLinkID)][hwChannel] = floatToFixedSize(value);
+    }
+  }
+
+  return dataMap;
 }

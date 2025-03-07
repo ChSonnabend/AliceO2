@@ -65,7 +65,7 @@ class GPUTPCClusterFinder : public GPUProcessor
       tpccf::SizeT nPeaks = 0;
       tpccf::SizeT nClusters = 0;
       uint32_t maxTimeBin = 0;
-      uint32_t nPagesSubslice = 0;
+      uint32_t nPagesSubsector = 0;
     } counters;
     CfFragment fragment;
   };
@@ -127,7 +127,7 @@ class GPUTPCClusterFinder : public GPUProcessor
   uint32_t mPlabelsHeaderGlobalOffset = 0;
   uint32_t mPlabelsDataGlobalOffset = 0;
 
-  int32_t mISlice = 0;
+  int32_t mISector = 0;
   constexpr static int32_t mScanWorkGroupSize = GPUCA_THREAD_COUNT_SCAN;
   uint32_t mNMaxClusterPerRow = 0;
   uint32_t mNMaxClusters = 0;

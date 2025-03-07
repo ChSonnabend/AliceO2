@@ -549,7 +549,8 @@ void CalibdEdx::finalize(const bool useGausFits)
     fitter.SetFormula("1");
     mCalib.setDims(0);
   }
-  LOGP(info, "Fitting {}D dE/dx correction for GEM stacks with gaussian fits {}", mCalib.getDims(), useGausFits);
+  LOGP(info, "Fitting {}D dE/dx correction for GEM stacks with gaussian fits {}, minStackEntries {}, m2DThreshold {}, m1DThreshold {}, mFitSnp {}",
+       mCalib.getDims(), useGausFits, entries, m2DThreshold, m1DThreshold, mFitSnp);
 
   // if entries below minimum sector threshold, integrate all sectors
   if (mCalib.getDims() == 0 || entries >= mSectorThreshold) {

@@ -29,6 +29,8 @@ void customize(std::vector<ConfigParamSpec>& workflowOptions)
     ConfigParamSpec{"name", VariantType::String, "test-source", {"Name of the source"}});
   workflowOptions.emplace_back(
     ConfigParamSpec{"timer", VariantType::String, "", {"What to use as timer intervals. Format is <period>:<validity since start>[, ...]"}});
+  workflowOptions.emplace_back(
+    ConfigParamSpec{"delay", VariantType::Int, 0, {"How long it takes to do the processing (in ms)"}});
 }
 
 #include "Framework/runDataProcessing.h"
@@ -39,6 +41,8 @@ WorkflowSpec defineDataProcessing(ConfigContext const& ctx)
   // Get the dataspec option and creates OutputSpecs from it
   auto dataspec = ctx.options().get<std::string>("dataspec");
   auto timer = ctx.options().get<std::string>("timer");
+  auto delay = ctx.options().get<int>("delay");
+
   std::vector<InputSpec> inputs;
   std::vector<TimerSpec> timers;
   if (timer.empty() == false) {
@@ -74,13 +78,14 @@ WorkflowSpec defineDataProcessing(ConfigContext const& ctx)
      .inputs = inputs,
      .outputs = outputSpecs,
      .algorithm = AlgorithmSpec{adaptStateful(
-       [outputSpecs](ConfigParamRegistry const& options) {
+       [outputSpecs, delay](ConfigParamRegistry const& options) {
          // the size of the messages is also a workflow option
          auto dataSize = options.get<int64_t>("data-size");
          return adaptStateless(
-           [outputSpecs, dataSize](DataAllocator& outputs, ProcessingContext& ctx) {
+           [outputSpecs, dataSize, delay](DataAllocator& outputs, ProcessingContext& ctx) {
              for (auto const& output : outputSpecs) {
                auto concrete = DataSpecUtils::asConcreteDataMatcher(output);
+               std::this_thread::sleep_for(std::chrono::milliseconds(delay));
                outputs.make<char>(Output{concrete.origin, concrete.description, concrete.subSpec}, dataSize);
              }
            });

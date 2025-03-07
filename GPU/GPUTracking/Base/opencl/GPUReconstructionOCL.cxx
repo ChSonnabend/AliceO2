@@ -12,30 +12,17 @@
 /// \file GPUReconstructionOCL.cxx
 /// \author David Rohr
 
-#define GPUCA_GPUTYPE_OPENCL
-#define __OPENCL_HOST__
+#include "GPUReconstructionOCLIncludesHost.h"
 
-#include "GPUReconstructionOCL.h"
-#include "GPUReconstructionOCLInternals.h"
-#include "GPUReconstructionIncludes.h"
+#include <map>
 
-using namespace o2::gpu;
+static_assert(std::is_convertible<cl_event, void*>::value, "OpenCL event type incompatible to deviceEvent");
 
-#include <cstring>
-#include <unistd.h>
-#include <typeinfo>
-#include <cstdlib>
-
-#define quit(...)          \
-  {                        \
-    GPUError(__VA_ARGS__); \
-    return (1);            \
+#define GPUErrorReturn(...) \
+  {                         \
+    GPUError(__VA_ARGS__);  \
+    return (1);             \
   }
-
-#define GPUCA_KRNL(x_class, x_attributes, ...) GPUCA_KRNL_PROP(x_class, x_attributes)
-#define GPUCA_KRNL_BACKEND_CLASS GPUReconstructionOCLBackend
-#include "GPUReconstructionKernelList.h"
-#undef GPUCA_KRNL
 
 #include "utils/qGetLdBinarySymbols.h"
 QGET_LD_BINARY_SYMBOLS(GPUReconstructionOCLCode_src);
@@ -67,7 +54,7 @@ int32_t GPUReconstructionOCLBackend::GPUFailedMsgAI(const int64_t error, const c
   if (error == CL_SUCCESS) {
     return (0);
   }
-  GPUError("OCL Error: %ld / %s (%s:%d)", error, opencl_error_string(error), file, line);
+  GPUError("OCL Error: %ld / %s (%s:%d)", error, convertErrorToString(error), file, line);
   return 1;
 }
 
@@ -94,184 +81,205 @@ int32_t GPUReconstructionOCLBackend::InitDevice_Runtime()
     cl_int ocl_error;
     cl_uint num_platforms;
     if (GPUFailedMsgI(clGetPlatformIDs(0, nullptr, &num_platforms))) {
-      quit("Error getting OpenCL Platform Count");
+      GPUErrorReturn("Error getting OpenCL Platform Count");
     }
     if (num_platforms == 0) {
-      quit("No OpenCL Platform found");
+      GPUErrorReturn("No OpenCL Platform found");
     }
     if (mProcessingSettings.debugLevel >= 2) {
       GPUInfo("%d OpenCL Platforms found", num_platforms);
     }
 
-    // Query platforms
-    mInternals->platforms.reset(new cl_platform_id[num_platforms]);
-    if (GPUFailedMsgI(clGetPlatformIDs(num_platforms, mInternals->platforms.get(), nullptr))) {
-      quit("Error getting OpenCL Platforms");
+    // Query platforms and devices
+    std::unique_ptr<cl_platform_id[]> platforms;
+    platforms.reset(new cl_platform_id[num_platforms]);
+    if (GPUFailedMsgI(clGetPlatformIDs(num_platforms, platforms.get(), nullptr))) {
+      GPUErrorReturn("Error getting OpenCL Platforms");
     }
 
-    bool found = false;
-    if (mProcessingSettings.platformNum >= 0) {
-      if (mProcessingSettings.platformNum >= (int32_t)num_platforms) {
-        quit("Invalid platform specified");
+    auto query = [&](auto func, auto obj, auto var) {
+      size_t size;
+      func(obj, var, 0, nullptr, &size);
+      std::string retVal(size - 1, ' ');
+      func(obj, var, size, retVal.data(), nullptr);
+      return retVal;
+    };
+
+    std::string platform_profile, platform_version, platform_name, platform_vendor;
+    float platform_version_f;
+    auto queryPlatform = [&](auto platform) {
+      platform_profile = query(clGetPlatformInfo, platform, CL_PLATFORM_PROFILE);
+      platform_version = query(clGetPlatformInfo, platform, CL_PLATFORM_VERSION);
+      platform_name = query(clGetPlatformInfo, platform, CL_PLATFORM_NAME);
+      platform_vendor = query(clGetPlatformInfo, platform, CL_PLATFORM_VENDOR);
+      sscanf(platform_version.c_str(), "OpenCL %f", &platform_version_f);
+    };
+
+    std::vector<cl_device_id> devices;
+    std::string device_vendor, device_name, device_il_version;
+    cl_device_type device_type;
+    cl_uint device_freq, device_shaders, device_nbits;
+    cl_bool device_endian;
+    auto queryDevice = [&](auto device) {
+      platform_name = query(clGetDeviceInfo, device, CL_DEVICE_NAME);
+      device_vendor = query(clGetDeviceInfo, device, CL_DEVICE_VENDOR);
+      device_il_version = query(clGetDeviceInfo, device, CL_DEVICE_IL_VERSION);
+      clGetDeviceInfo(device, CL_DEVICE_TYPE, sizeof(device_type), &device_type, nullptr);
+      clGetDeviceInfo(device, CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(device_freq), &device_freq, nullptr);
+      clGetDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(device_shaders), &device_shaders, nullptr);
+      clGetDeviceInfo(device, CL_DEVICE_ADDRESS_BITS, sizeof(device_nbits), &device_nbits, nullptr);
+      clGetDeviceInfo(device, CL_DEVICE_ENDIAN_LITTLE, sizeof(device_endian), &device_endian, nullptr);
+    };
+
+    cl_uint deviceCount, bestDevice = (cl_uint)-1, bestPlatform = (cl_uint)-1;
+    for (uint32_t iPlatform = 0; iPlatform < num_platforms; iPlatform++) {
+      if (mProcessingSettings.oclPlatformNum >= 0) {
+        if (mProcessingSettings.oclPlatformNum >= (int32_t)num_platforms) {
+          GPUErrorReturn("Invalid platform specified");
+        }
+        iPlatform = mProcessingSettings.oclPlatformNum;
       }
-      mInternals->platform = mInternals->platforms[mProcessingSettings.platformNum];
-      found = true;
-      if (mProcessingSettings.debugLevel >= 2) {
-        char platform_profile[256] = {}, platform_version[256] = {}, platform_name[256] = {}, platform_vendor[256] = {};
-        clGetPlatformInfo(mInternals->platform, CL_PLATFORM_PROFILE, sizeof(platform_profile), platform_profile, nullptr);
-        clGetPlatformInfo(mInternals->platform, CL_PLATFORM_VERSION, sizeof(platform_version), platform_version, nullptr);
-        clGetPlatformInfo(mInternals->platform, CL_PLATFORM_NAME, sizeof(platform_name), platform_name, nullptr);
-        clGetPlatformInfo(mInternals->platform, CL_PLATFORM_VENDOR, sizeof(platform_vendor), platform_vendor, nullptr);
-        GPUInfo("Selected Platform %d: (%s %s) %s %s", mProcessingSettings.platformNum, platform_profile, platform_version, platform_vendor, platform_name);
+      std::string platformUsageInfo;
+      bool platformCompatible = false;
+      queryPlatform(platforms[iPlatform]);
+      if (clGetDeviceIDs(platforms[iPlatform], CL_DEVICE_TYPE_ALL, 0, nullptr, &deviceCount) != CL_SUCCESS) {
+        if (mProcessingSettings.oclPlatformNum >= 0) {
+          GPUErrorReturn("No device in requested platform or error obtaining device count");
+        }
+        platformUsageInfo += " - no devices";
+      } else {
+        if (platform_version_f >= 2.1f) {
+          platformUsageInfo += " - OpenCL 2.2 capable";
+          platformCompatible = true;
+        }
       }
-    } else {
-      for (uint32_t i_platform = 0; i_platform < num_platforms; i_platform++) {
-        char platform_profile[256] = {}, platform_version[256] = {}, platform_name[256] = {}, platform_vendor[256] = {};
-        clGetPlatformInfo(mInternals->platforms[i_platform], CL_PLATFORM_PROFILE, sizeof(platform_profile), platform_profile, nullptr);
-        clGetPlatformInfo(mInternals->platforms[i_platform], CL_PLATFORM_VERSION, sizeof(platform_version), platform_version, nullptr);
-        clGetPlatformInfo(mInternals->platforms[i_platform], CL_PLATFORM_NAME, sizeof(platform_name), platform_name, nullptr);
-        clGetPlatformInfo(mInternals->platforms[i_platform], CL_PLATFORM_VENDOR, sizeof(platform_vendor), platform_vendor, nullptr);
-        const char* platformUsageInfo = "";
-        if (!found && CheckPlatform(i_platform)) {
-          found = true;
-          mInternals->platform = mInternals->platforms[i_platform];
+
+      if (mProcessingSettings.oclPlatformNum >= 0 || mProcessingSettings.debugLevel >= 2) {
+        GPUInfo("%s Platform %d: (%s %s) %s %s (Compatible: %s)%s", mProcessingSettings.oclPlatformNum >= 0 ? "Enforced" : "Available", iPlatform, platform_profile.c_str(), platform_version.c_str(), platform_vendor.c_str(), platform_name.c_str(), platformCompatible ? "yes" : "no", mProcessingSettings.debugLevel >= 2 ? platformUsageInfo.c_str() : "");
+      }
+
+      if (platformCompatible || mProcessingSettings.oclPlatformNum >= 0 || (mProcessingSettings.oclPlatformNum == -2 && deviceCount)) {
+        if (deviceCount > devices.size()) {
+          devices.resize(deviceCount);
+        }
+        if (clGetDeviceIDs(platforms[iPlatform], CL_DEVICE_TYPE_ALL, deviceCount, devices.data(), nullptr) != CL_SUCCESS) {
+          if (mProcessingSettings.oclPlatformNum >= 0) {
+            GPUErrorReturn("Error getting OpenCL devices");
+          }
+          continue;
+        }
+
+        for (uint32_t i = 0; i < deviceCount; i++) {
+          if (mProcessingSettings.deviceNum >= 0) {
+            if (mProcessingSettings.deviceNum >= (signed)deviceCount) {
+              GPUErrorReturn("Requested device ID %d does not exist", mProcessingSettings.deviceNum);
+            }
+            i = mProcessingSettings.deviceNum;
+          }
+          bool deviceOK = true;
+          queryDevice(devices[i]);
+          std::string deviceFailure;
+          if (mProcessingSettings.gpuDeviceOnly && ((device_type & CL_DEVICE_TYPE_CPU) || !(device_type & CL_DEVICE_TYPE_GPU))) {
+            deviceOK = false;
+            deviceFailure += " - No GPU device";
+          }
+          if (device_nbits / 8 != sizeof(void*)) {
+            deviceOK = false;
+            deviceFailure += " - No 64 bit device";
+          }
+          if (!device_endian) {
+            deviceOK = false;
+            deviceFailure += " - No Little Endian Mode";
+          }
+          if (!GetProcessingSettings().oclCompileFromSources) {
+            size_t pos = 0;
+            while ((pos = device_il_version.find("SPIR-V", pos)) != std::string::npos) {
+              float spirvVersion;
+              sscanf(device_il_version.c_str() + pos, "SPIR-V_%f", &spirvVersion);
+              if (spirvVersion >= GPUCA_OCL_SPIRV_VERSION) {
+                break;
+              }
+              pos += strlen("SPIR-V_0.0");
+            }
+            if (pos == std::string::npos) {
+              deviceOK = false;
+              deviceFailure += " - No SPIR-V " + std::to_string(GPUCA_OCL_SPIRV_VERSION) + " (" + device_il_version + ")";
+            }
+          }
+
+          double bestDeviceSpeed = -1, deviceSpeed = (double)device_freq * (double)device_shaders;
           if (mProcessingSettings.debugLevel >= 2) {
-            platformUsageInfo = "    !!! Using this platform !!!";
+            GPUInfo("  Device %s%2d: %s %s (Frequency %d, Shaders %d, %d bit) (Speed Value: %ld)%s %s", deviceOK ? " " : "[", i, device_vendor.c_str(), device_name.c_str(), (int32_t)device_freq, (int32_t)device_shaders, (int32_t)device_nbits, (int64_t)deviceSpeed, deviceOK ? " " : " ]", deviceOK ? "" : deviceFailure.c_str());
+          }
+          if (!deviceOK) {
+            if (mProcessingSettings.deviceNum >= 0) {
+              GPUInfo("Unsupported device requested on platform %d: (%d)", iPlatform, mProcessingSettings.deviceNum);
+              break;
+            }
+            continue;
+          }
+          if (deviceSpeed > bestDeviceSpeed) {
+            bestDevice = i;
+            bestPlatform = iPlatform;
+            bestDeviceSpeed = deviceSpeed;
+            mOclVersion = platform_version_f;
+          }
+          if (mProcessingSettings.deviceNum >= 0) {
+            break;
           }
         }
-        if (mProcessingSettings.debugLevel >= 2) {
-          GPUInfo("Available Platform %d: (%s %s) %s %s%s", i_platform, platform_profile, platform_version, platform_vendor, platform_name, platformUsageInfo);
-        }
+      }
+      if (mProcessingSettings.oclPlatformNum >= 0) {
+        break;
       }
     }
 
-    if (found == false) {
-      quit("Did not find compatible OpenCL Platform");
-    }
-
-    cl_uint count, bestDevice = (cl_uint)-1;
-    if (GPUFailedMsgI(clGetDeviceIDs(mInternals->platform, CL_DEVICE_TYPE_ALL, 0, nullptr, &count))) {
-      quit("Error getting OPENCL Device Count");
-    }
-
-    // Query devices
-    mInternals->devices.reset(new cl_device_id[count]);
-    if (GPUFailedMsgI(clGetDeviceIDs(mInternals->platform, CL_DEVICE_TYPE_ALL, count, mInternals->devices.get(), nullptr))) {
-      quit("Error getting OpenCL devices");
-    }
-
-    char device_vendor[64], device_name[64];
-    cl_device_type device_type;
-    cl_uint freq, shaders;
-
-    if (mProcessingSettings.debugLevel >= 2) {
-      GPUInfo("Available OPENCL devices:");
-    }
-    std::vector<bool> devicesOK(count, false);
-    for (uint32_t i = 0; i < count; i++) {
-      if (mProcessingSettings.debugLevel >= 3) {
-        GPUInfo("Examining device %d", i);
-      }
-      cl_uint nbits;
-      cl_bool endian;
-
-      clGetDeviceInfo(mInternals->devices[i], CL_DEVICE_NAME, 64, device_name, nullptr);
-      clGetDeviceInfo(mInternals->devices[i], CL_DEVICE_VENDOR, 64, device_vendor, nullptr);
-      clGetDeviceInfo(mInternals->devices[i], CL_DEVICE_TYPE, sizeof(cl_device_type), &device_type, nullptr);
-      clGetDeviceInfo(mInternals->devices[i], CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(freq), &freq, nullptr);
-      clGetDeviceInfo(mInternals->devices[i], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(shaders), &shaders, nullptr);
-      clGetDeviceInfo(mInternals->devices[i], CL_DEVICE_ADDRESS_BITS, sizeof(nbits), &nbits, nullptr);
-      clGetDeviceInfo(mInternals->devices[i], CL_DEVICE_ENDIAN_LITTLE, sizeof(endian), &endian, nullptr);
-      int32_t deviceOK = true;
-      const char* deviceFailure = "";
-      if (mProcessingSettings.gpuDeviceOnly && ((device_type & CL_DEVICE_TYPE_CPU) || !(device_type & CL_DEVICE_TYPE_GPU))) {
-        deviceOK = false;
-        deviceFailure = "No GPU device";
-      }
-      if (nbits / 8 != sizeof(void*)) {
-        deviceOK = false;
-        deviceFailure = "No 64 bit device";
-      }
-      if (!endian) {
-        deviceOK = false;
-        deviceFailure = "No Little Endian Mode";
-      }
-
-      double bestDeviceSpeed = -1, deviceSpeed = (double)freq * (double)shaders;
-      if (mProcessingSettings.debugLevel >= 2) {
-        GPUImportant("Device %s%2d: %s %s (Frequency %d, Shaders %d, %d bit) (Speed Value: %ld)%s %s", deviceOK ? " " : "[", i, device_vendor, device_name, (int32_t)freq, (int32_t)shaders, (int32_t)nbits, (int64_t)deviceSpeed, deviceOK ? " " : " ]", deviceOK ? "" : deviceFailure);
-      }
-      if (!deviceOK) {
-        continue;
-      }
-      devicesOK[i] = true;
-      if (deviceSpeed > bestDeviceSpeed) {
-        bestDevice = i;
-        bestDeviceSpeed = deviceSpeed;
-      } else {
-        if (mProcessingSettings.debugLevel >= 2) {
-          GPUInfo("Skipping: Speed %f < %f", deviceSpeed, bestDeviceSpeed);
-        }
-      }
-    }
     if (bestDevice == (cl_uint)-1) {
-      quit("No %sOPENCL Device available, aborting OPENCL Initialisation", count ? "appropriate " : "");
+      GPUErrorReturn("Did not find compatible OpenCL Platform / Device, aborting OPENCL Initialisation");
     }
+    mInternals->platform = platforms[bestPlatform];
+    GPUFailedMsg(clGetDeviceIDs(mInternals->platform, CL_DEVICE_TYPE_ALL, devices.size(), devices.data(), nullptr));
+    mInternals->device = devices[bestDevice];
+    queryDevice(mInternals->device);
 
-    if (mProcessingSettings.deviceNum > -1) {
-      if (mProcessingSettings.deviceNum >= (signed)count) {
-        quit("Requested device ID %d does not exist", mProcessingSettings.deviceNum);
-      } else if (!devicesOK[mProcessingSettings.deviceNum]) {
-        quit("Unsupported device requested (%d)", mProcessingSettings.deviceNum);
-      } else {
-        bestDevice = mProcessingSettings.deviceNum;
-      }
-    }
-    mInternals->device = mInternals->devices[bestDevice];
-
-    cl_ulong constantBuffer, globalMem, localMem;
-    char deviceVersion[64];
-    size_t maxWorkGroup, maxWorkItems[3];
-    clGetDeviceInfo(mInternals->device, CL_DEVICE_NAME, 64, device_name, nullptr);
-    clGetDeviceInfo(mInternals->device, CL_DEVICE_VENDOR, 64, device_vendor, nullptr);
-    clGetDeviceInfo(mInternals->device, CL_DEVICE_TYPE, sizeof(cl_device_type), &device_type, nullptr);
-    clGetDeviceInfo(mInternals->device, CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(freq), &freq, nullptr);
-    clGetDeviceInfo(mInternals->device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(shaders), &shaders, nullptr);
-    clGetDeviceInfo(mInternals->device, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(globalMem), &globalMem, nullptr);
-    clGetDeviceInfo(mInternals->device, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, sizeof(constantBuffer), &constantBuffer, nullptr);
-    clGetDeviceInfo(mInternals->device, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(localMem), &localMem, nullptr);
-    clGetDeviceInfo(mInternals->device, CL_DEVICE_VERSION, sizeof(deviceVersion) - 1, deviceVersion, nullptr);
-    clGetDeviceInfo(mInternals->device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(maxWorkGroup), &maxWorkGroup, nullptr);
-    clGetDeviceInfo(mInternals->device, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(maxWorkItems), maxWorkItems, nullptr);
+    cl_ulong deviceConstantBuffer, deviceGlobalMem, deviceLocalMem;
+    std::string deviceVersion;
+    size_t deviceMaxWorkGroup, deviceMaxWorkItems[3];
+    clGetDeviceInfo(mInternals->device, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(deviceGlobalMem), &deviceGlobalMem, nullptr);
+    clGetDeviceInfo(mInternals->device, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, sizeof(deviceConstantBuffer), &deviceConstantBuffer, nullptr);
+    clGetDeviceInfo(mInternals->device, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(deviceLocalMem), &deviceLocalMem, nullptr);
+    clGetDeviceInfo(mInternals->device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(deviceMaxWorkGroup), &deviceMaxWorkGroup, nullptr);
+    clGetDeviceInfo(mInternals->device, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(deviceMaxWorkItems), deviceMaxWorkItems, nullptr);
+    deviceVersion = query(clGetDeviceInfo, mInternals->device, CL_DEVICE_VERSION);
     int versionMajor, versionMinor;
-    sscanf(deviceVersion, "OpenCL %d.%d", &versionMajor, &versionMinor);
+    sscanf(deviceVersion.c_str(), "OpenCL %d.%d", &versionMajor, &versionMinor);
     if (mProcessingSettings.debugLevel >= 2) {
-      GPUInfo("Using OpenCL device %d: %s %s with properties:", bestDevice, device_vendor, device_name);
+      GPUInfo("Using OpenCL platform %d / device %d: %s %s with properties:", bestPlatform, bestDevice, device_vendor.c_str(), device_name.c_str());
       GPUInfo("\tVersion = %s", deviceVersion);
-      GPUInfo("\tFrequency = %d", (int32_t)freq);
-      GPUInfo("\tShaders = %d", (int32_t)shaders);
-      GPUInfo("\tGLobalMemory = %ld", (int64_t)globalMem);
-      GPUInfo("\tContantMemoryBuffer = %ld", (int64_t)constantBuffer);
-      GPUInfo("\tLocalMemory = %ld", (int64_t)localMem);
-      GPUInfo("\tmaxThreadsPerBlock = %ld", (int64_t)maxWorkGroup);
-      GPUInfo("\tmaxThreadsDim = %ld %ld %ld", (int64_t)maxWorkItems[0], (int64_t)maxWorkItems[1], (int64_t)maxWorkItems[2]);
+      GPUInfo("\tFrequency = %d", (int32_t)device_freq);
+      GPUInfo("\tShaders = %d", (int32_t)device_shaders);
+      GPUInfo("\tGLobalMemory = %ld", (int64_t)deviceGlobalMem);
+      GPUInfo("\tContantMemoryBuffer = %ld", (int64_t)deviceConstantBuffer);
+      GPUInfo("\tLocalMemory = %ld", (int64_t)deviceLocalMem);
+      GPUInfo("\tmaxThreadsPerBlock = %ld", (int64_t)deviceMaxWorkGroup);
+      GPUInfo("\tmaxThreadsDim = %ld %ld %ld", (int64_t)deviceMaxWorkItems[0], (int64_t)deviceMaxWorkItems[1], (int64_t)deviceMaxWorkItems[2]);
       GPUInfo(" ");
     }
 #ifndef GPUCA_NO_CONSTANT_MEMORY
-    if (gGPUConstantMemBufferSize > constantBuffer) {
-      quit("Insufficient constant memory available on GPU %d < %d!", (int32_t)constantBuffer, (int32_t)gGPUConstantMemBufferSize);
+    if (gGPUConstantMemBufferSize > deviceConstantBuffer) {
+      GPUErrorReturn("Insufficient constant memory available on GPU %d < %d!", (int32_t)deviceConstantBuffer, (int32_t)gGPUConstantMemBufferSize);
     }
 #endif
 
-    mDeviceName = device_name;
+    mDeviceName = device_name.c_str();
     mDeviceName += " (OpenCL)";
-    mBlockCount = shaders;
+    mBlockCount = device_shaders;
     mWarpSize = 32;
-    mMaxThreads = std::max<int32_t>(mMaxThreads, maxWorkGroup * mBlockCount);
+    mMaxBackendThreads = std::max<int32_t>(mMaxBackendThreads, deviceMaxWorkGroup * mBlockCount);
 
-    mInternals->context = clCreateContext(nullptr, ContextForAllPlatforms() ? count : 1, ContextForAllPlatforms() ? mInternals->devices.get() : &mInternals->device, nullptr, nullptr, &ocl_error);
+    mInternals->context = clCreateContext(nullptr, 1, &mInternals->device, nullptr, nullptr, &ocl_error);
     if (GPUFailedMsgI(ocl_error)) {
-      quit("Could not create OPENCL Device Context!");
+      GPUErrorReturn("Could not create OPENCL Device Context!");
     }
 
     if (GetOCLPrograms()) {
@@ -285,14 +293,14 @@ int32_t GPUReconstructionOCLBackend::InitDevice_Runtime()
     mInternals->mem_gpu = clCreateBuffer(mInternals->context, CL_MEM_READ_WRITE, mDeviceMemorySize, nullptr, &ocl_error);
     if (GPUFailedMsgI(ocl_error)) {
       clReleaseContext(mInternals->context);
-      quit("OPENCL Memory Allocation Error");
+      GPUErrorReturn("OPENCL Memory Allocation Error");
     }
 
     mInternals->mem_constant = clCreateBuffer(mInternals->context, CL_MEM_READ_ONLY, gGPUConstantMemBufferSize, nullptr, &ocl_error);
     if (GPUFailedMsgI(ocl_error)) {
       clReleaseMemObject(mInternals->mem_gpu);
       clReleaseContext(mInternals->context);
-      quit("OPENCL Constant Memory Allocation Error");
+      GPUErrorReturn("OPENCL Constant Memory Allocation Error");
     }
 
     if (device_type & CL_DEVICE_TYPE_CPU) {
@@ -318,36 +326,36 @@ int32_t GPUReconstructionOCLBackend::InitDevice_Runtime()
       mInternals->command_queue[i] = clCreateCommandQueue(mInternals->context, mInternals->device, 0, &ocl_error);
 #endif
       if (GPUFailedMsgI(ocl_error)) {
-        quit("Error creating OpenCL command queue");
+        GPUErrorReturn("Error creating OpenCL command queue");
       }
     }
     if (GPUFailedMsgI(clEnqueueMigrateMemObjects(mInternals->command_queue[0], 1, &mInternals->mem_gpu, 0, 0, nullptr, nullptr))) {
-      quit("Error migrating buffer");
+      GPUErrorReturn("Error migrating buffer");
     }
     if (GPUFailedMsgI(clEnqueueMigrateMemObjects(mInternals->command_queue[0], 1, &mInternals->mem_constant, 0, 0, nullptr, nullptr))) {
-      quit("Error migrating buffer");
+      GPUErrorReturn("Error migrating buffer");
     }
 
     mInternals->mem_host = clCreateBuffer(mInternals->context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, mHostMemorySize, nullptr, &ocl_error);
     if (GPUFailedMsgI(ocl_error)) {
-      quit("Error allocating pinned host memory");
+      GPUErrorReturn("Error allocating pinned host memory");
     }
 
     const char* krnlGetPtr = "__kernel void krnlGetPtr(__global char* gpu_mem, __global char* constant_mem, __global size_t* host_mem) {if (get_global_id(0) == 0) {host_mem[0] = (size_t) gpu_mem; host_mem[1] = (size_t) constant_mem;}}";
     cl_program program = clCreateProgramWithSource(mInternals->context, 1, (const char**)&krnlGetPtr, nullptr, &ocl_error);
     if (GPUFailedMsgI(ocl_error)) {
-      quit("Error creating program object");
+      GPUErrorReturn("Error creating program object");
     }
     ocl_error = clBuildProgram(program, 1, &mInternals->device, "", nullptr, nullptr);
     if (GPUFailedMsgI(ocl_error)) {
       char build_log[16384];
       clGetProgramBuildInfo(program, mInternals->device, CL_PROGRAM_BUILD_LOG, 16384, build_log, nullptr);
       GPUImportant("Build Log:\n\n%s\n\n", build_log);
-      quit("Error compiling program");
+      GPUErrorReturn("Error compiling program");
     }
     cl_kernel kernel = clCreateKernel(program, "krnlGetPtr", &ocl_error);
     if (GPUFailedMsgI(ocl_error)) {
-      quit("Error creating kernel");
+      GPUErrorReturn("Error creating kernel");
     }
 
     if (GPUFailedMsgI(OCLsetKernelParameters(kernel, mInternals->mem_gpu, mInternals->mem_constant, mInternals->mem_host)) ||
@@ -355,7 +363,7 @@ int32_t GPUReconstructionOCLBackend::InitDevice_Runtime()
         GPUFailedMsgI(clFinish(mInternals->command_queue[0])) ||
         GPUFailedMsgI(clReleaseKernel(kernel)) ||
         GPUFailedMsgI(clReleaseProgram(program))) {
-      quit("Error obtaining device memory ptr");
+      GPUErrorReturn("Error obtaining device memory ptr");
     }
 
     if (mProcessingSettings.debugLevel >= 2) {
@@ -363,7 +371,7 @@ int32_t GPUReconstructionOCLBackend::InitDevice_Runtime()
     }
     mHostMemoryBase = clEnqueueMapBuffer(mInternals->command_queue[0], mInternals->mem_host, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE, 0, mHostMemorySize, 0, nullptr, nullptr, &ocl_error);
     if (GPUFailedMsgI(ocl_error)) {
-      quit("Error allocating Page Locked Host Memory");
+      GPUErrorReturn("Error allocating Page Locked Host Memory");
     }
 
     mDeviceMemoryBase = ((void**)mHostMemoryBase)[0];
@@ -374,13 +382,12 @@ int32_t GPUReconstructionOCLBackend::InitDevice_Runtime()
       memset(mHostMemoryBase, 0xDD, mHostMemorySize);
     }
 
-    GPUInfo("OPENCL Initialisation successfull (%d: %s %s (Frequency %d, Shaders %d), %ld / %ld bytes host / global memory, Stack frame %d, Constant memory %ld)", bestDevice, device_vendor, device_name, (int32_t)freq, (int32_t)shaders, (int64_t)mDeviceMemorySize,
-            (int64_t)mHostMemorySize, -1, (int64_t)gGPUConstantMemBufferSize);
+    GPUInfo("OPENCL Initialisation successfull (%d: %s %s (Frequency %d, Shaders %d), %ld / %ld bytes host / global memory, Stack frame %d, Constant memory %ld)", bestDevice, device_vendor, device_name, (int32_t)device_freq, (int32_t)device_shaders, (int64_t)mDeviceMemorySize, (int64_t)mHostMemorySize, -1, (int64_t)gGPUConstantMemBufferSize);
   } else {
     GPUReconstructionOCL* master = dynamic_cast<GPUReconstructionOCL*>(mMaster);
     mBlockCount = master->mBlockCount;
     mWarpSize = master->mWarpSize;
-    mMaxThreads = master->mMaxThreads;
+    mMaxBackendThreads = master->mMaxBackendThreads;
     mDeviceName = master->mDeviceName;
     mDeviceConstantMem = master->mDeviceConstantMem;
     mInternals = master->mInternals;
@@ -437,7 +444,11 @@ size_t GPUReconstructionOCLBackend::GPUMemCpy(void* dst, const void* src, size_t
   if (stream == -1) {
     SynchronizeGPU();
   }
-  if (toGPU == -2) {
+  if (size == 0) {
+    if (ev || nEvents) { // Workaround for OCL runtimes, which can throw an error in case size = 0
+      GPUFailedMsg(clEnqueueMarkerWithWaitList(mInternals->command_queue[stream == -1 ? 0 : stream], nEvents, evList->getEventList<cl_event>(), ev->getEventList<cl_event>()));
+    }
+  } else if (toGPU == -2) {
     GPUFailedMsg(clEnqueueCopyBuffer(mInternals->command_queue[stream == -1 ? 0 : stream], mInternals->mem_gpu, mInternals->mem_gpu, (char*)src - (char*)mDeviceMemoryBase, (char*)dst - (char*)mDeviceMemoryBase, size, nEvents, evList->getEventList<cl_event>(), ev->getEventList<cl_event>()));
   } else if (toGPU) {
     GPUFailedMsg(clEnqueueWriteBuffer(mInternals->command_queue[stream == -1 ? 0 : stream], mInternals->mem_gpu, stream == -1, (char*)dst - (char*)mDeviceMemoryBase, size, src, nEvents, evList->getEventList<cl_event>(), ev->getEventList<cl_event>()));
@@ -479,7 +490,7 @@ int32_t GPUReconstructionOCLBackend::DoStuckProtection(int32_t stream, deviceEve
     }
     if (tmp != CL_COMPLETE) {
       mGPUStuck = 1;
-      quit("GPU Stuck, future processing in this component is disabled, skipping event (GPU Event State %d)", (int32_t)tmp);
+      GPUErrorReturn("GPU Stuck, future processing in this component is disabled, skipping event (GPU Event State %d)", (int32_t)tmp);
     }
   } else {
     clFinish(mInternals->command_queue[stream]);
@@ -534,40 +545,21 @@ int32_t GPUReconstructionOCLBackend::GPUDebug(const char* state, int32_t stream,
   return (0);
 }
 
-template <class T, int32_t I, typename... Args>
-int32_t GPUReconstructionOCLBackend::runKernelBackend(const krnlSetupArgs<T, I, Args...>& args)
-{
-  cl_kernel k = args.s.y.num > 1 ? getKernelObject<cl_kernel, T, I, true>() : getKernelObject<cl_kernel, T, I, false>();
-  return std::apply([this, &args, &k](auto&... vals) { return runKernelBackendInternal(args.s, k, vals...); }, args.v);
-}
-
-template <class S, class T, int32_t I, bool MULTI>
-S& GPUReconstructionOCLBackend::getKernelObject()
-{
-  static uint32_t krnl = FindKernel<T, I>(MULTI ? 2 : 1);
-  return mInternals->kernels[krnl].first;
-}
-
 int32_t GPUReconstructionOCLBackend::GetOCLPrograms()
 {
-  char platform_version[256] = {};
-  GPUFailedMsg(clGetPlatformInfo(mInternals->platform, CL_PLATFORM_VERSION, sizeof(platform_version), platform_version, nullptr));
-  float ver = 0;
-  sscanf(platform_version, "OpenCL %f", &ver);
-
   cl_int ocl_error;
 
-  const char* ocl_flags = GPUCA_M_STR(OCL_FLAGS);
+  const char* oclBuildFlags = GetProcessingSettings().oclOverrideSourceBuildFlags != "" ? GetProcessingSettings().oclOverrideSourceBuildFlags.c_str() : GPUCA_M_STR(GPUCA_OCL_BUILD_FLAGS);
 
 #ifdef OPENCL_ENABLED_SPIRV // clang-format off
-  if (ver >= 2.2f && !GetProcessingSettings().oclCompileFromSources) {
-    GPUInfo("Reading OpenCL program from SPIR-V IL (Platform version %4.2f)", ver);
+  if (mOclVersion >= 2.1f && !GetProcessingSettings().oclCompileFromSources) {
+    GPUInfo("Reading OpenCL program from SPIR-V IL (Platform version %4.2f)", mOclVersion);
     mInternals->program = clCreateProgramWithIL(mInternals->context, _binary_GPUReconstructionOCLCode_spirv_start, _binary_GPUReconstructionOCLCode_spirv_len, &ocl_error);
-    ocl_flags = "";
+    oclBuildFlags = "";
   } else
 #endif // clang-format on
   {
-    GPUInfo("Compiling OpenCL program from sources (Platform version %4.2f)", ver);
+    GPUInfo("Compiling OpenCL program from sources (Platform version %4.2f)", mOclVersion);
     size_t program_sizes[1] = {_binary_GPUReconstructionOCLCode_src_len};
     char* programs_sources[1] = {_binary_GPUReconstructionOCLCode_src_start};
     mInternals->program = clCreateProgramWithSource(mInternals->context, (cl_uint)1, (const char**)&programs_sources, program_sizes, &ocl_error);
@@ -578,7 +570,7 @@ int32_t GPUReconstructionOCLBackend::GetOCLPrograms()
     return 1;
   }
 
-  if (GPUFailedMsgI(clBuildProgram(mInternals->program, 1, &mInternals->device, ocl_flags, nullptr, nullptr))) {
+  if (GPUFailedMsgI(clBuildProgram(mInternals->program, 1, &mInternals->device, oclBuildFlags, nullptr, nullptr))) {
     cl_build_status status;
     if (GPUFailedMsgI(clGetProgramBuildInfo(mInternals->program, mInternals->device, CL_PROGRAM_BUILD_STATUS, sizeof(status), &status, nullptr)) == 0 && status == CL_BUILD_ERROR) {
       size_t log_size;
@@ -591,50 +583,75 @@ int32_t GPUReconstructionOCLBackend::GetOCLPrograms()
     return 1;
   }
 
-#define GPUCA_KRNL(...) \
-  GPUCA_KRNL_WRAP(GPUCA_KRNL_LOAD_, __VA_ARGS__)
-#define GPUCA_KRNL_LOAD_single(x_class, ...)              \
-  if (AddKernel<GPUCA_M_KRNL_TEMPLATE(x_class)>(false)) { \
-    return 1;                                             \
-  }
-#define GPUCA_KRNL_LOAD_multi(x_class, ...)              \
-  if (AddKernel<GPUCA_M_KRNL_TEMPLATE(x_class)>(true)) { \
-    return 1;                                            \
-  }
-#include "GPUReconstructionKernelList.h"
-#undef GPUCA_KRNL
-#undef GPUCA_KRNL_LOAD_single
-#undef GPUCA_KRNL_LOAD_multi
-
-  return 0;
+  return AddKernels();
 }
 
-bool GPUReconstructionOCLBackend::CheckPlatform(uint32_t i)
+const char* GPUReconstructionOCLBackend::convertErrorToString(int32_t errorcode)
 {
-  char platform_version[64] = {}, platform_vendor[64] = {};
-  clGetPlatformInfo(mInternals->platforms[i], CL_PLATFORM_VERSION, sizeof(platform_version), platform_version, nullptr);
-  clGetPlatformInfo(mInternals->platforms[i], CL_PLATFORM_VENDOR, sizeof(platform_vendor), platform_vendor, nullptr);
-  float ver1 = 0;
-  sscanf(platform_version, "OpenCL %f", &ver1);
-  if (ver1 >= 2.2f) {
-    if (mProcessingSettings.debugLevel >= 2) {
-      GPUInfo("OpenCL 2.2 capable platform found");
-    }
-    return true;
-  }
-
-  if (strcmp(platform_vendor, "Advanced Micro Devices, Inc.") == 0 && ver1 >= 2.0f) {
-    float ver2 = 0;
-    const char* pos = strchr(platform_version, '(');
-    if (pos) {
-      sscanf(pos, "(%f)", &ver2);
-    }
-    if ((ver1 >= 2.f && ver2 >= 2000.f) || ver1 >= 2.1f) {
-      if (mProcessingSettings.debugLevel >= 2) {
-        GPUInfo("AMD ROCm OpenCL Platform found");
-      }
-      return true;
-    }
-  }
-  return false;
+  static const std::map<cl_int, const char*> error_map = {
+    {CL_SUCCESS, "CL_SUCCESS"},
+    {CL_DEVICE_NOT_FOUND, "CL_DEVICE_NOT_FOUND"},
+    {CL_DEVICE_NOT_AVAILABLE, "CL_DEVICE_NOT_AVAILABLE"},
+    {CL_COMPILER_NOT_AVAILABLE, "CL_COMPILER_NOT_AVAILABLE"},
+    {CL_MEM_OBJECT_ALLOCATION_FAILURE, "CL_MEM_OBJECT_ALLOCATION_FAILURE"},
+    {CL_OUT_OF_RESOURCES, "CL_OUT_OF_RESOURCES"},
+    {CL_OUT_OF_HOST_MEMORY, "CL_OUT_OF_HOST_MEMORY"},
+    {CL_PROFILING_INFO_NOT_AVAILABLE, "CL_PROFILING_INFO_NOT_AVAILABLE"},
+    {CL_MEM_COPY_OVERLAP, "CL_MEM_COPY_OVERLAP"},
+    {CL_IMAGE_FORMAT_MISMATCH, "CL_IMAGE_FORMAT_MISMATCH"},
+    {CL_IMAGE_FORMAT_NOT_SUPPORTED, "CL_IMAGE_FORMAT_NOT_SUPPORTED"},
+    {CL_BUILD_PROGRAM_FAILURE, "CL_BUILD_PROGRAM_FAILURE"},
+    {CL_MAP_FAILURE, "CL_MAP_FAILURE"},
+    {CL_MISALIGNED_SUB_BUFFER_OFFSET, "CL_MISALIGNED_SUB_BUFFER_OFFSET"},
+    {CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST, "CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST"},
+    {CL_COMPILE_PROGRAM_FAILURE, "CL_COMPILE_PROGRAM_FAILURE"},
+    {CL_LINKER_NOT_AVAILABLE, "CL_LINKER_NOT_AVAILABLE"},
+    {CL_LINK_PROGRAM_FAILURE, "CL_LINK_PROGRAM_FAILURE"},
+    {CL_DEVICE_PARTITION_FAILED, "CL_DEVICE_PARTITION_FAILED"},
+    {CL_KERNEL_ARG_INFO_NOT_AVAILABLE, "CL_KERNEL_ARG_INFO_NOT_AVAILABLE"},
+    {CL_INVALID_VALUE, "CL_INVALID_VALUE"},
+    {CL_INVALID_DEVICE_TYPE, "CL_INVALID_DEVICE_TYPE"},
+    {CL_INVALID_PLATFORM, "CL_INVALID_PLATFORM"},
+    {CL_INVALID_DEVICE, "CL_INVALID_DEVICE"},
+    {CL_INVALID_CONTEXT, "CL_INVALID_CONTEXT"},
+    {CL_INVALID_QUEUE_PROPERTIES, "CL_INVALID_QUEUE_PROPERTIES"},
+    {CL_INVALID_COMMAND_QUEUE, "CL_INVALID_COMMAND_QUEUE"},
+    {CL_INVALID_HOST_PTR, "CL_INVALID_HOST_PTR"},
+    {CL_INVALID_MEM_OBJECT, "CL_INVALID_MEM_OBJECT"},
+    {CL_INVALID_IMAGE_FORMAT_DESCRIPTOR, "CL_INVALID_IMAGE_FORMAT_DESCRIPTOR"},
+    {CL_INVALID_IMAGE_SIZE, "CL_INVALID_IMAGE_SIZE"},
+    {CL_INVALID_SAMPLER, "CL_INVALID_SAMPLER"},
+    {CL_INVALID_BINARY, "CL_INVALID_BINARY"},
+    {CL_INVALID_BUILD_OPTIONS, "CL_INVALID_BUILD_OPTIONS"},
+    {CL_INVALID_PROGRAM, "CL_INVALID_PROGRAM"},
+    {CL_INVALID_PROGRAM_EXECUTABLE, "CL_INVALID_PROGRAM_EXECUTABLE"},
+    {CL_INVALID_KERNEL_NAME, "CL_INVALID_KERNEL_NAME"},
+    {CL_INVALID_KERNEL_DEFINITION, "CL_INVALID_KERNEL_DEFINITION"},
+    {CL_INVALID_KERNEL, "CL_INVALID_KERNEL"},
+    {CL_INVALID_ARG_INDEX, "CL_INVALID_ARG_INDEX"},
+    {CL_INVALID_ARG_VALUE, "CL_INVALID_ARG_VALUE"},
+    {CL_INVALID_ARG_SIZE, "CL_INVALID_ARG_SIZE"},
+    {CL_INVALID_KERNEL_ARGS, "CL_INVALID_KERNEL_ARGS"},
+    {CL_INVALID_WORK_DIMENSION, "CL_INVALID_WORK_DIMENSION"},
+    {CL_INVALID_WORK_GROUP_SIZE, "CL_INVALID_WORK_GROUP_SIZE"},
+    {CL_INVALID_WORK_ITEM_SIZE, "CL_INVALID_WORK_ITEM_SIZE"},
+    {CL_INVALID_GLOBAL_OFFSET, "CL_INVALID_GLOBAL_OFFSET"},
+    {CL_INVALID_EVENT_WAIT_LIST, "CL_INVALID_EVENT_WAIT_LIST"},
+    {CL_INVALID_EVENT, "CL_INVALID_EVENT"},
+    {CL_INVALID_OPERATION, "CL_INVALID_OPERATION"},
+    {CL_INVALID_GL_OBJECT, "CL_INVALID_GL_OBJECT"},
+    {CL_INVALID_BUFFER_SIZE, "CL_INVALID_BUFFER_SIZE"},
+    {CL_INVALID_MIP_LEVEL, "CL_INVALID_MIP_LEVEL"},
+    {CL_INVALID_GLOBAL_WORK_SIZE, "CL_INVALID_GLOBAL_WORK_SIZE"},
+    {CL_INVALID_PROPERTY, "CL_INVALID_PROPERTY"},
+    {CL_INVALID_IMAGE_DESCRIPTOR, "CL_INVALID_IMAGE_DESCRIPTOR"},
+    {CL_INVALID_COMPILER_OPTIONS, "CL_INVALID_COMPILER_OPTIONS"},
+    {CL_INVALID_LINKER_OPTIONS, "CL_INVALID_LINKER_OPTIONS"},
+    {CL_INVALID_DEVICE_PARTITION_COUNT, "CL_INVALID_DEVICE_PARTITION_COUNT"},
+    {CL_INVALID_PIPE_SIZE, "CL_INVALID_PIPE_SIZE"},
+    {CL_INVALID_DEVICE_QUEUE, "CL_INVALID_DEVICE_QUEUE"},
+    {CL_INVALID_SPEC_ID, "CL_INVALID_SPEC_ID"},
+    {CL_MAX_SIZE_RESTRICTION_EXCEEDED, "CL_MAX_SIZE_RESTRICTION_EXCEEDED"}};
+  auto entry = error_map.find(errorcode);
+  return (entry != error_map.end()) ? entry->second : "Unknown Errorcode";
 }

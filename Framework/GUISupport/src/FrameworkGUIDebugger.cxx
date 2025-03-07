@@ -69,6 +69,8 @@ ImVec4 colorForLogLevel(LogParsingHelpers::LogLevel logLevel)
   switch (logLevel) {
     case LogParsingHelpers::LogLevel::Info:
       return PaletteHelpers::GREEN;
+    case LogParsingHelpers::LogLevel::Important:
+      return PaletteHelpers::GREEN;
     case LogParsingHelpers::LogLevel::Debug:
       return PaletteHelpers::WHITE;
     case LogParsingHelpers::LogLevel::Alarm:
@@ -76,6 +78,8 @@ ImVec4 colorForLogLevel(LogParsingHelpers::LogLevel logLevel)
     case LogParsingHelpers::LogLevel::Warning:
       return PaletteHelpers::DARK_YELLOW;
     case LogParsingHelpers::LogLevel::Error:
+      return PaletteHelpers::RED;
+    case LogParsingHelpers::LogLevel::Critical:
       return PaletteHelpers::RED;
     case LogParsingHelpers::LogLevel::Fatal:
       return PaletteHelpers::RED;
@@ -977,10 +981,20 @@ void pushWindowColorDueToStatus(const DeviceInfo& info)
     return;
   }
   switch (info.maxLogLevel) {
+    case LogLevel::Critical:
+      ImGui::PushStyleColor(ImGuiCol_TitleBg, PaletteHelpers::SHADED_RED);
+      ImGui::PushStyleColor(ImGuiCol_TitleBgActive, PaletteHelpers::RED);
+      ImGui::PushStyleColor(ImGuiCol_TitleBgCollapsed, PaletteHelpers::SHADED_RED);
+      break;
     case LogLevel::Error:
       ImGui::PushStyleColor(ImGuiCol_TitleBg, PaletteHelpers::SHADED_RED);
       ImGui::PushStyleColor(ImGuiCol_TitleBgActive, PaletteHelpers::RED);
       ImGui::PushStyleColor(ImGuiCol_TitleBgCollapsed, PaletteHelpers::SHADED_RED);
+      break;
+    case LogLevel::Alarm:
+      ImGui::PushStyleColor(ImGuiCol_TitleBg, PaletteHelpers::SHADED_YELLOW);
+      ImGui::PushStyleColor(ImGuiCol_TitleBgActive, PaletteHelpers::YELLOW);
+      ImGui::PushStyleColor(ImGuiCol_TitleBgCollapsed, PaletteHelpers::SHADED_YELLOW);
       break;
     case LogLevel::Warning:
       ImGui::PushStyleColor(ImGuiCol_TitleBg, PaletteHelpers::SHADED_YELLOW);

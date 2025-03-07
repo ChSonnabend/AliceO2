@@ -47,6 +47,7 @@ o2_add_executable(
     O2::DataFormatsMCH
     O2::Framework
     O2::MCHGlobalMapping
+    O2::MCHMappingImpl4
     O2::MCHStatus
     )
 
