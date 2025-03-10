@@ -146,9 +146,9 @@ GPUd() void GPUTPCNNClusterizer::fillInputData(int32_t nBlocks, int32_t nThreads
       for (int t = -clusterer.nnClusterizerSizeInputTime; t <= clusterer.nnClusterizerSizeInputTime; t++) {
         if (!is_boundary) {
           ChargePos tmp_pos(row + r, pad + p, time + t);
-          if (r == 0 && !clusterer.clusterFlags[2*glo_idx] && std::abs(p) < 3 && std::abs(t) < 3 && p != 0 && t != 0) { // ordering is done for short circuit optimization
-            clusterer.clusterFlags[2*glo_idx] = CfUtils::isPeak(isPeakMap[tmp_pos]);
-            clusterer.clusterFlags[2*glo_idx + 1] = clusterer.clusterFlags[2*glo_idx];
+          if (r == 0 && !clusterer.clusterFlags[2 * glo_idx] && std::abs(p) < 3 && std::abs(t) < 3 && p != 0 && t != 0) { // ordering is done for short circuit optimization
+            clusterer.clusterFlags[2 * glo_idx] = CfUtils::isPeak(isPeakMap[tmp_pos]);
+            clusterer.clusterFlags[2 * glo_idx + 1] = clusterer.clusterFlags[2 * glo_idx];
           }
           if (dtype == 0) {
             clusterer.inputData16[write_idx] = (OrtDataType::Float16_t)(static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge);
@@ -218,12 +218,12 @@ GPUd() void GPUTPCNNClusterizer::publishClustersReg1(uint glo_idx, GPUSharedMemo
     }
 
     pc.setFull(clusterer.centralCharges[glo_idx] * clusterer.outputDataReg1[model_output_index + 4],
-      static_cast<float>(clusterer.peakPositions[glo_idx].pad()) + clusterer.outputDataReg1[model_output_index],
-      clusterer.outputDataReg1[model_output_index + 2],
-      static_cast<float>((clusterer.mPmemory->fragment).start) + static_cast<float>(clusterer.peakPositions[glo_idx].time()) + clusterer.outputDataReg1[model_output_index + 1],
-      clusterer.outputDataReg1[model_output_index + 3],
-      clusterer.clusterFlags[2*glo_idx],
-      clusterer.clusterFlags[2*glo_idx + 1]);
+               static_cast<float>(clusterer.peakPositions[glo_idx].pad()) + clusterer.outputDataReg1[model_output_index],
+               clusterer.outputDataReg1[model_output_index + 2],
+               static_cast<float>((clusterer.mPmemory->fragment).start) + static_cast<float>(clusterer.peakPositions[glo_idx].time()) + clusterer.outputDataReg1[model_output_index + 1],
+               clusterer.outputDataReg1[model_output_index + 3],
+               clusterer.clusterFlags[2 * glo_idx],
+               clusterer.clusterFlags[2 * glo_idx + 1]);
 
     tpc::ClusterNative myCluster;
     bool rejectCluster = !pc.toNative(clusterer.peakPositions[glo_idx], clusterer.centralCharges[glo_idx], myCluster, clusterer.Param());
@@ -296,12 +296,12 @@ GPUd() void GPUTPCNNClusterizer::publishClustersReg2(uint glo_idx, GPUSharedMemo
 
     // Cluster 1
     pc.setFull(clusterer.centralCharges[glo_idx] * clusterer.outputDataReg2[model_output_index + 8],
-      static_cast<float>(clusterer.peakPositions[glo_idx].pad()) + clusterer.outputDataReg2[model_output_index],
-      clusterer.outputDataReg2[model_output_index + 4],
-      static_cast<float>((clusterer.mPmemory->fragment).start) + static_cast<float>(clusterer.peakPositions[glo_idx].time()) + clusterer.outputDataReg2[model_output_index + 2],
-      clusterer.outputDataReg2[model_output_index + 6],
-      clusterer.clusterFlags[2*glo_idx],
-      clusterer.clusterFlags[2*glo_idx + 1]);
+               static_cast<float>(clusterer.peakPositions[glo_idx].pad()) + clusterer.outputDataReg2[model_output_index],
+               clusterer.outputDataReg2[model_output_index + 4],
+               static_cast<float>((clusterer.mPmemory->fragment).start) + static_cast<float>(clusterer.peakPositions[glo_idx].time()) + clusterer.outputDataReg2[model_output_index + 2],
+               clusterer.outputDataReg2[model_output_index + 6],
+               clusterer.clusterFlags[2 * glo_idx],
+               clusterer.clusterFlags[2 * glo_idx + 1]);
 
     tpc::ClusterNative myCluster;
     bool rejectCluster = !pc.toNative(clusterer.peakPositions[glo_idx], clusterer.centralCharges[glo_idx], myCluster, clusterer.Param());
@@ -331,12 +331,12 @@ GPUd() void GPUTPCNNClusterizer::publishClustersReg2(uint glo_idx, GPUSharedMemo
 
     // Cluster 2
     pc.setFull(clusterer.centralCharges[glo_idx] * clusterer.outputDataReg2[model_output_index + 9],
-      static_cast<float>(clusterer.peakPositions[glo_idx].pad()) + clusterer.outputDataReg2[model_output_index + 1],
-      clusterer.outputDataReg2[model_output_index + 5],
-      static_cast<float>((clusterer.mPmemory->fragment).start) + static_cast<float>(clusterer.peakPositions[glo_idx].time()) + clusterer.outputDataReg2[model_output_index + 3],
-      clusterer.outputDataReg2[model_output_index + 7],
-      clusterer.clusterFlags[2*glo_idx],
-      clusterer.clusterFlags[2*glo_idx + 1]);
+               static_cast<float>(clusterer.peakPositions[glo_idx].pad()) + clusterer.outputDataReg2[model_output_index + 1],
+               clusterer.outputDataReg2[model_output_index + 5],
+               static_cast<float>((clusterer.mPmemory->fragment).start) + static_cast<float>(clusterer.peakPositions[glo_idx].time()) + clusterer.outputDataReg2[model_output_index + 3],
+               clusterer.outputDataReg2[model_output_index + 7],
+               clusterer.clusterFlags[2 * glo_idx],
+               clusterer.clusterFlags[2 * glo_idx + 1]);
 
     rejectCluster = !pc.toNative(clusterer.peakPositions[glo_idx], clusterer.centralCharges[glo_idx], myCluster, clusterer.Param());
     if (rejectCluster) {

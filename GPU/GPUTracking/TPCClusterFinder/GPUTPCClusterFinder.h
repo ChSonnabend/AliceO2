@@ -163,20 +163,20 @@ class GPUTPCClusterFinder : public GPUProcessor
   int nnClusterizerModelReg1NumOutputNodes = -1;
   int nnClusterizerModelReg2NumOutputNodes = -1;
   uint nnClusterizerCurrentSize = -1; // This variable determines the size of the memory pointers. It will be set at runtime.
-  int nnClusterizerDtype = 0; // 0: float16, 1: float32
+  int nnClusterizerDtype = 0;         // 0: float16, 1: float32
 
   // Memory allocation for neural network
   uint class2_elements = 0;
-  float* inputData32=nullptr;
-  OrtDataType::Float16_t* inputData16=nullptr;
-  float* outputDataClass=nullptr;
-  float* modelProbabilities=nullptr;
-  float* outputDataReg1=nullptr;
-  float* outputDataReg2=nullptr;
+  float* inputData32 = nullptr;
+  OrtDataType::Float16_t* inputData16 = nullptr;
+  float* outputDataClass = nullptr;
+  float* modelProbabilities = nullptr;
+  float* outputDataReg1 = nullptr;
+  float* outputDataReg2 = nullptr;
 
-  ChargePos* peakPositions=nullptr;
-  bool* clusterFlags=nullptr; // mSplitInTime, mSplitInPad. Techincally both flags are set in the same way -> ClusterAccumulator.cx=nullptrx
-  float* centralCharges=nullptr;
+  ChargePos* peakPositions = nullptr;
+  bool* clusterFlags = nullptr; // mSplitInTime, mSplitInPad. Techincally both flags are set in the same way -> ClusterAccumulator.cx=nullptrx
+  float* centralCharges = nullptr;
 
 #ifndef GPUCA_GPUCODE
   void DumpDigits(std::ostream& out);

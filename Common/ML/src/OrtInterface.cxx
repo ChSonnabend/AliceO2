@@ -303,7 +303,7 @@ std::vector<OrtDataType::Float16_t> OrtModel::inference<float, OrtDataType::Floa
   return outputValuesVec;
 }
 
-template <>// class I is the input data type, e.g. float, class O is the output data type, e.g. O2::gpu::OrtDataType::Float16_t from O2/GPU/GPUTracking/ML/convert_float16.h
+template <> // class I is the input data type, e.g. float, class O is the output data type, e.g. O2::gpu::OrtDataType::Float16_t from O2/GPU/GPUTracking/ML/convert_float16.h
 float* OrtModel::inference(float* input, size_t input_size)
 {
   std::vector<int64_t> inputShape{(int64_t)(input_size / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
@@ -315,7 +315,7 @@ float* OrtModel::inference(float* input, size_t input_size)
   return outputValues;
 }
 
-template <>// class I is the input data type, e.g. float, class O is the output data type, e.g. O2::gpu::OrtDataType::Float16_t from O2/GPU/GPUTracking/ML/convert_float16.h
+template <> // class I is the input data type, e.g. float, class O is the output data type, e.g. O2::gpu::OrtDataType::Float16_t from O2/GPU/GPUTracking/ML/convert_float16.h
 float* OrtModel::inference(OrtDataType::Float16_t* input, size_t input_size)
 {
   std::vector<int64_t> inputShape{(int64_t)(input_size / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
@@ -327,34 +327,30 @@ float* OrtModel::inference(OrtDataType::Float16_t* input, size_t input_size)
   return outputValues;
 }
 
-template <>// class I is the input data type, e.g. float, class O is the output data type, e.g. O2::gpu::OrtDataType::Float16_t from O2/GPU/GPUTracking/ML/convert_float16.h
+template <> // class I is the input data type, e.g. float, class O is the output data type, e.g. O2::gpu::OrtDataType::Float16_t from O2/GPU/GPUTracking/ML/convert_float16.h
 void OrtModel::inference(float* input, size_t input_size, float* output)
 {
   std::vector<int64_t> inputShape{(int64_t)(input_size / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
   Ort::Value inputTensor = Ort::Value::CreateTensor<float>(pImplOrt->memoryInfo, input, input_size, inputShape.data(), inputShape.size());
-  
+
   std::vector<int64_t> outputShape{inputShape[0], mOutputShapes[0][1]};
   size_t outputSize = (int64_t)((input_size / mInputShapes[0][1]) * outputShape[1]);
   Ort::Value outputTensor = Ort::Value::CreateTensor<float>(pImplOrt->memoryInfo, output, outputSize, outputShape.data(), outputShape.size());
-  
-  (pImplOrt->session)->Run(pImplOrt->runOptions, 
-                           inputNamesChar.data(), &inputTensor, 1,
-                           outputNamesChar.data(), &outputTensor, 1);
+
+  (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), &inputTensor, 1, outputNamesChar.data(), &outputTensor, 1);
 }
 
-template <>// class I is the input data type, e.g. float, class O is the output data type, e.g. O2::gpu::OrtDataType::Float16_t from O2/GPU/GPUTracking/ML/convert_float16.h
+template <> // class I is the input data type, e.g. float, class O is the output data type, e.g. O2::gpu::OrtDataType::Float16_t from O2/GPU/GPUTracking/ML/convert_float16.h
 void OrtModel::inference(OrtDataType::Float16_t* input, size_t input_size, float* output)
 {
   std::vector<int64_t> inputShape{(int64_t)(input_size / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
   Ort::Value inputTensor = Ort::Value::CreateTensor<Ort::Float16_t>(pImplOrt->memoryInfo, reinterpret_cast<Ort::Float16_t*>(input), input_size, inputShape.data(), inputShape.size());
-  
+
   std::vector<int64_t> outputShape{inputShape[0], mOutputShapes[0][1]};
   size_t outputSize = (int64_t)((input_size / mInputShapes[0][1]) * outputShape[1]);
   Ort::Value outputTensor = Ort::Value::CreateTensor<float>(pImplOrt->memoryInfo, output, outputSize, outputShape.data(), outputShape.size());
-  
-  (pImplOrt->session)->Run(pImplOrt->runOptions, 
-                           inputNamesChar.data(), &inputTensor, 1,
-                           outputNamesChar.data(), &outputTensor, 1);
+
+  (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), &inputTensor, 1, outputNamesChar.data(), &outputTensor, 1);
 }
 
 template <>

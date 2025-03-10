@@ -16,21 +16,21 @@
 
 using namespace o2::gpu;
 
-GPUTPCNNClusterizerInternals::GPUTPCNNClusterizerInternals(GPUSettingsProcessing settings, processorType& clusterer) {
+GPUTPCNNClusterizerInternals::GPUTPCNNClusterizerInternals(GPUSettingsProcessing settings, processorType& clusterer)
+{
   clusterer_internal = &clusterer;
   GPUSettingsProcessingNNclusterizer nn_settings = settings.nn;
   OrtOptions = {{"model-path", nn_settings.nnClassificationPath},
-    {"device", nn_settings.nnInferenceDevice},
-    {"device-id", std::to_string(nn_settings.nnInferenceDeviceId)},
-    {"allocate-device-memory", std::to_string(nn_settings.nnInferenceAllocateDevMem)},
-    {"dtype", nn_settings.nnInferenceDtype},
-    {"intra-op-num-threads", std::to_string(nn_settings.nnInferenceThreadsPerNN)},
-    {"enable-optimizations", std::to_string(nn_settings.nnInferenceEnableOrtOptimization)},
-    {"enable-profiling", std::to_string(nn_settings.nnInferenceOrtProfiling)},
-    {"profiling-output-path", nn_settings.nnInferenceOrtProfilingPath},
-    {"logging-level", std::to_string(nn_settings.nnInferenceVerbosity)}};
+                {"device", nn_settings.nnInferenceDevice},
+                {"device-id", std::to_string(nn_settings.nnInferenceDeviceId)},
+                {"allocate-device-memory", std::to_string(nn_settings.nnInferenceAllocateDevMem)},
+                {"dtype", nn_settings.nnInferenceDtype},
+                {"intra-op-num-threads", std::to_string(nn_settings.nnInferenceThreadsPerNN)},
+                {"enable-optimizations", std::to_string(nn_settings.nnInferenceEnableOrtOptimization)},
+                {"enable-profiling", std::to_string(nn_settings.nnInferenceOrtProfiling)},
+                {"profiling-output-path", nn_settings.nnInferenceOrtProfilingPath},
+                {"logging-level", std::to_string(nn_settings.nnInferenceVerbosity)}};
   sector = clusterer.mISector;
-
 
   model_class.init(OrtOptions);
   reg_model_paths = splitString(nn_settings.nnRegressionPath, ":");
@@ -51,24 +51,26 @@ GPUTPCNNClusterizerInternals::GPUTPCNNClusterizerInternals(GPUSettingsProcessing
   }
 }
 
-void* GPUTPCNNClusterizerInternals::setIOPointers(void* mem) {
-  if (clusterer_internal->nnClusterizerDtype == 0){
-      computePointerWithAlignment(mem, clusterer_internal->inputData16, clusterer_internal->nnClusterizerCurrentSize * clusterer_internal->nnClusterizerElementSize);
-  } else if (clusterer_internal->nnClusterizerDtype == 1){
-      computePointerWithAlignment(mem, clusterer_internal->inputData32, clusterer_internal->nnClusterizerCurrentSize * clusterer_internal->nnClusterizerElementSize);
+void* GPUTPCNNClusterizerInternals::setIOPointers(void* mem)
+{
+  if (clusterer_internal->nnClusterizerDtype == 0) {
+    computePointerWithAlignment(mem, clusterer_internal->inputData16, clusterer_internal->nnClusterizerCurrentSize * clusterer_internal->nnClusterizerElementSize);
+  } else if (clusterer_internal->nnClusterizerDtype == 1) {
+    computePointerWithAlignment(mem, clusterer_internal->inputData32, clusterer_internal->nnClusterizerCurrentSize * clusterer_internal->nnClusterizerElementSize);
   }
   computePointerWithAlignment(mem, clusterer_internal->outputDataClass, clusterer_internal->nnClusterizerCurrentSize);
   computePointerWithAlignment(mem, clusterer_internal->modelProbabilities, clusterer_internal->nnClusterizerCurrentSize * clusterer_internal->nnClusterizerModelClassNumOutputNodes);
   computePointerWithAlignment(mem, clusterer_internal->outputDataReg1, clusterer_internal->nnClusterizerCurrentSize * clusterer_internal->nnClusterizerModelReg1NumOutputNodes);
   computePointerWithAlignment(mem, clusterer_internal->outputDataReg2, clusterer_internal->nnClusterizerCurrentSize * clusterer_internal->nnClusterizerModelReg2NumOutputNodes);
   computePointerWithAlignment(mem, clusterer_internal->peakPositions, clusterer_internal->nnClusterizerCurrentSize);
-  computePointerWithAlignment(mem, clusterer_internal->clusterFlags, 2*clusterer_internal->nnClusterizerCurrentSize);
+  computePointerWithAlignment(mem, clusterer_internal->clusterFlags, 2 * clusterer_internal->nnClusterizerCurrentSize);
   computePointerWithAlignment(mem, clusterer_internal->centralCharges, clusterer_internal->nnClusterizerCurrentSize);
 
   return mem;
 }
 
-void GPUTPCNNClusterizerInternals::RegisterMemoryAllocation() {
+void GPUTPCNNClusterizerInternals::RegisterMemoryAllocation()
+{
   AllocateAndInitializeLate();
   int32_t memType = GPUMemoryResource::MEMORY_SCRATCH | GPUMemoryResource::MEMORY_STACK;
   mMemoryId = mRec->RegisterMemoryAllocation(this, &GPUTPCNNClusterizerInternals::setIOPointers, memType, "TPCNNClusterer", GPUMemoryReuse{GPUMemoryReuse::REUSE_1TO1, GPUMemoryReuse::NNClusterer, (uint16_t)(sector % mRec->GetProcessingSettings().nTPCClustererLanes)});
