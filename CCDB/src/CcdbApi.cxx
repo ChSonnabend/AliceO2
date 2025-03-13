@@ -667,6 +667,23 @@ size_t header_map_callback(char* buffer, size_t size, size_t nitems, void* userd
         }
       }
     }
+
+    // Keep only the first ETag encountered
+    if (key == "ETag") {
+      auto cl = headers->find("ETag");
+      if (cl != headers->end()) {
+        insert = false;
+      }
+    }
+
+    // Keep only the first Content-Type encountered
+    if (key == "Content-Type") {
+      auto cl = headers->find("Content-Type");
+      if (cl != headers->end()) {
+        insert = false;
+      }
+    }
+
     if (insert) {
       headers->insert(std::make_pair(key, value));
     }
@@ -1971,20 +1988,32 @@ void CcdbApi::vectoredLoadFileToMemory(std::vector<RequestContext>& requestConte
 bool CcdbApi::loadLocalContentToMemory(o2::pmr::vector<char>& dest, std::string& url) const
 {
   if (url.find("alien:/", 0) != std::string::npos) {
-    loadFileToMemory(dest, url, nullptr); // headers loaded from the file in case of the snapshot reading only
-    return true;
+    std::map<std::string, std::string> localHeaders;
+    loadFileToMemory(dest, url, &localHeaders, false);
+    auto it = localHeaders.find("Error");
+    if (it != localHeaders.end() && it->second == "An error occurred during retrieval") {
+      return false;
+    } else {
+      return true;
+    }
   }
   if ((url.find("file:/", 0) != std::string::npos)) {
     std::string path = url.substr(7);
     if (std::filesystem::exists(path)) {
-      loadFileToMemory(dest, path, nullptr);
-      return true;
+      std::map<std::string, std::string> localHeaders;
+      loadFileToMemory(dest, url, &localHeaders, o2::utils::Str::endsWith(path, ".root"));
+      auto it = localHeaders.find("Error");
+      if (it != localHeaders.end() && it->second == "An error occurred during retrieval") {
+        return false;
+      } else {
+        return true;
+      }
     }
   }
   return false;
 }
 
-void CcdbApi::loadFileToMemory(o2::pmr::vector<char>& dest, const std::string& path, std::map<std::string, std::string>* localHeaders) const
+void CcdbApi::loadFileToMemory(o2::pmr::vector<char>& dest, const std::string& path, std::map<std::string, std::string>* localHeaders, bool fetchLocalMetaData) const
 {
   // Read file to memory as vector. For special case of the locally cached file retriev metadata stored directly in the file
   constexpr size_t MaxCopySize = 0x1L << 25;
@@ -2032,7 +2061,7 @@ void CcdbApi::loadFileToMemory(o2::pmr::vector<char>& dest, const std::string& p
     totalread += nread;
   } while (nread == (long)MaxCopySize);
 
-  if (localHeaders) {
+  if (localHeaders && fetchLocalMetaData) {
     TMemFile memFile("name", const_cast<char*>(dest.data()), dest.size(), "READ");
     auto storedmeta = (std::map<std::string, std::string>*)extractFromTFile(memFile, TClass::GetClass("std::map<std::string, std::string>"), CCDBMETA_ENTRY);
     if (storedmeta) {

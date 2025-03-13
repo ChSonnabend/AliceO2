@@ -40,8 +40,8 @@ struct DataProcessorMetadata {
 
 struct DataProcessorSpec {
   std::string name;
-  Inputs inputs;
-  Outputs outputs;
+  Inputs inputs = {};
+  Outputs outputs = {};
   AlgorithmSpec algorithm;
 
   Options options = {};

@@ -57,7 +57,7 @@ int CTPActiveRun::send2BK(std::unique_ptr<BkpClient>& BKClient, size_t ts, bool 
     std::string clsname = cfg.getClassNameFromHWIndex(cls.first);
     // clsname = std::to_string(runOri) + "_" + clsname;
     try {
-      BKClient->triggerCounters()->createOrUpdateForRun(runNumber, clsname, ts, cntsbk[0], cntsbk[1], cntsbk[2], cntsbk[3], cntsbk[4], cntsbk[5]);
+      BKClient->ctpTriggerCounters()->createOrUpdateForRun(runNumber, clsname, ts, cntsbk[0], cntsbk[1], cntsbk[2], cntsbk[3], cntsbk[4], cntsbk[5]);
     } catch (std::runtime_error& error) {
       std::cerr << "An error occurred: " << error.what() << std::endl;
       return 1;
@@ -124,8 +124,19 @@ int CTPRunManager::loadRun(const std::string& cfg)
 
   return 0;
 }
-int CTPRunManager::startRun(const std::string& cfg)
+int CTPRunManager::setRunConfigBK(uint32_t runNumber, const std::string& cfg)
 {
+  std::cout << "Printing cfg:" << cfg << std::endl;
+  if (mBKClient) {
+    try {
+      uint32_t runNumber = 1;
+      mBKClient->run()->setRawCtpTriggerConfiguration(runNumber, cfg);
+    } catch (std::runtime_error& error) {
+      std::cerr << "An error occurred: " << error.what() << std::endl;
+      return 1;
+    }
+    LOG(info) << "Run BK:" << runNumber << " CFG:" << cfg;
+  }
   return 0;
 }
 int CTPRunManager::stopRun(uint32_t irun, long timeStamp)
@@ -221,6 +232,13 @@ int CTPRunManager::processMessage(std::string& topic, const std::string& message
     loadRun(message);
     return 0;
   }
+  if (topic.find("soxorbit") != std::string::npos) {
+    return 0;
+  }
+  if (topic.find("orbitreset") != std::string::npos) {
+    return 0;
+  }
+  static int nerror = 0;
   if (topic.find("sox") != std::string::npos) {
     // get config
     size_t irun = message.find("run");
@@ -230,17 +248,15 @@ int CTPRunManager::processMessage(std::string& topic, const std::string& message
     }
     LOG(info) << "SOX received, Run keyword position:" << irun;
     std::string cfg = message.substr(irun, message.size() - irun);
-    startRun(cfg);
     firstcounters = message.substr(0, irun);
-  }
-  if (topic.find("eox") != std::string::npos) {
+  } else if (topic.find("eox") != std::string::npos) {
     LOG(info) << "EOX received";
     mEOX = 1;
-  }
-  static int nerror = 0;
-  if (topic == "rocnts") {
-    if (nerror < 1) {
-      LOG(warning) << "Skipping topic rocnts";
+  } else if (topic.find("cnts") != std::string::npos) {
+    // just continue
+  } else {
+    if (nerror < 10) {
+      LOG(warning) << "Skipping topic:" << topic;
       nerror++;
     }
     return 0;
@@ -293,6 +309,7 @@ int CTPRunManager::processMessage(std::string& topic, const std::string& message
         mActiveRunNumbers[i] = mCounters[i];
         mActiveRuns[i] = run->second;
         mRunsLoaded.erase(run);
+        setRunConfigBK(mActiveRuns[i]->cfg.getRunNumber(), mActiveRuns[i]->cfg.getConfigString());
         addScalers(i, tt, 1);
         saveRunScalersToQCDB(mActiveRuns[i]->scalers, tt * 1000, tt * 1000);
       } else {

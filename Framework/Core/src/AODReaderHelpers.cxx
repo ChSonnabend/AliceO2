@@ -15,7 +15,6 @@
 #include "Framework/AnalysisDataModelHelpers.h"
 #include "Framework/DataProcessingHelpers.h"
 #include "Framework/ExpressionHelpers.h"
-#include "Framework/RootTableBuilderHelpers.h"
 #include "Framework/AlgorithmSpec.h"
 #include "Framework/ConfigParamRegistry.h"
 #include "Framework/ControlService.h"

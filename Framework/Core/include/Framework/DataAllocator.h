@@ -234,15 +234,6 @@ class DataAllocator
   }
 
   template <typename T, typename... Args>
-    requires(requires { static_cast<struct TreeToTable>(std::declval<std::decay_t<T>>()); })
-  decltype(auto) make(const Output& spec, Args... args)
-  {
-    auto t2t = std::move(LifetimeHolder<TreeToTable>(new std::decay_t<T>(args...)));
-    adopt(spec, t2t);
-    return t2t;
-  }
-
-  template <typename T, typename... Args>
     requires(requires { static_cast<struct FragmentToBatch>(std::declval<std::decay_t<T>>()); })
   decltype(auto) make(const Output& spec, Args... args)
   {
@@ -287,11 +278,6 @@ class DataAllocator
   /// it as an Arrow table to all consumers of @a spec once done
   void
     adopt(const Output& spec, LifetimeHolder<struct TableBuilder>&);
-
-  /// Adopt a Tree2Table in the framework and serialise / send
-  /// it as an Arrow table to all consumers of @a spec once done
-  void
-    adopt(const Output& spec, LifetimeHolder<struct TreeToTable>&);
 
   /// Adopt a Source2Batch in the framework and serialise / send
   /// it as an Arrow Dataset to all consumers of @a spec once done

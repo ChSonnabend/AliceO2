@@ -298,8 +298,8 @@ bool GPUChainTracking::ValidateSettings()
     GPUError("Invalid tpcCompressionGatherMode for compression on CPU");
     return false;
   }
-  if (GetProcessingSettings().tpcApplyClusterFilterOnCPU > 0 && (GetRecoStepsGPU() & GPUDataTypes::RecoStep::TPCClusterFinding || GetProcessingSettings().delayedOutput || GetProcessingSettings().runMC)) {
-    GPUError("tpcApplyClusterFilterOnCPU cannot be used with GPU clusterization or with delayedOutput for GPU or with MC labels");
+  if (GetProcessingSettings().tpcApplyClusterFilterOnCPU > 0 && (GetRecoStepsGPU() & GPUDataTypes::RecoStep::TPCClusterFinding || GetProcessingSettings().runMC)) {
+    GPUError("tpcApplyClusterFilterOnCPU cannot be used with GPU clusterization or with MC labels");
     return false;
   }
   if (GetRecoSteps() & RecoStep::TRDTracking) {

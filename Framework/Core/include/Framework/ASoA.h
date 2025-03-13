@@ -175,6 +175,8 @@ consteval auto intersectOriginals()
 
 namespace o2::soa
 {
+struct Binding;
+
 template <typename T>
 concept not_void = requires { !std::same_as<T, void>; };
 
@@ -192,7 +194,10 @@ template <typename C>
 concept is_self_index_column = not_void<typename C::self_index_t> && std::same_as<typename C::self_index_t, std::true_type>;
 
 template <typename C>
-concept is_index_column = !is_self_index_column<C> && (requires { &C::getId; } || requires { &C::getIds; });
+concept is_index_column = !is_self_index_column<C> && requires(C c, o2::soa::Binding b) {
+  { c.setCurrentRaw(b) } -> std::same_as<bool>;
+  requires std::same_as<decltype(c.mBinding), o2::soa::Binding>;
+};
 
 template <typename C>
 using is_external_index_t = typename std::conditional_t<is_index_column<C>, std::true_type, std::false_type>;

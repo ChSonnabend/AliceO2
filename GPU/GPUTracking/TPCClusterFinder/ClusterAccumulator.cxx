@@ -21,45 +21,6 @@
 using namespace o2::gpu;
 using namespace o2::gpu::tpccf;
 
-GPUd() bool ClusterAccumulator::toNative(const ChargePos& pos, Charge q, tpc::ClusterNative& cn, const GPUParam& param) const
-{
-  cn.qTot = CAMath::Float2UIntRn(mQtot);
-  if (cn.qTot <= param.rec.tpc.cfQTotCutoff) {
-    return false;
-  }
-  cn.qMax = q;
-  if (cn.qMax <= param.rec.tpc.cfQMaxCutoff) {
-    return false;
-  }
-  if (mTimeMean < param.rec.tpc.clustersShiftTimebinsClusterizer) {
-    return false;
-  }
-  if (q <= param.rec.tpc.cfQMaxCutoffSingleTime && mTimeSigma == 0) {
-    return false;
-  }
-  if (q <= param.rec.tpc.cfQMaxCutoffSinglePad && mPadSigma == 0) {
-    return false;
-  }
-
-  bool isEdgeCluster = CfUtils::isAtEdge(pos, param.tpcGeometry.NPads(pos.row()));
-  bool wasSplitInTime = mSplitInTime >= param.rec.tpc.cfMinSplitNum;
-  bool wasSplitInPad = mSplitInPad >= param.rec.tpc.cfMinSplitNum;
-  bool isSingleCluster = (mPadSigma == 0) || (mTimeSigma == 0);
-
-  uint8_t flags = 0;
-  flags |= (isEdgeCluster) ? tpc::ClusterNative::flagEdge : 0;
-  flags |= (wasSplitInTime) ? tpc::ClusterNative::flagSplitTime : 0;
-  flags |= (wasSplitInPad) ? tpc::ClusterNative::flagSplitPad : 0;
-  flags |= (isSingleCluster) ? tpc::ClusterNative::flagSingle : 0;
-
-  cn.setTimeFlags(mTimeMean - param.rec.tpc.clustersShiftTimebinsClusterizer, flags);
-  cn.setPad(mPadMean);
-  cn.setSigmaTime(mTimeSigma);
-  cn.setSigmaPad(mPadSigma);
-
-  return true;
-}
-
 GPUd() void ClusterAccumulator::update(Charge splitCharge, Delta2 d)
 {
   mQtot += splitCharge;
@@ -97,7 +58,7 @@ GPUd() Charge ClusterAccumulator::updateOuter(PackedCharge charge, Delta2 d)
   return q;
 }
 
-GPUd() void ClusterAccumulator::finalize(const ChargePos& pos, Charge q, TPCTime timeOffset, const GPUTPCGeometry& geo)
+GPUd() bool ClusterAccumulator::toNative(const ChargePos& pos, Charge q, tpc::ClusterNative& cn, const GPUParam& param, TPCTime timeOffset, const Array2D<PackedCharge>& chargeMap)
 {
   mQtot += q;
 
@@ -113,9 +74,48 @@ GPUd() void ClusterAccumulator::finalize(const ChargePos& pos, Charge q, TPCTime
   mPadMean += pad;
   mTimeMean += timeOffset + pos.time();
 
-  if (CfUtils::isAtEdge(pos, geo.NPads(pos.row()))) {
+  bool isEdgeCluster = pos.pad() < 2 || pos.pad() >= param.tpcGeometry.NPads(pos.row()) - 2; // Geometrical edge check, peak within 2 pads of sector edge
+  if (isEdgeCluster) {
     bool leftEdge = (pad < 2);
-    bool correct = (leftEdge) ? (pad < mPadMean) : (pad > mPadMean);
-    mPadMean = (correct) ? pad : mPadMean;
+    if (leftEdge ? (pad == 1 && chargeMap[pos.delta({-1, 0})].unpack() < 1) : (pad == (param.tpcGeometry.NPads(pos.row()) - 2) && chargeMap[pos.delta({1, 0})].unpack() < 1)) {
+      isEdgeCluster = false; // No edge cluster if peak is close to edge but no charge at the edge.
+    } else if (leftEdge ? (pad < mPadMean) : (pad > mPadMean)) {
+      mPadMean = pad; // Correct to peak position if COG is close to middle of pad than peak
+    }
   }
+
+  cn.qTot = CAMath::Float2UIntRn(mQtot);
+  if (cn.qTot <= param.rec.tpc.cfQTotCutoff) {
+    return false;
+  }
+  cn.qMax = q;
+  if (cn.qMax <= param.rec.tpc.cfQMaxCutoff) {
+    return false;
+  }
+  if (mTimeMean < param.rec.tpc.clustersShiftTimebinsClusterizer) {
+    return false;
+  }
+  if (q <= param.rec.tpc.cfQMaxCutoffSingleTime && mTimeSigma == 0) {
+    return false;
+  }
+  if (q <= param.rec.tpc.cfQMaxCutoffSinglePad && mPadSigma == 0) {
+    return false;
+  }
+
+  bool wasSplitInTime = mSplitInTime >= param.rec.tpc.cfMinSplitNum;
+  bool wasSplitInPad = mSplitInPad >= param.rec.tpc.cfMinSplitNum;
+  bool isSingleCluster = (mPadSigma == 0) || (mTimeSigma == 0);
+
+  uint8_t flags = 0;
+  flags |= (isEdgeCluster) ? tpc::ClusterNative::flagEdge : 0;
+  flags |= (wasSplitInTime) ? tpc::ClusterNative::flagSplitTime : 0;
+  flags |= (wasSplitInPad) ? tpc::ClusterNative::flagSplitPad : 0;
+  flags |= (isSingleCluster) ? tpc::ClusterNative::flagSingle : 0;
+
+  cn.setTimeFlags(mTimeMean - param.rec.tpc.clustersShiftTimebinsClusterizer, flags);
+  cn.setPad(mPadMean);
+  cn.setSigmaTime(mTimeSigma);
+  cn.setSigmaPad(mPadSigma);
+
+  return true;
 }

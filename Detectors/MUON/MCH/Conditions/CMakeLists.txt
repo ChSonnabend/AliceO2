@@ -37,6 +37,18 @@ o2_add_executable(
     O2::MCHGlobalMapping
     )
 
+o2_add_executable(
+  scan-hvlv-ccdb
+  COMPONENT_NAME mch
+  SOURCES src/scan-hvlv-ccdb.cxx
+  PUBLIC_LINK_LIBRARIES
+    O2::CCDB
+    O2::CommonUtils
+    O2::DetectorsDCS
+    O2::MCHConditions
+    O2::MCHStatus
+    )
+
 if(BUILD_TESTING)
   o2_add_test(
     dcs-aliases

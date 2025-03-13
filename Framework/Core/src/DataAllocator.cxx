@@ -241,38 +241,6 @@ void DataAllocator::adopt(const Output& spec, LifetimeHolder<TableBuilder>& tb)
   context.addBuffer(std::move(header), buffer, std::move(finalizer), routeIndex);
 }
 
-void DataAllocator::adopt(const Output& spec, LifetimeHolder<TreeToTable>& t2t)
-{
-  auto& timingInfo = mRegistry.get<TimingInfo>();
-  RouteIndex routeIndex = matchDataHeader(spec, timingInfo.timeslice);
-
-  auto header = headerMessageFromOutput(spec, routeIndex, o2::header::gSerializationMethodArrow, 0);
-  auto& context = mRegistry.get<ArrowContext>();
-
-  auto creator = [transport = context.proxy().getOutputTransport(routeIndex)](size_t s) -> std::unique_ptr<fair::mq::Message> {
-    return transport->CreateMessage(s);
-  };
-  auto buffer = std::make_shared<FairMQResizableBuffer>(creator);
-
-  t2t.callback = [buffer = buffer, transport = context.proxy().getOutputTransport(routeIndex)](TreeToTable& tree) {
-    // Serialization happens in here, so that we can
-    // get rid of the intermediate tree 2 table object, saving memory.
-    auto table = tree.finalize();
-    doWriteTable(buffer, table.get());
-    // deletion happens in the caller
-  };
-
-  /// To finalise this we write the table to the buffer.
-  /// FIXME: most likely not a great idea. We should probably write to the buffer
-  ///        directly in the TableBuilder, incrementally.
-  auto finalizer = [](std::shared_ptr<FairMQResizableBuffer> b) -> void {
-    // This is empty because we already serialised the object when
-    // the LifetimeHolder goes out of scope.
-  };
-
-  context.addBuffer(std::move(header), buffer, std::move(finalizer), routeIndex);
-}
-
 void DataAllocator::adopt(const Output& spec, LifetimeHolder<FragmentToBatch>& f2b)
 {
   auto& timingInfo = mRegistry.get<TimingInfo>();

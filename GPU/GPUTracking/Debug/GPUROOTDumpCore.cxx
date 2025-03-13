@@ -30,6 +30,7 @@ GPUROOTDumpCore::GPUROOTDumpCore(GPUROOTDumpCore::GPUROOTDumpCorePrivate)
 GPUROOTDumpCore::~GPUROOTDumpCore()
 {
   if (mFile) {
+    mFile->cd();
     for (uint32_t i = 0; i < mBranches.size(); i++) {
       mBranches[i]->write();
     }

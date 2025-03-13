@@ -22,7 +22,7 @@
 #include "ITStracking/Cell.h"
 #include "CommonConstants/MathConstants.h"
 
-#ifdef CA_DEBUG
+#if defined(CA_DEBUG) && !defined(GPUCA_GPUCODE_DEVICE)
 #include <cstdio>
 #endif
 

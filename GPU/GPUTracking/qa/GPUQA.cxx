@@ -525,8 +525,10 @@ int32_t GPUQA::InitQACreateHistograms()
 
   if (mQATasks & taskTrackStatistics) {
     // Create Tracks Histograms
-    snprintf(name, 2048, "nclusters");
-    createHist(mNCl, name, name, 160, 0, 159);
+    for (int32_t i = 0; i < 2; i++) {
+      snprintf(name, 2048, i ? "nrows_with_cluster" : "nclusters");
+      createHist(mNCl[i], name, name, 160, 0, 159);
+    }
     snprintf(name, 2048, "tracks");
     std::unique_ptr<double[]> binsPt{CreateLogAxis(AXIS_BINS[4], PT_MIN_CLUST, PT_MAX)};
     createHist(mTracks, name, name, AXIS_BINS[4], binsPt.get());
@@ -895,7 +897,7 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
       mTrackMCLabelsReverse[iCol][i] = -1;
     }
   }
-  if (mQATasks & taskClusterAttach) {
+  if (mQATasks & taskClusterAttach && GetNMCLabels()) {
     mClusterParam.resize(GetNMCLabels());
     memset(mClusterParam.data(), 0, mClusterParam.size() * sizeof(mClusterParam[0]));
   }
@@ -1661,7 +1663,25 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
         continue;
       }
       mTracks->Fill(1.f / fabsf(track.GetParam().GetQPt()));
-      mNCl->Fill(track.NClustersFitted());
+      mNCl[0]->Fill(track.NClustersFitted());
+      uint32_t nClCorrected = 0;
+      int32_t lastSector = -1, lastRow = -1;
+      const auto& trackClusters = mTracking->mIOPtrs.mergedTrackHits;
+      for (uint32_t j = 0; j < track.NClusters(); j++) {
+        if (trackClusters[track.FirstClusterRef() + j].state & GPUTPCGMMergedTrackHit::flagReject) {
+          continue;
+        }
+        if (trackClusters[track.FirstClusterRef() + j].sector == lastSector && trackClusters[track.FirstClusterRef() + j].row == lastRow) {
+          continue;
+        }
+        if (trackClusters[track.FirstClusterRef() + j].leg != trackClusters[track.FirstClusterRef() + track.NClusters() - 1].leg) {
+          continue;
+        }
+        nClCorrected++;
+        lastSector = trackClusters[track.FirstClusterRef() + j].sector;
+        lastRow = trackClusters[track.FirstClusterRef() + j].sector;
+      }
+      mNCl[1]->Fill(nClCorrected);
     }
     if (mClNative && mTracking && mTracking->GetTPCTransformHelper()) {
       for (uint32_t i = 0; i < GPUChainTracking::NSECTORS; i++) {
@@ -2055,12 +2075,15 @@ int32_t GPUQA::DrawQAHistograms(TObjArray* qcout)
       mLTracks = createGarbageCollected<TLegend>(0.9 - legendSpacingString * 1.45, 0.93 - (0.93 - 0.86) / 2. * (float)ConfigNumInputs, 0.98, 0.949);
       SetLegend(mLTracks);
 
-      mCNCl = createGarbageCollected<TCanvas>("cncl", "Number of clusters per track", 0, 0, 700, 700. * 2. / 3.);
-      mCNCl->cd();
-      mPNCl = createGarbageCollected<TPad>("p0", "", 0.0, 0.0, 1.0, 1.0);
-      mPNCl->Draw();
-      mLNCl = createGarbageCollected<TLegend>(0.9 - legendSpacingString * 1.45, 0.93 - (0.93 - 0.86) / 2. * (float)ConfigNumInputs, 0.98, 0.949);
-      SetLegend(mLNCl);
+      for (int32_t i = 0; i < 2; i++) {
+        snprintf(name, 2048, "cncl%d Pull", i);
+        mCNCl[i] = createGarbageCollected<TCanvas>(name, i ? "Number of clusters (corrected for multiple per row)" : "Number of clusters per track", 0, 0, 700, 700. * 2. / 3.);
+        mCNCl[i]->cd();
+        mPNCl[i] = createGarbageCollected<TPad>("p0", "", 0.0, 0.0, 1.0, 1.0);
+        mPNCl[i]->Draw();
+        mLNCl[i] = createGarbageCollected<TLegend>(0.9 - legendSpacingString * 1.45, 0.93 - (0.93 - 0.86) / 2. * (float)ConfigNumInputs, 0.98, 0.949);
+        SetLegend(mLNCl[i]);
+      }
 
       mCClXY = createGarbageCollected<TCanvas>("clxy", "Number of clusters per X / Y", 0, 0, 700, 700. * 2. / 3.);
       mCClXY->cd();
@@ -2696,47 +2719,51 @@ int32_t GPUQA::DrawQAHistograms(TObjArray* qcout)
       mCTracks->Print("plots/tracks.root");
     }
 
-    tmpMax = 0.;
-    for (int32_t k = 0; k < ConfigNumInputs; k++) {
-      TH1F* e = mNCl;
-      if (GetHist(e, tin, k, nNewInput) == nullptr) {
-        continue;
+    for (int32_t i = 0; i < 2; i++) {
+      tmpMax = 0.;
+      for (int32_t k = 0; k < ConfigNumInputs; k++) {
+        TH1F* e = mNCl[i];
+        if (GetHist(e, tin, k, nNewInput) == nullptr) {
+          continue;
+        }
+        e->SetMaximum(-1111);
+        if (e->GetMaximum() > tmpMax) {
+          tmpMax = e->GetMaximum();
+        }
       }
-      e->SetMaximum(-1111);
-      if (e->GetMaximum() > tmpMax) {
-        tmpMax = e->GetMaximum();
+      mPNCl[i]->cd();
+      for (int32_t k = 0; k < ConfigNumInputs; k++) {
+        TH1F* e = mNCl[i];
+        if (GetHist(e, tin, k, nNewInput) == nullptr) {
+          continue;
+        }
+        if (tout && !mConfig.inputHistogramsOnly && k == 0) {
+          e->Write();
+        }
+        e->SetMaximum(tmpMax * 1.02);
+        e->SetMinimum(tmpMax * -0.02);
+        e->SetStats(kFALSE);
+        e->SetLineWidth(1);
+        e->GetYaxis()->SetTitle("a.u.");
+        e->GetXaxis()->SetTitle("NClusters");
+        if (qcout) {
+          qcout->Add(e);
+        }
+        e->SetMarkerColor(kBlack);
+        e->SetLineColor(colorNums[k % COLORCOUNT]);
+        e->Draw(k == 0 ? "" : "same");
+        GetName(fname, k);
+        snprintf(name, 2048, "%sNClusters%d", fname, i);
+        mLNCl[i]->AddEntry(e, name, "l");
       }
-    }
-    mPNCl->cd();
-    for (int32_t k = 0; k < ConfigNumInputs; k++) {
-      TH1F* e = mNCl;
-      if (GetHist(e, tin, k, nNewInput) == nullptr) {
-        continue;
+      mLNCl[i]->Draw();
+      mCNCl[i]->cd();
+      snprintf(name, 2048, "plots/nClusters%s.pdf", i ? "_corrected" : "");
+      mCNCl[i]->Print(name);
+      if (mConfig.writeRootFiles) {
+        snprintf(name, 2048, "plots/nClusters%s.root", i ? "_corrected" : "");
+        mCNCl[i]->Print(name);
       }
-      if (tout && !mConfig.inputHistogramsOnly && k == 0) {
-        e->Write();
-      }
-      e->SetMaximum(tmpMax * 1.02);
-      e->SetMinimum(tmpMax * -0.02);
-      e->SetStats(kFALSE);
-      e->SetLineWidth(1);
-      e->GetYaxis()->SetTitle("a.u.");
-      e->GetXaxis()->SetTitle("NClusters");
-      if (qcout) {
-        qcout->Add(e);
-      }
-      e->SetMarkerColor(kBlack);
-      e->SetLineColor(colorNums[k % COLORCOUNT]);
-      e->Draw(k == 0 ? "" : "same");
-      GetName(fname, k);
-      snprintf(name, 2048, "%sNClusters", fname);
-      mLNCl->AddEntry(e, name, "l");
-    }
-    mLNCl->Draw();
-    mCNCl->cd();
-    mCNCl->Print("plots/nClusters.pdf");
-    if (mConfig.writeRootFiles) {
-      mCNCl->Print("plots/nClusters.root");
     }
 
     mPClXY->cd();

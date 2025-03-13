@@ -200,6 +200,7 @@ add_executable(o2-test-framework-core
               test/test_CompletionPolicy.cxx
               test/test_ComputingResourceHelpers.cxx
               test/test_ComputingQuotaEvaluator.cxx
+              test/test_Concepts.cxx
               test/test_ControlServiceHelpers.cxx
               test/test_ConfigParamStore.cxx
               test/test_ConfigParamRegistry.cxx
@@ -249,7 +250,6 @@ add_executable(o2-test-framework-core
               test/test_Variants.cxx
               test/test_WorkflowHelpers.cxx
               test/test_WorkflowSerialization.cxx
-              test/test_TreeToTable.cxx
               test/test_DataOutputDirector.cxx
               test/unittest_SimpleOptionsRetriever.cxx
               test/unittest_DataSpecUtils.cxx
@@ -328,11 +328,6 @@ o2_add_executable(dpl-run
                   PUBLIC_LINK_LIBRARIES O2::Framework
                   )
 
-o2_add_executable(verify-aod-file
-                  SOURCES src/verifyAODFile.cxx
-                  PUBLIC_LINK_LIBRARIES O2::Framework ROOT::TreePlayer
-                  COMPONENT_NAME Framework)
-
 # benchmarks
 
 foreach(b
@@ -347,7 +342,6 @@ foreach(b
         EventMixing
         HistogramRegistry
         TableToTree
-        TreeToTable
         ExternalFairMQDeviceProxies
         )
   o2_add_executable(benchmark-${b}

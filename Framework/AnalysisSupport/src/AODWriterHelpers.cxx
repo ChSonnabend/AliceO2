@@ -274,19 +274,20 @@ AlgorithmSpec AODWriterHelpers::getOutputObjHistWriter(ConfigContext const& ctx)
         LOG(error) << "Header not found";
         return;
       }
-      if (!ref.payload) {
-        LOG(error) << "Payload not found";
-        return;
-      }
       auto datah = o2::header::get<o2::header::DataHeader*>(ref.header);
       if (!datah) {
         LOG(error) << "No data header in stack";
         return;
       }
 
+      if (!ref.payload) {
+        LOGP(error, "Payload not found for {}/{}/{}", datah->dataOrigin.as<std::string>(), datah->dataDescription.as<std::string>(), datah->subSpecification);
+        return;
+      }
+
       auto objh = o2::header::get<o2::framework::OutputObjHeader*>(ref.header);
       if (!objh) {
-        LOG(error) << "No output object header in stack";
+        LOGP(error, "No output object header in stack of {}/{}/{}", datah->dataOrigin.as<std::string>(), datah->dataDescription.as<std::string>(), datah->subSpecification);
         return;
       }
 
@@ -297,7 +298,7 @@ AlgorithmSpec AODWriterHelpers::getOutputObjHistWriter(ConfigContext const& ctx)
       tm.SetBufferOffset(0);
       tm.ResetMap();
       if (obj.kind == nullptr) {
-        LOG(error) << "Cannot read class info from buffer.";
+        LOGP(error, "Cannot read class info from buffer of {}/{}/{}", datah->dataOrigin.as<std::string>(), datah->dataDescription.as<std::string>(), datah->subSpecification);
         return;
       }
 

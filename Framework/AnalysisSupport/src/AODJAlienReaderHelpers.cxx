@@ -14,7 +14,6 @@
 #include "Framework/TableTreeHelpers.h"
 #include "Framework/AnalysisHelpers.h"
 #include "Framework/DataProcessingStats.h"
-#include "Framework/RootTableBuilderHelpers.h"
 #include "Framework/RootArrowFilesystem.h"
 #include "Framework/AlgorithmSpec.h"
 #include "Framework/ConfigParamRegistry.h"

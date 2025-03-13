@@ -93,6 +93,8 @@ int32_t GPUChainTracking::RunTPCTrackingSectors_internal()
   }
 
   bool streamInit[GPUCA_MAX_STREAMS] = {false};
+  int32_t streamInitAndOccMap = mRec->NStreams() - 1;
+
   if (doGPU) {
     for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
       processorsShadow()->tpcTrackers[iSector].GPUParametersConst()->gpumem = (char*)mRec->DeviceMemoryBase();
@@ -113,18 +115,12 @@ int32_t GPUChainTracking::RunTPCTrackingSectors_internal()
       return 2;
     }
 
-    WriteToConstantMemory(RecoStep::TPCSectorTracking, (char*)processors()->tpcTrackers - (char*)processors(), processorsShadow()->tpcTrackers, sizeof(GPUTPCTracker) * NSECTORS, mRec->NStreams() - 1, &mEvents->init);
+    WriteToConstantMemory(RecoStep::TPCSectorTracking, (char*)processors()->tpcTrackers - (char*)processors(), processorsShadow()->tpcTrackers, sizeof(GPUTPCTracker) * NSECTORS, streamInitAndOccMap, &mEvents->init);
 
-    for (int32_t i = 0; i < mRec->NStreams() - 1; i++) {
-      streamInit[i] = false;
-    }
-    streamInit[mRec->NStreams() - 1] = true;
-  }
-  if (GPUDebug("Initialization (1)", 0)) {
-    return (2);
+    std::fill(streamInit, streamInit + mRec->NStreams(), false);
+    streamInit[streamInitAndOccMap] = true;
   }
 
-  int32_t streamOccMap = mRec->NStreams() - 1;
   if (param().rec.tpc.occupancyMapTimeBins || param().rec.tpc.sysClusErrorC12Norm) {
     AllocateRegisteredMemory(mInputsHost->mResourceOccupancyMap, mSubOutputControls[GPUTrackingOutputs::getIndex(&GPUTrackingOutputs::tpcOccupancyMap)]);
   }
@@ -134,21 +130,21 @@ int32_t GPUChainTracking::RunTPCTrackingSectors_internal()
     }
     uint32_t* ptr = doGPU ? mInputsShadow->mTPCClusterOccupancyMap : mInputsHost->mTPCClusterOccupancyMap;
     auto* ptrTmp = (GPUTPCClusterOccupancyMapBin*)mRec->AllocateVolatileMemory(GPUTPCClusterOccupancyMapBin::getTotalSize(param()), doGPU);
-    runKernel<GPUMemClean16>(GetGridAutoStep(streamOccMap, RecoStep::TPCSectorTracking), ptrTmp, GPUTPCClusterOccupancyMapBin::getTotalSize(param()));
-    runKernel<GPUTPCCreateOccupancyMap, GPUTPCCreateOccupancyMap::fill>(GetGridBlk(GPUCA_NSECTORS * GPUCA_ROW_COUNT, streamOccMap), ptrTmp);
-    runKernel<GPUTPCCreateOccupancyMap, GPUTPCCreateOccupancyMap::fold>(GetGridBlk(GPUTPCClusterOccupancyMapBin::getNBins(param()), streamOccMap), ptrTmp, ptr + 2);
+    runKernel<GPUMemClean16>(GetGridAutoStep(streamInitAndOccMap, RecoStep::TPCSectorTracking), ptrTmp, GPUTPCClusterOccupancyMapBin::getTotalSize(param()));
+    runKernel<GPUTPCCreateOccupancyMap, GPUTPCCreateOccupancyMap::fill>(GetGridBlk(GPUCA_NSECTORS * GPUCA_ROW_COUNT, streamInitAndOccMap), ptrTmp);
+    runKernel<GPUTPCCreateOccupancyMap, GPUTPCCreateOccupancyMap::fold>(GetGridBlk(GPUTPCClusterOccupancyMapBin::getNBins(param()), streamInitAndOccMap), ptrTmp, ptr + 2);
     mRec->ReturnVolatileMemory();
     mInputsHost->mTPCClusterOccupancyMap[1] = param().rec.tpc.occupancyMapTimeBins * 0x10000 + param().rec.tpc.occupancyMapTimeBinsAverage;
     if (doGPU) {
-      GPUMemCpy(RecoStep::TPCSectorTracking, mInputsHost->mTPCClusterOccupancyMap + 2, mInputsShadow->mTPCClusterOccupancyMap + 2, sizeof(*ptr) * GPUTPCClusterOccupancyMapBin::getNBins(mRec->GetParam()), streamOccMap, false, &mEvents->init);
+      GPUMemCpy(RecoStep::TPCSectorTracking, mInputsHost->mTPCClusterOccupancyMap + 2, mInputsShadow->mTPCClusterOccupancyMap + 2, sizeof(*ptr) * GPUTPCClusterOccupancyMapBin::getNBins(mRec->GetParam()), streamInitAndOccMap, false, &mEvents->init);
     } else {
-      TransferMemoryResourceLinkToGPU(RecoStep::TPCSectorTracking, mInputsHost->mResourceOccupancyMap, streamOccMap, &mEvents->init);
+      TransferMemoryResourceLinkToGPU(RecoStep::TPCSectorTracking, mInputsHost->mResourceOccupancyMap, streamInitAndOccMap, &mEvents->init);
     }
   }
   if (param().rec.tpc.occupancyMapTimeBins || param().rec.tpc.sysClusErrorC12Norm) {
     uint32_t& occupancyTotal = *mInputsHost->mTPCClusterOccupancyMap;
     occupancyTotal = CAMath::Float2UIntRn(mRec->MemoryScalers()->nTPCHits / (mIOPtrs.settingsTF && mIOPtrs.settingsTF->hasNHBFPerTF ? mIOPtrs.settingsTF->nHBFPerTF : 128));
-    mRec->UpdateParamOccupancyMap(param().rec.tpc.occupancyMapTimeBins ? mInputsHost->mTPCClusterOccupancyMap + 2 : nullptr, param().rec.tpc.occupancyMapTimeBins ? mInputsShadow->mTPCClusterOccupancyMap + 2 : nullptr, occupancyTotal, streamOccMap);
+    mRec->UpdateParamOccupancyMap(param().rec.tpc.occupancyMapTimeBins ? mInputsHost->mTPCClusterOccupancyMap + 2 : nullptr, param().rec.tpc.occupancyMapTimeBins ? mInputsShadow->mTPCClusterOccupancyMap + 2 : nullptr, occupancyTotal, streamInitAndOccMap);
   }
 
   int32_t streamMap[NSECTORS];
@@ -190,19 +186,7 @@ int32_t GPUChainTracking::RunTPCTrackingSectors_internal()
       }
     }
 
-    // Initialize temporary memory where needed
-    if (GetProcessingSettings().debugLevel >= 3) {
-      GPUInfo("Copying Sector Data to GPU and initializing temporary memory");
-    }
     runKernel<GPUMemClean16>(GetGridAutoStep(useStream, RecoStep::TPCSectorTracking), trkShadow.Data().HitWeights(), trkShadow.Data().NumberOfHitsPlusAlign() * sizeof(*trkShadow.Data().HitWeights()));
-
-    if (!doGPU) {
-      TransferMemoryResourcesToGPU(RecoStep::TPCSectorTracking, &trk, useStream); // Copy Data to GPU Global Memory
-    }
-    if (GPUDebug("Initialization (3)", useStream)) {
-      throw std::runtime_error("memcpy failure");
-    }
-
     runKernel<GPUTPCNeighboursFinder>({GetGridBlk(GPUCA_ROW_COUNT, useStream), {iSector}, {nullptr, streamInit[useStream] ? nullptr : &mEvents->init}});
     streamInit[useStream] = true;
 

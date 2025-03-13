@@ -1596,7 +1596,7 @@ DECLARE_SOA_INDEX_COLUMN(Collision, collision);                         //! Coll
 DECLARE_SOA_COLUMN(V0Type, v0Type, uint8_t);                            //! custom bitmap for various selections (see below)
 
 DECLARE_SOA_DYNAMIC_COLUMN(IsStandardV0, isStandardV0, //! is standard V0
-                           [](uint8_t V0Type) -> bool { return V0Type & (1 << 0); });
+                           [](uint8_t V0Type) -> bool { return V0Type == 1; });
 DECLARE_SOA_DYNAMIC_COLUMN(IsPhotonV0, isPhotonV0, //! is TPC-only V0 for which the photon-mass-hypothesis was good
                            [](uint8_t V0Type) -> bool { return V0Type & (1 << 1); });
 DECLARE_SOA_DYNAMIC_COLUMN(IsCollinearV0, isCollinearV0, //! is V0 for which the photon-mass-hypothesis was good and was fitted collinearly

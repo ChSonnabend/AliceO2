@@ -2,7 +2,6 @@
 
 <!--  /// \cond EXCLUDE_FOR_DOXYGEN -->
 
-[![codecov](https://codecov.io/gh/AliceO2Group/AliceO2/branch/dev/graph/badge.svg)](https://codecov.io/gh/AliceO2Group/AliceO2/branches/dev)
 [![JIRA](https://img.shields.io/badge/JIRA-Report%20issue-blue.svg)](https://alice.its.cern.ch/jira/secure/CreateIssue.jspa?pid=11201&issuetype=1)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1493334.svg)](https://doi.org/10.5281/zenodo.1493334)
 
@@ -62,8 +61,8 @@ Rules and instructions are available in the repository
 
 ### Enable C++ compiler warnings
 
-Currently O2 is built with minimal compiler warnings enabled. This is going to change in the near future. In the transition period, developers have to manualy enable warnings by building O2 with `ALIBUILD_O2_WARNINGS` environment variable set e.g. using the `-e`  option of `alibuild` e.g: 
-```bash 
+Currently O2 is built with minimal compiler warnings enabled. This is going to change in the near future. In the transition period, developers have to manualy enable warnings by building O2 with `ALIBUILD_O2_WARNINGS` environment variable set e.g. using the `-e`  option of `alibuild` e.g:
+```bash
 aliBuild build --debug -e ALIBUILD_O2_WARNINGS=1 --defaults o2 O2
-``` 
+```
 A helper script that extracts warnings from the build log skipping duplicates is available [here](https://github.com/AliceO2Group/AliceO2/blob/dev/scripts/filter-warnings.sh)

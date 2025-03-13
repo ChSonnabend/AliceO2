@@ -201,12 +201,14 @@ int32_t GPUChainTracking::RunTPCCompression()
 
 int32_t GPUChainTracking::RunTPCDecompression()
 {
-  const bool runFiltering = GetProcessingSettings().tpcApplyCFCutsAtDecoding || (GetProcessingSettings().tpcApplyClusterFilterOnCPU > 0) || (param().tpcCutTimeBin > 0);
-  if (runFiltering && !GetProcessingSettings().tpcUseOldCPUDecoding) {
+  const bool needFullFiltering = GetProcessingSettings().tpcApplyCFCutsAtDecoding || (GetProcessingSettings().tpcApplyClusterFilterOnCPU > 0);
+  const bool runTimeBinCutFiltering = param().tpcCutTimeBin > 0;
+  if (needFullFiltering && !GetProcessingSettings().tpcUseOldCPUDecoding) {
     GPUFatal("tpcApplyCFCutsAtDecoding, tpcApplyClusterFilterOnCPU and tpcCutTimeBin currently require tpcUseOldCPUDecoding");
   }
 
   if (GetProcessingSettings().tpcUseOldCPUDecoding) {
+    const bool runFiltering = needFullFiltering || runTimeBinCutFiltering;
     const auto& threadContext = GetThreadContext();
     TPCClusterDecompressor decomp;
     auto allocatorFinal = [this](size_t size) {
@@ -245,7 +247,6 @@ int32_t GPUChainTracking::RunTPCDecompression()
     mRec->PushNonPersistentMemory(qStr2Tag("TPCDCMPR"));
     RecoStep myStep = RecoStep::TPCDecompression;
     bool doGPU = GetRecoStepsGPU() & RecoStep::TPCDecompression;
-    bool runFiltering = param().tpcCutTimeBin > 0;
     GPUTPCDecompression& Decompressor = processors()->tpcDecompressor;
     GPUTPCDecompression& DecompressorShadow = doGPU ? processorsShadow()->tpcDecompressor : Decompressor;
     const auto& threadContext = GetThreadContext();
@@ -325,7 +326,7 @@ int32_t GPUChainTracking::RunTPCDecompression()
     if (decodedAttachedClusters != cmprClsHost.nAttachedClusters) {
       GPUWarning("%u / %u clusters failed track model decoding (%f %%)", cmprClsHost.nAttachedClusters - decodedAttachedClusters, cmprClsHost.nAttachedClusters, 100.f * (float)(cmprClsHost.nAttachedClusters - decodedAttachedClusters) / (float)cmprClsHost.nAttachedClusters);
     }
-    if (runFiltering) { // If filtering, allocate a temporary buffer and cluster native access in decompressor context
+    if (runTimeBinCutFiltering) { // If filtering, allocate a temporary buffer and cluster native access in decompressor context
       Decompressor.mNClusterNativeBeforeFiltering = DecompressorShadow.mNClusterNativeBeforeFiltering = decodedAttachedClusters + cmprClsHost.nUnattachedClusters;
       AllocateRegisteredMemory(Decompressor.mResourceTmpBufferBeforeFiltering);
       AllocateRegisteredMemory(Decompressor.mResourceClusterNativeAccess);
@@ -362,13 +363,13 @@ int32_t GPUChainTracking::RunTPCDecompression()
       int32_t iStream = (iSector / batchSize) % mRec->NStreams();
       runKernel<GPUTPCDecompressionKernels, GPUTPCDecompressionKernels::step1unattached>({GetGridAuto(iStream), krnlRunRangeNone, {nullptr, &mEvents->single}}, iSector, batchSize);
       uint32_t copySize = std::accumulate(mClusterNativeAccess->nClustersSector + iSector, mClusterNativeAccess->nClustersSector + iSector + batchSize, 0u);
-      if (!runFiltering) {
+      if (!runTimeBinCutFiltering) {
         GPUMemCpy(RecoStep::TPCDecompression, mInputsHost->mPclusterNativeOutput + mClusterNativeAccess->clusterOffset[iSector][0], DecompressorShadow.mNativeClustersBuffer + mClusterNativeAccess->clusterOffset[iSector][0], sizeof(Decompressor.mNativeClustersBuffer[0]) * copySize, iStream, false);
       }
     }
     SynchronizeGPU();
 
-    if (runFiltering) { // If filtering is applied, count how many clusters will remain after filtering and allocate final buffers accordingly
+    if (runTimeBinCutFiltering) { // If filtering is applied, count how many clusters will remain after filtering and allocate final buffers accordingly
       AllocateRegisteredMemory(Decompressor.mResourceNClusterPerSectorRow);
       WriteToConstantMemory(myStep, (char*)&processors()->tpcDecompressor - (char*)processors(), &DecompressorShadow, sizeof(DecompressorShadow), unattachedStream);
       runKernel<GPUMemClean16>({GetGridAutoStep(unattachedStream, RecoStep::TPCDecompression), krnlRunRangeNone}, DecompressorShadow.mNClusterPerSectorRow, NSECTORS * GPUCA_ROW_COUNT * sizeof(DecompressorShadow.mNClusterPerSectorRow[0]));

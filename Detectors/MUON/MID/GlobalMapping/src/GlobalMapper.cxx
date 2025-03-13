@@ -79,7 +79,10 @@ std::array<int, 4> GlobalMapper::getStripGeom(int deId, int columnId, int lineId
 ExtendedMappingInfo GlobalMapper::buildExtendedInfo(int deId, int columnId, int lineId, int stripId, int cathode) const
 {
   ExtendedMappingInfo info;
+  std::array<std::string, 4> boards{"12", "34", "56", "78"};
   info.id = getStripId(deId, columnId, lineId, stripId, cathode);
+  int irpc = detparams::getRPCLine(deId);
+  int iline = (irpc == 5 && columnId == 0) ? lineId - 1 : lineId;
   auto locId = static_cast<int>(mCrateMapper.deLocalBoardToRO(deId, columnId, lineId));
   info.locId = locId;
   std::string side = detparams::isRightSide(deId) ? "R" : "L";
@@ -92,6 +95,7 @@ ExtendedMappingInfo GlobalMapper::buildExtendedInfo(int deId, int columnId, int 
   info.stripId = stripId;
   info.cathode = cathode;
   info.locIdDcs = fmt::format("{}{}{}{}", crateId, side, (locInCrate >= 8 ? "1" : "0"), locInCrate);
+  info.locIdHw = fmt::format("{}{}C{}L{}B{}", detparams::getChamber(deId) + 1, side, columnId + 1, irpc + 1, boards[iline]);
   auto geom = getStripGeom(deId, columnId, lineId, stripId, cathode);
   info.xpos = geom[0];
   info.ypos = geom[1];

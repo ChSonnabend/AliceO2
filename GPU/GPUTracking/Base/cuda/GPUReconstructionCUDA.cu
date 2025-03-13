@@ -28,7 +28,7 @@
 #ifndef __HIPCC__ // CUDA
 #define PER_KERNEL_OBJECT_EXT _fatbin
 #else // HIP
-#define PER_KERNEL_OBJECT_EXT _hip_cxx_o
+#define PER_KERNEL_OBJECT_EXT _hip_o
 #endif
 #define GPUCA_KRNL(x_class, ...) QGET_LD_BINARY_SYMBOLS(GPUCA_M_CAT3(cuda_kernel_module_fatbin_krnl_, GPUCA_M_KRNL_NAME(x_class), PER_KERNEL_OBJECT_EXT))
 #include "GPUReconstructionKernelList.h"

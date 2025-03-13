@@ -27,11 +27,6 @@ class CfUtils
 {
 
  public:
-  static GPUdi() bool isAtEdge(const ChargePos& pos, tpccf::GlobalPad padsPerRow)
-  {
-    return (pos.pad() < 2 || pos.pad() >= padsPerRow - 2);
-  }
-
   static GPUdi() bool innerAboveThreshold(uint8_t aboveThreshold, uint16_t outerIdx)
   {
     return aboveThreshold & (1 << cfconsts::OuterToInner[outerIdx]);

@@ -57,6 +57,8 @@ void stripsInfo2json(const std::vector<o2::mid::ExtendedMappingInfo>& infos, con
     writer.Int(infos[idx].locId);
     writer.Key("locIdDcs");
     writer.String(infos[idx].locIdDcs.c_str());
+    writer.Key("locIdHw");
+    writer.String(infos[idx].locIdHw.c_str());
     writer.EndObject();
   }
   writer.EndArray();

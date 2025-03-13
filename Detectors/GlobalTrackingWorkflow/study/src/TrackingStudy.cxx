@@ -591,9 +591,8 @@ void TrackingStudySpec::process(o2::globaltracking::RecoContainer& recoData)
           pr.nshTPCRow = shinfo.second;
         }
       }
+      (*mDBGOut) << "pairs" << "pr=" << trcPairsVec << "\n";
     }
-    (*mDBGOut) << "pairs"
-               << "pr=" << trcPairsVec << "\n";
   }
 
   int nvtot = mMaxNeighbours < 0 ? -1 : (int)pveVec.size();

@@ -122,7 +122,7 @@ add_custom_target(${MODULE}_HIP_SRC_CHK ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/
 
 add_custom_command(
     OUTPUT ${GPU_RTC_BIN}.command
-    COMMAND echo -n "${hip_HIPCC_EXECUTABLE} ${GPU_RTC_FLAGS_SEPARATED} ${GPU_RTC_DEFINES} --genco" > ${GPU_RTC_BIN}.command
+    COMMAND echo -n "${CMAKE_HIP_COMPILER} ${GPU_RTC_FLAGS_SEPARATED} ${GPU_RTC_DEFINES} -x hip --cuda-device-only" > ${GPU_RTC_BIN}.command
     COMMAND_EXPAND_LISTS
     VERBATIM
     COMMENT "Preparing HIP RTC command file ${GPU_RTC_BIN}.command"
@@ -159,7 +159,7 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
   install(FILES ${HDRS} DESTINATION include/GPU)
 
 #  o2_add_test(GPUsortHIP NAME test_GPUsortHIP
-#                  SOURCES test/testGPUsortHIP.hip.cxx
+#                  SOURCES test/testGPUsortHIP.hip
 #                  PUBLIC_LINK_LIBRARIES O2::GPUCommon hip::host hip::device hip::hipcub roc::rocthrust
 #                  COMPONENT_NAME GPU
 #                  LABELS gpu)

@@ -298,7 +298,7 @@ crus="0-359"  # to be used with $AGGREGATOR_TASKS == TPC_IDCBOTH_SAC or ALL
 lanesFactorize=${O2_TPC_IDC_FACTORIZE_NLANES:-12}
 threadFactorize=${O2_TPC_IDC_FACTORIZE_NTHREADS:-16}
 nTFs=$((1000 * 128 / ${NHBPERTF}))
-nTFs_SAC=$((1000 * 128 / ${NHBPERTF}))
+nTFs_SAC=$((10000 * 128 / ${NHBPERTF}))
 nBuffer=$((100 * 128 / ${NHBPERTF}))
 IDC_DELTA="--disable-IDCDelta true" # off by default
 # deltas are on by default; you need to request explicitly to switch them off;

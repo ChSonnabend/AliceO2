@@ -17,6 +17,7 @@
 #include "Framework/DataDescriptorMatcher.h"
 #include "Framework/DataSpecUtils.h"
 #include "Framework/DataProcessingHeader.h"
+#include "Framework/DataProcessingContext.h"
 #include "Framework/DataRef.h"
 #include "Framework/InputRecord.h"
 #include "Framework/InputSpan.h"
@@ -46,7 +47,6 @@
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 #include <gsl/span>
-#include <numeric>
 #include <string>
 
 using namespace o2::framework::data_matcher;
@@ -55,6 +55,8 @@ using DataProcessingHeader = o2::framework::DataProcessingHeader;
 using Verbosity = o2::monitoring::Verbosity;
 
 O2_DECLARE_DYNAMIC_LOG(data_relayer);
+// Stream which keeps track of the calibration lifetime logic
+O2_DECLARE_DYNAMIC_LOG(calibration);
 
 namespace o2::framework
 {
@@ -480,6 +482,13 @@ DataRelayer::RelayChoice
       // We are in calibration mode and the data does not have the calibration bit set.
       // We do not store it.
       if (services.get<DeviceState>().allowedProcessing == DeviceState::ProcessingType::CalibrationOnly && !isCalibrationData(messages[mi])) {
+        O2_SIGNPOST_ID_FROM_POINTER(cid, calibration, &services.get<DataProcessorContext>());
+        O2_SIGNPOST_EVENT_EMIT(calibration, cid, "calibration",
+                               "Dropping incoming %zu messages because they are data processing.", nPayloads);
+        // Actually dropping messages.
+        for (size_t i = mi; i < mi + nPayloads + 1; i++) {
+          auto discard = std::move(messages[i]);
+        }
         mi += nPayloads;
         continue;
       }

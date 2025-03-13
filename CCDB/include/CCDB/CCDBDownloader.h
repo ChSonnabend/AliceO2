@@ -47,6 +47,7 @@ struct HeaderObjectPair_t {
 
 typedef struct DownloaderRequestData {
   std::vector<std::string> hosts;
+  std::vector<std::string> locations;
   std::string path;
   long timestamp;
   HeaderObjectPair_t hoPair;
@@ -231,12 +232,13 @@ class CCDBDownloader
   std::string prepareRedirectedURL(std::string address, std::string potentialHost) const;
 
   /**
-   * Returns a vector of possible content locations based on the redirect headers.
+   * Updates the locations vector with the the locations.
    *
-   * @param baseUrl Content path.
    * @param headerMap Map containing response headers.
+   * @param locations Location list to be updated.
+   * @param locIndex Index of the next locaiton to be tried.
    */
-  std::vector<std::string> getLocations(std::multimap<std::string, std::string>* headerMap) const;
+  void updateLocations(std::multimap<std::string, std::string>* headerMap, std::vector<std::string>* locations, int* locIndex) const;
 
   std::string mUserAgentId = "CCDBDownloader";
   /**

@@ -34,6 +34,7 @@ struct ExtendedMappingInfo {
   int cathode;          ///< Bending (0) or Non-bending (1) planes
   int locId;            ///< Local board ID
   std::string locIdDcs; ///< Local board ID for DCS
+  std::string locIdHw;  /// Local board ID in the hardware
   int xpos;             ///< Position X
   int ypos;             ///< Position Y
   int xwidth;           ///< Width X (signed)

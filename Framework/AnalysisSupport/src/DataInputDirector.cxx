@@ -15,6 +15,7 @@
 #include "Framework/RootArrowFilesystem.h"
 #include "Framework/AnalysisDataModelHelpers.h"
 #include "Framework/Output.h"
+#include "Framework/Signpost.h"
 #include "Headers/DataHeader.h"
 #include "Framework/TableTreeHelpers.h"
 #include "Monitoring/Tags.h"
@@ -40,6 +41,9 @@
 
 #include <utility>
 #endif
+
+#include <dlfcn.h>
+O2_DECLARE_DYNAMIC_LOG(reader_memory_dump);
 
 namespace o2::framework
 {
@@ -457,6 +461,17 @@ bool DataInputDescriptor::readTree(DataAllocator& outputs, header::DataHeader dh
   f2b->fill(datasetSchema, format);
 
   mIOTime += (uv_hrtime() - ioStart);
+
+  O2_SIGNPOST_ACTION(reader_memory_dump, [](void*) {
+    void (*dump_)(const char*);
+    if (void* sym = dlsym(nullptr, "igprof_dump_now")) {
+      dump_ = __extension__(void (*)(const char*)) sym;
+      if (dump_) {
+        std::string filename = fmt::format("reader-memory-dump-{}.gz", uv_hrtime());
+        dump_(filename.c_str());
+      }
+    }
+  });
 
   return true;
 }

@@ -299,10 +299,10 @@ class GPUQA
   TPad* mPTracks;
   TLegend* mLTracks;
 
-  TH1F* mNCl;
-  TCanvas* mCNCl;
-  TPad* mPNCl;
-  TLegend* mLNCl;
+  TH1F* mNCl[2];
+  TCanvas* mCNCl[2];
+  TPad* mPNCl[2];
+  TLegend* mLNCl[2];
 
   TH2F* mClXY;
   TCanvas* mCClXY;
