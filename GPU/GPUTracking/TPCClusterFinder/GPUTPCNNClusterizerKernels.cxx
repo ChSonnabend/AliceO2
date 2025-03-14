@@ -73,7 +73,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::run
   }
   Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   CPU_ONLY(MCLabelAccumulator labelAcc(clusterer));
-  tpc::ClusterNative* clusterOut = (onlyMC) ? nullptr : clusterer.mPclusterByRow;
+  tpc::ClusterNative* clusterOut = clusterer.mPclusterByRow; // (onlyMC) ? nullptr : clusterer.mPclusterByRow;
   o2::gpu::GPUTPCCFClusterizer::GPUSharedMemory smem_new;
   GPUTPCCFClusterizer::computeClustersImpl(get_num_groups(0), get_local_size(0), get_group_id(0), get_local_id(0), clusterer, clusterer.mPmemory->fragment, smem_new, chargeMap, clusterer.mPfilteredPeakPositions, clusterer.Param().rec, CPU_PTR(&labelAcc), clusterer.mPmemory->counters.nClusters, clusterer.mNMaxClusterPerRow, clusterer.mPclusterInRow, clusterOut, clusterer.mPclusterPosInRow);
 }
@@ -228,7 +228,7 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg1(uint glo_idx, GPUSha
   Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   CPU_ONLY(MCLabelAccumulator labelAccElem(clusterer));
   MCLabelAccumulator* labelAcc = CPU_PTR(&labelAccElem);
-  tpc::ClusterNative* clusterOut = (onlyMC) ? nullptr : clusterer.mPclusterByRow;
+  tpc::ClusterNative* clusterOut = clusterer.mPclusterByRow; // (onlyMC) ? nullptr : clusterer.mPclusterByRow;
   uint full_glo_idx = glo_idx + batchStart;
   int model_output_index = glo_idx * clustererNN.nnClusterizerModelReg1NumOutputNodes;
 
@@ -313,7 +313,7 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg2(uint glo_idx, GPUSha
   Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   CPU_ONLY(MCLabelAccumulator labelAccElem(clusterer));
   MCLabelAccumulator* labelAcc = CPU_PTR(&labelAccElem);
-  tpc::ClusterNative* clusterOut = (onlyMC) ? nullptr : clusterer.mPclusterByRow;
+  tpc::ClusterNative* clusterOut = clusterer.mPclusterByRow; // (onlyMC) ? nullptr : clusterer.mPclusterByRow;
   uint full_glo_idx = glo_idx + batchStart;
   int model_output_index = glo_idx * clustererNN.nnClusterizerModelReg2NumOutputNodes;
 
