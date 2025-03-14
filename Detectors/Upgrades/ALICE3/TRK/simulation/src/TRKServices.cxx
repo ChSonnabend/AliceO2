@@ -27,16 +27,6 @@ namespace o2
 {
 namespace trk
 {
-TRKServices::TRKServices(float rMin, float zLength, float thickness)
-{
-  mColdPlateRMin = rMin;
-  mColdPlateZLength = zLength;
-  mColdPlateThickness = thickness;
-  mZLengthIRISVacV = 70.;
-  mThicknessIRISVacV = 150.e-4;
-  mRInIRISVacV = 0.48;
-  mROutIRISVacV = mColdPlateRMin + mColdPlateThickness;
-}
 
 void TRKServices::createMaterials()
 {
@@ -63,6 +53,7 @@ void TRKServices::createMaterials()
   float zAir[4] = {6., 7., 8., 18.};
   float wAir[4] = {0.000124, 0.755267, 0.231781, 0.012827};
   float dAir = 1.20479E-3;
+  float dAir1 = 1.20479E-11; // vacuum denisity inside pipe
 
   // Water
   float aWater[2] = {1.00794, 15.9994};
@@ -115,6 +106,7 @@ void TRKServices::createMaterials()
   matmgr.Mixture("ALICE3_TRKSERVICES", 74, "ALUMINIUM5083", aAl5083, zAl5083, dAl5083, 9, wAl5083);                                    // AL5083 - Candidate for IRIS vacuum vessel
   matmgr.Mixture("ALICE3_TRKSERVICES", 75, "ALUMINIUMBERYLLIUMMETAL", aAlBeMet, zAlBeMet, dAlBeMet, 2, wAlBeMet);                      // Aluminium-Beryllium metal - Candidate for IRIS vacuum vessel
   matmgr.Material("ALICE3_TRKSERVICES", 76, "CARBONFIBERM55J6K", 12.0107, 6, 1.92, 999, 999);                                          // Carbon Fiber M55J
+  matmgr.Mixture("ALICE3_PIPE", 77, "VACUUM", aAir, zAir, dAir1, 4, wAir);
 
   matmgr.Medium("ALICE3_TRKSERVICES", 1, "CERAMIC", 66, 0, ifield, fieldm, tmaxfd, stemax, deemax, epsil, stmin);                  // Ceramic for cold plate
   matmgr.Medium("ALICE3_TRKSERVICES", 2, "COPPER", 67, 0, ifield, fieldm, tmaxfd, stemax, deemax, epsil, stmin);                   // Copper for cables
@@ -127,56 +119,62 @@ void TRKServices::createMaterials()
   matmgr.Medium("ALICE3_TRKSERVICES", 9, "ALUMINIUM5083", 74, 0, ifield, fieldm, tmaxfd, stemax, deemax, epsil, stmin);            // Al5083 for IRIS vacuum vessel
   matmgr.Medium("ALICE3_TRKSERVICES", 10, "ALUMINIUMBERYLLIUMMETAL", 75, 0, ifield, fieldm, tmaxfd, stemax, deemax, epsil, stmin); // AlBeMet for IRIS vacuum vessel
   matmgr.Medium("ALICE3_TRKSERVICES", 11, "CARBONFIBERM55J6K", 76, 0, ifield, fieldm, tmaxfd, stemax, deemax, epsil, stmin);       // Carbon Fiber M55J
+  matmgr.Medium("ALICE3_PIPE", 12, "VACUUM", 77, 0, ifield, fieldm, tmaxfd, stemax, deemax, epsil, stmin);                         // Vacuum inside the beam pipe
 }
 
 void TRKServices::createServices(TGeoVolume* motherVolume)
 {
   createMaterials();
-  createColdplate(motherVolume);
+  createVacuumCompositeShape();
   createMiddleServices(motherVolume);
   createOuterDisksServices(motherVolume);
   createOuterBarrelServices(motherVolume);
 }
 
-void TRKServices::createColdplate(TGeoVolume* motherVolume)
+void TRKServices::createVacuumCompositeShape()
+{
+  Double_t pipeRIn = 1.8f;
+  Double_t A3IPLength = 1000.f;
+  Double_t vacuumVesselRIn = 5.6f;
+  Double_t vacuumVesselThickness = 0.08f;
+  Double_t vacuumVesselLength = 76.f;
+
+  // Vacuum for A and C Side
+  Double_t vacuumASideLength = A3IPLength / 2. - vacuumVesselThickness - vacuumVesselLength / 2.;
+  Double_t vacuumCSideLength = A3IPLength / 2. + vacuumVesselLength / 2.;
+
+  // Vacuum tubes
+  TGeoTube* vacuumASide = new TGeoTube("VACUUM_Ash", 0., pipeRIn, vacuumASideLength / 2.);
+  TGeoTube* vacuumCSide = new TGeoTube("VACUUM_Csh", 0., vacuumVesselRIn, vacuumCSideLength / 2.);
+
+  // Vacuum positions
+  TGeoTranslation* posVacuumASide = new TGeoTranslation("VACUUM_ASIDE_POSITION", 0, 0, vacuumVesselLength / 2. + vacuumVesselThickness + vacuumASideLength / 2.);
+  posVacuumASide->RegisterYourself();
+  TGeoTranslation* posVacuumCSide = new TGeoTranslation("VACUUM_CSIDE_POSITION", 0, 0, vacuumVesselLength / 2. - vacuumCSideLength / 2.);
+  posVacuumCSide->RegisterYourself();
+
+  mVacuumCompositeFormula =
+    "VACUUM_Ash:VACUUM_ASIDE_POSITION"
+    "+VACUUM_Csh:VACUUM_CSIDE_POSITION";
+}
+
+void TRKServices::excavateFromVacuum(TString shapeToExcavate)
+{
+  mVacuumCompositeFormula += "-";
+  mVacuumCompositeFormula += shapeToExcavate;
+}
+
+void TRKServices::registerVacuum(TGeoVolume* motherVolume)
 {
   auto& matmgr = o2::base::MaterialManager::Instance();
-  const TGeoMedium* medCeramic = matmgr.getTGeoMedium("ALICE3_TRKSERVICES_CERAMIC");
+  const TGeoMedium* kMedVac = matmgr.getTGeoMedium("ALICE3_PIPE_VACUUM");
 
-  TGeoTube* coldPlate = new TGeoTube("TRK_COLDPLATEsh", mColdPlateRMin, mColdPlateRMin + mColdPlateThickness, mColdPlateZLength / 2.);
-  TGeoVolume* coldPlateVolume = new TGeoVolume("TRK_COLDPLATE", coldPlate, medCeramic);
-  coldPlateVolume->SetVisibility(1);
-  coldPlateVolume->SetLineColor(kGray);
+  TGeoCompositeShape* vacuumComposite = new TGeoCompositeShape("A3IP_VACUUMsh", mVacuumCompositeFormula);
+  TGeoVolume* vacuumVolume = new TGeoVolume("A3IP_VACUUM", vacuumComposite, kMedVac);
 
-  LOGP(info, "Creating cold plate service");
-
-  LOGP(info, "Inserting {} in {} ", coldPlateVolume->GetName(), motherVolume->GetName());
-  motherVolume->AddNode(coldPlateVolume, 1, nullptr);
-
-  // IRIS Tracker Vacuum Vessel
-  TGeoTube* irisVacuumVesselInnerTube = new TGeoTube("TRK_IRISVACUUMVESSEL_INNERTUBEsh", mRInIRISVacV, mRInIRISVacV + mThicknessIRISVacV, mZLengthIRISVacV / 2.);
-  TGeoTube* irisVacuumVesselOuterTube = new TGeoTube("TRK_IRISVACUUMVESSEL_OUTERTUBEsh", mROutIRISVacV, mROutIRISVacV + mThicknessIRISVacV, mZLengthIRISVacV / 2.);
-  TGeoTube* irisVacuumVesselWall = new TGeoTube("TRK_IRISVACUUMVESSEL_WALLsh", mRInIRISVacV, mROutIRISVacV + mThicknessIRISVacV, mThicknessIRISVacV / 2.);
-  TGeoTranslation* irisVacVWallNegZ = new TGeoTranslation("IRISVACVWALLNEGZ", 0., 0., -mZLengthIRISVacV / 2. - mThicknessIRISVacV / 2.);
-  irisVacVWallNegZ->RegisterYourself();
-  TGeoTranslation* irisVacVWallPosZ = new TGeoTranslation("IRISVACVWALLPOSZ", 0., 0., mZLengthIRISVacV / 2. + mThicknessIRISVacV / 2.);
-  irisVacVWallPosZ->RegisterYourself();
-  TString irisCompositeFormula =
-    "TRK_IRISVACUUMVESSEL_INNERTUBEsh"
-    "+TRK_IRISVACUUMVESSEL_OUTERTUBEsh"
-    "+TRK_IRISVACUUMVESSEL_WALLsh:IRISVACVWALLNEGZ"
-    "+TRK_IRISVACUUMVESSEL_WALLsh:IRISVACVWALLPOSZ";
-  TGeoCompositeShape* irisVacuumVesselComposite = new TGeoCompositeShape("TRK_IRISVACUUMVESSELsh", irisCompositeFormula);
-
-  const TGeoMedium* medBe = matmgr.getTGeoMedium("ALICE3_TRKSERVICES_BERYLLIUM");
-  TGeoVolume* irisVacuumVesselVolume = new TGeoVolume("TRK_IRISVACUUMVESSEL", irisVacuumVesselComposite, medBe);
-
-  irisVacuumVesselVolume->SetVisibility(1);
-  irisVacuumVesselVolume->SetLineColor(kGray);
-
-  LOGP(info, "Creating IRIS Tracker vacuum vessel");
-  LOGP(info, "Inserting {} in {} ", irisVacuumVesselVolume->GetName(), motherVolume->GetName());
-  motherVolume->AddNode(irisVacuumVesselVolume, 1, nullptr);
+  // Add the vacuum to the barrel
+  vacuumVolume->SetLineColor(kGreen - 3);
+  motherVolume->AddNode(vacuumVolume, 1, new TGeoTranslation(0, 0, 0));
 }
 
 void TRKServices::createOuterDisksServices(TGeoVolume* motherVolume)
@@ -459,7 +457,7 @@ void TRKServices::createOuterBarrelServices(TGeoVolume* motherVolume)
   // Fiber 0.269 cm
   const float siO2FiberThick = 0.5 * 0.269;
   const float peFiberThick = 0.5 * 0.269;
-  float rMinOuterBarrelServices = ((TGeoTube*)motherVolume->GetNode(Form("%s10_1", GeometryTGeo::getTRKLayerPattern()))->GetVolume()->GetShape())->GetRmax();
+  float rMinOuterBarrelServices = ((TGeoTube*)motherVolume->GetNode(Form("%s7_1", GeometryTGeo::getTRKLayerPattern()))->GetVolume()->GetShape())->GetRmax();
   const float zLengthOuterBarrelServices = 350.f; // 175cm
 
   TGeoTube* outerBarrelFiberSIO2 = new TGeoTube("TRK_OUTERBARREL_FIBER_SIO2sh", rMinOuterBarrelServices, rMinOuterBarrelServices + siO2FiberThick, zLengthOuterBarrelServices);

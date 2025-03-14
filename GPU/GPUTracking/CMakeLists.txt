@@ -37,7 +37,6 @@ set(SRCS
     SectorTracker/GPUTPCNeighboursCleaner.cxx
     SectorTracker/GPUTPCTracker.cxx
     SectorTracker/GPUTPCTrackingData.cxx
-    SectorTracker/GPUTPCSectorOutput.cxx
     SectorTracker/GPUTPCTrackletConstructor.cxx
     SectorTracker/GPUTPCSectorDebugSortKernels.cxx
     SectorTracker/GPUTPCCreateOccupancyMap.cxx
@@ -160,38 +159,41 @@ set(HDRS_INSTALL
 )
 
 set(SRCS_NO_CINT ${SRCS_NO_CINT} display/GPUDisplayInterface.cxx)
-set(SRCS_NO_CINT
-  ${SRCS_NO_CINT}
-  Global/GPUChainITS.cxx
-  ITS/GPUITSFitter.cxx
-  ITS/GPUITSFitterKernels.cxx
-  dEdx/GPUdEdx.cxx
-  TPCConvert/GPUTPCConvert.cxx
-  TPCConvert/GPUTPCConvertKernel.cxx
-  DataCompression/GPUTPCCompression.cxx
-  DataCompression/GPUTPCCompressionTrackModel.cxx
-  DataCompression/GPUTPCCompressionKernels.cxx
-  DataCompression/GPUTPCDecompression.cxx
-  DataCompression/GPUTPCDecompressionKernels.cxx
-  DataCompression/TPCClusterDecompressor.cxx
-  DataCompression/GPUTPCClusterStatistics.cxx
-  TPCClusterFinder/GPUTPCClusterFinder.cxx
-  TPCClusterFinder/ClusterAccumulator.cxx
-  TPCClusterFinder/MCLabelAccumulator.cxx
-  TPCClusterFinder/GPUTPCCFCheckPadBaseline.cxx
-  TPCClusterFinder/GPUTPCCFStreamCompaction.cxx
-  TPCClusterFinder/GPUTPCCFChargeMapFiller.cxx
-  TPCClusterFinder/GPUTPCCFPeakFinder.cxx
-  TPCClusterFinder/GPUTPCCFNoiseSuppression.cxx
-  TPCClusterFinder/GPUTPCCFClusterizer.cxx
-  TPCClusterFinder/GPUTPCNNClusterizer.cxx
-  TPCClusterFinder/GPUTPCCFDeconvolution.cxx
-  TPCClusterFinder/GPUTPCCFMCLabelFlattener.cxx
-  TPCClusterFinder/GPUTPCCFDecodeZS.cxx
-  TPCClusterFinder/GPUTPCCFGather.cxx
-  Refit/GPUTrackingRefit.cxx
-  Refit/GPUTrackingRefitKernel.cxx
-  Merger/GPUTPCGMO2Output.cxx)
+
+set(SRCS_NO_CINT ${SRCS_NO_CINT}
+    Global/GPUChainITS.cxx
+    ITS/GPUITSFitter.cxx
+    ITS/GPUITSFitterKernels.cxx
+    dEdx/GPUdEdx.cxx
+    TPCConvert/GPUTPCConvert.cxx
+    TPCConvert/GPUTPCConvertKernel.cxx
+    DataCompression/GPUTPCCompression.cxx
+    DataCompression/GPUTPCCompressionTrackModel.cxx
+    DataCompression/GPUTPCCompressionKernels.cxx
+    DataCompression/GPUTPCDecompression.cxx
+    DataCompression/GPUTPCDecompressionKernels.cxx
+    DataCompression/TPCClusterDecompressor.cxx
+    DataCompression/GPUTPCClusterStatistics.cxx
+    TPCClusterFinder/GPUTPCClusterFinder.cxx
+    TPCClusterFinder/ClusterAccumulator.cxx
+    TPCClusterFinder/MCLabelAccumulator.cxx
+    TPCClusterFinder/GPUTPCCFCheckPadBaseline.cxx
+    TPCClusterFinder/GPUTPCCFStreamCompaction.cxx
+    TPCClusterFinder/GPUTPCCFChargeMapFiller.cxx
+    TPCClusterFinder/GPUTPCCFPeakFinder.cxx
+    TPCClusterFinder/GPUTPCCFNoiseSuppression.cxx
+    TPCClusterFinder/GPUTPCCFClusterizer.cxx
+    TPCClusterFinder/GPUTPCCFDeconvolution.cxx
+    TPCClusterFinder/GPUTPCCFMCLabelFlattener.cxx
+    TPCClusterFinder/GPUTPCCFDecodeZS.cxx
+    TPCClusterFinder/GPUTPCCFGather.cxx
+    Refit/GPUTrackingRefit.cxx
+    Refit/GPUTrackingRefitKernel.cxx
+    Merger/GPUTPCGMO2Output.cxx)
+
+if(NOT ALIGPU_BUILD_TYPE STREQUAL "Standalone")
+  list(APPEND SRCS_NO_CINT TPCClusterFinder/GPUTPCNNClusterizerKernels.cxx TPCClusterFinder/GPUTPCNNClusterizer.cxx TPCClusterFinder/GPUTPCNNClusterizerHost.cxx)
+endif()
 
 set(SRCS_DATATYPES
     ${SRCS_DATATYPES}
@@ -276,6 +278,7 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
                  PRIVATE_LINK_LIBRARIES O2::DataFormatsTPC
                  SOURCES ${SRCS_DATATYPES})
   target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2)
+
   o2_target_root_dictionary(GPUDataTypes
                             HEADERS ${HDRS_CINT_DATATYPES} ${HDRS_CINT_O2_ADDITIONAL}
                             LINKDEF GPUTrackingLinkDef_O2_DataTypes.h)
@@ -295,6 +298,7 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
                                        O2::TPCFastTransformation
                                        O2::DetectorsRaw
                                        O2::Steer
+                                       O2::ML
                  PUBLIC_INCLUDE_DIRECTORIES .
                                             Definitions
                                             DataTypes
@@ -320,7 +324,7 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
     ${targetName}
     PRIVATE $<TARGET_PROPERTY:O2::Framework,INTERFACE_INCLUDE_DIRECTORIES>)
 
-  target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2)
+  target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2 GPUCA_HAS_ONNX=1)
 
   o2_target_root_dictionary(${MODULE}
                             HEADERS ${HDRS_CINT_O2} ${HDRS_CINT_O2_ADDITIONAL}

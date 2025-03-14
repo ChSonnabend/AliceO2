@@ -56,9 +56,9 @@ class GPUReconstructionOCLBackend : public GPUReconstructionDeviceBase
   void RecordMarker(deviceEvent* ev, int32_t stream) override;
 
   template <class T, int32_t I = 0>
-  int32_t AddKernel(bool multi = false);
+  int32_t AddKernel();
   template <class T, int32_t I = 0>
-  uint32_t FindKernel(int32_t num);
+  uint32_t FindKernel();
   template <class T, int32_t I = 0, typename... Args>
   void runKernelBackendInternal(const krnlSetupTime& _xyz, const Args&... args);
   template <class T, int32_t I = 0>
@@ -69,7 +69,7 @@ class GPUReconstructionOCLBackend : public GPUReconstructionDeviceBase
 
   template <class T, int32_t I = 0, typename... Args>
   void runKernelBackend(const krnlSetupArgs<T, I, Args...>& args);
-  template <class S, class T, int32_t I, bool MULTI>
+  template <class S, class T, int32_t I>
   S& getKernelObject();
 
   int32_t GetOCLPrograms();

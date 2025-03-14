@@ -26,8 +26,6 @@ class Alice3Pipe : public Alice3PassiveBase
   ~Alice3Pipe() override;
   Alice3Pipe(const char* name,
              const char* title = "Alice 3 Pipe",
-             const bool isTRKActivated = false,
-             const bool isFT3Activated = false,
              const float pipeRIn = 0.f,
              const float pipeThickness = 0.f,
              const float a3ipLength = 0.f,
@@ -50,9 +48,6 @@ class Alice3Pipe : public Alice3PassiveBase
   float getVacuumVesselWidth() const { return mVacuumVesselThick; }
   float getVacuumVesselLength() const { return mVacuumVesselASideLength; }
 
-  bool IsTRKActivated() const { return mIsTRKActivated; }
-  bool IsFT3Activated() const { return mIsFT3Activated; }
-
  private:
   void createMaterials();
   Alice3Pipe(const Alice3Pipe& orig) = default;
@@ -62,12 +57,9 @@ class Alice3Pipe : public Alice3PassiveBase
   float mPipeThick = 0.;  // inner beam pipe section thickness
   float mA3IPLength = 0.; // Length of A3IP
 
-  float mVacuumVesselRIn = 0.;    // inner diameter of the vacuum vessel
-  float mVacuumVesselThick = 0.;  // outer beam pipe section thickness
+  float mVacuumVesselRIn = 0.;         // inner diameter of the vacuum vessel
+  float mVacuumVesselThick = 0.;       // outer beam pipe section thickness
   float mVacuumVesselASideLength = 0.; // Length of the A Side of the vacuum vessel around the IP
-
-  bool mIsTRKActivated = true; // If TRK is not active don't create TRK layers allocations in the vacuum volume
-  bool mIsFT3Activated = true;
 
   ClassDefOverride(Alice3Pipe, 1);
 };

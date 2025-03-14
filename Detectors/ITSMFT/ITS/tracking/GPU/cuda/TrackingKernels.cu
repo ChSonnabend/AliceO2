@@ -201,7 +201,7 @@ struct equal_tracklets {
 };
 
 template <typename T1, typename T2>
-struct pair_to_first : public thrust::unary_function<gpuPair<T1, T2>, T1> {
+struct pair_to_first {
   GPUhd() int operator()(const gpuPair<T1, T2>& a) const
   {
     return a.first;
@@ -209,7 +209,7 @@ struct pair_to_first : public thrust::unary_function<gpuPair<T1, T2>, T1> {
 };
 
 template <typename T1, typename T2>
-struct pair_to_second : public thrust::unary_function<gpuPair<T1, T2>, T2> {
+struct pair_to_second {
   GPUhd() int operator()(const gpuPair<T1, T2>& a) const
   {
     return a.second;
@@ -710,7 +710,7 @@ GPUg() void printPointersKernel(std::tuple<Args...> args)
 }
 
 template <typename T>
-struct trackletSortEmptyFunctor : public thrust::binary_function<T, T, bool> {
+struct trackletSortEmptyFunctor {
   GPUhd() bool operator()(const T& lhs, const T& rhs) const
   {
     return lhs.firstClusterIndex > rhs.firstClusterIndex;
@@ -718,7 +718,7 @@ struct trackletSortEmptyFunctor : public thrust::binary_function<T, T, bool> {
 };
 
 template <typename T>
-struct trackletSortIndexFunctor : public thrust::binary_function<T, T, bool> {
+struct trackletSortIndexFunctor {
   GPUhd() bool operator()(const T& lhs, const T& rhs) const
   {
     return lhs.firstClusterIndex < rhs.firstClusterIndex || (lhs.firstClusterIndex == rhs.firstClusterIndex && lhs.secondClusterIndex < rhs.secondClusterIndex);

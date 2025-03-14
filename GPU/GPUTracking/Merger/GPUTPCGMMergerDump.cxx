@@ -25,7 +25,6 @@
 #include "GPUO2DataTypes.h"
 #include "GPUCommonMath.h"
 #include "GPUTPCTrackParam.h"
-#include "GPUTPCSectorOutput.h"
 #include "GPUTPCGMMergedTrack.h"
 #include "GPUParam.h"
 #include "GPUParam.inc"

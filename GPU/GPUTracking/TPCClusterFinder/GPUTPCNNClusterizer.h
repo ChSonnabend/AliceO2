@@ -12,92 +12,66 @@
 /// \file GPUTPCNNClusterizer.h
 /// \author Christian Sonnabend
 
-#ifndef O2_GPU_NN_CLUSTERIZER_H
-#define O2_GPU_NN_CLUSTERIZER_H
+#ifndef O2_GPUTPCNNCLUSTERIZER_H
+#define O2_GPUTPCNNCLUSTERIZER_H
 
-#include "clusterFinderDefs.h"
-#include "GPUGeneralKernels.h"
-#include "GPUConstantMem.h"
-#include "GPUTPCClusterFinder.h"
-#include "Array2D.h"
-#include "PackedCharge.h"
+#include "ChargePos.h"
+#include "GPUProcessor.h"
 
-namespace o2::tpc
+namespace o2::OrtDataType
 {
-struct ClusterNative;
-} // namespace o2::tpc
+struct Float16_t;
+}
 
 namespace o2::gpu
 {
 
-class ClusterAccumulator;
-class MCLabelAccumulator;
-class GPUTPCCFDeconvolution;
-
-class GPUTPCNNClusterizer : public GPUKernelTemplate
+class GPUTPCNNClusterizer : public GPUProcessor
 {
  public:
-  static constexpr size_t SCRATCH_PAD_WORK_GROUP_SIZE = GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizer);
-  struct GPUSharedMemory {
-    // Regular cluster finder
-    ChargePos posBcast[SCRATCH_PAD_WORK_GROUP_SIZE];
-    PackedCharge buf[SCRATCH_PAD_WORK_GROUP_SIZE * SCRATCH_PAD_BUILD_N];
-    uint8_t innerAboveThreshold[SCRATCH_PAD_WORK_GROUP_SIZE];
-  };
+  GPUTPCNNClusterizer() = default;
+  void* setIOPointers(void*);
+  void RegisterMemoryAllocation();
+  void InitializeProcessor();
+  void SetMaxData(const GPUTrackingInOutPointers&);
 
-  typedef GPUTPCClusterFinder processorType;
-  GPUhdi() static processorType* Processor(GPUConstantMem& processors)
-  {
-    return processors.tpcClusterer;
-  }
+  // Neural network clusterization
 
-  GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep()
-  {
-    return GPUDataTypes::RecoStep::TPCClusterFinding;
-  }
+  int nnClusterizerSizeInputRow = 3;
+  int nnClusterizerSizeInputPad = 3;
+  int nnClusterizerSizeInputTime = 3;
+  int nnClusterizerElementSize = -1;
+  bool nnClusterizerAddIndexData = true;
+  float nnClassThreshold = 0.16;
+  bool nnSigmoidTrafoClassThreshold = 1;
+  int nnClusterizerUseCfRegression = 0;
+  int nnClusterizerBatchedMode = 1;
+  int nnClusterizerTotalClusters = 1;
+  int nnClusterizerVerbosity = 0;
+  int nnClusterizerBoundaryFillValue = -1;
+  int nnClusterizerDumpDigits = 0;
+  int nnClusterizerApplyCfDeconvolution = 0;
+  int nnClusterizerModelClassNumOutputNodes = -1;
+  int nnClusterizerModelReg1NumOutputNodes = -1;
+  int nnClusterizerModelReg2NumOutputNodes = -1;
+  int nnClusterizerDtype = 0; // 0: float16, 1: float32
+  int mISector = -1;
 
-  enum K : int32_t {
-    runCfClusterizer = 0,
-    fillInputNN = 1,
-    determineClass1Labels = 2,
-    determineClass2Labels = 3,
-    publishClass1Regression = 4,
-    publishClass2Regression = 5,
-    removeAllSplitFlags = 6,
-    setDeconvolutionFlags = 7,
-    publishDeconvolutionFlags = 8
-  };
+  // Memory allocation for neural network
+  uint class2_elements = 0;
+  float* inputData32 = nullptr;
+  OrtDataType::Float16_t* inputData16 = nullptr;
+  float* outputDataClass = nullptr;
+  float* modelProbabilities = nullptr;
+  float* outputDataReg1 = nullptr;
+  float* outputDataReg2 = nullptr;
 
-  // Float16 inmplementation
-  template <int32_t iKernel = defaultKernel, typename... Args>
-  GPUd() static void Thread(int32_t, int32_t, int32_t, int32_t, GPUSharedMemory&, processorType&, int8_t = 0, int8_t = 0, uint = 0, Args...);
+  ChargePos* peakPositions = nullptr;
+  bool* clusterFlags = nullptr; // mSplitInTime, mSplitInPad. Techincally both flags are set in the same way -> ClusterAccumulator.cx=nullptrx
+  float* centralCharges = nullptr;
+  int16_t mMemoryId = -1;
+}; // class GPUTPCNNClusterizer
 
-  template<class T>
-  static void printInput(int, std::vector<T>, processorType&);
-
-  static GPUd() void fillInputData(int32_t, int32_t, int32_t, int32_t, processorType&, int8_t, uint);
-  static void writeTrainingData(processorType&, int);
-  static void digitWriter(processorType&, std::string = "digits_stream");
-  static void combineDigitFiles(int);
-
-  static GPUd() void publishClustersReg1(uint, GPUSharedMemory&, processorType&, int8_t, int8_t, uint);
-  static GPUd() void publishClustersReg2(uint, GPUSharedMemory&, processorType&, int8_t, int8_t, uint);
-
-  static void applyNetworkClass(processorType&, int8_t = 0, uint = 0);
-  static void applyNetworkReg1(processorType&, int8_t = 0);
-  static void applyNetworkReg2(processorType&, int8_t = 0);
-
-  
-  private:
-
-    static int padOffset(int, int, const GPUTPCGeometry&);
-    static int rowOffset(int, int);
-    static bool isBoundary(int, int, int, const GPUTPCGeometry&);
-
-    static GPUdi() uint8_t countPeaksInner(uint16_t, const uint8_t*, uint8_t*);
-    static GPUdi() uint8_t countPeaksOuter(uint16_t, uint8_t, const uint8_t*);
-};
-
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

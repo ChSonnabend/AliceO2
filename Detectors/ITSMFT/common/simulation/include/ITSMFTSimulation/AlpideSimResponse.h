@@ -132,6 +132,8 @@ class AlpideSimResponse
   float getStepCol() const { return mStepInvCol ? 1. / mStepInvCol : 0.f; }
   float getStepRow() const { return mStepInvRow ? 1. / mStepInvRow : 0.f; }
   float getStepDepth() const { return mStepInvDpt ? 1. / mStepInvDpt : 0.f; }
+  void setColMax(float v) noexcept { mColMax = v; }
+  void setRowMax(float v) noexcept { mRowMax = v; }
   void setDataPath(const std::string pth) { mDataPath = pth; }
   void setGridColName(const std::string nm) { mGridColName = nm; }
   void setGridRowName(const std::string nm) { mGridRowName = nm; }
@@ -142,7 +144,7 @@ class AlpideSimResponse
   const std::string& getColRowDataFmt() const { return mColRowDataFmt; }
   void print() const;
 
-  ClassDefNV(AlpideSimResponse, 1);
+  ClassDefNV(AlpideSimResponse, 2);
 };
 
 //-----------------------------------------------------

@@ -52,8 +52,6 @@ struct TPCPadGainCalib;
 
 struct ChargePos;
 
-class GPUTPCGeometry;
-
 class GPUTPCClusterFinder : public GPUProcessor
 {
  public:

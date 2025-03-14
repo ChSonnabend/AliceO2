@@ -14,55 +14,87 @@
 #include "ITSMFTSimulation/AlpideSimResponse.h"
 #include <TFile.h>
 #include <TSystem.h>
+#include <stdexcept>
 #include <cstdio>
 #include <cstddef>
 #include <fstream>
 #include <iostream>
 #include <string>
 
-void alpideResponse(const std::string& inpath = "./",
-                    const std::string& outpath = "./",
-                    const std::string& response_file = "AlpideResponseData.root")
+void alpideResponse(const std::string& inpath, const std::string& outpath, const std::string& chip_name)
 {
+  // Check input path validity
+  if (gSystem->AccessPathName(inpath.c_str())) {
+    throw std::invalid_argument("Input path does not exist or is inaccessible: " + inpath);
+  }
+
+  // Check output path validity
+  if (gSystem->AccessPathName(outpath.c_str(), kWritePermission)) {
+    throw std::invalid_argument("Output path is not writable: " + outpath);
+  }
 
   o2::itsmft::AlpideSimResponse resp0, resp1;
 
-  resp0.initData(0, inpath.data());
-  resp1.initData(1, inpath.data());
+  if (chip_name == "Alpide") {
+    resp0.initData(0, inpath.c_str());
+    resp1.initData(1, inpath.c_str());
+  } else if (chip_name == "APTS") {
+    resp1.setColMax(1.5e-4);
+    resp1.setRowMax(1.5e-4);
+    resp1.initData(1, inpath.c_str());
+  } else {
+    throw std::invalid_argument("Unknown chip name: " + chip_name);
+  }
 
-  auto file = TFile::Open((outpath + response_file).data(), "recreate");
-  file->WriteObjectAny(&resp0, "o2::itsmft::AlpideSimResponse", "response0");
+  std::string output_file = outpath + "/" + chip_name + "ResponseData.root";
+  auto file = TFile::Open(output_file.c_str(), "recreate");
+
+  if (!file || file->IsZombie()) {
+    throw std::runtime_error("Failed to create output file: " + output_file);
+  } else if (chip_name == "Alpide") {
+    file->WriteObjectAny(&resp0, "o2::itsmft::AlpideSimResponse", "response0");
+  }
   file->WriteObjectAny(&resp1, "o2::itsmft::AlpideSimResponse", "response1");
   file->Close();
+  delete file;
 }
 
 int main(int argc, const char* argv[])
 {
   namespace bpo = boost::program_options;
   bpo::variables_map vm;
-  bpo::options_description options("Alpide reponse generator options");
-  options.add_options()(
-    "inputdir,i", bpo::value<std::string>()->default_value("./"), "Path where Vbb-0.0V and Vbb-3.0V are located.")(
-    "outputdir,o", bpo::value<std::string>()->default_value("./"), "Path where to store the output.")(
-    "name,n", bpo::value<std::string>()->default_value("AlpideResponseData.root"), "Output file name.");
+  bpo::options_description options("Alpide response generator options");
+  options.add_options()("inputdir,i", bpo::value<std::string>()->default_value("./"), "Path where Vbb-0.0V and Vbb-3.0V are located.")("outputdir,o", bpo::value<std::string>()->default_value("./"), "Path where to store the output.")("chip,c", bpo::value<std::string>()->default_value("Alpide"), "Chip name (Alpide or APTS).");
 
   try {
     bpo::store(parse_command_line(argc, argv, options), vm);
+
     if (vm.count("help")) {
       std::cout << options << std::endl;
-      return 1;
+      return 0;
     }
+
     bpo::notify(vm);
   } catch (const bpo::error& e) {
     std::cerr << e.what() << "\n\n";
     std::cerr << "Error parsing command line arguments. Available options:\n";
-
     std::cerr << options << std::endl;
     return 2;
   }
 
-  std::cout << "Generating " << vm["inputdir"].as<std::string>() + vm["name"].as<std::string>() << std::endl;
-  alpideResponse(vm["inputdir"].as<std::string>(), vm["outputdir"].as<std::string>(), vm["name"].as<std::string>());
+  try {
+    std::cout << "Generating response for chip: " << vm["chip"].as<std::string>() << std::endl;
+    std::cout << "Input directory: " << vm["inputdir"].as<std::string>() << std::endl;
+    std::cout << "Output directory: " << vm["outputdir"].as<std::string>() << std::endl;
+
+    alpideResponse(vm["inputdir"].as<std::string>(),
+                   vm["outputdir"].as<std::string>(),
+                   vm["chip"].as<std::string>());
+    std::cout << "Response file generated successfully." << std::endl;
+  } catch (const std::exception& e) {
+    std::cerr << "Error: " << e.what() << std::endl;
+    return 1;
+  }
 
   return 0;
 }

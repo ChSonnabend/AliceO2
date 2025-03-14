@@ -40,7 +40,6 @@ void GPURecoWorkflowSpec::initFunctionITS(o2::framework::InitContext& ic)
                                                                           mSpecConfig.itsOverrBeamEst);
   mGPUReco->GetITSTraits(trkTraits, vtxTraits, mITSTimeFrame);
   mITSTrackingInterface->setTraitsFromProvider(vtxTraits, trkTraits, mITSTimeFrame);
-  mITSTrackingInterface->initialise();
 }
 
 void GPURecoWorkflowSpec::finaliseCCDBITS(o2::framework::ConcreteDataMatcher& matcher, void* obj)

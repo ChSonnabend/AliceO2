@@ -20,7 +20,6 @@
 #include "GPUChainTracking.h"
 #include "GPUChainTrackingDefs.h"
 #include "GPUTPCClusterData.h"
-#include "GPUTPCSectorOutput.h"
 #include "GPUTPCSectorOutCluster.h"
 #include "GPUTPCGMMergedTrack.h"
 #include "GPUTPCGMMergedTrackHit.h"
@@ -104,6 +103,9 @@ void GPUChainTracking::RegisterPermanentMemoryAndProcessors()
   if (GetRecoSteps() & RecoStep::TPCClusterFinding) {
     for (uint32_t i = 0; i < NSECTORS; i++) {
       mRec->RegisterGPUProcessor(&processors()->tpcClusterer[i], GetRecoStepsGPU() & RecoStep::TPCClusterFinding);
+#ifdef GPUCA_HAS_ONNX
+      mRec->RegisterGPUProcessor(&processors()->tpcNNClusterer[i], GetRecoStepsGPU() & RecoStep::TPCClusterFinding);
+#endif
     }
   }
   if (GetRecoSteps() & RecoStep::Refit) {
@@ -149,6 +151,9 @@ void GPUChainTracking::RegisterGPUProcessors()
   if (GetRecoStepsGPU() & RecoStep::TPCClusterFinding) {
     for (uint32_t i = 0; i < NSECTORS; i++) {
       mRec->RegisterGPUDeviceProcessor(&processorsShadow()->tpcClusterer[i], &processors()->tpcClusterer[i]);
+#ifdef GPUCA_HAS_ONNX
+      mRec->RegisterGPUDeviceProcessor(&processorsShadow()->tpcNNClusterer[i], &processors()->tpcNNClusterer[i]);
+#endif
     }
   }
   if (GetRecoStepsGPU() & RecoStep::Refit) {
@@ -185,7 +190,7 @@ bool GPUChainTracking::ValidateSteps()
     GPUError("Invalid input, TPC Clusterizer needs TPC raw input");
     return false;
   }
-  if ((GetRecoSteps() & GPUDataTypes::RecoStep::TPCMerging) && ((GetRecoStepsInputs() & GPUDataTypes::InOutType::TPCSectorTracks) || (GetRecoStepsOutputs() & GPUDataTypes::InOutType::TPCSectorTracks) || !(GetRecoSteps() & GPUDataTypes::RecoStep::TPCConversion))) {
+  if ((GetRecoSteps() & GPUDataTypes::RecoStep::TPCMerging) && !(GetRecoSteps() & GPUDataTypes::RecoStep::TPCConversion)) {
     GPUError("Invalid input / output / step, merger cannot read/store sectors tracks and needs TPC conversion");
     return false;
   }
@@ -204,7 +209,7 @@ bool GPUChainTracking::ValidateSteps()
     GPUError("Missing input for TPC Cluster conversion / sector tracking / compression / dEdx: TPC Clusters required");
     return false;
   }
-  if ((GetRecoSteps() & GPUDataTypes::RecoStep::TPCMerging) && !((GetRecoStepsInputs() & GPUDataTypes::InOutType::TPCSectorTracks) || (GetRecoSteps() & GPUDataTypes::RecoStep::TPCSectorTracking))) {
+  if ((GetRecoSteps() & GPUDataTypes::RecoStep::TPCMerging) && !(GetRecoSteps() & GPUDataTypes::RecoStep::TPCSectorTracking)) {
     GPUError("Input for TPC merger missing");
     return false;
   }
@@ -218,10 +223,6 @@ bool GPUChainTracking::ValidateSteps()
   }
   if ((GetRecoStepsOutputs() & GPUDataTypes::InOutType::TPCRaw) || (GetRecoStepsOutputs() & GPUDataTypes::InOutType::TRDTracklets)) {
     GPUError("TPC Raw / TPC Clusters / TRD Tracklets cannot be output");
-    return false;
-  }
-  if ((GetRecoStepsOutputs() & GPUDataTypes::InOutType::TPCSectorTracks) && !(GetRecoSteps() & GPUDataTypes::RecoStep::TPCSectorTracking)) {
-    GPUError("No TPC Sector Tracker Output available");
     return false;
   }
   if ((GetRecoStepsOutputs() & GPUDataTypes::InOutType::TPCMergedTracks) && !(GetRecoSteps() & GPUDataTypes::RecoStep::TPCMerging)) {
@@ -265,7 +266,7 @@ bool GPUChainTracking::ValidateSettings()
     GPUError("configured max time bin exceeds 256 orbits");
     return false;
   }
-  if ((GetRecoStepsGPU() & RecoStep::TPCClusterFinding) && std::max(GetProcessingSettings().nTPCClustererLanes + 1, GetProcessingSettings().nTPCClustererLanes * 2) + (GetProcessingSettings().doublePipeline ? 1 : 0) > mRec->NStreams()) {
+  if ((GetRecoStepsGPU() & RecoStep::TPCClusterFinding) && std::max(GetProcessingSettings().nTPCClustererLanes + 1, GetProcessingSettings().nTPCClustererLanes * 2) + (GetProcessingSettings().doublePipeline ? 1 : 0) > (int32_t)mRec->NStreams()) {
     GPUError("NStreams (%d) must be > nTPCClustererLanes (%d)", mRec->NStreams(), (int32_t)GetProcessingSettings().nTPCClustererLanes);
     return false;
   }

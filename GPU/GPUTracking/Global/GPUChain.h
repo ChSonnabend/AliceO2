@@ -34,7 +34,7 @@ class GPUChain
   using krnlExec = gpu_reconstruction_kernels::krnlExec;
   using krnlEvent = gpu_reconstruction_kernels::krnlEvent;
   using deviceEvent = gpu_reconstruction_kernels::deviceEvent;
-  static constexpr krnlRunRange krnlRunRangeNone{0, -1};
+  static constexpr krnlRunRange krnlRunRangeNone{0};
   static constexpr krnlEvent krnlEventNone = krnlEvent{nullptr, nullptr, 0};
 
   virtual ~GPUChain() = default;

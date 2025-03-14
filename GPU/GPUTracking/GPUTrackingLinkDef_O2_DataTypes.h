@@ -30,6 +30,7 @@
 #pragma link C++ class o2::gpu::GPUConfigurableParamGPUSettingsProcessing + ;
 #pragma link C++ class o2::gpu::GPUConfigurableParamGPUSettingsProcessingParam + ;
 #pragma link C++ class o2::gpu::GPUConfigurableParamGPUSettingsProcessingRTC + ;
+#pragma link C++ class o2::gpu::GPUConfigurableParamGPUSettingsProcessingNNclusterizer + ;
 #pragma link C++ class o2::gpu::GPUConfigurableParamGPUSettingsDisplay + ;
 #pragma link C++ class o2::gpu::GPUConfigurableParamGPUSettingsDisplayLight + ;
 #pragma link C++ class o2::gpu::GPUConfigurableParamGPUSettingsDisplayHeavy + ;

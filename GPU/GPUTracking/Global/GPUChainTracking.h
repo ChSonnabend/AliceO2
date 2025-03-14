@@ -221,9 +221,7 @@ class GPUChainTracking : public GPUChain
 
   GPUChainTracking(GPUReconstruction* rec, uint32_t maxTPCHits = GPUCA_MAX_CLUSTERS, uint32_t maxTRDTracklets = GPUCA_MAX_TRD_TRACKLETS);
 
-  int32_t ReadEvent(uint32_t iSector, int32_t threadId);
-  void WriteOutput(int32_t iSector, int32_t threadId);
-  int32_t ExtrapolationTracking(uint32_t iSector, int32_t threadId, bool synchronizeOutput = true);
+  int32_t ExtrapolationTracking(uint32_t iSector, bool blocking);
 
   int32_t PrepareProfile();
   int32_t DoProfile();
@@ -281,8 +279,7 @@ class GPUChainTracking : public GPUChain
 
   // Synchronization and Locks
   eventStruct* mEvents = nullptr;
-  volatile int32_t mSectorSelectorReady = 0;
-  std::array<int8_t, NSECTORS> mWriteOutputDone;
+  std::array<int8_t, NSECTORS> mExtrapolationTrackingDone;
 
   std::vector<outputQueueEntry> mOutputQueue;
 
@@ -302,6 +299,7 @@ class GPUChainTracking : public GPUChain
   void RunTPCTrackingMerger_Resolve(int8_t useOrigTrackParam, int8_t mergeAll, GPUReconstruction::krnlDeviceType deviceType);
   void RunTPCClusterFilter(o2::tpc::ClusterNativeAccess* clusters, std::function<o2::tpc::ClusterNative*(size_t)> allocator, bool applyClusterCuts);
   bool NeedTPCClustersOnGPU();
+  uint32_t StreamForSector(uint32_t sector) const;
 
   std::mutex mMutexUpdateCalib;
   std::unique_ptr<GPUChainTrackingFinalContext> mPipelineFinalizationCtx;

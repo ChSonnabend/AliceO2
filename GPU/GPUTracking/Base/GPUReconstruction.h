@@ -31,7 +31,6 @@
 #include "GPUOutputControl.h"
 #include "GPUMemoryResource.h"
 #include "GPUConstantMem.h"
-#include "GPUTPCSectorOutput.h"
 #include "GPULogging.h"
 
 namespace o2::its
@@ -201,7 +200,7 @@ class GPUReconstruction
   void SetOutputControl(void* ptr, size_t size);
   void SetInputControl(void* ptr, size_t size);
   GPUOutputControl& OutputControl() { return mOutputControl; }
-  int32_t NStreams() const { return mNStreams; }
+  uint32_t NStreams() const { return mNStreams; }
   const void* DeviceMemoryBase() const { return mDeviceMemoryBase; }
 
   RecoStepField GetRecoSteps() const { return mRecoSteps.steps; }

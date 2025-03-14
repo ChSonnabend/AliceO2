@@ -184,8 +184,8 @@ void Detector::buildBasicFT3(const FT3BaseParam& param)
 //_________________________________________________________________________________________________
 void Detector::buildFT3V1()
 {
-  //Build FT3 detector according to
-  //https://indico.cern.ch/event/992488/contributions/4174473/attachments/2168881/3661331/tracker_parameters_werner_jan_11_2021.pdf
+  // Build FT3 detector according to
+  // https://indico.cern.ch/event/992488/contributions/4174473/attachments/2168881/3661331/tracker_parameters_werner_jan_11_2021.pdf
 
   LOG(info) << "Building FT3 Detector: V1";
 
@@ -284,17 +284,15 @@ void Detector::buildFT3NewVacuumVessel()
   // to adhere to the changes that were presented at the ALICE 3 Upgrade days in March 2024
   // Inner radius at C-side to 7 cm
   // Inner radius at A-side stays at 5 cm
+  // 06.02.2025 update: IRIS layers are now in TRK
 
   LOG(info) << "Building FT3 Detector: After Upgrade Days March 2024 version";
 
-  mNumberOfLayers = 12;
+  mNumberOfLayers = 9;
   float sensorThickness = 30.e-4;
   float layersx2X0 = 1.e-2;
   std::vector<std::array<float, 5>> layersConfigCSide{
-    {26., .5, 2.5, 0.1f * layersx2X0}, // {z_layer, r_in, r_out, Layerx2X0}
-    {30., .5, 2.5, 0.1f * layersx2X0},
-    {34., .5, 2.5, 0.1f * layersx2X0},
-    {77., 7.0, 35., layersx2X0},
+    {77., 7.0, 35., layersx2X0}, // {z_layer, r_in, r_out, Layerx2X0}
     {100., 7.0, 35., layersx2X0},
     {122., 7.0, 35., layersx2X0},
     {150., 7.0, 68.f, layersx2X0},
@@ -305,10 +303,7 @@ void Detector::buildFT3NewVacuumVessel()
     {350., 7.0, 68.f, layersx2X0}};
 
   std::vector<std::array<float, 5>> layersConfigASide{
-    {26., .5, 2.5, 0.1f * layersx2X0}, // {z_layer, r_in, r_out, Layerx2X0}
-    {30., .5, 2.5, 0.1f * layersx2X0},
-    {34., .5, 2.5, 0.1f * layersx2X0},
-    {77., 5.0, 35., layersx2X0},
+    {77., 5.0, 35., layersx2X0}, // {z_layer, r_in, r_out, Layerx2X0}
     {100., 5.0, 35., layersx2X0},
     {122., 5.0, 35., layersx2X0},
     {150., 5.0, 68.f, layersx2X0},

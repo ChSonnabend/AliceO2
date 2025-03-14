@@ -29,7 +29,6 @@
 
 namespace o2::gpu
 {
-class GPUTPCSectorOutput;
 struct GPUTPCClusterData;
 struct GPUParam;
 class GPUTPCTrack;
@@ -50,8 +49,6 @@ class GPUTPCTracker : public GPUProcessor
   void InitializeRows(const GPUParam* param) { mData.InitializeRows(*param); }
 
   int32_t CheckEmptySector();
-  void WriteOutputPrepare();
-  void WriteOutput();
 
   // Debugging Stuff
   void DumpTrackingData(std::ostream& out);         // Dump Input Sector Data
@@ -60,7 +57,6 @@ class GPUTPCTracker : public GPUProcessor
   void DumpHitWeights(std::ostream& out);           //....
   void DumpTrackHits(std::ostream& out);            // Same for Track Hits
   void DumpTrackletHits(std::ostream& out);         // Same for Track Hits
-  void DumpOutput(std::ostream& out);               // Similar for output
 #endif
 
   struct StructGPUParameters {
@@ -88,7 +84,6 @@ class GPUTPCTracker : public GPUProcessor
     return mData.ClusterData();
   }
   GPUhdi() const GPUTPCRow& Row(const GPUTPCHitId& HitId) const { return mData.Row(HitId.RowIndex()); }
-  GPUhdi() GPUglobalref() GPUTPCSectorOutput* Output() const { return mOutput; }
   GPUhdni() GPUglobalref() commonMemoryStruct* CommonMemory() const
   {
     return (mCommonMem);
@@ -267,10 +262,6 @@ class GPUTPCTracker : public GPUProcessor
   GPUglobalref() calink* mTrackletRowHits = nullptr;        // Hits for each Tracklet in each row
   GPUglobalref() GPUTPCTrack* mTracks = nullptr;            // reconstructed tracks
   GPUglobalref() GPUTPCHitId* mTrackHits = nullptr;         // array of track hit numbers
-
-  // output
-  GPUglobalref() GPUTPCSectorOutput* mOutput; // address of pointer pointing to SectorOutput Object
-  void* mOutputMemory;                        // Pointer to output memory if stored internally
 
   static int32_t StarthitSortComparison(const void* a, const void* b);
 };

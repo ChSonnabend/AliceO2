@@ -51,7 +51,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 if(GPUCA_BUILD_DEBUG)
   set(CMAKE_CXX_FLAGS "-O0 -ggdb")
   if (GPUCA_BUILD_DEBUG_SANITIZE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,undefined -fno-sanitize=vptr")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,undefined -fno-sanitize=vptr") #TODO: Check why this does not work with clang
   endif()
   set(CMAKE_BUILD_TYPE DEBUG)
 else()

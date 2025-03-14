@@ -46,15 +46,18 @@ class TRKServices : public FairModule
   // ===================================================  ---> createOuterServices
  public:
   TRKServices() = default;
-  TRKServices(float rMin, float zLength, float thickness);
   void createMaterials();
   void createServices(TGeoVolume* motherVolume);
-  void createColdplate(TGeoVolume* motherVolume);
   void createMiddleServices(TGeoVolume* motherVolume);
   void createOuterDisksServices(TGeoVolume* motherVolume);
   void createOuterBarrelServices(TGeoVolume* motherVolume);
+  void createVacuumCompositeShape();
+  void excavateFromVacuum(TString shapeToExcavate);
+  void registerVacuum(TGeoVolume* motherVolume);
 
  protected:
+  // Vacuum
+  TString mVacuumCompositeFormula;
   // Coldplate
   float mColdPlateRMin;      // cm
   float mColdPlateZLength;   // cm
@@ -70,11 +73,6 @@ class TRKServices : public FairModule
   float mMiddleDiskThickness = 1.0;                      // cm
   std::vector<float> mCableFanWeights = {0.5, 0.3, 0.2}; // relative weights of the fan layers
 
-  // IRIS vacuum vessel
-  float mRInIRISVacV;       // cm
-  float mROutIRISVacV;      // cm
-  float mZLengthIRISVacV;   // cm
-  float mThicknessIRISVacV; // cm
   ClassDefOverride(TRKServices, 1);
 };
 } // namespace trk

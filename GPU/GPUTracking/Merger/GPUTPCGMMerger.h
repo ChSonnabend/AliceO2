@@ -42,7 +42,6 @@ struct ClusterNative;
 namespace o2::gpu
 {
 class GPUTPCSectorTrack;
-class GPUTPCSectorOutput;
 class GPUTPCGMTrackParam;
 class GPUTPCTracker;
 class GPUChainTracking;

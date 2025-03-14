@@ -17,6 +17,7 @@
 
 #include "TRKSimulation/TRKLayer.h"
 #include "TRKSimulation/TRKServices.h"
+#include "TRKSimulation/TRKPetalCase.h"
 #include "TRKBase/GeometryTGeo.h"
 
 #include <TLorentzVector.h>
@@ -87,7 +88,11 @@ class Detector : public o2::base::DetImpl<Detector>
   GeometryTGeo* mGeometryTGeo;         //!
   std::vector<o2::itsmft::Hit>* mHits; // ITSMFT ones for the moment
   std::vector<TRKLayer> mLayers;
-  TRKServices mServices;
+  TRKServices mServices;                 // Houses the services of the TRK, but not the Iris tracker
+  std::vector<TRKPetalCase> mPetalCases; // Houses the Iris tracker and its services. Created fully in the beam pipe
+
+  std::vector<std::string> mFirstOrLastLayers; // Names of the first or last layers
+  bool InsideFirstOrLastLayer(std::string layerName);
 
   void defineSensitiveVolumes();
 

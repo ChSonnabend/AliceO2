@@ -139,7 +139,7 @@ class GPUDataTypes
                              AllRecoSteps = 0x7FFFFFFF,
                              NoRecoStep = 0 };
   enum ENUM_CLASS InOutType { TPCClusters = 1,
-                              TPCSectorTracks = 2,
+                              OBSOLETE = 2,
                               TPCMergedTracks = 4,
                               TPCCompressedClusters = 8,
                               TRDTracklets = 16,

@@ -24,12 +24,18 @@
 
 using namespace o2::gpu;
 
-int32_t GPUChainTracking::ExtrapolationTracking(uint32_t iSector, int32_t threadId, bool synchronizeOutput)
+uint32_t GPUChainTracking::StreamForSector(uint32_t sector) const
 {
-  runKernel<GPUTPCExtrapolationTracking>({GetGridBlk(256, iSector % mRec->NStreams()), {iSector}});
-  TransferMemoryResourceLinkToHost(RecoStep::TPCSectorTracking, processors()->tpcTrackers[iSector].MemoryResCommon(), iSector % mRec->NStreams());
-  if (synchronizeOutput) {
-    SynchronizeStream(iSector % mRec->NStreams());
+  return sector % mRec->NStreams();
+}
+
+int32_t GPUChainTracking::ExtrapolationTracking(uint32_t iSector, bool blocking)
+{
+  const uint32_t stream = StreamForSector(iSector);
+  runKernel<GPUTPCExtrapolationTracking>({GetGridBlk(256, stream), {iSector}});
+  TransferMemoryResourceLinkToHost(RecoStep::TPCSectorTracking, processors()->tpcTrackers[iSector].MemoryResCommon(), stream);
+  if (blocking) {
+    SynchronizeStream(stream);
   }
   return (0);
 }
@@ -153,22 +159,14 @@ int32_t GPUChainTracking::RunTPCTrackingSectors_internal()
   mRec->runParallelOuterLoop(doGPU, NSECTORS, [&](uint32_t iSector) {
     GPUTPCTracker& trk = processors()->tpcTrackers[iSector];
     GPUTPCTracker& trkShadow = doGPU ? processorsShadow()->tpcTrackers[iSector] : trk;
-    int32_t useStream = (iSector % mRec->NStreams());
+    int32_t useStream = StreamForSector(iSector);
 
     if (GetProcessingSettings().debugLevel >= 3) {
       GPUInfo("Creating Sector Data (Sector %d)", iSector);
     }
-    if (doGPU) {
-      TransferMemoryResourcesToGPU(RecoStep::TPCSectorTracking, &trk, useStream);
-      runKernel<GPUTPCCreateTrackingData>({GetGridBlk(GPUCA_ROW_COUNT, useStream), {iSector}, {nullptr, streamInit[useStream] ? nullptr : &mEvents->init}});
-      streamInit[useStream] = true;
-    } else {
-      if (ReadEvent(iSector, 0)) {
-        GPUError("Error reading event");
-        error = 1;
-        return;
-      }
-    }
+    TransferMemoryResourcesToGPU(RecoStep::TPCSectorTracking, &trk, useStream);
+    runKernel<GPUTPCCreateTrackingData>({doGPU ? GetGridBlk(GPUCA_ROW_COUNT, useStream) : GetGridAuto(0), {iSector}, {nullptr, streamInit[useStream] ? nullptr : &mEvents->init}}); // TODO: Check why GetGridAuto(0) is much fast on CPU
+    streamInit[useStream] = true;
     if (GetProcessingSettings().deterministicGPUReconstruction) {
       runKernel<GPUTPCSectorDebugSortKernels, GPUTPCSectorDebugSortKernels::hitData>({GetGridBlk(GPUCA_ROW_COUNT, useStream), {iSector}});
     }
@@ -218,27 +216,23 @@ int32_t GPUChainTracking::RunTPCTrackingSectors_internal()
       AllocateRegisteredMemory(trk.MemoryResOutput());
     }
 
-    if (!(doGPU || GetProcessingSettings().debugLevel >= 1) || GetProcessingSettings().trackletConstructorInPipeline) {
-      runKernel<GPUTPCTrackletConstructor>({GetGridAuto(useStream), {iSector}});
-      DoDebugAndDump(RecoStep::TPCSectorTracking, 128, trk, &GPUTPCTracker::DumpTrackletHits, *mDebugFile);
-      if (GetProcessingSettings().debugMask & 256 && GetProcessingSettings().deterministicGPUReconstruction < 2) {
-        trk.DumpHitWeights(*mDebugFile);
-      }
+    runKernel<GPUTPCTrackletConstructor>({GetGridAuto(useStream), {iSector}});
+    DoDebugAndDump(RecoStep::TPCSectorTracking, 128, trk, &GPUTPCTracker::DumpTrackletHits, *mDebugFile);
+    if (GetProcessingSettings().debugMask & 256 && GetProcessingSettings().deterministicGPUReconstruction < 2) {
+      trk.DumpHitWeights(*mDebugFile);
     }
 
-    if (!(doGPU || GetProcessingSettings().debugLevel >= 1) || GetProcessingSettings().trackletSelectorInPipeline) {
-      runKernel<GPUTPCTrackletSelector>({GetGridAuto(useStream), {iSector}});
-      runKernel<GPUTPCExtrapolationTrackingCopyNumbers>({{1, -ThreadCount(), useStream}, {iSector}}, 1);
-      if (GetProcessingSettings().deterministicGPUReconstruction) {
-        runKernel<GPUTPCSectorDebugSortKernels, GPUTPCSectorDebugSortKernels::sectorTracks>({GetGrid(1, 1, useStream), {iSector}});
-      }
-      TransferMemoryResourceLinkToHost(RecoStep::TPCSectorTracking, trk.MemoryResCommon(), useStream, &mEvents->sector[iSector]);
-      streamMap[iSector] = useStream;
-      if (GetProcessingSettings().debugLevel >= 3) {
-        GPUInfo("Sector %u, Number of tracks: %d", iSector, *trk.NTracks());
-      }
-      DoDebugAndDump(RecoStep::TPCSectorTracking, 512, trk, &GPUTPCTracker::DumpTrackHits, *mDebugFile);
+    runKernel<GPUTPCTrackletSelector>({GetGridAuto(useStream), {iSector}});
+    runKernel<GPUTPCExtrapolationTrackingCopyNumbers>({{1, -ThreadCount(), useStream}, {iSector}}, 1);
+    if (GetProcessingSettings().deterministicGPUReconstruction) {
+      runKernel<GPUTPCSectorDebugSortKernels, GPUTPCSectorDebugSortKernels::sectorTracks>({GetGrid(1, 1, useStream), {iSector}});
     }
+    TransferMemoryResourceLinkToHost(RecoStep::TPCSectorTracking, trk.MemoryResCommon(), useStream, &mEvents->sector[iSector]);
+    streamMap[iSector] = useStream;
+    if (GetProcessingSettings().debugLevel >= 3) {
+      GPUInfo("Sector %u, Number of tracks: %d", iSector, *trk.NTracks());
+    }
+    DoDebugAndDump(RecoStep::TPCSectorTracking, 512, trk, &GPUTPCTracker::DumpTrackHits, *mDebugFile);
   });
   mRec->SetNActiveThreadsOuterLoop(1);
   if (error) {
@@ -246,168 +240,38 @@ int32_t GPUChainTracking::RunTPCTrackingSectors_internal()
   }
 
   if (doGPU || GetProcessingSettings().debugLevel >= 1) {
-    if (doGPU) {
-      ReleaseEvent(mEvents->init);
-    }
-
-    if (!GetProcessingSettings().trackletSelectorInPipeline) {
-      if (GetProcessingSettings().trackletConstructorInPipeline) {
-        SynchronizeGPU();
-      } else {
-        for (int32_t i = 0; i < mRec->NStreams(); i++) {
-          RecordMarker(&mEvents->stream[i], i);
-        }
-        runKernel<GPUTPCTrackletConstructor, 1>({GetGridAuto(0), krnlRunRangeNone, {&mEvents->single, mEvents->stream, mRec->NStreams()}});
-        for (int32_t i = 0; i < mRec->NStreams(); i++) {
-          ReleaseEvent(mEvents->stream[i]);
-        }
-        SynchronizeEventAndRelease(mEvents->single);
-      }
-
-      if (GetProcessingSettings().debugLevel >= 4) {
-        for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
-          DoDebugAndDump(RecoStep::TPCSectorTracking, 128, processors()->tpcTrackers[iSector], &GPUTPCTracker::DumpTrackletHits, *mDebugFile);
-        }
-      }
-
-      int32_t runSectors = 0;
-      int32_t useStream = 0;
-      for (uint32_t iSector = 0; iSector < NSECTORS; iSector += runSectors) {
-        if (runSectors < GetProcessingSettings().trackletSelectorSectors) {
-          runSectors++;
-        }
-        runSectors = CAMath::Min<int32_t>(runSectors, NSECTORS - iSector);
-        if (getKernelProperties<GPUTPCTrackletSelector>().minBlocks * BlockCount() < (uint32_t)runSectors) {
-          runSectors = getKernelProperties<GPUTPCTrackletSelector>().minBlocks * BlockCount();
-        }
-
-        if (GetProcessingSettings().debugLevel >= 3) {
-          GPUInfo("Running TPC Tracklet selector (Stream %d, Sector %d to %d)", useStream, iSector, iSector + runSectors);
-        }
-        runKernel<GPUTPCTrackletSelector>({GetGridAuto(useStream), {iSector, runSectors}});
-        runKernel<GPUTPCExtrapolationTrackingCopyNumbers>({{1, -ThreadCount(), useStream}, {iSector}}, runSectors);
-        for (uint32_t k = iSector; k < iSector + runSectors; k++) {
-          if (GetProcessingSettings().deterministicGPUReconstruction) {
-            runKernel<GPUTPCSectorDebugSortKernels, GPUTPCSectorDebugSortKernels::sectorTracks>({GetGrid(1, 1, useStream), {k}});
-          }
-          TransferMemoryResourceLinkToHost(RecoStep::TPCSectorTracking, processors()->tpcTrackers[k].MemoryResCommon(), useStream, &mEvents->sector[k]);
-          streamMap[k] = useStream;
-        }
-        useStream++;
-        if (useStream >= mRec->NStreams()) {
-          useStream = 0;
-        }
-      }
-    }
-
-    mSectorSelectorReady = 0;
-
-    std::array<bool, NSECTORS> transferRunning;
-    transferRunning.fill(true);
-    if ((GetRecoStepsOutputs() & GPUDataTypes::InOutType::TPCSectorTracks) || (doGPU && !(GetRecoStepsGPU() & RecoStep::TPCMerging))) {
-      if (param().rec.tpc.extrapolationTracking) {
-        mWriteOutputDone.fill(0);
-      }
-
-      uint32_t tmpSector = 0;
-      for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
-        if (GetProcessingSettings().debugLevel >= 3) {
-          GPUInfo("Transfering Tracks from GPU to Host");
-        }
-
-        if (tmpSector == iSector) {
-          SynchronizeEvents(&mEvents->sector[iSector]);
-        }
-        while (tmpSector < NSECTORS && (tmpSector == iSector || IsEventDone(&mEvents->sector[tmpSector]))) {
-          ReleaseEvent(mEvents->sector[tmpSector]);
-          if (*processors()->tpcTrackers[tmpSector].NTracks() > 0) {
-            TransferMemoryResourceLinkToHost(RecoStep::TPCSectorTracking, processors()->tpcTrackers[tmpSector].MemoryResOutput(), streamMap[tmpSector], &mEvents->sector[tmpSector]);
-          } else {
-            transferRunning[tmpSector] = false;
-          }
-          tmpSector++;
-        }
-
-        if (GetProcessingSettings().keepAllMemory) {
-          TransferMemoryResourcesToHost(RecoStep::TPCSectorTracking, &processors()->tpcTrackers[iSector], -1, true);
-          if (!GetProcessingSettings().trackletConstructorInPipeline) {
-            if (GetProcessingSettings().debugMask & 256 && GetProcessingSettings().deterministicGPUReconstruction < 2) {
-              processors()->tpcTrackers[iSector].DumpHitWeights(*mDebugFile);
-            }
-          }
-          if (!GetProcessingSettings().trackletSelectorInPipeline) {
-            if (GetProcessingSettings().debugMask & 512) {
-              processors()->tpcTrackers[iSector].DumpTrackHits(*mDebugFile);
-            }
-          }
-        }
-
-        if (transferRunning[iSector]) {
-          SynchronizeEvents(&mEvents->sector[iSector]);
-        }
-        if (GetProcessingSettings().debugLevel >= 3) {
-          GPUInfo("Tracks Transfered: %d / %d", *processors()->tpcTrackers[iSector].NTracks(), *processors()->tpcTrackers[iSector].NTrackHits());
-        }
-
-        if (GetProcessingSettings().debugLevel >= 3) {
-          GPUInfo("Data ready for sector %d", iSector);
-        }
-        mSectorSelectorReady = iSector;
-
-        if (param().rec.tpc.extrapolationTracking) {
-          for (uint32_t tmpSector2a = 0; tmpSector2a <= iSector; tmpSector2a++) {
-            uint32_t tmpSector2 = GPUTPCExtrapolationTracking::ExtrapolationTrackingSectorOrder(tmpSector2a);
-            uint32_t sectorLeft, sectorRight;
-            GPUTPCExtrapolationTracking::ExtrapolationTrackingSectorLeftRight(tmpSector2, sectorLeft, sectorRight);
-
-            if (tmpSector2 <= iSector && sectorLeft <= iSector && sectorRight <= iSector && mWriteOutputDone[tmpSector2] == 0) {
-              ExtrapolationTracking(tmpSector2, 0);
-              WriteOutput(tmpSector2, 0);
-              mWriteOutputDone[tmpSector2] = 1;
-            }
-          }
-        } else {
-          WriteOutput(iSector, 0);
-        }
-      }
-    }
-    if (!(GetRecoStepsOutputs() & GPUDataTypes::InOutType::TPCSectorTracks) && param().rec.tpc.extrapolationTracking) {
+    if (param().rec.tpc.extrapolationTracking) {
       std::vector<bool> blocking(NSECTORS * mRec->NStreams());
-      for (int32_t i = 0; i < NSECTORS; i++) {
-        for (int32_t j = 0; j < mRec->NStreams(); j++) {
-          blocking[i * mRec->NStreams() + j] = i % mRec->NStreams() == j;
+      for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
+        for (uint32_t iStream = 0; iStream < mRec->NStreams(); iStream++) {
+          blocking[iSector * mRec->NStreams() + iStream] = StreamForSector(iSector) == iStream;
         }
       }
       for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
         uint32_t tmpSector = GPUTPCExtrapolationTracking::ExtrapolationTrackingSectorOrder(iSector);
-        if (!((GetRecoStepsOutputs() & GPUDataTypes::InOutType::TPCSectorTracks) || (doGPU && !(GetRecoStepsGPU() & RecoStep::TPCMerging)))) {
-          uint32_t sectorLeft, sectorRight;
-          GPUTPCExtrapolationTracking::ExtrapolationTrackingSectorLeftRight(tmpSector, sectorLeft, sectorRight);
-          if (doGPU && !blocking[tmpSector * mRec->NStreams() + sectorLeft % mRec->NStreams()]) {
-            StreamWaitForEvents(tmpSector % mRec->NStreams(), &mEvents->sector[sectorLeft]);
-            blocking[tmpSector * mRec->NStreams() + sectorLeft % mRec->NStreams()] = true;
-          }
-          if (doGPU && !blocking[tmpSector * mRec->NStreams() + sectorRight % mRec->NStreams()]) {
-            StreamWaitForEvents(tmpSector % mRec->NStreams(), &mEvents->sector[sectorRight]);
-            blocking[tmpSector * mRec->NStreams() + sectorRight % mRec->NStreams()] = true;
-          }
+        uint32_t sectorLeft, sectorRight;
+        GPUTPCExtrapolationTracking::ExtrapolationTrackingSectorLeftRight(tmpSector, sectorLeft, sectorRight);
+        if (doGPU && !blocking[tmpSector * mRec->NStreams() + StreamForSector(sectorLeft)]) {
+          StreamWaitForEvents(StreamForSector(tmpSector), &mEvents->sector[sectorLeft]);
+          blocking[tmpSector * mRec->NStreams() + StreamForSector(sectorLeft)] = true;
         }
-        ExtrapolationTracking(tmpSector, 0, false);
+        if (doGPU && !blocking[tmpSector * mRec->NStreams() + StreamForSector(sectorRight)]) {
+          StreamWaitForEvents(StreamForSector(tmpSector), &mEvents->sector[sectorRight]);
+          blocking[tmpSector * mRec->NStreams() + StreamForSector(sectorRight)] = true;
+        }
+        ExtrapolationTracking(tmpSector, false);
       }
     }
-    for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
-      if (doGPU && transferRunning[iSector]) {
+    if (doGPU) {
+      ReleaseEvent(mEvents->init);
+      for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
         ReleaseEvent(mEvents->sector[iSector]);
       }
     }
   } else {
-    mSectorSelectorReady = NSECTORS;
     mRec->runParallelOuterLoop(doGPU, NSECTORS, [&](uint32_t iSector) {
       if (param().rec.tpc.extrapolationTracking) {
-        ExtrapolationTracking(iSector, 0);
-      }
-      if (GetRecoStepsOutputs() & GPUDataTypes::InOutType::TPCSectorTracks) {
-        WriteOutput(iSector, 0);
+        ExtrapolationTracking(iSector, true);
       }
     });
     mRec->SetNActiveThreadsOuterLoop(1);
@@ -417,12 +281,6 @@ int32_t GPUChainTracking::RunTPCTrackingSectors_internal()
     for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
       GPUInfo("Sector %d - Tracks: Local %d Extrapolated %d - Hits: Local %d Extrapolated %d", iSector,
               processors()->tpcTrackers[iSector].CommonMemory()->nLocalTracks, processors()->tpcTrackers[iSector].CommonMemory()->nTracks, processors()->tpcTrackers[iSector].CommonMemory()->nLocalTrackHits, processors()->tpcTrackers[iSector].CommonMemory()->nTrackHits);
-    }
-  }
-
-  if (GetProcessingSettings().debugMask & 1024 && !GetProcessingSettings().deterministicGPUReconstruction) {
-    for (uint32_t i = 0; i < NSECTORS; i++) {
-      processors()->tpcTrackers[i].DumpOutput(*mDebugFile);
     }
   }
 
@@ -443,28 +301,4 @@ int32_t GPUChainTracking::RunTPCTrackingSectors_internal()
   }
   mRec->PopNonPersistentMemory(RecoStep::TPCSectorTracking, qStr2Tag("TPCSLTRK"));
   return 0;
-}
-
-int32_t GPUChainTracking::ReadEvent(uint32_t iSector, int32_t threadId)
-{
-  if (GetProcessingSettings().debugLevel >= 5) {
-    GPUInfo("Running ReadEvent for sector %d on thread %d\n", iSector, threadId);
-  }
-  runKernel<GPUTPCCreateTrackingData>({{GetGridAuto(0, GPUReconstruction::krnlDeviceType::CPU)}, {iSector}});
-  if (GetProcessingSettings().debugLevel >= 5) {
-    GPUInfo("Finished ReadEvent for sector %d on thread %d\n", iSector, threadId);
-  }
-  return (0);
-}
-
-void GPUChainTracking::WriteOutput(int32_t iSector, int32_t threadId)
-{
-  if (GetProcessingSettings().debugLevel >= 5) {
-    GPUInfo("Running WriteOutput for sector %d on thread %d\n", iSector, threadId);
-  }
-  processors()->tpcTrackers[iSector].WriteOutputPrepare();
-  processors()->tpcTrackers[iSector].WriteOutput();
-  if (GetProcessingSettings().debugLevel >= 5) {
-    GPUInfo("Finished WriteOutput for sector %d on thread %d\n", iSector, threadId);
-  }
 }

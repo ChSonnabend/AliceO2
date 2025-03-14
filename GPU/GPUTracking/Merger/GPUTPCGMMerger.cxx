@@ -42,7 +42,6 @@
 #include "GPUCommonConstants.h"
 
 #include "GPUTPCTrackParam.h"
-#include "GPUTPCSectorOutput.h"
 #include "GPUTPCGMMergedTrack.h"
 #include "GPUParam.h"
 #include "GPUTPCTrackLinearisation.h"

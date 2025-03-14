@@ -1001,8 +1001,8 @@ void ITSThresholdCalibrator::setRunType(const short int& runtype)
     this->mFitType = NO_FIT;
     this->mMin = 0;
     this->mMax = 400; // strobe delay goes from 0 to 400 (included) in steps of 4
-    this->mStep = 4;
-    this->mStrobeWindow = 5; // it's 4 but it corresponds to 4+1 (as from alpide manual)
+    this->mStep = 1;
+    this->mStrobeWindow = 1; // it's 0 but it corresponds to 0+1 (as from alpide manual)
     this->N_RANGE = (mMax - mMin) / mStep + 1;
     this->mCheckExactRow = true;
   } else if (runtype == TOT_CALIBRATION_1_ROW) {
@@ -1013,7 +1013,7 @@ void ITSThresholdCalibrator::setRunType(const short int& runtype)
     this->mMin = 0;
     this->mMax = 2000; // strobe delay goes from 0 to 2000 in steps of 10
     this->mStep = 10;
-    this->mStrobeWindow = 2; // it's 1 but it corresponds to 1+1 (as from alpide manual)
+    this->mStrobeWindow = 10; // it's 9 but it corresponds to 9+1 (as from alpide manual)
     this->N_RANGE = (mMax - mMin) / mStep + 1;
     this->mMin2 = 0;   // charge min
     this->mMax2 = 170; // charge max
@@ -1028,7 +1028,7 @@ void ITSThresholdCalibrator::setRunType(const short int& runtype)
     this->mMin = 300;
     this->mMax = 1100; // strobe delay goes from 300 to 1100 (included) in steps of 10
     this->mStep = 10;
-    this->mStrobeWindow = 2; // it's 1 but it corresponds to 1+1 (as from alpide manual)
+    this->mStrobeWindow = 10; // it's 9 but it corresponds to 9+1 (as from alpide manual)
     this->N_RANGE = (mMax - mMin) / mStep + 1;
     this->mMin2 = 30;                 // charge min
     this->mMax2 = 60;                 // charge max
@@ -1116,39 +1116,39 @@ std::vector<float> ITSThresholdCalibrator::calculatePulseParams(const short int&
 
   for (auto itrow = mPixelHits[chipID].begin(); itrow != mPixelHits[chipID].end(); itrow++) { // loop over the chip rows
     short int row = itrow->first;
-    for (short int col_i = 0; col_i < this->N_COL; col_i++) {                                                                     // loop over the pixels on the row
-      for (short int sdel_i = 0; sdel_i < this->N_RANGE; sdel_i++) {                                                              // loop over the strobe delays
-        if (mPixelHits[chipID][row][col_i][0][sdel_i] > 0 && mPixelHits[chipID][row][col_i][0][sdel_i] < nInj && rt_mindel < 0) { // from left, the last bin with 0 hits or the first with some hits
-          rt_mindel = sdel_i > 0 ? ((sdel_i - 1) * mStep) + 1 : (sdel_i * mStep) + 1;                                             // + 1 because if delay = n, we get n+1 in reality (ALPIDE feature)
+    for (short int col_i = 0; col_i < this->N_COL; col_i++) {                                                                              // loop over the pixels on the row
+      for (short int sdel_i = 0; sdel_i < this->N_RANGE; sdel_i++) {                                                                       // loop over the strobe delays
+        if (mPixelHits[chipID][row][col_i][0][sdel_i] > 0.1 * nInj && mPixelHits[chipID][row][col_i][0][sdel_i] < nInj && rt_mindel < 0) { // from left, first bin with 10% hits and 90% hits
+          rt_mindel = (sdel_i * mStep) + 1;                                                                                                // + 1 because if delay = n, we get n+1 in reality (ALPIDE feature)
         }
-        if (mPixelHits[chipID][row][col_i][0][sdel_i] == nInj) {
+        if (mPixelHits[chipID][row][col_i][0][sdel_i] >= 0.9 * nInj) { // for Rt max take the 90% point
           rt_maxdel = (sdel_i * mStep) + 1;
+          break;
+        }
+      }
+      for (short int sdel_i = 0; sdel_i < N_RANGE; sdel_i++) {
+        if (mPixelHits[chipID][row][col_i][0][sdel_i] >= 0.5 * nInj) { // for ToT take the 50% point
           tot_mindel = (sdel_i * mStep) + 1;
           break;
         }
       }
 
-      for (short int sdel_i = N_RANGE - 1; sdel_i >= 0; sdel_i--) { // from right, the first bin with nInj hits
-        if (mPixelHits[chipID][row][col_i][0][sdel_i] == nInj) {
+      for (short int sdel_i = N_RANGE - 1; sdel_i >= 0; sdel_i--) { // from right, the first bin with 50% nInj hits
+        if (mPixelHits[chipID][row][col_i][0][sdel_i] >= 0.5 * nInj) {
           tot_maxdel = (sdel_i * mStep) + 1;
           break;
         }
       }
 
       if (tot_maxdel > tot_mindel && tot_mindel >= 0 && tot_maxdel >= 0) {
-        sumTot += tot_maxdel - tot_mindel - (int)(mStrobeWindow / 2);
-        sumSqTot += (tot_maxdel - tot_mindel - (int)(mStrobeWindow / 2)) * (tot_maxdel - tot_mindel - (int)(mStrobeWindow / 2));
+        sumTot += tot_maxdel - tot_mindel - mStrobeWindow;
+        sumSqTot += (tot_maxdel - tot_mindel - mStrobeWindow) * (tot_maxdel - tot_mindel - mStrobeWindow);
         countTot++;
       }
 
-      if (rt_maxdel > rt_mindel && rt_maxdel > 0) {
-        if (rt_mindel < 0) {
-          sumRt += mStep + (int)(mStrobeWindow / 2); // resolution -> in case the rise is "instantaneous"
-          sumSqRt += (mStep + (int)(mStrobeWindow / 2)) * (mStep + (int)(mStrobeWindow / 2));
-        } else {
-          sumRt += rt_maxdel - rt_mindel + (int)(mStrobeWindow / 2);
-          sumSqRt += (rt_maxdel - rt_mindel + (int)(mStrobeWindow / 2)) * (rt_maxdel - rt_mindel + (int)(mStrobeWindow / 2));
-        }
+      if (rt_maxdel > rt_mindel && rt_maxdel > 0 && rt_mindel > 0) {
+        sumRt += rt_maxdel - rt_mindel + mStrobeWindow;
+        sumSqRt += (rt_maxdel - rt_mindel + mStrobeWindow) * (rt_maxdel - rt_mindel + mStrobeWindow);
         countRt++;
       }
 
@@ -1232,8 +1232,8 @@ std::vector<float> ITSThresholdCalibrator::calculatePulseParams2D(const short in
       }
 
       if (maxPl > tot_mindel && tot_mindel < 1e7 && maxPl >= 0) { // ToT
-        sumTot += maxPl - tot_mindel - (int)(mStrobeWindow / 2);
-        sumSqTot += (maxPl - tot_mindel - (int)(mStrobeWindow / 2)) * (maxPl - tot_mindel - (int)(mStrobeWindow / 2));
+        sumTot += maxPl - tot_mindel - mStrobeWindow;
+        sumSqTot += (maxPl - tot_mindel - mStrobeWindow) * (maxPl - tot_mindel - mStrobeWindow);
         countTot++;
       }
 

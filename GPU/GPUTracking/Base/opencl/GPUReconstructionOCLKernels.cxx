@@ -24,15 +24,11 @@ inline void GPUReconstructionOCLBackend::runKernelBackendInternal<GPUMemClean16,
 template <class T, int32_t I, typename... Args>
 inline void GPUReconstructionOCLBackend::runKernelBackendInternal(const krnlSetupTime& _xyz, const Args&... args)
 {
-  cl_kernel k = _xyz.y.num > 1 ? getKernelObject<cl_kernel, T, I, true>() : getKernelObject<cl_kernel, T, I, false>();
+  cl_kernel k = getKernelObject<cl_kernel, T, I>();
   auto& x = _xyz.x;
   auto& y = _xyz.y;
   auto& z = _xyz.z;
-  if (y.num <= 1) {
-    GPUFailedMsg(OCLsetKernelParameters(k, mInternals->mem_gpu, mInternals->mem_constant, y.start, args...));
-  } else {
-    GPUFailedMsg(OCLsetKernelParameters(k, mInternals->mem_gpu, mInternals->mem_constant, y.start, y.num, args...));
-  }
+  GPUFailedMsg(OCLsetKernelParameters(k, mInternals->mem_gpu, mInternals->mem_constant, y.index, args...));
 
   cl_event ev;
   cl_event* evr;
@@ -63,12 +59,9 @@ void GPUReconstructionOCLBackend::runKernelBackend(const krnlSetupArgs<T, I, Arg
 }
 
 template <class T, int32_t I>
-inline uint32_t GPUReconstructionOCLBackend::FindKernel(int32_t num)
+inline uint32_t GPUReconstructionOCLBackend::FindKernel()
 {
   std::string name(GetKernelName<T, I>());
-  if (num > 1) {
-    name += "_multi";
-  }
 
   for (uint32_t k = 0; k < mInternals->kernels.size(); k++) {
     if (mInternals->kernels[k].second == name) {
@@ -80,12 +73,9 @@ inline uint32_t GPUReconstructionOCLBackend::FindKernel(int32_t num)
 }
 
 template <class T, int32_t I>
-int32_t GPUReconstructionOCLBackend::AddKernel(bool multi)
+int32_t GPUReconstructionOCLBackend::AddKernel()
 {
   std::string name(GetKernelName<T, I>());
-  if (multi) {
-    name += "_multi";
-  }
   std::string kname("krnl_" + name);
 
   cl_int ocl_error;
@@ -98,30 +88,21 @@ int32_t GPUReconstructionOCLBackend::AddKernel(bool multi)
   return 0;
 }
 
-template <class S, class T, int32_t I, bool MULTI>
+template <class S, class T, int32_t I>
 S& GPUReconstructionOCLBackend::getKernelObject()
 {
-  static uint32_t krnl = FindKernel<T, I>(MULTI ? 2 : 1);
+  static uint32_t krnl = FindKernel<T, I>();
   return mInternals->kernels[krnl].first;
 }
 
 int32_t GPUReconstructionOCLBackend::AddKernels()
 {
-#define GPUCA_KRNL(...) \
-  GPUCA_KRNL_WRAP(GPUCA_KRNL_LOAD_, __VA_ARGS__)
-#define GPUCA_KRNL_LOAD_single(x_class, ...)              \
-  if (AddKernel<GPUCA_M_KRNL_TEMPLATE(x_class)>(false)) { \
-    return 1;                                             \
-  }
-#define GPUCA_KRNL_LOAD_multi(x_class, ...)              \
-  if (AddKernel<GPUCA_M_KRNL_TEMPLATE(x_class)>(true)) { \
-    return 1;                                            \
+#define GPUCA_KRNL(x_class, ...)                     \
+  if (AddKernel<GPUCA_M_KRNL_TEMPLATE(x_class)>()) { \
+    return 1;                                        \
   }
 #include "GPUReconstructionKernelList.h"
 #undef GPUCA_KRNL
-#undef GPUCA_KRNL_LOAD_single
-#undef GPUCA_KRNL_LOAD_multi
-
   return 0;
 }
 

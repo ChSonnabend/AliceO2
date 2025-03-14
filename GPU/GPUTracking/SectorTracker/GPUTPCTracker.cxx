@@ -18,7 +18,6 @@
 #include "GPUCommonMath.h"
 
 #include "GPUTPCClusterData.h"
-#include "GPUTPCSectorOutput.h"
 #include "GPUO2DataTypes.h"
 #include "GPUTPCTrackParam.h"
 #include "GPUParam.inc"
@@ -39,12 +38,7 @@ using namespace o2::tpc;
 
 #if !defined(GPUCA_GPUCODE)
 
-GPUTPCTracker::~GPUTPCTracker()
-{
-  if (mOutputMemory) {
-    free(mOutputMemory);
-  }
-}
+GPUTPCTracker::~GPUTPCTracker() = default;
 
 // ----------------------------------------------------------------------------------
 void GPUTPCTracker::SetSector(int32_t iSector) { mISector = iSector; }
@@ -93,7 +87,7 @@ void* GPUTPCTracker::SetPointersCommon(void* mem)
 void GPUTPCTracker::RegisterMemoryAllocation()
 {
   AllocateAndInitializeLate();
-  bool reuseCondition = !mRec->GetProcessingSettings().keepDisplayMemory && mRec->GetProcessingSettings().trackletSelectorInPipeline && ((mRec->GetRecoStepsGPU() & GPUDataTypes::RecoStep::TPCSectorTracking) || mRec->GetProcessingSettings().inKernelParallel == 1 || mRec->GetProcessingSettings().nHostThreads == 1);
+  bool reuseCondition = !mRec->GetProcessingSettings().keepDisplayMemory && ((mRec->GetRecoStepsGPU() & GPUDataTypes::RecoStep::TPCSectorTracking) || mRec->GetProcessingSettings().inKernelParallel == 1 || mRec->GetProcessingSettings().nHostThreads == 1);
   GPUMemoryReuse reLinks{reuseCondition, GPUMemoryReuse::REUSE_1TO1, GPUMemoryReuse::TrackerDataLinks, (uint16_t)(mISector % mRec->GetProcessingSettings().nStreams)};
   mMemoryResLinks = mRec->RegisterMemoryAllocation(this, &GPUTPCTracker::SetPointersDataLinks, GPUMemoryResource::MEMORY_SCRATCH | GPUMemoryResource::MEMORY_STACK, "TPCSectorLinks", reLinks);
   mMemoryResSectorScratch = mRec->RegisterMemoryAllocation(this, &GPUTPCTracker::SetPointersDataScratch, GPUMemoryResource::MEMORY_SCRATCH | GPUMemoryResource::MEMORY_STACK | GPUMemoryResource::MEMORY_CUSTOM, "TPCSectorScratch");
@@ -173,124 +167,9 @@ GPUh() int32_t GPUTPCTracker::CheckEmptySector()
   // Check if the Sector is empty, if so set the output apropriate and tell the reconstuct procesdure to terminate
   if (NHitsTotal() < 1) {
     mCommonMem->nTracks = mCommonMem->nTrackHits = 0;
-    if (mOutput) {
-      WriteOutputPrepare();
-      mOutput->SetNTracks(0);
-      mOutput->SetNTrackClusters(0);
-    }
     return 1;
   }
   return 0;
-}
-
-GPUh() void GPUTPCTracker::WriteOutputPrepare() { GPUTPCSectorOutput::Allocate(mOutput, mCommonMem->nTracks, mCommonMem->nTrackHits, &mRec->OutputControl(), mOutputMemory); }
-
-template <class T>
-static inline bool SortComparison(const T& a, const T& b)
-{
-  return (a.fSortVal < b.fSortVal);
-}
-
-GPUh() void GPUTPCTracker::WriteOutput()
-{
-  mOutput->SetNTracks(0);
-  mOutput->SetNLocalTracks(0);
-  mOutput->SetNTrackClusters(0);
-
-  if (mCommonMem->nTracks == 0) {
-    return;
-  }
-  if (mCommonMem->nTracks > GPUCA_MAX_SECTOR_NTRACK) {
-    GPUError("Maximum number of tracks exceeded, cannot store");
-    return;
-  }
-
-  int32_t nStoredHits = 0;
-  int32_t nStoredTracks = 0;
-  int32_t nStoredLocalTracks = 0;
-
-  GPUTPCTrack* out = mOutput->FirstTrack();
-
-  trackSortData* trackOrder = new trackSortData[mCommonMem->nTracks];
-  for (uint32_t i = 0; i < mCommonMem->nTracks; i++) {
-    trackOrder[i].fTtrack = i;
-    trackOrder[i].fSortVal = mTracks[trackOrder[i].fTtrack].NHits() / 1000.f + mTracks[trackOrder[i].fTtrack].Param().GetZ() * 100.f + mTracks[trackOrder[i].fTtrack].Param().GetY();
-  }
-  std::sort(trackOrder, trackOrder + mCommonMem->nLocalTracks, SortComparison<trackSortData>); // TODO: Check why this sorting affects the merging efficiency!
-  std::sort(trackOrder + mCommonMem->nLocalTracks, trackOrder + mCommonMem->nTracks, SortComparison<trackSortData>);
-
-  for (uint32_t iTrTmp = 0; iTrTmp < mCommonMem->nTracks; iTrTmp++) {
-    const int32_t iTr = trackOrder[iTrTmp].fTtrack;
-    GPUTPCTrack& iTrack = mTracks[iTr];
-
-    *out = iTrack;
-    int32_t nClu = 0;
-    int32_t iID = iTrack.FirstHitID();
-
-    for (int32_t ith = 0; ith < iTrack.NHits(); ith++) {
-      const GPUTPCHitId& ic = mTrackHits[iID + ith];
-      int32_t iRow = ic.RowIndex();
-      int32_t ih = ic.HitIndex();
-
-      const GPUTPCRow& row = mData.Row(iRow);
-      int32_t clusterIndex = mData.ClusterDataIndex(row, ih);
-#ifdef GPUCA_ARRAY_BOUNDS_CHECKS
-      if (ih >= row.NHits() || ih < 0) {
-        GPUError("Array out of bounds access (Sector Row) (Hit %d / %d - NumC %d): Sector %d Row %d Index %d", ith, iTrack.NHits(), NHitsTotal(), mISector, iRow, ih);
-        fflush(stdout);
-        continue;
-      }
-      if (clusterIndex >= NHitsTotal() || clusterIndex < 0) {
-        GPUError("Array out of bounds access (Cluster Data) (Hit %d / %d - NumC %d): Sector %d Row %d Hit %d, Clusterdata Index %d", ith, iTrack.NHits(), NHitsTotal(), mISector, iRow, ih, clusterIndex);
-        fflush(stdout);
-        continue;
-      }
-#endif
-
-      float origX, origY, origZ;
-      uint8_t flags;
-      uint16_t amp;
-      int32_t id;
-      if (Param().par.earlyTpcTransform) {
-        origX = mData.ClusterData()[clusterIndex].x;
-        origY = mData.ClusterData()[clusterIndex].y;
-        origZ = mData.ClusterData()[clusterIndex].z;
-        flags = mData.ClusterData()[clusterIndex].flags;
-        amp = mData.ClusterData()[clusterIndex].amp;
-        id = mData.ClusterData()[clusterIndex].id;
-      } else {
-        const ClusterNativeAccess& cls = *mConstantMem->ioPtrs.clustersNative;
-        id = clusterIndex + cls.clusterOffset[mISector][0];
-        GPUTPCConvertImpl::convert(*mConstantMem, mISector, iRow, cls.clustersLinear[id].getPad(), cls.clustersLinear[id].getTime(), origX, origY, origZ);
-        flags = cls.clustersLinear[id].getFlags();
-        amp = cls.clustersLinear[id].qTot;
-      }
-      GPUTPCSectorOutCluster c;
-      c.Set(id, iRow, flags, amp, origX, origY, origZ);
-#ifdef GPUCA_TPC_RAW_PROPAGATE_PAD_ROW_TIME
-      c.mPad = mData.ClusterData()[clusterIndex].pad;
-      c.mTime = mData.ClusterData()[clusterIndex].time;
-#endif
-      out->SetOutTrackCluster(nClu, c);
-      nClu++;
-    }
-
-    nStoredTracks++;
-    if (iTr < mCommonMem->nLocalTracks) {
-      nStoredLocalTracks++;
-    }
-    nStoredHits += nClu;
-    out->SetNHits(nClu);
-    out = out->NextTrack();
-  }
-  delete[] trackOrder;
-
-  mOutput->SetNTracks(nStoredTracks);
-  mOutput->SetNLocalTracks(nStoredLocalTracks);
-  mOutput->SetNTrackClusters(nStoredHits);
-  if (Param().par.debugLevel >= 3) {
-    GPUInfo("Sector %d, Output: Tracks %d, local tracks %d, hits %d", mISector, nStoredTracks, nStoredLocalTracks, nStoredHits);
-  }
 }
 
 #endif

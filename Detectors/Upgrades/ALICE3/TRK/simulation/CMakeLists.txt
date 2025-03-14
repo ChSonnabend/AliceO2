@@ -13,6 +13,9 @@ o2_add_library(TRKSimulation
                SOURCES src/TRKLayer.cxx
                        src/Detector.cxx
                        src/TRKServices.cxx
+                       src/TRKPetalCase.cxx
+                       src/TRKPetalLayer.cxx
+                       src/TRKPetalDisk.cxx
                PUBLIC_LINK_LIBRARIES O2::TRKBase
                                      O2::FT3Simulation
                                      O2::ITSMFTSimulation)
@@ -20,4 +23,7 @@ o2_add_library(TRKSimulation
 o2_target_root_dictionary(TRKSimulation
                           HEADERS include/TRKSimulation/Detector.h
                                   include/TRKSimulation/TRKLayer.h
-                                  include/TRKSimulation/TRKServices.h)
+                                  include/TRKSimulation/TRKServices.h
+                                  include/TRKSimulation/TRKPetalCase.h
+                                  include/TRKSimulation/TRKPetalLayer.h
+                                  include/TRKSimulation/TRKPetalDisk.h)

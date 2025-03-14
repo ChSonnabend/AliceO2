@@ -13,7 +13,6 @@
 /// \author David Rohr
 
 #include "GPUTPCTracker.h"
-#include "GPUTPCSectorOutput.h"
 #include "GPUReconstruction.h"
 #include "GPUTPCHitId.h"
 #include "GPUTPCTrack.h"
@@ -25,22 +24,6 @@
 #include <numeric>
 
 using namespace o2::gpu;
-
-void GPUTPCTracker::DumpOutput(std::ostream& out)
-{
-  if (Param().par.earlyTpcTransform) {
-    out << "\nSector " << mISector << "\n";
-    const GPUTPCTrack* track = (Output())->GetFirstTrack();
-    for (uint32_t j = 0; j < (Output())->NTracks(); j++) {
-      out << "Track " << j << " (" << track->NHits() << "): ";
-      for (int32_t k = 0; k < track->NHits(); k++) {
-        out << "(" << track->OutTrackCluster(k).GetX() << "," << track->OutTrackCluster(k).GetY() << "," << track->OutTrackCluster(k).GetZ() << ") ";
-      }
-      out << " - (" << track->Param().Y() << " " << track->Param().Z() << " " << track->Param().SinPhi() << " " << track->Param().DzDs() << " " << track->Param().QPt() << "\n";
-      track = track->GetNextTrack();
-    }
-  }
-}
 
 void GPUTPCTracker::DumpTrackingData(std::ostream& out)
 {

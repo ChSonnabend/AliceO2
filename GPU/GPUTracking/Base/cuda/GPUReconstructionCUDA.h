@@ -98,7 +98,7 @@ class GPUReconstructionCUDA : public GPUReconstructionKernels<GPUReconstructionC
  private:
   int32_t genRTC(std::string& filename, uint32_t& nCompile);
   void genAndLoadRTC();
-  void loadKernelModules(bool perKernel, bool perSingleMulti = true);
+  void loadKernelModules(bool perKernel);
   const char *mRtcSrcExtension = ".src", *mRtcBinExtension = ".o";
 };
 

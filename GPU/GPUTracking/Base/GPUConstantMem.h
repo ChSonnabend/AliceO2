@@ -34,12 +34,15 @@
 #include "GPUKernelDebugOutput.h"
 #endif
 
+#ifdef GPUCA_HAS_ONNX
+#include "GPUTPCNNClusterizer.h"
+#endif
+
 namespace o2::gpu
 {
 struct GPUConstantMem {
   GPUParam param;
-  GPUTPCTracker
-    tpcTrackers[GPUCA_NSECTORS];
+  GPUTPCTracker tpcTrackers[GPUCA_NSECTORS];
   GPUTPCConvert tpcConverter;
   GPUTPCCompression tpcCompressor;
   GPUTPCDecompression tpcDecompressor;
@@ -54,6 +57,9 @@ struct GPUConstantMem {
   GPUErrors errorCodes;
 #ifdef GPUCA_KERNEL_DEBUGGER_OUTPUT
   GPUKernelDebugOutput debugOutput;
+#endif
+#ifdef GPUCA_HAS_ONNX
+  GPUTPCNNClusterizer tpcNNClusterer[GPUCA_NSECTORS];
 #endif
 
   template <int32_t I>

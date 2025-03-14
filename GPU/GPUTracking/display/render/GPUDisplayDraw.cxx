@@ -64,7 +64,7 @@ inline void GPUDisplay::drawPointLinestrip(int32_t iSector, int32_t cid, int32_t
   mVertexBuffer[iSector].emplace_back(mGlobalPos[cid].x, mGlobalPos[cid].y * mYFactor, mCfgH.projectXY ? 0 : mGlobalPos[cid].z);
   float curVal;
   while ((curVal = mGlobalPos[cid].w) < id_limit) {
-    if (GPUCommonMath::AtomicCAS(&mGlobalPos[cid].w, curVal, (float)id)) {
+    if (CAMath::AtomicCAS(&mGlobalPos[cid].w, curVal, (float)id)) {
       break;
     }
     curVal = mGlobalPos[cid].w;

@@ -18,7 +18,6 @@
 #include "GPUChain.h"
 
 #include "GPUTPCClusterData.h"
-#include "GPUTPCSectorOutput.h"
 #include "GPUTPCSectorOutCluster.h"
 #include "GPUTPCGMMergedTrack.h"
 #include "GPUTPCGMMergedTrackHit.h"
@@ -66,28 +65,25 @@ inline void GPUReconstructionCPUBackend::runKernelBackendInternal(const krnlSetu
   if (x.nThreads != 1) {
     throw std::runtime_error("Cannot run device kernel on host with nThreads != 1");
   }
-  uint32_t num = y.num == 0 || y.num == -1 ? 1 : y.num;
-  for (uint32_t k = 0; k < num; k++) {
-    int32_t nThreads = getNKernelHostThreads(false);
-    if (nThreads > 1) {
-      if (mProcessingSettings.debugLevel >= 5) {
-        printf("Running %d Threads\n", nThreads);
-      }
-      tbb::this_task_arena::isolate([&] {
-        mThreading->activeThreads->execute([&] {
-          tbb::parallel_for(tbb::blocked_range<uint32_t>(0, x.nBlocks, 1), [&](const tbb::blocked_range<uint32_t>& r) {
-            typename T::GPUSharedMemory smem;
-            for (uint32_t iB = r.begin(); iB < r.end(); iB++) {
-              T::template Thread<I>(x.nBlocks, 1, iB, 0, smem, T::Processor(*mHostConstantMem)[y.start + k], args...);
-            }
-          });
+  int32_t nThreads = getNKernelHostThreads(false);
+  if (nThreads > 1) {
+    if (mProcessingSettings.debugLevel >= 5) {
+      printf("Running %d Threads\n", nThreads);
+    }
+    tbb::this_task_arena::isolate([&] {
+      mThreading->activeThreads->execute([&] {
+        tbb::parallel_for(tbb::blocked_range<uint32_t>(0, x.nBlocks, 1), [&](const tbb::blocked_range<uint32_t>& r) {
+          typename T::GPUSharedMemory smem;
+          for (uint32_t iB = r.begin(); iB < r.end(); iB++) {
+            T::template Thread<I>(x.nBlocks, 1, iB, 0, smem, T::Processor(*mHostConstantMem)[y.index], args...);
+          }
         });
       });
-    } else {
-      for (uint32_t iB = 0; iB < x.nBlocks; iB++) {
-        typename T::GPUSharedMemory smem;
-        T::template Thread<I>(x.nBlocks, 1, iB, 0, smem, T::Processor(*mHostConstantMem)[y.start + k], args...);
-      }
+    });
+  } else {
+    for (uint32_t iB = 0; iB < x.nBlocks; iB++) {
+      typename T::GPUSharedMemory smem;
+      T::template Thread<I>(x.nBlocks, 1, iB, 0, smem, T::Processor(*mHostConstantMem)[y.index], args...);
     }
   }
 }
