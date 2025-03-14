@@ -254,27 +254,14 @@ GPUd() void GPUTPCNNClusterizer::publishClustersReg1(uint glo_idx, GPUSharedMemo
 
   // LOG(info) << glo_idx << " -- " << model_output_index << " / " << clusterer.outputDataReg1.size() << " / " << clusterer.model_reg_1.getNumOutputNodes()[0][1] << " -- " << clusterer.peakPositions.size() << " -- " << clusterer.centralCharges.size();
 
+  // if (full_glo_idx == 10000) {
+  //   LOG(info) << "Cluster: modelProb " << clusterer.modelProbabilities[full_glo_idx] << "; regression: " << clusterer.outputDataReg1[model_output_index] << " / " << clusterer.outputDataReg1[model_output_index + 1] << " / " << clusterer.outputDataReg1[model_output_index + 2] << " / " << clusterer.outputDataReg1[model_output_index + 3] << " / " << clusterer.outputDataReg1[model_output_index + 4];
+  //   GPUTPCNNClusterizer::printInput<float>(glo_idx * clusterer.nnClusterizerElementSize, clusterer.inputData32, clusterer);
+  // }
+
   if (clusterer.outputDataClass[full_glo_idx] == 1) {
 
     ClusterAccumulator pc;
-
-    if (onlyMC) {
-      ClusterAccumulator dummy_pc;
-      CPU_ONLY(labelAcc->collect(clusterer.peakPositions[glo_idx], chargeMap[clusterer.peakPositions[glo_idx]].unpack()));
-      GPUTPCCFClusterizer::buildCluster(
-        clusterer.Param().rec,
-        chargeMap,
-        clusterer.peakPositions[glo_idx],
-        smem.posBcast,
-        smem.buf,
-        smem.innerAboveThreshold,
-        &dummy_pc,
-        labelAcc);
-      dummy_pc.finalize(clusterer.peakPositions[glo_idx],
-        chargeMap[clusterer.peakPositions[glo_idx]].unpack(),
-        (clusterer.mPmemory->fragment).start,
-        clusterer.Param().tpcGeometry);
-    }
 
     if ((clusterer.mPmemory->fragment).isOverlap(clusterer.peakPositions[glo_idx].time())) {
       if (clusterer.mPclusterPosInRow) {
@@ -291,14 +278,14 @@ GPUd() void GPUTPCNNClusterizer::publishClustersReg1(uint glo_idx, GPUSharedMemo
       clusterer.clusterFlags[glo_idx][0],
       clusterer.clusterFlags[glo_idx][1]);
 
-    // if ((clusterer.peakPositions[glo_idx].row() > 149)) {
-    //   LOG(info) << "Cluster: " << clusterer.outputDataReg1[model_output_index] << " / " << clusterer.outputDataReg1[model_output_index + 1] << " / " << clusterer.outputDataReg1[model_output_index + 2] << " / " << clusterer.outputDataReg1[model_output_index + 3] << " / " << clusterer.outputDataReg1[model_output_index + 4];
-    //   GPUTPCNNClusterizer::printInput<float>(glo_idx * clusterer.nnClusterizerElementSize, clusterer.inputData32, clusterer);
-    // }
+    tpc::ClusterNative myCluster;
+    bool rejectCluster = !pc.toNative(clusterer.peakPositions[glo_idx], clusterer.centralCharges[glo_idx], myCluster, clusterer.Param(), chargeMap);
 
     // LOG(info) << glo_idx << ": " << (int)clusterer.peakPositions[glo_idx].row() << " -- " << (int)clusterer.peakPositions[glo_idx].pad() << " <--> " << clusterer.inputData32[(glo_idx + 1) * clusterer.nnClusterizerElementSize - 2] * 152 << ", " << clusterer.inputData32[(glo_idx + 1) * clusterer.nnClusterizerElementSize - 1] * clusterer.Param().tpcGeometry.NPads((int)clusterer.peakPositions[glo_idx].row());
 
-    ClusterAccumulator dummy_pc;    
+    // MC labels
+    ClusterAccumulator dummy_pc;
+    CPU_ONLY(labelAcc->collect(clusterer.peakPositions[glo_idx], chargeMap[clusterer.peakPositions[glo_idx]].unpack()));
     GPUTPCCFClusterizer::buildCluster(
       clusterer.Param().rec,
       chargeMap,
@@ -310,14 +297,9 @@ GPUd() void GPUTPCNNClusterizer::publishClustersReg1(uint glo_idx, GPUSharedMemo
       labelAcc);
     dummy_pc.finalize(clusterer.peakPositions[glo_idx],
       chargeMap[clusterer.peakPositions[glo_idx]].unpack(),
-      (clusterer.mPmemory->fragment).start,
-      clusterer.Param().tpcGeometry);
-    
+      (clusterer.mPmemory->fragment).start);
     tpc::ClusterNative myDummyCluster;
-    bool rejectDummy = !dummy_pc.toNative(clusterer.peakPositions[glo_idx], clusterer.centralCharges[glo_idx], myDummyCluster, clusterer.Param());
-    
-    tpc::ClusterNative myCluster;
-    bool rejectCluster = !pc.toNative(clusterer.peakPositions[glo_idx], clusterer.centralCharges[glo_idx], myCluster, clusterer.Param());
+    bool rejectDummy = !dummy_pc.toNative(clusterer.peakPositions[glo_idx], clusterer.centralCharges[glo_idx], myDummyCluster, clusterer.Param(), chargeMap);
 
     // if (std::abs(clusterer.outputDataReg1[model_output_index]) > 4 || std::abs(clusterer.outputDataReg1[model_output_index + 1]) > 4) {
     //   LOG(info) << "[NN, CF] Cluster analysis. fragment " << (clusterer.mPmemory->fragment).index << ", glo_idx " << glo_idx << " -- row " << (int)clusterer.peakPositions[glo_idx].row() << ", pad " << (int)clusterer.peakPositions[glo_idx].pad() << ", time " << (int)clusterer.peakPositions[glo_idx].time() + static_cast<float>((clusterer.mPmemory->fragment).start) << ", charge " << static_cast<float>(clusterer.centralCharges[glo_idx]) << " || "
@@ -373,20 +355,6 @@ GPUd() void GPUTPCNNClusterizer::publishClustersReg2(uint glo_idx, GPUSharedMemo
 
     ClusterAccumulator pc;
 
-    if (onlyMC) {
-      ClusterAccumulator dummy_pc;
-      CPU_ONLY(labelAcc->collect(clusterer.peakPositions[glo_idx], chargeMap[clusterer.peakPositions[glo_idx]].unpack()));
-      GPUTPCCFClusterizer::buildCluster(
-        clusterer.Param().rec,
-        chargeMap,
-        clusterer.peakPositions[glo_idx],
-        smem.posBcast,
-        smem.buf,
-        smem.innerAboveThreshold,
-        &dummy_pc,
-        labelAcc);
-    }
-
     if ((clusterer.mPmemory->fragment).isOverlap(clusterer.peakPositions[glo_idx].time())) {
       if (clusterer.mPclusterPosInRow) {
         clusterer.mPclusterPosInRow[full_glo_idx] = clusterer.mNMaxClusterPerRow;
@@ -403,7 +371,7 @@ GPUd() void GPUTPCNNClusterizer::publishClustersReg2(uint glo_idx, GPUSharedMemo
       1, 1);
 
     tpc::ClusterNative myCluster;
-    bool rejectCluster = !pc.toNative(clusterer.peakPositions[glo_idx], clusterer.centralCharges[glo_idx], myCluster, clusterer.Param());
+    bool rejectCluster = !pc.toNative(clusterer.peakPositions[glo_idx], clusterer.centralCharges[glo_idx], myCluster, clusterer.Param(), chargeMap);
     if (rejectCluster) {
       if (clusterer.nnClusterizerVerbosity < 2) {
         LOG(warning) << "[NN, CF] Cluster rejected!";
@@ -439,7 +407,7 @@ GPUd() void GPUTPCNNClusterizer::publishClustersReg2(uint glo_idx, GPUSharedMemo
       clusterer.outputDataReg2[model_output_index + 7],
       1, 1);
 
-    rejectCluster = !pc.toNative(clusterer.peakPositions[glo_idx], clusterer.centralCharges[glo_idx], myCluster, clusterer.Param());
+    rejectCluster = !pc.toNative(clusterer.peakPositions[glo_idx], clusterer.centralCharges[glo_idx], myCluster, clusterer.Param(), chargeMap);
     if (rejectCluster) {
       if (clusterer.nnClusterizerVerbosity < 2) {
         LOG(warning) << "[NN, CF] Cluster rejected!";
@@ -480,7 +448,7 @@ void GPUTPCNNClusterizer::writeTrainingData(processorType& clusterer, int dtype)
   TTree* tree = nullptr;
   TFile* file = nullptr;
   std::vector<std::string> branchNames;
-  
+
   LOG(info) << "Writing training data to file " << outputFile;
 
   // Open file in UPDATE mode to check if it exists
@@ -498,11 +466,11 @@ void GPUTPCNNClusterizer::writeTrainingData(processorType& clusterer, int dtype)
       file->Close();
       return;
     }
-    
+
     // Get existing branches and resize atomic_unit
     TObjArray* branch_list = tree->GetListOfBranches();
     atomic_unit.resize(branch_list->GetEntries());
-    
+
     // Connect branches to atomic_unit elements
     for (int i = 0; i < branch_list->GetEntries(); i++) {
       TBranch* branch = (TBranch*)branch_list->At(i);
@@ -516,7 +484,7 @@ void GPUTPCNNClusterizer::writeTrainingData(processorType& clusterer, int dtype)
       return;
     }
     tree = new TTree("tr_data", "Neural Network Input Data");
-    
+
     if (branchNames.empty()) {
       // Generate default branch names if none provided
       int branch_idx = 0;
@@ -536,7 +504,7 @@ void GPUTPCNNClusterizer::writeTrainingData(processorType& clusterer, int dtype)
     branchNames.push_back("idx_row");
     branchNames.push_back("idx_pad");
     branchNames.push_back("idx_time");
-    
+
     atomic_unit.resize(branchNames.size());
     for (size_t i = 0; i < branchNames.size(); i++) {
       branches.push_back(tree->Branch(branchNames[i].c_str(), &atomic_unit[i], (branchNames[i] + "/F").c_str()));
@@ -547,9 +515,9 @@ void GPUTPCNNClusterizer::writeTrainingData(processorType& clusterer, int dtype)
   uint size_element = branches.size();
   for (size_t entry = 0; entry < clusterer.mPmemory->counters.nClusters; entry++) {
     uint startIndex = entry * clusterer.nnClusterizerElementSize;
-    
+
     for (size_t i = 0; i < clusterer.nnClusterizerElementSize; i++) {
-      atomic_unit[i] = (dtype == 0) ? 
+      atomic_unit[i] = (dtype == 0) ?
                       static_cast<float>(clusterer.inputData16[startIndex + i]) :
                       clusterer.inputData32[startIndex + i];
     }
@@ -561,7 +529,7 @@ void GPUTPCNNClusterizer::writeTrainingData(processorType& clusterer, int dtype)
       atomic_unit[atomic_unit.size() - 2] = clusterer.peakPositions[entry].pad();
       atomic_unit[atomic_unit.size() - 1] = clusterer.peakPositions[entry].time();
     }
-    
+
     tree->Fill();
   }
 
@@ -577,8 +545,8 @@ void GPUTPCNNClusterizer::digitWriter(processorType& clusterer, std::string fold
 
   ROOT::EnableThreadSafety();
 
-  LOG(info) << "Streaming digits for NN clusterizer training, sector " 
-            << clusterer.mISector << ", fragment " 
+  LOG(info) << "Streaming digits for NN clusterizer training, sector "
+            << clusterer.mISector << ", fragment "
             << clusterer.mPmemory->fragment.index;
 
   if (gSystem->AccessPathName(folder.c_str())) {
@@ -636,7 +604,7 @@ void GPUTPCNNClusterizer::digitWriter(processorType& clusterer, std::string fold
         static_cast<float>(pos.row()),
         static_cast<float>(pos.pad()),
         static_cast<float>(pos.time() + clusterer.mPmemory->fragment.start),
-        static_cast<float>(charge.unpack()),  
+        static_cast<float>(charge.unpack()),
         static_cast<float>(charge.has3x3Peak()),
         static_cast<float>(charge.isSplit())
       };

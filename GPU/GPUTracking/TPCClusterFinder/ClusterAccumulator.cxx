@@ -58,7 +58,7 @@ GPUd() Charge ClusterAccumulator::updateOuter(PackedCharge charge, Delta2 d)
   return q;
 }
 
-GPUd() bool ClusterAccumulator::toNative(const ChargePos& pos, Charge q, tpc::ClusterNative& cn, const GPUParam& param, TPCTime timeOffset, const Array2D<PackedCharge>& chargeMap)
+GPUd() void ClusterAccumulator::finalize(const ChargePos& pos, const Charge q, TPCTime timeOffset)
 {
   mQtot += q;
 
@@ -73,8 +73,13 @@ GPUd() bool ClusterAccumulator::toNative(const ChargePos& pos, Charge q, tpc::Cl
   Pad pad = pos.pad();
   mPadMean += pad;
   mTimeMean += timeOffset + pos.time();
+}
 
-  bool isEdgeCluster = pos.pad() < 2 || pos.pad() >= param.tpcGeometry.NPads(pos.row()) - 2; // Geometrical edge check, peak within 2 pads of sector edge
+GPUd() bool ClusterAccumulator::toNative(const ChargePos& pos, const Charge q, tpc::ClusterNative& cn, const GPUParam& param, const Array2D<PackedCharge>& chargeMap)
+{
+  Pad pad = pos.pad();
+
+  bool isEdgeCluster = pad < 2 || pad >= param.tpcGeometry.NPads(pos.row()) - 2; // Geometrical edge check, peak within 2 pads of sector edge
   if (isEdgeCluster) {
     bool leftEdge = (pad < 2);
     if (leftEdge ? (pad == 1 && chargeMap[pos.delta({-1, 0})].unpack() < 1) : (pad == (param.tpcGeometry.NPads(pos.row()) - 2) && chargeMap[pos.delta({1, 0})].unpack() < 1)) {

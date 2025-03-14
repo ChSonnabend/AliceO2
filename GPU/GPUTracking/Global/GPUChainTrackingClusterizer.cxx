@@ -878,62 +878,64 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         }
 
         if (GetProcessingSettings().applyNNclusterizer) {
-          // Settings for the clusterizer
-          clusterer.nnClusterizerUseCFregression = GetProcessingSettings().nnClusterizerUseCFregression;
-          clusterer.nnClusterizerSizeInputRow = GetProcessingSettings().nnClusterizerSizeInputRow;
-          clusterer.nnClusterizerSizeInputPad = GetProcessingSettings().nnClusterizerSizeInputPad;
-          clusterer.nnClusterizerSizeInputTime = GetProcessingSettings().nnClusterizerSizeInputTime;
-          clusterer.nnClusterizerAddIndexData = GetProcessingSettings().nnClusterizerAddIndexData;
-          clusterer.nnClusterizerElementSize = ((2 * clusterer.nnClusterizerSizeInputRow + 1) * (2 * clusterer.nnClusterizerSizeInputPad + 1) * (2 * clusterer.nnClusterizerSizeInputTime + 1)) + (clusterer.nnClusterizerAddIndexData ? 3 : 0);
-          clusterer.nnClusterizerBatchedMode = GetProcessingSettings().nnClusterizerBatchedMode;
-          clusterer.nnClusterizerBoundaryFillValue = GetProcessingSettings().nnClusterizerBoundaryFillValue;
-          clusterer.nnClusterizerApplyCfDeconvolution = GetProcessingSettings().nnClusterizerApplyCfDeconvolution;
-          clusterer.nnClusterizerDumpDigits = GetProcessingSettings().nnClusterizerDumpDigits;
-          if (GetProcessingSettings().nnClusterizerVerbosity < 0){
-            clusterer.nnClusterizerVerbosity = GetProcessingSettings().nnInferenceVerbosity;
-          } else {
-            clusterer.nnClusterizerVerbosity = GetProcessingSettings().nnClusterizerVerbosity;
-          }
 
-          // Settings for the NN evaluation
-          clusterer.nnClassThreshold = GetProcessingSettings().nnClassThreshold;
-          clusterer.nnSigmoidTrafoClassThreshold = GetProcessingSettings().nnSigmoidTrafoClassThreshold;
-
-          // Settings for the neural network evaluation
-          clusterer.OrtOptions = {
-            {"model-path", GetProcessingSettings().nnClassificationPath},
-            {"device", GetProcessingSettings().nnInferenceDevice},
-            {"device-id", std::to_string(GetProcessingSettings().nnInferenceDeviceId)},
-            {"allocate-device-memory", std::to_string(GetProcessingSettings().nnInferenceAllocateDevMem)},
-            {"dtype", GetProcessingSettings().nnInferenceDtype},
-            {"intra-op-num-threads", std::to_string(GetProcessingSettings().nnInferenceThreadsPerNN)},
-            {"enable-optimizations", std::to_string(GetProcessingSettings().nnInferenceEnableOrtOptimization)},
-            {"enable-profiling", std::to_string(GetProcessingSettings().nnInferenceOrtProfiling)},
-            {"profiling-output-path", GetProcessingSettings().nnInferenceOrtProfilingPath},
-            {"logging-level", std::to_string(GetProcessingSettings().nnInferenceVerbosity)}};
-          clusterer.model_class.init(clusterer.OrtOptions);
           std::vector<std::string> reg_model_paths = o2::utils::Str::tokenize(GetProcessingSettings().nnRegressionPath, ':');
-
-          if (!clusterer.nnClusterizerUseCFregression) {
-            if (clusterer.model_class.getNumOutputNodes()[0][1] == 1 || reg_model_paths.size() == 1) {
-              clusterer.OrtOptions["model-path"] = reg_model_paths[0];
-              clusterer.model_reg_1.init(clusterer.OrtOptions);
+          if (fragment.index == 0) {
+            // Settings for the clusterizer
+            clusterer.nnClusterizerUseCFregression = GetProcessingSettings().nnClusterizerUseCFregression;
+            clusterer.nnClusterizerSizeInputRow = GetProcessingSettings().nnClusterizerSizeInputRow;
+            clusterer.nnClusterizerSizeInputPad = GetProcessingSettings().nnClusterizerSizeInputPad;
+            clusterer.nnClusterizerSizeInputTime = GetProcessingSettings().nnClusterizerSizeInputTime;
+            clusterer.nnClusterizerAddIndexData = GetProcessingSettings().nnClusterizerAddIndexData;
+            clusterer.nnClusterizerElementSize = ((2 * clusterer.nnClusterizerSizeInputRow + 1) * (2 * clusterer.nnClusterizerSizeInputPad + 1) * (2 * clusterer.nnClusterizerSizeInputTime + 1)) + (clusterer.nnClusterizerAddIndexData ? 3 : 0);
+            clusterer.nnClusterizerBatchedMode = GetProcessingSettings().nnClusterizerBatchedMode;
+            clusterer.nnClusterizerBoundaryFillValue = GetProcessingSettings().nnClusterizerBoundaryFillValue;
+            clusterer.nnClusterizerApplyCfDeconvolution = GetProcessingSettings().nnClusterizerApplyCfDeconvolution;
+            clusterer.nnClusterizerDumpDigits = GetProcessingSettings().nnClusterizerDumpDigits;
+            if (GetProcessingSettings().nnClusterizerVerbosity < 0){
+              clusterer.nnClusterizerVerbosity = GetProcessingSettings().nnInferenceVerbosity;
             } else {
-              clusterer.OrtOptions["model-path"] = reg_model_paths[0];
-              clusterer.model_reg_1.init(clusterer.OrtOptions);
-              clusterer.OrtOptions["model-path"] = reg_model_paths[1];
-              clusterer.model_reg_2.init(clusterer.OrtOptions);
+              clusterer.nnClusterizerVerbosity = GetProcessingSettings().nnClusterizerVerbosity;
+            }
+
+            // Settings for the NN evaluation
+            clusterer.nnClassThreshold = GetProcessingSettings().nnClassThreshold;
+            clusterer.nnSigmoidTrafoClassThreshold = GetProcessingSettings().nnSigmoidTrafoClassThreshold;
+
+            // Settings for the neural network evaluation
+            clusterer.OrtOptions = {
+              {"model-path", GetProcessingSettings().nnClassificationPath},
+              {"device", GetProcessingSettings().nnInferenceDevice},
+              {"device-id", std::to_string(GetProcessingSettings().nnInferenceDeviceId)},
+              {"allocate-device-memory", std::to_string(GetProcessingSettings().nnInferenceAllocateDevMem)},
+              {"dtype", GetProcessingSettings().nnInferenceDtype},
+              {"intra-op-num-threads", std::to_string(GetProcessingSettings().nnInferenceThreadsPerNN)},
+              {"enable-optimizations", std::to_string(GetProcessingSettings().nnInferenceEnableOrtOptimization)},
+              {"enable-profiling", std::to_string(GetProcessingSettings().nnInferenceOrtProfiling)},
+              {"profiling-output-path", GetProcessingSettings().nnInferenceOrtProfilingPath},
+              {"logging-level", std::to_string(GetProcessingSettings().nnInferenceVerbosity)}};
+            clusterer.model_class.init(clusterer.OrtOptions);
+
+            if (!clusterer.nnClusterizerUseCFregression) {
+              if (clusterer.model_class.getNumOutputNodes()[0][1] == 1 || reg_model_paths.size() == 1) {
+                clusterer.OrtOptions["model-path"] = reg_model_paths[0];
+                clusterer.model_reg_1.init(clusterer.OrtOptions);
+              } else {
+                clusterer.OrtOptions["model-path"] = reg_model_paths[0];
+                clusterer.model_reg_1.init(clusterer.OrtOptions);
+                clusterer.OrtOptions["model-path"] = reg_model_paths[1];
+                clusterer.model_reg_2.init(clusterer.OrtOptions);
+              }
+            }
+            if (clusterer.nnSigmoidTrafoClassThreshold) {
+              // Inverse sigmoid transformation
+              clusterer.nnClassThreshold = (float)std::log(clusterer.nnClassThreshold / (1.f - clusterer.nnClassThreshold));
             }
           }
 
           if (clusterer.nnClusterizerUseCFregression || clusterer.nnClusterizerApplyCfDeconvolution) {
             runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}});
             DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 4, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
-          }
-
-          if (clusterer.nnSigmoidTrafoClassThreshold) {
-            // Inverse sigmoid transformation
-            clusterer.nnClassThreshold = (float)std::log(clusterer.nnClassThreshold / (1.f - clusterer.nnClassThreshold));
           }
           
           float time_clusterizer = 0, time_fill = 0;
@@ -1006,7 +1008,11 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           time_clusterizer += std::chrono::duration_cast<std::chrono::nanoseconds>(stop1 - start1).count() / 1e9;
 
           if (clusterer.nnClusterizerVerbosity < 3) {
-            LOG(info) << "[NN CF] Apply NN (fragment " << fragment.index << ", lane: " << lane << ", slice: " << iSector << "): filling data " << time_fill << "s ; clusterizer: " << time_clusterizer << "s ; " << clusterer.mPmemory->counters.nClusters << " clusters --> " << clusterer.mPmemory->counters.nClusters / (time_fill + time_clusterizer) << " clusters/s";
+            int acceptedClusters = 0;
+            for (size_t i = 0; i < clusterer.mPmemory->counters.nClusters; ++i) {
+              acceptedClusters += clusterer.outputDataClass[i];
+            }
+            LOG(info) << "[NN CF] Apply NN (fragment " << fragment.index << ", lane: " << lane << ", slice: " << iSector << "): filling data " << time_fill << "s ; clusterizer: " << time_clusterizer << "s ; " << clusterer.mPmemory->counters.nClusters << " clusters,  " << acceptedClusters << " accepted. --> " << clusterer.mPmemory->counters.nClusters / (time_fill + time_clusterizer) << " clusters/s";
           }
         } else {
 
