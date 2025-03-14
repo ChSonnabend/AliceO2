@@ -234,10 +234,10 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg1(uint glo_idx, GPUSha
 
   // LOG(info) << glo_idx << " -- " << model_output_index << " / " << clustererNN.outputDataReg1.size() << " / " << clustererNN.nnClusterizerModelReg1NumOutputNodes << " -- " << clusterer.peakPositions.size() << " -- " << clusterer.centralCharges.size();
 
-  if (sector == 0 && glo_idx == 10000) {
-    printInput(glo_idx * clustererNN.nnClusterizerElementSize, clustererNN.inputData32, processors, sector);
-    LOG(info) << "NN output: clustererNN.outputDataClass: " << clustererNN.modelProbabilities[full_glo_idx] << " | clustererNN.outputDataReg1: " << clustererNN.outputDataReg1[model_output_index] << " -- " << clustererNN.outputDataReg1[model_output_index + 1] << " -- " << clustererNN.outputDataReg1[model_output_index + 2] << " -- " << clustererNN.outputDataReg1[model_output_index + 3] << " -- " << clustererNN.outputDataReg1[model_output_index + 4];
-  }
+  // if (sector == 0 && glo_idx == 10000) {
+  //   printInput(glo_idx * clustererNN.nnClusterizerElementSize, clustererNN.inputData32, processors, sector);
+  //   LOG(info) << "NN output: clustererNN.outputDataClass: " << clustererNN.modelProbabilities[full_glo_idx] << " | clustererNN.outputDataReg1: " << clustererNN.outputDataReg1[model_output_index] << " -- " << clustererNN.outputDataReg1[model_output_index + 1] << " -- " << clustererNN.outputDataReg1[model_output_index + 2] << " -- " << clustererNN.outputDataReg1[model_output_index + 3] << " -- " << clustererNN.outputDataReg1[model_output_index + 4];
+  // }
 
   if (clustererNN.outputDataClass[full_glo_idx] == 1) {
 
