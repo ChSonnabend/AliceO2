@@ -227,17 +227,16 @@ template std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType::Fl
 template <class I, class O>
 void OrtModel::inference(I* input, size_t input_size, O* output)
 {
-  std::vector<int64_t> inputShape{(int64_t)(input_size / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
+  std::vector<int64_t> inputShape{input_size, (int64_t)mInputShapes[0][1]};
   Ort::Value inputTensor = Ort::Value(nullptr);
   if constexpr (std::is_same_v<I, OrtDataType::Float16_t>) {
-    inputTensor = Ort::Value::CreateTensor<Ort::Float16_t>(pImplOrt->memoryInfo, reinterpret_cast<Ort::Float16_t*>(input), input_size, inputShape.data(), inputShape.size());
+    inputTensor = Ort::Value::CreateTensor<Ort::Float16_t>(pImplOrt->memoryInfo, reinterpret_cast<Ort::Float16_t*>(input), input_size*mInputShapes[0][1], inputShape.data(), inputShape.size());
   } else {
-    inputTensor = Ort::Value::CreateTensor<I>(pImplOrt->memoryInfo, input, input_size, inputShape.data(), inputShape.size());
+    inputTensor = Ort::Value::CreateTensor<I>(pImplOrt->memoryInfo, input, input_size*mInputShapes[0][1], inputShape.data(), inputShape.size());
   }
 
-  std::vector<int64_t> outputShape{inputShape[0], mOutputShapes[0][1]};
-  size_t outputSize = (int64_t)(input_size * mOutputShapes[0][1] / mInputShapes[0][1]);
-  Ort::Value outputTensor = Ort::Value::CreateTensor<O>(pImplOrt->memoryInfo, output, outputSize, outputShape.data(), outputShape.size());
+  std::vector<int64_t> outputShape{input_size, mOutputShapes[0][1]};
+  Ort::Value outputTensor = Ort::Value::CreateTensor<O>(pImplOrt->memoryInfo, output, input_size*mOutputShapes[0][1], outputShape.data(), outputShape.size());
 
   (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), &inputTensor, 1, outputNamesChar.data(), &outputTensor, outputNamesChar.size()); // TODO: Not sure if 1 is correct here
 }
