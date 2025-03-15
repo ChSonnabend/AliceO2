@@ -616,7 +616,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
 #ifdef GPUCA_HAS_ONNX
   if (GetProcessingSettings().nn.applyNNclusterizer) {
-    uint32_t maxClusters = -1;
+    uint32_t maxClusters = 0;
     for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
       maxClusters = std::max(maxClusters, processors()->tpcClusterer[iSector].mNMaxClusters);
     }
@@ -984,6 +984,9 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           if (clustererNN.nnClusterizerVerbosity < 3) {
             int acceptedClusters = 0;
             for (size_t i = 0; i < clusterer.mPmemory->counters.nClusters; ++i) {
+              // if(fragment.index == 2 && iSector == 0){
+              //   LOG(info) << i << " : " << clustererNN.outputDataClass[i] << " --> " << i % clustererNN.nnClusterizerBatchedMode;
+              // }
               acceptedClusters += clustererNN.outputDataClass[i];
             }
             LOG(info) << "[NN CF] Apply NN (fragment " << fragment.index << ", lane: " << lane << ", sector: " << iSector << "): filling data " << time_fill << "s ; clusterizer: " << time_clusterizer << "s ; " << clusterer.mPmemory->counters.nClusters << " clusters, " << acceptedClusters << " accepted. --> " << clusterer.mPmemory->counters.nClusters / (time_fill + time_clusterizer) << " clusters/s";

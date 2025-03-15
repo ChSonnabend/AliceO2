@@ -173,7 +173,7 @@ GPUd() void GPUTPCNNClusterizerKernels::fillInputData(int32_t nBlocks, int32_t n
 
   clustererNN.peakPositions[glo_idx] = peak;
   clustererNN.centralCharges[glo_idx] = central_charge;
-  clustererNN.outputDataClass[glo_idx + batchStart] = -1;
+  clustererNN.outputDataClass[glo_idx + batchStart] = -1.f;
 
   int row_offset = GPUTPCNNClusterizerKernels::rowOffset(row, clustererNN.nnClusterizerSizeInputRow);
 #ifndef GPUCA_GPUCODE
