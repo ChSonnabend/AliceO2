@@ -18,6 +18,7 @@
 #include "GPUParam.h"
 #include "GPUTPCGMMergedTrackHit.h"
 #include "GPUTPCClusterOccupancyMap.h"
+#include "GPUTPCGeometry.h"
 
 namespace o2::gpu
 {
@@ -42,14 +43,14 @@ GPUdi() void GPUParam::Global2Sector(int32_t iSector, float X, float Y, float Z,
 
 GPUdi() void GPUParam::GetClusterErrorsSeeding2(uint8_t sector, int32_t iRow, float z, float sinPhi, float DzDs, float time, float& ErrY2, float& ErrZ2) const
 {
-  const int32_t rowType = tpcGeometry.GetROC(iRow);
-  z = CAMath::Abs(tpcGeometry.TPCLength() - CAMath::Abs(z));
+  const int32_t rowType = GPUTPCGeometry::GetROC(iRow);
+  z = CAMath::Abs(GPUTPCGeometry::TPCLength() - CAMath::Abs(z));
   const float s2 = CAMath::Min(sinPhi * sinPhi, 0.95f * 0.95f);
   const float sec2 = 1.f / (1.f - s2);
   const float angleY2 = s2 * sec2;          // dy/dx
   const float angleZ2 = DzDs * DzDs * sec2; // dz/dx
 
-  const float unscaledMult = time >= 0.f ? GetUnscaledMult(time) / tpcGeometry.Row2X(iRow) : 0.f;
+  const float unscaledMult = time >= 0.f ? GetUnscaledMult(time) / GPUTPCGeometry::Row2X(iRow) : 0.f;
 
   ErrY2 = GetClusterErrorSeeding(0, rowType, z, angleY2, unscaledMult); // Returns Err2
   ErrZ2 = GetClusterErrorSeeding(1, rowType, z, angleZ2, unscaledMult); // Returns Err2
@@ -132,8 +133,8 @@ GPUdi() float GPUParam::GetClusterErrorSeeding(int32_t yz, int32_t type, float z
 
 GPUdi() void GPUParam::GetClusterErrorsSeeding2(uint8_t sector, int32_t iRow, float z, float sinPhi, float DzDs, float time, float& ErrY2, float& ErrZ2) const
 {
-  int32_t rowType = tpcGeometry.GetROC(iRow);
-  z = CAMath::Abs(tpcGeometry.TPCLength() - CAMath::Abs(z));
+  int32_t rowType = GPUTPCGeometry::GetROC(iRow);
+  z = CAMath::Abs(GPUTPCGeometry::TPCLength() - CAMath::Abs(z));
   const float s2 = CAMath::Min(sinPhi * sinPhi, 0.95f * 0.95f);
   float sec2 = 1.f / (1.f - s2);
   float angleY2 = s2 * sec2;          // dy/dx
@@ -172,14 +173,14 @@ GPUdi() float GPUParam::GetSystematicClusterErrorC122(float trackX, float trackY
 
 GPUdi() void GPUParam::GetClusterErrors2(uint8_t sector, int32_t iRow, float z, float sinPhi, float DzDs, float time, float avgInvCharge, float invCharge, float& ErrY2, float& ErrZ2) const
 {
-  const int32_t rowType = tpcGeometry.GetROC(iRow);
-  z = CAMath::Abs(tpcGeometry.TPCLength() - CAMath::Abs(z));
+  const int32_t rowType = GPUTPCGeometry::GetROC(iRow);
+  z = CAMath::Abs(GPUTPCGeometry::TPCLength() - CAMath::Abs(z));
   const float s2 = CAMath::Min(sinPhi * sinPhi, 0.95f * 0.95f);
   const float sec2 = 1.f / (1.f - s2);
   const float angleY2 = s2 * sec2;          // dy/dx
   const float angleZ2 = DzDs * DzDs * sec2; // dz/dx
 
-  const float unscaledMult = time >= 0.f ? GetUnscaledMult(time) / tpcGeometry.Row2X(iRow) : 0.f;
+  const float unscaledMult = time >= 0.f ? GetUnscaledMult(time) / GPUTPCGeometry::Row2X(iRow) : 0.f;
   const float scaledInvAvgCharge = avgInvCharge * rec.tpc.clusterErrorChargeScaler > 0.f ? avgInvCharge * rec.tpc.clusterErrorChargeScaler : 1.f;
   const float scaledInvCharge = invCharge * rec.tpc.clusterErrorChargeScaler > 0.f ? invCharge * rec.tpc.clusterErrorChargeScaler : 1.f;
 
@@ -218,7 +219,7 @@ GPUdi() float GPUParam::GetUnscaledMult(float time) const
 
 GPUdi() bool GPUParam::rejectEdgeClusterByY(float uncorrectedY, int32_t iRow, float trackSigmaY) const
 {
-  return CAMath::Abs(uncorrectedY) > (tpcGeometry.NPads(iRow) - 1) * 0.5f * tpcGeometry.PadWidth(iRow) + rec.tpc.rejectEdgeClustersMargin + trackSigmaY * rec.tpc.rejectEdgeClustersSigmaMargin;
+  return CAMath::Abs(uncorrectedY) > (GPUTPCGeometry::NPads(iRow) - 1) * 0.5f * GPUTPCGeometry::PadWidth(iRow) + rec.tpc.rejectEdgeClustersMargin + trackSigmaY * rec.tpc.rejectEdgeClustersSigmaMargin;
 }
 
 } // namespace o2::gpu

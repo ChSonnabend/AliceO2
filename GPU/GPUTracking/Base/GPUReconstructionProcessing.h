@@ -28,7 +28,7 @@ namespace gpu_reconstruction_kernels
 {
 struct deviceEvent {
   constexpr deviceEvent() = default;
-  constexpr deviceEvent(std::nullptr_t p) : v(nullptr){};
+  constexpr deviceEvent(std::nullptr_t p) : v(nullptr) {};
   template <class T>
   void set(T val)
   {

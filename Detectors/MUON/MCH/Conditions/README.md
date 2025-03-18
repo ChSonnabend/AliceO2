@@ -73,6 +73,8 @@ Usage:
                                    change HV thresholds
   -d [ --duration ] arg (=0)       minimum duration (ms) of HV/LV issues to
                                    consider
+  -i [ --interval ] arg (=30)      creation time interval (minutes) between
+                                   CCDB files
   -w [ --warning ] arg (=1)        warning level (0, 1 or 2)
   -p [ --print ] arg (=1)          print level (0, 1, 2 or 3)
   -o [ --output ] arg (=scan.root) output root file name

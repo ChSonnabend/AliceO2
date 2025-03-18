@@ -70,12 +70,13 @@ class GPUTPCNNClusterizerKernels : public GPUKernelTemplate
   static GPUd() void publishClustersReg1(uint, GPUSharedMemory&, processorType&, uint8_t, int8_t, int8_t, uint);
   static GPUd() void publishClustersReg2(uint, GPUSharedMemory&, processorType&, uint8_t, int8_t, int8_t, uint);
 
-  static GPUd() int padOffset(int, int, const GPUTPCGeometry&);
+  static GPUd() int padOffset(int, int);
   static GPUd() int rowOffset(int, int);
   static GPUd() bool isBoundary(int, int, int, const GPUTPCGeometry&);
 
   static GPUdi() uint8_t countPeaksInner(uint16_t, const uint8_t*, uint8_t*);
   static GPUdi() uint8_t countPeaksOuter(uint16_t, uint8_t, const uint8_t*);
+  static GPUd() bool isBoundary(int, int, int);
 };
 
 } // namespace o2::gpu

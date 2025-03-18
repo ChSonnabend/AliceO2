@@ -24,6 +24,7 @@
 #include "GPUTPCClusterData.h"
 #include "GPUO2DataTypes.h"
 #include "GPUDataTypes.h"
+#include "GPUTPCGeometry.h"
 #include "AliHLTTPCRawCluster.h"
 #include "GPUParam.h"
 #include "GPULogging.h"
@@ -275,10 +276,10 @@ struct zsEncoderRow : public zsEncoder {
 
 inline bool zsEncoderRow::sort(const o2::tpc::Digit a, const o2::tpc::Digit b)
 {
-  int32_t endpointa = param->tpcGeometry.GetRegion(a.getRow());
-  int32_t endpointb = param->tpcGeometry.GetRegion(b.getRow());
-  endpointa = 2 * endpointa + (a.getRow() >= param->tpcGeometry.GetRegionStart(endpointa) + param->tpcGeometry.GetRegionRows(endpointa) / 2);
-  endpointb = 2 * endpointb + (b.getRow() >= param->tpcGeometry.GetRegionStart(endpointb) + param->tpcGeometry.GetRegionRows(endpointb) / 2);
+  int32_t endpointa = GPUTPCGeometry::GetRegion(a.getRow());
+  int32_t endpointb = GPUTPCGeometry::GetRegion(b.getRow());
+  endpointa = 2 * endpointa + (a.getRow() >= GPUTPCGeometry::GetRegionStart(endpointa) + GPUTPCGeometry::GetRegionRows(endpointa) / 2);
+  endpointb = 2 * endpointb + (b.getRow() >= GPUTPCGeometry::GetRegionStart(endpointb) + GPUTPCGeometry::GetRegionRows(endpointb) / 2);
   if (endpointa != endpointb) {
     return endpointa <= endpointb;
   }
@@ -295,11 +296,11 @@ bool zsEncoderRow::checkInput(std::vector<o2::tpc::Digit>& tmpBuffer, uint32_t k
 {
   seqLen = 1;
   if (lastRow != tmpBuffer[k].getRow()) {
-    endpointStart = param->tpcGeometry.GetRegionStart(curRegion);
+    endpointStart = GPUTPCGeometry::GetRegionStart(curRegion);
     endpoint = curRegion * 2;
-    if (tmpBuffer[k].getRow() >= endpointStart + param->tpcGeometry.GetRegionRows(curRegion) / 2) {
+    if (tmpBuffer[k].getRow() >= endpointStart + GPUTPCGeometry::GetRegionRows(curRegion) / 2) {
       endpoint++;
-      endpointStart += param->tpcGeometry.GetRegionRows(curRegion) / 2;
+      endpointStart += GPUTPCGeometry::GetRegionRows(curRegion) / 2;
     }
   }
   for (uint32_t l = k + 1; l < tmpBuffer.size(); l++) {
@@ -408,7 +409,7 @@ void zsEncoderRow::decodePage(std::vector<o2::tpc::Digit>& outputBuffer, const z
   if ((uint32_t)region != decEndpoint / 2) {
     throw std::runtime_error("CRU ID / endpoint mismatch");
   }
-  int32_t nRowsRegion = param->tpcGeometry.GetRegionRows(region);
+  int32_t nRowsRegion = GPUTPCGeometry::GetRegionRows(region);
 
   int32_t timeBin = (decHDR->timeOffset + (uint64_t)(o2::raw::RDHUtils::getHeartBeatOrbit(*rdh) - firstOrbit) * o2::constants::lhc::LHCMaxBunches) / LHCBCPERTIMEBIN;
   for (int32_t l = 0; l < decHDR->nTimeBinSpan; l++) {
@@ -420,7 +421,7 @@ void zsEncoderRow::decodePage(std::vector<o2::tpc::Digit>& outputBuffer, const z
     if (tbHdr->rowMask != 0 && ((upperRows) ^ ((decEndpoint & 1) != 0))) {
       throw std::runtime_error("invalid endpoint");
     }
-    const int32_t rowOffset = param->tpcGeometry.GetRegionStart(region) + (upperRows ? (nRowsRegion / 2) : 0);
+    const int32_t rowOffset = GPUTPCGeometry::GetRegionStart(region) + (upperRows ? (nRowsRegion / 2) : 0);
     const int32_t nRows = upperRows ? (nRowsRegion - nRowsRegion / 2) : (nRowsRegion / 2);
     const int32_t nRowsUsed = __builtin_popcount((uint32_t)(tbHdr->rowMask & 0x7FFF));
     decPagePtr += nRowsUsed ? (2 * nRowsUsed) : 2;
@@ -513,7 +514,7 @@ void zsEncoderLinkBased::createBitmask(std::vector<o2::tpc::Digit>& tmpBuffer, u
   uint32_t l;
   for (l = k; l < tmpBuffer.size(); l++) {
     const auto& a = tmpBuffer[l];
-    int32_t cruinsector = param->tpcGeometry.GetRegion(a.getRow());
+    int32_t cruinsector = GPUTPCGeometry::GetRegion(a.getRow());
     o2::tpc::GlobalPadNumber pad = mapper.globalPadNumber(o2::tpc::PadPos(a.getRow(), a.getPad()));
     o2::tpc::FECInfo fec = mapper.fecInfo(pad);
     o2::tpc::CRU cru = cruinsector;
@@ -535,8 +536,8 @@ void zsEncoderLinkBased::createBitmask(std::vector<o2::tpc::Digit>& tmpBuffer, u
 bool zsEncoderLinkBased::sort(const o2::tpc::Digit a, const o2::tpc::Digit b)
 {
   // Fixme: this is blasphemy... one shoult precompute all values and sort an index array
-  int32_t cruinsectora = param->tpcGeometry.GetRegion(a.getRow());
-  int32_t cruinsectorb = param->tpcGeometry.GetRegion(b.getRow());
+  int32_t cruinsectora = GPUTPCGeometry::GetRegion(a.getRow());
+  int32_t cruinsectorb = GPUTPCGeometry::GetRegion(b.getRow());
   if (cruinsectora != cruinsectorb) {
     return cruinsectora < cruinsectorb;
   }
@@ -923,7 +924,7 @@ void zsEncoderDenseLinkBased::decodePage(std::vector<o2::tpc::Digit>& outputBuff
       if (decLinkX & 0b00100000) {
         bitmaskL2.set();
       } else {
-        bitmaskL2 = std::bitset<10>(((((uint16_t)decLinkX) & 0b11000000) << 2) | (uint16_t) * ((const uint8_t*)decPagePtr));
+        bitmaskL2 = std::bitset<10>(((((uint16_t)decLinkX) & 0b11000000) << 2) | (uint16_t)*((const uint8_t*)decPagePtr));
         decPagePtr += sizeof(uint8_t);
       }
 
@@ -1124,7 +1125,7 @@ inline uint32_t zsEncoderRun<T>::run(std::vector<zsPage>* buffer, std::vector<o2
           }
         }
         if (lastRow != tmpBuffer[k].getRow()) {
-          curRegion = param->tpcGeometry.GetRegion(tmpBuffer[k].getRow());
+          curRegion = GPUTPCGeometry::GetRegion(tmpBuffer[k].getRow());
         }
         mustWriteSubPage = checkInput(tmpBuffer, k);
       } else {

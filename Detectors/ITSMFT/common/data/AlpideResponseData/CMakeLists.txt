@@ -29,7 +29,6 @@ endif()
 add_custom_command(TARGET O2exe-alpide-response-generator POST_BUILD
                    COMMAND ${CMAKE_BINARY_DIR}/stage/bin/o2-alpide-response-generator -i ${ITSRESPONSE_DIR}/response/AlpideResponseData/ -o ${CMAKE_CURRENT_BINARY_DIR}/
                    BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/AlpideResponseData.root
-                   DEPENDS alpide-response-generator
                    COMMENT "Generating AlpideResponseData.root"
 )
 

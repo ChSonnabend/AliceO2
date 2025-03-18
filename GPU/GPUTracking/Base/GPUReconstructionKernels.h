@@ -30,14 +30,14 @@ struct classArgument {
 };
 
 struct krnlExec {
-  constexpr krnlExec(uint32_t b, uint32_t t, int32_t s, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto) : nBlocks(b), nThreads(t), stream(s), device(d), step(GPUCA_RECO_STEP::NoRecoStep) {}
-  constexpr krnlExec(uint32_t b, uint32_t t, int32_t s, GPUCA_RECO_STEP st) : nBlocks(b), nThreads(t), stream(s), device(GPUReconstruction::krnlDeviceType::Auto), step(st) {}
-  constexpr krnlExec(uint32_t b, uint32_t t, int32_t s, GPUReconstruction::krnlDeviceType d, GPUCA_RECO_STEP st) : nBlocks(b), nThreads(t), stream(s), device(d), step(st) {}
+  constexpr krnlExec(uint32_t b, uint32_t t, int32_t s, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto) : nBlocks(b), nThreads(t), stream(s), device(d), step(GPUDataTypes::RecoStep::NoRecoStep) {}
+  constexpr krnlExec(uint32_t b, uint32_t t, int32_t s, GPUDataTypes::RecoStep st) : nBlocks(b), nThreads(t), stream(s), device(GPUReconstruction::krnlDeviceType::Auto), step(st) {}
+  constexpr krnlExec(uint32_t b, uint32_t t, int32_t s, GPUReconstruction::krnlDeviceType d, GPUDataTypes::RecoStep st) : nBlocks(b), nThreads(t), stream(s), device(d), step(st) {}
   uint32_t nBlocks;
   uint32_t nThreads;
   int32_t stream;
   GPUReconstruction::krnlDeviceType device;
-  GPUCA_RECO_STEP step;
+  GPUDataTypes::RecoStep step;
 };
 struct krnlRunRange {
   constexpr krnlRunRange() = default;

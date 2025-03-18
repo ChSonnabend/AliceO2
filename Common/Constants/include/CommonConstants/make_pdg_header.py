@@ -107,6 +107,7 @@ class Pdg(Enum):
     kDS1 = 10433
     kDS2Star = 435
     kDStar = 413
+    kDStar0 = 423
     kChiC1 = 20443
     kJPsi = 443
     kLambdaB0 = 5122

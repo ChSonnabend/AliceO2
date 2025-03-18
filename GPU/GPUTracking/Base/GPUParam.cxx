@@ -21,6 +21,7 @@
 #include "GPUDataTypes.h"
 #include "GPUConstantMem.h"
 #include "DetectorsBase/Propagator.h"
+#include "GPUTPCGeometry.h"
 
 using namespace o2::gpu;
 
@@ -32,7 +33,6 @@ using namespace o2::gpu;
 void GPUParam::SetDefaults(float solenoidBz)
 {
   memset((void*)this, 0, sizeof(*this));
-  new (&tpcGeometry) GPUTPCGeometry;
   new (&rec) GPUSettingsRec;
   occupancyMap = nullptr;
   occupancyTotal = 0;
@@ -178,8 +178,8 @@ void GPUParam::UpdateRun3ClusterErrors(const float* yErrorParam, const float* zE
     for (int32_t rowType = 0; rowType < 4; rowType++) {
       constexpr int32_t regionMap[4] = {0, 4, 6, 8};
       ParamErrors[yz][rowType][0] = param[0] * param[0];
-      ParamErrors[yz][rowType][1] = param[1] * param[1] * tpcGeometry.PadHeightByRegion(regionMap[rowType]);
-      ParamErrors[yz][rowType][2] = param[2] * param[2] / tpcGeometry.TPCLength() / tpcGeometry.PadHeightByRegion(regionMap[rowType]);
+      ParamErrors[yz][rowType][1] = param[1] * param[1] * GPUTPCGeometry::PadHeightByRegion(regionMap[rowType]);
+      ParamErrors[yz][rowType][2] = param[2] * param[2] / GPUTPCGeometry::TPCLength() / GPUTPCGeometry::PadHeightByRegion(regionMap[rowType]);
       ParamErrors[yz][rowType][3] = param[3] * param[3] * rec.tpc.clusterErrorOccupancyScaler * rec.tpc.clusterErrorOccupancyScaler;
     }
   }

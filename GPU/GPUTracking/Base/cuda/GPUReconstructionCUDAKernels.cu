@@ -34,7 +34,7 @@ __global__ void gGPUConstantMemBuffer_dummy(int32_t* p) { *p = *(int32_t*)&gGPUC
 template <>
 inline void GPUReconstructionCUDABackend::runKernelBackendInternal<GPUMemClean16, 0>(const krnlSetupTime& _xyz, void* const& ptr, uint64_t const& size)
 {
-  GPUFailedMsg(cudaMemsetAsync(ptr, 0, size, mInternals->Streams[_xyz.x.stream]));
+  GPUChkErr(cudaMemsetAsync(ptr, 0, size, mInternals->Streams[_xyz.x.stream]));
 }
 
 template <class T, int32_t I, typename... Args>
@@ -56,7 +56,7 @@ inline void GPUReconstructionCUDABackend::runKernelBackendInternal(const krnlSet
 #endif
     pArgs[arg_offset] = &y.index;
     GPUReconstructionCUDAInternals::getArgPtrs(&pArgs[arg_offset + 1], args...);
-    GPUFailedMsg(cuLaunchKernel(*mInternals->kernelFunctions[getRTCkernelNum<false, T, I>()], x.nBlocks, 1, 1, x.nThreads, 1, 1, 0, mInternals->Streams[x.stream], (void**)pArgs, nullptr));
+    GPUChkErr(cuLaunchKernel(*mInternals->kernelFunctions[getRTCkernelNum<false, T, I>()], x.nBlocks, 1, 1, x.nThreads, 1, 1, 0, mInternals->Streams[x.stream], (void**)pArgs, nullptr));
   }
 }
 
@@ -67,16 +67,16 @@ void GPUReconstructionCUDABackend::runKernelBackend(const krnlSetupArgs<T, I, Ar
   auto& z = args.s.z;
   if (z.evList) {
     for (int32_t k = 0; k < z.nEvents; k++) {
-      GPUFailedMsg(cudaStreamWaitEvent(mInternals->Streams[x.stream], ((cudaEvent_t*)z.evList)[k], 0));
+      GPUChkErr(cudaStreamWaitEvent(mInternals->Streams[x.stream], ((cudaEvent_t*)z.evList)[k], 0));
     }
   }
   {
     GPUDebugTiming timer(mProcessingSettings.deviceTimers && mProcessingSettings.debugLevel > 0, (deviceEvent*)mDebugEvents, mInternals->Streams, args.s, this);
     std::apply([this, &args](auto&... vals) { this->runKernelBackendInternal<T, I, Args...>(args.s, vals...); }, args.v);
   }
-  GPUFailedMsg(cudaGetLastError());
+  GPUChkErr(cudaGetLastError());
   if (z.ev) {
-    GPUFailedMsg(cudaEventRecord(*(cudaEvent_t*)z.ev, mInternals->Streams[x.stream]));
+    GPUChkErr(cudaEventRecord(*(cudaEvent_t*)z.ev, mInternals->Streams[x.stream]));
   }
 }
 
@@ -138,7 +138,9 @@ void GPUReconstructionCUDABackend::getRTCKernelCalls(std::vector<std::string>& k
 #ifndef GPUCA_NO_CONSTANT_MEMORY
 static GPUReconstructionDeviceBase::deviceConstantMemRegistration registerConstSymbol([]() {
   void* retVal = nullptr;
-  GPUReconstructionCUDA::GPUFailedMsgI(cudaGetSymbolAddress(&retVal, gGPUConstantMemBuffer));
+  if (GPUChkErrS(cudaGetSymbolAddress(&retVal, gGPUConstantMemBuffer))) {
+    throw std::runtime_error("Could not obtain GPU constant memory symbol");
+  }
   return retVal;
 });
 #endif

@@ -48,13 +48,13 @@ struct NDPiecewisePolynomialContainer {
   /// for ROOT I/O
   NDPiecewisePolynomialContainer() = default;
 
-  const uint32_t mDim{};                ///< number of dimensions of the polynomial
-  const uint32_t mDegree{};             ///< degree of the polynomials
-  const std::vector<float> mParams{};   ///< parameters of the polynomial
-  const bool mInteractionOnly{};        ///< consider only interaction terms
-  const std::vector<float> mMin{};      ///< min vertices positions of the grid
-  const std::vector<float> mMax{};      ///< max vertices positions of the grid
-  const std::vector<uint32_t> mN{};     ///< number of vertices for each dimension
+  const uint32_t mDim{};              ///< number of dimensions of the polynomial
+  const uint32_t mDegree{};           ///< degree of the polynomials
+  const std::vector<float> mParams{}; ///< parameters of the polynomial
+  const bool mInteractionOnly{};      ///< consider only interaction terms
+  const std::vector<float> mMin{};    ///< min vertices positions of the grid
+  const std::vector<float> mMax{};    ///< max vertices positions of the grid
+  const std::vector<uint32_t> mN{};   ///< number of vertices for each dimension
 };
 #endif
 

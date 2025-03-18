@@ -46,6 +46,7 @@ class GPUReconstructionDeviceBase : public GPUReconstructionCPU
   virtual int32_t InitDevice_Runtime() = 0;
   int32_t ExitDevice() override;
   virtual int32_t ExitDevice_Runtime() = 0;
+  virtual int32_t GPUChkErrInternal(const int64_t error, const char* file, int32_t line) const override = 0;
   int32_t registerMemoryForGPU_internal(const void* ptr, size_t size) override;
   int32_t unregisterMemoryForGPU_internal(const void* ptr) override;
   void unregisterRemainingRegisteredMemory();

@@ -229,6 +229,7 @@ set_property(TEST o2sim_G4 APPEND PROPERTY ENVIRONMENT ${G4ENV})
 
 
 o2_add_test(CheckStackG4
+  COMPONENT_NAME sim
   SOURCES checkStack.cxx
   NAME o2sim_checksimkinematics_G4
   WORKING_DIRECTORY ${SIMTESTDIR}
@@ -276,6 +277,7 @@ set_tests_properties(o2sim_G3
                                 G3)
 
 o2_add_test(CheckStackG3
+  COMPONENT_NAME sim
   SOURCES checkStack.cxx
   NAME o2sim_checksimkinematics_G3
   WORKING_DIRECTORY ${SIMTESTDIR}

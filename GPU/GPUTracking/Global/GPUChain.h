@@ -46,7 +46,7 @@ class GPUChain
   virtual int32_t Finalize() = 0;
   virtual int32_t RunChain() = 0;
   virtual void MemorySize(size_t& gpuMem, size_t& pageLockedHostMem) = 0;
-  virtual void PrintMemoryStatistics(){};
+  virtual void PrintMemoryStatistics() {};
   virtual int32_t CheckErrorCodes(bool cpuOnly = false, bool forceShowErrors = false, std::vector<std::array<uint32_t, 4>>* fillErrors = nullptr) { return 0; }
   virtual bool SupportsDoublePipeline() { return false; }
   virtual int32_t FinalizePipelinedProcessing() { return 0; }
@@ -192,15 +192,15 @@ class GPUChain
     return mRec->getTimer<T, J>(name, num);
   }
   // Get GRID with NBLOCKS minimal such that nThreads * NBLOCS >= totalItems
-  krnlExec GetGrid(uint32_t totalItems, uint32_t nThreads, int32_t stream, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto, GPUCA_RECO_STEP st = GPUCA_RECO_STEP::NoRecoStep);
+  krnlExec GetGrid(uint32_t totalItems, uint32_t nThreads, int32_t stream, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto, GPUDataTypes::RecoStep st = GPUDataTypes::RecoStep::NoRecoStep);
   // Get GRID with NBLOCKS minimal such that ideal number of threads * NBLOCKS >= totalItems
-  krnlExec GetGrid(uint32_t totalItems, int32_t stream, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto, GPUCA_RECO_STEP st = GPUCA_RECO_STEP::NoRecoStep);
+  krnlExec GetGrid(uint32_t totalItems, int32_t stream, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto, GPUDataTypes::RecoStep st = GPUDataTypes::RecoStep::NoRecoStep);
   // Get GRID with specified number of blocks, each block with ideal number of threads
-  krnlExec GetGridBlk(uint32_t nBlocks, int32_t stream, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto, GPUCA_RECO_STEP st = GPUCA_RECO_STEP::NoRecoStep);
-  krnlExec GetGridBlkStep(uint32_t nBlocks, int32_t stream, GPUCA_RECO_STEP st = GPUCA_RECO_STEP::NoRecoStep);
+  krnlExec GetGridBlk(uint32_t nBlocks, int32_t stream, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto, GPUDataTypes::RecoStep st = GPUDataTypes::RecoStep::NoRecoStep);
+  krnlExec GetGridBlkStep(uint32_t nBlocks, int32_t stream, GPUDataTypes::RecoStep st = GPUDataTypes::RecoStep::NoRecoStep);
   // Get GRID with ideal number of threads / blocks for GPU
-  krnlExec GetGridAuto(int32_t stream, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto, GPUCA_RECO_STEP st = GPUCA_RECO_STEP::NoRecoStep);
-  krnlExec GetGridAutoStep(int32_t stream, GPUCA_RECO_STEP st = GPUCA_RECO_STEP::NoRecoStep);
+  krnlExec GetGridAuto(int32_t stream, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto, GPUDataTypes::RecoStep st = GPUDataTypes::RecoStep::NoRecoStep);
+  krnlExec GetGridAutoStep(int32_t stream, GPUDataTypes::RecoStep st = GPUDataTypes::RecoStep::NoRecoStep);
 
   inline uint32_t BlockCount() const { return mRec->mBlockCount; }
   inline uint32_t WarpSize() const { return mRec->mWarpSize; }

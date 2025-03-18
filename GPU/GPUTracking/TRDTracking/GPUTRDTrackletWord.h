@@ -82,7 +82,7 @@ namespace o2::gpu
 class GPUTRDTrackletWord : private o2::trd::Tracklet64
 {
  public:
-  GPUd() GPUTRDTrackletWord(uint64_t trackletWord = 0) : o2::trd::Tracklet64(trackletWord){};
+  GPUd() GPUTRDTrackletWord(uint64_t trackletWord = 0) : o2::trd::Tracklet64(trackletWord) {};
   GPUdDefault() GPUTRDTrackletWord(const GPUTRDTrackletWord& rhs) = default;
   GPUdDefault() GPUTRDTrackletWord& operator=(const GPUTRDTrackletWord& rhs) = default;
   GPUdDefault() ~GPUTRDTrackletWord() = default;

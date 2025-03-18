@@ -13,7 +13,7 @@
 if(CUDA_ENABLED)
 find_package(CUDAToolkit)
 message(STATUS "Building ITS CUDA tracker")
-add_compile_options(-O0 -g -lineinfo -fPIC)
+# add_compile_options(-O0 -g -lineinfo -fPIC)
 # add_compile_definitions(ITS_MEASURE_GPU_TIME)
 o2_add_library(ITStrackingCUDA
                SOURCES ClusterLinesGPU.cu
@@ -33,7 +33,6 @@ o2_add_library(ITStrackingCUDA
                                      O2::SimulationDataFormat
                                      O2::ReconstructionDataFormats
                                      O2::GPUCommon
-                                     CUDA::nvToolsExt
                PRIVATE_LINK_LIBRARIES O2::GPUTrackingCUDAExternalProvider
                TARGETVARNAME targetName)
 

@@ -15,8 +15,9 @@
 // Look Up Table FIT
 //////////////////////////////////////////////
 
-#include "CCDB/BasicCCDBManager.h"
 #include "DetectorsCommonDataFormats/DetID.h"
+#include "CommonUtils/NameConf.h"
+#include "Framework/Logger.h"
 #define BOOST_BIND_GLOBAL_PLACEHOLDERS
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -158,8 +159,7 @@ enum class EModuleType : int { kUnknown,
                                kTCM };
 
 template <typename MapEntryCRU2ModuleType = std::unordered_map<EntryCRU, EModuleType, HasherCRU, ComparerCRU>,
-          typename MapEntryPM2ChannelID = std::unordered_map<EntryPM, int, HasherPM, ComparerPM>,
-          typename = typename std::enable_if_t<std::is_integral<typename MapEntryPM2ChannelID::mapped_type>::value>>
+          typename MapEntryPM2ChannelID = std::unordered_map<EntryPM, int, HasherPM, ComparerPM>>
 class LookupTableBase
 {
  public:
@@ -174,7 +174,7 @@ class LookupTableBase
   typedef EntryPM_t Topo_t;                                         // temporary for common interface
 
   LookupTableBase() = default;
-  LookupTableBase(const Table_t& vecEntryFEE) { initFromTable(vecEntryFEE); }
+  LookupTableBase(const Table_t* vecEntryFEE) { initFromTable(vecEntryFEE); }
   LookupTableBase(const std::string& pathToFile) { initFromFile(pathToFile); }
   LookupTableBase(const std::string& urlCCDB, const std::string& pathToStorageInCCDB, long timestamp = -1) { initCCDB(urlCCDB, pathToStorageInCCDB, timestamp); }
   // Map of str module names -> enum types
@@ -243,13 +243,7 @@ class LookupTableBase
     prepareEntriesFEE(filepath);
     prepareLUT();
   }
-  void initCCDB(const std::string& urlCCDB, const std::string& pathToStorageInCCDB, long timestamp = -1)
-  {
-    auto& mgr = o2::ccdb::BasicCCDBManager::instance();
-    mgr.setURL(urlCCDB);
-    mVecEntryFEE = *(mgr.getForTimeStamp<Table_t>(pathToStorageInCCDB, timestamp));
-    prepareLUT();
-  }
+  void initCCDB(const std::string& urlCCDB, const std::string& pathToStorageInCCDB, long timestamp = -1);
   void initFromTable(const Table_t* vecEntryFEE)
   {
     mVecEntryFEE = *vecEntryFEE;
@@ -419,6 +413,7 @@ class LookupTableBase
   Table_t mVecEntryFEE;
   MapEntryCRU2ModuleType_t mMapEntryCRU2ModuleType;
   MapEntryPM2ChannelID_t mMapEntryPM2ChannelID;
+  typedef std::enable_if_t<std::is_integral<typename MapEntryPM2ChannelID::mapped_type>::value> CheckChannelIDtype; // should be integral
 };
 
 // Singleton for LookUpTable, coomon for all three FIT detectors

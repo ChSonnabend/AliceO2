@@ -13,7 +13,7 @@
 #include "ITStrackingGPU/TracerGPU.h"
 
 #if !defined(__HIPCC__) && defined(__USE_GPU_TRACER__)
-#include "nvToolsExt.h"
+#include <nvtx3/nvToolsExt.h>
 
 constexpr uint32_t colors[] = {0xff00ff00, 0xff0000ff, 0xffffff00, 0xffff00ff, 0xff00ffff, 0xffff0000, 0xffffffff};
 constexpr int num_colors = sizeof(colors) / sizeof(uint32_t);

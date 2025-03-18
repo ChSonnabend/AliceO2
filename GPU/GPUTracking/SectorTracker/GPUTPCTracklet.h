@@ -30,7 +30,7 @@ class GPUTPCTracklet
 {
  public:
 #if !defined(GPUCA_GPUCODE)
-  GPUTPCTracklet() : mFirstRow(0), mLastRow(0), mParam(), mHitWeight(0), mFirstHit(0){};
+  GPUTPCTracklet() : mFirstRow(0), mLastRow(0), mParam(), mHitWeight(0), mFirstHit(0) {};
 #endif //! GPUCA_GPUCODE
 
   GPUhd() int32_t FirstRow() const { return mFirstRow; }

@@ -94,7 +94,7 @@ void* DataRefUtils::decodeCCDB(DataRef const& ref, std::type_info const& tinfo)
     headerSize = *reinterpret_cast<const int*>(buff + dh->payloadSize - Offset);
   }
   if (headerSize < 0) {
-    LOGP(fatal, "Anomalous flattened header size {} extracted", headerSize);
+    LOGP(fatal, "Anomalous flattened header size {} extracted for CCDB object {}/{}", headerSize, dh->dataOrigin.as<std::string>(), dh->dataDescription.as<std::string>());
   }
   TMemFile memFile("name", const_cast<char*>(ref.payload), dh->payloadSize - headerSize, "READ");
   gErrorIgnoreLevel = previousErrorLevel;
@@ -128,7 +128,7 @@ std::map<std::string, std::string> DataRefUtils::extractCCDBHeaders(DataRef cons
   }
 
   if (headerSize < 0) {
-    LOGP(fatal, "Anomalous flattened header size {} extracted", headerSize);
+    LOGP(fatal, "Anomalous flattened header size {} extracted for CCDB object {}/{}", headerSize, dh->dataOrigin.as<std::string>(), dh->dataDescription.as<std::string>());
   }
 
   buff += dh->payloadSize - headerSize; // jump to the start of flattened header

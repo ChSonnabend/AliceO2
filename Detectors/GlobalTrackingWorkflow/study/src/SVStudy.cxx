@@ -48,6 +48,7 @@
 // #include "GPUSettingsO2.h"
 #include "GPUParam.h"
 #include "GPUParam.inc"
+#include "GPUTPCGeometry.h"
 #include "GPUO2InterfaceRefit.h"
 #include "GPUO2InterfaceUtils.h"
 
@@ -254,7 +255,7 @@ o2::dataformats::V0Ext SVStudySpec::processV0(int iv, o2::globaltracking::RecoCo
         tpcTr.getClusterReference(clRefs, tpcTr.getNClusterReferences() - 1, clSect, clRow, clIdx);
         const auto& clus = recoData.getTPCClusters().clusters[clSect][clRow][clIdx];
         prInfo.lowestRow = clRow;
-        int npads = mParam->tpcGeometry.NPads(clRow);
+        int npads = o2::gpu::GPUTPCGeometry::NPads(clRow);
         prInfo.padFromEdge = uint8_t(clus.getPad());
         if (prInfo.padFromEdge > npads / 2) {
           prInfo.padFromEdge = npads - 1 - prInfo.padFromEdge;

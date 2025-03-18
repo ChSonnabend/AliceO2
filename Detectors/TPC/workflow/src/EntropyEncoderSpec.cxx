@@ -230,9 +230,9 @@ void EntropyEncoderSpec::run(ProcessingContext& pc)
       int myThread = 0;
 #endif
       unsigned int count = 0;
-      const float x = mParam->tpcGeometry.Row2X(j);
+      const float x = GPUTPCGeometry::Row2X(j);
       auto checker = [i, j, firstIR, totalT, x, this, &preCl, &count, &outBuffer = tmpBuffer[myThread], &rejectHits, &clustersFiltered](const o2::tpc::ClusterNative& cl, unsigned int k) {
-        const float y = mParam->tpcGeometry.LinearPad2Y(i, j, cl.getPad());
+        const float y = GPUTPCGeometry::LinearPad2Y(i, j, cl.getPad());
         const float r = sqrtf(x * x + y * y);
         const float maxz = r * mEtaFactor + mMaxZ;
         const unsigned int deltaBC = std::max<float>(0.f, totalT - mFastTransform->convDeltaZtoDeltaTimeInTimeFrameAbs(maxz)) * constants::LHCBCPERTIMEBIN;

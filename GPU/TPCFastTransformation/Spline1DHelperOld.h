@@ -41,13 +41,13 @@ class Spline1DHelperOld
   /// \brief Helper structure for 1D spline construction
   ///
   struct DataPoint {
-    double u;    ///< u coordinate
-    double cS0;  ///< a coefficient for s0
-    double cZ0;  ///< a coefficient for s'0
-    double cS1;  ///< a coefficient for s1
-    double cZ1;  ///< a coefficient for s'1
+    double u;      ///< u coordinate
+    double cS0;    ///< a coefficient for s0
+    double cZ0;    ///< a coefficient for s'0
+    double cS1;    ///< a coefficient for s1
+    double cZ1;    ///< a coefficient for s'1
     int32_t iKnot; ///< index of the left knot of the segment
-    bool isKnot; ///< is the point placed at a knot
+    bool isKnot;   ///< is the point placed at a knot
   };
 
   /// _____________  Constructors / destructors __________________________
@@ -160,11 +160,11 @@ class Spline1DHelperOld
 
   /// helpers for the construction of 1D spline
 
-  Spline1D<double> mSpline;           ///< copy of the spline
-  int32_t mFdimensions;               ///< n of F dimensions
-  std::vector<DataPoint> mDataPoints; ///< measurement points
+  Spline1D<double> mSpline;             ///< copy of the spline
+  int32_t mFdimensions;                 ///< n of F dimensions
+  std::vector<DataPoint> mDataPoints;   ///< measurement points
   std::vector<int32_t> mKnotDataPoints; ///< which measurement points are at knots
-  std::vector<double> mLSMmatrixFull; ///< a matrix to convert the measurements into the spline parameters with the LSM method
+  std::vector<double> mLSMmatrixFull;   ///< a matrix to convert the measurements into the spline parameters with the LSM method
   std::vector<double> mLSMmatrixSderivatives;
   std::vector<double> mLSMmatrixSvalues;
 

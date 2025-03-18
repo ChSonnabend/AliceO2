@@ -428,7 +428,7 @@ double IrregularSpline2D3DCalibrator::getIntegralDeviationLine(const IrregularSp
     double d2 = dx * dx + dy * dy + dz * dz;
     sum += sqrt(d2 / 3.);
   }
-  //sum = sqrt(sum/3.);
+  // sum = sqrt(sum/3.);
   return sum;
 }
 

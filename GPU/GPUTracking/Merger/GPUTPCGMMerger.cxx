@@ -36,6 +36,7 @@
 #include "GPUO2DataTypes.h"
 #include "TPCFastTransform.h"
 #include "GPUTPCConvertImpl.h"
+#include "GPUTPCGeometry.h"
 
 #include "GPUCommonMath.h"
 #include "GPUCommonAlgorithm.h"
@@ -601,13 +602,13 @@ GPUd() void GPUTPCGMMerger::MergeSectorsPrepareStep2(int32_t nBlocks, int32_t nT
   } else if (iBorder == 1) { // transport to the right edge of the sector and rotate horizontally
     dAlpha = -dAlpha - CAMath::Pi() / 2;
   } else if (iBorder == 2) { // transport to the middle of the sector and rotate vertically to the border on the left
-    x0 = Param().tpcGeometry.Row2X(63);
+    x0 = GPUTPCGeometry::Row2X(63);
   } else if (iBorder == 3) { // transport to the middle of the sector and rotate vertically to the border on the right
     dAlpha = -dAlpha;
-    x0 = Param().tpcGeometry.Row2X(63);
+    x0 = GPUTPCGeometry::Row2X(63);
   } else if (iBorder == 4) { // transport to the middle of the sßector, w/o rotation
     dAlpha = 0;
-    x0 = Param().tpcGeometry.Row2X(63);
+    x0 = GPUTPCGeometry::Row2X(63);
   }
 
   const float maxSin = CAMath::Sin(60.f / 180.f * CAMath::Pi());
@@ -769,7 +770,7 @@ struct MergeBorderTracks_compMin {
 } // namespace o2::gpu::internal
 
 template <>
-inline void GPUCA_KRNL_BACKEND_CLASS::runKernelBackendInternal<GPUTPCGMMergerMergeBorders, 3>(const krnlSetupTime& _xyz, GPUTPCGMBorderRange* const& range, int32_t const& N, int32_t const& cmpMax)
+inline void GPUCA_M_CAT3(GPUReconstruction, GPUCA_GPUTYPE, Backend)::runKernelBackendInternal<GPUTPCGMMergerMergeBorders, 3>(const krnlSetupTime& _xyz, GPUTPCGMBorderRange* const& range, int32_t const& N, int32_t const& cmpMax)
 {
   thrust::device_ptr<GPUTPCGMBorderRange> p(range);
   ThrustVolatileAsyncAllocator alloc(this);
@@ -955,7 +956,7 @@ template GPUdni() void GPUTPCGMMerger::MergeBorderTracks<2>(int32_t nBlocks, int
 
 GPUd() void GPUTPCGMMerger::MergeWithinSectorsPrepare(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread)
 {
-  float x0 = Param().tpcGeometry.Row2X(63);
+  float x0 = GPUTPCGeometry::Row2X(63);
   const float maxSin = CAMath::Sin(60.f / 180.f * CAMath::Pi());
 
   for (int32_t itr = iBlock * nThreads + iThread; itr < SectorTrackInfoLocalTotal(); itr += nThreads * nBlocks) {
@@ -1295,7 +1296,7 @@ GPUd() void GPUTPCGMMerger::MergeCEFill(const GPUTPCGMSectorTrack* track, const 
   int32_t sector = track->Sector();
   for (int32_t attempt = 0; attempt < 2; attempt++) {
     GPUTPCGMBorderTrack b;
-    const float x0 = Param().tpcGeometry.Row2X(attempt == 0 ? 63 : cls.row);
+    const float x0 = GPUTPCGeometry::Row2X(attempt == 0 ? 63 : cls.row);
     if (track->TransportToX(this, x0, Param().bzCLight, b, GPUCA_MAX_SIN_PHI_LOW)) {
       b.SetTrackID(itr);
       b.SetNClusters(mOutputTracks[itr].NClusters());
@@ -1759,7 +1760,7 @@ GPUd() void GPUTPCGMMerger::CollectMergedTracks(int32_t nBlocks, int32_t nThread
     mergedTrack.SetCSide(p2.CSide());
 
     GPUTPCGMBorderTrack b;
-    const float toX = Param().par.earlyTpcTransform ? clXYZ[0].x : Param().tpcGeometry.Row2X(cl[0].row);
+    const float toX = Param().par.earlyTpcTransform ? clXYZ[0].x : GPUTPCGeometry::Row2X(cl[0].row);
     if (p2.TransportToX(this, toX, Param().bzCLight, b, GPUCA_MAX_SIN_PHI, false)) {
       p1.X() = toX;
       p1.Y() = b.Par()[0];
@@ -1873,7 +1874,7 @@ struct GPUTPCGMMergerSortTracksQPt_comp {
 } // namespace o2::gpu::internal
 
 template <>
-inline void GPUCA_KRNL_BACKEND_CLASS::runKernelBackendInternal<GPUTPCGMMergerSortTracks, 0>(const krnlSetupTime& _xyz)
+inline void GPUCA_M_CAT3(GPUReconstruction, GPUCA_GPUTYPE, Backend)::runKernelBackendInternal<GPUTPCGMMergerSortTracks, 0>(const krnlSetupTime& _xyz)
 {
   thrust::device_ptr<uint32_t> trackSort((uint32_t*)mProcessorsShadow->tpcMerger.TrackOrderProcess());
   ThrustVolatileAsyncAllocator alloc(this);
@@ -1881,7 +1882,7 @@ inline void GPUCA_KRNL_BACKEND_CLASS::runKernelBackendInternal<GPUTPCGMMergerSor
 }
 
 template <>
-inline void GPUCA_KRNL_BACKEND_CLASS::runKernelBackendInternal<GPUTPCGMMergerSortTracksQPt, 0>(const krnlSetupTime& _xyz)
+inline void GPUCA_M_CAT3(GPUReconstruction, GPUCA_GPUTYPE, Backend)::runKernelBackendInternal<GPUTPCGMMergerSortTracksQPt, 0>(const krnlSetupTime& _xyz)
 {
   thrust::device_ptr<uint32_t> trackSort((uint32_t*)mProcessorsShadow->tpcMerger.TrackSort());
   ThrustVolatileAsyncAllocator alloc(this);
@@ -2106,7 +2107,7 @@ struct GPUTPCGMMergerMergeLoopers_comp {
 } // namespace o2::gpu::internal
 
 template <>
-inline void GPUCA_KRNL_BACKEND_CLASS::runKernelBackendInternal<GPUTPCGMMergerMergeLoopers, 1>(const krnlSetupTime& _xyz)
+inline void GPUCA_M_CAT3(GPUReconstruction, GPUCA_GPUTYPE, Backend)::runKernelBackendInternal<GPUTPCGMMergerMergeLoopers, 1>(const krnlSetupTime& _xyz)
 {
   thrust::device_ptr<MergeLooperParam> params(mProcessorsShadow->tpcMerger.LooperCandidates());
   ThrustVolatileAsyncAllocator alloc(this);
@@ -2140,7 +2141,7 @@ GPUd() void GPUTPCGMMerger::MergeLoopersMain(int32_t nBlocks, int32_t nThreads, 
       }
       const float d2xy = CAMath::Sum2(params[i].x - params[j].x, params[i].y - params[j].y);
       if (d2xy > 15.f) {
-        //bs |= 1;
+        // bs |= 1;
         continue;
       }
       const auto& trk1 = mOutputTracks[params[i].id];
@@ -2148,7 +2149,7 @@ GPUd() void GPUTPCGMMerger::MergeLoopersMain(int32_t nBlocks, int32_t nThreads, 
       const auto& param1 = trk1.GetParam();
       const auto& param2 = trk2.GetParam();
       if (CAMath::Abs(param1.GetDzDs()) > 0.03f && CAMath::Abs(param2.GetDzDs()) > 0.03f && param1.GetDzDs() * param2.GetDzDs() * param1.GetQPt() * param2.GetQPt() < 0) {
-        //bs |= 2;
+        // bs |= 2;
         continue;
       }
 
@@ -2170,7 +2171,7 @@ GPUd() void GPUTPCGMMerger::MergeLoopersMain(int32_t nBlocks, int32_t nThreads, 
         }
       }
       if (!dzcorrok) {
-        //bs |= 4;
+        // bs |= 4;
         continue;
       }
 

@@ -33,13 +33,12 @@ class GPUReconstructionCUDABackend : public GPUReconstructionDeviceBase
 {
  public:
   ~GPUReconstructionCUDABackend() override;
-  static int32_t GPUFailedMsgAI(const int64_t error, const char* file, int32_t line);
-  void GPUFailedMsgA(const int64_t error, const char* file, int32_t line);
 
  protected:
   GPUReconstructionCUDABackend(const GPUSettingsDeviceBackend& cfg);
 
   void PrintKernelOccupancies() override;
+  virtual int32_t GPUChkErrInternal(const int64_t error, const char* file, int32_t line) const override;
 
   template <class T, int32_t I = 0, typename... Args>
   void runKernelBackend(const krnlSetupArgs<T, I, Args...>& args);

@@ -32,11 +32,12 @@ using namespace o2::gpu;
 #include "TrackParametrizationWithError.cxx"
 #include "Propagator.cxx"
 #include "TrackLTIntegral.cxx"
+#include "GPUReconstructionCUDAHelpers.inc"
 
 #ifndef GPUCA_NO_CONSTANT_MEMORY
 static GPUReconstructionDeviceBase::deviceConstantMemRegistration registerConstSymbol([]() {
   void* retVal = nullptr;
-  if (cudaGetSymbolAddress(&retVal, gGPUConstantMemBuffer) != cudaSuccess) {
+  if (GPUChkErrS(cudaGetSymbolAddress(&retVal, gGPUConstantMemBuffer))) {
     throw std::runtime_error("Could not obtain GPU constant memory symbol");
   }
   return retVal;

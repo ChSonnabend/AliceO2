@@ -50,7 +50,7 @@
 #define AddSubConfig(name, instance)
 #define BeginSubConfig(name, instance, parent, preoptname, preoptnameshort, descr, o2prefix)                                           \
   struct GPUCA_M_CAT(GPUConfigurableParam, name) : public o2::conf::ConfigurableParamHelper<GPUCA_M_CAT(GPUConfigurableParam, name)> { \
-    O2ParamDef(GPUCA_M_CAT(GPUConfigurableParam, name), GPUCA_M_STR(GPUCA_M_CAT(GPU_, o2prefix))) public:
+   O2ParamDef(GPUCA_M_CAT(GPUConfigurableParam, name), GPUCA_M_STR(GPUCA_M_CAT(GPU_, o2prefix))) public:
 #define BeginHiddenConfig(name, instance) struct GPUCA_M_CAT(GPUConfigurableParam, name) {
 #define EndConfig() \
   }                 \

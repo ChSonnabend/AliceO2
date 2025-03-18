@@ -91,7 +91,7 @@ class GPUTPCTrkLbl
   inline U computeLabel(float* labelWeight = nullptr, float* totalWeight = nullptr, int32_t* maxCount = nullptr)
   {
     if (mLabels.size() == 0) {
-      return U(); //default constructor creates NotSet label
+      return U(); // default constructor creates NotSet label
     } else {
       uint32_t bestLabelNum = 0, bestLabelCount = 0;
       for (uint32_t j = 0; j < mLabels.size(); j++) {
@@ -133,10 +133,10 @@ struct GPUTPCTrkLbl_ret {
   template <class T>
   GPUTPCTrkLbl_ret(T){};
 #ifdef GPUCA_TPC_GEOMETRY_O2
-  GPUTPCTrkLbl_ret(const MCCompLabel& a) : id(a.getTrackEventSourceID()){};
+  GPUTPCTrkLbl_ret(const MCCompLabel& a) : id(a.getTrackEventSourceID()) {};
 #endif
 #ifdef GPUCA_STANDALONE
-  GPUTPCTrkLbl_ret(const AliHLTTPCClusterMCWeight& a) : id(a.fMCID){};
+  GPUTPCTrkLbl_ret(const AliHLTTPCClusterMCWeight& a) : id(a.fMCID) {};
 #endif
   void setFakeFlag()
   {

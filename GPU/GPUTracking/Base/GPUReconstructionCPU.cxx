@@ -215,6 +215,10 @@ int32_t GPUReconstructionCPU::RunChains()
   mStatNEvents++;
   mNEventsProcessed++;
 
+  if (mProcessingSettings.debugLevel >= 3 || mProcessingSettings.allocDebugLevel) {
+    printf("Allocated memory when starting processing %34s", "");
+    PrintMemoryOverview();
+  }
   mTimerTotal.Start();
   const std::clock_t cpuTimerStart = std::clock();
   if (mProcessingSettings.doublePipeline) {
@@ -232,9 +236,16 @@ int32_t GPUReconstructionCPU::RunChains()
         return retVal;
       }
     }
+    if (GetProcessingSettings().tpcFreeAllocatedMemoryAfterProcessing) {
+      ClearAllocatedMemory();
+    }
   }
   mTimerTotal.Stop();
   mStatCPUTime += (double)(std::clock() - cpuTimerStart) / CLOCKS_PER_SEC;
+  if (mProcessingSettings.debugLevel >= 3 || mProcessingSettings.allocDebugLevel) {
+    printf("Allocated memory when ending processing %36s", "");
+    PrintMemoryOverview();
+  }
 
   mStatWallTime = (mTimerTotal.GetElapsedTime() * 1000000. / mStatNEvents);
   std::string nEventReport;

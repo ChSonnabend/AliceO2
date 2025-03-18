@@ -353,7 +353,7 @@ void GPUTPCGMMerger::DebugStreamerUpdate(int32_t iTrk, int32_t ihit, float xx, f
   auto uncorrectedYZ = StreamerUncorrectedZY(cluster.sector, cluster.row, track, prop);
   float invCharge = 1.f / clusterNative.qMax;
   int32_t iRow = cluster.row;
-  float unscaledMult = (time >= 0.f ? Param().GetUnscaledMult(time) / Param().tpcGeometry.Row2X(iRow) : 0.f);
+  float unscaledMult = (time >= 0.f ? Param().GetUnscaledMult(time) / GPUTPCGeometry::Row2X(iRow) : 0.f);
   const float clAlpha = Param().Alpha(cluster.sector);
   uint32_t occupancyTotal = Param().occupancyTotal;
   o2::utils::DebugStreamer::instance()->getStreamer("debug_update_track", "UPDATE") << o2::utils::DebugStreamer::instance()->getUniqueTreeName("tree_update_track").data()

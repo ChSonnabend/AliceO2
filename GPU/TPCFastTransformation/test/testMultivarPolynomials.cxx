@@ -95,7 +95,7 @@ BOOST_AUTO_TEST_CASE(Polynomials5D_InteractionOnly)
   const int32_t nPar5D5DegInteraction = 32; // number of parameters
   const int32_t nDim = 5;                   // dimensions
   const int32_t nDegree = 5;                // degree
-  const float abstolerance = 0.0001f;   // abosulte difference between refernce to polynomial class
+  const float abstolerance = 0.0001f;       // abosulte difference between refernce to polynomial class
   const bool interactionOnly = true;
 
   MultivariatePolynomial<nDim, nDegree, interactionOnly> polCT;       // compile time polynomial
@@ -142,7 +142,7 @@ BOOST_AUTO_TEST_CASE(Piecewise_polynomials)
   const int32_t nPar5D5DegInteraction = 32; // number of parameters
   const int32_t nDim = 5;                   // dimensions
   const int32_t nDegree = 5;                // degree
-  const bool interactionOnly = true;    // consider only interaction terms
+  const bool interactionOnly = true;        // consider only interaction terms
 
   // reference polynomial which will be approximated by the NDPiecewisePolynomials
   MultivariatePolynomial<nDim, nDegree, interactionOnly> polCT;

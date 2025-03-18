@@ -22,6 +22,7 @@
 #include "GPUCommonAlgorithm.h"
 #include "TPCPadGainCalib.h"
 #include "TPCZSLinkMapping.h"
+#include "GPUTPCGeometry.h"
 
 using namespace o2::gpu;
 using namespace o2::gpu::tpccf;
@@ -57,8 +58,8 @@ GPUdii() void GPUTPCCFDecodeZS::decode(GPUTPCClusterFinder& clusterer, GPUShared
   const size_t nDigits = clusterer.mPzsOffsets[iBlock].offset;
   if (iThread == 0) {
     const int32_t region = endpoint / 2;
-    s.nRowsRegion = clusterer.Param().tpcGeometry.GetRegionRows(region);
-    s.regionStartRow = clusterer.Param().tpcGeometry.GetRegionStart(region);
+    s.nRowsRegion = GPUTPCGeometry::GetRegionRows(region);
+    s.regionStartRow = GPUTPCGeometry::GetRegionStart(region);
     s.nThreadsPerRow = CAMath::Max(1u, nThreads / ((s.nRowsRegion + (endpoint & 1)) / 2));
     s.rowStride = nThreads / s.nThreadsPerRow;
     s.rowOffsetCounter = 0;
@@ -101,7 +102,7 @@ GPUdii() void GPUTPCCFDecodeZS::decode(GPUTPCClusterFinder& clusterer, GPUShared
       const int32_t nRows = (endpoint & 1) ? (s.nRowsRegion - s.nRowsRegion / 2) : (s.nRowsRegion / 2);
 
       for (int32_t l = 0; l < hdr->nTimeBinSpan; l++) { // TODO: Parallelize over time bins
-        pagePtr += (pagePtr - page) & 1;            // Ensure 16 bit alignment
+        pagePtr += (pagePtr - page) & 1;                // Ensure 16 bit alignment
         const TPCZSTBHDR* tbHdr = reinterpret_cast<const TPCZSTBHDR*>(pagePtr);
         if ((tbHdr->rowMask & 0x7FFF) == 0) {
           pagePtr += 2;
@@ -324,8 +325,8 @@ GPUd() void GPUTPCCFDecodeZSLink::DecodeTBSingleThread(
         bits -= DECODE_BITS;
         nSamplesWritten++;
         rawFECChannel++; // Ensure we don't decode same channel twice
-      }                  // while (bits >= DECODE_BITS)
-    }                    // while (nSamplesWritten < nAdc)
+      } // while (bits >= DECODE_BITS)
+    } // while (nSamplesWritten < nAdc)
 
   } else { // ! TPCZSHDRV2::TIGHTLY_PACKED_V3
     uint32_t rawFECChannel = 0;
@@ -524,7 +525,7 @@ GPUd() o2::tpc::PadPos GPUTPCCFDecodeZSLinkBase::GetPadAndRowFromFEC(processorTy
 {
 #ifdef GPUCA_TPC_GEOMETRY_O2
   // Ported from tpc::Mapper (Not available on GPU...)
-  const GPUTPCGeometry& geo = clusterer.Param().tpcGeometry;
+  constexpr GPUTPCGeometry geo;
 
   const int32_t regionIter = cru % 2;
   const int32_t istreamm = ((rawFECChannel % 10) / 2);
@@ -705,7 +706,7 @@ GPUd() uint16_t GPUTPCCFDecodeZSDenseLink::DecodeTBMultiThread(
 
 #define PEEK_OVERFLOW(pagePtr, offset)                                                      \
   (*(PayloadExtendsToNextPage && (pagePtr) < nextPage && (pagePtr) + (offset) >= payloadEnd \
-       ? nextPage + sizeof(header::RAWDataHeader) + ((pagePtr) + (offset)-payloadEnd)       \
+       ? nextPage + sizeof(header::RAWDataHeader) + ((pagePtr) + (offset) - payloadEnd)     \
        : (pagePtr) + (offset)))
 
 #define TEST_BIT(x, bit) static_cast<bool>((x) & (1 << (bit)))
@@ -931,8 +932,8 @@ GPUd() uint16_t GPUTPCCFDecodeZSDenseLink::DecodeTBSingleThread(
       bits -= DECODE_BITS;
       nSamplesWritten++;
       rawFECChannel++; // Ensure we don't decode same channel twice
-    }                  // while (bits >= DECODE_BITS)
-  }                    // while (nSamplesWritten < nAdc)
+    } // while (bits >= DECODE_BITS)
+  } // while (nSamplesWritten < nAdc)
 
   assert(PayloadExtendsToNextPage || adcData <= page);
   assert(PayloadExtendsToNextPage || page <= payloadEnd);

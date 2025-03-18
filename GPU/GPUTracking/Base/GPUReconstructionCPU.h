@@ -134,8 +134,8 @@ template <class S, int32_t I, typename... Args>
 inline void GPUReconstructionCPU::runKernel(krnlSetup&& setup, Args&&... args)
 {
   HighResTimer* t = nullptr;
-  GPUCA_RECO_STEP myStep = S::GetRecoStep() == GPUCA_RECO_STEP::NoRecoStep ? setup.x.step : S::GetRecoStep();
-  if (myStep == GPUCA_RECO_STEP::NoRecoStep) {
+  GPUDataTypes::RecoStep myStep = S::GetRecoStep() == GPUDataTypes::RecoStep::NoRecoStep ? setup.x.step : S::GetRecoStep();
+  if (myStep == GPUDataTypes::RecoStep::NoRecoStep) {
     throw std::runtime_error("Failure running general kernel without defining RecoStep");
   }
   int32_t cpuFallback = IsGPU() ? (setup.x.device == krnlDeviceType::CPU ? 2 : (mRecoSteps.stepsGPUMask & myStep) != myStep) : 0;

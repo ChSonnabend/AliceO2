@@ -35,13 +35,25 @@
     #define GPUCA_GPUCODE // Compiled by GPU compiler
   #endif
 
-  #if defined(__CUDA_ARCH__) || defined(__OPENCL__) || defined(__HIP_DEVICE_COMPILE__)
-    #define GPUCA_GPUCODE_DEVICE // Executed on device
+  #if defined(GPUCA_GPUCODE)
+    #if defined(__CUDA_ARCH__) || defined(__OPENCL__) || defined(__HIP_DEVICE_COMPILE__)
+      #define GPUCA_GPUCODE_DEVICE // Executed on device
+    #endif
+    #if defined(__CUDACC__)
+      #define GPUCA_GPUTYPE CUDA
+    #elif defined(__HIPCC__)
+      #define GPUCA_GPUTYPE HIP
+    #elif defined(__OPENCL__) || defined(__OPENCL_HOST__)
+      #define GPUCA_GPUTYPE OCL
+    #endif
   #endif
+#endif
+#ifndef GPUCA_GPUTYPE
+  #define GPUCA_GPUTYPE CPU
 #endif
 
 #if defined(GPUCA_STANDALONE) || (defined(GPUCA_O2_LIB) && !defined(GPUCA_O2_INTERFACE)) || defined (GPUCA_GPUCODE)
-  #define GPUCA_ALIGPUCODE
+  #define GPUCA_ALIGPUCODE // Part of GPUTracking library but not of interface
 #endif
 
 #if (defined(__CUDACC__) && defined(GPUCA_CUDA_NO_CONSTANT_MEMORY)) || (defined(__HIPCC__) && defined(GPUCA_HIP_NO_CONSTANT_MEMORY)) || (defined(__OPENCL__) && defined(GPUCA_OPENCL_NO_CONSTANT_MEMORY))
@@ -51,13 +63,13 @@
 #endif
 
 #if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && defined(DEBUG_STREAMER)
-#define GPUCA_DEBUG_STREAMER_CHECK(...) __VA_ARGS__
+  #define GPUCA_DEBUG_STREAMER_CHECK(...) __VA_ARGS__
 #else
-#define GPUCA_DEBUG_STREAMER_CHECK(...)
+  #define GPUCA_DEBUG_STREAMER_CHECK(...)
 #endif
 
 #ifndef GPUCA_RTC_SPECIAL_CODE
-#define GPUCA_RTC_SPECIAL_CODE(...)
+  #define GPUCA_RTC_SPECIAL_CODE(...)
 #endif
 
 // API Definitions for GPU Compilation

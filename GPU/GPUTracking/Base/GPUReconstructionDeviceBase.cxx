@@ -175,7 +175,11 @@ void GPUReconstructionDeviceBase::runConstantRegistrators()
 {
   auto& list = getDeviceConstantMemRegistratorsVector();
   for (uint32_t i = 0; i < list.size(); i++) {
-    mDeviceConstantMemList.emplace_back(list[i]());
+    auto* ptr = list[i]();
+    if (ptr == nullptr) {
+      GPUFatal("Error registering constant memory");
+    }
+    mDeviceConstantMemList.emplace_back(ptr);
   }
 }
 

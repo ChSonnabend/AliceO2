@@ -28,6 +28,7 @@
 
 #include "GPUReconstructionOCL.h"
 #include "GPUReconstructionIncludes.h"
+#include "GPUCommonHelpers.h"
 
 using namespace o2::gpu;
 
@@ -35,9 +36,6 @@ using namespace o2::gpu;
 #include <unistd.h>
 #include <typeinfo>
 #include <cstdlib>
-
-#define GPUFailedMsg(x) GPUFailedMsgA(x, __FILE__, __LINE__)
-#define GPUFailedMsgI(x) GPUFailedMsgAI(x, __FILE__, __LINE__)
 
 namespace o2::gpu
 {

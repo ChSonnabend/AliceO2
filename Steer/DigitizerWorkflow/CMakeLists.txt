@@ -29,6 +29,7 @@ o2_add_executable(digitizer-workflow
                           src/ZDCDigitizerSpec.cxx
                           src/TOFDigitizerSpec.cxx
                           $<$<BOOL:${ENABLE_UPGRADES}>:src/ITS3DigitizerSpec.cxx>
+                          $<$<BOOL:${ENABLE_UPGRADES}>:src/TRKDigitizerSpec.cxx>
                   PUBLIC_LINK_LIBRARIES O2::Framework
                                         O2::Steer
                                         O2::CommonConstants
@@ -67,7 +68,9 @@ o2_add_executable(digitizer-workflow
                                         O2::DetectorsRaw
                                         $<$<BOOL:${ENABLE_UPGRADES}>:O2::ITS3Simulation>
                                         $<$<BOOL:${ENABLE_UPGRADES}>:O2::ITS3Workflow>
-                                        $<$<BOOL:${ENABLE_UPGRADES}>:O2::ITS3Align>)
+                                        $<$<BOOL:${ENABLE_UPGRADES}>:O2::ITS3Align>
+                                        $<$<BOOL:${ENABLE_UPGRADES}>:O2::TRKSimulation>
+                                        $<$<BOOL:${ENABLE_UPGRADES}>:O2::TRKWorkflow>)
 
 
 o2_add_executable(mctruth-testworkflow

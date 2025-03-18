@@ -15,6 +15,7 @@
 #include "GPUTPCNNClusterizerKernels.h"
 #include "GPUTPCCFClusterizer.h"
 #include "GPUTPCCFDeconvolution.h"
+#include "GPUTPCGeometry.h"
 
 using namespace o2::gpu;
 using namespace o2::gpu::tpccf;
@@ -131,9 +132,9 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
 }
 
 // THe following arithmetic is done because the network is trained with a split between IROC and OROC boundary
-GPUd() int GPUTPCNNClusterizerKernels::padOffset(int row_ref, int row_current, const GPUTPCGeometry& geo)
+GPUd() int GPUTPCNNClusterizerKernels::padOffset(int row_ref, int row_current)
 {
-  return (int)((geo.NPads(row_current) - geo.NPads(row_ref)) / 2);
+  return (int)((GPUTPCGeometry::NPads(row_current) - GPUTPCGeometry::NPads(row_ref)) / 2);
 }
 
 GPUd() int GPUTPCNNClusterizerKernels::rowOffset(int row, int global_shift)
@@ -141,16 +142,16 @@ GPUd() int GPUTPCNNClusterizerKernels::rowOffset(int row, int global_shift)
   return (row > 62 ? global_shift : 0);
 }
 
-GPUd() bool GPUTPCNNClusterizerKernels::isBoundary(int row, int pad, int global_shift, const GPUTPCGeometry& geo)
+GPUd() bool GPUTPCNNClusterizerKernels::isBoundary(int row, int pad, int global_shift)
 {
   if (pad < 0 || row < 0) { // Faster short-circuit
     return true;
   } else if (row < 63) {
-    return (pad >= static_cast<int>(geo.NPads(row)));
+    return (pad >= static_cast<int>(GPUTPCGeometry::NPads(row)));
   } else if (row < (63 + global_shift)) { // to account for the gap between IROC and OROC. Charge will be set to -1 in order to signal boundary to the neural network
     return true;
   } else if (row < (o2::tpc::constants::MAXGLOBALPADROW + global_shift)) {
-    return (pad >= static_cast<int>(geo.NPads(row - global_shift)));
+    return (pad >= static_cast<int>(GPUTPCGeometry::NPads(row - global_shift)));
   } else {
     return true;
   }
@@ -181,9 +182,9 @@ GPUd() void GPUTPCNNClusterizerKernels::fillInputData(int32_t nBlocks, int32_t n
 #endif
   for (int r = -clustererNN.nnClusterizerSizeInputRow; r <= clustererNN.nnClusterizerSizeInputRow; r++) {
     bool is_row_boundary = ((row + r) > (o2::tpc::constants::MAXGLOBALPADROW - 1)) || ((row + r) < 0);
-    int pad_offset = is_row_boundary ? 0 : GPUTPCNNClusterizerKernels::padOffset(row, row + r, clusterer.Param().tpcGeometry);
+    int pad_offset = is_row_boundary ? 0 : GPUTPCNNClusterizerKernels::padOffset(row, row + r);
     for (int p = -clustererNN.nnClusterizerSizeInputPad + pad_offset; p <= clustererNN.nnClusterizerSizeInputPad + pad_offset; p++) {
-      bool is_boundary = is_row_boundary || GPUTPCNNClusterizerKernels::isBoundary(row + r + row_offset, pad + p, clustererNN.nnClusterizerSizeInputRow, clusterer.Param().tpcGeometry);
+      bool is_boundary = is_row_boundary || GPUTPCNNClusterizerKernels::isBoundary(row + r + row_offset, pad + p, clustererNN.nnClusterizerSizeInputRow);
       for (int t = -clustererNN.nnClusterizerSizeInputTime; t <= clustererNN.nnClusterizerSizeInputTime; t++) {
         if (!is_boundary) {
           ChargePos tmp_pos(row + r, pad + p, time + t);
@@ -212,11 +213,11 @@ GPUd() void GPUTPCNNClusterizerKernels::fillInputData(int32_t nBlocks, int32_t n
     if (dtype == 0) {
       clustererNN.inputData16[write_idx] = (OrtDataType::Float16_t)(clusterer.mISector / 36.f);
       clustererNN.inputData16[write_idx + 1] = (OrtDataType::Float16_t)(row / 152.f);
-      clustererNN.inputData16[write_idx + 2] = (OrtDataType::Float16_t)(static_cast<float>(pad) / clusterer.Param().tpcGeometry.NPads(row));
+      clustererNN.inputData16[write_idx + 2] = (OrtDataType::Float16_t)(static_cast<float>(pad) / GPUTPCGeometry::NPads(row));
     } else {
       clustererNN.inputData32[write_idx] = clusterer.mISector / 36.f;
       clustererNN.inputData32[write_idx + 1] = row / 152.f;
-      clustererNN.inputData32[write_idx + 2] = static_cast<float>(pad) / clusterer.Param().tpcGeometry.NPads(row);
+      clustererNN.inputData32[write_idx + 2] = static_cast<float>(pad) / GPUTPCGeometry::NPads(row);
     }
   }
 }

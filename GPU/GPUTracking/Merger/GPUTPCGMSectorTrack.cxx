@@ -95,7 +95,7 @@ GPUd() void GPUTPCGMSectorTrack::SetParam2(const GPUTPCGMTrackParam& trk)
 GPUd() bool GPUTPCGMSectorTrack::FilterErrors(const GPUTPCGMMerger* merger, int32_t iSector, float maxSinPhi, float sinPhiMargin)
 {
   float lastX;
-  // float lastX = merger->Param().tpcGeometry.Row2X(mOrigTrack->Cluster(mOrigTrack->NClusters() - 1).GetRow()); // TODO: Why is this needed to be set below, Row2X should work, but looses some tracks
+  // float lastX = GPUTPCGeometry::Row2X(mOrigTrack->Cluster(mOrigTrack->NClusters() - 1).GetRow()); // TODO: Why is this needed to be set below, Row2X should work, but looses some tracks
   float y, z;
   int32_t row, index;
   const GPUTPCTracker& trk = merger->GetConstantMem()->tpcTrackers[iSector];

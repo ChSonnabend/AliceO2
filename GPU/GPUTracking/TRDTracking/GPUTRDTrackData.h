@@ -18,15 +18,15 @@
 #define GPUTRDTRACKDATA_H
 
 struct GPUTRDTrackDataRecord {
-  float mAlpha;              // azimuthal angle of reference frame
-  float fX;                  // x: radial distance
-  float fY;                  // local Y-coordinate of a track (cm)
-  float fZ;                  // local Z-coordinate of a track (cm)
-  float mSinPhi;             // local sine of the track momentum azimuthal angle
-  float fTgl;                // tangent of the track momentum dip angle
-  float fq1Pt;               // 1/pt (1/(GeV/c))
-  float fC[15];              // covariance matrix
-  int32_t fTPCTrackID;       // id of corresponding TPC track
+  float mAlpha;                  // azimuthal angle of reference frame
+  float fX;                      // x: radial distance
+  float fY;                      // local Y-coordinate of a track (cm)
+  float fZ;                      // local Z-coordinate of a track (cm)
+  float mSinPhi;                 // local sine of the track momentum azimuthal angle
+  float fTgl;                    // tangent of the track momentum dip angle
+  float fq1Pt;                   // 1/pt (1/(GeV/c))
+  float fC[15];                  // covariance matrix
+  int32_t fTPCTrackID;           // id of corresponding TPC track
   int32_t fAttachedTracklets[6]; // IDs for attached tracklets sorted by layer
   uint8_t mIsPadrowCrossing;     // bits 0 to 5 indicate whether a padrow was crossed
 

@@ -377,8 +377,8 @@ GPUdic(2, 1) void GPUTPCTrackletConstructor::UpdateTracklet(int32_t /*nBlocks*/,
       } while (false);
       (void)found;
       if (!found && tracker.GetConstantMem()->calibObjects.dEdxCalibContainer) {
-        uint32_t pad = CAMath::Float2UIntRn(tracker.Param().tpcGeometry.LinearY2Pad(tracker.ISector(), iRow, yUncorrected));
-        if (pad < tracker.Param().tpcGeometry.NPads(iRow) && tracker.GetConstantMem()->calibObjects.dEdxCalibContainer->isDead(tracker.ISector(), iRow, pad)) {
+        uint32_t pad = CAMath::Float2UIntRn(GPUTPCGeometry::LinearY2Pad(tracker.ISector(), iRow, yUncorrected));
+        if (pad < GPUTPCGeometry::NPads(iRow) && tracker.GetConstantMem()->calibObjects.dEdxCalibContainer->isDead(tracker.ISector(), iRow, pad)) {
           r.mNMissed--;
           rowHit = CALINK_DEAD_CHANNEL;
         }
@@ -395,7 +395,7 @@ GPUdic(2, 1) void GPUTPCTrackletConstructor::UpdateTracklet(int32_t /*nBlocks*/,
     const float z1 = row1.Grid().ZMin() + hh1.y * row1.HstepZ();
     const float z2 = row2.Grid().ZMin() + hh2.y * row2.HstepZ();
     float oldOffset = tParam.ZOffset();
-    tParam.ShiftZ(z1, z2, tracker.Param().tpcGeometry.Row2X(r.mFirstRow), tracker.Param().tpcGeometry.Row2X(r.mLastRow), tracker.Param().bzCLight, tracker.Param().rec.tpc.defaultZOffsetOverR);
+    tParam.ShiftZ(z1, z2, GPUTPCGeometry::Row2X(r.mFirstRow), GPUTPCGeometry::Row2X(r.mLastRow), tracker.Param().bzCLight, tracker.Param().rec.tpc.defaultZOffsetOverR);
     r.mLastZ -= tParam.ZOffset() - oldOffset;
     CADEBUG(printf("Shifted z from %f to %f\n", oldOffset, tParam.ZOffset()));
   }

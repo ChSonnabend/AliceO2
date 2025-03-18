@@ -18,7 +18,7 @@ endif()
 message(STATUS "Building GPUTracking with CUDA support ${TMP_TARGET}")
 
 set(SRCS GPUReconstructionCUDA.cu GPUReconstructionCUDAGenRTC.cxx GPUReconstructionCUDAKernels.cu)
-set(HDRS GPUReconstructionCUDA.h GPUReconstructionCUDAInternals.h GPUReconstructionCUDADef.h GPUReconstructionCUDAIncludesHost.h CUDAThrustHelpers.h)
+set(HDRS GPUReconstructionCUDA.h GPUReconstructionCUDAInternals.h GPUReconstructionCUDAHelpers.inc GPUReconstructionCUDADef.h GPUReconstructionCUDAIncludesHost.h CUDAThrustHelpers.h)
 # -------------------------------- Prepare RTC -------------------------------------------------------
 enable_language(ASM)
 if(ALIGPU_BUILD_TYPE STREQUAL "O2")

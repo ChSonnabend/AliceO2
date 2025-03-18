@@ -8,8 +8,6 @@
 # In applying this license CERN does not waive the privileges and immunities
 # granted to it by virtue of its status as an Intergovernmental Organization
 # or submit itself to any jurisdiction.
-cmake_minimum_required(VERSION 3.5)
-
 install(DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/include/Framework
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 

@@ -13,7 +13,6 @@
 /// \author David Rohr
 
 #include "GPUdEdx.h"
-#include "GPUTPCGeometry.h"
 #include "GPUdEdxInfo.h"
 #include "GPUCommonAlgorithm.h"
 #include "GPUParam.h"

@@ -21,7 +21,7 @@ using namespace o2::gpu;
 
 TPCPadBitMap::TPCPadBitMap()
 {
-  GPUTPCGeometry geo{};
+  constexpr GPUTPCGeometry geo;
   int32_t offset = 0;
   for (int32_t r = 0; r < GPUCA_ROW_COUNT; r++) {
     mPadOffsetPerRow[r] = offset;

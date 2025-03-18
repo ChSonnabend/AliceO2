@@ -679,6 +679,7 @@ DigitizationContext DigitizationContext::extractSingleTimeframe(int timeframeid,
   }
   r.mSimPrefixes = mSimPrefixes;
   r.mMuBC = mMuBC;
+  r.mBCFilling = mBCFilling;
   try {
     auto tf_ranges = timeframeindices.at(timeframeid);
 

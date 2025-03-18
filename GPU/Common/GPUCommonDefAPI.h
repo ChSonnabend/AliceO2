@@ -36,7 +36,7 @@
   #define GPUdni()                                  // Device function, not-to-be-inlined
   #define GPUdnii() inline                          // Device function, not-to-be-inlined on device, inlined on host
   #define GPUh()                                    // Host-only function
-  // NOTE: All GPUd*() functions are also compiled on the host during GCC compilation.
+  // NOTE: All GPUd*() functions are also compiled on the host during host compilation.
   // The GPUh*() macros are for the rare cases of functions that you want to compile for the host during GPU compilation.
   // Usually, you do not need the GPUh*() versions. If in doubt, use GPUd*()!
   #define GPUhi() inline                            // to-be-inlined host-only function

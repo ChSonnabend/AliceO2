@@ -218,6 +218,10 @@ inline void DigitizationContext::retrieveHits(std::vector<TChain*> const& chains
     return;
   }
   br->SetAddress(&hits);
+  auto maxEntries = br->GetEntries();
+  if (maxEntries) {
+    entryID %= maxEntries;
+  }
   br->GetEntry(entryID);
 }
 

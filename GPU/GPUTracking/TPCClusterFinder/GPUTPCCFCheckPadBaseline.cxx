@@ -15,6 +15,7 @@
 #include "GPUTPCCFCheckPadBaseline.h"
 #include "Array2D.h"
 #include "PackedCharge.h"
+#include "GPUTPCGeometry.h"
 #include "clusterFinderDefs.h"
 
 #ifndef GPUCA_GPUCODE
@@ -151,7 +152,7 @@ GPUd() void GPUTPCCFCheckPadBaseline::Thread<0>(int32_t nBlocks, int32_t nThread
 
 GPUd() ChargePos GPUTPCCFCheckPadBaseline::padToChargePos(int32_t& pad, const GPUTPCClusterFinder& clusterer)
 {
-  const GPUTPCGeometry& geo = clusterer.Param().tpcGeometry;
+  constexpr GPUTPCGeometry geo;
 
   int32_t padOffset = 0;
   for (Row r = 0; r < GPUCA_ROW_COUNT; r++) {

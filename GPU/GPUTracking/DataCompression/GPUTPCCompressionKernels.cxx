@@ -18,7 +18,6 @@
 #include "GPUParam.h"
 #include "GPUCommonAlgorithm.h"
 #include "GPUTPCCompressionTrackModel.h"
-#include "GPUTPCGeometry.h"
 #include "GPUTPCClusterRejection.h"
 #include "GPUTPCCompressionKernels.inc"
 
@@ -68,9 +67,10 @@ GPUdii() void GPUTPCCompressionKernels::Thread<GPUTPCCompressionKernels::step0at
         continue; // No track model compression
       }
       const ClusterNative& GPUrestrict() orgCl = clusters -> clusters[hit.sector][hit.row][hit.num - clusters->clusterOffset[hit.sector][hit.row]];
-      float x = param.tpcGeometry.Row2X(hit.row);
-      float y = track.LinearPad2Y(hit.sector, orgCl.getPad(), param.tpcGeometry.PadWidth(hit.row), param.tpcGeometry.NPads(hit.row));
-      float z = param.tpcGeometry.LinearTime2Z(hit.sector, orgCl.getTime());
+      constexpr GPUTPCGeometry geo;
+      float x = geo.Row2X(hit.row);
+      float y = track.LinearPad2Y(hit.sector, orgCl.getPad(), geo.PadWidth(hit.row), geo.NPads(hit.row));
+      float z = geo.LinearTime2Z(hit.sector, orgCl.getTime());
       if (nClustersStored) {
         if ((hit.sector < GPUCA_NSECTORS) ^ (lastSector < GPUCA_NSECTORS)) {
           break;
@@ -78,7 +78,7 @@ GPUdii() void GPUTPCCompressionKernels::Thread<GPUTPCCompressionKernels::step0at
         if (lastLeg != hit.leg && track.Mirror()) {
           break;
         }
-        if (track.Propagate(param.tpcGeometry.Row2X(hit.row), param.SectorParam[hit.sector].Alpha)) {
+        if (track.Propagate(geo.Row2X(hit.row), param.SectorParam[hit.sector].Alpha)) {
           break;
         }
       }
@@ -115,9 +115,9 @@ GPUdii() void GPUTPCCompressionKernels::Thread<GPUTPCCompressionKernels::step0at
         }
         c.rowDiffA[cidx] = row;
         c.sliceLegDiffA[cidx] = (hit.leg == lastLeg ? 0 : compressor.NSECTORS) + sector;
-        float pad = CAMath::Max(0.f, CAMath::Min((float)param.tpcGeometry.NPads(GPUCA_ROW_COUNT - 1), track.LinearY2Pad(hit.sector, track.Y(), param.tpcGeometry.PadWidth(hit.row), param.tpcGeometry.NPads(hit.row))));
+        float pad = CAMath::Max(0.f, CAMath::Min((float)geo.NPads(GPUCA_ROW_COUNT - 1), track.LinearY2Pad(hit.sector, track.Y(), geo.PadWidth(hit.row), geo.NPads(hit.row))));
         c.padResA[cidx] = orgCl.padPacked - orgCl.packPad(pad);
-        float time = CAMath::Max(0.f, param.tpcGeometry.LinearZ2Time(hit.sector, track.Z() + zOffset));
+        float time = CAMath::Max(0.f, geo.LinearZ2Time(hit.sector, track.Z() + zOffset));
         c.timeResA[cidx] = (orgCl.getTimePacked() - orgCl.packTime(time)) & 0xFFFFFF;
         lastLeg = hit.leg;
       }

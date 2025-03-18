@@ -28,7 +28,7 @@
 #include "GPUCommonRtypes.h"
 #include "GPUCommonLogger.h"
 
-//#define GPUCA_GPUCODE // uncomment to test "GPU" mode
+// #define GPUCA_GPUCODE // uncomment to test "GPU" mode
 
 namespace o2
 {
@@ -319,10 +319,10 @@ class FlatObject
     InProgress = 0x2      ///< construction started: temporary  memory is reserved
   };
 
-  int32_t mFlatBufferSize = 0;                                        ///< size of the flat buffer
-  uint32_t mConstructionMask = ConstructionState::NotConstructed;     ///< mask for constructed object members, first two bytes are used by this class
-  char* mFlatBufferContainer = nullptr;                               //[mFlatBufferSize]  Optional container for the flat buffer
-  char* mFlatBufferPtr = nullptr;                                     //!  Pointer to the flat buffer
+  int32_t mFlatBufferSize = 0;                                    ///< size of the flat buffer
+  uint32_t mConstructionMask = ConstructionState::NotConstructed; ///< mask for constructed object members, first two bytes are used by this class
+  char* mFlatBufferContainer = nullptr;                           //[mFlatBufferSize]  Optional container for the flat buffer
+  char* mFlatBufferPtr = nullptr;                                 //!  Pointer to the flat buffer
 
   ClassDefNV(FlatObject, 1);
 };
@@ -569,7 +569,7 @@ inline void FlatObject::setFutureBufferAddress(char* futureFlatBufferPtr)
   mFlatBufferContainer = nullptr;
 }
 
-#endif //GPUCA_GPUCODE_DEVICE
+#endif // GPUCA_GPUCODE_DEVICE
 
 } // namespace gpu
 } // namespace o2

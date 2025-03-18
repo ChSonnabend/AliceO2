@@ -211,13 +211,13 @@ class Spline1DContainer : public FlatObject
 
   /// _____________  Data members  ____________
 
-  int32_t mYdim = 0;            ///< dimentionality of F
-  int32_t mNumberOfKnots = 0;   ///< n knots on the grid
-  int32_t mUmax = 0;            ///< U of the last knot
-  DataT mXmin = 0;              ///< X of the first knot
-  DataT mXtoUscale = 0;         ///< a scaling factor to convert X to U
+  int32_t mYdim = 0;              ///< dimentionality of F
+  int32_t mNumberOfKnots = 0;     ///< n knots on the grid
+  int32_t mUmax = 0;              ///< U of the last knot
+  DataT mXmin = 0;                ///< X of the first knot
+  DataT mXtoUscale = 0;           ///< a scaling factor to convert X to U
   int32_t* mUtoKnotMap = nullptr; //! (transient!!) pointer to (integer U -> knot index) map inside the mFlatBufferPtr array
-  DataT* mParameters = nullptr; //! (transient!!) pointer to F-dependent parameters inside the mFlatBufferPtr array
+  DataT* mParameters = nullptr;   //! (transient!!) pointer to F-dependent parameters inside the mFlatBufferPtr array
 
   ClassDefNV(Spline1DContainer, 1);
 };

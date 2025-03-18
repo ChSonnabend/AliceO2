@@ -106,9 +106,9 @@ class SplineHelper
   /// Stores an error message
   int32_t storeError(Int_t code, const char* msg);
 
-  TString mError = "";     ///< error string
-  int32_t mXdimensions;    ///< number of X dimensions
-  int32_t mFdimensions;    ///< number of F dimensions
+  TString mError = "";         ///< error string
+  int32_t mXdimensions;        ///< number of X dimensions
+  int32_t mFdimensions;        ///< number of F dimensions
   int32_t mNumberOfParameters; ///< number of parameters
   int32_t mNumberOfDataPoints; ///< number of data points
   std::vector<Spline1DHelperOld<DataT>> mHelpers;

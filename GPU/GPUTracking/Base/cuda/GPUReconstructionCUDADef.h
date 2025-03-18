@@ -34,6 +34,5 @@
 #define GPUCA_CONSMEM_CALL me->mDeviceConstantMem,
 #define GPUCA_CONSMEM ((GPUConstantMem&)(*gGPUConstantMemBuffer))
 #endif
-#define GPUCA_KRNL_BACKEND_CLASS GPUReconstructionCUDABackend
 
 #endif

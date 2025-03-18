@@ -15,8 +15,6 @@
 #ifndef O2_GPU_RECONSTRUCTIONHIPINCLUDES_H
 #define O2_GPU_RECONSTRUCTIONHIPINCLUDES_H
 
-#define __HIP_ENABLE_DEVICE_MALLOC__ 1 // Fix SWDEV-239120
-
 #include <hip/hip_runtime.h>
 #include <hip/hip_ext.h>
 #include <hipcub/hipcub.hpp>

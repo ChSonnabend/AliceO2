@@ -31,7 +31,7 @@ class genEvents
   int32_t GenerateEvent(const GPUParam& sectorParam, char* filename) { return 1; }
   void FinishEventGenerator() {}
 
-  static void RunEventGenerator(GPUChainTracking* rec){};
+  static void RunEventGenerator(GPUChainTracking* rec) {};
 };
 
 #else

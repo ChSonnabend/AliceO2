@@ -73,9 +73,9 @@ struct GPUSettingsTF {
 
 // Settings defining the setup of the GPUReconstruction processing (basically selecting the device / class instance)
 struct GPUSettingsDeviceBackend {
-  uint32_t deviceType = GPUDataTypes::DeviceType::CPU;     // Device type, shall use GPUDataTypes::DEVICE_TYPE constants, e.g. CPU / CUDA
-  uint8_t forceDeviceType = 1;                             // Fail if device initialization fails, otherwise falls back to CPU
-  GPUReconstruction* master = nullptr;                     // GPUReconstruction master object
+  uint32_t deviceType = GPUDataTypes::DeviceType::CPU; // Device type, shall use GPUDataTypes::DEVICE_TYPE constants, e.g. CPU / CUDA
+  uint8_t forceDeviceType = 1;                         // Fail if device initialization fails, otherwise falls back to CPU
+  GPUReconstruction* master = nullptr;                 // GPUReconstruction master object
 };
 
 } // namespace o2::gpu

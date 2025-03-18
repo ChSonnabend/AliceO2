@@ -299,7 +299,7 @@ class SplineSpec<DataT, XdimT, YdimT, 0> : public SplineContainer<DataT>
 
     DataT iParameters[(1 << (2 * maxXdim)) * maxYdim]; // Array for all parameters
 
-    //get the indices of the "most left" Knot:
+    // get the indices of the "most left" Knot:
 
     int32_t indices[maxXdim]; // indices of the 'most left' knot
     for (int32_t i = 0; i < nXdim; i++) {
@@ -309,7 +309,7 @@ class SplineSpec<DataT, XdimT, YdimT, 0> : public SplineContainer<DataT>
     int32_t indicestmp[maxXdim];
     for (int32_t i = 0; i < nKnotParametersPerY; i++) { // for every necessary Knot
       for (int32_t k = 0; k < nXdim; k++) {
-        indicestmp[k] = indices[k] + (i / (1 << k)) % 2; //get the knot-indices in every dimension (mirrored order binary counting)
+        indicestmp[k] = indices[k] + (i / (1 << k)) % 2; // get the knot-indices in every dimension (mirrored order binary counting)
       }
       int32_t index = TBase::getKnotIndex(indicestmp); // get index of the current Knot
 
@@ -317,7 +317,7 @@ class SplineSpec<DataT, XdimT, YdimT, 0> : public SplineContainer<DataT>
         iParameters[i * nKnotParameters + j] = Parameters[index * nKnotParameters + j];
       }
     }
-    //now start with the interpolation loop:
+    // now start with the interpolation loop:
 
     constexpr auto maxInterpolations = (1 << (2 * maxXdim - 2)) * maxYdim;
 
@@ -329,10 +329,10 @@ class SplineSpec<DataT, XdimT, YdimT, 0> : public SplineContainer<DataT>
     int32_t nInterpolations = (1 << (2 * nXdim - 2)) * nYdim;
     int32_t nKnots = 1 << (nXdim);
 
-    for (int32_t d = 0; d < nXdim; d++) {        // for every dimension
-      DataT* pointer[4] = {S0, D0, S1, D1};      // pointers for interpolation arrays S0, D0, S1, D1 point to Arraystart
-      for (int32_t i = 0; i < nKnots; i++) {     // for every knot
-        for (int32_t j = 0; j < nKnots; j++) {   // for every parametertype
+    for (int32_t d = 0; d < nXdim; d++) {            // for every dimension
+      DataT* pointer[4] = {S0, D0, S1, D1};          // pointers for interpolation arrays S0, D0, S1, D1 point to Arraystart
+      for (int32_t i = 0; i < nKnots; i++) {         // for every knot
+        for (int32_t j = 0; j < nKnots; j++) {       // for every parametertype
           int32_t pointernr = 2 * (i % 2) + (j % 2); // to which array should it be delivered
           for (int32_t k = 0; k < nYdim; k++) {
             pointer[pointernr][0] = iParameters[(i * nKnots + j) * nYdim + k];

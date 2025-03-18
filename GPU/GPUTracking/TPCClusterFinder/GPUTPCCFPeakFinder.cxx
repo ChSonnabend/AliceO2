@@ -42,7 +42,7 @@ GPUdii() bool GPUTPCCFPeakFinder::isPeak(
 {
   uint16_t ll = get_local_id(0);
 
-  bool belowThreshold = (q <= calib.tpc.cfQMaxCutoff);
+  bool belowThreshold = (uint32_t)q <= calib.tpc.cfQMaxCutoff;
 
   uint16_t lookForPeaks;
   uint16_t partId = CfUtils::partition<SCRATCH_PAD_WORK_GROUP_SIZE>(

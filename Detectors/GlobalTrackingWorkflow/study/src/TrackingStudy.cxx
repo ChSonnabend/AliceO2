@@ -47,6 +47,7 @@
 #include "GPUO2Interface.h" // Needed for propper settings in GPUParam.h
 #include "GPUParam.h"
 #include "GPUParam.inc"
+#include "GPUTPCGeometry.h"
 #include "Steer/MCKinematicsReader.h"
 #include "MathUtils/fit.h"
 #include <TF1.h>
@@ -301,7 +302,7 @@ void TrackingStudySpec::process(o2::globaltracking::RecoContainer& recoData)
       trExt.rowMinTPC = clRow;
       const auto& clus = tpcClusAcc.clusters[clSect][clRow][clIdx];
       trExt.padFromEdge = uint8_t(clus.getPad());
-      int npads = mTPCRefitter->getParam()->tpcGeometry.NPads(clRow);
+      int npads = o2::gpu::GPUTPCGeometry::NPads(clRow);
       if (trExt.padFromEdge > npads / 2) {
         trExt.padFromEdge = npads - 1 - trExt.padFromEdge;
       }

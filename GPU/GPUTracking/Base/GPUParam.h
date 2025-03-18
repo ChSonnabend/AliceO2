@@ -19,7 +19,6 @@
 #include "GPUCommonMath.h"
 #include "GPUDef.h"
 #include "GPUSettings.h"
-#include "GPUTPCGeometry.h"
 #include "GPUTPCGMPolynomialField.h"
 
 #if !defined(GPUCA_GPUCODE)
@@ -59,10 +58,9 @@ struct GPUParam_t {
   int32_t continuousMaxTimeBin;
   int32_t tpcCutTimeBin;
 
-  GPUTPCGeometry tpcGeometry;                       // TPC Geometry
-  GPUTPCGMPolynomialField polynomialField;          // Polynomial approx. of magnetic field for TPC GM
-  const uint32_t* occupancyMap;                     // Ptr to TPC occupancy map
-  uint32_t occupancyTotal;                          // Total occupancy in the TPC (nCl / nHbf)
+  GPUTPCGMPolynomialField polynomialField; // Polynomial approx. of magnetic field for TPC GM
+  const uint32_t* occupancyMap;            // Ptr to TPC occupancy map
+  uint32_t occupancyTotal;                 // Total occupancy in the TPC (nCl / nHbf)
 
   GPUParamSector SectorParam[GPUCA_NSECTORS];
 

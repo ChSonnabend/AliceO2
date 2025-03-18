@@ -333,7 +333,7 @@ T* CCDBManagerInstance::getSpecificForRun(std::string const& path, int runNumber
   auto [start, stop] = getRunDuration(runNumber);
   if (start < 0 || stop < 0) {
     if (mFatalWhenNull) {
-      reportFatal(std::string("Failed to get run duration for run ") + std::to_string(runNumber));
+      reportFatal(std::string("Failed to get run duration for run ") + std::to_string(runNumber) + std::string(" from CCDB"));
     }
     return nullptr;
   }

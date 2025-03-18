@@ -110,7 +110,7 @@ void SemiregularSpline2D3D::construct(const int32_t numberOfRowsInput, const int
 
   FlatObject::startConstruction();
 
-  //construct regular grid for v
+  // construct regular grid for v
   mGridV.construct(numberOfRows);
 
   // For each x element numbersOfKnots may be a single RegularSpline1D with x knots.
@@ -128,7 +128,7 @@ void SemiregularSpline2D3D::construct(const int32_t numberOfRowsInput, const int
   // this is the space which is taken just by the RegularSpline1D's
   mDataIndexMapOffset = numberOfRows * sizeof(RegularSpline1D);
 
-  //The buffer size is the size of the array
+  // The buffer size is the size of the array
   FlatObject::finishConstruction(mDataIndexMapOffset + numberOfRows * sizeof(int32_t));
 
   // Array for the 1D-Splines inside the buffer
@@ -146,7 +146,7 @@ void SemiregularSpline2D3D::construct(const int32_t numberOfRowsInput, const int
     numberOfKnots += knotsU;
   }
 
-  //save the numberOfRows and numberOfKnots
+  // save the numberOfRows and numberOfKnots
   mNumberOfRows = numberOfRows;
   mNumberOfKnots = numberOfKnots;
 
@@ -156,7 +156,7 @@ void SemiregularSpline2D3D::construct(const int32_t numberOfRowsInput, const int
   // this will count the amount of u-knots "under" a v-coordinate
   int32_t uSum = 0;
 
-  //count the amount of knots which are in gridU's lower than i
+  // count the amount of knots which are in gridU's lower than i
   for (int32_t dv = 0; dv < mNumberOfRows; dv++) {
     dataIndexMap[dv] = uSum;
     uSum += numbersOfKnots[dv];

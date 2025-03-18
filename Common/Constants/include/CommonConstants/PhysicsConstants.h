@@ -52,6 +52,7 @@ enum Pdg {
   kDS1 = 10433,
   kDS2Star = 435,
   kDStar = 413,
+  kDStar0 = 423,
   kChiC1 = 20443,
   kJPsi = 443,
   kLambdaB0 = 5122,
@@ -101,6 +102,7 @@ constexpr double MassDSStar = 2.1122;
 constexpr double MassDS1 = 2.53511;
 constexpr double MassDS2Star = 2.5691;
 constexpr double MassDStar = 2.01026;
+constexpr double MassDStar0 = 2.00685;
 constexpr double MassChiC1 = 3.51067;
 constexpr double MassJPsi = 3.0969;
 constexpr double MassLambdaB0 = 5.6196;

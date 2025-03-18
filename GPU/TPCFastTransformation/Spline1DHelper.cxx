@@ -606,7 +606,7 @@ int32_t Spline1DHelper<DataT>::test(const bool draw, const bool drawDataPoints)
     Spline1D<DataT, Ndim> spline2(spline1);
     spline1.approximateFunction(0., TMath::Pi(), F, nAuxiliaryPoints);
 
-    //if (itry == 0)
+    // if (itry == 0)
     {
       TFile outf("testSpline1D.root", "recreate");
       if (outf.IsZombie()) {
@@ -731,9 +731,9 @@ int32_t Spline1DHelper<DataT>::test(const bool draw, const bool drawDataPoints)
       }
     } // draw
   }
-  //delete canv;
-  //delete nt;
-  //delete knots;
+  // delete canv;
+  // delete nt;
+  // delete knots;
 
   statDf1 = sqrt(statDf1 / statN);
   statDf2 = sqrt(statDf2 / statN);

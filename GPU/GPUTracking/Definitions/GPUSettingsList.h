@@ -128,6 +128,7 @@ AddOptionRTC(cfInnerThreshold, uint8_t, 0, "", 0, "Cluster Finder extends cluste
 AddOptionRTC(cfMinSplitNum, uint8_t, 1, "", 0, "Minimum number of split charges in a cluster for the cluster to be marked as split")
 AddOptionRTC(cfNoiseSuppressionEpsilon, uint8_t, 10, "", 0, "Cluster Finder: Difference between peak and charge for the charge to count as a minima during noise suppression")
 AddOptionRTC(cfNoiseSuppressionEpsilonRelative, uint8_t, 76, "", 0, "Cluster Finder: Difference between peak and charge for the charge to count as a minima during noise suppression, relative as fraction of 255")
+AddOptionRTC(cfEdgeTwoPads, uint8_t, 1, "", 0, "Flag clusters with peak on the 2 pads closes to the sector edge as edge cluster")
 AddOptionRTC(nWays, uint8_t, 3, "", 0, "Do N fit passes in final fit of merger")
 AddOptionRTC(nWaysOuter, int8_t, 0, "", 0, "Store outer param")
 AddOptionRTC(trackFitRejectMode, int8_t, 5, "", 0, "0: no limit on rejection or missed hits, >0: break after n rejected hits, <0: reject at max -n hits")
@@ -328,6 +329,7 @@ AddOption(oclPlatformNum, int32_t, -1, "", 0, "Platform to use, in case the back
 AddOption(oclCompileFromSources, bool, false, "", 0, "Compile OpenCL binary from included source code instead of using included spirv code")
 AddOption(oclOverrideSourceBuildFlags, std::string, "", "", 0, "Override OCL build flags for compilation from source, put a space for empty options")
 AddOption(printSettings, bool, false, "", 0, "Print all settings when initializing")
+AddOption(tpcFreeAllocatedMemoryAfterProcessing, bool, false, "", 0, "Clean all memory allocated by TPC when TPC processing done, only data written to external output resources will remain")
 AddVariable(eventDisplay, o2::gpu::GPUDisplayFrontendInterface*, nullptr)
 AddSubConfig(GPUSettingsProcessingRTC, rtc)
 AddSubConfig(GPUSettingsProcessingParam, param)
@@ -608,7 +610,7 @@ EndConfig()
 
 // Derrived parameters used in GPUParam
 BeginHiddenConfig(GPUSettingsParam, param)
-AddVariableRTC(dAlpha, float, 0.f)                 // angular size
+AddVariableRTC(dAlpha, float, 0.f)            // angular size
 AddVariableRTC(assumeConstantBz, int8_t, 0)   // Assume a constant magnetic field
 AddVariableRTC(toyMCEventsFlag, int8_t, 0)    // events were build with home-made event generator
 AddVariableRTC(continuousTracking, int8_t, 0) // Continuous tracking, estimate bz and errors for abs(z) = 125cm during seeding

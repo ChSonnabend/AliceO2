@@ -34,11 +34,13 @@ o2_target_root_dictionary(Steer
                                   include/Steer/MCKinematicsReader.h
                                   include/Steer/MaterialBudgetMap.h)
 o2_add_test(InteractionSampler
+            COMPONENT_NAME steer
             PUBLIC_LINK_LIBRARIES O2::SimulationDataFormat
             SOURCES test/testInteractionSampler.cxx
             LABELS steer)
 
 o2_add_test(HitProcessingManager
+            COMPONENT_NAME steer
             PUBLIC_LINK_LIBRARIES O2::Steer
             SOURCES test/testHitProcessingManager.cxx
             LABELS steer)

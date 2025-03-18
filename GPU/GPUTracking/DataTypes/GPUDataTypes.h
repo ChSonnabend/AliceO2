@@ -96,9 +96,6 @@ struct TPCPadGainCalib;
 struct TPCZSLinkMapping;
 
 #include "utils/bitfield.h"
-#define ENUM_CLASS class
-#define ENUM_UINT : uint32_t
-#define GPUCA_RECO_STEP GPUDataTypes::RecoStep
 
 class GPUTPCTrack;
 class GPUTPCHitId;
@@ -117,36 +114,33 @@ struct GPUSettingsTF;
 class GPUDataTypes
 {
  public:
-  enum ENUM_CLASS GeometryType ENUM_UINT{RESERVED_GEOMETRY = 0, ALIROOT = 1, O2 = 2};
-  enum DeviceType ENUM_UINT { INVALID_DEVICE = 0,
-                              CPU = 1,
-                              CUDA = 2,
-                              HIP = 3,
-                              OCL = 4 };
-  enum ENUM_CLASS GeneralStep { Prepare = 1,
-                                QA = 2 };
+  // clang-format off
+  enum class GeometryType : uint32_t { RESERVED_GEOMETRY = 0, ALIROOT = 1, O2 = 2 };
+  enum DeviceType : uint32_t { INVALID_DEVICE = 0, CPU = 1, CUDA = 2, HIP = 3, OCL = 4 };
+  enum class GeneralStep { Prepare = 1, QA = 2 };
+  // clang-format on
 
-  enum ENUM_CLASS RecoStep { TPCConversion = 1,
-                             TPCSectorTracking = 2,
-                             TPCMerging = 4,
-                             TPCCompression = 8,
-                             TRDTracking = 16,
-                             ITSTracking = 32,
-                             TPCdEdx = 64,
-                             TPCClusterFinding = 128,
-                             TPCDecompression = 256,
-                             Refit = 512,
-                             AllRecoSteps = 0x7FFFFFFF,
-                             NoRecoStep = 0 };
-  enum ENUM_CLASS InOutType { TPCClusters = 1,
-                              OBSOLETE = 2,
-                              TPCMergedTracks = 4,
-                              TPCCompressedClusters = 8,
-                              TRDTracklets = 16,
-                              TRDTracks = 32,
-                              TPCRaw = 64,
-                              ITSClusters = 128,
-                              ITSTracks = 256 };
+  enum class RecoStep { TPCConversion = 1,
+                        TPCSectorTracking = 2,
+                        TPCMerging = 4,
+                        TPCCompression = 8,
+                        TRDTracking = 16,
+                        ITSTracking = 32,
+                        TPCdEdx = 64,
+                        TPCClusterFinding = 128,
+                        TPCDecompression = 256,
+                        Refit = 512,
+                        AllRecoSteps = 0x7FFFFFFF,
+                        NoRecoStep = 0 };
+  enum class InOutType { TPCClusters = 1,
+                         OBSOLETE = 2,
+                         TPCMergedTracks = 4,
+                         TPCCompressedClusters = 8,
+                         TRDTracklets = 16,
+                         TRDTracks = 32,
+                         TPCRaw = 64,
+                         ITSClusters = 128,
+                         ITSTracks = 256 };
 #ifndef __OPENCL__
   static constexpr const char* const DEVICE_TYPE_NAMES[] = {"INVALID", "CPU", "CUDA", "HIP", "OCL"};
   static constexpr const char* const RECO_STEP_NAMES[] = {"TPC Transformation", "TPC Sector Tracking", "TPC Track Merging and Fit", "TPC Compression", "TRD Tracking", "ITS Tracking", "TPC dEdx Computation", "TPC Cluster Finding", "TPC Decompression", "Global Refit"};
@@ -312,8 +306,6 @@ struct GPUTrackingInOutPointers {
   const GPUSettingsTF* settingsTF = nullptr;
 };
 
-#undef ENUM_CLASS
-#undef ENUM_UINT
 } // namespace o2::gpu
 
 #endif

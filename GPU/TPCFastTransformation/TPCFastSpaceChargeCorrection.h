@@ -43,7 +43,7 @@ class TPCFastSpaceChargeCorrection : public FlatObject
   /// \brief The struct contains necessary info for TPC padrow
   ///
   struct RowInfo {
-    int32_t splineScenarioID{0}; ///< scenario index (which of Spline2D splines to use)
+    int32_t splineScenarioID{0};  ///< scenario index (which of Spline2D splines to use)
     size_t dataOffsetBytes[3]{0}; ///< offset for the spline data withing a TPC slice
     ClassDefNV(RowInfo, 1);
   };

@@ -45,7 +45,7 @@ class propagatorInterface<o2::base::Propagator>
 {
  public:
   typedef o2::base::Propagator propagatorParam;
-  GPUd() propagatorInterface(const propagatorParam* prop) : mProp(prop){};
+  GPUd() propagatorInterface(const propagatorParam* prop) : mProp(prop) {};
   GPUd() propagatorInterface(const propagatorInterface<o2::base::Propagator>&) = delete;
   GPUd() propagatorInterface& operator=(const propagatorInterface<o2::base::Propagator>&) = delete;
 
@@ -200,7 +200,7 @@ class propagatorInterface<GPUTPCGMPropagator> : public GPUTPCGMPropagator
   }
   GPUd() bool propagateToX(float x, float maxSnp, float maxStep)
   {
-    //bool ok = PropagateToXAlpha(x, GetAlpha(), true) == 0 ? true : false;
+    // bool ok = PropagateToXAlpha(x, GetAlpha(), true) == 0 ? true : false;
     int32_t retVal = PropagateToXAlpha(x, GetAlpha(), true);
     bool ok = (retVal == 0) ? true : false;
     ok = mTrack->CheckNumericalQuality();

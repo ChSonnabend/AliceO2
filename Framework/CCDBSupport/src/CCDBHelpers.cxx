@@ -219,7 +219,7 @@ auto populateCacheWith(std::shared_ptr<CCDBFetcherHelper> const& helper,
         } else if (meta.defaultValue.get<int>() == 2) {
           timestampToUse = std::stoi(dtc.runNumber);
         } else {
-          LOGP(fatal, "Undefined run-dependent option {} for spec {}/{}/{}", meta.defaultValue.get<int>(), concrete.origin.as<std::string>(), concrete.description.as<std::string>(), int(concrete.subSpec));
+          LOGP(fatal, "Undefined ccdb-run-dependent option {} for spec {}/{}/{}", meta.defaultValue.get<int>(), concrete.origin.as<std::string>(), concrete.description.as<std::string>(), int(concrete.subSpec));
         }
       } else if (isPrefix(ccdbMetadataPrefix, meta.name)) {
         std::string key = meta.name.substr(ccdbMetadataPrefix.size());
@@ -252,7 +252,7 @@ auto populateCacheWith(std::shared_ptr<CCDBFetcherHelper> const& helper,
       LOGP(detail, "Loading {} for timestamp {}", path, timestampToUse);
       api.loadFileToMemory(v, path, metadata, timestampToUse, &headers, etag, helper->createdNotAfter, helper->createdNotBefore);
       if ((headers.count("Error") != 0) || (etag.empty() && v.empty())) {
-        LOGP(fatal, "Unable to find object {}/{}", path, timestampToUse);
+        LOGP(fatal, "Unable to find CCDB object {}/{}", path, timestampToUse);
         // FIXME: I should send a dummy message.
         continue;
       }
@@ -394,7 +394,7 @@ AlgorithmSpec CCDBHelpers::fetchFromCCDB()
             helper->lastCheckedTFCounterOrbReset = timingInfo.tfCounter;
             api.loadFileToMemory(v, path, metadata, timingInfo.creation, &headers, etag, helper->createdNotAfter, helper->createdNotBefore);
             if ((headers.count("Error") != 0) || (etag.empty() && v.empty())) {
-              LOGP(fatal, "Unable to find object {}/{}", path, timingInfo.creation);
+              LOGP(fatal, "Unable to find CCDB object {}/{}", path, timingInfo.creation);
               // FIXME: I should send a dummy message.
               return;
             }

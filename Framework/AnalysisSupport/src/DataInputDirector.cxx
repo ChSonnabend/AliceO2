@@ -387,18 +387,53 @@ int DataInputDescriptor::findDFNumber(int file, std::string dfName)
   return it - dfList.begin();
 }
 
+struct CalculateDelta {
+  CalculateDelta(uint64_t& target)
+    : mTarget(target)
+  {
+    start = uv_hrtime();
+  }
+  ~CalculateDelta()
+  {
+    if (!active) {
+      return;
+    }
+    O2_SIGNPOST_ACTION(reader_memory_dump, [](void*) {
+      void (*dump_)(const char*);
+      if (void* sym = dlsym(nullptr, "igprof_dump_now")) {
+        dump_ = __extension__(void (*)(const char*)) sym;
+        if (dump_) {
+          std::string filename = fmt::format("reader-memory-dump-{}.gz", uv_hrtime());
+          dump_(filename.c_str());
+        }
+      }
+    });
+    mTarget += (uv_hrtime() - start);
+  }
+
+  void deactivate() {
+    active = false;
+  }
+
+  bool active = true;
+  uint64_t& mTarget;
+  uint64_t start;
+  uint64_t stop;
+};
+
 bool DataInputDescriptor::readTree(DataAllocator& outputs, header::DataHeader dh, int counter, int numTF, std::string treename, size_t& totalSizeCompressed, size_t& totalSizeUncompressed)
 {
-  auto ioStart = uv_hrtime();
-
+  CalculateDelta t(mIOTime);
   auto folder = getFileFolder(counter, numTF);
   if (!folder.filesystem()) {
+    t.deactivate();
     return false;
   }
 
   auto rootFS = std::dynamic_pointer_cast<TFileFileSystem>(folder.filesystem());
 
   if (!rootFS) {
+    t.deactivate();
     throw std::runtime_error(fmt::format(R"(Not a TFile filesystem!)"));
   }
   // FIXME: Ugly. We should detect the format from the treename, good enough for now.
@@ -420,6 +455,7 @@ bool DataInputDescriptor::readTree(DataAllocator& outputs, header::DataHeader dh
   // FIXME: we should distinguish between an actually missing object and one which has a non compatible
   // format.
   if (!format) {
+    t.deactivate();
     LOGP(debug, "Could not find tree {}. Trying in parent file.", fullpath.path());
     auto parentFile = getParentFile(counter, numTF, treename);
     if (parentFile != nullptr) {
@@ -459,19 +495,6 @@ bool DataInputDescriptor::readTree(DataAllocator& outputs, header::DataHeader dh
   //// fill the table
   f2b->setLabel(treename.c_str());
   f2b->fill(datasetSchema, format);
-
-  mIOTime += (uv_hrtime() - ioStart);
-
-  O2_SIGNPOST_ACTION(reader_memory_dump, [](void*) {
-    void (*dump_)(const char*);
-    if (void* sym = dlsym(nullptr, "igprof_dump_now")) {
-      dump_ = __extension__(void (*)(const char*)) sym;
-      if (dump_) {
-        std::string filename = fmt::format("reader-memory-dump-{}.gz", uv_hrtime());
-        dump_(filename.c_str());
-      }
-    }
-  });
 
   return true;
 }
@@ -820,7 +843,8 @@ bool DataInputDirector::readTree(DataAllocator& outputs, header::DataHeader dh, 
     treename = aod::datamodel::getTreeName(dh);
   }
 
-  return didesc->readTree(outputs, dh, counter, numTF, treename, totalSizeCompressed, totalSizeUncompressed);
+  auto result = didesc->readTree(outputs, dh, counter, numTF, treename, totalSizeCompressed, totalSizeUncompressed);
+  return result;
 }
 
 void DataInputDirector::closeInputFiles()

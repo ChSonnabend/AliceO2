@@ -666,9 +666,9 @@ void GPUbenchmark<chunk_t>::runTest(Test test, Mode mode, KernelConfig config)
   }
   nThreads *= mOptions.threadPoolFraction;
 
-  void (*kernel)(chunk_t*, size_t) = &gpu::read_k<chunk_t>;                                   // Initialising to a default value
-  void (*kernel_distributed)(chunk_t**, size_t*) = &gpu::read_dist_k<chunk_t>;                // Initialising to a default value
-  void (*kernel_rand)(chunk_t*, size_t, int32_t) = &gpu::rand_read_k<chunk_t>;                // Initialising to a default value
+  void (*kernel)(chunk_t*, size_t) = &gpu::read_k<chunk_t>;                                       // Initialising to a default value
+  void (*kernel_distributed)(chunk_t**, size_t*) = &gpu::read_dist_k<chunk_t>;                    // Initialising to a default value
+  void (*kernel_rand)(chunk_t*, size_t, int32_t) = &gpu::rand_read_k<chunk_t>;                    // Initialising to a default value
   void (*kernel_rand_distributed)(chunk_t**, size_t*, int32_t) = &gpu::rand_read_dist_k<chunk_t>; // Initialising to a default value
 
   bool is_random{false};

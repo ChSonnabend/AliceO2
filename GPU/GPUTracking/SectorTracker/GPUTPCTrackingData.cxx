@@ -19,6 +19,7 @@
 #include "GPUProcessor.h"
 #include "GPUO2DataTypes.h"
 #include "GPUTPCConvertImpl.h"
+#include "GPUTPCGeometry.h"
 #include "GPUCommonMath.h"
 
 #ifndef GPUCA_GPUCODE_DEVICE
@@ -39,7 +40,7 @@ void GPUTPCTrackingData::InitializeRows(const GPUParam& p)
     new (&mRows[i]) GPUTPCRow;
   }
   for (int32_t i = 0; i < GPUCA_ROW_COUNT; i++) {
-    mRows[i].mX = p.tpcGeometry.Row2X(i);
+    mRows[i].mX = GPUTPCGeometry::Row2X(i);
     mRows[i].mMaxY = CAMath::Tan(p.par.dAlpha / 2.f) * mRows[i].mX;
   }
 }
@@ -101,7 +102,7 @@ void* GPUTPCTrackingData::SetPointersRows(void* mem)
 GPUd() void GPUTPCTrackingData::GetMaxNBins(GPUconstantref() const GPUConstantMem* mem, GPUTPCRow* GPUrestrict() row, int32_t& maxY, int32_t& maxZ)
 {
   maxY = row->mMaxY * 2.f / GPUCA_MIN_BIN_SIZE + 1;
-  maxZ = (mem->param.continuousMaxTimeBin > 0 ? (mem->calibObjects.fastTransformHelper->getCorrMap()->convTimeToZinTimeFrame(0, 0, mem->param.continuousMaxTimeBin)) : mem->param.tpcGeometry.TPCLength()) + 50;
+  maxZ = (mem->param.continuousMaxTimeBin > 0 ? (mem->calibObjects.fastTransformHelper->getCorrMap()->convTimeToZinTimeFrame(0, 0, mem->param.continuousMaxTimeBin)) : GPUTPCGeometry::TPCLength()) + 50;
   maxZ = maxZ / GPUCA_MIN_BIN_SIZE + 1;
 }
 

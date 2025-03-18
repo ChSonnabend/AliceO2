@@ -44,6 +44,10 @@
 // for ITS3
 #include "ITS3DigitizerSpec.h"
 #include "ITS3Workflow/DigitWriterSpec.h"
+
+// for alice 3 TRK
+#include "TRKDigitizerSpec.h"
+#include "TRKWorkflow/DigitWriterSpec.h"
 #endif
 
 // for TOF
@@ -631,6 +635,15 @@ WorkflowSpec defineDataProcessing(ConfigContext const& configcontext)
     specs.emplace_back(o2::its3::getITS3DigitizerSpec(fanoutsize++, mctruth));
     // // connect ITS digit writer
     specs.emplace_back(o2::its3::getITS3DigitWriterSpec(mctruth));
+  }
+
+  // the ALICE 3 TRK part
+  if (isEnabled(o2::detectors::DetID::TRK)) {
+    detList.emplace_back(o2::detectors::DetID::TRK);
+    // connect the ALICE 3 TRK digitization
+    specs.emplace_back(o2::trk::getTRKDigitizerSpec(fanoutsize++, mctruth));
+    // connect the ALICE 3 TRK digit writer
+    specs.emplace_back(o2::trk::getTRKDigitWriterSpec(mctruth));
   }
 #endif
 

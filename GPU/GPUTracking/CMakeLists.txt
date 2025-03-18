@@ -10,7 +10,6 @@
 # or submit itself to any jurisdiction.
 
 set(MODULE GPUTracking)
-cmake_minimum_required(VERSION 3.27 FATAL_ERROR)
 
 # set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} -O0") # to uncomment if needed, tired of typing this...
 # set(GPUCA_BUILD_DEBUG 1)

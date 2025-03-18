@@ -716,7 +716,7 @@ GPUd() int32_t GPUTPCGMPropagator::InterpolateReject(const GPUParam& GPUrestrict
       const float ImP1 = mP[1] + Ik11 * Iz1;
       const float ImC0 = mC[0] - Ik00 * mC[0];
       const float ImC2 = mC[2] - Ik11 * mC[2];
-      //printf("\t%21sInterpo ----- abde artaf%16s Y %8.3f, Z %8.3f (Errors %f <-- (%f, %f) %f <-- (%f, %f))\n", "", "", ImP0, ImP1, sqrtf(ImC0), sqrtf(mC[0]), sqrtf(inter->errorY), sqrtf(ImC2), sqrtf(mC[2]), sqrtf(inter->errorZ));
+      // printf("\t%21sInterpo ----- abde artaf%16s Y %8.3f, Z %8.3f (Errors %f <-- (%f, %f) %f <-- (%f, %f))\n", "", "", ImP0, ImP1, sqrtf(ImC0), sqrtf(mC[0]), sqrtf(inter->errorY), sqrtf(ImC2), sqrtf(mC[2]), sqrtf(inter->errorZ));
       const float Jz0 = posY - ImP0;
       const float Jz1 = posZ - ImP1;
       const float Jw0 = 1.f / (ImC0 + err2Y);

@@ -68,7 +68,7 @@
 // GPU Host wrappers for kernel
 #define GPUCA_KRNL_HOST(x_class, ...) \
   GPUCA_KRNLGPU(x_class, __VA_ARGS__) \
-  template <> class GPUCA_KRNL_BACKEND_CLASS::backendInternal<GPUCA_M_KRNL_TEMPLATE(x_class)> { \
+  template <> class GPUCA_M_CAT3(GPUReconstruction, GPUCA_GPUTYPE, Backend)::backendInternal<GPUCA_M_KRNL_TEMPLATE(x_class)> { \
    public: \
     template <typename T, typename... Args> \
     static inline void runKernelBackendMacro(const krnlSetupTime& _xyz, T* me, const Args&... args) \
@@ -80,7 +80,7 @@
   };
 
 #define GPUCA_KRNL_PROP(x_class, x_attributes) \
-  template <> gpu_reconstruction_kernels::krnlProperties GPUCA_KRNL_BACKEND_CLASS::getKernelPropertiesBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>() { \
+  template <> gpu_reconstruction_kernels::krnlProperties GPUCA_M_CAT3(GPUReconstruction, GPUCA_GPUTYPE, Backend)::getKernelPropertiesBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>() { \
     gpu_reconstruction_kernels::krnlProperties ret = gpu_reconstruction_kernels::krnlProperties{GPUCA_ATTRRES(_EXTRREG, GPUCA_M_STRIP(x_attributes))}; \
     return ret.nThreads > 0 ? ret : gpu_reconstruction_kernels::krnlProperties{(int32_t)mThreadCount}; \
   }
