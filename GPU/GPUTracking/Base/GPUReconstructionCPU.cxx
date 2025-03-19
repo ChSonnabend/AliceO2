@@ -112,7 +112,12 @@ inline void GPUReconstructionCPUBackend::runKernelBackendInternal<GPUMemClean16,
 template <class T, int32_t I, typename... Args>
 void GPUReconstructionCPUBackend::runKernelBackend(const krnlSetupArgs<T, I, Args...>& args)
 {
+#pragma GCC diagnostic push
+#if defined(__clang__)
+#pragma GCC diagnostic ignored "-Wunused-lambda-capture" // this is not alway captured below
+#endif
   std::apply([this, &args](auto&... vals) { runKernelBackendInternal<T, I, Args...>(args.s, vals...); }, args.v);
+#pragma GCC diagnostic push
 }
 
 template <class T, int32_t I>

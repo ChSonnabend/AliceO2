@@ -50,9 +50,6 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if(GPUCA_BUILD_DEBUG)
   set(CMAKE_CXX_FLAGS "-O0 -ggdb")
-  if (GPUCA_BUILD_DEBUG_SANITIZE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,undefined -fno-sanitize=vptr") #TODO: Check why this does not work with clang
-  endif()
   set(CMAKE_BUILD_TYPE DEBUG)
 else()
   set(CMAKE_CXX_FLAGS "-O3 -march=native -ggdb -minline-all-stringops -funroll-loops -fno-stack-protector")
@@ -67,7 +64,13 @@ else()
   set(CMAKE_BUILD_TYPE RELEASE)
   add_definitions(-DNDEBUG)
 endif()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error -Wall -Wextra -Wshadow -Wno-unused-function -Wno-unused-parameter -Wno-unused-local-typedefs -Wno-unknown-pragmas -Wno-write-strings")
+if (GPUCA_BUILD_DEBUG_SANITIZE)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,undefined -fno-sanitize=vptr")
+  if(CMAKE_CXX_COMPILER MATCHES "clang\\+\\+")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -shared-libasan")
+  endif()
+endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error -Wall -Wextra -Wshadow -Wno-unused-function -Wno-unused-parameter -Wno-unused-local-typedefs -Wno-unknown-pragmas -Wno-write-strings -Wno-vla-cxx-extension")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -rdynamic -Wl,--no-undefined")
 
 # Find mandatory packages
@@ -246,6 +249,13 @@ if(GPUCA_CONFIG_ROOT)
                              ROOT::Tree)
 endif()
 target_link_libraries(standalone_support PUBLIC Microsoft.GSL::GSL TPCFastTransformation)
+
+if (GPUCA_BUILD_DEBUG_SANITIZE AND CMAKE_CXX_COMPILER MATCHES "clang\\+\\+")
+  execute_process(COMMAND ${CMAKE_CXX_COMPILER} -print-file-name=libclang_rt.asan-x86_64.so OUTPUT_VARIABLE CLANG_ASAN_SO_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
+  get_filename_component(CLANG_ASAN_SO_PATH "${CLANG_ASAN_SO_PATH}" DIRECTORY)
+  get_filename_component(CLANG_ASAN_SO_PATH "${CLANG_ASAN_SO_PATH}" ABSOLUTE)
+  target_link_options(ca PRIVATE "-Wl,-rpath,${CLANG_ASAN_SO_PATH}")
+endif()
 
 # Installation
 install(TARGETS ca TPCFastTransformation standalone_support)

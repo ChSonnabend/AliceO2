@@ -161,6 +161,7 @@ class GPUDisplay : public GPUDisplayInterface
   {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-security"
+#pragma GCC diagnostic ignored "-Wformat-truncation"
     snprintf(mInfoText2, 1024, args...);
 #pragma GCC diagnostic pop
     GPUInfo("%s", mInfoText2);

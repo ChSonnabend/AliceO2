@@ -126,10 +126,9 @@ int CTPRunManager::loadRun(const std::string& cfg)
 }
 int CTPRunManager::setRunConfigBK(uint32_t runNumber, const std::string& cfg)
 {
-  std::cout << "Printing cfg:" << cfg << std::endl;
+  std::cout << "Printing run:" << runNumber << " cfg:" << cfg << std::endl;
   if (mBKClient) {
     try {
-      uint32_t runNumber = 1;
       mBKClient->run()->setRawCtpTriggerConfiguration(runNumber, cfg);
     } catch (std::runtime_error& error) {
       std::cerr << "An error occurred: " << error.what() << std::endl;

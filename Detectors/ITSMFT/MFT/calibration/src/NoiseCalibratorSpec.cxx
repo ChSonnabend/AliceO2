@@ -59,7 +59,7 @@ void NoiseCalibratorSpec::init(InitContext& ic)
   mPathDcs = ic.options().get<std::string>("path-DCS");
   mOutputType = ic.options().get<std::string>("send-to-server");
   mNoiseMapForDcs.clear();
-  api.init("http://alice-ccdb.cern.ch");
+  api.init(o2::base::NameConf::getCCDBServer());
 }
 
 void NoiseCalibratorSpec::run(ProcessingContext& pc)

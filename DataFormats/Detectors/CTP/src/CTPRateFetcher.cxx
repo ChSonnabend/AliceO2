@@ -46,7 +46,8 @@ double CTPRateFetcher::fetchNoPuCorr(o2::ccdb::BasicCCDBManager* ccdb, uint64_t 
         LOG(info) << "Trying different class";
         ret = fetchCTPratesClassesNoPuCorr(timeStamp, "CMTVX-NONE");
         if (ret < 0) {
-          LOG(fatal) << "None of the classes used for lumi found";
+          LOG(error) << "None of the classes used for lumi found";
+          return -1.;
         }
       }
       return ret;
@@ -245,17 +246,19 @@ void CTPRateFetcher::setupRun(int runNumber, o2::ccdb::BasicCCDBManager* ccdb, u
     return;
   }
   mRunNumber = runNumber;
-  LOG(info) << "Setting up CTP scalers for run " << mRunNumber;
+  LOG(info) << "Setting up CTP scalers for run " << mRunNumber << " and timestamp : " << timeStamp;
   auto ptrLHCIFdata = ccdb->getSpecific<parameters::GRPLHCIFData>("GLO/Config/GRPLHCIF", timeStamp);
   if (ptrLHCIFdata == nullptr) {
-    LOG(fatal) << "GRPLHCIFData not in database, timestamp:" << timeStamp;
+    LOG(error) << "GRPLHCIFData not in database, timestamp:" << timeStamp;
+    return;
   }
   mLHCIFdata = *ptrLHCIFdata;
   std::map<string, string> metadata;
   metadata["runNumber"] = std::to_string(mRunNumber);
   auto ptrConfig = ccdb->getSpecific<ctp::CTPConfiguration>("CTP/Config/Config", timeStamp, metadata);
   if (ptrConfig == nullptr) {
-    LOG(fatal) << "CTPRunConfig not in database, timestamp:" << timeStamp;
+    LOG(error) << "CTPRunConfig not in database, timestamp:" << timeStamp;
+    return;
   }
   mConfig = *ptrConfig;
   if (initScalers) {
@@ -264,7 +267,7 @@ void CTPRateFetcher::setupRun(int runNumber, o2::ccdb::BasicCCDBManager* ccdb, u
       mScalers = *ptrScalers;
       mScalers.convertRawToO2();
     } else {
-      LOG(fatal) << "CTPRunScalers not in database, timestamp:" << timeStamp;
+      LOG(error) << "CTPRunScalers not in database, timestamp:" << timeStamp;
     }
   }
 }

@@ -113,7 +113,11 @@ GPUdi() int nint(double x)
 template <>
 GPUdi() bool finite(double x)
 {
+#ifdef __FAST_MATH__
+  return false;
+#else
   return std::isfinite(x);
+#endif
 }
 template <>
 GPUdi() double log(double x)

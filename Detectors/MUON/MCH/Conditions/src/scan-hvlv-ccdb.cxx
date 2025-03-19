@@ -479,8 +479,7 @@ void fillDataPoints(const std::vector<DPVAL>& dps, std::map<uint64_t, double>& d
     auto previousTS = dps2.rbegin()->first;
     if (ts != previousTS || getValue(*itDP) != dps2.rbegin()->second) {
       if (ts <= previousTS) {
-        printf("error: wrong data point order (%llu <= %llu)\n", (ULL)ts, (ULL)previousTS);
-        exit(1);
+        printf("\e[0;31mwarning: wrong data point order (%llu <= %llu)\e[0m\n", (ULL)ts, (ULL)previousTS);
       }
       if (printWarning) {
         printf("%s%s missing the previous data point (dt = %s%llu ms)", color.c_str(), header.c_str(),
@@ -512,8 +511,9 @@ void fillDataPoints(const std::vector<DPVAL>& dps, std::map<uint64_t, double>& d
   for (++itDP; itDP < dps.end(); ++itDP) {
     ts = itDP->get_epoch_time();
     if (ts <= previousTS) {
-      printf("error: wrong data point order (%llu <= %llu)\n", (ULL)ts, (ULL)previousTS);
-      exit(1);
+      printf("\e[0;31mwarning: wrong data point order (%llu <= %llu)\e[0m\n", (ULL)ts, (ULL)previousTS);
+    } else {
+      previousTS = ts;
     }
     if (ts < tMin && (warningLevel > 1 || (warningLevel == 1 && ts + tolerance < tMin))) {
       printf("%s%s data point outside of file validity range (dt = -%llu ms)\e[0m\n",
@@ -523,7 +523,6 @@ void fillDataPoints(const std::vector<DPVAL>& dps, std::map<uint64_t, double>& d
              header.c_str(), (ULL)(ts - tMax));
     }
     dps2.emplace(ts, getValue(*itDP));
-    previousTS = ts;
   }
 }
 
