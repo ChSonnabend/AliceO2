@@ -37,7 +37,9 @@ class GPUTPCNNClusterizerHost
 {
  public:
   GPUTPCNNClusterizerHost() = default;
-  GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer&, GPUTPCNNClusterizer&);
+  GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer&);
+
+  void initClusterizer(const GPUSettingsProcessingNNclusterizer&, GPUTPCNNClusterizer&);
 
   void networkInference(o2::ml::OrtModel model, GPUTPCNNClusterizer& clusterer, size_t size, float* output, int32_t dtype);
 

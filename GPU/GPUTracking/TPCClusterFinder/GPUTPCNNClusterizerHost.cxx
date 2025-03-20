@@ -28,7 +28,7 @@
 
 using namespace o2::gpu;
 
-GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer& settings, GPUTPCNNClusterizer& clusterer)
+GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer& settings)
 {
   OrtOptions = {
     {"model-path", settings.nnClassificationPath},
@@ -44,7 +44,6 @@ GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNcl
     {"logging-level", std::to_string(settings.nnInferenceVerbosity)}};
 
   model_class.init(OrtOptions);
-  clusterer.nnClusterizerModelClassNumOutputNodes = model_class.getNumOutputNodes()[0][1];
 
   reg_model_paths = splitString(settings.nnRegressionPath, ":");
 
@@ -52,13 +51,23 @@ GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNcl
     if (model_class.getNumOutputNodes()[0][1] == 1 || reg_model_paths.size() == 1) {
       OrtOptions["model-path"] = reg_model_paths[0];
       model_reg_1.init(OrtOptions);
-      clusterer.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
     } else {
       OrtOptions["model-path"] = reg_model_paths[0];
       model_reg_1.init(OrtOptions);
-      clusterer.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
       OrtOptions["model-path"] = reg_model_paths[1];
       model_reg_2.init(OrtOptions);
+    }
+  }
+}
+
+void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclusterizer& settings, GPUTPCNNClusterizer& clusterer)
+{
+  clusterer.nnClusterizerModelClassNumOutputNodes = model_class.getNumOutputNodes()[0][1];
+  if (!settings.nnClusterizerUseCfRegression) {
+    if (model_class.getNumOutputNodes()[0][1] == 1 || reg_model_paths.size() == 1) {
+      clusterer.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
+    } else {
+      clusterer.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
       clusterer.nnClusterizerModelReg2NumOutputNodes = model_reg_2.getNumOutputNodes()[0][1];
     }
   }
