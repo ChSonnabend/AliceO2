@@ -38,6 +38,7 @@ class GPUTPCNNClusterizerHost
  public:
   GPUTPCNNClusterizerHost() = default;
   GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer&);
+  void init(const GPUSettingsProcessingNNclusterizer&);
 
   void initClusterizer(const GPUSettingsProcessingNNclusterizer&, GPUTPCNNClusterizer&);
 

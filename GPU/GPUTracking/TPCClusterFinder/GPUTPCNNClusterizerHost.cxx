@@ -30,6 +30,11 @@ using namespace o2::gpu;
 
 GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer& settings)
 {
+  init(settings);
+}
+
+void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& settings)
+{
   OrtOptions = {
     {"model-path", settings.nnClassificationPath},
     {"device", settings.nnInferenceDevice},
