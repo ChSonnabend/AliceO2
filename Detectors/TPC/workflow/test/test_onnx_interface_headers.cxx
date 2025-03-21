@@ -108,9 +108,12 @@ class onnxInference : public Task
   };
 
   void init(InitContext& ic) final {};
-  void run(ProcessingContext& pc) final
-  {
+
+  template <typename I, typename O>
+  void run_models() {
+
     double time = 0;
+
     int test_size_tensor = std::stoi(options_map["size-tensor"]);
     int epochs_measure = std::stoi(options_map["measure-cycle"]);
     int execution_threads = std::stoi(options_map["execution-threads"]);
@@ -122,53 +125,37 @@ class onnxInference : public Task
     std::vector<int64_t> inputShape{test_size_tensor, models[0].getNumInputNodes()[0][1]};
 
     LOG(info) << "Creating ONNX tensor";
-
-    if(options_map["dtype"].find("16") != std::string::npos ){
-      std::vector<std::vector<OrtDataType::Float16_t>> input_tensor(execution_threads);
-      std::vector<OrtDataType::Float16_t> input_data(models[0].getNumInputNodes()[0][1] * test_size_tensor, OrtDataType::Float16_t(1.0f)); // Example input
-      for (int i = 0; i < execution_threads; i++) {
-        input_tensor[i] = input_data;
-        // input_tensor[i].resize(test_num_tensors);
-        // for(int j = 0; j < test_num_tensors; j++){
-        // 	input_tensor[i][j] = input_data;
-        // }
-      }
-
-      LOG(info) << "Starting inference";
-      auto start_network_eval = std::chrono::high_resolution_clock::now();
-      for (int i = 0; i < test_size_iter; i++) {
-        // runONNXGPUModel<OrtDataType::Float16_t, OrtDataType::Float16_t>(input_tensor, execution_threads);
-        runONNXGPUModel<OrtDataType::Float16_t, OrtDataType::Float16_t>(input_tensor, execution_threads);
-        if ((i % epochs_measure == 0) && (i != 0)) {
-          auto end_network_eval = std::chrono::high_resolution_clock::now();
-          time = std::chrono::duration<double, std::ratio<1, (unsigned long)1e9>>(end_network_eval - start_network_eval).count() / 1e9;
-          LOG(info) << "Total time: " << time << "s. Timing: " << uint64_t((double)test_size_tensor * epochs_measure * execution_threads / time) << " elements / s";
-          time = 0;
-          start_network_eval = std::chrono::high_resolution_clock::now();
-        }
-      }
-      // for(auto out : output){
-      //   LOG(info) << "Test output: " << out;
+    std::vector<std::vector<I>> input_tensor(execution_threads);
+    std::vector<I> input_data(models[0].getNumInputNodes()[0][1] * test_size_tensor, I(1.0f)); // Example input
+    for (int i = 0; i < execution_threads; i++) {
+      input_tensor[i] = input_data;
+      // input_tensor[i].resize(test_num_tensors);
+      // for(int j = 0; j < test_num_tensors; j++){
+      // 	input_tensor[i][j] = input_data;
       // }
-    } else {
-      std::vector<std::vector<float>> input_tensor(execution_threads);
-      std::vector<float> input_data(models[0].getNumInputNodes()[0][1] * test_size_tensor, 1.f); // Example input
-      for (int i = 0; i < execution_threads; i++) {
-        input_tensor[i] = input_data;
-      }
+    }
 
-      LOG(info) << "Starting inference";
-      auto start_network_eval = std::chrono::high_resolution_clock::now();
-      for (int i = 0; i < test_size_iter; i++) {
-        runONNXGPUModel<float, float>(input_tensor, execution_threads);
-        if ((i % epochs_measure == 0) && (i != 0)) {
-          auto end_network_eval = std::chrono::high_resolution_clock::now();
-          time = std::chrono::duration<double, std::ratio<1, (unsigned long)1e9>>(end_network_eval - start_network_eval).count() / 1e9;
-          LOG(info) << "Total time: " << time << "s. Timing: " << uint64_t((double)test_size_tensor * epochs_measure * execution_threads / time) << " elements / s";
-          time = 0;
-          start_network_eval = std::chrono::high_resolution_clock::now();
-        }
+    LOG(info) << "Starting inference";
+    auto start_network_eval = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < test_size_iter; i++) {
+      runONNXGPUModel<I, O>(input_tensor, execution_threads);
+      if ((i % epochs_measure == 0) && (i != 0)) {
+        auto end_network_eval = std::chrono::high_resolution_clock::now();
+        time = std::chrono::duration<double, std::ratio<1, (unsigned long)1e9>>(end_network_eval - start_network_eval).count() / 1e9;
+        LOG(info) << "Total time: " << time << "s. Timing: " << uint64_t((double)test_size_tensor * epochs_measure * execution_threads / time) << " elements / s";
+        time = 0;
+        start_network_eval = std::chrono::high_resolution_clock::now();
       }
+    }
+  }
+  void run(ProcessingContext& pc) final
+  {
+    if (options_map["dtype"] == "FP16") {
+      run_models<OrtDataType::Float16_t, OrtDataType::Float16_t>();
+    } else if (options_map["dtype"] == "INT8") {
+      run_models<float, int8_t>();
+    } else {
+      run_models<float, float>();
     }
 
     pc.services().get<ControlService>().endOfStream();
@@ -185,7 +172,7 @@ class onnxInference : public Task
 void customize(std::vector<o2::framework::ConfigParamSpec>& workflowOptions)
 {
   std::vector<ConfigParamSpec> options{
-    {"path", VariantType::String, "./model.pt", {"Path to ONNX model"}},
+    {"path", VariantType::String, "./model.onnx", {"Path to ONNX model"}},
     {"device", VariantType::String, "CPU", {"Device on which the ONNX model is run"}},
     {"device-id", VariantType::Int, 0, {"Device ID on which the ONNX model is run"}},
     {"dtype", VariantType::String, "-", {"Dtype in which the ONNX model is run (FP16 or FP32)"}},
@@ -197,7 +184,7 @@ void customize(std::vector<o2::framework::ConfigParamSpec>& workflowOptions)
     {"measure-cycle", VariantType::Int, 10, {"Epochs in which to measure"}},
     {"enable-profiling", VariantType::Int, 0, {"Enable profiling"}},
     {"profiling-output-path", VariantType::String, "/scratch/csonnabe/O2_new", {"Path to save profiling output"}},
-    {"logging-level", VariantType::Int, 2, {"Logging level"}},
+    {"logging-level", VariantType::Int, 1, {"Logging level"}},
     {"enable-optimizations", VariantType::Int, 0, {"Enable optimizations"}},
     {"allocate-device-memory", VariantType::Int, 0, {"Allocate the memory on device"}}};
   std::swap(workflowOptions, options);

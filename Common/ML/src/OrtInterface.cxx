@@ -224,6 +224,10 @@ template std::vector<float> OrtModel::inference<OrtDataType::Float16_t, float>(s
 
 template std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(std::vector<OrtDataType::Float16_t>&);
 
+template std::vector<int8_t> OrtModel::inference<int8_t, int8_t>(std::vector<int8_t>&);
+
+template std::vector<int8_t> OrtModel::inference<float, int8_t>(std::vector<float>&);
+
 template <class I, class O>
 void OrtModel::inference(I* input, size_t input_size, O* output)
 {
