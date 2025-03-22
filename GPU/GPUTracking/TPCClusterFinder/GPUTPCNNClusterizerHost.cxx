@@ -20,9 +20,10 @@
 #include "TROOT.h"
 
 #include "GPUTPCCFClusterizer.h"
-
 #include "GPUTPCNNClusterizerHost.h"
 #include "GPUTPCNNClusterizer.h"
+
+#include "CCDB/CcdbApi.h"
 #include "GPUSettings.h"
 #include "ML/3rdparty/GPUORTFloat16.h"
 
@@ -31,6 +32,32 @@ using namespace o2::gpu;
 GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer& settings)
 {
   init(settings);
+}
+
+void GPUTPCNNClusterizerHost::loadFromCCDB(std::unordered_map<std::string, std::string> settings) {
+  o2::ccdb::CcdbApi ccdbApi;
+  ccdbApi.init(settings["nnCCDBURL"]);
+
+  metadata[settings["inputDType"]] = settings["inputDType"];
+  metadata[settings["outputDType"]] = settings["outputDType"];
+  metadata[settings["nnCCDBEvalType"]] = settings["nnCCDBEvalType"]; // classification_1C, classification_2C, regression_1C, regression_2C
+  metadata[settings["nnCCDBWithMomentum"]] = std::stoi(settings["nnCCDBWithMomentum"]); // 0, 1 -> Only for regression model
+  metadata[settings["nnCCDBLayerType"]] = settings["nnCCDBLayerType"]; // FC, CNN
+  if (settings["nnCCDBInteractionRate"] != "" && std::stoi(settings["nnCCDBInteractionRate"]) > 0) {
+    metadata[settings["nnCCDBInteractionRate"]] = settings["nnCCDBInteractionRate"];
+  }
+  if (settings["nnCCDBBeamType"] != "") {
+    metadata[settings["nnCCDBBeamType"]] = settings["nnCCDBBeamType"];
+  }
+
+  bool retrieveSuccess = ccdbApi.retrieveBlob(settings["nnPathCCDB"], ".", metadata, 1, false, settings["outputFile"]);
+  // headers = ccdbApi.retrieveHeaders(nnPathCCDB, metadata, ccdbTimestamp); // potentially needed to init some local variables
+
+  if (retrieveSuccess) {
+    LOG(info) << "Network " << settings["nnPathCCDB"] << " retrieved from CCDB, stored at " << settings["networkPathLocal"];
+  } else {
+    LOG(error) << "Failed to retrieve network from CCDB";
+  }
 }
 
 void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& settings)

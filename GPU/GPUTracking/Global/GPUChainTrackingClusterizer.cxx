@@ -616,6 +616,27 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 #ifdef GPUCA_HAS_ONNX
   const GPUSettingsProcessingNNclusterizer& nn_settings = GetProcessingSettings().nn;
   GPUTPCNNClusterizerHost nnApplication; // potentially this needs to be GPUTPCNNClusterizerHost nnApplication[NSECTORS]; Technically ONNX ->Run() is threadsafe at inference time since its read-only
+  if(nn_settings.nnLoadFromCCDB) {
+    std::unordered_map<std::string, std::string> ccdbSettings = {
+      {"nnCCDBPath", nn_settings.nnCCDBPath},
+      {"inputDType", nn_settings.inputDType},
+      {"outputDType", nn_settings.outputDType},
+      {"nnCCDBWithMomentum", std::to_string(nn_settings.nnCCDBWithMomentum)},
+      {"nnCCDBLayerType", nn_settings.nnCCDBLayerType},
+      {"nnCCDBBeamType", nn_settings.nnCCDBBeamType},
+      {"nnCCDBInteractionRate", std::to_string(nn_settings.nnCCDBInteractionRate)}
+    };
+
+    std::unordered_map<std::string, std::string> networkRetrieval = ccdbSettings;
+
+    networkRetrieval["nnCCDBEvalType"] = "classification_c1";
+    networkRetrieval["outputFile"] = "net_classification_c1.onnx";
+    nnApplication.loadFromCCDB(networkRetrieval);
+
+    networkRetrieval["nnCCDBEvalType"] = "regression_c1";
+    networkRetrieval["outputFile"] = "net_regression_c1.onnx";
+    nnApplication.loadFromCCDB(networkRetrieval);
+  }
   if (GetProcessingSettings().nn.applyNNclusterizer) {
     uint32_t maxClusters = 0;
     nnApplication.init(nn_settings);
