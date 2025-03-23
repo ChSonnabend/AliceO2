@@ -34,27 +34,27 @@ GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNcl
   init(settings);
 }
 
-void GPUTPCNNClusterizerHost::loadFromCCDB(std::unordered_map<std::string, std::string> settings) {
+void GPUTPCNNClusterizerHost::loadFromCCDB(std::map<std::string, std::string> settings) {
   o2::ccdb::CcdbApi ccdbApi;
   ccdbApi.init(settings["nnCCDBURL"]);
 
-  metadata[settings["inputDType"]] = settings["inputDType"];
-  metadata[settings["outputDType"]] = settings["outputDType"];
-  metadata[settings["nnCCDBEvalType"]] = settings["nnCCDBEvalType"]; // classification_1C, classification_2C, regression_1C, regression_2C
-  metadata[settings["nnCCDBWithMomentum"]] = std::stoi(settings["nnCCDBWithMomentum"]); // 0, 1 -> Only for regression model
-  metadata[settings["nnCCDBLayerType"]] = settings["nnCCDBLayerType"]; // FC, CNN
+  metadata["inputDType"] = settings["inputDType"];
+  metadata["outputDType"] = settings["outputDType"];
+  metadata["nnCCDBEvalType"] = settings["nnCCDBEvalType"]; // classification_1C, classification_2C, regression_1C, regression_2C
+  metadata["nnCCDBWithMomentum"] = settings["nnCCDBWithMomentum"]; // 0, 1 -> Only for regression model
+  metadata["nnCCDBLayerType"] = settings["nnCCDBLayerType"]; // FC, CNN
   if (settings["nnCCDBInteractionRate"] != "" && std::stoi(settings["nnCCDBInteractionRate"]) > 0) {
-    metadata[settings["nnCCDBInteractionRate"]] = settings["nnCCDBInteractionRate"];
+    metadata["nnCCDBInteractionRate"] = settings["nnCCDBInteractionRate"];
   }
   if (settings["nnCCDBBeamType"] != "") {
-    metadata[settings["nnCCDBBeamType"]] = settings["nnCCDBBeamType"];
+    metadata["nnCCDBBeamType"] = settings["nnCCDBBeamType"];
   }
 
-  bool retrieveSuccess = ccdbApi.retrieveBlob(settings["nnPathCCDB"], ".", metadata, 1, false, settings["outputFile"]);
-  // headers = ccdbApi.retrieveHeaders(nnPathCCDB, metadata, ccdbTimestamp); // potentially needed to init some local variables
+  bool retrieveSuccess = ccdbApi.retrieveBlob(settings["nnCCDBPath"], ".", metadata, 1, false, settings["outputFile"]);
+  // headers = ccdbApi.retrieveHeaders(settings["nnPathCCDB"], metadata, 1); // potentially needed to init some local variables
 
   if (retrieveSuccess) {
-    LOG(info) << "Network " << settings["nnPathCCDB"] << " retrieved from CCDB, stored at " << settings["networkPathLocal"];
+    LOG(info) << "Network " << settings["nnCCDBPath"] << " retrieved from CCDB, stored at " << settings["outputFile"];
   } else {
     LOG(error) << "Failed to retrieve network from CCDB";
   }
