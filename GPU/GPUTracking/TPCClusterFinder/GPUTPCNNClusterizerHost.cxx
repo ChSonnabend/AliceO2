@@ -77,7 +77,7 @@ void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& set
 
   model_class.init(OrtOptions);
 
-  reg_model_paths = splitString(settings.nnRegressionPath, ":");
+  reg_model_paths = splitString(settings.nnRegressionPath, ':');
 
   if (!settings.nnClusterizerUseCfRegression) {
     if (model_class.getNumOutputNodes()[0][1] == 1 || reg_model_paths.size() == 1) {
