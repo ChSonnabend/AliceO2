@@ -37,8 +37,8 @@ class GPUTPCNNClusterizerHost
 {
  public:
   GPUTPCNNClusterizerHost() = default;
-  GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer&);
-  void init(const GPUSettingsProcessingNNclusterizer&);
+  GPUTPCNNClusterizerHost(GPUSettingsProcessingNNclusterizer);
+  void init(GPUSettingsProcessingNNclusterizer);
   void loadFromCCDB(std::map<std::string, std::string>);
 
   void initClusterizer(const GPUSettingsProcessingNNclusterizer&, GPUTPCNNClusterizer&);
@@ -56,20 +56,18 @@ class GPUTPCNNClusterizerHost
   // Avoid including CommonUtils/StringUtils.h
   std::map<std::string, std::string> metadata;
   std::map<std::string, std::string> headers;
-  std::vector<std::string> splitString(const std::string& input, const std::string& delimiter)
-  {
-    std::vector<std::string> tokens;
-    std::size_t pos = 0;
-    std::size_t found;
-
-    while ((found = input.find(delimiter, pos)) != std::string::npos) {
-      tokens.push_back(input.substr(pos, found - pos));
-      pos = found + delimiter.length();
-    }
-    tokens.push_back(input.substr(pos));
-
-    return tokens;
-  }
+  // std::vector<std::string> splitString(const std::string& input, const std::string& delimiter)
+  // {
+  //   std::vector<std::string> tokens;
+  //   std::size_t pos = 0;
+  //   std::size_t found;
+  //   while ((found = input.find(delimiter, pos)) != std::string::npos) {
+  //     tokens.push_back(input.substr(pos, found - pos));
+  //     pos = found + delimiter.length();
+  //   }
+  //   tokens.push_back(input.substr(pos));
+  //   return tokens;
+  // }
 }; // class GPUTPCNNClusterizerHost
 
 } // namespace o2::gpu

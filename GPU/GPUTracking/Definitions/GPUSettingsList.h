@@ -258,6 +258,7 @@ AddOption(setDeconvolutionFlags, int, 0, "", 0, "Set the flags of the charge map
 AddOption(nnLoadFromCCDB, int, 1, "", 0, "If 1 networks are fetched from ccdb, else locally")
 AddOption(nnCCDBURL, std::string, "http://ccdb-test.cern.ch:8080", "", 0, "The CCDB URL from where the network files are fetched")
 AddOption(nnCCDBPath, std::string, "Users/c/csonnabe/TPC/Clusterization", "", 0, "Folder path containing the networks")
+AddOption(nnCCDBFetchMode, std::string, "c1:r1", "", 0, "Concatention of modes, e.g. c1:r1 (classification class 1, regression class 1)")
 AddOption(nnCCDBWithMomentum, int, 1, "", 0, "Distinguishes between the network with and without momentum output for the regression")
 AddOption(nnCCDBClassificationLayerType, std::string, "FC", "", 0, "Distinguishes between network with different layer types. Options: FC, CNN")
 AddOption(nnCCDBRegressionLayerType, std::string, "CNN", "", 0, "Distinguishes between network with different layer types. Options: FC, CNN")

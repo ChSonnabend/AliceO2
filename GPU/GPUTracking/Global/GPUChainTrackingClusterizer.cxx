@@ -614,7 +614,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
   }
 
 #ifdef GPUCA_HAS_ONNX
-  const GPUSettingsProcessingNNclusterizer& nn_settings = GetProcessingSettings().nn;
+  GPUSettingsProcessingNNclusterizer nn_settings = GetProcessingSettings().nn;
   GPUTPCNNClusterizerHost nnApplication; // potentially this needs to be GPUTPCNNClusterizerHost nnApplication[NSECTORS]; Technically ONNX ->Run() is threadsafe at inference time since its read-only
   if (GetProcessingSettings().nn.applyNNclusterizer) {
     if(nn_settings.nnLoadFromCCDB) {
@@ -628,17 +628,35 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         {"nnCCDBInteractionRate", std::to_string(nn_settings.nnCCDBInteractionRate)}
       };
 
+      std::string nnFetchFolder = "";
+      std::vector<std::string> fetchMode = o2::utils::Str::tokenize(nn_settings.nnCCDBFetchMode, ':');
       std::map<std::string, std::string> networkRetrieval = ccdbSettings;
 
-      networkRetrieval["nnCCDBLayerType"] = nn_settings.nnCCDBClassificationLayerType;
-      networkRetrieval["nnCCDBEvalType"] = "classification_c1";
-      networkRetrieval["outputFile"] = "net_classification_c1.onnx";
-      nnApplication.loadFromCCDB(networkRetrieval);
+      if (fetchMode[0] == "c1") {
+        networkRetrieval["nnCCDBLayerType"] = nn_settings.nnCCDBClassificationLayerType;
+        networkRetrieval["nnCCDBEvalType"] = "classification_c1";
+        networkRetrieval["outputFile"] = nnFetchFolder + "net_classification_c1.onnx";
+        nnApplication.loadFromCCDB(networkRetrieval);
+      } else if (fetchMode[0] == "c2") {
+        networkRetrieval["nnCCDBLayerType"] = nn_settings.nnCCDBClassificationLayerType;
+        networkRetrieval["nnCCDBEvalType"] = "classification_c2";
+        networkRetrieval["outputFile"] = nnFetchFolder + "net_classification_c2.onnx";
+        nnApplication.loadFromCCDB(networkRetrieval);
+      }
+      nn_settings.nnClassificationPath = networkRetrieval["outputFile"]; // Setting the proper path from the where the models will be initialized locally
 
       networkRetrieval["nnCCDBLayerType"] = nn_settings.nnCCDBRegressionLayerType;
       networkRetrieval["nnCCDBEvalType"] = "regression_c1";
-      networkRetrieval["outputFile"] = "net_regression_c1.onnx";
+      networkRetrieval["outputFile"] = nnFetchFolder + "net_regression_c1.onnx";
       nnApplication.loadFromCCDB(networkRetrieval);
+      nn_settings.nnRegressionPath = networkRetrieval["outputFile"];
+      if (fetchMode[1] == "r2") {
+        networkRetrieval["nnCCDBLayerType"] = nn_settings.nnCCDBRegressionLayerType;
+        networkRetrieval["nnCCDBEvalType"] = "regression_c2";
+        networkRetrieval["outputFile"] = nnFetchFolder + "net_regression_c2.onnx";
+        nnApplication.loadFromCCDB(networkRetrieval);
+        nn_settings.nnRegressionPath += ":", networkRetrieval["outputFile"];
+      }
     }
     uint32_t maxClusters = 0;
     nnApplication.init(nn_settings);

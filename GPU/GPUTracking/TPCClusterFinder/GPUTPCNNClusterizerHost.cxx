@@ -12,6 +12,8 @@
 /// \file GPUTPCNNClusterizerHost.cxx
 /// \author Christian Sonnabend
 
+#include <CommonUtils/StringUtils.h>
+
 #include "Rtypes.h"
 #include "TTree.h"
 #include "TFile.h"
@@ -29,7 +31,7 @@
 
 using namespace o2::gpu;
 
-GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer& settings)
+GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(GPUSettingsProcessingNNclusterizer settings)
 {
   init(settings);
 }
@@ -60,7 +62,7 @@ void GPUTPCNNClusterizerHost::loadFromCCDB(std::map<std::string, std::string> se
   }
 }
 
-void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& settings)
+void GPUTPCNNClusterizerHost::init(GPUSettingsProcessingNNclusterizer settings)
 {
   OrtOptions = {
     {"model-path", settings.nnClassificationPath},
@@ -77,7 +79,7 @@ void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& set
 
   model_class.init(OrtOptions);
 
-  reg_model_paths = splitString(settings.nnRegressionPath, ":");
+  reg_model_paths = o2::utils::Str::tokenize(settings.nnRegressionPath, ':');
 
   if (!settings.nnClusterizerUseCfRegression) {
     if (model_class.getNumOutputNodes()[0][1] == 1 || reg_model_paths.size() == 1) {
