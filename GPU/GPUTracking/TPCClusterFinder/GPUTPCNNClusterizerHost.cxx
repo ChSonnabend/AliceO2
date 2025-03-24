@@ -31,7 +31,7 @@
 
 using namespace o2::gpu;
 
-GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(GPUSettingsProcessingNNclusterizer settings)
+GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer& settings)
 {
   init(settings);
 }
@@ -62,10 +62,55 @@ void GPUTPCNNClusterizerHost::loadFromCCDB(std::map<std::string, std::string> se
   }
 }
 
-void GPUTPCNNClusterizerHost::init(GPUSettingsProcessingNNclusterizer settings)
+void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& settings)
 {
+  std::string class_model_path = settings.nnClassificationPath, reg_model_path = settings.nnRegressionPath;
+  std::vector<std::string> reg_model_paths;
+
+  if(settings.nnLoadFromCCDB) {
+    std::map<std::string, std::string> ccdbSettings = {
+      {"nnCCDBURL", settings.nnCCDBURL},
+      {"nnCCDBPath", settings.nnCCDBPath},
+      {"inputDType", settings.nnInferenceInputDType},
+      {"outputDType", settings.nnInferenceOutputDType},
+      {"nnCCDBWithMomentum", std::to_string(settings.nnCCDBWithMomentum)},
+      {"nnCCDBBeamType", settings.nnCCDBBeamType},
+      {"nnCCDBInteractionRate", std::to_string(settings.nnCCDBInteractionRate)}
+    };
+
+    std::string nnFetchFolder = "";
+    std::vector<std::string> fetchMode = o2::utils::Str::tokenize(settings.nnCCDBFetchMode, ':');
+    std::map<std::string, std::string> networkRetrieval = ccdbSettings;
+
+    if (fetchMode[0] == "c1") {
+      networkRetrieval["nnCCDBLayerType"] = settings.nnCCDBClassificationLayerType;
+      networkRetrieval["nnCCDBEvalType"] = "classification_c1";
+      networkRetrieval["outputFile"] = nnFetchFolder + "net_classification_c1.onnx";
+      loadFromCCDB(networkRetrieval);
+    } else if (fetchMode[0] == "c2") {
+      networkRetrieval["nnCCDBLayerType"] = settings.nnCCDBClassificationLayerType;
+      networkRetrieval["nnCCDBEvalType"] = "classification_c2";
+      networkRetrieval["outputFile"] = nnFetchFolder + "net_classification_c2.onnx";
+      loadFromCCDB(networkRetrieval);
+    }
+    class_model_path = networkRetrieval["outputFile"]; // Setting the proper path from the where the models will be initialized locally
+
+    networkRetrieval["nnCCDBLayerType"] = settings.nnCCDBRegressionLayerType;
+    networkRetrieval["nnCCDBEvalType"] = "regression_c1";
+    networkRetrieval["outputFile"] = nnFetchFolder + "net_regression_c1.onnx";
+    loadFromCCDB(networkRetrieval);
+    reg_model_path = networkRetrieval["outputFile"];
+    if (fetchMode[1] == "r2") {
+      networkRetrieval["nnCCDBLayerType"] = settings.nnCCDBRegressionLayerType;
+      networkRetrieval["nnCCDBEvalType"] = "regression_c2";
+      networkRetrieval["outputFile"] = nnFetchFolder + "net_regression_c2.onnx";
+      loadFromCCDB(networkRetrieval);
+      reg_model_path += ":", networkRetrieval["outputFile"];
+    }
+  }
+
   OrtOptions = {
-    {"model-path", settings.nnClassificationPath},
+    {"model-path", class_model_path},
     {"device", settings.nnInferenceDevice},
     {"device-id", std::to_string(settings.nnInferenceDeviceId)},
     {"allocate-device-memory", std::to_string(settings.nnInferenceAllocateDevMem)},
@@ -79,7 +124,7 @@ void GPUTPCNNClusterizerHost::init(GPUSettingsProcessingNNclusterizer settings)
 
   model_class.init(OrtOptions);
 
-  reg_model_paths = o2::utils::Str::tokenize(settings.nnRegressionPath, ':');
+  reg_model_paths = o2::utils::Str::tokenize(reg_model_path, ':');
 
   if (!settings.nnClusterizerUseCfRegression) {
     if (model_class.getNumOutputNodes()[0][1] == 1 || reg_model_paths.size() == 1) {
@@ -98,7 +143,7 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
 {
   clusterer.nnClusterizerModelClassNumOutputNodes = model_class.getNumOutputNodes()[0][1];
   if (!settings.nnClusterizerUseCfRegression) {
-    if (model_class.getNumOutputNodes()[0][1] == 1 || reg_model_paths.size() == 1) {
+    if (model_class.getNumOutputNodes()[0][1] == 1 || !model_reg_2.isInitialized()) {
       clusterer.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
     } else {
       clusterer.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];

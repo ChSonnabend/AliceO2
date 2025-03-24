@@ -12,8 +12,6 @@
 /// \file GPUChainTrackingClusterizer.cxx
 /// \author David Rohr
 
-#include <CommonUtils/StringUtils.h>
-
 #include "GPUChainTracking.h"
 #include "GPUChainTrackingDefs.h"
 #include "GPULogging.h"
@@ -614,50 +612,9 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
   }
 
 #ifdef GPUCA_HAS_ONNX
-  GPUSettingsProcessingNNclusterizer nn_settings = GetProcessingSettings().nn;
+  const GPUSettingsProcessingNNclusterizer& nn_settings = GetProcessingSettings().nn;
   GPUTPCNNClusterizerHost nnApplication; // potentially this needs to be GPUTPCNNClusterizerHost nnApplication[NSECTORS]; Technically ONNX ->Run() is threadsafe at inference time since its read-only
   if (GetProcessingSettings().nn.applyNNclusterizer) {
-    if(nn_settings.nnLoadFromCCDB) {
-      std::map<std::string, std::string> ccdbSettings = {
-        {"nnCCDBURL", nn_settings.nnCCDBURL},
-        {"nnCCDBPath", nn_settings.nnCCDBPath},
-        {"inputDType", nn_settings.nnInferenceInputDType},
-        {"outputDType", nn_settings.nnInferenceOutputDType},
-        {"nnCCDBWithMomentum", std::to_string(nn_settings.nnCCDBWithMomentum)},
-        {"nnCCDBBeamType", nn_settings.nnCCDBBeamType},
-        {"nnCCDBInteractionRate", std::to_string(nn_settings.nnCCDBInteractionRate)}
-      };
-
-      std::string nnFetchFolder = "";
-      std::vector<std::string> fetchMode = o2::utils::Str::tokenize(nn_settings.nnCCDBFetchMode, ':');
-      std::map<std::string, std::string> networkRetrieval = ccdbSettings;
-
-      if (fetchMode[0] == "c1") {
-        networkRetrieval["nnCCDBLayerType"] = nn_settings.nnCCDBClassificationLayerType;
-        networkRetrieval["nnCCDBEvalType"] = "classification_c1";
-        networkRetrieval["outputFile"] = nnFetchFolder + "net_classification_c1.onnx";
-        nnApplication.loadFromCCDB(networkRetrieval);
-      } else if (fetchMode[0] == "c2") {
-        networkRetrieval["nnCCDBLayerType"] = nn_settings.nnCCDBClassificationLayerType;
-        networkRetrieval["nnCCDBEvalType"] = "classification_c2";
-        networkRetrieval["outputFile"] = nnFetchFolder + "net_classification_c2.onnx";
-        nnApplication.loadFromCCDB(networkRetrieval);
-      }
-      nn_settings.nnClassificationPath = networkRetrieval["outputFile"]; // Setting the proper path from the where the models will be initialized locally
-
-      networkRetrieval["nnCCDBLayerType"] = nn_settings.nnCCDBRegressionLayerType;
-      networkRetrieval["nnCCDBEvalType"] = "regression_c1";
-      networkRetrieval["outputFile"] = nnFetchFolder + "net_regression_c1.onnx";
-      nnApplication.loadFromCCDB(networkRetrieval);
-      nn_settings.nnRegressionPath = networkRetrieval["outputFile"];
-      if (fetchMode[1] == "r2") {
-        networkRetrieval["nnCCDBLayerType"] = nn_settings.nnCCDBRegressionLayerType;
-        networkRetrieval["nnCCDBEvalType"] = "regression_c2";
-        networkRetrieval["outputFile"] = nnFetchFolder + "net_regression_c2.onnx";
-        nnApplication.loadFromCCDB(networkRetrieval);
-        nn_settings.nnRegressionPath += ":", networkRetrieval["outputFile"];
-      }
-    }
     uint32_t maxClusters = 0;
     nnApplication.init(nn_settings);
     for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
@@ -1007,7 +964,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             if (!clustererNN.nnClusterizerUseCfRegression) {
               nnApplication.networkInference(nnApplication.model_reg_1, clustererNN, iSize, clustererNN.outputDataReg1, clustererNN.nnClusterizerDtype);
               runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass1Regression>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNN.nnClusterizerDtype, withMC, batchStart); // Running the NN for regression class 1
-              if (nnApplication.model_class.getNumOutputNodes()[0][1] > 1 && nnApplication.reg_model_paths.size() > 1) {
+              if (nnApplication.model_class.getNumOutputNodes()[0][1] > 1 && nnApplication.model_reg_2.isInitialized()) {
                 nnApplication.networkInference(nnApplication.model_reg_2, clustererNN, iSize, clustererNN.outputDataReg2, clustererNN.nnClusterizerDtype);
                 runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass2Regression>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNN.nnClusterizerDtype, withMC, batchStart); // Running the NN for regression class 2
               }
