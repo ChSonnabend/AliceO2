@@ -109,6 +109,10 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::det
   }
   // uint class_label = std::distance(elem_iterator, std::max_element(elem_iterator, elem_iterator + clustererNN.nnClusterizerModelClassNumOutputNodes)); // Multiple outputs of the class network are the probabilities for each class. The highest one "wins"
   clustererNN.outputDataClass[glo_idx + batchStart] = class_label;
+  if (class_label > 1) {
+    clustererNN.clusterFlags[2 * glo_idx] = 1;
+    clustererNN.clusterFlags[2 * glo_idx + 1] = 1;
+  }
 }
 
 template <>
@@ -238,7 +242,7 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg1(uint glo_idx, GPUSha
   //   LOG(info) << "NN output: clustererNN.outputDataClass: " << clustererNN.modelProbabilities[full_glo_idx] << " | clustererNN.outputDataReg1: " << clustererNN.outputDataReg1[model_output_index] << " -- " << clustererNN.outputDataReg1[model_output_index + 1] << " -- " << clustererNN.outputDataReg1[model_output_index + 2] << " -- " << clustererNN.outputDataReg1[model_output_index + 3] << " -- " << clustererNN.outputDataReg1[model_output_index + 4];
   // }
 
-  if (clustererNN.outputDataClass[full_glo_idx] == 1) {
+  if (clustererNN.outputDataClass[full_glo_idx] == 1 || (clustererNN.nnClusterizerModelReg2NumOutputNodes == -1 && clustererNN.outputDataClass[full_glo_idx] >= 1)) {
 
     ClusterAccumulator pc;
 

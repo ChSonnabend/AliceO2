@@ -48,7 +48,6 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
   if (!optionsMap["model-path"].empty()) {
     modelPath = optionsMap["model-path"];
     device = (optionsMap.contains("device") ? optionsMap["device"] : "CPU");
-    dtype = (optionsMap.contains("dtype") ? optionsMap["dtype"] : "float");
     deviceId = (optionsMap.contains("device-id") ? std::stoi(optionsMap["device-id"]) : 0);
     allocateDeviceMemory = (optionsMap.contains("allocate-device-memory") ? std::stoi(optionsMap["allocate-device-memory"]) : 0);
     intraOpNumThreads = (optionsMap.contains("intra-op-num-threads") ? std::stoi(optionsMap["intra-op-num-threads"]) : 0);

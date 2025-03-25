@@ -228,7 +228,6 @@ AddOption(applyNNclusterizer, int, 0, "", 0, "(bool, default = 0), if the neural
 AddOption(nnInferenceDevice, std::string, "CPU", "", 0, "(std::string) Specify inference device (cpu (default), rocm, cuda)")
 AddOption(nnInferenceDeviceId, unsigned int, 0, "", 0, "(unsigned int) Specify inference device id")
 AddOption(nnInferenceAllocateDevMem, int, 0, "", 0, "(bool, default = 0), if the device memory should be allocated for inference")
-AddOption(nnInferenceDtype, std::string, "FP32", "", 0, "(std::string) Specify the datatype for which inference is performed (fp32: default, fp16)") // fp32 or fp16
 AddOption(nnInferenceInputDType, std::string, "FP32", "", 0, "(std::string) Specify the datatype for which inference is performed (FP32: default, fp16)") // fp32 or fp16
 AddOption(nnInferenceOutputDType, std::string, "FP32", "", 0, "(std::string) Specify the datatype for which inference is performed (fp32: default, fp16)") // fp32 or fp16
 AddOption(nnInferenceIntraOpNumThreads, int, 1, "", 0, "Number of threads used to evaluate one neural network (ONNX: SetIntraOpNumThreads). 0 = auto-detect, can lead to problems on SLURM systems.")

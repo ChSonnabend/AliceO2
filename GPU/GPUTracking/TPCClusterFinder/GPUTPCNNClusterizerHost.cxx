@@ -114,7 +114,6 @@ void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& set
     {"device", settings.nnInferenceDevice},
     {"device-id", std::to_string(settings.nnInferenceDeviceId)},
     {"allocate-device-memory", std::to_string(settings.nnInferenceAllocateDevMem)},
-    {"dtype", settings.nnInferenceDtype},
     {"intra-op-num-threads", std::to_string(settings.nnInferenceIntraOpNumThreads)},
     {"inter-op-num-threads", std::to_string(settings.nnInferenceInterOpNumThreads)},
     {"enable-optimizations", std::to_string(settings.nnInferenceEnableOrtOptimization)},
