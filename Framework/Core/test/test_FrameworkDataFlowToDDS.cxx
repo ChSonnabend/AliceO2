@@ -142,10 +142,10 @@ TEST_CASE("TestDDS")
 
   std::vector<DataProcessorInfo> dataProcessorInfos = {
     {
-      {"A", "bcsadc/foo", {}, workflowOptions},
-      {"B", "foo", {}, workflowOptions},
-      {"C", "foo", {}, workflowOptions},
-      {"D", "foo", {}, workflowOptions},
+      {.name = "A", .executable = "bcsadc/foo", .workflowOptions = workflowOptions},
+      {.name = "B", .executable = "foo", .workflowOptions = workflowOptions},
+      {.name = "C", .executable = "foo", .workflowOptions = workflowOptions},
+      {.name = "D", .executable = "foo", .workflowOptions = workflowOptions},
     }};
   DriverConfig driverConfig = {
     .batch = true,
@@ -406,10 +406,10 @@ TEST_CASE("TestDDSExpendable")
 
   std::vector<DataProcessorInfo> dataProcessorInfos = {
     {
-      {"A", "bcsadc/foo", {}, workflowOptions},
-      {"B", "foo", {}, workflowOptions},
-      {"C", "foo", {}, workflowOptions},
-      {"D", "foo", {}, workflowOptions},
+      {.name = "A", .executable = "bcsadc/foo", .workflowOptions = workflowOptions},
+      {.name = "B", .executable = "foo", .workflowOptions = workflowOptions},
+      {.name = "C", .executable = "foo", .workflowOptions = workflowOptions},
+      {.name = "D", .executable = "foo", .workflowOptions = workflowOptions},
     }};
   DriverConfig driverConfig = {
     .batch = true,

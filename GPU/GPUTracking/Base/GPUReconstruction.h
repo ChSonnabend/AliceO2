@@ -47,6 +47,7 @@ struct GPUMemorySizeScalers;
 struct GPUReconstructionPipelineContext;
 struct GPUReconstructionThreading;
 class GPUROOTDumpCore;
+class ThrustVolatileAllocator;
 
 namespace gpu_reconstruction_kernels
 {
@@ -165,6 +166,7 @@ class GPUReconstruction
   void ClearAllocatedMemory(bool clearOutputs = true);
   void ReturnVolatileDeviceMemory();
   void ReturnVolatileMemory();
+  ThrustVolatileAllocator getThrustVolatileDeviceAllocator();
   void PushNonPersistentMemory(uint64_t tag);
   void PopNonPersistentMemory(RecoStep step, uint64_t tag);
   void BlockStackedMemory(GPUReconstruction* rec);

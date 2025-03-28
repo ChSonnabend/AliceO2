@@ -52,10 +52,10 @@ TEST_CASE("TestVerifyWorkflowSerialization")
                                     {{"key1", "v\"al'1"}, {"", "val2"}, {"key3", ""}, {"", ""}}}};
 
   std::vector<DataProcessorInfo> dataProcessorInfoOut{
-    {"A", "test_Framework_test_SerializationWorkflow", {"foo"}, {ConfigParamSpec{"aBool", VariantType::Bool, true, {"A Bool"}}}},
-    {"B", "test_Framework_test_SerializationWorkflow", {"b-bar", "bfoof", "fbdbfaso"}},
-    {"C", "test_Framework_test_SerializationWorkflow", {}},
-    {"D", "test_Framework_test_SerializationWorkflow", {}},
+    {.name = "A", .executable = "test_Framework_test_SerializationWorkflow", .cmdLineArgs = {"foo"}, .workflowOptions = {ConfigParamSpec{"aBool", VariantType::Bool, true, {"A Bool"}}}},
+    {.name = "B", .executable = "test_Framework_test_SerializationWorkflow", .cmdLineArgs = {"b-bar", "bfoof", "fbdbfaso"}},
+    {.name = "C", .executable = "test_Framework_test_SerializationWorkflow"},
+    {.name = "D", .executable = "test_Framework_test_SerializationWorkflow"},
   };
 
   CommandInfo commandInfoOut{"o2-dpl-workflow -b --option 1 --option 2"};
@@ -94,7 +94,7 @@ TEST_CASE("TestVerifyWildcard")
     }};
 
   std::vector<DataProcessorInfo> dataProcessorInfoOut{
-    {"A", "test_Framework_test_SerializationWorkflow", {}},
+    {.name = "A", .executable = "test_Framework_test_SerializationWorkflow"},
   };
 
   CommandInfo commandInfoOut{"o2-dpl-workflow -b --option 1 --option 2"};

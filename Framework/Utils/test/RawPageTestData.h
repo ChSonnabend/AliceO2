@@ -47,7 +47,9 @@ struct DataSet {
              auto payload = static_cast<char const*>(this->messages[i].at(2 * part + 1)->data());
              return DataRef{nullptr, header, payload};
            },
-           [this](size_t i) { return i < this->messages.size() ? messages[i].size() / 2 : 0; }, this->messages.size()},
+           [this](size_t i) { return i < this->messages.size() ? messages[i].size() / 2 : 0; },
+           nullptr,
+           this->messages.size()},
       record{schema, span, registry},
       values{std::move(v)}
   {
@@ -63,5 +65,5 @@ struct DataSet {
 using AmendRawDataHeader = std::function<void(RAWDataHeader&)>;
 DataSet createData(std::vector<InputSpec> const& inputspecs, std::vector<DataHeader> const& dataheaders, AmendRawDataHeader amendRdh = nullptr);
 
-} // namespace o2::framework
+} // namespace o2::framework::test
 #endif // FRAMEWORK_UTILS_RAWPAGETESTDATA_H

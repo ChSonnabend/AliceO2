@@ -25,7 +25,9 @@ int MCTrackInfo::getNITSClusCont() const
   int longest = 0, current = 0;
   for (int i = 0; i < 7; i++) {
     if (pattITSCl & (0x1 << i)) {
-      longest = ++current;
+      if (++current > longest) {
+        longest = current;
+      }
     } else {
       current = 0;
     }

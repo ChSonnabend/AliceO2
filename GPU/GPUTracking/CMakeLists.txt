@@ -14,8 +14,13 @@ set(MODULE GPUTracking)
 # set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} -O0") # to uncomment if needed, tired of typing this...
 # set(GPUCA_BUILD_DEBUG 1)
 
-if(NOT "${GPUCA_NO_FAST_MATH}" AND NOT CMAKE_BUILD_TYPE_UPPER STREQUAL "DEBUG")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffast-math")
+if(GPUCA_DETERMINISTIC_MODE GREATER_EQUAL ${GPUCA_DETERMINISTIC_MODE_MAP_NO_FAST_MATH})
+  set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} ${GPUCA_CXX_NO_FAST_MATH_FLAGS}")
+  if(GPUCA_DETERMINISTIC_MODE GREATER_EQUAL ${GPUCA_DETERMINISTIC_MODE_MAP_OPTO2})
+    set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} -O2 ${GPUCA_CLANG_FTZ}")
+  endif()
+elseif(NOT CMAKE_BUILD_TYPE_UPPER STREQUAL "DEBUG")
+  set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} -O3 -ffast-math ${GPUCA_CLANG_FTZ}")
 endif()
 
 include(cmake/helpers.cmake)
@@ -237,6 +242,10 @@ file(GENERATE
      OUTPUT include_gpu_onthefly/GPUReconstructionIncludesDeviceAll.h
      INPUT Base/GPUReconstructionIncludesDeviceAll.template.h
 )
+file(GENERATE
+     OUTPUT include_gpu_onthefly/GPUNoFastMathKernels.h
+     INPUT cmake/GPUNoFastMathKernels.template.h
+)
 if(NOT ALIGPU_BUILD_TYPE STREQUAL "O2")
   include_directories(${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly)
 endif()
@@ -261,6 +270,27 @@ set(HDRS_INSTALL ${HDRS_INSTALL} ${HDRS_TMP})
 string(REPLACE ".cxx" ".h" HDRS_TMP "${SRCS_DATATYPES}")
 set(HDRS_CINT_DATATYPES ${HDRS_CINT_DATATYPES} ${HDRS_TMP})
 unset(HDRS_TMP)
+
+set(INCDIRS
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/Definitions
+    ${CMAKE_CURRENT_SOURCE_DIR}/DataTypes
+    ${CMAKE_CURRENT_SOURCE_DIR}/Base
+    ${CMAKE_CURRENT_SOURCE_DIR}/SectorTracker
+    ${CMAKE_CURRENT_SOURCE_DIR}/TPCConvert
+    ${CMAKE_CURRENT_SOURCE_DIR}/dEdx
+    ${CMAKE_CURRENT_SOURCE_DIR}/ITS
+    ${CMAKE_CURRENT_SOURCE_DIR}/TRDTracking
+    ${CMAKE_CURRENT_SOURCE_DIR}/qa
+    ${CMAKE_CURRENT_SOURCE_DIR}/Global
+    ${CMAKE_CURRENT_SOURCE_DIR}/HLTHeaders
+    ${CMAKE_CURRENT_SOURCE_DIR}/Interface
+    ${CMAKE_CURRENT_SOURCE_DIR}/Merger
+    ${CMAKE_CURRENT_SOURCE_DIR}/Refit
+    ${CMAKE_CURRENT_SOURCE_DIR}/Debug
+    ${CMAKE_CURRENT_SOURCE_DIR}/DataCompression
+    ${CMAKE_CURRENT_SOURCE_DIR}/TPCClusterFinder
+    ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly)
 
 # Main CMake part for O2
 if(ALIGPU_BUILD_TYPE STREQUAL "O2")
@@ -298,25 +328,7 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
                                        O2::DetectorsRaw
                                        O2::Steer
                                        O2::ML
-                 PUBLIC_INCLUDE_DIRECTORIES .
-                                            Definitions
-                                            DataTypes
-                                            Base
-                                            SectorTracker
-                                            TPCConvert
-                                            dEdx
-                                            ITS
-                                            TRDTracking
-                                            qa
-                                            Global
-                                            HLTHeaders
-                                            Interface
-                                            Merger
-                                            Refit
-                                            Debug
-                                            DataCompression
-                                            TPCClusterFinder
-                                            ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly
+                 PUBLIC_INCLUDE_DIRECTORIES ${INCDIRS}
                  SOURCES ${SRCS} ${SRCS_NO_CINT} ${SRCS_NO_H})
 
   target_include_directories(
@@ -350,27 +362,20 @@ if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
   add_library(${MODULE} SHARED ${SRCS} ${SRCS_NO_CINT} ${SRCS_NO_H} ${SRCS_DATATYPES})
   set(targetName ${MODULE})
   add_library(O2::${MODULE} ALIAS ${MODULE})
-  install(TARGETS ${MODULE})
+  install(TARGETS ${targetName})
+  target_link_libraries(${targetName} PUBLIC TPCFastTransformation)
+  target_include_directories(${targetName} PUBLIC ${INCDIRS})
 
   if(GPUCA_CONFIG_ROOT)
-    ROOT_GENERATE_DICTIONARY(G__${MODULE} ${HDRS_CINT_O2} ${HDRS_CINT_DATATYPES} ${HDRS_CINT_O2_ADDITIONAL} GPUTrackingLinkDef_Standalone.h)
-    target_sources(${MODULE} PRIVATE G__${MODULE})
+    ROOT_GENERATE_DICTIONARY(G__${targetName} ${HDRS_CINT_O2} ${HDRS_CINT_DATATYPES} ${HDRS_CINT_O2_ADDITIONAL} GPUTrackingLinkDef_Standalone.h MODULE ${targetName})
     INSTALL(FILES
-      ${CMAKE_CURRENT_BINARY_DIR}/lib${MODULE}_rdict.pcm
-      ${CMAKE_CURRENT_BINARY_DIR}/lib${MODULE}.rootmap
+      ${CMAKE_CURRENT_BINARY_DIR}/lib${targetName}_rdict.pcm
+      ${CMAKE_CURRENT_BINARY_DIR}/lib${targetName}.rootmap
     DESTINATION .)
+  else()
+    target_compile_definitions(${targetName} PRIVATE GPUCA_NO_ROOT)
   endif()
 endif()
-
-# Disable all non-deterministic floating point to make TPC track model encoding / decoding precise
-set_source_files_properties(DataCompression/GPUTPCCompressionTrackModel.cxx
-                            DataCompression/GPUTPCCompressionKernels.cxx
-                            DataCompression/TPCClusterDecompressor.cxx
-                            DataCompression/GPUTPCDecompressionKernels.cxx
-                            TARGET_DIRECTORY ${targetName}
-                            PROPERTIES
-                            COMPILE_FLAGS "${GPUCA_CXX_NO_FAST_MATH_FLAGS}"
-                            COMPILE_DEFINITIONS "GPUCA_NO_FAST_MATH")
 
 # GPUReconstructionLibrary needs to know which GPU backends are enabled for proper error messages
 configure_file(Base/GPUReconstructionAvailableBackends.template.h ${CMAKE_CURRENT_BINARY_DIR}/GPUReconstructionAvailableBackends.h)
@@ -412,6 +417,20 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2" OR ALIGPU_BUILD_TYPE STREQUAL "Standalone")
   endif()
 endif()
 
-if(${GPUCA_NO_FAST_MATH})
-  target_compile_definitions(${targetName} PUBLIC GPUCA_NO_FAST_MATH)
+if(GPUCA_DETERMINISTIC_MODE GREATER_EQUAL ${GPUCA_DETERMINISTIC_MODE_MAP_GPU})
+  target_compile_definitions(${targetName} PRIVATE GPUCA_DETERMINISTIC_MODE)
 endif()
+
+# Disable all non-deterministic floating point to make TPC track model encoding / decoding precise
+set_source_files_properties(DataCompression/GPUTPCCompressionTrackModel.cxx
+                            DataCompression/GPUTPCCompressionKernels.cxx
+                            DataCompression/TPCClusterDecompressor.cxx
+                            DataCompression/GPUTPCDecompressionKernels.cxx
+                            TARGET_DIRECTORY ${targetName}
+                            PROPERTIES
+                            COMPILE_FLAGS "${GPUCA_CXX_NO_FAST_MATH_FLAGS}"
+                            COMPILE_DEFINITIONS "GPUCA_DETERMINISTIC_MODE")
+o2_gpu_kernel_set_deterministic(GPUTPCCompressionKernels_step0attached
+                                GPUTPCCompressionKernels_step1unattached
+                                GPUTPCDecompressionKernels_step0attached
+                                GPUTPCDecompressionKernels_step1unattached)

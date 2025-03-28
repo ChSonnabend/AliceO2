@@ -663,7 +663,7 @@ GPUd() int32_t GPUTPCGMPropagator::Update(float posY, float posZ, int32_t iRow, 
   GPUCA_DEBUG_STREAMER_CHECK(if (debugVals) { debugVals->err2Y = err2Y; debugVals->err2Z = err2Z; });
 
   if (rejectChi2 >= rejectInterFill) {
-    if (rejectChi2 == rejectInterReject && inter->errorY < (GPUCA_MERGER_INTERPOLATION_ERROR_TYPE)0) {
+    if (rejectChi2 == rejectInterReject && inter->errorY < (GPUCA_MERGER_INTERPOLATION_ERROR_TYPE_A)0) {
       rejectChi2 = rejectDirect;
     } else {
       int32_t retVal = InterpolateReject(param, posY, posZ, clusterState, rejectChi2, inter, err2Y, err2Z);

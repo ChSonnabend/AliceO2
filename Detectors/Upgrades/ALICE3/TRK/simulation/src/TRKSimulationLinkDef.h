@@ -24,9 +24,9 @@
 #pragma link C++ class o2::base::DetImpl < o2::trk::Detector> + ;
 #pragma link C++ class o2::trk::Digitizer + ;
 
-// #pragma link C++ class o2::itsmft::DPLDigitizerParam < o2::detectors::DetID::ITS> + ;
-// #pragma link C++ class o2::itsmft::DPLDigitizerParam < o2::detectors::DetID::ITS> + ;
-// #pragma link C++ class o2::conf::ConfigurableParamHelper < o2::trk::DPLDigitizerParam < o2::detectors::DetID::TRK>> + ;
-// #pragma link C++ class o2::conf::ConfigurableParamHelper < o2::trk::DPLDigitizerParam < o2::detectors::DetID::FT3>> + ;
+#pragma link C++ class o2::trk::DPLDigitizerParam < o2::detectors::DetID::TRK> + ;
+#pragma link C++ class o2::trk::DPLDigitizerParam < o2::detectors::DetID::FT3> + ;
+#pragma link C++ class o2::conf::ConfigurableParamHelper < o2::trk::DPLDigitizerParam < o2::detectors::DetID::TRK>> + ;
+#pragma link C++ class o2::conf::ConfigurableParamHelper < o2::trk::DPLDigitizerParam < o2::detectors::DetID::FT3>> + ;
 
 #endif

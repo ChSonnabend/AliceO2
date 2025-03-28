@@ -27,9 +27,9 @@
 #endif
 
 #if defined(__HIPCC__)
-#define GPUCA_CUB hipcub
+#define GPUCA_CUB_NAMESPACE hipcub
 #else
-#define GPUCA_CUB cub
+#define GPUCA_CUB_NAMESPACE cub
 #endif
 
 namespace o2::gpu
@@ -54,7 +54,7 @@ class GPUKernelTemplate
   struct GPUSharedMemoryWarpScan64 {
     // Provides the shared memory resources for warp wide CUB collectives
 #if (defined(__CUDACC__) || defined(__HIPCC__)) && defined(GPUCA_GPUCODE) && !defined(GPUCA_GPUCODE_HOSTONLY)
-    typedef GPUCA_CUB::WarpScan<T> WarpScan;
+    typedef GPUCA_CUB_NAMESPACE::WarpScan<T> WarpScan;
     union {
       typename WarpScan::TempStorage cubWarpTmpMem;
     };
@@ -65,9 +65,9 @@ class GPUKernelTemplate
   struct GPUSharedMemoryScan64 {
     // Provides the shared memory resources for CUB collectives
 #if (defined(__CUDACC__) || defined(__HIPCC__)) && defined(GPUCA_GPUCODE) && !defined(GPUCA_GPUCODE_HOSTONLY)
-    typedef GPUCA_CUB::BlockScan<T, I> BlockScan;
-    typedef GPUCA_CUB::BlockReduce<T, I> BlockReduce;
-    typedef GPUCA_CUB::WarpScan<T> WarpScan;
+    typedef GPUCA_CUB_NAMESPACE::BlockScan<T, I> BlockScan;
+    typedef GPUCA_CUB_NAMESPACE::BlockReduce<T, I> BlockReduce;
+    typedef GPUCA_CUB_NAMESPACE::WarpScan<T> WarpScan;
     union {
       typename BlockScan::TempStorage cubTmpMem;
       typename BlockReduce::TempStorage cubReduceTmpMem;
@@ -110,6 +110,6 @@ class GPUitoa : public GPUKernelTemplate
 
 } // namespace o2::gpu
 
-#undef GPUCA_CUB
+#undef GPUCA_CUB_NAMESPACE
 
 #endif

@@ -49,7 +49,7 @@ struct GPUReconstructionOCLInternals {
   cl_mem mem_host;
   cl_program program;
 
-  std::vector<std::pair<cl_kernel, std::string>> kernels;
+  std::vector<cl_kernel> kernels;
 };
 } // namespace o2::gpu
 

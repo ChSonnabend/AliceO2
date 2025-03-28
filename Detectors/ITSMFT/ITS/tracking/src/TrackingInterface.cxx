@@ -78,6 +78,9 @@ void ITSTrackingInterface::initialise()
       param.TrackletsPerClusterLimit = 1.e3f;
       // check if something was overridden via configurable params
       if (ip < trackConf.MaxIter) {
+        if (trackConf.startLayerMask[ip] > 0) {
+          trackParams[2].StartLayerMask = trackConf.startLayerMask[ip];
+        }
         if (trackConf.minTrackLgtIter[ip] > 0) {
           param.MinTrackLength = trackConf.minTrackLgtIter[ip];
         }

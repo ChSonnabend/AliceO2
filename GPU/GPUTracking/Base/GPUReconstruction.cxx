@@ -30,6 +30,7 @@
 #include "GPUROOTDumpCore.h"
 #include "GPUConfigDump.h"
 #include "GPUChainTracking.h"
+#include "GPUCommonHelpers.h"
 
 #include "GPUMemoryResource.h"
 #include "GPUChain.h"
@@ -261,8 +262,8 @@ int32_t GPUReconstruction::InitPhaseBeforeDevice()
     mProcessingSettings.deterministicGPUReconstruction = mProcessingSettings.debugLevel >= 6;
   }
   if (mProcessingSettings.deterministicGPUReconstruction) {
-#ifndef GPUCA_NO_FAST_MATH
-    GPUError("Warning, deterministicGPUReconstruction needs GPUCA_NO_FAST_MATH for being fully deterministic, without only most indeterminism by concurrency is removed, but floating point effects remain!");
+#ifndef GPUCA_DETERMINISTIC_MODE
+    GPUError("Warning, deterministicGPUReconstruction needs GPUCA_DETERMINISTIC_MODE for being fully deterministic, without only most indeterminism by concurrency is removed, but floating point effects remain!");
 #endif
     mProcessingSettings.overrideClusterizerFragmentLen = TPC_MAX_FRAGMENT_LEN_GPU;
     param().rec.tpc.nWaysOuter = true;
@@ -272,6 +273,7 @@ int32_t GPUReconstruction::InitPhaseBeforeDevice()
     if (mProcessingSettings.createO2Output > 1) {
       mProcessingSettings.createO2Output = 1;
     }
+    mProcessingSettings.rtc.deterministic = 1;
   }
   if (mProcessingSettings.deterministicGPUReconstruction && mProcessingSettings.debugLevel >= 6) {
     mProcessingSettings.nTPCClustererLanes = 1;
@@ -1192,4 +1194,13 @@ void GPUReconstruction::SetOutputControl(void* ptr, size_t size)
 void GPUReconstruction::SetInputControl(void* ptr, size_t size)
 {
   mInputControl.set(ptr, size);
+}
+
+ThrustVolatileAllocator::ThrustVolatileAllocator(GPUReconstruction* r)
+{
+  mAlloc = [&r](size_t n) { return (char*)r->AllocateVolatileDeviceMemory(n); };
+}
+ThrustVolatileAllocator GPUReconstruction::getThrustVolatileDeviceAllocator()
+{
+  return ThrustVolatileAllocator(this);
 }

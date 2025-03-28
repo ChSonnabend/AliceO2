@@ -54,7 +54,6 @@ class GeneratorHybrid : public Generator
 {
 
  public:
-  GeneratorHybrid() = default;
   GeneratorHybrid(const std::string& inputgens);
   ~GeneratorHybrid();
 

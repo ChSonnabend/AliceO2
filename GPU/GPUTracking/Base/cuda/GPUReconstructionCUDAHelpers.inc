@@ -16,6 +16,7 @@
 #define GPURECONSTRUCTIONCUDAHELPERS_INC_H
 
 #include "GPUCommonHelpers.h"
+#include "GPUReconstruction.h"
 
 namespace o2::gpu::internal
 {
@@ -27,5 +28,11 @@ int32_t __attribute__((weak)) GPUReconstructionCUDAChkErr(const int64_t error, c
   return error != cudaSuccess;
 }
 } // namespace o2::gpu::internal
+
+namespace o2::gpu
+{
+char* __attribute__((weak)) ThrustVolatileAllocator::allocate(std::ptrdiff_t n) { return mAlloc(n); }
+void __attribute__((weak)) ThrustVolatileAllocator::deallocate(char* ptr, size_t) {}
+} // namespace o2::gpu
 
 #endif

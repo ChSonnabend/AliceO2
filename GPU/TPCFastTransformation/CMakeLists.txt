@@ -119,6 +119,8 @@ endif()
 
 if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
   add_library(${MODULE} SHARED ${SRCS})
+  set(targetName ${MODULE})
+  target_include_directories(${targetName} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
 
 install (FILES macro/TPCFastTransformInit.C

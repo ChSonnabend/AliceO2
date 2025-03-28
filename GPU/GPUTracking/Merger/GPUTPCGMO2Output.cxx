@@ -104,9 +104,7 @@ struct GPUTPCGMO2OutputSort_comp {
 template <>
 inline void GPUCA_M_CAT3(GPUReconstruction, GPUCA_GPUTYPE, Backend)::runKernelBackendInternal<GPUTPCGMO2Output, GPUTPCGMO2Output::sort>(const krnlSetupTime& _xyz)
 {
-  thrust::device_ptr<GPUTPCGMMerger::tmpSort> trackSort(mProcessorsShadow->tpcMerger.TrackSortO2());
-  ThrustVolatileAsyncAllocator alloc(this);
-  thrust::sort(GPUCA_THRUST_NAMESPACE::par(alloc).on(mInternals->Streams[_xyz.x.stream]), trackSort, trackSort + processors()->tpcMerger.NOutputTracksTPCO2(), GPUTPCGMO2OutputSort_comp());
+  GPUCommonAlgorithm::sortOnDevice(this, _xyz.x.stream, mProcessorsShadow->tpcMerger.TrackSortO2(), processors()->tpcMerger.NOutputTracksTPCO2(), GPUTPCGMO2OutputSort_comp());
 }
 #endif // GPUCA_SPECIALIZE_THRUST_SORTS - Specialize GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::sort>
 

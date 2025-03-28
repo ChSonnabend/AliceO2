@@ -42,7 +42,7 @@ struct DataSet {
                                                            auto payload = static_cast<char const*>(this->messages[i].second.at(2 * part + 1)->data());
                                                            return DataRef{nullptr, header, payload};
                                                          },
-                                                         [this](size_t i) { return i < this->messages.size() ? messages[i].second.size() / 2 : 0; }, this->messages.size()},
+                                                         [this](size_t i) { return i < this->messages.size() ? messages[i].second.size() / 2 : 0; }, nullptr, this->messages.size()},
       record{schema, span, registry},
       values{std::move(v)}
   {

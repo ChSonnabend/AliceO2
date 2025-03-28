@@ -23,16 +23,19 @@
 #pragma GCC diagnostic pop
 
 #include "GPUCommonDef.h"
+#include "GPUCommonHelpers.h"
 
-#ifdef __CUDACC__
+#ifndef __HIPCC__ // CUDA
 #define GPUCA_THRUST_NAMESPACE thrust::cuda
-#else
+#define GPUCA_CUB_NAMESPACE cub
+#include <cub/cub.cuh>
+#else // HIP
 #define GPUCA_THRUST_NAMESPACE thrust::hip
+#define GPUCA_CUB_NAMESPACE hipcub
+#include <hipcub/hipcub.hpp>
 #endif
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 // - Our quicksort and bubble sort implementations are faster
@@ -54,7 +57,7 @@ GPUdi() void GPUCommonAlgorithm::sort(T* begin, T* end, const S& comp)
 }
 
 template <class T>
-GPUdi() void GPUCommonAlgorithm::sortInBlock(T* begin, T* end)
+GPUdi() void GPUCommonAlgorithm::sortInBlock(T* begin, T* end) // TODO: Try cub::BlockMergeSort
 {
   if (get_local_id(0) == 0) {
     sortDeviceDynamic(begin, end);
@@ -87,7 +90,24 @@ GPUdi() void GPUCommonAlgorithm::sortDeviceDynamic(T* begin, T* end, const S& co
   thrust::sort(GPUCA_THRUST_NAMESPACE::par, thrustBegin, thrustEnd, comp);
 }
 
-} // namespace gpu
-} // namespace o2
+template <class T, class S>
+GPUhi() void GPUCommonAlgorithm::sortOnDevice(auto* rec, int32_t stream, T* begin, size_t N, const S& comp)
+{
+  thrust::device_ptr<T> p(begin);
+#if 0 // Use Thrust
+  auto alloc = rec->getThrustVolatileDeviceAllocator();
+  thrust::sort(GPUCA_THRUST_NAMESPACE::par(alloc).on(rec->mInternals->Streams[stream]), p, p + N, comp);
+#else // Use CUB
+  size_t tempSize = 0;
+  void* tempMem = nullptr;
+  GPUChkErrS(GPUCA_CUB_NAMESPACE::DeviceMergeSort::SortKeys(tempMem, tempSize, begin, N, comp, rec->mInternals->Streams[stream]));
+  tempMem = rec->AllocateVolatileDeviceMemory(tempSize);
+  GPUChkErrS(GPUCA_CUB_NAMESPACE::DeviceMergeSort::SortKeys(tempMem, tempSize, begin, N, comp, rec->mInternals->Streams[stream]));
+#endif
+}
+} // namespace o2::gpu
+
+#undef GPUCA_THRUST_NAMESPACE
+#undef GPUCA_CUB_NAMESPACE
 
 #endif

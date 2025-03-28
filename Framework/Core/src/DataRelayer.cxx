@@ -44,6 +44,10 @@
 #include <Monitoring/Monitoring.h>
 
 #include <fairmq/Channel.h>
+#include <functional>
+#if __has_include(<fairmq/shmem/Message.h>)
+#include <fairmq/shmem/Message.h>
+#endif
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 #include <gsl/span>
@@ -209,7 +213,15 @@ DataRelayer::ActivityStats DataRelayer::processDanglingInputs(std::vector<Expira
       auto nPartsGetter = [&partial](size_t idx) {
         return partial[idx].size();
       };
-      InputSpan span{getter, nPartsGetter, static_cast<size_t>(partial.size())};
+#if __has_include(<fairmq/shmem/Message.h>)
+      auto refCountGetter = [&partial](size_t idx) -> int {
+        auto& header = static_cast<const fair::mq::shmem::Message&>(*partial[idx].header(0));
+        return header.GetRefCount();
+      };
+#else
+      std::function<int(size_t)> refCountGetter = nullptr;
+#endif
+      InputSpan span{getter, nPartsGetter, refCountGetter, static_cast<size_t>(partial.size())};
       // Setup the input span
 
       if (expirator.checker(services, timestamp.value, span) == false) {
@@ -755,7 +767,15 @@ void DataRelayer::getReadyToProcess(std::vector<DataRelayer::RecordAction>& comp
     auto nPartsGetter = [&partial](size_t idx) {
       return partial[idx].size();
     };
-    InputSpan span{getter, nPartsGetter, static_cast<size_t>(partial.size())};
+#if __has_include(<fairmq/shmem/Message.h>)
+    auto refCountGetter = [&partial](size_t idx) -> int {
+      auto& header = static_cast<const fair::mq::shmem::Message&>(*partial[idx].header(0));
+      return header.GetRefCount();
+    };
+#else
+    std::function<int(size_t)> refCountGetter = nullptr;
+#endif
+    InputSpan span{getter, nPartsGetter, refCountGetter, static_cast<size_t>(partial.size())};
     CompletionPolicy::CompletionOp action = mCompletionPolicy.callbackFull(span, mInputs, mContext);
 
     auto& variables = mTimesliceIndex.getVariablesForSlot(slot);

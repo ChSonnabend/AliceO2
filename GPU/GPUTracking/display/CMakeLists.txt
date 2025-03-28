@@ -131,7 +131,6 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
                  PUBLIC_INCLUDE_DIRECTORIES .
              SOURCES ${SRCS} ${SRCS_NO_H})
 
-  target_compile_definitions(${targetName} PRIVATE $<TARGET_PROPERTY:O2::GPUTracking,COMPILE_DEFINITIONS>)
   target_compile_definitions(${targetName} PRIVATE GPUCA_BUILD_EVENT_DISPLAY_GLFW GPUCA_DISPLAY_GL3W GPUCA_DISPLAY_OPENGL_CORE)
 
   install(FILES ${HDRS} ${HDRS_INSTALL} DESTINATION include/GPU)
@@ -158,6 +157,8 @@ if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/setinclude.sh PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE DESTINATION displayTrackFilter)
 endif()
 
+target_compile_definitions(${targetName} PRIVATE $<TARGET_PROPERTY:O2::GPUTracking,COMPILE_DEFINITIONS>)
+
 message(STATUS "Building GPU Event Display (Vulkan ${GPUCA_EVENT_DISPLAY_VULKAN}, Wayland ${GPUCA_EVENT_DISPLAY_WAYLAND}, Freetype ${GPUCA_EVENT_DISPLAY_FREETYPE}, Fontconfig ${Fontconfig_FOUND}, Qt ${GPUCA_EVENT_DISPLAY_QT})")
 target_link_libraries(${targetName} PUBLIC ${GLFW_LIBRARIES} OpenGL::GL)
 target_include_directories(${targetName} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -179,9 +180,12 @@ if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
   endif()
   if(GPUCA_CONFIG_GL3W)
     target_compile_definitions(${targetName} PRIVATE GPUCA_DISPLAY_GL3W)
+    target_sources(${targetName} PRIVATE ${GPUTRACKING_DIR}/display/3rdparty/gl3w.c)
   else()
     target_link_libraries(${targetName} PRIVATE ${GLEW_LIBRARIES})
   endif()
+  target_sources(${targetName} PRIVATE ${GPUTRACKING_DIR}/display/3rdparty/HandMadeMath/HandMadeMathImpl.cxx)
+  target_include_directories(${targetName} SYSTEM PUBLIC ${GPUTRACKING_DIR}/display/3rdparty)
 endif()
 
 if (OPENGL_GLU_FOUND)

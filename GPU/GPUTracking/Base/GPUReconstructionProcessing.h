@@ -20,6 +20,7 @@
 
 #include "utils/timer.h"
 #include <functional>
+#include <atomic>
 
 namespace o2::gpu
 {
@@ -74,7 +75,10 @@ class GPUReconstructionProcessing : public GPUReconstruction
 
   // Interface to query name of a kernel
   template <class T, int32_t I>
-  constexpr static const char* GetKernelName();
+  static const char* GetKernelName();
+  const std::string& GetKernelName(int32_t i) const { return mKernelNames[i]; }
+  template <class T, int32_t I = 0>
+  static uint32_t GetKernelNum(int32_t k = -1);
 
   // Public queries for timers
   auto& getRecoStepTimer(RecoStep step) { return mTimersRecoSteps[getRecoStepNum(step)]; }
@@ -99,6 +103,8 @@ class GPUReconstructionProcessing : public GPUReconstruction
  protected:
   GPUReconstructionProcessing(const GPUSettingsDeviceBackend& cfg) : GPUReconstruction(cfg) {}
   using deviceEvent = gpu_reconstruction_kernels::deviceEvent;
+
+  static const std::vector<std::string> mKernelNames;
 
   int32_t mActiveHostKernelThreads = 0;  // Number of currently active threads on the host for kernels
   uint32_t mNActiveThreadsOuterLoop = 1; // Number of threads currently running an outer loop
@@ -130,6 +136,8 @@ class GPUReconstructionProcessing : public GPUReconstruction
   uint32_t getNextTimerId();
   timerMeta* getTimerById(uint32_t id, bool increment = true);
   timerMeta* insertTimer(uint32_t id, std::string&& name, int32_t J, int32_t num, int32_t type, RecoStep step);
+
+  static std::atomic_flag mTimerFlag;
 };
 
 template <class T>
@@ -173,15 +181,6 @@ HighResTimer& GPUReconstructionProcessing::getTimer(const char* name, int32_t nu
   }
   return timer->timer[num];
 }
-
-#define GPUCA_KRNL(x_class, ...)                                                                     \
-  template <>                                                                                        \
-  constexpr const char* GPUReconstructionProcessing::GetKernelName<GPUCA_M_KRNL_TEMPLATE(x_class)>() \
-  {                                                                                                  \
-    return GPUCA_M_STR(GPUCA_M_KRNL_NAME(x_class));                                                  \
-  }
-#include "GPUReconstructionKernelList.h"
-#undef GPUCA_KRNL
 
 } // namespace o2::gpu
 

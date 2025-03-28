@@ -73,7 +73,6 @@ DataProcessorSpec getSourceSpec()
 {
   static_assert(enable_root_serialization<o2::test::Polymorphic>::value, "enable_root_serialization<o2::test::Polymorphic> must be true");
   auto processingFct = [](ProcessingContext& pc) {
-    static int counter = 0;
     o2::test::TriviallyCopyable a(42, 23, 0xdead);
     o2::test::Polymorphic b(0xbeef);
     std::vector<o2::test::Polymorphic> c{{0xaffe}, {0xd00f}};

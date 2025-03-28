@@ -35,9 +35,7 @@ class MatRepStd;
 } // namespace Math
 } // namespace ROOT
 
-namespace o2
-{
-namespace math_utils
+namespace o2::math_utils
 {
 
 namespace detail
@@ -72,7 +70,6 @@ template <class T, uint32_t D1, uint32_t D2 = D1>
 using MatRepStd = detail::MatRepStdGPU<T, D1, D2>;
 #endif
 
-} // namespace math_utils
-} // namespace o2
+} // namespace o2::math_utils
 
 #endif

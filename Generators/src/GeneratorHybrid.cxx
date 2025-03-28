@@ -25,6 +25,12 @@ namespace eventgen
 
 GeneratorHybrid::GeneratorHybrid(const std::string& inputgens)
 {
+  // This generator has trivial unit conversions
+  setTimeUnit(1.);
+  setPositionUnit(1.);
+  setMomentumUnit(1.);
+  setEnergyUnit(1.);
+
   if (!parseJSON(inputgens)) {
     LOG(fatal) << "Failed to parse JSON configuration from input generators";
     exit(1);
@@ -382,6 +388,27 @@ bool GeneratorHybrid::importParticles()
       }
     }
   }
+
+  auto unit_transformer = [](auto& p, auto pos_unit, auto time_unit, auto en_unit, auto mom_unit) {
+    p.SetMomentum(p.Px() * mom_unit, p.Py() * mom_unit, p.Pz() * mom_unit, p.Energy() * en_unit);
+    p.SetProductionVertex(p.Vx() * pos_unit, p.Vy() * pos_unit, p.Vz() * pos_unit, p.T() * time_unit);
+  };
+
+  auto index_transformer = [](auto& p, int offset) {
+    for (int i = 0; i < 2; ++i) {
+      if (p.GetMother(i) != -1) {
+        const auto newindex = p.GetMother(i) + offset;
+        p.SetMother(i, newindex);
+      }
+    }
+    if (p.GetNDaughters() > 0) {
+      for (int i = 0; i < 2; ++i) {
+        const auto newindex = p.GetDaughter(i) + offset;
+        p.SetDaughter(i, newindex);
+      }
+    }
+  };
+
   // Clear particles and event header
   mParticles.clear();
   mMCEventHeader.clearInfo();
@@ -391,23 +418,20 @@ bool GeneratorHybrid::importParticles()
       LOG(info) << "Importing particles for task " << subIndex;
       auto subParticles = gens[subIndex]->getParticles();
 
+      auto time_unit = gens[subIndex]->getTimeUnit();
+      auto pos_unit = gens[subIndex]->getPositionUnit();
+      auto mom_unit = gens[subIndex]->getMomentumUnit();
+      auto energy_unit = gens[subIndex]->getEnergyUnit();
+
       // The particles carry mother and daughter indices, which are relative
       // to the sub-generator. We need to adjust these indices to reflect that particles
       // are now embedded into a cocktail.
       auto offset = mParticles.size();
       for (auto& p : subParticles) {
-        for (int i = 0; i < 2; ++i) {
-          if (p.GetMother(i) != -1) {
-            const auto newindex = p.GetMother(i) + offset;
-            p.SetMother(i, newindex);
-          }
-        }
-        if (p.GetNDaughters() > 0) {
-          for (int i = 0; i < 2; ++i) {
-            const auto newindex = p.GetDaughter(i) + offset;
-            p.SetDaughter(i, newindex);
-          }
-        }
+        // apply the mother-daugher index transformation
+        index_transformer(p, offset);
+        // apply unit transformation of sub-generator
+        unit_transformer(p, pos_unit, time_unit, energy_unit, mom_unit);
       }
 
       mParticles.insert(mParticles.end(), subParticles.begin(), subParticles.end());
@@ -420,6 +444,18 @@ bool GeneratorHybrid::importParticles()
     LOG(info) << "Importing particles for task " << genIndex;
     // at this moment the mIndex-th generator is ready to be used
     mParticles = gens[genIndex]->getParticles();
+
+    auto time_unit = gens[genIndex]->getTimeUnit();
+    auto pos_unit = gens[genIndex]->getPositionUnit();
+    auto mom_unit = gens[genIndex]->getMomentumUnit();
+    auto energy_unit = gens[genIndex]->getEnergyUnit();
+
+    // transform units to units of the hybrid generator
+    for (auto& p : mParticles) {
+      // apply unit transformation
+      unit_transformer(p, pos_unit, time_unit, energy_unit, mom_unit);
+    }
+
     // fetch the event Header information from the underlying generator
     gens[genIndex]->updateHeader(&mMCEventHeader);
     mInputTaskQueue.push(genIndex);

@@ -257,6 +257,11 @@ class TPCFourierTransformAggregatorSpec : public o2::framework::Task
   void makeTPCScaler(DataAllocator& output, const bool eos)
   {
     LOGP(info, "Making TPC scalers");
+    if (mTPCScalerCont.idcs.empty()) {
+      LOGP(warning, "No IDCs received for TPC scaler creation");
+      return;
+    }
+
     // check if IDC scalers can be created - check length of continous received IDCs
     std::vector<std::pair<long, long>> times;
     times.reserve(mTPCScalerCont.idcs.size());

@@ -37,8 +37,6 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
                              PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}>
                                     $<INSTALL_INTERFACE:include/GPU>)
 
-  target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2)
-
   # cuda test, only compile if CUDA
   if(CUDA_ENABLED)
     o2_add_test(GPUsortCUDA NAME test_GPUsortCUDA

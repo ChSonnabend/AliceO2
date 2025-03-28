@@ -29,8 +29,7 @@ int TreeStream::CheckIn(Char_t type, const void* pointer)
   // Insert object
 
   if (mCurrentIndex >= static_cast<int>(mElements.size())) {
-    mElements.emplace_back();
-    auto& element = mElements.back();
+    auto& element = mElements.emplace_back();
     element.type = type;
     TString name = mNextName;
     if (name.Length()) {
@@ -42,6 +41,8 @@ int TreeStream::CheckIn(Char_t type, const void* pointer)
     }
     element.name = name.Data();
     element.ptr = pointer;
+    element.arsize = mNextArraySize;
+    mNextArraySize = 1; // reset
   } else {
     auto& element = mElements[mCurrentIndex];
     if (element.type != type) {
@@ -89,7 +90,13 @@ void TreeStream::BuildTree()
     }
 
     if (element.type > 0) {
-      TString nameC = TString::Format("%s/%c", name.Data(), element.type);
+      TString nameC;
+      if (element.arsize > 1) {
+        nameC = TString::Format("%s[%d]/%c", name.Data(), element.arsize,
+                                element.type);
+      } else {
+        nameC = TString::Format("%s/%c", name.Data(), element.type);
+      }
       br = mTree.Branch(name.Data(), const_cast<void*>(element.ptr), nameC.Data());
       if (entriesFilled) {
         br->SetAddress(nullptr);
@@ -148,28 +155,43 @@ TreeStream& TreeStream::Endl()
 TreeStream& TreeStream::operator<<(const Char_t* name)
 {
   // Stream the branch name
-  //
   if (name[0] == '\n') {
     return Endl();
   }
-  //
+
   // if tree was already defined ignore
   if (mTree.GetEntries() > 0) {
     return *this;
   }
+
+  int arsize = 1;
+
   // check branch name if tree was not
-  //
   Int_t last = 0;
   for (last = 0;; last++) {
     if (name[last] == 0) {
       break;
     }
   }
-
   if (last > 0 && name[last - 1] == '=') {
     mNextName = name;
-    mNextName[last - 1] = 0;
+    mNextName[last - 1] = 0; // remove '=' from string
     mNextNameCounter = 0;
+
+    TString inName{name};
+    auto brkStaPos = inName.Index('[');
+
+    if (brkStaPos != kNPOS) {
+      auto brkEndPos = inName.Index(']');
+      if (brkEndPos != kNPOS && brkEndPos > brkStaPos + 1) {
+        TString size = inName(brkStaPos + 1, brkEndPos - brkStaPos - 1);
+        arsize = size.Atoi();
+        mNextName = inName(0, brkStaPos); // use parsed name
+      }
+    }
   }
+
+  mNextArraySize = arsize;
+
   return *this;
 }

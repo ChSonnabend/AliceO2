@@ -29,8 +29,11 @@ InputSpan::InputSpan(std::function<DataRef(size_t, size_t)> getter, size_t size)
 {
 }
 
-InputSpan::InputSpan(std::function<DataRef(size_t, size_t)> getter, std::function<size_t(size_t)> nofPartsGetter, size_t size)
-  : mGetter{getter}, mNofPartsGetter{nofPartsGetter}, mSize{size}
+InputSpan::InputSpan(std::function<DataRef(size_t, size_t)> getter,
+                     std::function<size_t(size_t)> nofPartsGetter,
+                     std::function<int(size_t)> refCountGetter,
+                     size_t size)
+  : mGetter{getter}, mNofPartsGetter{nofPartsGetter}, mRefCountGetter(refCountGetter), mSize{size}
 {
 }
 

@@ -69,7 +69,7 @@
     #define GPUCritical(...) GPUWarning(__VA_ARGS__)
     #define GPUFatal(string, ...)                  \
       {                                            \
-        fprintf(stderr, string "\n", __VA_ARGS__); \
+        fprintf(stderr, string "\n", ##__VA_ARGS__); \
         exit(1);                                   \
       }
   #endif

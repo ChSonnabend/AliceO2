@@ -43,13 +43,8 @@
 #define THRUST_NAMESPACE thrust::hip
 #endif
 
-#ifdef GPUCA_NO_FAST_MATH
-#define GPU_BLOCKS 1
-#define GPU_THREADS 1
-#else
-#define GPU_BLOCKS 99999
-#define GPU_THREADS 99999
-#endif
+#define GPU_BLOCKS GPUCA_DETERMINISTIC_CODE(1, 99999)
+#define GPU_THREADS GPUCA_DETERMINISTIC_CODE(1, 99999)
 
 // O2 track model
 #include "ReconstructionDataFormats/Track.h"

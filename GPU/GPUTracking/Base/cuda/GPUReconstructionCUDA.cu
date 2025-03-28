@@ -19,7 +19,6 @@
 
 #include "GPUReconstructionCUDA.h"
 #include "GPUReconstructionCUDAInternals.h"
-#include "CUDAThrustHelpers.h"
 #include "GPUReconstructionIncludes.h"
 #include "GPUParamRTC.h"
 #include "GPUReconstructionCUDAHelpers.inc"
@@ -611,7 +610,7 @@ void GPUReconstructionCUDABackend::PrintKernelOccupancies()
     GPUChkErr(cuOccupancyMaxActiveBlocksPerMultiprocessor(&maxBlocks, *mInternals->kernelFunctions[i], threads, 0));
     GPUChkErr(cuFuncGetAttribute(&nRegs, CU_FUNC_ATTRIBUTE_NUM_REGS, *mInternals->kernelFunctions[i]));
     GPUChkErr(cuFuncGetAttribute(&sMem, CU_FUNC_ATTRIBUTE_SHARED_SIZE_BYTES, *mInternals->kernelFunctions[i]));
-    GPUInfo("Kernel: %50s Block size: %4d, Maximum active blocks: %3d, Suggested blocks: %3d, Regs: %3d, smem: %3d", mInternals->kernelNames[i].c_str(), threads, maxBlocks, suggestedBlocks, nRegs, sMem);
+    GPUInfo("Kernel: %50s Block size: %4d, Maximum active blocks: %3d, Suggested blocks: %3d, Regs: %3d, smem: %3d", GetKernelName(i).c_str(), threads, maxBlocks, suggestedBlocks, nRegs, sMem);
   }
 }
 
@@ -619,9 +618,10 @@ void GPUReconstructionCUDA::loadKernelModules(bool perKernel)
 {
   uint32_t j = 0;
 #define GPUCA_KRNL(x_class, ...)                                                                                                                                                        \
-  getRTCkernelNum<false, GPUCA_M_KRNL_TEMPLATE(x_class)>(mInternals->kernelFunctions.size());                                                                                           \
+  if (GetKernelNum<GPUCA_M_KRNL_TEMPLATE(x_class)>() != j) {                                                                                                                            \
+    GPUFatal("kernel numbers out of sync");                                                                                                                                             \
+  }                                                                                                                                                                                     \
   mInternals->kernelFunctions.emplace_back(new CUfunction);                                                                                                                             \
-  mInternals->kernelNames.emplace_back(GPUCA_M_STR(GPUCA_M_CAT(krnl_, GPUCA_M_KRNL_NAME(x_class))));                                                                                    \
   if (mProcessingSettings.debugLevel >= 3) {                                                                                                                                            \
     GPUInfo("Loading kernel %s (j = %u)", GPUCA_M_STR(GPUCA_M_CAT(krnl_, GPUCA_M_KRNL_NAME(x_class))), j);                                                                              \
   }                                                                                                                                                                                     \
@@ -629,7 +629,6 @@ void GPUReconstructionCUDA::loadKernelModules(bool perKernel)
   j++;
 #include "GPUReconstructionKernelList.h"
 #undef GPUCA_KRNL
-
   if (j != mInternals->kernelModules.size()) {
     GPUFatal("Did not load all kernels (%u < %u)", j, (uint32_t)mInternals->kernelModules.size());
   }

@@ -57,53 +57,6 @@ void GPUReconstructionProcessing::runParallelOuterLoop(bool doGPU, uint32_t nThr
   }
 }
 
-namespace o2::gpu
-{
-namespace // anonymous
-{
-static std::atomic_flag timerFlag = ATOMIC_FLAG_INIT; // TODO: Should be a class member not global, but cannot be moved to header due to ROOT limitation
-} // anonymous namespace
-} // namespace o2::gpu
-
-GPUReconstructionProcessing::timerMeta* GPUReconstructionProcessing::insertTimer(uint32_t id, std::string&& name, int32_t J, int32_t num, int32_t type, RecoStep step)
-{
-  while (timerFlag.test_and_set()) {
-  }
-  if (mTimers.size() <= id) {
-    mTimers.resize(id + 1);
-  }
-  if (mTimers[id] == nullptr) {
-    if (J >= 0) {
-      name += std::to_string(J);
-    }
-    mTimers[id].reset(new timerMeta{std::unique_ptr<HighResTimer[]>{new HighResTimer[num]}, name, num, type, 1u, step, (size_t)0});
-  } else {
-    mTimers[id]->count++;
-  }
-  timerMeta* retVal = mTimers[id].get();
-  timerFlag.clear();
-  return retVal;
-}
-
-GPUReconstructionProcessing::timerMeta* GPUReconstructionProcessing::getTimerById(uint32_t id, bool increment)
-{
-  timerMeta* retVal = nullptr;
-  while (timerFlag.test_and_set()) {
-  }
-  if (mTimers.size() > id && mTimers[id]) {
-    retVal = mTimers[id].get();
-    retVal->count += increment;
-  }
-  timerFlag.clear();
-  return retVal;
-}
-
-uint32_t GPUReconstructionProcessing::getNextTimerId()
-{
-  static std::atomic<uint32_t> id{0};
-  return id.fetch_add(1);
-}
-
 uint32_t GPUReconstructionProcessing::SetAndGetNActiveThreadsOuterLoop(bool condition, uint32_t max)
 {
   if (condition && mProcessingSettings.inKernelParallel != 1) {
@@ -117,6 +70,47 @@ uint32_t GPUReconstructionProcessing::SetAndGetNActiveThreadsOuterLoop(bool cond
   return mNActiveThreadsOuterLoop;
 }
 
+std::atomic_flag GPUReconstructionProcessing::mTimerFlag = ATOMIC_FLAG_INIT;
+
+GPUReconstructionProcessing::timerMeta* GPUReconstructionProcessing::insertTimer(uint32_t id, std::string&& name, int32_t J, int32_t num, int32_t type, RecoStep step)
+{
+  while (mTimerFlag.test_and_set()) {
+  }
+  if (mTimers.size() <= id) {
+    mTimers.resize(id + 1);
+  }
+  if (mTimers[id] == nullptr) {
+    if (J >= 0) {
+      name += std::to_string(J);
+    }
+    mTimers[id].reset(new timerMeta{std::unique_ptr<HighResTimer[]>{new HighResTimer[num]}, name, num, type, 1u, step, (size_t)0});
+  } else {
+    mTimers[id]->count++;
+  }
+  timerMeta* retVal = mTimers[id].get();
+  mTimerFlag.clear();
+  return retVal;
+}
+
+GPUReconstructionProcessing::timerMeta* GPUReconstructionProcessing::getTimerById(uint32_t id, bool increment)
+{
+  timerMeta* retVal = nullptr;
+  while (mTimerFlag.test_and_set()) {
+  }
+  if (mTimers.size() > id && mTimers[id]) {
+    retVal = mTimers[id].get();
+    retVal->count += increment;
+  }
+  mTimerFlag.clear();
+  return retVal;
+}
+
+uint32_t GPUReconstructionProcessing::getNextTimerId()
+{
+  static std::atomic<uint32_t> id{0};
+  return id.fetch_add(1);
+}
+
 std::unique_ptr<gpu_reconstruction_kernels::threadContext> GPUReconstructionProcessing::GetThreadContext()
 {
   return std::make_unique<gpu_reconstruction_kernels::threadContext>();
@@ -124,3 +118,39 @@ std::unique_ptr<gpu_reconstruction_kernels::threadContext> GPUReconstructionProc
 
 gpu_reconstruction_kernels::threadContext::threadContext() = default;
 gpu_reconstruction_kernels::threadContext::~threadContext() = default;
+
+template <class T, int32_t I>
+uint32_t GPUReconstructionProcessing::GetKernelNum(int32_t k)
+{
+  static int32_t num = k;
+  if (num < 0) {
+    throw std::runtime_error("Internal Error - Kernel Number not Set");
+  }
+  return num;
+}
+
+namespace o2::gpu::internal
+{
+static std::vector<std::string> initKernelNames()
+{
+  std::vector<std::string> retVal;
+#define GPUCA_KRNL(x_class, ...)                                                            \
+  GPUReconstructionProcessing::GetKernelNum<GPUCA_M_KRNL_TEMPLATE(x_class)>(retVal.size()); \
+  retVal.emplace_back(GPUCA_M_STR(GPUCA_M_KRNL_NAME(x_class)));
+#include "GPUReconstructionKernelList.h"
+#undef GPUCA_KRNL
+  return retVal;
+}
+} // namespace o2::gpu::internal
+
+const std::vector<std::string> GPUReconstructionProcessing::mKernelNames = o2::gpu::internal::initKernelNames();
+
+#define GPUCA_KRNL(x_class, ...)                                                                        \
+  template uint32_t GPUReconstructionProcessing::GetKernelNum<GPUCA_M_KRNL_TEMPLATE(x_class)>(int32_t); \
+  template <>                                                                                           \
+  const char* GPUReconstructionProcessing::GetKernelName<GPUCA_M_KRNL_TEMPLATE(x_class)>()              \
+  {                                                                                                     \
+    return GPUCA_M_STR(GPUCA_M_KRNL_NAME(x_class));                                                     \
+  }
+#include "GPUReconstructionKernelList.h"
+#undef GPUCA_KRNL

@@ -31,7 +31,5 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
                             HEADERS ${HDRS_CINT}
                             LINKDEF GPUUtilsLinkDef.h)
 
-  target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2)
-
   install(FILES ${HDRS_CINT} ${HDRS_INSTALL} DESTINATION include/GPU)
 endif()

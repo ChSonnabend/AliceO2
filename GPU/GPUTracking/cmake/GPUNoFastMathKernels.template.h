@@ -9,17 +9,15 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file GPUReconstructionCUDArtc.cu
+/// \file GPUNoFastMathKernels.h
 /// \author David Rohr
 
-#define GPUCA_GPUCODE_GENRTC
-#define GPUCA_GPUCODE_COMPILEKERNELS
-#define GPUCA_RTC_SPECIAL_CODE(...) GPUCA_RTC_SPECIAL_CODE(__VA_ARGS__)
-#define GPUCA_DETERMINISTIC_CODE(...) GPUCA_DETERMINISTIC_CODE(__VA_ARGS__)
-// GPUReconstructionCUDAIncludesHost.h auto-prependended without preprocessor running
-#include "GPUReconstructionCUDADef.h"
-#include "GPUReconstructionIncludesDeviceAll.h"
+#include <unordered_set>
+#include <string>
 
-#ifndef GPUCA_GPUCODE_DEVICE
-#error RTC Preprocessing must run on device code
-#endif
+namespace o2::gpu::internal
+{
+// clang-format off
+static const std::unordered_set<std::string> noFastMathKernels = {$<JOIN:$<LIST:TRANSFORM,$<LIST:TRANSFORM,$<LIST:REMOVE_DUPLICATES,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_NO_FAST_MATH>>,APPEND,">,PREPEND,">,$<COMMA> >};
+// clang-format on
+} // namespace o2::gpu::internal

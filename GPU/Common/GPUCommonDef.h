@@ -68,8 +68,16 @@
   #define GPUCA_DEBUG_STREAMER_CHECK(...)
 #endif
 
-#ifndef GPUCA_RTC_SPECIAL_CODE
+#ifndef GPUCA_RTC_SPECIAL_CODE // By default, we ignore special RTC code
   #define GPUCA_RTC_SPECIAL_CODE(...)
+#endif
+
+#ifndef GPUCA_DETERMINISTIC_CODE
+  #ifdef GPUCA_DETERMINISTIC_MODE
+    #define GPUCA_DETERMINISTIC_CODE(det, indet) det // In deterministic mode, take deterministic code path
+  #else
+    #define GPUCA_DETERMINISTIC_CODE(det, indet) indet // otherwise the fast default code path
+  #endif
 #endif
 
 // API Definitions for GPU Compilation

@@ -250,12 +250,12 @@ enum qConfigRetVal { qcrOK = 0,
 #define AddVariable(name, type, default) out << qon_mxstr(type) << " " << qon_mxstr(name) << ";\n";
 #define AddOptionArray(name, type, count, default, optname, optnameshort, help, ...) out << qon_mxstr(type) << " " << qon_mxstr(name) << "[" << qon_mxstr(count) << "];\n";
 #define AddOptionVec(name, type, optname, optnameshort, help, ...) out << "std::vector<" << qon_mxstr(type) << "> " << qon_mxstr(name) << ";\n";
-#define AddVariableRTC(name, type, default)                                                                                                                            \
-  if (useConstexpr) {                                                                                                                                                  \
-    out << "static constexpr " << qon_mxstr(type) << " " << qon_mxstr(name) << " = " << qConfig::print_type(std::get<const qConfigCurrentType*>(tSrc)->name) << ";\n"; \
-    out << qon_mxstr(type) << " " << qon_mxstr(qon_mxcat(_dummy_, name)) << ";\n";                                                                                     \
-  } else {                                                                                                                                                             \
-    AddOption(name, type, default, optname, optnameshort, help);                                                                                                       \
+#define AddVariableRTC(name, type, default)                                                                                                                                  \
+  if (useConstexpr) {                                                                                                                                                        \
+    out << "static constexpr " << qon_mxstr(type) << " " << qon_mxstr(name) << " = " << qConfig::print_type(std::get<const qConfigCurrentType*>(tSrc)->name, true) << ";\n"; \
+    out << qon_mxstr(type) << " " << qon_mxstr(qon_mxcat(_dummy_, name)) << ";\n";                                                                                           \
+  } else {                                                                                                                                                                   \
+    AddOption(name, type, default, optname, optnameshort, help);                                                                                                             \
   }
 #define AddOptionRTC(name, type, default, optname, optnameshort, help, ...) AddVariableRTC(name, type, default)
 #define AddOptionArrayRTC(name, type, count, default, optname, optnameshort, help, ...)                                                                                            \

@@ -37,7 +37,7 @@ TEST_CASE("TestInputSpan")
     return inputs[i].size() / 2;
   };
 
-  InputSpan span{getter, nPartsGetter, inputs.size()};
+  InputSpan span{getter, nPartsGetter, nullptr, inputs.size()};
   REQUIRE(span.size() == inputs.size());
   routeNo = 0;
   for (; routeNo < span.size(); ++routeNo) {

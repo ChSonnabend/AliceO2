@@ -36,7 +36,6 @@ struct SimCutParams : public o2::conf::ConfigurableParamHelper<SimCutParams> {
   float maxRTrackingZDC = 50; // R-cut applied in the tunnel leading to ZDC when z > beampipeZ (custom stepping function)
   float tunnelZ = 1900;       // Z-value from where we apply maxRTrackingZDC (default value taken from standard "hall" dimensions)
 
-  float globalDensityFactor = 1.f; // global factor that scales all material densities for systematic studies
   bool lowneut = false;
   O2ParamDef(SimCutParams, "SimCutParams");
 };
@@ -44,7 +43,7 @@ struct SimCutParams : public o2::conf::ConfigurableParamHelper<SimCutParams> {
 // parameter influencing material manager
 struct SimMaterialParams : public o2::conf::ConfigurableParamHelper<SimMaterialParams> {
   // Local density value takes precedence over global density value, i.e. local values overwrite the global value.
-  float globalDensityFactor = 1.f;
+  float globalDensityFactor = 1.f; // global factor that scales all material densities for systematic studies
   std::string localDensityFactor; // Expected format: "SimMaterialParams.localDensityFactor=<mod1>:<value1>,<mod2>:<value2>,..."
 
   O2ParamDef(SimMaterialParams, "SimMaterialParams");

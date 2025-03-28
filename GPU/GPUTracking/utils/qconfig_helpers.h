@@ -17,6 +17,7 @@
 
 #include <string>
 #include <sstream>
+#include <type_traits>
 
 #define qon_mcat(a, b) a##b
 #define qon_mxcat(a, b) qon_mcat(a, b)
@@ -30,29 +31,34 @@
 namespace qConfig
 {
 template <class T>
-inline std::string print_type(T val)
+inline std::string print_type(T val, bool precise = false)
 {
   std::ostringstream s;
+  if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
+    if (precise) {
+      s << std::hexfloat;
+    }
+  }
   s << val;
   return s.str();
 };
 template <>
-inline std::string print_type<char>(char val)
+inline std::string print_type<char>(char val, bool precise)
 {
   return std::to_string(val);
 };
 template <>
-inline std::string print_type<int8_t>(int8_t val)
+inline std::string print_type<int8_t>(int8_t val, bool precise)
 {
   return std::to_string(val);
 };
 template <>
-inline std::string print_type<uint8_t>(uint8_t val)
+inline std::string print_type<uint8_t>(uint8_t val, bool precise)
 {
   return std::to_string(val);
 };
 template <>
-inline std::string print_type<bool>(bool val)
+inline std::string print_type<bool>(bool val, bool precise)
 {
   return val ? "true" : "false";
 };

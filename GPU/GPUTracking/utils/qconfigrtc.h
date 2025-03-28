@@ -31,6 +31,7 @@ template <class T>
 static std::string qConfigPrintRtc(const T& tSrc, bool useConstexpr)
 {
   std::stringstream out;
+  out << std::hexfloat;
 #define QCONFIG_PRINT_RTC
 #include "qconfig.h"
 #undef QCONFIG_PRINT_RTC

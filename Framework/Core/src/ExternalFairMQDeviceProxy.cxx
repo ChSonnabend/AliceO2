@@ -493,6 +493,12 @@ InjectorFunction dplModelAdaptor(std::vector<OutputSpec> const& filterSpecs, DPL
       }
     }
 
+    int fmqRunNumber = -1;
+    try {
+      fmqRunNumber = atoi(device->fConfig->GetProperty<std::string>("runNumber", "").c_str());
+    } catch (...) {
+    }
+
     for (int msgidx = 0; msgidx < parts.Size(); msgidx += 2) {
       if (parts.At(msgidx).get() == nullptr) {
         LOG(error) << "unexpected nullptr found. Skipping message pair.";
@@ -521,6 +527,9 @@ InjectorFunction dplModelAdaptor(std::vector<OutputSpec> const& filterSpecs, DPL
       timingInfo.runNumber = dh->runNumber;
       timingInfo.tfCounter = dh->tfCounter;
       LOG(debug) << msgidx << ": " << DataSpecUtils::describe(OutputSpec{dh->dataOrigin, dh->dataDescription, dh->subSpecification}) << " part " << dh->splitPayloadIndex << " of " << dh->splitPayloadParts << "  payload " << parts.At(msgidx + 1)->GetSize();
+      if (dh->runNumber == 0 || dh->tfCounter == 0 || (fmqRunNumber > 0 && fmqRunNumber != dh->runNumber)) {
+        LOG(error) << "INVALID runNumber / tfCounter: runNumber " << dh->runNumber << ", tfCounter " << dh->tfCounter << ", FMQ runNumber " << fmqRunNumber;
+      }
 
       OutputSpec query{dh->dataOrigin, dh->dataDescription, dh->subSpecification};
       LOG(debug) << "processing " << DataSpecUtils::describe(OutputSpec{dh->dataOrigin, dh->dataDescription, dh->subSpecification}) << " time slice " << dph->startTime << " part " << dh->splitPayloadIndex << " of " << dh->splitPayloadParts;

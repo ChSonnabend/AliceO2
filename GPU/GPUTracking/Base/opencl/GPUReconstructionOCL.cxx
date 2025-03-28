@@ -399,7 +399,7 @@ int32_t GPUReconstructionOCLBackend::ExitDevice_Runtime()
       clReleaseMemObject(mInternals->mem_gpu);
       clReleaseMemObject(mInternals->mem_constant);
       for (uint32_t i = 0; i < mInternals->kernels.size(); i++) {
-        clReleaseKernel(mInternals->kernels[i].first);
+        clReleaseKernel(mInternals->kernels[i]);
       }
       mInternals->kernels.clear();
     }

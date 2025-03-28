@@ -53,12 +53,28 @@ BOOST_AUTO_TEST_CASE(TreeStream_test)
       tstStream << "TrackTreeR"
                 << "id=" << i << "x=" << x << "track=" << trc << "\n";
     }
+
+    // test for c-arrays
+    int iArray[6] = {1, 2, 3, 4, 5, 6};
+    float fArray[6] = {1.1f, 2.2f, 3.3f, 4.4f, 5.5f, 6.6f};
+    for (int i{0}; i < nit; ++i) {
+      for (int j{0}; j < 6; ++j) {
+        iArray[j] += i;
+        fArray[j] += (float)i;
+      }
+      tstStream << "ArrayTree"
+                << "id=" << i
+                << "iArray[6]=" << iArray
+                << "fArray[6]=" << fArray
+                << "\n";
+    }
+
     // on destruction of tstTreem the trees will be stored, but we can also force it by
     tstStream.Close();
   }
   //
-  LOG(info) << "Testing reading back tree maid by the TreeStream ";
-  // read back tracks
+  LOG(info) << "Testing reading back tree made by the TreeStream ";
+  // read back tracks and arrays
   {
     TFile inpf(outFName.data());
     BOOST_CHECK(!inpf.IsZombie());
@@ -79,6 +95,27 @@ BOOST_AUTO_TEST_CASE(TreeStream_test)
       LOG(info) << "id: " << id << " X: " << x << " Track> ";
       trc->printParam();
       BOOST_CHECK(std::abs(x - trc->getX()) < 1e-4);
+    }
+
+    // check arrays
+    tree = (TTree*)inpf.GetObjectChecked("ArrayTree", "TTree");
+    BOOST_CHECK(tree);
+    nent = tree->GetEntries();
+    BOOST_CHECK(nent == nit);
+    int iArray[6];
+    float fArray[6];
+    BOOST_CHECK(!tree->SetBranchAddress("id", &id));
+    BOOST_CHECK(!tree->SetBranchAddress("iArray", iArray));
+    BOOST_CHECK(!tree->SetBranchAddress("fArray", fArray));
+    for (int i = 0; i < nit; i++) {
+      BOOST_CHECK(tree->GetEntry(i) > 0);
+      BOOST_CHECK(id == i);
+      for (int j = 0; j < 6; j++) {
+        BOOST_CHECK(iArray[j] == (1 + j + i * (i + 1) / 2));
+      }
+      for (int j = 0; j < 6; j++) {
+        BOOST_CHECK_CLOSE(fArray[j], (1.f + j + i * (i + 1) / 2.f + 0.1 * (j + 1)), 1e-5);
+      }
     }
   }
 
@@ -104,7 +141,6 @@ BOOST_AUTO_TEST_CASE(TreeStream_test)
   nit = 1000;
   BOOST_CHECK(UnitTestSparse(0.5, nit));
   BOOST_CHECK(UnitTestSparse(0.1, nit));
-  //
 }
 
 //_________________________________________________

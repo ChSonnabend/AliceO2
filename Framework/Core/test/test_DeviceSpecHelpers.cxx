@@ -16,7 +16,6 @@
 #include "Framework/DriverConfig.h"
 #include "../src/DeviceSpecHelpers.h"
 #include <catch_amalgamated.hpp>
-#include <algorithm>
 #include <sstream>
 #include <cstring>
 #include <vector>
@@ -67,10 +66,10 @@ void check(const std::vector<std::string>& arguments,
   std::vector<DataProcessorInfo> dataProcessorInfos;
   for (auto& [name, _] : matrix) {
     dataProcessorInfos.push_back(DataProcessorInfo{
-      name,
-      "executable-name",
-      arguments,
-      workflowOptions,
+      .name = name,
+      .executable = "executable-name",
+      .cmdLineArgs = arguments,
+      .workflowOptions = workflowOptions,
     });
   }
   DriverConfig driverConfig{};
@@ -184,7 +183,7 @@ TEST_CASE("CheckOptionReworking")
 {
   {
     std::vector<DataProcessorInfo> infos = {
-      {{}, {}, {"--driver-client-backend", "foo"}},
+      {.cmdLineArgs = {"--driver-client-backend", "foo"}},
       {}};
     DeviceSpecHelpers::reworkHomogeneousOption(infos, "--driver-client-backend", "stdout://");
     REQUIRE(infos[0].cmdLineArgs[1] == "foo");
@@ -192,30 +191,30 @@ TEST_CASE("CheckOptionReworking")
   }
   {
     std::vector<DataProcessorInfo> infos = {
-      {{}, {}, {"--driver-client-backend", "foo"}},
-      {{}, {}, {"--driver-client-backend", "bar"}}};
+      {.cmdLineArgs = {"--driver-client-backend", "foo"}},
+      {.cmdLineArgs = {"--driver-client-backend", "bar"}}};
     REQUIRE_THROWS_AS(DeviceSpecHelpers::reworkHomogeneousOption(infos, "--driver-client-backend", "stdout://"), o2::framework::RuntimeErrorRef);
   }
   {
     std::vector<DataProcessorInfo> infos = {
-      {{}, {}, {"--driver-client-backend", "foo"}},
-      {{}, {}, {"--driver-client-backend", "foo"}}};
+      {.cmdLineArgs = {"--driver-client-backend", "foo"}},
+      {.cmdLineArgs = {"--driver-client-backend", "foo"}}};
     DeviceSpecHelpers::reworkHomogeneousOption(infos, "--driver-client-backend", "stdout://");
     REQUIRE(infos[0].cmdLineArgs[1] == "foo");
     REQUIRE(infos[1].cmdLineArgs[1] == "foo");
   }
   {
     std::vector<DataProcessorInfo> infos = {
-      {{}, {}, {"foo", "bar"}},
-      {{}, {}, {"fnjcnak", "foo"}}};
+      {.cmdLineArgs = {"foo", "bar"}},
+      {.cmdLineArgs = {"fnjcnak", "foo"}}};
     DeviceSpecHelpers::reworkHomogeneousOption(infos, "--driver-client-backend", "stdout://");
     REQUIRE(infos[0].cmdLineArgs[3] == "stdout://");
     REQUIRE(infos[1].cmdLineArgs[3] == "stdout://");
   }
   {
     std::vector<DataProcessorInfo> infos = {
-      {{}, {}, {"foo", "bar", "--driver-client-backend", "bar"}},
-      {{}, {}, {"fnjcnak", "foo"}}};
+      {.cmdLineArgs = {"foo", "bar", "--driver-client-backend", "bar"}},
+      {.cmdLineArgs = {"fnjcnak", "foo"}}};
     DeviceSpecHelpers::reworkHomogeneousOption(infos, "--driver-client-backend", "stdout://");
     REQUIRE(infos[0].cmdLineArgs[3] == "bar");
     REQUIRE(infos[1].cmdLineArgs[3] == "bar");
@@ -277,8 +276,8 @@ TEST_CASE("CheckIntegerReworking")
   }
   {
     std::vector<DataProcessorInfo> infos = {
-      {{}, {}, {"foo", "bar", "--readers", "3"}},
-      {{}, {}, {"--readers", "2"}}};
+      {.cmdLineArgs = {"foo", "bar", "--readers", "3"}},
+      {.cmdLineArgs = {"--readers", "2"}}};
     DeviceSpecHelpers::reworkIntegerOption(
       infos, "--readers", []() { return 1; }, 1, [](long long x, long long y) { return x > y ? x : y; });
     REQUIRE(infos[0].cmdLineArgs.size() == 4);

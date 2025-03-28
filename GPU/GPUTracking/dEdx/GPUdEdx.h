@@ -37,7 +37,7 @@ class GPUdEdx
   GPUd() void computedEdx(GPUdEdxInfo& output, const GPUParam& param);
 
  private:
-  GPUd() float GetSortTruncMean(GPUCA_DEDX_STORAGE_TYPE* array, int32_t count, int32_t trunclow, int32_t trunchigh);
+  GPUd() float GetSortTruncMean(GPUCA_DEDX_STORAGE_TYPE_A* array, int32_t count, int32_t trunclow, int32_t trunchigh);
   GPUd() void checkSubThresh(int32_t roc);
 
   template <typename T, typename fake = void>
@@ -62,8 +62,8 @@ class GPUdEdx
 
   static constexpr int32_t MAX_NCL = GPUCA_ROW_COUNT; // Must fit in mNClsROC (uint8_t)!
 
-  GPUCA_DEDX_STORAGE_TYPE mChargeTot[MAX_NCL]; // No need for default, just some memory
-  GPUCA_DEDX_STORAGE_TYPE mChargeMax[MAX_NCL]; // No need for default, just some memory
+  GPUCA_DEDX_STORAGE_TYPE_A mChargeTot[MAX_NCL]; // No need for default, just some memory
+  GPUCA_DEDX_STORAGE_TYPE_A mChargeMax[MAX_NCL]; // No need for default, just some memory
   float mSubThreshMinTot = 0.f;
   float mSubThreshMinMax = 0.f;
   uint8_t mNClsROC[4] = {0};
@@ -78,8 +78,8 @@ GPUdi() void GPUdEdx::checkSubThresh(int32_t roc)
   if (roc != mLastROC) {
     if (mNSubThresh && mCount + mNSubThresh <= MAX_NCL) {
       for (int32_t i = 0; i < mNSubThresh; i++) {
-        mChargeTot[mCount] = (GPUCA_DEDX_STORAGE_TYPE)(mSubThreshMinTot * scalingFactor<GPUCA_DEDX_STORAGE_TYPE>::factor + scalingFactor<GPUCA_DEDX_STORAGE_TYPE>::round);
-        mChargeMax[mCount++] = (GPUCA_DEDX_STORAGE_TYPE)(mSubThreshMinMax * scalingFactor<GPUCA_DEDX_STORAGE_TYPE>::factor + scalingFactor<GPUCA_DEDX_STORAGE_TYPE>::round);
+        mChargeTot[mCount] = (GPUCA_DEDX_STORAGE_TYPE_A)(mSubThreshMinTot * scalingFactor<GPUCA_DEDX_STORAGE_TYPE_A>::factor + scalingFactor<GPUCA_DEDX_STORAGE_TYPE_A>::round);
+        mChargeMax[mCount++] = (GPUCA_DEDX_STORAGE_TYPE_A)(mSubThreshMinMax * scalingFactor<GPUCA_DEDX_STORAGE_TYPE_A>::factor + scalingFactor<GPUCA_DEDX_STORAGE_TYPE_A>::round);
       }
       mNClsROC[mLastROC] += mNSubThresh;
       mNClsROCSubThresh[mLastROC] += mNSubThresh;
@@ -151,8 +151,8 @@ GPUdnii() void GPUdEdx::fillCluster(float qtot, float qmax, int32_t padRow, uint
   qmax /= residualGainMapGain;
   qtot /= residualGainMapGain;
 
-  mChargeTot[mCount] = (GPUCA_DEDX_STORAGE_TYPE)(qtot * scalingFactor<GPUCA_DEDX_STORAGE_TYPE>::factor + scalingFactor<GPUCA_DEDX_STORAGE_TYPE>::round);
-  mChargeMax[mCount++] = (GPUCA_DEDX_STORAGE_TYPE)(qmax * scalingFactor<GPUCA_DEDX_STORAGE_TYPE>::factor + scalingFactor<GPUCA_DEDX_STORAGE_TYPE>::round);
+  mChargeTot[mCount] = (GPUCA_DEDX_STORAGE_TYPE_A)(qtot * scalingFactor<GPUCA_DEDX_STORAGE_TYPE_A>::factor + scalingFactor<GPUCA_DEDX_STORAGE_TYPE_A>::round);
+  mChargeMax[mCount++] = (GPUCA_DEDX_STORAGE_TYPE_A)(qmax * scalingFactor<GPUCA_DEDX_STORAGE_TYPE_A>::factor + scalingFactor<GPUCA_DEDX_STORAGE_TYPE_A>::round);
   mNClsROC[roc]++;
   if (qtot < mSubThreshMinTot) {
     mSubThreshMinTot = qtot;

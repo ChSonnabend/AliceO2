@@ -27,13 +27,13 @@ set(GPUCA_CONFIG_GL3W 0)
 set(GPUCA_CONFIG_O2 1)
 set(GPUCA_BUILD_DEBUG 0)
 set(GPUCA_BUILD_DEBUG_SANITIZE 0)
-set(GPUCA_NO_FAST_MATH 0)
-#set(GPUCA_CUDA_GCCBIN c++-13)
-#set(GPUCA_OPENCL_CLANGBIN clang-18)
-#set(HIP_AMDGPUTARGET "gfx906;gfx908;gfx90a")
-set(HIP_AMDGPUTARGET "default")
-#set(CUDA_COMPUTETARGET 86 89)
-set(CUDA_COMPUTETARGET "default")
-#set(GPUCA_CUDA_COMPILE_MODE perkernel)
+set(GPUCA_DETERMINISTIC_MODE 0)             # OFF / NO_FAST_MATH / OPTO2 / GPU / WHOLEO2
+#set(GPUCA_CUDA_GCCBIN c++-14)
+#set(GPUCA_OPENCL_CLANGBIN clang-19)
+set(HIP_AMDGPUTARGET "default")             # "gfx906;gfx908;gfx90a"
+set(CUDA_COMPUTETARGET "default")           # 86 89
+#set(GPUCA_CUDA_COMPILE_MODE perkernel)     # onefile / perkernel / rtc
 #set(GPUCA_HIP_COMPILE_MODE perkernel)
 #set(GPUCA_KERNEL_RESOURCE_USAGE_VERBOSE 1)
+#set(GPUCA_CONFIG_COMPILER gcc)             # gcc / clang
+#add_definitions(-DGPUCA_GPU_DEBUG_PRINT)

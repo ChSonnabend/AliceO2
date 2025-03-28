@@ -46,7 +46,7 @@ class InputSpan
   /// index and the buffer associated.
   /// @nofPartsGetter is the getter for the number of parts associated with an index
   /// @a size is the number of elements in the span.
-  InputSpan(std::function<DataRef(size_t, size_t)> getter, std::function<size_t(size_t)> nofPartsGetter, size_t size);
+  InputSpan(std::function<DataRef(size_t, size_t)> getter, std::function<size_t(size_t)> nofPartsGetter, std::function<int(size_t)> refCountGetter, size_t size);
 
   /// @a i-th element of the InputSpan
   [[nodiscard]] DataRef get(size_t i, size_t partidx = 0) const
@@ -64,6 +64,18 @@ class InputSpan
       return 1;
     }
     return mNofPartsGetter(i);
+  }
+
+  // Get the refcount for a given part
+  [[nodiscard]] int getRefCount(size_t i) const
+  {
+    if (i >= mSize) {
+      return 0;
+    }
+    if (!mRefCountGetter) {
+      return -1;
+    }
+    return mRefCountGetter(i);
   }
 
   /// Number of elements in the InputSpan
@@ -236,6 +248,7 @@ class InputSpan
  private:
   std::function<DataRef(size_t, size_t)> mGetter;
   std::function<size_t(size_t)> mNofPartsGetter;
+  std::function<int(size_t)> mRefCountGetter;
   size_t mSize;
 };
 

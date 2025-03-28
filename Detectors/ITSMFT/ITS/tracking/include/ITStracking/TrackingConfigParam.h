@@ -62,6 +62,7 @@ struct TrackerParamConfig : public o2::conf::ConfigurableParamHelper<TrackerPara
   bool useFastMaterial = false; // use faster material approximation for material budget accounting in the fits.
   int deltaRof = 0;             // configure the width of the window in ROFs to be considered for the tracking.
   int minTrackLgtIter[MaxIter] = {};                                        // minimum track length at each iteration, used only if >0, otherwise use code defaults
+  uint8_t startLayerMask[MaxIter] = {};                                     // mask of start layer for this iteration (if >0)
   float minPtIterLgt[MaxIter * (MaxTrackLength - MinTrackLength + 1)] = {}; // min.pT for given track length at this iteration, used only if >0, otherwise use code defaults
   float sysErrY2[7] = {0};      // systematic error^2 in Y per layer
   float sysErrZ2[7] = {0};      // systematic error^2 in Z per layer

@@ -17,9 +17,7 @@
 
 #include "GPUCommonDef.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 class Transform3D
 {
@@ -79,7 +77,6 @@ class Transform3D
                                 kZZ = 10,
                                 kDZ = 11 };
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

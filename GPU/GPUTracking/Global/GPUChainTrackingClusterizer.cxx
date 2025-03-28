@@ -124,7 +124,7 @@ void GPUChainTracking::TPCClusterizerEnsureZSOffsets(uint32_t iSector, const CfF
     }
 
     if (pagesEndpoint != nPagesExpected) {
-      GPUFatal("Sector %d, Endpoint %d, Fragment %d: TPC raw page count mismatch: expected %d / buffered %lu", iSector, endpoint, fragment.index, pagesEndpoint, nPagesExpected);
+      GPUFatal("Sector %d, Endpoint %d, Fragment %d: TPC raw page count mismatch: expected %d / buffered %u", iSector, endpoint, fragment.index, pagesEndpoint, nPagesExpected);
     }
 
     if (nAdcDecoded != nAdcsExpected) {

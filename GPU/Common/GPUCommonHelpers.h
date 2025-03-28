@@ -35,6 +35,7 @@
 #include "GPUCommonDef.h"
 #include "GPUCommonLogger.h"
 #include <cstdint>
+#include <functional>
 
 namespace o2::gpu::internal
 {
@@ -59,5 +60,23 @@ static inline int32_t GPUReconstructionChkErr(const int64_t error, const char* f
 #undef GPUCOMMON_INTERNAL_CAT_A
 #undef GPUCOMMON_INTERNAL_CAT
 } // namespace o2::gpu::internal
+
+namespace o2::gpu
+{
+class GPUReconstruction;
+class ThrustVolatileAllocator
+{
+ public:
+  typedef char value_type;
+
+  char* allocate(std::ptrdiff_t n);
+  void deallocate(char* ptr, size_t);
+
+ private:
+  ThrustVolatileAllocator(GPUReconstruction* r);
+  std::function<char*(size_t)> mAlloc;
+  friend class GPUReconstruction;
+};
+} // namespace o2::gpu
 
 #endif

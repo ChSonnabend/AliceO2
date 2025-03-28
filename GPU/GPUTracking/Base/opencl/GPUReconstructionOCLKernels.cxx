@@ -59,20 +59,6 @@ void GPUReconstructionOCLBackend::runKernelBackend(const krnlSetupArgs<T, I, Arg
 }
 
 template <class T, int32_t I>
-inline uint32_t GPUReconstructionOCLBackend::FindKernel()
-{
-  std::string name(GetKernelName<T, I>());
-
-  for (uint32_t k = 0; k < mInternals->kernels.size(); k++) {
-    if (mInternals->kernels[k].second == name) {
-      return (k);
-    }
-  }
-  GPUError("Could not find OpenCL kernel %s", name.c_str());
-  throw ::std::runtime_error("Requested unsupported OpenCL kernel");
-}
-
-template <class T, int32_t I>
 int32_t GPUReconstructionOCLBackend::AddKernel()
 {
   std::string name(GetKernelName<T, I>());
@@ -84,15 +70,14 @@ int32_t GPUReconstructionOCLBackend::AddKernel()
     GPUError("Error creating OPENCL Kernel: %s", name.c_str());
     return 1;
   }
-  mInternals->kernels.emplace_back(krnl, name);
+  mInternals->kernels.emplace_back(krnl);
   return 0;
 }
 
 template <class S, class T, int32_t I>
 S& GPUReconstructionOCLBackend::getKernelObject()
 {
-  static uint32_t krnl = FindKernel<T, I>();
-  return mInternals->kernels[krnl].first;
+  return mInternals->kernels[GetKernelNum<T, I>()];
 }
 
 int32_t GPUReconstructionOCLBackend::AddKernels()

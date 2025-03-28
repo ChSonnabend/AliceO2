@@ -42,9 +42,7 @@
     #define GPUCA_CHOICE(c1, c2, c3) (c1) // Select first option for Host
 #endif // clang-format on
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 class GPUCommonMath
@@ -250,7 +248,7 @@ GPUdi() uint32_t GPUCommonMath::Float2UIntReint(const float& x)
 #endif
 }
 
-#ifdef GPUCA_NO_FAST_MATH
+GPUCA_DETERMINISTIC_CODE( // clang-format off
 GPUdi() constexpr float GPUCommonMath::Round(float x) { return GPUCA_CHOICE(roundf(x), roundf(x), round(x)); }
 GPUdi() constexpr int32_t GPUCommonMath::Float2IntRn(float x) { return (int32_t)Round(x); }
 GPUhdi() constexpr float GPUCommonMath::Sqrt(float x) { return GPUCA_CHOICE(sqrtf(x), (float)sqrt((double)x), sqrt(x)); }
@@ -266,7 +264,7 @@ GPUdi() constexpr float GPUCommonMath::Log(float x) { return GPUCA_CHOICE((float
 GPUdi() constexpr float GPUCommonMath::Exp(float x) { return GPUCA_CHOICE((float)exp((double)x), (float)exp((double)x), exp(x)); }
 GPUdi() constexpr bool GPUCommonMath::Finite(float x) { return GPUCA_CHOICE(std::isfinite(x), isfinite(x), isfinite(x)); }
 GPUdi() constexpr bool GPUCommonMath::IsNaN(float x) { return GPUCA_CHOICE(std::isnan(x), isnan(x), isnan(x)); }
-#else
+, // !GPUCA_DETERMINISTIC_CODE
 GPUdi() constexpr float GPUCommonMath::Round(float x) { return GPUCA_CHOICE(roundf(x), rintf(x), rint(x)); }
 GPUdi() constexpr int32_t GPUCommonMath::Float2IntRn(float x) { return GPUCA_CHOICE((int32_t)Round(x), __float2int_rn(x), (int32_t)Round(x)); }
 GPUhdi() constexpr float GPUCommonMath::Sqrt(float x) { return GPUCA_CHOICE(sqrtf(x), sqrtf(x), sqrt(x)); }
@@ -282,20 +280,22 @@ GPUdi() constexpr float GPUCommonMath::Log(float x) { return GPUCA_CHOICE(logf(x
 GPUdi() constexpr float GPUCommonMath::Exp(float x) { return GPUCA_CHOICE(expf(x), expf(x), exp(x)); }
 GPUdi() constexpr bool GPUCommonMath::Finite(float x) { return true; }
 GPUdi() constexpr bool GPUCommonMath::IsNaN(float x) { return false; }
-#endif
+) // clang-format on
 
 GPUhdi() void GPUCommonMath::SinCos(float x, float& s, float& c)
 {
-#if defined(GPUCA_NO_FAST_MATH) && !defined(__OPENCL__)
-  s = sin((double)x);
-  c = cos((double)x);
-#elif !defined(GPUCA_GPUCODE_DEVICE) && defined(__APPLE__)
-  __sincosf(x, &s, &c);
+  GPUCA_DETERMINISTIC_CODE( // clang-format off
+    s = sin((double)x);
+    c = cos((double)x);
+  , // !GPUCA_DETERMINISTIC_CODE
+#if !defined(GPUCA_GPUCODE_DEVICE) && defined(__APPLE__)
+    __sincosf(x, &s, &c);
 #elif !defined(GPUCA_GPUCODE_DEVICE) && (defined(__GNU_SOURCE__) || defined(_GNU_SOURCE) || defined(GPUCA_GPUCODE))
-  sincosf(x, &s, &c);
+    sincosf(x, &s, &c);
 #else
-  GPUCA_CHOICE((void)((s = sinf(x)) + (c = cosf(x))), sincosf(x, &s, &c), s = sincos(x, &c));
+    GPUCA_CHOICE((void)((s = sinf(x)) + (c = cosf(x))), sincosf(x, &s, &c), s = sincos(x, &c));
 #endif
+  ) // clang-format on
 }
 
 GPUhdi() void GPUCommonMath::SinCosd(double x, double& s, double& c)
@@ -392,22 +392,26 @@ GPUdi() T GPUCommonMath::MaxWithRef(T x, T y, T z, T w, S refX, S refY, S refZ, 
 
 GPUdi() float GPUCommonMath::InvSqrt(float _x)
 {
-#if defined(GPUCA_NO_FAST_MATH) || defined(__OPENCL__)
-  return 1.f / Sqrt(_x);
-#elif defined(__CUDACC__) || defined(__HIPCC__)
-  return __frsqrt_rn(_x);
-#elif defined(__FAST_MATH__)
-  return 1.f / sqrtf(_x);
+  GPUCA_DETERMINISTIC_CODE( // clang-format off
+    return 1.f / Sqrt(_x);
+  , // !GPUCA_DETERMINISTIC_CODE
+#if defined(__CUDACC__) || defined(__HIPCC__)
+    return __frsqrt_rn(_x);
+#elif defined(__OPENCL__) && defined(__clang__)
+    return 1.f / sqrt(_x);
+#elif !defined(__OPENCL__) && (defined(__FAST_MATH__) || defined(__clang__))
+    return 1.f / sqrtf(_x);
 #else
-  union {
-    float f;
-    int32_t i;
-  } x = {_x};
-  const float xhalf = 0.5f * x.f;
-  x.i = 0x5f3759df - (x.i >> 1);
-  x.f = x.f * (1.5f - xhalf * x.f * x.f);
-  return x.f;
+    union {
+      float f;
+      int32_t i;
+    } x = {_x};
+    const float xhalf = 0.5f * x.f;
+    x.i = 0x5f3759df - (x.i >> 1);
+    x.f = x.f * (1.5f - xhalf * x.f * x.f);
+    return x.f;
 #endif
+  ) // clang-format on
 }
 
 template <>
@@ -540,7 +544,6 @@ GPUdii() void GPUCommonMath::AtomicMinInternal(GPUglobalref() GPUgeneric() GPUAt
 
 #undef GPUCA_CHOICE
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif // GPUCOMMONMATH_H

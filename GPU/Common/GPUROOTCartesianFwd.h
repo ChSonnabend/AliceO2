@@ -46,9 +46,7 @@ class DefaultCoordinateSystemTag;
 } // namespace Math
 } // namespace ROOT
 
-namespace o2
-{
-namespace math_utils
+namespace o2::math_utils
 {
 
 namespace detail
@@ -79,7 +77,6 @@ template <typename T>
 using Vector3D = detail::GPUPoint3D<T, 1>;
 #endif
 
-} // namespace math_utils
-} // namespace o2
+} // namespace o2::math_utils
 
 #endif

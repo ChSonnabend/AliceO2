@@ -142,7 +142,11 @@ int32_t ReadConfiguration(int argc, char** argv)
       return 1;
     }
   }
+#ifdef __FAST_MATH__
+  if (configStandalone.fpe == 1) {
+#else
   if (configStandalone.fpe) {
+#endif
     feenableexcept(FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW);
   }
   if (configStandalone.flushDenormals) {
@@ -158,7 +162,7 @@ int32_t ReadConfiguration(int argc, char** argv)
     printf("FIFO Scheduler setting not supported on Windows\n");
     return 1;
   }
-  if (configStandalone.fpe) {
+  if (configStandalone.fpe == 1) {
     printf("FPE not supported on Windows\n");
     return 1;
   }

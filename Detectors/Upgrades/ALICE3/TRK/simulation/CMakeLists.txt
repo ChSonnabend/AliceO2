@@ -30,4 +30,5 @@ o2_target_root_dictionary(TRKSimulation
                                   include/TRKSimulation/TRKServices.h
                                   include/TRKSimulation/TRKPetalCase.h
                                   include/TRKSimulation/TRKPetalLayer.h
-                                  include/TRKSimulation/TRKPetalDisk.h)
+                                  include/TRKSimulation/TRKPetalDisk.h
+                                  include/TRKSimulation/DPLDigitizerParam.h)

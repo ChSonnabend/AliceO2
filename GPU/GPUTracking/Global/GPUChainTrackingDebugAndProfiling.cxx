@@ -258,13 +258,13 @@ void GPUChainTracking::SanityCheck()
     const auto& ref = trk.getClusterRef();
     if (ref.getFirstEntry() > mIOPtrs.nOutputClusRefsTPCO2) {
       if (nErrors++ < 1000) {
-        GPUError("Invalid getFirst() entry in cluster reference: %u > $u", ref.getFirstEntry(), mIOPtrs.nOutputClusRefsTPCO2);
+        GPUError("Invalid getFirst() entry in cluster reference: %u > %u", ref.getFirstEntry(), mIOPtrs.nOutputClusRefsTPCO2);
         continue;
       }
     }
     if (ref.getFirstEntry() + (ref.getEntries() * 3 + 1) / 2 > mIOPtrs.nOutputClusRefsTPCO2) {
       if (nErrors++ < 1000) {
-        GPUError("Invalid getEntries() entry in cluster reference: %u > $u", ref.getFirstEntry() + (ref.getEntries() * 3 + 1) / 2, mIOPtrs.nOutputClusRefsTPCO2);
+        GPUError("Invalid getEntries() entry in cluster reference: %u > %u", ref.getFirstEntry() + (ref.getEntries() * 3 + 1) / 2, mIOPtrs.nOutputClusRefsTPCO2);
         continue;
       }
     }

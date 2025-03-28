@@ -24,7 +24,7 @@ message(STATUS "Building GPUTracking with HIP support ${TMP_TARGET}")
 if(NOT DEFINED GPUCA_HIP_HIPIFY_FROM_CUDA OR "${GPUCA_HIP_HIPIFY_FROM_CUDA}")
   set(GPUCA_HIP_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/hipify)
   file(MAKE_DIRECTORY ${GPUCA_HIP_SOURCE_DIR})
-  set(GPUCA_HIP_FILE_LIST GPUReconstructionCUDA.cu GPUReconstructionCUDAExternalProvider.cu GPUReconstructionCUDA.h GPUReconstructionCUDAInternals.h GPUReconstructionCUDAHelpers.inc GPUReconstructionCUDAkernel.template.cu CUDAThrustHelpers.h GPUReconstructionCUDADef.h GPUReconstructionCUDAGenRTC.cxx GPUReconstructionCUDAKernels.cu GPUReconstructionCUDArtc.cu)
+  set(GPUCA_HIP_FILE_LIST GPUReconstructionCUDA.cu GPUReconstructionCUDAExternalProvider.cu GPUReconstructionCUDA.h GPUReconstructionCUDAInternals.h GPUReconstructionCUDAHelpers.inc GPUReconstructionCUDAkernel.template.cu GPUReconstructionCUDADef.h GPUReconstructionCUDAGenRTC.cxx GPUReconstructionCUDAKernels.cu GPUReconstructionCUDArtc.cu)
   set(GPUCA_HIP_LOCAL_FILE_LIST GPUReconstructionHIPIncludesHost.h)
   set(HIP_SOURCES "")
   foreach(file ${GPUCA_HIP_FILE_LIST})
@@ -63,7 +63,7 @@ endif()
 
 set(SRCS ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIP.hip ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPKernels.hip)
 set(SRCS_CXX ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPGenRTC.cxx)
-set(HDRS ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIP.h ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPInternals.h ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPHelpers.inc ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPDef.h ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPIncludesHost.h ${GPUCA_HIP_SOURCE_DIR}/HIPThrustHelpers.h)
+set(HDRS ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIP.h ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPInternals.h ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPHelpers.inc ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPDef.h ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPIncludesHost.h)
 
 # -------------------------------- Prepare RTC -------------------------------------------------------
 enable_language(ASM)
@@ -122,9 +122,8 @@ add_custom_target(${MODULE}_HIP_SRC_CHK ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/
 
 add_custom_command(
     OUTPUT ${GPU_RTC_BIN}.command
-    COMMAND echo -n "${CMAKE_HIP_COMPILER} ${GPU_RTC_FLAGS_SEPARATED} ${GPU_RTC_DEFINES} -x hip --cuda-device-only" > ${GPU_RTC_BIN}.command
-    COMMAND_EXPAND_LISTS
-    VERBATIM
+    COMMAND echo -n "${CMAKE_HIP_COMPILER} ${GPU_RTC_DEFINES} ${GPU_RTC_FLAGS_SEPARATED} -x hip --cuda-device-only" > ${GPU_RTC_BIN}.command
+    COMMAND_EXPAND_LISTS VERBATIM
     COMMENT "Preparing HIP RTC command file ${GPU_RTC_BIN}.command"
 )
 create_binary_resource(${GPU_RTC_BIN}.command ${GPU_RTC_BIN}.command.o)
@@ -132,13 +131,20 @@ create_binary_resource(${GPU_RTC_BIN}.command ${GPU_RTC_BIN}.command.o)
 add_custom_command(
     OUTPUT ${GPU_RTC_BIN}.command.arch
     COMMAND echo -n "${GPU_RTC_FLAGS_ARCH}" > ${GPU_RTC_BIN}.command.arch
-    COMMAND_EXPAND_LISTS
-    VERBATIM
-    COMMENT "Preparing HIP RTC ARCH file ${GPU_RTC_BIN}.command.arch"
+    COMMAND_EXPAND_LISTS VERBATIM
+    COMMENT "Preparing HIP RTC ARCH command file ${GPU_RTC_BIN}.command.arch"
 )
 create_binary_resource(${GPU_RTC_BIN}.command.arch ${GPU_RTC_BIN}.command.arch.o)
 
-set(SRCS ${SRCS} ${GPU_RTC_BIN}.src.o ${GPU_RTC_BIN}.command.o ${GPU_RTC_BIN}.command.arch.o)
+add_custom_command(
+    OUTPUT ${GPU_RTC_BIN}.command.no_fast_math
+    COMMAND echo -n "${GPUCA_CXX_NO_FAST_MATH_FLAGS}" > ${GPU_RTC_BIN}.command.no_fast_math
+    COMMAND_EXPAND_LISTS VERBATIM
+    COMMENT "Preparing HIP RTC NO_FAST_MATH command file ${GPU_RTC_BIN}.command.no_fast_math"
+)
+create_binary_resource(${GPU_RTC_BIN}.command.no_fast_math ${GPU_RTC_BIN}.command.no_fast_math.o)
+
+set(SRCS ${SRCS} ${GPU_RTC_BIN}.src.o ${GPU_RTC_BIN}.command.o ${GPU_RTC_BIN}.command.arch.o ${GPU_RTC_BIN}.command.no_fast_math.o)
 # -------------------------------- End RTC -------------------------------------------------------
 
 if(ALIGPU_BUILD_TYPE STREQUAL "O2")
@@ -154,8 +160,6 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
       ${GPUCA_HIP_SOURCE_DIR}
     TARGETVARNAME targetName)
 
-  target_compile_definitions(${targetName} PUBLIC $<TARGET_PROPERTY:O2::GPUTracking,COMPILE_DEFINITIONS>)
-
   install(FILES ${HDRS} DESTINATION include/GPU)
 
 #  o2_add_test(GPUsortHIP NAME test_GPUsortHIP
@@ -169,10 +173,13 @@ if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
   set(targetName "${MODULE}")
   set(TMP_BASELIB GPUTracking)
   add_library(${MODULE} SHARED ${SRCS})
+  add_library(O2::${MODULE} ALIAS ${MODULE})
   target_link_libraries(${MODULE} PUBLIC ${TMP_BASELIB})
   install(TARGETS GPUTrackingHIP)
   include_directories(${GPUCA_HIP_SOURCE_DIR})
 endif()
+
+target_compile_definitions(${targetName} PRIVATE $<TARGET_PROPERTY:O2::GPUTracking,COMPILE_DEFINITIONS>)
 
 add_library(${MODULE}_CXX OBJECT ${SRCS_CXX}) # Adding a C++ library for the .cxx code of the HIP library, such that it does not link to HIP libraries, and CMake HIP Language doesn't add HIP compile flags.
 target_compile_definitions(${MODULE}_CXX PRIVATE $<TARGET_PROPERTY:${TMP_BASELIB},COMPILE_DEFINITIONS>)
@@ -222,15 +229,6 @@ elseif(GPUCA_HIP_COMPILE_MODE STREQUAL "perkernel")
   target_sources(${targetName} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/GPUTrackingHIPKernelModules.o)
   set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/GPUTrackingHIPKernelModules.o PROPERTIES EXTERNAL_OBJECT true GENERATED true)
 
-  # Disable all non-deterministic floating point to make TPC track model encoding / decoding precise
-  set_source_files_properties(${O2_GPU_KERNEL_WRAPPER_FOLDER}/krnl_GPUTPCCompressionKernels_step0attached.hip
-                              ${O2_GPU_KERNEL_WRAPPER_FOLDER}/krnl_GPUTPCCompressionKernels_step1unattached.hip
-                              ${O2_GPU_KERNEL_WRAPPER_FOLDER}/krnl_GPUTPCDecompressionKernels_step0attached.hip
-                              ${O2_GPU_KERNEL_WRAPPER_FOLDER}/krnl_GPUTPCDecompressionKernels_step1unattached.hip
-                              TARGET_DIRECTORY ${targetName}
-                              PROPERTIES
-                              COMPILE_FLAGS "${GPUCA_CXX_NO_FAST_MATH_FLAGS}"
-                              COMPILE_DEFINITIONS "GPUCA_NO_FAST_MATH")
 elseif(GPUCA_HIP_COMPILE_MODE STREQUAL "rdc")
   message(FATAL_ERROR "HIP RDC compilation of GPUReconstruction ios not yet working!")
   target_compile_definitions(${targetName} PRIVATE GPUCA_KERNEL_COMPILE_MODE=2)

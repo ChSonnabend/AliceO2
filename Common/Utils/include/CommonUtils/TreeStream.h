@@ -19,6 +19,8 @@
 #include <TString.h>
 #include <TTree.h>
 #include <vector>
+#include <type_traits>
+#include <concepts>
 #include "GPUCommonDef.h"
 
 class TBranch;
@@ -39,10 +41,79 @@ namespace utils
 ///
 /// See testTreeStream.cxx for functional example
 ///
+namespace details
+{
+template <typename T>
+struct IsTrivialRootType {
+  static constexpr bool value =
+    std::is_same_v<T, Float_t> ||                                                        // Float_t
+    std::is_same_v<T, Double_t> ||                                                       // Double_t
+    std::is_same_v<T, ULong64_t> || std::is_same_v<T, ULong_t> ||                        // ULong64_t or ULong_t
+    std::is_same_v<T, Long64_t> || std::is_same_v<T, Long_t> ||                          // Long64_t or Long_t
+    std::is_same_v<T, UInt_t> ||                                                         // UInt_t
+    std::is_same_v<T, Int_t> ||                                                          // Int_t
+    std::is_same_v<T, UShort_t> ||                                                       // UShort_t
+    std::is_same_v<T, Short_t> ||                                                        // Short_t
+    std::is_same_v<T, UChar_t> ||                                                        // UChar_t
+    std::is_same_v<T, Char_t> || std::is_same_v<T, int8_t> || std::is_same_v<T, Bool_t>; // Char_t, int8_t, or Bool_t
+};
+
+template <typename T>
+struct IsTrivialRootType<T[]> {
+  static constexpr bool value = IsTrivialRootType<T>::value;
+};
+
+template <typename T, std::size_t N>
+struct IsTrivialRootType<T[N]> {
+  static constexpr bool value = IsTrivialRootType<T>::value;
+};
+
+template <typename T>
+concept TrivialRootType = IsTrivialRootType<T>::value;
+
+template <typename T>
+concept ComplexRootType = !IsTrivialRootType<T>::value;
+
+template <TrivialRootType T>
+static constexpr char getRootTypeCode()
+{
+  if constexpr (std::is_array_v<T>) {
+    return getRootTypeCode<std::remove_all_extents_t<T>>();
+  } else if constexpr (std::is_same_v<T, Float_t>) {
+    return 'F';
+  } else if constexpr (std::is_same_v<T, Double_t>) {
+    return 'D';
+  } else if constexpr (std::is_same_v<T, ULong64_t> ||
+                       std::is_same_v<T, ULong_t>) {
+    return 'l';
+  } else if constexpr (std::is_same_v<T, Long64_t> ||
+                       std::is_same_v<T, Long_t>) {
+    return 'L';
+  } else if constexpr (std::is_same_v<T, UInt_t>) {
+    return 'i';
+  } else if constexpr (std::is_same_v<T, Int_t>) {
+    return 'I';
+  } else if constexpr (std::is_same_v<T, UShort_t>) {
+    return 's';
+  } else if constexpr (std::is_same_v<T, Short_t>) {
+    return 'S';
+  } else if constexpr (std::is_same_v<T, UChar_t>) {
+    return 'b';
+  } else if constexpr (std::is_same_v<T, Char_t> ||
+                       std::is_same_v<T, int8_t> ||
+                       std::is_same_v<T, Bool_t>) {
+    return 'B';
+  } else {
+    static_assert(false, "unsupported type!");
+  }
+}
+} // namespace details
+
 class TreeStream
 {
  public:
   struct TreeDataElement {
+    int arsize = 1;              ///< size of array
     char type = 0;               ///< type of data element
     const TClass* cls = nullptr; ///< data type pointer
     const void* ptr = nullptr;   ///< pointer to element
@@ -64,87 +135,10 @@ class TreeStream
   void setID(int id) { mID = id; }
   int getID() const { return mID; }
 
-  TreeStream& operator<<(const Bool_t& b)
+  template <details::TrivialRootType T>
+  TreeStream& operator<<(const T& t)
   {
-    CheckIn('B', &b);
-    return *this;
-  }
-
-  TreeStream& operator<<(const Char_t& c)
-  {
-    CheckIn('B', &c);
-    return *this;
-  }
-
-  TreeStream& operator<<(const int8_t& i)
-  {
-    CheckIn('B', &i);
-    return *this;
-  }
-
-  TreeStream& operator<<(const UChar_t& c)
-  {
-    CheckIn('b', &c);
-    return *this;
-  }
-
-  TreeStream& operator<<(const Short_t& h)
-  {
-    CheckIn('S', &h);
-    return *this;
-  }
-
-  TreeStream& operator<<(const UShort_t& h)
-  {
-    CheckIn('s', &h);
-    return *this;
-  }
-
-  TreeStream& operator<<(const Int_t& i)
-  {
-    CheckIn('I', &i);
-    return *this;
-  }
-
-  TreeStream& operator<<(const UInt_t& i)
-  {
-    CheckIn('i', &i);
-    return *this;
-  }
-
-  TreeStream& operator<<(const Long_t& l)
-  {
-    CheckIn('L', &l);
-    return *this;
-  }
-
-  TreeStream& operator<<(const ULong_t& l)
-  {
-    CheckIn('l', &l);
-    return *this;
-  }
-
-  TreeStream& operator<<(const Long64_t& l)
-  {
-    CheckIn('L', &l);
-    return *this;
-  }
-
-  TreeStream& operator<<(const ULong64_t& l)
-  {
-    CheckIn('l', &l);
-    return *this;
-  }
-
-  TreeStream& operator<<(const Float_t& f)
-  {
-    CheckIn('F', &f);
-    return *this;
-  }
-
-  TreeStream& operator<<(const Double_t& d)
-  {
-    CheckIn('D', &d);
+    CheckIn(details::getRootTypeCode<T>(), &t);
     return *this;
   }
 
@@ -157,7 +151,7 @@ class TreeStream
     return *this;
   }
 
-  template <class T, typename std::enable_if<!std::is_pointer<GPUgeneric() T>::value, bool>::type* = nullptr>
+  template <details::ComplexRootType T, typename std::enable_if<!std::is_pointer<GPUgeneric() T>::value, bool>::type* = nullptr>
   TreeStream& operator<<(const T& obj)
   {
     CheckIn(&obj);
@@ -175,6 +169,7 @@ class TreeStream
   int mCurrentIndex = 0;           ///< index of current element
   int mID = -1;                    ///< identifier of layout
   int mNextNameCounter = 0;        ///< next name counter
+  int mNextArraySize = 0;          ///< next array size
   int mStatus = 0;                 ///< status of the layout
   TString mNextName;               ///< name for next entry
 
@@ -191,8 +186,7 @@ Int_t TreeStream::CheckIn(const T* obj)
   }
 
   if (mCurrentIndex >= static_cast<int>(mElements.size())) {
-    mElements.emplace_back();
-    auto& element = mElements.back();
+    auto& element = mElements.emplace_back();
     element.cls = pClass;
     TString name = mNextName;
     if (name.Length()) {
@@ -204,6 +198,8 @@ Int_t TreeStream::CheckIn(const T* obj)
     }
     element.name = name.Data();
     element.ptr = obj;
+    element.arsize = mNextArraySize;
+    mNextArraySize = 1; // reset
   } else {
     auto& element = mElements[mCurrentIndex];
     if (!element.cls) {

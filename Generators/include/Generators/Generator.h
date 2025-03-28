@@ -78,9 +78,13 @@ class Generator : public FairGenerator
 
   /** setters **/
   void setMomentumUnit(double val) { mMomentumUnit = val; };
+  double getMomentumUnit() const { return mMomentumUnit; }
   void setEnergyUnit(double val) { mEnergyUnit = val; };
+  double getEnergyUnit() const { return mEnergyUnit; }
   void setPositionUnit(double val) { mPositionUnit = val; };
+  double getPositionUnit() const { return mPositionUnit; }
   void setTimeUnit(double val) { mTimeUnit = val; };
+  double getTimeUnit() const { return mTimeUnit; }
   void setBoost(Double_t val) { mBoost = val; };
   void setTriggerMode(ETriggerMode_t val) { mTriggerMode = val; };
   void addTrigger(Trigger trigger) { mTriggers.push_back(trigger); };
