@@ -156,7 +156,8 @@ void DCSDevice::sendObject(DataAllocator& output, T& obj, const CDBType calibTyp
 
   std::map<std::string, std::string> md = mCDBStorage.getMetaData();
   o2::ccdb::CcdbObjectInfo w;
-  o2::calibration::Utils::prepareCCDBobjectInfo(obj, w, CDBTypeMap.at(calibType), md, mUpdateIntervalStart, mLastCreationTime - 1);
+  // for online processing extend the validity range. Will be truncated with the adjustableEOV procedure
+  o2::calibration::Utils::prepareCCDBobjectInfo(obj, w, CDBTypeMap.at(calibType), md, mUpdateIntervalStart, mLastCreationTime + 2 * mCCDBupdateInterval * 1000);
   auto image = o2::ccdb::CcdbApi::createObjectImage(&obj, &w);
 
   LOGP(info, "Sending object {} / {} of size {} bytes, valid for {} : {} ", w.getPath(), w.getFileName(), image->size(), w.getStartValidityTimestamp(), w.getEndValidityTimestamp());
@@ -195,11 +196,11 @@ DataProcessorSpec getDCSSpec()
     Options{
       {"write-debug", VariantType::Bool, false, {"write a debug output tree"}},
       {"report-timing", VariantType::Bool, false, {"Report timing for every slice"}},
-      {"update-interval", VariantType::Int, 60 * 5, {"update interval in seconds for which ccdb entries are written"}},
-      {"fit-interval", VariantType::Int, 60, {"interval in seconds for which to e.g. perform fits of the temperature sensors"}},
+      {"update-interval", VariantType::Int, 60 * 15, {"update interval in seconds for which ccdb entries are written"}},
+      {"fit-interval", VariantType::Int, 60 * 5, {"interval in seconds for which to e.g. perform fits of the temperature sensors"}},
       {"round-to-interval", VariantType::Bool, false, {"round fit interval to fixed times e.g. to every 5min in the hour"}},
     } // end Options
-  };  // end DataProcessorSpec
+  }; // end DataProcessorSpec
 }
 
 } // end namespace o2::tpc

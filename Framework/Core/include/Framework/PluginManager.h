@@ -87,7 +87,7 @@ struct PluginManager {
 #else
         auto libraryName = fmt::format("lib{}.so", loadablePlugin.library);
 #endif
-        auto ret = uv_dlopen(libraryName.c_str(), &handle);
+        auto ret = uv_dlopen(loadablePlugin.library.empty() ? nullptr : libraryName.c_str(), &handle);
         if (ret != 0) {
           LOGP(error, "Could not load library {}", loadablePlugin.library);
           LOG(error) << uv_dlerror(&handle);

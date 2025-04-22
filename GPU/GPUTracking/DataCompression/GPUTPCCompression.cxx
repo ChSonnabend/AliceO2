@@ -16,6 +16,7 @@
 #include "GPUReconstruction.h"
 #include "GPUO2DataTypes.h"
 #include "GPUMemorySizeScalers.h"
+#include "GPUDefParametersRuntime.h"
 
 using namespace o2::gpu;
 
@@ -36,11 +37,12 @@ void* GPUTPCCompression::SetPointersOutputHost(void* mem)
 
 void* GPUTPCCompression::SetPointersScratch(void* mem)
 {
+  int32_t gatherMode = mRec->GetProcessingSettings().tpcCompressionGatherMode == -1 ? mRec->getGPUParameters(mRec->GetRecoStepsGPU() & GPUDataTypes::RecoStep::TPCCompression).par_COMP_GATHER_MODE : mRec->GetProcessingSettings().tpcCompressionGatherMode;
   computePointerWithAlignment(mem, mClusterStatus, mMaxClusters);
-  if (mRec->GetProcessingSettings().tpcCompressionGatherMode >= 2) {
+  if (gatherMode >= 2) {
     computePointerWithAlignment(mem, mAttachedClusterFirstIndex, mMaxTracks);
   }
-  if (mRec->GetProcessingSettings().tpcCompressionGatherMode != 1) {
+  if (gatherMode != 1) {
     SetPointersCompressedClusters(mem, mPtrs, mMaxTrackClusters, mMaxTracks, mMaxClustersInCache, false);
   }
   return mem;
@@ -48,8 +50,9 @@ void* GPUTPCCompression::SetPointersScratch(void* mem)
 
 void* GPUTPCCompression::SetPointersOutput(void* mem)
 {
+  int32_t gatherMode = mRec->GetProcessingSettings().tpcCompressionGatherMode == -1 ? mRec->getGPUParameters(mRec->GetRecoStepsGPU() & GPUDataTypes::RecoStep::TPCCompression).par_COMP_GATHER_MODE : mRec->GetProcessingSettings().tpcCompressionGatherMode;
   computePointerWithAlignment(mem, mAttachedClusterFirstIndex, mMaxTrackClusters);
-  if (mRec->GetProcessingSettings().tpcCompressionGatherMode == 1) {
+  if (gatherMode == 1) {
     SetPointersCompressedClusters(mem, mPtrs, mMaxTrackClusters, mMaxTracks, mMaxClustersInCache, false);
   }
   return mem;
@@ -102,12 +105,13 @@ void* GPUTPCCompression::SetPointersMemory(void* mem)
 void GPUTPCCompression::RegisterMemoryAllocation()
 {
   AllocateAndInitializeLate();
+  int32_t gatherMode = mRec->GetProcessingSettings().tpcCompressionGatherMode == -1 ? mRec->getGPUParameters(mRec->GetRecoStepsGPU() & GPUDataTypes::RecoStep::TPCCompression).par_COMP_GATHER_MODE : mRec->GetProcessingSettings().tpcCompressionGatherMode;
   mMemoryResOutputHost = mRec->RegisterMemoryAllocation(this, &GPUTPCCompression::SetPointersOutputHost, GPUMemoryResource::MEMORY_OUTPUT_FLAG | GPUMemoryResource::MEMORY_HOST | GPUMemoryResource::MEMORY_CUSTOM, "TPCCompressionOutputHost");
-  if (mRec->GetProcessingSettings().tpcCompressionGatherMode == 3) {
+  if (gatherMode == 3) {
     mMemoryResOutputGPU = mRec->RegisterMemoryAllocation(this, &GPUTPCCompression::SetPointersOutputGPU, GPUMemoryResource::MEMORY_SCRATCH | GPUMemoryResource::MEMORY_GPU | GPUMemoryResource::MEMORY_CUSTOM | GPUMemoryResource::MEMORY_STACK, "TPCCompressionOutputGPU");
   }
-  uint32_t stackScratch = (mRec->GetProcessingSettings().tpcCompressionGatherMode != 3) ? GPUMemoryResource::MEMORY_STACK : 0;
-  if (mRec->GetProcessingSettings().tpcCompressionGatherMode < 2) {
+  uint32_t stackScratch = (gatherMode != 3) ? GPUMemoryResource::MEMORY_STACK : 0;
+  if (gatherMode < 2) {
     mRec->RegisterMemoryAllocation(this, &GPUTPCCompression::SetPointersOutput, GPUMemoryResource::MEMORY_OUTPUT | stackScratch, "TPCCompressionOutput");
   }
   mRec->RegisterMemoryAllocation(this, &GPUTPCCompression::SetPointersScratch, GPUMemoryResource::MEMORY_SCRATCH | stackScratch, "TPCCompressionScratch");

@@ -25,7 +25,7 @@
 
 #include "ITSBase/GeometryTGeo.h"
 #include "ITS3Base/SpecsV2.h"
-#include "ITS3Base/SegmentationSuperAlpide.h"
+#include "ITS3Base/SegmentationMosaix.h"
 #include "MathUtils/Cartesian.h"
 #include "MathUtils/Utils.h"
 #include "DataFormatsITSMFT/NoiseMap.h"
@@ -102,6 +102,8 @@ void CheckTileNumbering(const std::string& inputGeom = "", const std::string& de
   Int_t colors[NRGBs] = {kWhite, kRed, kGray};
   TColor::SetPalette(NRGBs, colors, 1.0);
 
+  std::array<o2::its3::SegmentationMosaix, 3> mMosaixSegmentations{0, 1, 2};
+
   const float phiOffsetL0 = std::asin(o2::its3::constants::equatorialGap / 2.f / o2::its3::constants::radii[0]);
   const float phiOffsetL1 = std::asin(o2::its3::constants::equatorialGap / 2.f / o2::its3::constants::radii[1]);
   const float phiOffsetL2 = std::asin(o2::its3::constants::equatorialGap / 2.f / o2::its3::constants::radii[2]);
@@ -142,7 +144,7 @@ void CheckTileNumbering(const std::string& inputGeom = "", const std::string& de
   for (unsigned int iDet{0}; iDet <= o2::its3::constants::detID::l2IDEnd; ++iDet) {
     int sensorID = o2::its3::constants::detID::getSensorID(iDet);
     int layerID = o2::its3::constants::detID::getDetID2Layer(iDet);
-    o2::its3::SuperSegmentations[layerID].flatToCurved(xFlat, 0., x, y);
+    mMosaixSegmentations[layerID].flatToCurved(xFlat, 0., x, y);
     o2::math_utils::Point3D<float> locC{x, y, z};
     auto gloC = gman->getMatrixL2G(iDet)(locC);
     float phi = o2::math_utils::to02Pi(std::atan2(gloC.Y(), gloC.X()));

@@ -12,7 +12,7 @@
 /// \file TopologyDictionary.cxx
 
 #include "ITS3Reconstruction/TopologyDictionary.h"
-#include "ITS3Base/SegmentationSuperAlpide.h"
+#include "ITS3Base/SegmentationMosaix.h"
 #include "ITSMFTBase/SegmentationAlpide.h"
 #include "CommonUtils/StringUtils.h"
 #include <TFile.h>
@@ -23,9 +23,16 @@ ClassImp(o2::its3::TopologyDictionary);
 namespace o2::its3
 {
 
+void TopologyDictionaryData::print() const noexcept
+{
+  LOG(info) << "Number of keys: " << mVectorOfIDs.size();
+  LOG(info) << "Number of common topologies: " << mCommonMap.size();
+  LOG(info) << "Number of groups of rare topologies: " << mGroupMap.size();
+}
+
 TopologyDictionary::TopologyDictionary()
 {
-  memset(mSmallTopologiesLUT, -1, STopoSize * sizeof(int));
+  reset();
 }
 
 TopologyDictionary::TopologyDictionary(const std::string& fileName)
@@ -33,10 +40,43 @@ TopologyDictionary::TopologyDictionary(const std::string& fileName)
   readFromFile(fileName);
 }
 
+void TopologyDictionary::print() const noexcept
+{
+  LOG(info) << "ITS3 TopologyDictionary";
+  LOG(info) << "InnerBarrel";
+  mDataIB.print();
+  LOG(info) << "OuterBarrel";
+  mDataOB.print();
+}
+
+void TopologyDictionary::reset() noexcept
+{
+  mDataIB.mSmallTopologiesLUT.fill(-1);
+  mDataOB.mSmallTopologiesLUT.fill(-1);
+  mDataIB.mVectorOfIDs.clear();
+  mDataOB.mVectorOfIDs.clear();
+}
+
+void TopologyDictionary::resetMaps(bool IB) noexcept
+{
+  auto& data = (IB) ? mDataIB : mDataOB;
+  data.mCommonMap.clear();
+  data.mGroupMap.clear();
+}
+
 std::ostream& operator<<(std::ostream& os, const its3::TopologyDictionary& dict)
 {
   int ID = 0;
-  for (auto& p : dict.mVectorOfIDs) {
+  os << "--- InnerBarrel:\n";
+  for (auto& p : dict.mDataIB.mVectorOfIDs) {
+    os << "ID: " << ID++ << " Hash: " << p.mHash << " ErrX: " << p.mErrX << " ErrZ : " << p.mErrZ << " xCOG: " << p.mXCOG << " zCOG: " << p.mZCOG << " Npixles: " << p.mNpixels << " Frequency: " << p.mFrequency << " isGroup : " << std::boolalpha << p.mIsGroup << '\n'
+       << p.mPattern << '\n'
+       << "*********************************************************" << '\n'
+       << '\n';
+  }
+  ID = 0;
+  os << "--- OuterBarrel:\n";
+  for (auto& p : dict.mDataOB.mVectorOfIDs) {
     os << "ID: " << ID++ << " Hash: " << p.mHash << " ErrX: " << p.mErrX << " ErrZ : " << p.mErrZ << " xCOG: " << p.mXCOG << " zCOG: " << p.mZCOG << " Npixles: " << p.mNpixels << " Frequency: " << p.mFrequency << " isGroup : " << std::boolalpha << p.mIsGroup << '\n'
        << p.mPattern << '\n'
        << "*********************************************************" << '\n'
@@ -48,24 +88,36 @@ std::ostream& operator<<(std::ostream& os, const its3::TopologyDictionary& dict)
 void TopologyDictionary::writeBinaryFile(const std::string& outputfile)
 {
   std::ofstream file_output(outputfile, std::ios::out | std::ios::binary);
-  for (auto& p : mVectorOfIDs) {
-    file_output.write(reinterpret_cast<char*>(&p.mHash), sizeof(unsigned long));
-    file_output.write(reinterpret_cast<char*>(&p.mErrX), sizeof(float));
-    file_output.write(reinterpret_cast<char*>(&p.mErrZ), sizeof(float));
-    file_output.write(reinterpret_cast<char*>(&p.mErr2X), sizeof(float));
-    file_output.write(reinterpret_cast<char*>(&p.mErr2Z), sizeof(float));
-    file_output.write(reinterpret_cast<char*>(&p.mXCOG), sizeof(float));
-    file_output.write(reinterpret_cast<char*>(&p.mZCOG), sizeof(float));
-    file_output.write(reinterpret_cast<char*>(&p.mNpixels), sizeof(int));
-    file_output.write(reinterpret_cast<char*>(&p.mFrequency), sizeof(double));
-    file_output.write(reinterpret_cast<char*>(&p.mIsGroup), sizeof(bool));
-    file_output.write(const_cast<char*>(reinterpret_cast<const char*>(&p.mPattern.getPattern())),
-                      sizeof(unsigned char) * (itsmft::ClusterPattern::kExtendedPatternBytes));
+  if (!file_output) {
+    throw std::runtime_error(fmt::format("Cannot open output file %s!", outputfile));
   }
+
+  auto writeData = [](auto& file_output, auto& data) {
+    auto size = data.mVectorOfIDs.size();
+    file_output.write(reinterpret_cast<char*>(&size), sizeof(size));
+    for (auto& p : data.mVectorOfIDs) {
+      file_output.write(reinterpret_cast<char*>(&p.mHash), sizeof(unsigned long));
+      file_output.write(reinterpret_cast<char*>(&p.mErrX), sizeof(float));
+      file_output.write(reinterpret_cast<char*>(&p.mErrZ), sizeof(float));
+      file_output.write(reinterpret_cast<char*>(&p.mErr2X), sizeof(float));
+      file_output.write(reinterpret_cast<char*>(&p.mErr2Z), sizeof(float));
+      file_output.write(reinterpret_cast<char*>(&p.mXCOG), sizeof(float));
+      file_output.write(reinterpret_cast<char*>(&p.mZCOG), sizeof(float));
+      file_output.write(reinterpret_cast<char*>(&p.mNpixels), sizeof(int));
+      file_output.write(reinterpret_cast<char*>(&p.mFrequency), sizeof(double));
+      file_output.write(reinterpret_cast<char*>(&p.mIsGroup), sizeof(bool));
+      file_output.write(const_cast<char*>(reinterpret_cast<const char*>(&p.mPattern.getPattern())),
+                        sizeof(unsigned char) * (itsmft::ClusterPattern::kExtendedPatternBytes));
+    }
+  };
+
+  writeData(file_output, mDataIB);
+  writeData(file_output, mDataOB);
+
   file_output.close();
 }
 
-int TopologyDictionary::readFromFile(const std::string& fname)
+void TopologyDictionary::readFromFile(const std::string& fname)
 {
   LOGP(info, "Reading TopologyDictionary from File '{}'", fname);
   if (o2::utils::Str::endsWith(fname, ".root")) {
@@ -76,59 +128,63 @@ int TopologyDictionary::readFromFile(const std::string& fname)
   } else {
     throw std::runtime_error(fmt::format("Unrecognized format {}", fname));
   }
-  return 0;
 }
 
-int TopologyDictionary::readBinaryFile(const std::string& fname)
+void TopologyDictionary::readBinaryFile(const std::string& fname)
 {
-  mVectorOfIDs.clear();
-  mCommonMap.clear();
-  for (auto& p : mSmallTopologiesLUT) {
-    p = -1;
-  }
+  reset();
+
   std::ifstream in(fname.data(), std::ios::in | std::ios::binary);
-  itsmft::GroupStruct gr;
-  int groupID = 0;
   if (!in.is_open()) {
     LOG(error) << "The file " << fname << " coud not be opened";
     throw std::runtime_error("The file coud not be opened");
   } else {
-    while (in.read(reinterpret_cast<char*>(&gr.mHash), sizeof(unsigned long))) {
-      in.read(reinterpret_cast<char*>(&gr.mErrX), sizeof(float));
-      in.read(reinterpret_cast<char*>(&gr.mErrZ), sizeof(float));
-      in.read(reinterpret_cast<char*>(&gr.mErr2X), sizeof(float));
-      in.read(reinterpret_cast<char*>(&gr.mErr2Z), sizeof(float));
-      in.read(reinterpret_cast<char*>(&gr.mXCOG), sizeof(float));
-      in.read(reinterpret_cast<char*>(&gr.mZCOG), sizeof(float));
-      in.read(reinterpret_cast<char*>(&gr.mNpixels), sizeof(int));
-      in.read(reinterpret_cast<char*>(&gr.mFrequency), sizeof(double));
-      in.read(reinterpret_cast<char*>(&gr.mIsGroup), sizeof(bool));
-      in.read(const_cast<char*>(reinterpret_cast<const char*>(&gr.mPattern.getPattern())), sizeof(unsigned char) * (itsmft::ClusterPattern::kExtendedPatternBytes));
-      mVectorOfIDs.push_back(gr);
-      if (!gr.mIsGroup) {
-        mCommonMap.insert(std::make_pair(gr.mHash, groupID));
-        if (gr.mPattern.getUsedBytes() == 1) {
-          mSmallTopologiesLUT[(gr.mPattern.getColumnSpan() - 1) * 255 + (int)gr.mPattern.getByte(2)] = groupID;
+
+    auto readData = [](auto& in, auto& data) {
+      int groupID = 0;
+      std::size_t size{}, cur{};
+      itsmft::GroupStruct gr;
+      in.read(reinterpret_cast<char*>(&size), sizeof(std::size_t));
+      while (cur++ != size) {
+        in.read(reinterpret_cast<char*>(&gr.mHash), sizeof(unsigned long));
+        in.read(reinterpret_cast<char*>(&gr.mErrX), sizeof(float));
+        in.read(reinterpret_cast<char*>(&gr.mErrZ), sizeof(float));
+        in.read(reinterpret_cast<char*>(&gr.mErr2X), sizeof(float));
+        in.read(reinterpret_cast<char*>(&gr.mErr2Z), sizeof(float));
+        in.read(reinterpret_cast<char*>(&gr.mXCOG), sizeof(float));
+        in.read(reinterpret_cast<char*>(&gr.mZCOG), sizeof(float));
+        in.read(reinterpret_cast<char*>(&gr.mNpixels), sizeof(int));
+        in.read(reinterpret_cast<char*>(&gr.mFrequency), sizeof(double));
+        in.read(reinterpret_cast<char*>(&gr.mIsGroup), sizeof(bool));
+        in.read(const_cast<char*>(reinterpret_cast<const char*>(&gr.mPattern.getPattern())), sizeof(unsigned char) * (itsmft::ClusterPattern::kExtendedPatternBytes));
+        data.mVectorOfIDs.push_back(gr);
+        if (!gr.mIsGroup) {
+          data.mCommonMap.insert(std::make_pair(gr.mHash, groupID));
+          if (gr.mPattern.getUsedBytes() == 1) {
+            data.mSmallTopologiesLUT[(gr.mPattern.getColumnSpan() - 1) * 255 + (int)gr.mPattern.getByte(2)] = groupID;
+          }
+        } else {
+          data.mGroupMap.insert(std::make_pair((int)(gr.mHash >> 32) & 0x00000000ffffffff, groupID));
         }
-      } else {
-        mGroupMap.insert(std::make_pair((int)(gr.mHash >> 32) & 0x00000000ffffffff, groupID));
+        groupID++;
       }
-      groupID++;
-    }
+    };
+
+    readData(in, mDataIB);
+    readData(in, mDataOB);
   }
   in.close();
-  return 0;
 }
 
-TH1F* TopologyDictionary::getTopologyDistribution(const std::string_view hname) const
+TH1F* TopologyDictionary::getTopologyDistribution(const std::string_view hname, bool IB) const
 {
-  int dictSize = getSize();
-  auto* histo = new TH1F(hname.data(), ";Topology ID;Frequency", dictSize, -0.5, dictSize - 0.5);
+  int dictSize = getSize(IB);
+  auto* histo = new TH1F(hname.data(), Form("%s;Topology ID;Frequency", (IB) ? "InnerBarrel" : "OuterBarrel"), dictSize, -0.5, dictSize - 0.5);
   histo->SetFillColor(kRed);
   histo->SetFillStyle(3005);
   histo->SetDrawOption("histo");
   for (int i = 0; i < dictSize; i++) {
-    histo->Fill(i, getFrequency(i));
+    histo->Fill(i, getFrequency(i, IB));
   }
   return histo;
 }
@@ -136,18 +192,19 @@ TH1F* TopologyDictionary::getTopologyDistribution(const std::string_view hname) 
 template <typename T>
 math_utils::Point3D<T> TopologyDictionary::getClusterCoordinates(const itsmft::CompClusterExt& cl) const
 {
+  static std::array<o2::its3::SegmentationMosaix, 3> mIBSegmentations{0, 1, 2};
   math_utils::Point3D<T> locCl;
   if (!its3::constants::detID::isDetITS3(cl.getSensorID())) {
     o2::itsmft::SegmentationAlpide::detectorToLocalUnchecked(cl.getRow(), cl.getCol(), locCl);
-    locCl.SetX(locCl.X() + this->getXCOG(cl.getPatternID()) * itsmft::SegmentationAlpide::PitchRow);
-    locCl.SetZ(locCl.Z() + this->getZCOG(cl.getPatternID()) * itsmft::SegmentationAlpide::PitchCol);
+    locCl.SetX(locCl.X() + this->getXCOG(cl.getPatternID(), false) * itsmft::SegmentationAlpide::PitchRow);
+    locCl.SetZ(locCl.Z() + this->getZCOG(cl.getPatternID(), false) * itsmft::SegmentationAlpide::PitchCol);
   } else {
     auto layer = its3::constants::detID::getDetID2Layer(cl.getSensorID());
-    its3::SuperSegmentations[layer].detectorToLocalUnchecked(cl.getRow(), cl.getCol(), locCl);
-    locCl.SetX(locCl.X() + this->getXCOG(cl.getPatternID()) * its3::SegmentationSuperAlpide::mPitchRow);
-    locCl.SetZ(locCl.Z() + this->getZCOG(cl.getPatternID()) * its3::SegmentationSuperAlpide::mPitchCol);
+    mIBSegmentations[layer].detectorToLocalUnchecked(cl.getRow(), cl.getCol(), locCl);
+    locCl.SetX(locCl.X() + this->getXCOG(cl.getPatternID(), true) * its3::SegmentationMosaix::PitchRow);
+    locCl.SetZ(locCl.Z() + this->getZCOG(cl.getPatternID(), true) * its3::SegmentationMosaix::PitchCol);
     float xCurved{0.f}, yCurved{0.f};
-    its3::SuperSegmentations[layer].flatToCurved(locCl.X(), locCl.Y(), xCurved, yCurved);
+    mIBSegmentations[layer].flatToCurved(locCl.X(), locCl.Y(), xCurved, yCurved);
     locCl.SetXYZ(xCurved, yCurved, locCl.Z());
   }
   return locCl;
@@ -156,6 +213,7 @@ math_utils::Point3D<T> TopologyDictionary::getClusterCoordinates(const itsmft::C
 template <typename T>
 math_utils::Point3D<T> TopologyDictionary::getClusterCoordinates(const itsmft::CompClusterExt& cl, const itsmft::ClusterPattern& patt, bool isGroup)
 {
+  static std::array<o2::its3::SegmentationMosaix, 3> mIBSegmentations{0, 1, 2};
   auto refRow = cl.getRow();
   auto refCol = cl.getCol();
   float xCOG = 0, zCOG = 0;
@@ -169,9 +227,9 @@ math_utils::Point3D<T> TopologyDictionary::getClusterCoordinates(const itsmft::C
     o2::itsmft::SegmentationAlpide::detectorToLocalUnchecked(refRow + xCOG, refCol + zCOG, locCl);
   } else {
     auto layer = its3::constants::detID::getDetID2Layer(cl.getSensorID());
-    its3::SuperSegmentations[layer].detectorToLocalUnchecked(refRow + xCOG, refCol + zCOG, locCl);
+    mIBSegmentations[layer].detectorToLocalUnchecked(refRow + xCOG, refCol + zCOG, locCl);
     float xCurved{0.f}, yCurved{0.f};
-    its3::SuperSegmentations[layer].flatToCurved(locCl.X(), locCl.Y(), xCurved, yCurved);
+    mIBSegmentations[layer].flatToCurved(locCl.X(), locCl.Y(), xCurved, yCurved);
     locCl.SetXYZ(xCurved, yCurved, locCl.Z());
   }
   return locCl;

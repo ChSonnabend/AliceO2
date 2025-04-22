@@ -141,22 +141,30 @@ bool requestInputs(std::vector<InputSpec>&, T const&)
 }
 
 template <is_spawns T>
-bool requestInputs(std::vector<InputSpec>& inputs, T const& spawns)
+const char* controlOption()
 {
-  auto base_specs = spawns.base_specs();
-  for (auto base_spec : base_specs) {
-    base_spec.metadata.push_back(ConfigParamSpec{std::string{"control:spawn"}, VariantType::Bool, true, {"\"\""}});
-    DataSpecUtils::updateInputList(inputs, std::forward<InputSpec>(base_spec));
-  }
-  return true;
+  return "control:spawn";
 }
 
 template <is_builds T>
-bool requestInputs(std::vector<InputSpec>& inputs, T const& builds)
+const char* controlOption()
 {
-  auto base_specs = builds.base_specs();
+  return "control:build";
+}
+
+template <is_defines T>
+const char* controlOption()
+{
+  return "control:define";
+}
+
+template <typename T>
+  requires(is_spawns<T> || is_builds<T> || is_defines<T>)
+bool requestInputs(std::vector<InputSpec>& inputs, T const& entity)
+{
+  auto base_specs = entity.base_specs();
   for (auto base_spec : base_specs) {
-    base_spec.metadata.push_back(ConfigParamSpec{std::string{"control:build"}, VariantType::Bool, true, {"\"\""}});
+    base_spec.metadata.push_back(ConfigParamSpec{std::string{controlOption<T>()}, VariantType::Bool, true, {"\"\""}});
     DataSpecUtils::updateInputList(inputs, std::forward<InputSpec>(base_spec));
   }
   return true;
@@ -219,17 +227,11 @@ bool appendOutput(std::vector<OutputSpec>& outputs, T& obj, uint32_t hash)
   return true;
 }
 
-template <is_spawns T>
-bool appendOutput(std::vector<OutputSpec>& outputs, T& spawns, uint32_t)
+template <typename T>
+  requires(is_spawns<T> || is_builds<T> || is_defines<T>)
+bool appendOutput(std::vector<OutputSpec>& outputs, T& entity, uint32_t)
 {
-  outputs.emplace_back(spawns.spec());
-  return true;
-}
-
-template <is_builds T>
-bool appendOutput(std::vector<OutputSpec>& outputs, T& builds, uint32_t)
-{
-  outputs.emplace_back(builds.spec());
+  outputs.emplace_back(entity.spec());
   return true;
 }
 
@@ -286,7 +288,7 @@ bool prepareOutput(ProcessingContext& context, T& spawns)
     originalTable = makeEmptyTable<base_table_t>(o2::aod::label<metadata::extension_table_t::ref>());
   }
 
-  spawns.extension = std::make_shared<typename T::extension_t>(o2::framework::spawner<o2::aod::Hash<metadata::extension_table_t::ref.desc_hash>>(originalTable, o2::aod::label<metadata::extension_table_t::ref>()));
+  spawns.extension = std::make_shared<typename T::extension_t>(o2::framework::spawner<o2::aod::Hash<metadata::extension_table_t::ref.desc_hash>>(originalTable, o2::aod::label<metadata::extension_table_t::ref>(), spawns.projector));
   spawns.table = std::make_shared<typename T::spawnable_t::table_t>(soa::ArrowHelpers::joinTables({spawns.extension->asArrowTable(), originalTable}));
   return true;
 }
@@ -296,6 +298,21 @@ bool prepareOuput(ProcessingContext& context, T& builds)
 {
   using metadata = o2::aod::MetadataTrait<o2::aod::Hash<T::buildable_t::ref.desc_hash>>::metadata;
   return builds.template build<typename T::buildable_t::indexing_t>(builds.pack(), extractOriginals<metadata::sources.size(), metadata::sources>(context));
+}
+
+template <is_defines T>
+bool prepareOutput(ProcessingContext& context, T& defines)
+{
+  using metadata = o2::aod::MetadataTrait<o2::aod::Hash<T::spawnable_t::ref.desc_hash>>::metadata;
+  auto originalTable = soa::ArrowHelpers::joinTables(extractOriginals<metadata::sources.size(), metadata::sources>(context));
+  if (originalTable->schema()->fields().empty() == true) {
+    using base_table_t = typename T::base_table_t::table_t;
+    originalTable = makeEmptyTable<base_table_t>(o2::aod::label<metadata::extension_table_t::ref>());
+  }
+
+  defines.extension = std::make_shared<typename T::extension_t>(o2::framework::spawner<o2::aod::Hash<metadata::extension_table_t::ref.desc_hash>>(originalTable, o2::aod::label<metadata::extension_table_t::ref>(), defines.projectors.data(), defines.projector));
+  defines.table = std::make_shared<typename T::spawnable_t::table_t>(soa::ArrowHelpers::joinTables({defines.extension->asArrowTable(), originalTable}));
+  return true;
 }
 
 template <typename T>
@@ -330,6 +347,13 @@ template <is_builds T>
 bool finalizeOutput(ProcessingContext& context, T& builds)
 {
   context.outputs().adopt(builds.output(), builds.asArrowTable());
+  return true;
+}
+
+template <is_defines T>
+bool finalizeOutput(ProcessingContext& context, T& defines)
+{
+  context.outputs().adopt(defines.output(), defines.asArrowTable());
   return true;
 }
 
@@ -495,16 +519,14 @@ bool initializeCache(ProcessingContext& context, T& cache)
 
 /// Combinations handling
 template <typename C, typename TG, typename... Ts>
-  requires(!is_combinations_generator<C>)
 void setGroupedCombination(C&, TG&, Ts&...)
 {
 }
 
 template <is_combinations_generator C, typename TG, typename... Ts>
-  requires((sizeof...(Ts) > 0) && (C::compatible(framework::pack<Ts...>{})))
 static void setGroupedCombination(C& comb, TG& grouping, std::tuple<Ts...>& associated)
 {
-  if constexpr (std::same_as<typename C::g_t, TG>) {
+  if constexpr (std::same_as<typename C::g_t, std::decay_t<TG>>) {
     comb.setTables(grouping, associated);
   }
 }

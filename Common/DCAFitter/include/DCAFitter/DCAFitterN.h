@@ -75,21 +75,20 @@ struct TrackDeriv {
 ///< Log log-throttling helper
 struct LogLogThrottler {
   size_t evCount{0};
-  size_t evCountPrev{0};
-  size_t logCount{0};
-
+  size_t nextLog{1};
   GPUdi() bool needToLog()
   {
-    if (size_t(o2::gpu::GPUCommonMath::Log(++evCount)) + 1 > logCount) {
-      logCount++;
+    if (++evCount > nextLog) {
+      nextLog *= 2;
       return true;
     }
     return false;
   }
-
-  GPUdi() size_t getNMuted() const { return evCount - evCountPrev - 1; }
-
-  GPUdi() void clear() { evCount = evCountPrev = logCount = 0; }
+  GPUdi() void clear()
+  {
+    evCount = 0;
+    nextLog = 1;
+  }
 };
 
 template <int N, typename... Args>
@@ -118,10 +117,31 @@ class DCAFitterN
   using ArrTrPos = o2::gpu::gpustd::array<Vec3D, N>;         // container of Track positions
 
  public:
-  enum BadCovPolicy {   // if encountering non-positive defined cov. matrix, the choice is:
-    Discard = 0,        // stop evaluation
-    Override = 1,       // override correlation coef. to have cov.matrix pos.def and continue
-    OverrideAndFlag = 2 // override correlation coef. to have cov.matrix pos.def, set mPropFailed flag of corresponding candidate to true and continue (up to the user to check the flag)
+  enum BadCovPolicy : uint8_t { // if encountering non-positive defined cov. matrix, the choice is:
+    Discard = 0,                // stop evaluation
+    Override = 1,               // override correlation coef. to have cov.matrix pos.def and continue
+    OverrideAndFlag = 2         // override correlation coef. to have cov.matrix pos.def, set mPropFailed flag of corresponding candidate to true and continue (up to the user to check the flag)
+  };
+
+  enum FitStatus : uint8_t { // fit status of crossing hypothesis
+    None,                    // no status set (should not be possible!)
+
+    /* Good Conditions */
+    Converged, // fit converged
+    MaxIter,   // max iterations reached before fit convergence
+
+    /* Error Conditions */
+    NoCrossing,      // no reasaonable crossing was found
+    RejRadius,       // radius of crossing was not acceptable
+    RejTrackX,       // one candidate track x was below the mimimum required radius
+    RejTrackRoughZ,  // rejected by rough cut on tracks Z difference
+    RejChi2Max,      // rejected by maximum chi2 cut
+    FailProp,        // propagation of at least prong to PCA failed
+    FailInvCov,      // inversion of cov.-matrix failed
+    FailInvWeight,   // inversion of Ti weight matrix failed
+    FailInv2ndDeriv, // inversion of 2nd derivatives failed
+    FailCorrTracks,  // correction of tracks to updated x failed
+    FailCloserAlt,   // alternative PCA is closer
   };
 
   static constexpr int getNProngs() { return N; }
@@ -154,7 +174,7 @@ class DCAFitterN
   ///< check if propagation of tracks to candidate vertex was done
   GPUd() bool isPropagateTracksToVertexDone(int cand = 0) const { return mTrPropDone[mOrder[cand]]; }
 
-  ///< check if propagation of tracks to candidate vertex was done
+  ///< check if propagation of tracks to candidate vertex failed
   bool isPropagationFailure(int cand = 0) const { return mPropFailed[mOrder[cand]]; }
 
   ///< track param propagated to V0 candidate (no check for the candidate validity)
@@ -200,6 +220,8 @@ class DCAFitterN
   }
 
   const Track* getOrigTrackPtr(int i) const { return mOrigTrPtr[i]; }
+
+  GPUdi() FitStatus getFitStatus(int cand = 0) const noexcept { return mFitStatus[mOrder[cand]]; }
 
   ///< return number of iterations during minimization (no check for its validity)
   GPUdi() int getNIterations(int cand = 0) const { return mNIters[mOrder[cand]]; }
@@ -315,6 +337,12 @@ class DCAFitterN
   {
     mCurHyp = 0;
     mAllowAltPreference = true;
+    mOrder.fill(0);
+    mPropFailed.fill(false);
+    mTrPropDone.fill(false);
+    mNIters.fill(0);
+    mChi2.fill(-1);
+    mFitStatus.fill(FitStatus::None);
   }
 
   GPUdi() static void setTrackPos(Vec3D& pnt, const Track& tr)
@@ -362,12 +390,13 @@ class DCAFitterN
   LogLogThrottler mLoggerBadCov{};
   LogLogThrottler mLoggerBadInv{};
   LogLogThrottler mLoggerBadProp{};
-  MatSym3D mWeightInv;                                   // inverse weight of single track, [sum{M^T E M}]^-1 in EQ.T
+  MatSym3D mWeightInv; // inverse weight of single track, [sum{M^T E M}]^-1 in EQ.T
   o2::gpu::gpustd::array<int, MAXHYP> mOrder{0};
   int mCurHyp = 0;
   int mCrossIDCur = 0;
   int mCrossIDAlt = -1;
   BadCovPolicy mBadCovPolicy{BadCovPolicy::Discard};                                              // what to do in case of non-pos-def. cov. matrix, see BadCovPolicy enum
+  o2::gpu::gpustd::array<FitStatus, MAXHYP> mFitStatus{};                                         // fit status of each hypothesis fit
   bool mAllowAltPreference = true;                                                                // if the fit converges to alternative PCA seed, abandon the current one
   bool mUseAbsDCA = false;                                                                        // use abs. distance minimization rather than chi2
   bool mWeightedFinalPCA = false;                                                                 // recalculate PCA as a cov-matrix weighted mean, even if absDCA method was used
@@ -390,7 +419,7 @@ class DCAFitterN
   float mMaxStep = 2.0;                                                                           // Max step for propagation with Propagator
   int mFitterID = 0;                                                                              // locat fitter ID (mostly for debugging)
   size_t mCallID = 0;
-  ClassDefNV(DCAFitterN, 2);
+  ClassDefNV(DCAFitterN, 3);
 };
 
 ///_________________________________________________________________________
@@ -407,10 +436,8 @@ GPUd() int DCAFitterN<N, Args...>::process(const Tr&... args)
     mTrAux[i].set(*mOrigTrPtr[i], mBz);
   }
   if (!mCrossings.set(mTrAux[0], *mOrigTrPtr[0], mTrAux[1], *mOrigTrPtr[1], mMaxDXYIni, mIsCollinear)) { // even for N>2 it should be enough to test just 1 loop
-    return 0;                                                                                            // no crossing
-  }
-  for (int ih = 0; ih < MAXHYP; ih++) {
-    mPropFailed[ih] = false;
+    mFitStatus[mCurHyp] = FitStatus::NoCrossing;
+    return 0;
   }
   if (mUseAbsDCA) {
     calcRMatrices(); // needed for fast residuals derivatives calculation in case of abs. distance minimization
@@ -428,13 +455,11 @@ GPUd() int DCAFitterN<N, Args...>::process(const Tr&... args)
   for (int ic = 0; ic < mCrossings.nDCA; ic++) {
     // check if radius is acceptable
     if (mCrossings.xDCA[ic] * mCrossings.xDCA[ic] + mCrossings.yDCA[ic] * mCrossings.yDCA[ic] > mMaxR2) {
+      mFitStatus[mCurHyp] = FitStatus::RejRadius;
       continue;
     }
     mCrossIDCur = ic;
     mCrossIDAlt = (mCrossings.nDCA == 2 && mAllowAltPreference) ? 1 - ic : -1; // works for max 2 crossings
-    mNIters[mCurHyp] = 0;
-    mTrPropDone[mCurHyp] = false;
-    mChi2[mCurHyp] = -1.;
     mPCA[mCurHyp][0] = mCrossings.xDCA[ic];
     mPCA[mCurHyp][1] = mCrossings.yDCA[ic];
 
@@ -468,6 +493,7 @@ GPUd() bool DCAFitterN<N, Args...>::calcPCACoefs()
 {
   //< calculate Ti matrices for global vertex decomposition to V = sum_{0<i<N} Ti pi, see EQ.T in the ref
   if (!calcInverseWeight()) {
+    mFitStatus[mCurHyp] = FitStatus::FailInvWeight;
     return false;
   }
   for (int i = N; i--;) { // build Mi*Ei matrix
@@ -720,13 +746,13 @@ GPUd() bool DCAFitterN<N, Args...>::recalculatePCAWithErrors(int cand)
         if (mLoggerBadCov.needToLog()) {
 #ifndef GPUCA_GPUCODE
           printf("fitter %d: error (%ld muted): overrode invalid track covariance from %s\n",
-                 mFitterID, mLoggerBadCov.getNMuted(), mCandTr[mCurHyp][i].asString().c_str());
+                 mFitterID, mLoggerBadCov.evCount, mCandTr[mCurHyp][i].asString().c_str());
 #else
           printf("fitter %d: error (%ld muted): overrode invalid track covariance cyy:%e czz:%e cyz:%e\n",
-                 mFitterID, mLoggerBadCov.getNMuted(), mCandTr[mCurHyp][i].getSigmaY2(), mCandTr[mCurHyp][i].getSigmaZ2(), mCandTr[mCurHyp][i].getSigmaZY());
+                 mFitterID, mLoggerBadCov.evCount, mCandTr[mCurHyp][i].getSigmaY2(), mCandTr[mCurHyp][i].getSigmaZ2(), mCandTr[mCurHyp][i].getSigmaZY());
 #endif
-          mLoggerBadCov.evCountPrev = mLoggerBadCov.evCount;
         }
+        mFitStatus[mCurHyp] = FitStatus::FailInvCov;
         if (mBadCovPolicy == Discard) {
           return false;
         } else if (mBadCovPolicy == OverrideAndFlag) {
@@ -935,21 +961,25 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2()
   for (int i = N; i--;) {
     mCandTr[mCurHyp][i] = *mOrigTrPtr[i];
     auto x = mTrAux[i].c * mPCA[mCurHyp][0] + mTrAux[i].s * mPCA[mCurHyp][1]; // X of PCA in the track frame
-    if (x < mMinXSeed || !propagateToX(mCandTr[mCurHyp][i], x)) {
+    if (x < mMinXSeed) {
+      mFitStatus[mCurHyp] = FitStatus::RejTrackX;
       return false;
     }
-    setTrackPos(mTrPos[mCurHyp][i], mCandTr[mCurHyp][i]);      // prepare positions
+    if (!propagateToX(mCandTr[mCurHyp][i], x)) {
+      return false;
+    }
+    setTrackPos(mTrPos[mCurHyp][i], mCandTr[mCurHyp][i]);             // prepare positions
     if (!mTrcEInv[mCurHyp][i].set(mCandTr[mCurHyp][i], XerrFactor)) { // prepare inverse cov.matrices at starting point
       if (mLoggerBadCov.needToLog()) {
 #ifndef GPUCA_GPUCODE
         printf("fitter %d: error (%ld muted): overrode invalid track covariance from %s\n",
-               mFitterID, mLoggerBadCov.getNMuted(), mCandTr[mCurHyp][i].asString().c_str());
+               mFitterID, mLoggerBadCov.evCount, mCandTr[mCurHyp][i].asString().c_str());
 #else
         printf("fitter %d: error (%ld muted): overrode invalid track covariance cyy:%e czz:%e cyz:%e\n",
-               mFitterID, mLoggerBadCov.getNMuted(), mCandTr[mCurHyp][i].getSigmaY2(), mCandTr[mCurHyp][i].getSigmaZ2(), mCandTr[mCurHyp][i].getSigmaZY());
+               mFitterID, mLoggerBadCov.evCount, mCandTr[mCurHyp][i].getSigmaY2(), mCandTr[mCurHyp][i].getSigmaZ2(), mCandTr[mCurHyp][i].getSigmaZY());
 #endif
-        mLoggerBadCov.evCountPrev = mLoggerBadCov.evCount;
       }
+      mFitStatus[mCurHyp] = FitStatus::FailInvCov;
       if (mBadCovPolicy == Discard) {
         return false;
       } else if (mBadCovPolicy == OverrideAndFlag) {
@@ -959,6 +989,7 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2()
   }
 
   if (mMaxDZIni > 0 && !roughDZCut()) { // apply rough cut on tracks Z difference
+    mFitStatus[mCurHyp] = FitStatus::RejTrackX;
     return false;
   }
 
@@ -976,17 +1007,19 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2()
     // do Newton-Rapson iteration with corrections = - dchi2/d{x0..xN} * [ d^2chi2/d{x0..xN}^2 ]^-1
     if (!mD2Chi2Dx2.Invert()) {
       if (mLoggerBadInv.needToLog()) {
-        printf("fitter %d: error (%ld muted): Inversion failed\n", mFitterID, mLoggerBadCov.getNMuted());
-        mLoggerBadInv.evCountPrev = mLoggerBadInv.evCount;
+        printf("fitter %d: error (%ld muted): Inversion failed\n", mFitterID, mLoggerBadCov.evCount);
       }
+      mFitStatus[mCurHyp] = FitStatus::FailInv2ndDeriv;
       return false;
     }
     VecND dx = mD2Chi2Dx2 * mDChi2Dx;
     if (!correctTracks(dx)) {
+      mFitStatus[mCurHyp] = FitStatus::FailCorrTracks;
       return false;
     }
     calcPCA(); // updated PCA
     if (mCrossIDAlt >= 0 && closerToAlternative()) {
+      mFitStatus[mCurHyp] = FitStatus::FailCloserAlt;
       mAllowAltPreference = false;
       return false;
     }
@@ -994,13 +1027,21 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2()
     chi2Upd = calcChi2(); // updated chi2
     if (getAbsMax(dx) < mMinParamChange || chi2Upd > chi2 * mMinRelChi2Change) {
       chi2 = chi2Upd;
+      mFitStatus[mCurHyp] = FitStatus::Converged;
       break; // converged
     }
     chi2 = chi2Upd;
   } while (++mNIters[mCurHyp] < mMaxIter);
+  if (mNIters[mCurHyp] == mMaxIter) {
+    mFitStatus[mCurHyp] = FitStatus::MaxIter;
+  }
   //
   mChi2[mCurHyp] = chi2 * NInv;
-  return mChi2[mCurHyp] < mMaxChi2;
+  if (mChi2[mCurHyp] >= mMaxChi2) {
+    mFitStatus[mCurHyp] = FitStatus::RejChi2Max;
+    return false;
+  }
+  return true;
 }
 
 //___________________________________________________________________
@@ -1012,12 +1053,17 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2NoErr()
   for (int i = N; i--;) {
     mCandTr[mCurHyp][i] = *mOrigTrPtr[i];
     auto x = mTrAux[i].c * mPCA[mCurHyp][0] + mTrAux[i].s * mPCA[mCurHyp][1]; // X of PCA in the track frame
-    if (x < mMinXSeed || !propagateParamToX(mCandTr[mCurHyp][i], x)) {
+    if (x < mMinXSeed) {
+      mFitStatus[mCurHyp] = FitStatus::RejTrackX;
+      return false;
+    }
+    if (!propagateParamToX(mCandTr[mCurHyp][i], x)) {
       return false;
     }
     setTrackPos(mTrPos[mCurHyp][i], mCandTr[mCurHyp][i]); // prepare positions
   }
   if (mMaxDZIni > 0 && !roughDZCut()) { // apply rough cut on tracks Z difference
+    mFitStatus[mCurHyp] = FitStatus::RejTrackX;
     return false;
   }
 
@@ -1032,17 +1078,19 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2NoErr()
     // do Newton-Rapson iteration with corrections = - dchi2/d{x0..xN} * [ d^2chi2/d{x0..xN}^2 ]^-1
     if (!mD2Chi2Dx2.Invert()) {
       if (mLoggerBadInv.needToLog()) {
-        printf("itter %d: error (%ld muted): Inversion failed\n", mFitterID, mLoggerBadCov.getNMuted());
-        mLoggerBadInv.evCountPrev = mLoggerBadInv.evCount;
+        printf("fitter %d: error (%ld muted): Inversion failed\n", mFitterID, mLoggerBadCov.evCount);
       }
+      mFitStatus[mCurHyp] = FitStatus::FailInv2ndDeriv;
       return false;
     }
     VecND dx = mD2Chi2Dx2 * mDChi2Dx;
     if (!correctTracks(dx)) {
+      mFitStatus[mCurHyp] = FitStatus::FailCorrTracks;
       return false;
     }
     calcPCANoErr(); // updated PCA
     if (mCrossIDAlt >= 0 && closerToAlternative()) {
+      mFitStatus[mCurHyp] = FitStatus::FailCloserAlt;
       mAllowAltPreference = false;
       return false;
     }
@@ -1050,13 +1098,21 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2NoErr()
     chi2Upd = calcChi2NoErr(); // updated chi2
     if (getAbsMax(dx) < mMinParamChange || chi2Upd > chi2 * mMinRelChi2Change) {
       chi2 = chi2Upd;
+      mFitStatus[mCurHyp] = FitStatus::Converged;
       break; // converged
     }
     chi2 = chi2Upd;
   } while (++mNIters[mCurHyp] < mMaxIter);
+  if (mNIters[mCurHyp] == mMaxIter) {
+    mFitStatus[mCurHyp] = FitStatus::MaxIter;
+  }
   //
   mChi2[mCurHyp] = chi2 * NInv;
-  return mChi2[mCurHyp] < mMaxChi2;
+  if (mChi2[mCurHyp] >= mMaxChi2) {
+    mFitStatus[mCurHyp] = FitStatus::RejChi2Max;
+    return false;
+  }
+  return true;
 }
 
 //___________________________________________________________________
@@ -1182,14 +1238,14 @@ GPUdi() bool DCAFitterN<N, Args...>::propagateParamToX(o2::track::TrackPar& t, f
     res = t.propagateParamTo(x, mBz);
   }
   if (!res) {
+    mFitStatus[mCurHyp] = FitStatus::FailProp;
     mPropFailed[mCurHyp] = true;
     if (mLoggerBadProp.needToLog()) {
 #ifndef GPUCA_GPUCODE
-      printf("fitter %d: error (%ld muted): propagation failed for %s\n", mFitterID, mLoggerBadProp.getNMuted(), t.asString().c_str());
+      printf("fitter %d: error (%ld muted): propagation failed for %s\n", mFitterID, mLoggerBadProp.evCount, t.asString().c_str());
 #else
-      printf("fitter %d: error (%ld muted): propagation failed\n", mFitterID, mLoggerBadProp.getNMuted());
+      printf("fitter %d: error (%ld muted): propagation failed\n", mFitterID, mLoggerBadProp.evCount);
 #endif
-      mLoggerBadProp.evCountPrev = mLoggerBadProp.evCount;
     }
   }
   return res;
@@ -1208,14 +1264,14 @@ GPUdi() bool DCAFitterN<N, Args...>::propagateToX(o2::track::TrackParCov& t, flo
     res = t.propagateTo(x, mBz);
   }
   if (!res) {
+    mFitStatus[mCurHyp] = FitStatus::FailProp;
     mPropFailed[mCurHyp] = true;
     if (mLoggerBadProp.needToLog()) {
 #ifndef GPUCA_GPUCODE
-      printf("fitter %d: error (%ld muted): propagation failed for %s\n", mFitterID, mLoggerBadProp.getNMuted(), t.asString().c_str());
+      printf("fitter %d: error (%ld muted): propagation failed for %s\n", mFitterID, mLoggerBadProp.evCount, t.asString().c_str());
 #else
-      printf("fitter %d: error (%ld muted): propagation failed\n", mFitterID, mLoggerBadProp.getNMuted());
+      printf("fitter %d: error (%ld muted): propagation failed\n", mFitterID, mLoggerBadProp.evCount);
 #endif
-      mLoggerBadProp.evCountPrev = mLoggerBadProp.evCount;
     }
   }
   return res;

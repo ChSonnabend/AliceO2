@@ -189,6 +189,8 @@ struct DataProcessingStats {
   std::array<MetricSpec, MAX_METRICS> metricSpecs = {};
   std::array<int64_t, MAX_METRICS> lastPublishedMetrics = {};
   std::vector<int> availableMetrics;
+  // for fast check for AVAILABLE_MANAGED_SHM metric which is only provided for readout-proxy
+  bool hasAvailSHMMetric = false;
   // How many commands have been committed to the queue.
   std::atomic<int> insertedCmds = 0;
   // The insertion point for the next command.

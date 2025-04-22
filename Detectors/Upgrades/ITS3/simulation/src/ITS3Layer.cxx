@@ -18,11 +18,11 @@
 #include "TGeoVolume.h"
 #include "TGeoCompositeShape.h"
 
+#include "Framework/Logger.h"
 #include "CommonConstants/MathConstants.h"
 #include "ITSBase/GeometryTGeo.h"
 #include "ITS3Base/SpecsV2.h"
 #include "ITS3Simulation/ITS3Layer.h"
-#include "fairlogger/Logger.h"
 
 namespace o2m = o2::constants::math;
 namespace its3c = o2::its3::constants;
@@ -30,13 +30,6 @@ namespace its3c = o2::its3::constants;
 namespace o2::its3
 {
 using its3TGeo = o2::its::GeometryTGeo;
-
-void ITS3Layer::init()
-{
-  mR = its3c::radii[mNLayer];
-  mRmin = its3c::radiiInner[mNLayer];
-  mRmax = its3c::radiiOuter[mNLayer];
-}
 
 void ITS3Layer::getMaterials(bool create)
 {
@@ -47,6 +40,7 @@ void ITS3Layer::getMaterials(bool create)
   mSilicon = getMaterial("IT3_SI$", create);
   mAir = getMaterial("IT3_AIR$", create);
   mCarbon = getMaterial("IT3_CARBON$", create);
+  mCopper = getMaterial("IT3_COPPER$", create);
 }
 
 TGeoMedium* ITS3Layer::getMaterial(const char* matName, bool create)
@@ -58,11 +52,11 @@ TGeoMedium* ITS3Layer::getMaterial(const char* matName, bool create)
     } else { // create dummy
       auto matDummy = gGeoManager->GetMaterial("MAT_DUMMY$");
       if (matDummy == nullptr) {
-        LOGP(info, "Created Dummy material");
+        LOGP(warn, "Created Dummy material");
         matDummy = new TGeoMaterial("MAT_DUMMY$", 26.98, 13, 2.7);
       }
       mat = new TGeoMedium(matName, 1, matDummy);
-      LOGP(info, "Created medium {}", matName);
+      LOGP(warn, "Created medium {}", matName);
     }
   }
   return mat;
@@ -75,12 +69,10 @@ void ITS3Layer::createLayer(TGeoVolume* motherVolume)
   createLayerImpl();
   mBuilt = true;
 
-  LOGP(info, "ITS3-Layer: Created Layer {} with mR={} (minR={}, maxR={})", mNLayer, mR, mRmin, mRmax);
   if (motherVolume == nullptr) {
     return;
   }
   // Add it to motherVolume
-  LOGP(debug, "  `-> Attaching to motherVolume '{}'", motherVolume->GetName());
   auto* trans = new TGeoTranslation(0, 0, -constants::segment::lengthSensitive / 2.);
   motherVolume->AddNode(mLayer, 0, trans);
 }
@@ -91,15 +83,9 @@ void ITS3Layer::createPixelArray()
     return;
   }
   // A pixel array is pure silicon and the sensitive part of our detector.
-  // It will be segmented into a 442x156 matrix by the
-  // SuperSegmentationAlpide.
-  // Pixel Array is just a longer version of the biasing but starts in phi at
-  // biasPhi2.
   using namespace its3c::pixelarray;
-  double pixelArrayPhi1 = constants::tile::readout::width / mR * o2m::Rad2Deg;
-  double pixelArrayPhi2 = width / mR * o2m::Rad2Deg + pixelArrayPhi1;
-  auto pixelArray = new TGeoTubeSeg(mRmin, mRmax, length / 2.,
-                                    pixelArrayPhi1, pixelArrayPhi2);
+  double pixelArrayPhi = width / mR * o2m::Rad2Deg;
+  auto pixelArray = new TGeoTubeSeg(mRmin, mRmax, length / 2., 0, pixelArrayPhi);
   mPixelArray = new TGeoVolume(its3TGeo::getITS3PixelArrayPattern(mNLayer), pixelArray, mSilicon);
   mPixelArray->SetLineColor(color);
   mPixelArray->RegisterYourself();
@@ -131,8 +117,9 @@ void ITS3Layer::createTile()
   mTile->AddNode(readoutVol, 0, zMoveReadout);
 
   // Pixel Array is just a longer version of the biasing but starts in phi at
-  // biasPhi2.
-  mTile->AddNode(mPixelArray, 0);
+  // readoutPhi2.
+  auto phiRotPixelArray = new TGeoRotation(Form("its3PhiPixelArrayOffset_%d", mNLayer), readoutPhi2, 0, 0);
+  mTile->AddNode(mPixelArray, 0, phiRotPixelArray);
 
   // Biasing
   double biasPhi1 = constants::pixelarray::width / mR * o2m::Rad2Deg + readoutPhi2;
@@ -199,7 +186,7 @@ void ITS3Layer::createRSU()
 
   // Rotation for top half and vertical mirroring
   double phi = width / mR * o2m::Rad2Deg;
-  auto rot = new TGeoRotation("", 0, 0, -phi);
+  auto rot = new TGeoRotation(Form("its3RotHalfBarrel_%d", mNLayer), 0, 0, -phi);
   rot->ReflectY(true);
 
   // Upper Left
@@ -276,11 +263,19 @@ void ITS3Layer::createChip()
   mChip = new TGeoVolumeAssembly(its3TGeo::getITS3ChipPattern(mNLayer));
   mChip->VisibleDaughters();
 
+  auto phiOffset = constants::segment::width / mR * o2m::Rad2Deg;
   for (unsigned int i{0}; i < constants::nSegments[mNLayer]; ++i) {
-    double phiOffset = constants::segment::width / mR * o2m::Rad2Deg;
-    auto rot = new TGeoRotation("", 0, 0, phiOffset * i);
+    auto rot = new TGeoRotation(Form("its3PhiSegmentOffset_%d_%d", mNLayer, i), 0, 0, phiOffset * i);
     mChip->AddNode(mSegment, i, rot);
   }
+
+  // Add metal stack positioned radially outward
+  auto zMoveMetal = new TGeoTranslation(0, 0, constants::metalstack::length / 2. - constants::segment::lec::length);
+  auto metal = new TGeoTubeSeg(mRmax, mRmax + constants::metalstack::thickness, constants::metalstack::length / 2., 0, constants::nSegments[mNLayer] * phiOffset);
+  auto metalVol = new TGeoVolume(Form("metal%d", mNLayer), metal, mCopper);
+  metalVol->SetLineColor(constants::metalstack::color);
+  metalVol->RegisterYourself();
+  mChip->AddNode(metalVol, 0, zMoveMetal);
 }
 
 void ITS3Layer::createCarbonForm()
@@ -296,7 +291,7 @@ void ITS3Layer::createCarbonForm()
   mCarbonForm->VisibleDaughters();
   double dRadius = -1;
   if (mNLayer < 2) {
-    dRadius = constants::radii[mNLayer + 1] - constants::radii[mNLayer] - constants::thickness;
+    dRadius = constants::radii[mNLayer + 1] - constants::radii[mNLayer] - constants::totalThickness;
   } else {
     dRadius = 0.7; // TODO: lack of carbon foam radius for layer 2, use 0.7mm as a temporary value
   }
@@ -372,8 +367,8 @@ void ITS3Layer::createLayerImpl()
   // The offset is the right angle triangle of the middle radius with the
   // transverse axis.
   double phiOffset = std::asin(constants::equatorialGap / 2. / mR) * o2m::Rad2Deg;
-  auto rotTop = new TGeoRotation("", 0, 0, +phiOffset);
-  auto rotBot = new TGeoRotation("", 0, 0, phiOffset + 180);
+  auto rotTop = new TGeoRotation(Form("its3CarbonPhiOffsetTop_%d", mNLayer), 0, 0, +phiOffset);
+  auto rotBot = new TGeoRotation(Form("its3CarbonPhiOffsetBot_%d", mNLayer), 0, 0, phiOffset + 180);
 
   mLayer->AddNode(mCarbonForm, 0, rotTop);
   mLayer->AddNode(mCarbonForm, 1, rotBot);
@@ -412,8 +407,7 @@ void ITS3Layer::buildPartial(TGeoVolume* motherVolume, TGeoMatrix* mat, BuildLev
     case BuildLevel::kLayer:
       [[fallthrough]];
     default:
-      createLayerImpl();
-      motherVolume->AddNode(mLayer, 0, mat);
+      createLayer(motherVolume);
   }
   LOGP(info, "Partially built ITS3-{}-{}", mNLayer, getName(level));
 }

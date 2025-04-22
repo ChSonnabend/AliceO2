@@ -12,15 +12,14 @@
 /// \file Clusterer.cxx
 /// \brief Implementation of the ITS cluster finder
 
-#include "ITS3Reconstruction/Clusterer.h"
+#include <algorithm>
 
-#include <TTree.h>
-#include "Framework/Logger.h"
-#include "ITS3Base/SegmentationSuperAlpide.h"
+#include "ITS3Reconstruction/Clusterer.h"
+#include "ITS3Base/SegmentationMosaix.h"
 #include "SimulationDataFormat/MCTruthContainer.h"
 #include "CommonDataFormat/InteractionRecord.h"
 
-#include <algorithm>
+#include "TTree.h"
 
 #ifdef WITH_OPENMP
 #include <omp.h>
@@ -252,7 +251,7 @@ void Clusterer::ClustererThread::finishChip(ChipPixelData* curChipData, CompClus
       preClusterIndices[i2] = -1;
     }
     if (bbox.isAcceptableSize()) {
-      parent->streamCluster(pixArrBuff, &labelsBuff, bbox, parent->mPattIdConverter, compClusPtr, patternsPtr, labelsClusPtr, nlab);
+      parent->streamCluster(pixArrBuff, &labelsBuff, bbox, parent->mPattIdConverter, compClusPtr, patternsPtr, labelsClusPtr, nlab, constants::detID::isDetITS3(curChipData->getChipID()));
     } else {
       auto warnLeft = MaxHugeClusWarn - parent->mNHugeClus;
       if (warnLeft > 0) {
@@ -278,7 +277,7 @@ void Clusterer::ClustererThread::finishChip(ChipPixelData* curChipData, CompClus
             }
           }
           if (!pixbuf.empty()) { // Stream a piece of cluster only if the reduced bounding box is not empty
-            parent->streamCluster(pixbuf, &labelsBuff, bboxT, parent->mPattIdConverter, compClusPtr, patternsPtr, labelsClusPtr, nlab, true);
+            parent->streamCluster(pixbuf, &labelsBuff, bboxT, parent->mPattIdConverter, compClusPtr, patternsPtr, labelsClusPtr, nlab, constants::detID::isDetITS3(curChipData->getChipID()), true);
             pixbuf.clear();
           }
           bboxT.rowMin = bboxT.rowMax + 1;
@@ -305,10 +304,12 @@ void Clusterer::ClustererThread::finishChipSingleHitFast(uint32_t hit, ChipPixel
     }
   }
 
+  auto ib = constants::detID::isDetITS3(curChipData->getChipID());
+
   // add to compact clusters, which must be always filled
   unsigned char patt[ClusterPattern::MaxPatternBytes]{0x1 << (7 - (0 % 8))}; // unrolled 1 hit version of full loop in finishChip
-  uint16_t pattID = (parent->mPattIdConverter.size() == 0) ? CompCluster::InvalidPatternID : parent->mPattIdConverter.findGroupID(1, 1, patt);
-  if ((pattID == CompCluster::InvalidPatternID || parent->mPattIdConverter.isGroup(pattID)) && patternsPtr) {
+  uint16_t pattID = (parent->mPattIdConverter.size(ib) == 0) ? CompCluster::InvalidPatternID : parent->mPattIdConverter.findGroupID(1, 1, ib, patt);
+  if ((pattID == CompCluster::InvalidPatternID || parent->mPattIdConverter.isGroup(pattID, ib)) && patternsPtr) {
     patternsPtr->emplace_back(1); // rowspan
     patternsPtr->emplace_back(1); // colspan
     patternsPtr->insert(patternsPtr->end(), std::begin(patt), std::begin(patt) + 1);
@@ -334,7 +335,7 @@ void Clusterer::ClustererThread::initChip(const ChipPixelData* curChipData, uint
   size = itsmft::SegmentationAlpide::NRows + 2;
   int chipId = curChipData->getChipID();
   if (its3::constants::detID::isDetITS3(chipId)) {
-    size = its3::SegmentationSuperAlpide::mNRows + 2;
+    size = its3::SegmentationMosaix::NRows + 2;
   }
 
   delete[] column1;

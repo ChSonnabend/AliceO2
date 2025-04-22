@@ -97,7 +97,7 @@ class CellSeed final : public o2::track::TrackParCovF
   GPUhd() void setFirstTrackletIndex(int trkl) { mTracklets[0] = trkl; };
   GPUhd() int getSecondTrackletIndex() const { return mTracklets[1]; };
   GPUhd() void setSecondTrackletIndex(int trkl) { mTracklets[1] = trkl; };
-  GPUhd() int getChi2() const { return mChi2; };
+  GPUhd() float getChi2() const { return mChi2; };
   GPUhd() void setChi2(float chi2) { mChi2 = chi2; };
   GPUhd() int getLevel() const { return mLevel; };
   GPUhd() void setLevel(int level) { mLevel = level; };

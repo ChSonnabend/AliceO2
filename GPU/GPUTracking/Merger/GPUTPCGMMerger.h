@@ -108,6 +108,8 @@ class GPUTPCGMMerger : public GPUProcessor
   GPUhdi() GPUTPCGMMergedTrack* OutputTracks() { return mOutputTracks; }
   GPUhdi() const GPUdEdxInfo* OutputTracksdEdx() const { return mOutputTracksdEdx; }
   GPUhdi() GPUdEdxInfo* OutputTracksdEdx() { return mOutputTracksdEdx; }
+  GPUhdi() const GPUdEdxInfo* OutputTracksdEdxAlt() const { return mOutputTracksdEdxAlt; }
+  GPUhdi() GPUdEdxInfo* OutputTracksdEdxAlt() { return mOutputTracksdEdxAlt; }
   GPUhdi() uint32_t NClusters() const { return mNClusters; }
   GPUhdi() uint32_t NMaxClusters() const { return mNMaxClusters; }
   GPUhdi() uint32_t NMaxTracks() const { return mNMaxTracks; }
@@ -261,6 +263,7 @@ class GPUTPCGMMerger : public GPUProcessor
   int32_t mNClusters = 0;                           // Total number of incoming clusters (from sector tracks)
   GPUTPCGMMergedTrack* mOutputTracks = nullptr;     //* array of output merged tracks
   GPUdEdxInfo* mOutputTracksdEdx = nullptr;         //* dEdx information
+  GPUdEdxInfo* mOutputTracksdEdxAlt = nullptr;      //* dEdx alternative information
   GPUTPCGMSectorTrack* mSectorTrackInfos = nullptr; //* additional information for sector tracks
   int32_t* mSectorTrackInfoIndex = nullptr;
   GPUTPCGMMergedTrackHit* mClusters = nullptr;

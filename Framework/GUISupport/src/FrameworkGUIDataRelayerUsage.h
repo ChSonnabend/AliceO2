@@ -9,6 +9,7 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+#include "Framework/DeviceSpec.h"
 class ImVec2;
 
 namespace o2::framework
@@ -19,9 +20,9 @@ class DataProcessingStates;
 
 namespace gui
 {
-
+static constexpr int WND = 16;
 /// View of the DataRelayer metrics for a given DeviceInfo
-void displayDataRelayer(DeviceMetricsInfo const& metrics, DeviceInfo const& info, DeviceSpec const& spec, DataProcessingStates const&, ImVec2 const& size);
+void displayDataRelayer(DeviceMetricsInfo const& metrics, DeviceInfo const& info, DeviceSpec const& spec, DataProcessingStates const&, ImVec2 const& size, int& v);
 
 } // namespace gui
 } // namespace o2::framework

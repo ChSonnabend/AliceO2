@@ -18,6 +18,7 @@
 #include "DataFormatsCTP/Configuration.h"
 #include "BookkeepingApi/BkpClientFactory.h"
 #include "BookkeepingApi/BkpClient.h"
+
 using namespace o2::bkp::api;
 namespace o2
 {

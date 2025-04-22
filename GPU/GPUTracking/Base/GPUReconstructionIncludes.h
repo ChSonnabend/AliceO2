@@ -29,21 +29,4 @@
 #include <iostream>
 #include <fstream>
 
-#define GPUCA_GPUReconstructionUpdateDefaults()                                             \
-  if (mProcessingSettings.alternateBorderSort < 0) {                                        \
-    mProcessingSettings.alternateBorderSort = GPUCA_ALTERNATE_BORDER_SORT;                  \
-  }                                                                                         \
-  if (mProcessingSettings.mergerSortTracks < 0) {                                           \
-    mProcessingSettings.mergerSortTracks = GPUCA_SORT_BEFORE_FIT;                           \
-  }                                                                                         \
-  if (param().rec.tpc.looperInterpolationInExtraPass < 0) {                                 \
-    param().rec.tpc.looperInterpolationInExtraPass = GPUCA_MERGER_SPLIT_LOOP_INTERPOLATION; \
-  }                                                                                         \
-  if (mProcessingSettings.tpcCompressionGatherModeKernel < 0) {                             \
-    mProcessingSettings.tpcCompressionGatherModeKernel = GPUCA_COMP_GATHER_KERNEL;          \
-  }                                                                                         \
-  if (mProcessingSettings.tpcCompressionGatherMode < 0) {                                   \
-    mProcessingSettings.tpcCompressionGatherMode = GPUCA_COMP_GATHER_MODE;                  \
-  }
-
-#endif
+#endif // GPURECONSTRUCTIONINCLUDES_H

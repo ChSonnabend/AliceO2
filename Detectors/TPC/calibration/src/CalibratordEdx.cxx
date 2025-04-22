@@ -44,10 +44,11 @@ void CalibratordEdx::finalizeSlot(Slot& slot)
   container->finalizeDebugOutput();
   mCalibs.push_back(container->getCalib());
 
-  TFType startTF = slot.getTFStart();
-  TFType endTF = slot.getTFEnd();
-  auto startTime = slot.getStartTimeMS();
-  auto endTime = slot.getEndTimeMS();
+  const TFType startTF = slot.getTFStart();
+  const TFType endTF = slot.getTFEnd();
+  const auto startTime = slot.getStartTimeMS();
+  const auto endTime = slot.getEndTimeMS();
+  const auto runNumber = container->getTFID().runNumber;
 
   mTFIntervals.emplace_back(startTF, endTF);
   mTimeIntervals.emplace_back(startTime, endTime);
@@ -56,6 +57,7 @@ void CalibratordEdx::finalizeSlot(Slot& slot)
     LOGP(info, "Dumping time slot data to file");
     auto calibCopy = container->getCalib();
     *mDebugOutputStreamer << "CalibdEdx"
+                          << "runNumber=" << runNumber
                           << "startTF=" << startTF      // Initial time frame ID of time slot
                           << "endTF=" << endTF          // Final time frame ID of time slot
                           << "startTime=" << startTime  // Initial time frame time of time slot
@@ -65,17 +67,15 @@ void CalibratordEdx::finalizeSlot(Slot& slot)
   }
 
   if (mDumpHistograms) {
-    const auto fileName = fmt::format("o2tpc_CalibratordEdx_Histos_{}_{}_{}_{}.root", startTime, endTime, startTF, endTF);
     const auto dumpTHn = (mDumpHistograms & 0x1) == 0x1;
     const auto dumpTree = (mDumpHistograms & 0x2) == 0x2;
     if (dumpTree) {
-      container->writeTTree(fileName);
+      const auto fileNameTree = fmt::format("o2tpc_CalibratordEdx_Tree_{}_{}_{}_{}_{}.root", runNumber, startTime, endTime, startTF, endTF);
+      container->writeTTree(fileNameTree);
     }
     if (dumpTHn) {
-      auto f = std::make_unique<TFile>(fileName.data(), dumpTree ? "update" : "recreate");
-      auto hn = container->getRootHist();
-      hn->Write("calibHist");
-      f->Close();
+      const auto fileName = fmt::format("o2tpc_CalibratordEdx_Histos_{}_{}_{}_{}_{}.root", runNumber, startTime, endTime, startTF, endTF);
+      container->dumpToFile(fileName.data());
     }
   }
 }

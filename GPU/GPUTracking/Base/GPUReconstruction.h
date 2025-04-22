@@ -48,6 +48,7 @@ struct GPUReconstructionPipelineContext;
 struct GPUReconstructionThreading;
 class GPUROOTDumpCore;
 class ThrustVolatileAllocator;
+struct GPUDefParameters;
 
 namespace gpu_reconstruction_kernels
 {
@@ -205,6 +206,7 @@ class GPUReconstruction
   GPUOutputControl& OutputControl() { return mOutputControl; }
   uint32_t NStreams() const { return mNStreams; }
   const void* DeviceMemoryBase() const { return mDeviceMemoryBase; }
+  virtual const GPUDefParameters& getGPUParameters(bool doGPU) const = 0;
 
   RecoStepField GetRecoSteps() const { return mRecoSteps.steps; }
   RecoStepField GetRecoStepsGPU() const { return mRecoSteps.stepsGPUMask; }
@@ -239,7 +241,6 @@ class GPUReconstruction
   void FreeRegisteredMemory(GPUMemoryResource* res);
   GPUReconstruction(const GPUSettingsDeviceBackend& cfg); // Constructor
   int32_t InitPhaseBeforeDevice();
-  virtual void UpdateAutomaticProcessingSettings() {}
   virtual int32_t InitDevice() = 0;
   int32_t InitPhasePermanentMemory();
   int32_t InitPhaseAfterDevice();

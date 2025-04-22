@@ -362,6 +362,7 @@ void AODProducerWorkflowDPL::addToTracksQATable(TracksQACursorType& tracksQACurs
   tracksQACursor(
     trackQAInfoHolder.trackID,
     truncateFloatFraction(trackQAInfoHolder.tpcTime0, mTPCTime0),
+    truncateFloatFraction(trackQAInfoHolder.tpcdEdxNorm, mTrackSignal),
     trackQAInfoHolder.tpcdcaR,
     trackQAInfoHolder.tpcdcaZ,
     trackQAInfoHolder.tpcClusterByteMask,
@@ -512,6 +513,19 @@ void AODProducerWorkflowDPL::fillTrackTablesPerCollision(int collisionID,
             }
           }
 
+          // include specific selection of tpc standalone tracks if thinning is active
+          if (mThinTracks && extraInfoHolder.isTPConly && !writeQAData) { // if trackQA is written then no check has to be done
+            auto trk = data.getTPCTrack(trackIndex);
+            if (trk.getNClusters() >= mTrackQCNCls && trk.getPt() >= mTrackQCPt) {
+              o2::dataformats::DCA dcaInfo{999.f, 999.f, 999.f, 999.f, 999.f};
+              o2::dataformats::VertexBase v = mVtx.getMeanVertex(collisionID < 0 ? 0.f : data.getPrimaryVertex(collisionID).getZ());
+              if (o2::base::Propagator::Instance()->propagateToDCABxByBz(v, trk, 2., mMatCorr, &dcaInfo) && std::abs(dcaInfo.getY()) < mTrackQCDCAxy) {
+                writeQAData = true; // just setting this to not thin the track
+              }
+            }
+          }
+
+          // Skip thinning if not enabled or track is not tpc standalone or assoc. to a V0 or qa'ed
           if (mThinTracks && src == GIndex::Source::TPC && mGIDUsedBySVtx.find(trackIndex) == mGIDUsedBySVtx.end() && mGIDUsedByStr.find(trackIndex) == mGIDUsedByStr.end() && !writeQAData) {
             mGIDToTableID.emplace(trackIndex, -1); // pretend skipped tracks are stored; this is safe since they are are not written to disk and -1 indicates to all users to not use this track
             continue;
@@ -1683,6 +1697,9 @@ void AODProducerWorkflowDPL::init(InitContext& ic)
   }
   mTrackQCFraction = ic.options().get<float>("trackqc-fraction");
   mTrackQCNTrCut = ic.options().get<int64_t>("trackqc-NTrCut");
+  mTrackQCDCAxy = ic.options().get<float>("trackqc-tpc-dca");
+  mTrackQCPt = ic.options().get<float>("trackqc-tpc-pt");
+  mTrackQCNCls = ic.options().get<int>("trackqc-tpc-cls");
   if (auto seed = ic.options().get<int>("seed"); seed == 0) {
     LOGP(info, "Using random device for seeding");
     std::random_device rd;
@@ -2542,14 +2559,18 @@ AODProducerWorkflowDPL::TrackExtraInfo AODProducerWorkflowDPL::processBarrelTrac
   if (contributorsGID[GIndex::Source::TPC].isIndexSet()) {
     const auto& tpcOrig = data.getTPCTrack(contributorsGID[GIndex::TPC]);
     const auto& tpcClData = mTPCCounters[contributorsGID[GIndex::TPC]];
+    const auto& dEdx = tpcOrig.getdEdx().dEdxTotTPC > 0 ? tpcOrig.getdEdx() : tpcOrig.getdEdxAlt();
+    if (tpcOrig.getdEdx().dEdxTotTPC == 0) {
+      extraInfoHolder.flags |= o2::aod::track::TPCdEdxAlt;
+    }
     extraInfoHolder.tpcInnerParam = tpcOrig.getP() / tpcOrig.getAbsCharge();
     extraInfoHolder.tpcChi2NCl = tpcOrig.getNClusters() ? tpcOrig.getChi2() / tpcOrig.getNClusters() : 0;
-    extraInfoHolder.tpcSignal = tpcOrig.getdEdx().dEdxTotTPC;
+    extraInfoHolder.tpcSignal = dEdx.dEdxTotTPC;
     extraInfoHolder.tpcNClsFindable = tpcOrig.getNClusters();
     extraInfoHolder.tpcNClsFindableMinusFound = tpcOrig.getNClusters() - tpcClData.found;
     extraInfoHolder.tpcNClsFindableMinusCrossedRows = tpcOrig.getNClusters() - tpcClData.crossed;
     extraInfoHolder.tpcNClsShared = tpcClData.shared;
-    uint32_t clsUsedForPID = tpcOrig.getdEdx().NHitsIROC + tpcOrig.getdEdx().NHitsOROC1 + tpcOrig.getdEdx().NHitsOROC2 + tpcOrig.getdEdx().NHitsOROC3;
+    uint32_t clsUsedForPID = dEdx.NHitsIROC + dEdx.NHitsOROC1 + dEdx.NHitsOROC2 + dEdx.NHitsOROC3;
     extraInfoHolder.tpcNClsFindableMinusPID = tpcOrig.getNClusters() - clsUsedForPID;
     if (src == GIndex::TPC) { // standalone TPC track should set its time from their timebins range
       if (needBCSlice) {
@@ -2605,6 +2626,11 @@ AODProducerWorkflowDPL::TrackQA AODProducerWorkflowDPL::processBarrelTrackQA(int
       using ValType = decltype(value);
       return static_cast<int8_t>(TMath::Nint(std::clamp(value, static_cast<ValType>(std::numeric_limits<int8_t>::min()), static_cast<ValType>(std::numeric_limits<int8_t>::max()))));
     };
+    auto safeUInt8Clamp = [](auto value) -> uint8_t {
+      using ValType = decltype(value);
+      return static_cast<uint8_t>(TMath::Nint(std::clamp(value, static_cast<ValType>(std::numeric_limits<uint8_t>::min()), static_cast<ValType>(std::numeric_limits<uint8_t>::max()))));
+    };
+
     /// get tracklet byteMask
     uint8_t clusterCounters[8] = {0};
     {
@@ -2625,16 +2651,18 @@ AODProducerWorkflowDPL::TrackQA AODProducerWorkflowDPL::processBarrelTrackQA(int
     }
     trackQAHolder.tpcTime0 = tpcOrig.getTime0();
     trackQAHolder.tpcClusterByteMask = byteMask;
-    const float dEdxNorm = (tpcOrig.getdEdx().dEdxTotTPC > 0) ? 100. / tpcOrig.getdEdx().dEdxTotTPC : 0;
-    trackQAHolder.tpcdEdxMax0R = uint8_t(tpcOrig.getdEdx().dEdxMaxIROC * dEdxNorm);
-    trackQAHolder.tpcdEdxMax1R = uint8_t(tpcOrig.getdEdx().dEdxMaxOROC1 * dEdxNorm);
-    trackQAHolder.tpcdEdxMax2R = uint8_t(tpcOrig.getdEdx().dEdxMaxOROC2 * dEdxNorm);
-    trackQAHolder.tpcdEdxMax3R = uint8_t(tpcOrig.getdEdx().dEdxMaxOROC3 * dEdxNorm);
+    const auto& dEdxInfoAlt = tpcOrig.getdEdxAlt(); // tpcOrig.getdEdx()
+    const float dEdxNorm = (dEdxInfoAlt.dEdxTotTPC > 0) ? 100. / dEdxInfoAlt.dEdxTotTPC : 0;
+    trackQAHolder.tpcdEdxNorm = dEdxInfoAlt.dEdxTotTPC;
+    trackQAHolder.tpcdEdxMax0R = safeUInt8Clamp(dEdxInfoAlt.dEdxMaxIROC * dEdxNorm);
+    trackQAHolder.tpcdEdxMax1R = safeUInt8Clamp(dEdxInfoAlt.dEdxMaxOROC1 * dEdxNorm);
+    trackQAHolder.tpcdEdxMax2R = safeUInt8Clamp(dEdxInfoAlt.dEdxMaxOROC2 * dEdxNorm);
+    trackQAHolder.tpcdEdxMax3R = safeUInt8Clamp(dEdxInfoAlt.dEdxMaxOROC3 * dEdxNorm);
     //
-    trackQAHolder.tpcdEdxTot0R = uint8_t(tpcOrig.getdEdx().dEdxTotIROC * dEdxNorm);
-    trackQAHolder.tpcdEdxTot1R = uint8_t(tpcOrig.getdEdx().dEdxTotOROC1 * dEdxNorm);
-    trackQAHolder.tpcdEdxTot2R = uint8_t(tpcOrig.getdEdx().dEdxTotOROC2 * dEdxNorm);
-    trackQAHolder.tpcdEdxTot3R = uint8_t(tpcOrig.getdEdx().dEdxTotOROC3 * dEdxNorm);
+    trackQAHolder.tpcdEdxTot0R = safeUInt8Clamp(dEdxInfoAlt.dEdxTotIROC * dEdxNorm);
+    trackQAHolder.tpcdEdxTot1R = safeUInt8Clamp(dEdxInfoAlt.dEdxTotOROC1 * dEdxNorm);
+    trackQAHolder.tpcdEdxTot2R = safeUInt8Clamp(dEdxInfoAlt.dEdxTotOROC2 * dEdxNorm);
+    trackQAHolder.tpcdEdxTot3R = safeUInt8Clamp(dEdxInfoAlt.dEdxTotOROC3 * dEdxNorm);
     ///
     float scaleTOF{0};
     auto contributorsGIDA = data.getSingleDetectorRefs(trackIndex);
@@ -2705,6 +2733,7 @@ AODProducerWorkflowDPL::TrackQA AODProducerWorkflowDPL::processBarrelTrackQA(int
                        << "scaleGlo3=" << scaleGlo(3)
                        << "scaleGlo4=" << scaleGlo(4)
                        << "trackQAHolder.tpcTime0=" << trackQAHolder.tpcTime0
+                       << "trackQAHolder.tpcdEdxNorm=" << trackQAHolder.tpcdEdxNorm
                        << "trackQAHolder.tpcdcaR=" << trackQAHolder.tpcdcaR
                        << "trackQAHolder.tpcdcaZ=" << trackQAHolder.tpcdcaZ
                        << "trackQAHolder.tpcdcaClusterByteMask=" << trackQAHolder.tpcClusterByteMask
@@ -3237,6 +3266,9 @@ DataProcessorSpec getAODProducerWorkflowSpec(GID::mask_t src, bool enableSV, boo
       ConfigParamSpec{"thin-tracks", VariantType::Bool, false, {"Produce thinned track tables"}},
       ConfigParamSpec{"trackqc-fraction", VariantType::Float, float(0.1), {"Fraction of tracks to QC"}},
       ConfigParamSpec{"trackqc-NTrCut", VariantType::Int64, 4L, {"Minimal length of the track - in amount of tracklets"}},
+      ConfigParamSpec{"trackqc-tpc-dca", VariantType::Float, 3.f, {"Keep TPC standalone track with this DCAxy to the PV"}},
+      ConfigParamSpec{"trackqc-tpc-cls", VariantType::Int, 80, {"Keep TPC standalone track with this #clusters"}},
+      ConfigParamSpec{"trackqc-tpc-pt", VariantType::Float, 0.2f, {"Keep TPC standalone track with this pt"}},
       ConfigParamSpec{"with-streamers", VariantType::String, "", {"Bit-mask to steer writing of intermediate streamer files"}},
       ConfigParamSpec{"seed", VariantType::Int, 0, {"Set seed for random generator used for sampling (0 (default) means using a random_device)"}},
     }};

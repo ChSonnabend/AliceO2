@@ -34,6 +34,7 @@ o2_add_library(
                         O2::ReconstructionDataFormats
                         O2::CommonDataFormat
                         O2::Headers
+                        O2::DataSampling
                         O2::Algorithm)
 
 o2_target_root_dictionary(

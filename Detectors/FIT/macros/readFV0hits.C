@@ -1,3 +1,14 @@
+// Copyright 2019-2025 CERN and copyright holders of ALICE O2.
+// See https://alice-o2.web.cern.ch/copyright for details of the copyright holders.
+// All rights not expressly granted are reserved.
+//
+// This software is distributed under the terms of the GNU General Public
+// License v3 (GPL Version 3), copied verbatim in the file "COPYING".
+//
+// In applying this license CERN does not waive the privileges and immunities
+// granted to it by virtue of its status as an Intergovernmental Organization
+// or submit itself to any jurisdiction.
+
 #if !defined(__CLING__) || defined(__ROOTCLING__)
 
 #include <TFile.h>
@@ -21,6 +32,8 @@
 #include <fairlogger/Logger.h>
 #include "DetectorsCommonDataFormats/DetectorNameConf.h"
 #include "DetectorsCommonDataFormats/DetID.h"
+
+#endif
 
 void AdjustStatBox(TH1* h, float x1ndc, float x2ndc, float y1ndc, float y2ndc)
 {
@@ -54,6 +67,9 @@ void InitHistoNames(std::vector<std::string>& vhName, std::vector<int>& vPdg)
   vhName.push_back("hElossDet");
   vhName.push_back("hEtotVsR");
   vhName.push_back("hEtotVsEloss");
+  vhName.push_back("hXY");
+  vhName.push_back("hXYzoom");
+  vhName.push_back("hZ");
 
   for (UInt_t ipdg = 0; ipdg < vPdg.size(); ipdg++) {
     std::stringstream ss;
@@ -63,7 +79,7 @@ void InitHistoNames(std::vector<std::string>& vhName, std::vector<int>& vPdg)
   }
 }
 
-void readFV0Hits(std::string simPrefix = "o2sim", UInt_t rebin = 1)
+void readFV0hits(std::string simPrefix = "o2sim", UInt_t rebin = 1)
 {
   using namespace o2::detectors;
   std::string simFName(o2::base::DetectorNameConf::getHitsFileName(DetID::FV0, simPrefix));
@@ -85,6 +101,9 @@ void readFV0Hits(std::string simPrefix = "o2sim", UInt_t rebin = 1)
   TH2F* hElossDet = new TH2F(vHistoNames.at(8).c_str(), "", nEl, 0, el1, nCells, 0, nCells);
   TH2F* hEtotVsR = new TH2F(vHistoNames.at(9).c_str(), "", 30000, 0, 300, 80, 0, 80);
   TH2F* hEtotVsEloss = new TH2F(vHistoNames.at(10).c_str(), "", 30000, 0, 300, nEl, 0, el1);
+  TH2F* hXY = new TH2F(vHistoNames.at(11).c_str(), "", 200, -100, 100, 200, -100, 100);
+  TH2F* hXYzoom = new TH2F(vHistoNames.at(12).c_str(), "", 200, -20, 20, 200, -20, 20);
+  TH1F* hZ = new TH1F(vHistoNames.at(13).c_str(), "", 200, 315, 325);
 
   // Setup histo properties
   hElossDet->SetXTitle("Energy loss [MeV]");
@@ -96,6 +115,14 @@ void readFV0Hits(std::string simPrefix = "o2sim", UInt_t rebin = 1)
   hEtotVsEloss->SetXTitle("Total energy at entrance [MeV]");
   hEtotVsEloss->SetYTitle("Energy loss [MeV]");
   hEtotVsEloss->SetZTitle("Counts");
+  hXY->SetXTitle("X [cm]");
+  hXY->SetYTitle("Y [cm]");
+  hXY->SetZTitle("Counts");
+  hXYzoom->SetXTitle("X [cm]");
+  hXYzoom->SetYTitle("Y [cm]");
+  hXYzoom->SetZTitle("Counts");
+  hZ->SetXTitle("Hit Z-coordinate [cm]");
+  hZ->SetYTitle("Counts");
   for (UInt_t ih = 0; ih < vhElossVsDistance.size(); ih++) {
     TH2F* h = vhElossVsDistance.at(ih);
     std::stringstream ss;
@@ -124,6 +151,9 @@ void readFV0Hits(std::string simPrefix = "o2sim", UInt_t rebin = 1)
   vh.push_back(hEtotVsEloss);
   vh.insert(vh.end(), vhElossVsDistance.begin(), vhElossVsDistance.end());
   vh.insert(vh.end(), vhElossVsEtot.begin(), vhElossVsEtot.end());
+  vh.push_back(hXY);
+  vh.push_back(hXYzoom);
+  vh.push_back(hZ);
   for (UInt_t ih = 0; ih < vh.size(); ih++) {
     vh[ih]->SetDirectory(0);
     vh[ih]->GetXaxis()->SetTitleSize(fontsize);
@@ -177,6 +207,9 @@ void readFV0Hits(std::string simPrefix = "o2sim", UInt_t rebin = 1)
         vhElossVsDistance.at(vhElossVsDistance.size() - 1)->Fill(hit->GetEnergyLoss() * 1e3, distance);
         vhElossVsEtot.at(vhElossVsEtot.size() - 1)->Fill(hit->GetEnergyLoss() * 1e3, hit->GetTotalEnergyAtEntrance() * 1e3);
       }
+      hXY->Fill(hit->GetX(), hit->GetY());
+      hXYzoom->Fill(hit->GetX(), hit->GetY());
+      hZ->Fill(hit->GetZ());
     }
   }
 
@@ -323,5 +356,3 @@ int compareFV0Hits(std::string simFName1 = "fv0hit-rawhistos.root", std::string 
   }
   return 0;
 }
-
-#endif

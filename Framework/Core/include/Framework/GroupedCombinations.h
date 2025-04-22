@@ -48,16 +48,11 @@ expressions::BindingNode getMatchingIndexNode()
 }
 
 template <typename T1, typename GroupingPolicy, typename BP, typename G, typename... As>
+  requires(sizeof...(As) > 0)
 struct GroupedCombinationsGenerator {
   using grouping_policy_t = GroupingPolicy;
   using g_t = G;
   using associated_pack_t = framework::pack<As...>;
-
-  template <typename... Ts>
-  static consteval bool compatible(framework::pack<Ts...> p)
-  {
-    return (framework::has_type<As>(p) && ...);
-  }
 
   using GroupedIteratorType = pack_to_tuple_t<interleaved_pack_t<repeated_type_pack_t<typename G::iterator, sizeof...(As)>, pack<As...>>>;
 
@@ -241,10 +236,11 @@ struct GroupedCombinationsGenerator {
 };
 
 template <typename T>
-concept is_combinations_generator = requires(T t) {
+concept is_combinations_generator = requires(T t, typename T::g_t const& g, pack_to_tuple_t<typename T::associated_pack_t>& a) {
   typename T::GroupedIterator;
-  &T::begin;
-  &T::end;
+  t.setTables(g, a);
+  { t.begin() } -> std::same_as<typename T::iterator>;
+  { t.end() } -> std::same_as<typename T::iterator>;
 };
 
 // Aliases for 2-particle correlations

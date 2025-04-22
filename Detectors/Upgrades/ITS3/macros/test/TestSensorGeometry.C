@@ -21,7 +21,7 @@
 #include "TList.h"
 #endif
 
-void TestSensorGeometry(bool checkFull = false)
+void TestSensorGeometry(bool draw = false, bool checkFull = false)
 {
   gGeoManager = new TGeoManager("simple", "Simple geometry");
   TGeoMaterial* matVacuum = new TGeoMaterial("Vacuum", 0, 0, 0);
@@ -30,8 +30,7 @@ void TestSensorGeometry(bool checkFull = false)
   auto top = gGeoManager->MakeBox("TOP", Vacuum, 270., 270., 120.);
   gGeoManager->SetTopVolume(top);
 
-  o2::its3::ITS3Layer layer0{0, top, nullptr,
-                             o2::its3::ITS3Layer::BuildLevel::kLayer, true};
+  o2::its3::ITS3Layer layer0{2, top, nullptr, o2::its3::ITS3Layer::BuildLevel::kLayer, true};
 
   // Print available medias
   TIter next{gGeoManager->GetListOfMedia()};
@@ -42,13 +41,17 @@ void TestSensorGeometry(bool checkFull = false)
 
   gGeoManager->CloseGeometry();
   gGeoManager->SetVisLevel(99);
+  if (draw) {
+    gGeoManager->Draw("ogl");
+  }
+
   if (checkFull) {
     gGeoManager->CheckGeometryFull();
-  }
-  gGeoManager->CheckOverlaps(0.0001);
-  TIter nextOverlap{gGeoManager->GetListOfOverlaps()};
-  while ((obj = (TObject*)nextOverlap())) {
-    LOGP(info, "Overlap in {}", obj->GetName());
+    gGeoManager->CheckOverlaps(0.00001);
+    TIter nextOverlap{gGeoManager->GetListOfOverlaps()};
+    while ((obj = (TObject*)nextOverlap())) {
+      LOGP(info, "Overlap in {}", obj->GetName());
+    }
   }
 
   std::unique_ptr<TFile> f{TFile::Open("geo.root", "RECREATE")};

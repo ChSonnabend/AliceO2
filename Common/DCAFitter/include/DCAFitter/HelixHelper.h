@@ -131,9 +131,9 @@ struct CrossInfo {
     if (isCollinear) {
       /// for collinear tracks it is better to take
       /// a weighted average of the crossing points as a radius
-      float r2r = trcA.rC + o2::gpu::GPUCommonMath::Sqrt(rBSign);
+      float r2r = trcA.rC + rBSign;
       float r1_r = trcA.rC / r2r;
-      float r2_r = o2::gpu::GPUCommonMath::Sqrt(rBSign) / r2r;
+      float r2_r = rBSign / r2r;
       xDCA[0] = r2_r * trcA.xC + r1_r * (xDist + trcA.xC);
       yDCA[0] = r2_r * trcA.yC + r1_r * (yDist + trcA.yC);
     } else {

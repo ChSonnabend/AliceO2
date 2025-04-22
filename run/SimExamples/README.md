@@ -6,6 +6,7 @@
 
 <!-- doxy
 * \subpage refrunSimExamplesPythia8
+* \subpage refrunSimExamplesPythiaHepMCWrapper
 * \subpage refrunSimExamplesHF_Embedding_Pythia8
 * \subpage refrunSimExamplesSignal_ImpactB
 * \subpage refrunSimExamplesTrigger_ImpactB_Pythia8

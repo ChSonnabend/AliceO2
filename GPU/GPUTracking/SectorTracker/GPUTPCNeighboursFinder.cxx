@@ -76,7 +76,7 @@ GPUdii() void GPUTPCNeighboursFinder::Thread<0>(int32_t /*nBlocks*/, int32_t nTh
   }
 
 #define UnrollGlobal 4
-#define MaxShared GPUCA_NEIGHBOURS_FINDER_MAX_NNEIGHUP
+#define MaxShared GPUCA_PAR_NEIGHBOURS_FINDER_MAX_NNEIGHUP
 #if MaxShared < GPUCA_MAXN
 #define MaxGlobal ((GPUCA_MAXN - MaxShared - 1) / UnrollGlobal + 1) * UnrollGlobal
 #else

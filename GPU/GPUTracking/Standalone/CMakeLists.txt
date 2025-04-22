@@ -13,6 +13,8 @@
 cmake_minimum_required(VERSION 3.27 FATAL_ERROR)
 project(GPUTrackingStandalone)
 include(FeatureSummary)
+set(CMAKE_INSTALL_MESSAGE LAZY)
+
 set(CMAKE_INSTALL_BINDIR "${CMAKE_INSTALL_PREFIX}")
 set(CMAKE_INSTALL_LIBDIR "${CMAKE_INSTALL_PREFIX}")
 set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}")
@@ -62,8 +64,11 @@ if (GPUCA_BUILD_DEBUG_SANITIZE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -shared-libasan")
   endif()
 endif()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error -Wall -Wextra -Wshadow -Wno-unused-function -Wno-unused-parameter -Wno-unused-local-typedefs -Wno-unknown-pragmas -Wno-write-strings -Wno-vla-cxx-extension")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -rdynamic -Wl,--no-undefined")
+string(APPEND CMAKE_CXX_FLAGS " -Wno-error -Wall -Wextra -Wshadow -Wno-unused-function -Wno-unused-parameter -Wno-unused-local-typedefs -Wno-unknown-pragmas -Wno-write-strings")
+string(APPEND CMAKE_SHARED_LINKER_FLAGS " -rdynamic -Wl,--no-undefined")
+if(CMAKE_CXX_COMPILER MATCHES "clang\\+\\+")
+  string(APPEND CMAKE_CXX_FLAGS " -Wno-vla-cxx-extension")
+endif()
 
 # Find mandatory packages
 find_package(TBB REQUIRED)

@@ -67,7 +67,6 @@ void TrackerDPL::init(InitContext& ic)
   mITS3TrackingInterface.setTraitsFromProvider(mChainITS->GetITSVertexerTraits(),
                                                mChainITS->GetITSTrackerTraits(),
                                                mChainITS->GetITSTimeframe());
-  mITS3TrackingInterface.initialise();
 }
 
 void TrackerDPL::stop()

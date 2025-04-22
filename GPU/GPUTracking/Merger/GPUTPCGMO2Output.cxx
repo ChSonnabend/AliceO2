@@ -114,6 +114,7 @@ GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::output>(int32_t nBlocks
   constexpr float MinDelta = 0.1f;
   const GPUTPCGMMergedTrack* tracks = merger.OutputTracks();
   GPUdEdxInfo* tracksdEdx = merger.OutputTracksdEdx();
+  GPUdEdxInfo* tracksdEdxAlt = merger.OutputTracksdEdxAlt();
   const int32_t nTracks = merger.NOutputTracksTPCO2();
   const GPUTPCGMMergedTrackHit* trackClusters = merger.Clusters();
   constexpr uint8_t flagsReject = getFlagsReject();
@@ -146,6 +147,7 @@ GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::output>(int32_t nBlocks
     auto& outerPar = tracks[i].OuterParam();
     if (merger.Param().par.dodEdx && merger.Param().dodEdxDownscaled) {
       oTrack.setdEdx(tracksdEdx[i]);
+      oTrack.setdEdxAlt(tracksdEdxAlt[i]);
     }
 
     auto snpOut = outerPar.P[2];

@@ -191,7 +191,7 @@ class DPLRawPageSequencer
   }
 
  private:
-  InputRecordWalker mInput;
+  InputRecordWalker<> mInput;
 
   template <typename Predicate, typename Inserter>
   void forwardInternal(Predicate pred, Inserter inserter, const char* data, size_t size, const o2::header::DataHeader* dh)

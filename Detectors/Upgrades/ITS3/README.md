@@ -35,7 +35,7 @@ export ALICEO2_CCDB_LOCALCACHE=${PWD}/ccdb
 
 Simulate diamond
 
-``` bash
+```bash
 # append to o2-sim
 --configKeyValues="Diamond.width[2]=6.;""
 ```
@@ -86,11 +86,25 @@ TODO
 
 ```bash
 # Create Full Geometry
-o2-sim -g pythia8pp -j10 --detectorList ALICE2.1 --run 303901 -n0
+o2-sim --detectorList ALICE2.1 --run 303901 -n0
 cp o2sim_geometry.root ${ALICEO2_CCDB_LOCALCACHE}/GLO/Config/Geometry/snapshot.root
 o2-create-aligned-geometry-workflow -b --configKeyValues "HBFUtils.startTime=1547978230000" --condition-remap="file://${ALICEO2_CCDB_LOCALCACHE}=GLO/Config/Geometry"
 cp o2sim_geometry-aligned.root ${ALICEO2_CCDB_LOCALCACHE}/GLO/Config/GeometryAligned/snapshot.root
 cp its_GeometryTGeo.root ${ALICEO2_CCDB_LOCALCACHE}/ITS/Config/Geometry/snapshot.root
+```
+
+or copying the ideal geometry to the aligned one and:
+
+```cpp
+{
+      o2::base::GeometryManager::loadGeometry("");
+      auto itsTGeo = o2::its::GeometryTGeo::Instance();
+      itsTGeo->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::L2G, o2::math_utils::TransformType::T2GRot));
+      TFile outF("its_GeometryTGeo.root", "recreate");
+      outF.WriteObjectAny(itsTGeo, "o2::its::GeometryTGeo", "ccdb_object");
+      outF.Close();
+      itsTGeo->destroy();
+}
 ```
 
 ### Regenerating the TopologyDictionary
@@ -158,7 +172,7 @@ The file `hijing.C` can be found [here](https://alice.its.cern.ch/jira/browse/AO
 2. (optional) Run the macro `CreateITS3StaticDeadMap.C` and/or visualize with `CheckTileNumbering.C`
 3. Move the ccdb object into `${ALICEO2_CCDB_LOCALCACHE}/IT3/Calib/DeadMap`, this is not optional since there is no default object uploaded
 4. Run digitizer with `ITS3Params.useDeadChannelMap=true;`, e.g.:
-``` bash
+```bash
 o2-sim-digitizer-workflow --configKeyValues="ITS3Params.useDeadChannelMap=true;"
 ```
 
@@ -168,6 +182,89 @@ o2-sim-digitizer-workflow --configKeyValues="ITS3Params.useDeadChannelMap=true;"
 1. Create misalignment parameters with `CreateMisalignmentITS3.C`
 2. Visualize with `ShowCoefficients.C`
 3. Run digitizer
-``` bash
+```bash
 o2-sim-digitizer-workflow -b --configKeyValues="ITS3Params.applyMisalignmentHits=true;ITS3Params.misalignmentHitsParams=misparams.root"
+```
+
+
+### Misc
+#### Setup to run SIM+DIGIT+TRACKING
+```bash
+
+#!/bin/bash
+
+export IGNORE_VALIDITYCHECK_OF_CCDB_LOCALCACHE=1
+export ALICEO2_CCDB_LOCALCACHE=$PWD/ccdb
+
+BASE_DIR="batch_"
+TOTAL_DIRS=4
+SIM_CMD="o2-sim -g pythia8pp --detectorList ALICE2.1 -m IT3 --run 303901 -n2000 --field ccdb -j8"
+DIGIT_CMD="o2-sim-digitizer-workflow -b --interactionRate 675000 --run --configKeyValues=\"HBFUtils.runNumber=303901;HBFUtils.nHBFPerTF=32;ITSAlpideParam.roFrameLengthInBC=198\""
+RECO_CMD="o2-its3-reco-workflow -b --run --configKeyValues=\"ITSVertexerParam.phiCut=0.5;ITSVertexerParam.clusterContributorsCut=3;ITSVertexerParam.tanLambdaCut=0.2;ITSCATrackerParam.useTrackFollower=0;ITSCATrackerParam.findShortTracks=1;HBFUtils.runNumber=303901;HBFUtils.nHBFPerTF=32;ITSAlpideParam.roFrameLengthInBC=198\" --tracking-mode async"
+
+for ((i = 1; i <= TOTAL_DIRS; i++)); do
+    DIR="${BASE_DIR}${i}"
+
+    if [ ! -d "$DIR" ]; then
+        mkdir "$DIR"
+    fi
+
+    if [ -f "${DIR}/sim_done" ]; then
+        echo "Skipping SIM ${DIR} because _done exists."
+        continue
+    fi
+
+    cd "$DIR"
+
+    echo "Executing SIM command in ${DIR}..."
+    eval $SIM_CMD >sim.log
+
+    touch sim_done
+
+    cd ..
+done
+
+for ((i = 1; i <= TOTAL_DIRS; i++)); do
+    DIR="${BASE_DIR}${i}"
+
+    if [ ! -d "$DIR" ]; then
+        mkdir "$DIR"
+    fi
+
+    if [ -f "${DIR}/digit_done" ]; then
+        echo "Skipping DIGIT ${DIR} because _done exists."
+        continue
+    fi
+
+    cd "$DIR"
+
+    echo "Executing DIGIT command in ${DIR}..."
+    eval $DIGIT_CMD >digit.log
+
+    touch digit_done
+
+    cd ..
+done
+
+for ((i = 1; i <= TOTAL_DIRS; i++)); do
+    DIR="${BASE_DIR}${i}"
+
+    if [ ! -d "$DIR" ]; then
+        mkdir "$DIR"
+    fi
+
+    if [ -f "${DIR}/reco_done" ]; then
+        echo "Skipping RECO ${DIR} because _done exists."
+        continue
+    fi
+
+    cd "$DIR"
+
+    echo "Executing RECO command in ${DIR}..."
+    eval $RECO_CMD >reco.log
+
+    touch reco_done
+
+    cd ..
+done
 ```

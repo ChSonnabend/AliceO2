@@ -36,6 +36,9 @@
 
 #include "ITStrackingGPU/TrackerTraitsGPU.h"
 #include "ITStrackingGPU/TrackingKernels.h"
+#include "ITStrackingGPU/Utils.h"
+
+#include "GPUCommonHelpers.h"
 
 #ifndef __HIPCC__
 #define THRUST_NAMESPACE thrust::cuda
@@ -50,20 +53,6 @@
 #include "ReconstructionDataFormats/Track.h"
 #include "DetectorsBase/Propagator.h"
 using namespace o2::track;
-
-#define gpuCheckError(x)                \
-  {                                     \
-    gpuAssert((x), __FILE__, __LINE__); \
-  }
-inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort = true)
-{
-  if (code != cudaSuccess) {
-    LOGF(error, "GPUassert: %s %s %d", cudaGetErrorString(code), file, line);
-    if (abort) {
-      throw std::runtime_error("GPU assert failed.");
-    }
-  }
-}
 
 namespace o2::its
 {
@@ -873,20 +862,20 @@ void countTrackletsInROFsHandler(const IndexTableUtils* utils,
       mulScatAng[iLayer]);
     void* d_temp_storage = nullptr;
     size_t temp_storage_bytes = 0;
-    gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage,            // d_temp_storage
-                                                temp_storage_bytes,        // temp_storage_bytes
-                                                trackletsLUTsHost[iLayer], // d_in
-                                                trackletsLUTsHost[iLayer], // d_out
-                                                nClusters[iLayer] + 1,     // num_items
-                                                0));                       // NOLINT: this is the offset of the sum, not a pointer
-    discardResult(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-    gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage,            // d_temp_storage
-                                                temp_storage_bytes,        // temp_storage_bytes
-                                                trackletsLUTsHost[iLayer], // d_in
-                                                trackletsLUTsHost[iLayer], // d_out
-                                                nClusters[iLayer] + 1,     // num_items
-                                                0));                       // NOLINT: this is the offset of the sum, not a pointer
-    gpuCheckError(cudaFree(d_temp_storage));
+    GPUChkErrS(cub::DeviceScan::ExclusiveSum(d_temp_storage,            // d_temp_storage
+                                             temp_storage_bytes,        // temp_storage_bytes
+                                             trackletsLUTsHost[iLayer], // d_in
+                                             trackletsLUTsHost[iLayer], // d_out
+                                             nClusters[iLayer] + 1,     // num_items
+                                             0));                       // NOLINT: this is the offset of the sum, not a pointer
+    GPUChkErrS(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+    GPUChkErrS(cub::DeviceScan::ExclusiveSum(d_temp_storage,            // d_temp_storage
+                                             temp_storage_bytes,        // temp_storage_bytes
+                                             trackletsLUTsHost[iLayer], // d_in
+                                             trackletsLUTsHost[iLayer], // d_out
+                                             nClusters[iLayer] + 1,     // num_items
+                                             0));                       // NOLINT: this is the offset of the sum, not a pointer
+    GPUChkErrS(cudaFree(d_temp_storage));
   }
 }
 
@@ -955,24 +944,24 @@ void computeTrackletsInROFsHandler(const IndexTableUtils* utils,
     auto unique_end = thrust::unique(thrust::device, tracklets_ptr, tracklets_ptr + nTracklets[iLayer], gpu::equal_tracklets());
     nTracklets[iLayer] = unique_end - tracklets_ptr;
     if (iLayer > 0) {
-      gpuCheckError(cudaMemset(trackletsLUTsHost[iLayer], 0, nClusters[iLayer] * sizeof(int)));
+      GPUChkErrS(cudaMemset(trackletsLUTsHost[iLayer], 0, nClusters[iLayer] * sizeof(int)));
       gpu::compileTrackletsLookupTableKernel<<<nBlocks, nThreads>>>(spanTracklets[iLayer], trackletsLUTsHost[iLayer], nTracklets[iLayer]);
       void* d_temp_storage = nullptr;
       size_t temp_storage_bytes = 0;
-      gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage,            // d_temp_storage
-                                                  temp_storage_bytes,        // temp_storage_bytes
-                                                  trackletsLUTsHost[iLayer], // d_in
-                                                  trackletsLUTsHost[iLayer], // d_out
-                                                  nClusters[iLayer] + 1,     // num_items
-                                                  0));                       // NOLINT: this is the offset of the sum, not a pointer
-      discardResult(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-      gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage,            // d_temp_storage
-                                                  temp_storage_bytes,        // temp_storage_bytes
-                                                  trackletsLUTsHost[iLayer], // d_in
-                                                  trackletsLUTsHost[iLayer], // d_out
-                                                  nClusters[iLayer] + 1,     // num_items
-                                                  0));                       // NOLINT: this is the offset of the sum, not a pointer
-      gpuCheckError(cudaFree(d_temp_storage));
+      GPUChkErrS(cub::DeviceScan::ExclusiveSum(d_temp_storage,            // d_temp_storage
+                                               temp_storage_bytes,        // temp_storage_bytes
+                                               trackletsLUTsHost[iLayer], // d_in
+                                               trackletsLUTsHost[iLayer], // d_out
+                                               nClusters[iLayer] + 1,     // num_items
+                                               0));                       // NOLINT: this is the offset of the sum, not a pointer
+      GPUChkErrS(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+      GPUChkErrS(cub::DeviceScan::ExclusiveSum(d_temp_storage,            // d_temp_storage
+                                               temp_storage_bytes,        // temp_storage_bytes
+                                               trackletsLUTsHost[iLayer], // d_in
+                                               trackletsLUTsHost[iLayer], // d_out
+                                               nClusters[iLayer] + 1,     // num_items
+                                               0));                       // NOLINT: this is the offset of the sum, not a pointer
+      GPUChkErrS(cudaFree(d_temp_storage));
     }
   }
 }
@@ -1011,20 +1000,20 @@ void countCellsHandler(
     nSigmaCut);               // const float
   void* d_temp_storage = nullptr;
   size_t temp_storage_bytes = 0;
-  gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage,     // d_temp_storage
-                                              temp_storage_bytes, // temp_storage_bytes
-                                              cellsLUTsHost,      // d_in
-                                              cellsLUTsHost,      // d_out
-                                              nTracklets + 1,     // num_items
-                                              0));                // NOLINT: this is the offset of the sum, not a pointer
-  discardResult(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-  gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage,     // d_temp_storage
-                                              temp_storage_bytes, // temp_storage_bytes
-                                              cellsLUTsHost,      // d_in
-                                              cellsLUTsHost,      // d_out
-                                              nTracklets + 1,     // num_items
-                                              0));                // NOLINT: this is the offset of the sum, not a pointer
-  gpuCheckError(cudaFree(d_temp_storage));
+  GPUChkErrS(cub::DeviceScan::ExclusiveSum(d_temp_storage,     // d_temp_storage
+                                           temp_storage_bytes, // temp_storage_bytes
+                                           cellsLUTsHost,      // d_in
+                                           cellsLUTsHost,      // d_out
+                                           nTracklets + 1,     // num_items
+                                           0));                // NOLINT: this is the offset of the sum, not a pointer
+  GPUChkErrS(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+  GPUChkErrS(cub::DeviceScan::ExclusiveSum(d_temp_storage,     // d_temp_storage
+                                           temp_storage_bytes, // temp_storage_bytes
+                                           cellsLUTsHost,      // d_in
+                                           cellsLUTsHost,      // d_out
+                                           nTracklets + 1,     // num_items
+                                           0));                // NOLINT: this is the offset of the sum, not a pointer
+  GPUChkErrS(cudaFree(d_temp_storage));
 }
 
 void computeCellsHandler(
@@ -1089,37 +1078,37 @@ unsigned int countCellNeighboursHandler(CellSeed** cellsLayersDevice,
 
   void *d_temp_storage = nullptr, *d_temp_storage_2 = nullptr;
   size_t temp_storage_bytes = 0, temp_storage_bytes_2 = 0;
-  gpuCheckError(cub::DeviceScan::InclusiveSum(d_temp_storage,     // d_temp_storage
-                                              temp_storage_bytes, // temp_storage_bytes
-                                              neighboursLUT,      // d_in
-                                              neighboursLUT,      // d_out
-                                              nCellsNext));       // num_items
+  GPUChkErrS(cub::DeviceScan::InclusiveSum(d_temp_storage,     // d_temp_storage
+                                           temp_storage_bytes, // temp_storage_bytes
+                                           neighboursLUT,      // d_in
+                                           neighboursLUT,      // d_out
+                                           nCellsNext));       // num_items
 
-  discardResult(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-  gpuCheckError(cub::DeviceScan::InclusiveSum(d_temp_storage,     // d_temp_storage
-                                              temp_storage_bytes, // temp_storage_bytes
-                                              neighboursLUT,      // d_in
-                                              neighboursLUT,      // d_out
-                                              nCellsNext));       // num_items
+  GPUChkErrS(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+  GPUChkErrS(cub::DeviceScan::InclusiveSum(d_temp_storage,     // d_temp_storage
+                                           temp_storage_bytes, // temp_storage_bytes
+                                           neighboursLUT,      // d_in
+                                           neighboursLUT,      // d_out
+                                           nCellsNext));       // num_items
 
-  gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage_2,     // d_temp_storage
-                                              temp_storage_bytes_2, // temp_storage_bytes
-                                              neighboursIndexTable, // d_in
-                                              neighboursIndexTable, // d_out
-                                              nCells + 1,           // num_items
-                                              0));                  // NOLINT: this is the offset of the sum, not a pointer
+  GPUChkErrS(cub::DeviceScan::ExclusiveSum(d_temp_storage_2,     // d_temp_storage
+                                           temp_storage_bytes_2, // temp_storage_bytes
+                                           neighboursIndexTable, // d_in
+                                           neighboursIndexTable, // d_out
+                                           nCells + 1,           // num_items
+                                           0));                  // NOLINT: this is the offset of the sum, not a pointer
 
-  discardResult(cudaMalloc(&d_temp_storage_2, temp_storage_bytes_2));
-  gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage_2,     // d_temp_storage
-                                              temp_storage_bytes_2, // temp_storage_bytes
-                                              neighboursIndexTable, // d_in
-                                              neighboursIndexTable, // d_out
-                                              nCells + 1,           // num_items
-                                              0));                  // NOLINT: this is the offset of the sum, not a pointer
+  GPUChkErrS(cudaMalloc(&d_temp_storage_2, temp_storage_bytes_2));
+  GPUChkErrS(cub::DeviceScan::ExclusiveSum(d_temp_storage_2,     // d_temp_storage
+                                           temp_storage_bytes_2, // temp_storage_bytes
+                                           neighboursIndexTable, // d_in
+                                           neighboursIndexTable, // d_out
+                                           nCells + 1,           // num_items
+                                           0));                  // NOLINT: this is the offset of the sum, not a pointer
   unsigned int nNeighbours;
-  gpuCheckError(cudaMemcpy(&nNeighbours, &neighboursLUT[nCellsNext - 1], sizeof(unsigned int), cudaMemcpyDeviceToHost));
-  gpuCheckError(cudaFree(d_temp_storage));
-  gpuCheckError(cudaFree(d_temp_storage_2));
+  GPUChkErrS(cudaMemcpy(&nNeighbours, &neighboursLUT[nCellsNext - 1], sizeof(unsigned int), cudaMemcpyDeviceToHost));
+  GPUChkErrS(cudaFree(d_temp_storage));
+  GPUChkErrS(cudaFree(d_temp_storage_2));
   return nNeighbours;
 }
 
@@ -1150,8 +1139,8 @@ void computeCellNeighboursHandler(CellSeed** cellsLayersDevice,
     layerIndex,
     nCells,
     maxCellNeighbours);
-  gpuCheckError(cudaPeekAtLastError());
-  gpuCheckError(cudaDeviceSynchronize());
+  GPUChkErrS(cudaPeekAtLastError());
+  GPUChkErrS(cudaDeviceSynchronize());
 }
 
 int filterCellNeighboursHandler(std::vector<int>& neighHost, // TODO: eventually remove this!
@@ -1172,12 +1161,12 @@ int filterCellNeighboursHandler(std::vector<int>& neighHost, // TODO: eventually
   thrust::copy(thrust::make_permutation_iterator(neighVectorPairs, vals.begin()),
                thrust::make_permutation_iterator(neighVectorPairs, vals.end()),
                sortedNeigh.begin());
-  discardResult(cudaDeviceSynchronize());
+  GPUChkErrS(cudaDeviceSynchronize());
   auto trimmedBegin = thrust::find_if(sortedNeigh.begin(), sortedNeigh.end(), gpu::is_valid_pair<int, int>()); // trim leading -1s
   auto trimmedSize = sortedNeigh.end() - trimmedBegin;
   neighHost.resize(trimmedSize);
   thrust::transform(trimmedBegin, sortedNeigh.end(), validNeighs, gpu::pair_to_first<int, int>());
-  gpuCheckError(cudaMemcpy(neighHost.data(), cellNeighbours, trimmedSize * sizeof(int), cudaMemcpyDeviceToHost));
+  GPUChkErrS(cudaMemcpy(neighHost.data(), cellNeighbours, trimmedSize * sizeof(int), cudaMemcpyDeviceToHost));
 
   return trimmedSize;
 }
@@ -1225,19 +1214,19 @@ void processNeighboursHandler(const int startLayer,
                                                             matCorrType);
   void* d_temp_storage = nullptr;
   size_t temp_storage_bytes = 0;
-  gpuCheckError(cub::DeviceScan::ExclusiveSum(nullptr,                                       // d_temp_storage
-                                              temp_storage_bytes,                            // temp_storage_bytes
-                                              thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_in
-                                              thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_out
-                                              nCells[startLayer] + 1,                        // num_items
-                                              0));                                           // NOLINT: this is the offset of the sum, not a pointer
-  discardResult(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-  gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage,                                // d_temp_storage
-                                              temp_storage_bytes,                            // temp_storage_bytes
-                                              thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_in
-                                              thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_out
-                                              nCells[startLayer] + 1,                        // num_items
-                                              0));                                           // NOLINT: this is the offset of the sum, not a pointer
+  GPUChkErrS(cub::DeviceScan::ExclusiveSum(nullptr,                                       // d_temp_storage
+                                           temp_storage_bytes,                            // temp_storage_bytes
+                                           thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_in
+                                           thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_out
+                                           nCells[startLayer] + 1,                        // num_items
+                                           0));                                           // NOLINT: this is the offset of the sum, not a pointer
+  GPUChkErrS(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+  GPUChkErrS(cub::DeviceScan::ExclusiveSum(d_temp_storage,                                // d_temp_storage
+                                           temp_storage_bytes,                            // temp_storage_bytes
+                                           thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_in
+                                           thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_out
+                                           nCells[startLayer] + 1,                        // num_items
+                                           0));                                           // NOLINT: this is the offset of the sum, not a pointer
 
   updatedCellId.resize(foundSeedsTable.back());
   updatedCellSeed.resize(foundSeedsTable.back());
@@ -1260,7 +1249,7 @@ void processNeighboursHandler(const int startLayer,
                                                              propagator,
                                                              matCorrType);
   auto t1 = updatedCellSeed.size();
-  gpuCheckError(cudaFree(d_temp_storage));
+  GPUChkErrS(cudaFree(d_temp_storage));
   int level = startLevel;
   for (int iLayer{startLayer - 1}; iLayer > 0 && level > 2; --iLayer) {
     temp_storage_bytes = 0;
@@ -1289,19 +1278,19 @@ void processNeighboursHandler(const int startLayer,
                                                               maxChi2ClusterAttachment,
                                                               propagator,
                                                               matCorrType);
-    gpuCheckError(cub::DeviceScan::ExclusiveSum(nullptr,                                       // d_temp_storage
-                                                temp_storage_bytes,                            // temp_storage_bytes
-                                                thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_in
-                                                thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_out
-                                                nCells[iLayer] + 1,                            // num_items
-                                                0));                                           // NOLINT: this is the offset of the sum, not a pointer
-    discardResult(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-    gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage,                                // d_temp_storage
-                                                temp_storage_bytes,                            // temp_storage_bytes
-                                                thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_in
-                                                thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_out
-                                                nCells[iLayer] + 1,                            // num_items
-                                                0));                                           // NOLINT: this is the offset of the sum, not a pointer
+    GPUChkErrS(cub::DeviceScan::ExclusiveSum(nullptr,                                       // d_temp_storage
+                                             temp_storage_bytes,                            // temp_storage_bytes
+                                             thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_in
+                                             thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_out
+                                             nCells[iLayer] + 1,                            // num_items
+                                             0));                                           // NOLINT: this is the offset of the sum, not a pointer
+    GPUChkErrS(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+    GPUChkErrS(cub::DeviceScan::ExclusiveSum(d_temp_storage,                                // d_temp_storage
+                                             temp_storage_bytes,                            // temp_storage_bytes
+                                             thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_in
+                                             thrust::raw_pointer_cast(&foundSeedsTable[0]), // d_out
+                                             nCells[iLayer] + 1,                            // num_items
+                                             0));                                           // NOLINT: this is the offset of the sum, not a pointer
     auto foundSeeds{foundSeedsTable.back()};
     updatedCellId.resize(foundSeeds);
     thrust::fill(updatedCellId.begin(), updatedCellId.end(), 0);
@@ -1325,7 +1314,7 @@ void processNeighboursHandler(const int startLayer,
                                                                maxChi2ClusterAttachment,
                                                                propagator,
                                                                matCorrType);
-    gpuCheckError(cudaFree(d_temp_storage));
+    GPUChkErrS(cudaFree(d_temp_storage));
   }
   thrust::device_vector<CellSeed> outSeeds(updatedCellSeed.size());
   auto end = thrust::copy_if(updatedCellSeed.begin(), updatedCellSeed.end(), outSeeds.begin(), gpu::seed_selector(1.e3, maxChi2NDF * ((startLevel + 2) * 2 - 5)));
@@ -1365,8 +1354,8 @@ void trackSeedHandler(CellSeed* trackSeeds,
   thrust::device_ptr<o2::its::TrackITSExt> tr_ptr(tracks);
 
   thrust::sort(tr_ptr, tr_ptr + nSeeds, gpu::compare_track_chi2());
-  gpuCheckError(cudaPeekAtLastError());
-  gpuCheckError(cudaDeviceSynchronize());
+  GPUChkErrS(cudaPeekAtLastError());
+  GPUChkErrS(cudaDeviceSynchronize());
 }
 
 template void countTrackletsInROFsHandler<7>(const IndexTableUtils* utils,

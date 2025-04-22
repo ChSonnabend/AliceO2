@@ -122,7 +122,7 @@ int ctpCCDBManager::saveSoxOrbit(uint32_t runNumber, uint32_t soxOrbit, long tim
   vect.push_back(timestamp);
   vect.push_back((uint64_t)runNumber);
   vect.push_back((uint64_t)soxOrbit);
-  long tmin = timestamp;
+  long tmin = timestamp / 1000;
   long tmax = tmin + 381928219;
   o2::ccdb::CcdbApi api;
   map<string, string> metadata; // can be empty
@@ -149,9 +149,10 @@ int ctpCCDBManager::saveOrbitReset(long timeStamp)
   if (timeStamp == 0) {
     auto now = std::chrono::system_clock::now();
     timeStamp = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
+    LOG(warn) << "Received timestamp = 0 , using current time:" << timeStamp;
   }
   vect.push_back(timeStamp);
-  long tmin = timeStamp;
+  long tmin = timeStamp / 1000;
   long tmax = tmin + 381928219;
   o2::ccdb::CcdbApi api;
   map<string, string> metadata; // can be empty

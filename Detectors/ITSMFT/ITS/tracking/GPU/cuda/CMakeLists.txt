@@ -17,16 +17,12 @@ message(STATUS "Building ITS CUDA tracker")
 # add_compile_definitions(ITS_MEASURE_GPU_TIME)
 o2_add_library(ITStrackingCUDA
                SOURCES ClusterLinesGPU.cu
-                       Context.cu
-                       Stream.cu
                        TrackerTraitsGPU.cxx
                        TimeFrameGPU.cu
-                       TimeFrameChunk.cu
                        TracerGPU.cu
                        TrackingKernels.cu
                        VertexingKernels.cu
                        VertexerTraitsGPU.cxx
-                       Utils.cu
                PUBLIC_INCLUDE_DIRECTORIES ../
                PUBLIC_LINK_LIBRARIES O2::ITStracking
                                      O2::SimConfig

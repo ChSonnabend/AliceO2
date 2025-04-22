@@ -20,10 +20,10 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_SOURCE_DI
 
 if(ITSRESPONSE)
   message(STATUS "ITSRESPONSE option provided, setting ITSRESPONSE_DIR from it: " ${ITSRESPONSE})
-  set(ITSRESPONSE_DIR ${ITSRESPONSE})
+  set(ITSRESPONSE_DIR ${ITSRESPONSE} CACHE PATH "ITSResponse directory")
 else()
   message(STATUS "ITSRESPONSE option not provided, setting ITSRESPONSE_DIR from environment ITSRESPONSE_ROOT: " $ENV{ITSRESPONSE_ROOT})
-  set(ITSRESPONSE_DIR $ENV{ITSRESPONSE_ROOT})
+  set(ITSRESPONSE_DIR $ENV{ITSRESPONSE_ROOT} CACHE PATH "ITSResponse directory")
 endif()
 
 add_custom_command(TARGET O2exe-alpide-response-generator POST_BUILD

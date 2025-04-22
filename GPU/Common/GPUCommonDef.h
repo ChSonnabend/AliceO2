@@ -58,7 +58,7 @@
 
 #if (defined(__CUDACC__) && defined(GPUCA_CUDA_NO_CONSTANT_MEMORY)) || (defined(__HIPCC__) && defined(GPUCA_HIP_NO_CONSTANT_MEMORY)) || (defined(__OPENCL__) && defined(GPUCA_OPENCL_NO_CONSTANT_MEMORY))
   #define GPUCA_NO_CONSTANT_MEMORY
-#elif defined(__CUDACC__) || defined(__HIPCC__)
+#elif (defined(__CUDACC__) || defined(__HIPCC__)) && !defined(GPUCA_GPUCODE_HOSTONLY)
   #define GPUCA_HAS_GLOBAL_SYMBOL_CONSTANT_MEM
 #endif
 

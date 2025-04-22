@@ -14,7 +14,9 @@
 #include "ITS3Reconstruction/BuildTopologyDictionary.h"
 #include "ITS3Reconstruction/LookUp.h"
 #include "DataFormatsITSMFT/CompCluster.h"
-#include "ITS3Base/SegmentationSuperAlpide.h"
+
+#include "ITSMFTBase/SegmentationAlpide.h"
+#include "ITS3Base/SegmentationMosaix.h"
 
 #include "TFile.h"
 
@@ -22,14 +24,25 @@ ClassImp(o2::its3::BuildTopologyDictionary);
 
 namespace o2::its3
 {
-void BuildTopologyDictionary::accountTopology(const itsmft::ClusterTopology& cluster, float dX, float dZ)
+void BuildTopologyDictionary::accountTopology(const itsmft::ClusterTopology& cluster, bool IB, float dX, float dZ)
 {
-  mTotClusters++;
+  accountTopologyImpl(cluster,
+                      ((IB) ? mMapInfoIB : mMapInfoOB),
+                      ((IB) ? mTopologyMapIB : mTopologyMapOB),
+                      ((IB) ? mTotClustersIB : mTotClustersOB),
+                      ((IB) ? SegmentationMosaix::PitchRow : itsmft::SegmentationAlpide::PitchRow),
+                      ((IB) ? SegmentationMosaix::PitchCol : itsmft::SegmentationAlpide::PitchCol),
+                      dX, dZ);
+}
+
+void BuildTopologyDictionary::accountTopologyImpl(const itsmft::ClusterTopology& cluster, TopoInfo& tinfo, TopoStat& tstat, unsigned int& tot, float sigmaX, float sigmaZ, float dX, float dZ)
+{
+  ++tot;
   bool useDf = dX < IgnoreVal / 2; // we may need to account the frequency but to not update the centroid
 
   // std::pair<unordered_map<unsigned long, itsmft::TopoStat>::iterator,bool> ret;
   // auto ret = mTopologyMap.insert(std::make_pair(cluster.getHash(), std::make_pair(cluster, 1)));
-  auto& topoStat = mTopologyMap[cluster.getHash()];
+  auto& topoStat = tstat[cluster.getHash()];
   topoStat.countsTotal++;
   if (topoStat.countsTotal == 1) { // a new topology is inserted
     topoStat.topology = cluster;
@@ -45,14 +58,14 @@ void BuildTopologyDictionary::accountTopology(const itsmft::ClusterTopology& clu
       topInf.mZmean = dZ;
       topoStat.countsWithBias = 1;
     } else { // assign expected sigmas from the pixel X, Z sizes
-      topInf.mXsigma2 = 1.f / 12.f / (float)std::min(10, topInf.mSizeX);
-      topInf.mZsigma2 = 1.f / 12.f / (float)std::min(10, topInf.mSizeZ);
+      topInf.mXsigma2 = sigmaX * sigmaX / 12.f / (float)std::min(10, topInf.mSizeX);
+      topInf.mZsigma2 = sigmaZ * sigmaZ / (float)std::min(10, topInf.mSizeZ);
     }
-    mMapInfo.emplace(cluster.getHash(), topInf);
+    tinfo.emplace(cluster.getHash(), topInf);
   } else {
     if (useDf) {
       auto num = topoStat.countsWithBias++;
-      auto ind = mMapInfo.find(cluster.getHash());
+      auto ind = tinfo.find(cluster.getHash());
       float tmpxMean = ind->second.mXmean;
       float newxMean = ind->second.mXmean = ((tmpxMean)*num + dX) / (num + 1);
       float tmpxSigma2 = ind->second.mXsigma2;
@@ -65,101 +78,135 @@ void BuildTopologyDictionary::accountTopology(const itsmft::ClusterTopology& clu
   }
 }
 
-void BuildTopologyDictionary::setThreshold(double thr)
+void BuildTopologyDictionary::setNCommon(unsigned int nCommon, bool IB)
 {
-  mTopologyFrequency.clear();
-  for (auto&& p : mTopologyMap) { // p is pair<ulong,TopoStat>
-    mTopologyFrequency.emplace_back(p.second.countsTotal, p.first);
+  mDictionary.resetMaps(IB);
+
+  auto& freqTopo = ((IB) ? mTopologyFrequencyIB : mTopologyFrequencyOB);
+  auto& freqThres = ((IB) ? mFrequencyThresholdIB : mFrequencyThresholdOB);
+  auto& comTopo = ((IB) ? mNCommonTopologiesIB : mNCommonTopologiesOB);
+  auto ntot = ((IB) ? mTotClustersIB : mTotClustersOB);
+
+  setNCommonImpl(nCommon,
+                 freqTopo,
+                 ((IB) ? mTopologyMapIB : mTopologyMapOB),
+                 comTopo,
+                 ntot);
+  // Recaculate also the threshold
+  freqThres = ((double)freqTopo[comTopo - 1].first) / ntot;
+}
+
+void BuildTopologyDictionary::setNCommonImpl(unsigned int ncom, TopoFreq& tfreq, TopoStat& tstat, unsigned int& ncommon, unsigned int ntot)
+{
+  if (ncom >= itsmft::CompCluster::InvalidPatternID) {
+    LOGP(warning, "Redefining nCommon from {} to {} to be below InvalidPatternID", ncom, itsmft::CompCluster::InvalidPatternID - 1);
+    ncom = itsmft::CompCluster::InvalidPatternID - 1;
   }
-  std::sort(mTopologyFrequency.begin(), mTopologyFrequency.end(),
+  tfreq.clear();
+  for (auto&& p : tstat) { // p os pair<ulong,TopoStat>
+    tfreq.emplace_back(p.second.countsTotal, p.first);
+  }
+  std::sort(tfreq.begin(), tfreq.end(),
             [](const std::pair<unsigned long, unsigned long>& couple1,
                const std::pair<unsigned long, unsigned long>& couple2) { return (couple1.first > couple2.first); });
-  mNCommonTopologies = 0;
-  mDictionary.mCommonMap.clear();
-  mDictionary.mGroupMap.clear();
-  mFrequencyThreshold = thr;
-  for (auto& q : mTopologyFrequency) {
-    if (((double)q.first) / mTotClusters > thr) {
-      mNCommonTopologies++;
+  ncommon = ncom;
+}
+
+void BuildTopologyDictionary::setThreshold(double thr, bool IB)
+{
+  mDictionary.resetMaps(IB);
+  setThresholdImpl(thr,
+                   ((IB) ? mTopologyFrequencyIB : mTopologyFrequencyOB),
+                   ((IB) ? mMapInfoIB : mMapInfoOB),
+                   ((IB) ? mTopologyMapIB : mTopologyMapOB),
+                   ((IB) ? mNCommonTopologiesIB : mNCommonTopologiesOB),
+                   ((IB) ? mFrequencyThresholdIB : mFrequencyThresholdOB),
+                   ((IB) ? mTotClustersIB : mTotClustersOB));
+}
+
+void BuildTopologyDictionary::setThresholdImpl(double thr, TopoFreq& tfreq, TopoInfo& tinfo, TopoStat& tstat, unsigned int& ncommon, double& freqthres, unsigned int ntot)
+{
+  setNCommonImpl(0, tfreq, tstat, ncommon, ntot);
+  freqthres = thr;
+  for (auto& q : tfreq) {
+    if (((double)q.first) / ntot > thr) {
+      ++ncommon;
     } else {
       break;
     }
   }
-  if (mNCommonTopologies >= itsmft::CompCluster::InvalidPatternID) {
-    mFrequencyThreshold = ((double)mTopologyFrequency[itsmft::CompCluster::InvalidPatternID - 1].first) / mTotClusters;
-    LOGP(warning, "Redefining prob. threshould from {} to {} to be below InvalidPatternID (was {})", thr, mFrequencyThreshold, mNCommonTopologies);
-    mNCommonTopologies = itsmft::CompCluster::InvalidPatternID - 1;
+  if (ncommon >= itsmft::CompCluster::InvalidPatternID) {
+    freqthres = ((double)tfreq[itsmft::CompCluster::InvalidPatternID - 1].first) / ntot;
+    LOGP(warning, "Redefining prob. threshold from {} to {} to be below InvalidPatternID (was {})", thr, freqthres, ntot);
+    ncommon = itsmft::CompCluster::InvalidPatternID - 1;
   }
 }
 
-void BuildTopologyDictionary::setNCommon(unsigned int nCommon)
+void BuildTopologyDictionary::setThresholdCumulative(double cumulative, bool IB)
 {
-  if (nCommon >= itsmft::CompCluster::InvalidPatternID) {
-    LOGP(warning, "Redefining nCommon from {} to {} to be below InvalidPatternID", nCommon, itsmft::CompCluster::InvalidPatternID - 1);
-    nCommon = itsmft::CompCluster::InvalidPatternID - 1;
-  }
-  mTopologyFrequency.clear();
-  for (auto&& p : mTopologyMap) { // p os pair<ulong,TopoStat>
-    mTopologyFrequency.emplace_back(p.second.countsTotal, p.first);
-  }
-  std::sort(mTopologyFrequency.begin(), mTopologyFrequency.end(),
-            [](const std::pair<unsigned long, unsigned long>& couple1,
-               const std::pair<unsigned long, unsigned long>& couple2) { return (couple1.first > couple2.first); });
-  mNCommonTopologies = nCommon;
-  mDictionary.mCommonMap.clear();
-  mDictionary.mGroupMap.clear();
-  mFrequencyThreshold = ((double)mTopologyFrequency[mNCommonTopologies - 1].first) / mTotClusters;
-}
-
-void BuildTopologyDictionary::setThresholdCumulative(double cumulative)
-{
-  mTopologyFrequency.clear();
   if (cumulative <= 0. || cumulative >= 1.) {
     cumulative = 0.99;
   }
+
+  auto& freqTopo = ((IB) ? mTopologyFrequencyIB : mTopologyFrequencyOB);
+  auto& freqThres = ((IB) ? mFrequencyThresholdIB : mFrequencyThresholdOB);
+  auto& statTopo = ((IB) ? mTopologyMapIB : mTopologyMapOB);
+  auto& comTopo = ((IB) ? mNCommonTopologiesIB : mNCommonTopologiesOB);
+  auto ntot = ((IB) ? mTotClustersIB : mTotClustersOB);
+
+  mDictionary.resetMaps(IB);
+  setNCommonImpl(0, freqTopo, statTopo, comTopo, ntot);
+  setThresholdCumulativeImpl(cumulative, freqTopo, comTopo, freqThres, ntot);
+}
+
+void BuildTopologyDictionary::setThresholdCumulativeImpl(double cumulative, TopoFreq& tfreq, unsigned int& ncommon, double& freqthres, unsigned int ntot)
+{
   double totFreq = 0.;
-  for (auto&& p : mTopologyMap) { // p os pair<ulong,TopoStat>
-    mTopologyFrequency.emplace_back(p.second.countsTotal, p.first);
-  }
-  std::sort(mTopologyFrequency.begin(), mTopologyFrequency.end(),
-            [](const std::pair<unsigned long, unsigned long>& couple1,
-               const std::pair<unsigned long, unsigned long>& couple2) { return (couple1.first > couple2.first); });
-  mNCommonTopologies = 0;
-  mDictionary.mCommonMap.clear();
-  mDictionary.mGroupMap.clear();
-  for (auto& q : mTopologyFrequency) {
-    totFreq += ((double)(q.first)) / mTotClusters;
+  for (auto& q : tfreq) {
+    totFreq += ((double)(q.first)) / ntot;
     if (totFreq < cumulative) {
-      mNCommonTopologies++;
-      if (mNCommonTopologies >= itsmft::CompCluster::InvalidPatternID) {
-        totFreq -= ((double)(q.first)) / mTotClusters;
-        mNCommonTopologies--;
+      ++ncommon;
+      if (ncommon >= itsmft::CompCluster::InvalidPatternID) {
+        totFreq -= ((double)(q.first)) / ntot;
+        --ncommon;
         LOGP(warning, "Redefining cumulative threshould from {} to {} to be below InvalidPatternID)", cumulative, totFreq);
       }
     } else {
       break;
     }
   }
-  mFrequencyThreshold = ((double)(mTopologyFrequency[--mNCommonTopologies].first)) / mTotClusters;
-  while (std::fabs(((double)mTopologyFrequency[mNCommonTopologies].first) / mTotClusters - mFrequencyThreshold) < 1.e-15) {
-    mNCommonTopologies--;
+  freqthres = ((double)(tfreq[--ncommon].first)) / ntot;
+  while (std::fabs(((double)tfreq[ncommon--].first) / ntot - freqthres) < 1.e-15) {
   }
-  mFrequencyThreshold = ((double)mTopologyFrequency[mNCommonTopologies++].first) / mTotClusters;
+  freqthres = ((double)tfreq[ncommon++].first) / ntot;
 }
 
 void BuildTopologyDictionary::groupRareTopologies()
 {
   LOG(info) << "Dictionary finalisation";
-  LOG(info) << "Number of clusters: " << mTotClusters;
+  LOG(info) << "Number of IB clusters: " << mTotClustersIB;
+  LOG(info) << "Number of OB clusters: " << mTotClustersOB;
 
+  groupRareTopologiesImpl(mTopologyFrequencyIB, mMapInfoIB, mTopologyMapIB, mNCommonTopologiesIB, mFrequencyThresholdIB, mDictionary.mDataIB, mNCommonTopologiesIB);
+  groupRareTopologiesImpl(mTopologyFrequencyOB, mMapInfoOB, mTopologyMapOB, mNCommonTopologiesOB, mFrequencyThresholdOB, mDictionary.mDataOB, mNCommonTopologiesOB);
+
+  LOG(info) << "Dictionay finalised";
+  LOG(info) << "IB:";
+  mDictionary.mDataIB.print();
+  LOG(info) << "OB:";
+  mDictionary.mDataOB.print();
+}
+
+void BuildTopologyDictionary::groupRareTopologiesImpl(TopoFreq& tfreq, TopoInfo& tinfo, TopoStat& tstat, unsigned int& ncommon, double& freqthres, TopologyDictionaryData& data, unsigned int ntot)
+{
   double totFreq = 0.;
-  for (unsigned int j = 0; j < mNCommonTopologies; j++) {
+  for (unsigned int j = 0; j < ncommon; j++) {
     itsmft::GroupStruct gr;
-    gr.mHash = mTopologyFrequency[j].second;
-    gr.mFrequency = ((double)(mTopologyFrequency[j].first)) / mTotClusters;
+    gr.mHash = tfreq[j].second;
+    gr.mFrequency = ((double)(tfreq[j].first)) / ntot;
     totFreq += gr.mFrequency;
     // rough estimation for the error considering a8 uniform distribution
-    const auto& topo = mMapInfo.find(gr.mHash)->second;
+    const auto& topo = tinfo.find(gr.mHash)->second;
     gr.mErrX = std::sqrt(topo.mXsigma2);
     gr.mErrZ = std::sqrt(topo.mZsigma2);
     gr.mErr2X = topo.mXsigma2;
@@ -169,11 +216,11 @@ void BuildTopologyDictionary::groupRareTopologies()
     gr.mNpixels = topo.mNpixels;
     gr.mPattern = topo.mPattern;
     gr.mIsGroup = false;
-    mDictionary.mVectorOfIDs.push_back(gr);
+    data.mVectorOfIDs.push_back(gr);
     if (j == int(itsmft::CompCluster::InvalidPatternID - 1)) {
       LOGP(warning, "Limiting N unique topologies to {}, threshold freq. to {}, cumulative freq. to {} to be below InvalidPatternID", j, gr.mFrequency, totFreq);
-      mNCommonTopologies = j;
-      mFrequencyThreshold = gr.mFrequency;
+      ncommon = j;
+      freqthres = gr.mFrequency;
       break;
     }
   }
@@ -193,8 +240,8 @@ void BuildTopologyDictionary::groupRareTopologies()
       // Create a structure for a group of rare topologies
       itsmft::GroupStruct gr;
       gr.mHash = (((unsigned long)(grNum)) << 32) & 0xffffffff00000000;
-      gr.mErrX = its3::TopologyDictionary::RowClassSpan / std::sqrt(12 * std::min(10, rowBinEdge));
-      gr.mErrZ = its3::TopologyDictionary::ColClassSpan / std::sqrt(12 * std::min(10, colBinEdge));
+      gr.mErrX = its3::TopologyDictionary::RowClassSpan / std::sqrt(12.f * (float)std::min(10, rowBinEdge));
+      gr.mErrZ = its3::TopologyDictionary::ColClassSpan / std::sqrt(12.f * (float)std::min(10, colBinEdge));
       gr.mErr2X = gr.mErrX * gr.mErrX;
       gr.mErr2Z = gr.mErrZ * gr.mErrZ;
       gr.mXCOG = 0;
@@ -228,58 +275,65 @@ void BuildTopologyDictionary::groupRareTopologies()
   int rs{}, cs{}, index{};
 
   // Updating the counts for the groups of rare topologies
-  for (auto j{mNCommonTopologies}; j < mTopologyFrequency.size(); j++) {
-    unsigned long hash1 = mTopologyFrequency[j].second;
-    rs = mTopologyMap.find(hash1)->second.topology.getRowSpan();
-    cs = mTopologyMap.find(hash1)->second.topology.getColumnSpan();
+  for (auto j{ncommon}; j < tfreq.size(); j++) {
+    unsigned long hash1 = tfreq[j].second;
+    rs = tstat.find(hash1)->second.topology.getRowSpan();
+    cs = tstat.find(hash1)->second.topology.getColumnSpan();
     index = its3::LookUp::groupFinder(rs, cs);
-    tmp_GroupMap[index].second += mTopologyFrequency[j].first;
+    tmp_GroupMap[index].second += tfreq[j].first;
   }
 
   for (auto&& p : tmp_GroupMap) {
     itsmft::GroupStruct& group = p.second.first;
-    group.mFrequency = ((double)p.second.second) / mTotClusters;
-    mDictionary.mVectorOfIDs.push_back(group);
+    group.mFrequency = ((double)p.second.second) / ntot;
+    data.mVectorOfIDs.push_back(group);
   }
 
   // Sorting the dictionary preserving all unique topologies
-  std::sort(mDictionary.mVectorOfIDs.begin(), mDictionary.mVectorOfIDs.end(), [](const itsmft::GroupStruct& a, const itsmft::GroupStruct& b) {
+  std::sort(data.mVectorOfIDs.begin(), data.mVectorOfIDs.end(), [](const itsmft::GroupStruct& a, const itsmft::GroupStruct& b) {
     return (!a.mIsGroup) && b.mIsGroup ? true : (a.mIsGroup && (!b.mIsGroup) ? false : (a.mFrequency > b.mFrequency));
   });
-  if (mDictionary.mVectorOfIDs.size() >= itsmft::CompCluster::InvalidPatternID - 1) {
+  if (data.mVectorOfIDs.size() >= itsmft::CompCluster::InvalidPatternID - 1) {
     LOGP(warning, "Max allowed {} patterns is reached, stopping", itsmft::CompCluster::InvalidPatternID - 1);
-    mDictionary.mVectorOfIDs.resize(itsmft::CompCluster::InvalidPatternID - 1);
+    data.mVectorOfIDs.resize(itsmft::CompCluster::InvalidPatternID - 1);
   }
   // Sorting the dictionary to final form
-  std::sort(mDictionary.mVectorOfIDs.begin(), mDictionary.mVectorOfIDs.end(), [](const itsmft::GroupStruct& a, const itsmft::GroupStruct& b) { return a.mFrequency > b.mFrequency; });
+  std::sort(data.mVectorOfIDs.begin(), data.mVectorOfIDs.end(), [](const itsmft::GroupStruct& a, const itsmft::GroupStruct& b) { return a.mFrequency > b.mFrequency; });
   // Creating the map for common topologies
-  for (int iKey = 0; iKey < mDictionary.getSize(); iKey++) {
-    itsmft::GroupStruct& gr = mDictionary.mVectorOfIDs[iKey];
+  for (int iKey = 0; iKey < data.mVectorOfIDs.size(); iKey++) {
+    itsmft::GroupStruct& gr = data.mVectorOfIDs[iKey];
     if (!gr.mIsGroup) {
-      mDictionary.mCommonMap.emplace(gr.mHash, iKey);
+      data.mCommonMap.emplace(gr.mHash, iKey);
       if (gr.mPattern.getUsedBytes() == 1) {
-        mDictionary.mSmallTopologiesLUT[(gr.mPattern.getColumnSpan() - 1) * 255 + (int)gr.mPattern.getByte(2)] = iKey;
+        data.mSmallTopologiesLUT[(gr.mPattern.getColumnSpan() - 1) * 255 + (int)gr.mPattern.getByte(2)] = iKey;
       }
     } else {
-      mDictionary.mGroupMap.emplace((int)(gr.mHash >> 32) & 0x00000000ffffffff, iKey);
+      data.mGroupMap.emplace((int)(gr.mHash >> 32) & 0x00000000ffffffff, iKey);
     }
   }
-  LOG(info) << "Dictionay finalised";
-  LOG(info) << "Number of keys: " << mDictionary.getSize();
-  LOG(info) << "Number of common topologies: " << mDictionary.mCommonMap.size();
-  LOG(info) << "Number of groups of rare topologies: " << mDictionary.mGroupMap.size();
 }
 
 std::ostream& operator<<(std::ostream& os, const BuildTopologyDictionary& DB)
 {
-  for (unsigned int i = 0; i < DB.mNCommonTopologies; i++) {
-    const unsigned long& hash = DB.mTopologyFrequency[i].second;
+  os << "--- InnerBarrel\n";
+  for (unsigned int i = 0; i < DB.mNCommonTopologiesIB; i++) {
+    const unsigned long& hash = DB.mTopologyFrequencyIB[i].second;
     os << "Hash: " << hash << '\n';
-    os << "counts: " << DB.mTopologyMap.find(hash)->second.countsTotal;
-    os << " (with bias provided: " << DB.mTopologyMap.find(hash)->second.countsWithBias << ")" << '\n';
-    os << "sigmaX: " << std::sqrt(DB.mMapInfo.find(hash)->second.mXsigma2) << '\n';
-    os << "sigmaZ: " << std::sqrt(DB.mMapInfo.find(hash)->second.mZsigma2) << '\n';
-    os << DB.mTopologyMap.find(hash)->second.topology;
+    os << "counts: " << DB.mTopologyMapIB.find(hash)->second.countsTotal;
+    os << " (with bias provided: " << DB.mTopologyMapIB.find(hash)->second.countsWithBias << ")" << '\n';
+    os << "sigmaX: " << std::sqrt(DB.mMapInfoIB.find(hash)->second.mXsigma2) << '\n';
+    os << "sigmaZ: " << std::sqrt(DB.mMapInfoIB.find(hash)->second.mZsigma2) << '\n';
+    os << DB.mTopologyMapIB.find(hash)->second.topology;
+  }
+  os << "--- OuterBarrel\n";
+  for (unsigned int i = 0; i < DB.mNCommonTopologiesOB; i++) {
+    const unsigned long& hash = DB.mTopologyFrequencyOB[i].second;
+    os << "Hash: " << hash << '\n';
+    os << "counts: " << DB.mTopologyMapOB.find(hash)->second.countsTotal;
+    os << " (with bias provided: " << DB.mTopologyMapOB.find(hash)->second.countsWithBias << ")" << '\n';
+    os << "sigmaX: " << std::sqrt(DB.mMapInfoOB.find(hash)->second.mXsigma2) << '\n';
+    os << "sigmaZ: " << std::sqrt(DB.mMapInfoOB.find(hash)->second.mZsigma2) << '\n';
+    os << DB.mTopologyMapOB.find(hash)->second.topology;
   }
   return os;
 }

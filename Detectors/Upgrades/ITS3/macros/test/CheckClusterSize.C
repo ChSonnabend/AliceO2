@@ -43,6 +43,7 @@
 #include "SimulationDataFormat/MCCompLabel.h"
 #include "SimulationDataFormat/MCEventHeader.h"
 #include "SimulationDataFormat/MCTrack.h"
+#include "ITS3Base/SpecsV2.h"
 #endif
 #define ENABLE_UPGRADES
 #include "SimulationDataFormat/MCTruthContainer.h"
@@ -65,7 +66,11 @@ void checkFile(const std::unique_ptr<TFile>& file);
 
 inline auto hist_map(unsigned short id)
 {
-  return std::clamp(id, static_cast<unsigned short>(0), static_cast<unsigned short>(6)) / 2;
+  int lay = o2::its3::constants::detID::getDetID2Layer<int>(id);
+  if (lay == -1) {
+    return nLayers - 1;
+  }
+  return lay;
 }
 
 void CheckClusterSize(std::string clusFileName = "o2clus_its.root",
@@ -133,7 +138,7 @@ void CheckClusterSize(std::string clusFileName = "o2clus_its.root",
   std::vector<TH2D> hOtherSecondaryEta;
   std::vector<TH2D> hOtherSecondaryPt;
   std::vector<TH2D> hOtherSecondaryPhi;
-  for (int i = 0; i < 4; ++i) {
+  for (int i = 0; i < nLayers; ++i) {
     hPrimary.emplace_back(Form("primary/L%d", i), Form("L%d Primary Cluster Size", i), maxClusterSize, 0, maxClusterSize);
     hPrimaryEta.emplace_back(Form("primary/EtaL%d", i), Form("L%d Primary Cluster Size vs Eta", i), maxClusterSize, 0, maxClusterSize, 100, -3.0, 3.0);
     hPrimaryPt.emplace_back(Form("primary/Pt%d", i), Form("L%d Primary Cluster Size vs Pt", i), maxClusterSize, 0, maxClusterSize, 100, 0.0, 10.0);
@@ -238,35 +243,39 @@ void CheckClusterSize(std::string clusFileName = "o2clus_its.root",
   int nROFRec = (int)rofRecVec.size();
   auto pattIt = patternsPtr->cbegin();
 
+  int cInvalid{0}, cGood{0};
   for (int irof = 0; irof < nROFRec; irof++) {
     const auto& rofRec = rofRecVec[irof];
-    // rofRec.print();
+    /*rofRec.print();*/
 
     for (int icl = 0; icl < rofRec.getNEntries(); icl++) {
       int clEntry = rofRec.getFirstEntry() + icl;
       const auto& cluster = clusArr[clEntry];
-      // cluster.print();
+      /*cluster.print();*/
 
       auto pattId = cluster.getPatternID();
       auto id = cluster.getSensorID();
+      auto ib = o2::its3::constants::detID::isDetITS3(id);
       int clusterSize{-1};
-      if (pattId == o2::itsmft::CompCluster::InvalidPatternID || dict.isGroup(pattId)) {
+      if (pattId == o2::itsmft::CompCluster::InvalidPatternID || dict.isGroup(pattId, ib)) {
         o2::itsmft::ClusterPattern patt(pattIt);
         clusterSize = patt.getNPixels();
         continue;
       } else {
-        clusterSize = dict.getNpixels(pattId);
+        clusterSize = dict.getNpixels(pattId, ib);
       }
 
       const auto& label = (clusLabArr->getLabels(clEntry))[0];
       if (!label.isValid() || label.getSourceID() != 0 || !label.isCorrect()) {
+        ++cInvalid;
         continue;
       }
+      ++cGood;
 
       const int trackID = label.getTrackID();
       int evID = label.getEventID();
       const auto& pInfo = info[evID][trackID];
-      if (id > 6) {
+      if (!o2::its3::constants::detID::isDetITS3(id)) {
         hOuterBarrel.Fill(clusterSize);
       }
 
@@ -332,6 +341,7 @@ void CheckClusterSize(std::string clusFileName = "o2clus_its.root",
       }
     }
   }
+  std::cout << "Good labels: " << cGood << "; invalid: " << cInvalid << '\n';
   std::cout << "Done measuring cluster sizes:" << std::endl;
   for (int i = 0; i < nLayers; ++i) {
     std::cout << "* Layer " << i << ":\n";

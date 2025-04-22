@@ -16,14 +16,13 @@
 #include "ITS3Reconstruction/TopologyDictionary.h"
 #include "ITStracking/TimeFrame.h"
 #include "ITStracking/IOUtils.h"
-#include "ITS3Base/SegmentationSuperAlpide.h"
+#include "ITS3Base/SegmentationMosaix.h"
 #include "ITS3Base/SpecsV2.h"
 
 namespace o2::its3::ioutils
 {
-using SSAlpide = o2::its3::SegmentationSuperAlpide;
-constexpr float DefClusErrorRow = o2::its3::SegmentationSuperAlpide::mPitchRow * 0.5;
-constexpr float DefClusErrorCol = o2::its3::SegmentationSuperAlpide::mPitchCol * 0.5;
+constexpr float DefClusErrorRow = o2::its3::SegmentationMosaix::PitchRow * 0.5;
+constexpr float DefClusErrorCol = o2::its3::SegmentationMosaix::PitchCol * 0.5;
 constexpr float DefClusError2Row = DefClusErrorRow * DefClusErrorRow;
 constexpr float DefClusError2Col = DefClusErrorCol * DefClusErrorCol;
 
@@ -31,13 +30,14 @@ template <class iterator, typename T = float>
 o2::math_utils::Point3D<T> extractClusterData(const itsmft::CompClusterExt& c, iterator& iter, const its3::TopologyDictionary* dict, T& sig2y, T& sig2z)
 {
   auto pattID = c.getPatternID();
+  auto ib = constants::detID::isDetITS3(c.getSensorID());
   // Dummy COG errors (about half pixel size)
-  sig2y = (constants::detID::isDetITS3(c.getSensorID())) ? DefClusError2Row : o2::its::ioutils::DefClusError2Row;
-  sig2z = (constants::detID::isDetITS3(c.getSensorID())) ? DefClusError2Col : o2::its::ioutils::DefClusError2Col;
+  sig2y = (ib) ? DefClusError2Row : o2::its::ioutils::DefClusError2Row;
+  sig2z = (ib) ? DefClusError2Col : o2::its::ioutils::DefClusError2Col;
   if (pattID != itsmft::CompCluster::InvalidPatternID) {
-    sig2y = dict->getErr2X(pattID) * sig2y; // Error is given in detector coordinates
-    sig2z = dict->getErr2Z(pattID) * sig2z;
-    if (!dict->isGroup(pattID)) {
+    sig2y = dict->getErr2X(pattID, ib);
+    sig2z = dict->getErr2Z(pattID, ib);
+    if (!dict->isGroup(pattID, ib)) {
       return dict->getClusterCoordinates<T>(c);
     } else {
       o2::itsmft::ClusterPattern patt(iter);
@@ -53,13 +53,14 @@ template <class iterator, typename T = float>
 o2::math_utils::Point3D<T> extractClusterData(const itsmft::CompClusterExt& c, iterator& iter, const its3::TopologyDictionary* dict, T& sig2y, T& sig2z, uint8_t& cls)
 {
   auto pattID = c.getPatternID();
+  auto ib = constants::detID::isDetITS3(c.getSensorID());
   auto iterC = iter;
   unsigned int clusterSize{999};
-  if (pattID == itsmft::CompCluster::InvalidPatternID || dict->isGroup(pattID)) {
+  if (pattID == itsmft::CompCluster::InvalidPatternID || dict->isGroup(pattID, ib)) {
     o2::itsmft::ClusterPattern patt(iterC);
     clusterSize = patt.getNPixels();
   } else {
-    clusterSize = dict->getNpixels(pattID);
+    clusterSize = dict->getNpixels(pattID, ib);
   }
   cls = static_cast<uint8_t>(std::clamp(clusterSize, static_cast<unsigned int>(std::numeric_limits<uint8_t>::min()), static_cast<unsigned int>(std::numeric_limits<uint8_t>::max())));
   return extractClusterData(c, iter, dict, sig2y, sig2z);

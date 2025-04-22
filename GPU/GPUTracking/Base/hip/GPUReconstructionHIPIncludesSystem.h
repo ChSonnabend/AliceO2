@@ -9,23 +9,20 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-#ifndef O2_ITS_CLUSTER_WRITER_WORKFLOW_H
-#define O2_ITS_CLUSTER_WRITER_WORKFLOW_H
+/// \file GPUReconstructionHIPIncludesSystem.h
+/// \author David Rohr
 
-/// @file   ClusterWriterWorkflow.h
+#ifndef O2_GPU_RECONSTRUCTIONHIPINCLUDESSYSTEM_H
+#define O2_GPU_RECONSTRUCTIONHIPINCLUDESSYSTEM_H
 
-#include "Framework/WorkflowSpec.h"
+#include <hip/hip_runtime.h>
+#include <hip/hip_ext.h>
+#include <hipcub/hipcub.hpp>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wshadow" // FIXME: Is this still needed?
+#include <thrust/sort.h>
+#include <thrust/execution_policy.h>
+#include <thrust/device_ptr.h>
+#pragma GCC diagnostic pop
 
-namespace o2
-{
-namespace its3
-{
-
-namespace cluster_writer_workflow
-{
-framework::WorkflowSpec getWorkflow(bool useMC);
-}
-
-} // namespace its3
-} // namespace o2
-#endif
+#endif // O2_GPU_RECONSTRUCTIONHIPINCLUDESSYSTEM_H

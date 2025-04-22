@@ -41,8 +41,15 @@ struct DataSamplingHeader : public header::BaseHeader {
   uint32_t totalEvaluatedMessages = 0;
   DeviceIDType deviceID = "";
 
-  DataSamplingHeader();
-  DataSamplingHeader(uint64_t _sampleTimeUs, uint32_t _totalAcceptedMessages, uint32_t _totalEvaluatedMessages, DeviceIDType _deviceID);
+  /// Presampled description for the data. Copied from the original DataHeader.
+  header::DataDescription dataDescription;
+  /// Presampled origin for the data. Copied from the original DataHeader.
+  header::DataOrigin dataOrigin;
+  /// Presampled subSpecification for the data.
+  header::DataHeader::SubSpecificationType subSpecification;
+
+  DataSamplingHeader() = delete;
+  DataSamplingHeader(uint64_t _sampleTimeUs, uint32_t _totalAcceptedMessages, uint32_t _totalEvaluatedMessages, DeviceIDType _deviceID, header::DataHeader const& original);
   DataSamplingHeader(const DataSamplingHeader&) = default;
   DataSamplingHeader& operator=(const DataSamplingHeader&) = default;
 
@@ -51,4 +58,4 @@ struct DataSamplingHeader : public header::BaseHeader {
 
 } // namespace o2::utilities
 
-#endif //ALICEO2_DATASAMPLINGHEADER_H
+#endif // ALICEO2_DATASAMPLINGHEADER_H

@@ -13,8 +13,9 @@
 /// \author David Rohr
 
 #define GPUCA_GPUCODE_HOSTONLY
-#include "GPUReconstructionCUDAIncludesHost.h"
 
+#include "GPUReconstructionCUDAIncludesSystem.h"
+#include "GPUReconstructionCUDADef.h"
 #include <cuda_profiler_api.h>
 
 #include "GPUReconstructionCUDA.h"
@@ -22,6 +23,7 @@
 #include "GPUReconstructionIncludes.h"
 #include "GPUParamRTC.h"
 #include "GPUReconstructionCUDAHelpers.inc"
+#include "GPUDefParametersLoad.inc"
 
 #if defined(GPUCA_KERNEL_COMPILE_MODE) && GPUCA_KERNEL_COMPILE_MODE == 1
 #include "utils/qGetLdBinarySymbols.h"
@@ -51,11 +53,14 @@ GPUReconstructionCUDABackend::GPUReconstructionCUDABackend(const GPUSettingsDevi
 {
   if (mMaster == nullptr) {
     mInternals = new GPUReconstructionCUDAInternals;
+    *mParDevice = o2::gpu::internal::GPUDefParametersLoad();
   }
+  mDeviceBackendSettings.deviceType = DeviceType::CUDA;
 }
 
 GPUReconstructionCUDABackend::~GPUReconstructionCUDABackend()
 {
+  Exit(); // Make sure we destroy everything (in particular the ITS tracker) before we exit CUDA
   if (mMaster == nullptr) {
     delete mInternals;
   }
@@ -69,7 +74,6 @@ int32_t GPUReconstructionCUDABackend::GPUChkErrInternal(const int64_t error, con
 
 GPUReconstructionCUDA::GPUReconstructionCUDA(const GPUSettingsDeviceBackend& cfg) : GPUReconstructionKernels(cfg)
 {
-  mDeviceBackendSettings.deviceType = DeviceType::CUDA;
 #ifndef __HIPCC__ // CUDA
   mRtcSrcExtension = ".cu";
   mRtcBinExtension = ".fatbin";
@@ -78,11 +82,7 @@ GPUReconstructionCUDA::GPUReconstructionCUDA(const GPUSettingsDeviceBackend& cfg
   mRtcBinExtension = ".o";
 #endif
 }
-
-GPUReconstructionCUDA::~GPUReconstructionCUDA()
-{
-  Exit(); // Make sure we destroy everything (in particular the ITS tracker) before we exit CUDA
-}
+GPUReconstructionCUDA::~GPUReconstructionCUDA() = default;
 
 GPUReconstruction* GPUReconstruction_Create_CUDA(const GPUSettingsDeviceBackend& cfg) { return new GPUReconstructionCUDA(cfg); }
 
@@ -99,18 +99,14 @@ void GPUReconstructionCUDA::GetITSTraits(std::unique_ptr<o2::its::TrackerTraits>
   }
 }
 
-void GPUReconstructionCUDA::UpdateAutomaticProcessingSettings()
-{
-  GPUCA_GPUReconstructionUpdateDefaults();
-}
-
 int32_t GPUReconstructionCUDA::InitDevice_Runtime()
 {
 #ifndef __HIPCC__ // CUDA
   constexpr int32_t reqVerMaj = 2;
   constexpr int32_t reqVerMin = 0;
 #endif
-  if (mProcessingSettings.rtc.enable && mProcessingSettings.rtc.runTest == 2) {
+  if (mProcessingSettings.rtc.enable && mProcessingSettings.rtctech.runTest == 2) {
+    mWarpSize = GPUCA_WARP_SIZE;
     genAndLoadRTC();
     exit(0);
   }
@@ -244,16 +240,12 @@ int32_t GPUReconstructionCUDA::InitDevice_Runtime()
       GPUInfo("\ttextureAlignment = %ld", (uint64_t)deviceProp.textureAlignment);
       GPUInfo(" ");
     }
-    if (deviceProp.warpSize != GPUCA_WARP_SIZE) {
+    if (deviceProp.warpSize != GPUCA_WARP_SIZE && !mProcessingSettings.rtc.enable) {
       throw std::runtime_error("Invalid warp size on GPU");
     }
+    mWarpSize = deviceProp.warpSize;
     mBlockCount = deviceProp.multiProcessorCount;
     mMaxBackendThreads = std::max<int32_t>(mMaxBackendThreads, deviceProp.maxThreadsPerBlock * mBlockCount);
-#ifndef __HIPCC__ // CUDA
-    mWarpSize = 32;
-#else // HIP
-    mWarpSize = 64;
-#endif
     mDeviceName = deviceProp.name;
     mDeviceName += " (CUDA GPU)";
 
@@ -429,14 +421,14 @@ void GPUReconstructionCUDA::genAndLoadRTC()
     throw std::runtime_error("Runtime compilation failed");
   }
   for (uint32_t i = 0; i < nCompile; i++) {
-    if (mProcessingSettings.rtc.runTest != 2) {
+    if (mProcessingSettings.rtctech.runTest != 2) {
       mInternals->kernelModules.emplace_back(std::make_unique<CUmodule>());
       GPUChkErr(cuModuleLoad(mInternals->kernelModules.back().get(), (filename + "_" + std::to_string(i) + mRtcBinExtension).c_str()));
     }
     remove((filename + "_" + std::to_string(i) + mRtcSrcExtension).c_str());
     remove((filename + "_" + std::to_string(i) + mRtcBinExtension).c_str());
   }
-  if (mProcessingSettings.rtc.runTest == 2) {
+  if (mProcessingSettings.rtctech.runTest == 2) {
     return;
   }
   loadKernelModules(mProcessingSettings.rtc.compilePerKernel);

@@ -37,7 +37,13 @@ class MCLabelAccumulator;
 class GPUTPCNNClusterizerKernels : public GPUKernelTemplate
 {
  public:
-  static constexpr size_t SCRATCH_PAD_WORK_GROUP_SIZE = GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels);
+  // Must all have same number of threads, since they use a common SCRATCH_PAD_WORK_GROUP_SIZE below
+  static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_fillInputNN) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
+  static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_determineClass1Labels) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
+  static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_determineClass2Labels) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
+  static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_publishClass1Regression) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
+  static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_publishClass2Regression) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
+  static constexpr size_t SCRATCH_PAD_WORK_GROUP_SIZE = GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer);
   struct GPUSharedMemory {
     // Regular cluster finder
     ChargePos posBcast[SCRATCH_PAD_WORK_GROUP_SIZE];

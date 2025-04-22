@@ -14,6 +14,7 @@
 #include <cub/cub.cuh>
 
 #include "ITStrackingGPU/VertexingKernels.h"
+#include "GPUCommonHelpers.h"
 
 namespace o2
 {
@@ -21,7 +22,6 @@ namespace its
 {
 using constants::its::VertexerHistogramVolume;
 using constants::math::TwoPi;
-using gpu::utils::checkGPUError;
 using math_utils::getNormalizedPhi;
 using namespace constants::its2;
 
@@ -82,17 +82,6 @@ GPUd() const int4 getBinsRect(const Cluster& currentCluster, const int layerInde
               getPhiBinIndex(phiRangeMin),
               o2::gpu::GPUCommonMath::Min(ZBins - 1, getZBinIndex(layerIndex + 1, zRangeMax)),
               getPhiBinIndex(phiRangeMax)};
-}
-
-GPUh() void gpuThrowOnError()
-{
-  cudaError_t error = cudaGetLastError();
-
-  if (error != cudaSuccess) {
-    std::ostringstream errorString{};
-    errorString << GPU_ARCH << " API returned error  [" << cudaGetErrorString(error) << "] (code " << error << ")" << std::endl;
-    throw std::runtime_error{errorString.str()};
-  }
 }
 
 template <typename... Args>

@@ -24,7 +24,9 @@
 #include "Rtypes.h"
 #include <TObject.h>
 #include <gsl/span>
-
+#include <string>
+#include <utility>
+#include <map>
 namespace o2
 {
 namespace ft0
@@ -32,10 +34,10 @@ namespace ft0
 
 struct ChannelDataFloat {
 
-  int ChId = -1;           //channel Id
-  int ChainQTC = -1;       //QTC chain
-  float CFDTime = -20000;  //time in ps, 0 at the LHC clk center
-  float QTCAmpl = -20000;  // Amplitude mV
+  int ChId = -1;          // channel Id
+  int ChainQTC = -1;      // QTC chain
+  float CFDTime = -20000; // time in ps, 0 at the LHC clk center
+  float QTCAmpl = -20000; // Amplitude mV
 
   ChannelDataFloat() = default;
   ChannelDataFloat(int iPmt, float time, float charge, int chainQTC)
@@ -56,10 +58,39 @@ class RecPoints
 {
 
  public:
-  enum : int { TimeMean,
-               TimeA,
-               TimeC,
-               Vertex };
+  enum ETimeType { kTimeMean,
+                   kTimeA,
+                   kTimeC,
+                   kTimeVertex };
+
+  // Enum for trigger nits specified in rec-points and AOD data
+  enum ETriggerBits { kOrA = 0,           // OrA time-trigger signal
+                      kOrC = 1,           // OrC time-trigger signal
+                      kSemiCentral = 2,   // Semi-central amplitude-trigger signal
+                      kCentral = 3,       // Central amplitude-trigger signal
+                      kVertex = 4,        // Vertex time-trigger signal
+                      kIsActiveSideA = 5, // Side-A has at least one channel active
+                      kIsActiveSideC = 6, // Side-C has at least one channel active
+                      kIsFlangeEvent = 7  // Flange event at Side-C, at least one channel has time which corresponds to -82 cm area
+  };
+  static const inline std::map<unsigned int, std::string> sMapTriggerBits = {
+    {ETriggerBits::kOrA, "OrA"},
+    {ETriggerBits::kOrC, "OrC"},
+    {ETriggerBits::kSemiCentral, "Semicentral"},
+    {ETriggerBits::kCentral, "Central"},
+    {ETriggerBits::kVertex, "Vertex"},
+    {ETriggerBits::kIsActiveSideA, "IsActiveSideA"},
+    {ETriggerBits::kIsActiveSideC, "IsActiveSideC"},
+    {ETriggerBits::kIsFlangeEvent, "IsFlangeEvent"}};
+
+  enum ETechnicalBits { kLaser = 0,             // indicates the laser was triggered in this BC
+                        kOutputsAreBlocked = 1, // indicates that laser-induced pulses should arrive from detector to FEE in this BC (and trigger outputs are blocked)
+                        kDataIsValid = 2,       // data is valid for processing
+  };
+  static const inline std::map<unsigned int, std::string> sMapTechnicalBits = {
+    {ETechnicalBits::kLaser, "Laser"},
+    {ETechnicalBits::kOutputsAreBlocked, "OutputsAreBlocked"},
+    {ETechnicalBits::kDataIsValid, "DataIsValid"}};
 
   o2::dataformats::RangeReference<int, int> ref;
   o2::InteractionRecord mIntRecord; // Interaction record (orbit, bc)
@@ -73,25 +104,41 @@ class RecPoints
     mIntRecord = iRec;
     mTriggers = chTrig;
   }
+  RecPoints(int chDataFirstEntryPos,
+            int chDataNEntries,
+            const o2::InteractionRecord& ir,
+            const std::array<short, 4>& arrTimes,
+            const o2::fit::Triggers& digitTriggers,
+            uint8_t extraTriggerWord) : mIntRecord(ir), mCollisionTime(arrTimes), mTriggers(digitTriggers)
+  {
+    ref.setFirstEntry(chDataFirstEntryPos);
+    ref.setEntries(chDataNEntries);
+    initRecPointTriggers(digitTriggers, extraTriggerWord);
+  }
+
   ~RecPoints() = default;
 
   short getCollisionTime(int side) const { return mCollisionTime[side]; }
-  short getCollisionTimeMean() const { return getCollisionTime(TimeMean); }
-  short getCollisionTimeA() const { return getCollisionTime(TimeA); }
-  short getCollisionTimeC() const { return getCollisionTime(TimeC); }
+  short getCollisionTimeMean() const { return getCollisionTime(kTimeMean); }
+  short getCollisionTimeA() const { return getCollisionTime(kTimeA); }
+  short getCollisionTimeC() const { return getCollisionTime(kTimeC); }
   bool isValidTime(int side) const { return getCollisionTime(side) < o2::InteractionRecord::DummyTime; }
   void setCollisionTime(short time, int side) { mCollisionTime[side] = time; }
 
-  short getVertex() const { return getCollisionTime(Vertex); }
-  void setVertex(short vertex) { mCollisionTime[Vertex] = vertex; }
+  short getVertex() const { return getCollisionTime(kTimeVertex); }
+  void setVertex(short vertex) { mCollisionTime[kTimeVertex] = vertex; }
 
   o2::fit::Triggers getTrigger() const { return mTriggers; }
   void setTriggers(o2::fit::Triggers trig) { mTriggers = trig; }
+  uint8_t getTechnicalWord() const { return mTechnicalWord; }
+  static constexpr uint8_t makeExtraTrgWord(bool isActiveA = true, bool isActiveC = true, bool isFlangeEvent = true)
+  {
+    return (static_cast<uint8_t>(isActiveA) << kIsActiveSideA) |
+           (static_cast<uint8_t>(isActiveC) << kIsActiveSideC) |
+           (static_cast<uint8_t>(isFlangeEvent) << kIsFlangeEvent);
+  }
 
   o2::InteractionRecord getInteractionRecord() const { return mIntRecord; };
-
-  // void SetMgrEventTime(Double_t time) { mTimeStamp = time; }
-
   gsl::span<const ChannelDataFloat> getBunchChannelData(const gsl::span<const ChannelDataFloat> tfdata) const;
   short static constexpr sDummyCollissionTime = 32767;
 
@@ -99,13 +146,21 @@ class RecPoints
   bool operator==(const RecPoints&) const = default;
 
  private:
+  void initRecPointTriggers(const o2::fit::Triggers& digitTriggers, uint8_t extraTrgWord = 0)
+  {
+    const auto digitTriggerWord = digitTriggers.getTriggersignals();
+    const auto trgAndTechWordPair = o2::fit::Triggers::parseDigitTriggerWord(digitTriggerWord, true);
+    mTriggers.setTriggers(trgAndTechWordPair.first | extraTrgWord);
+    mTechnicalWord = trgAndTechWordPair.second;
+  }
+
   std::array<short, 4> mCollisionTime = {sDummyCollissionTime,
                                          sDummyCollissionTime,
                                          sDummyCollissionTime,
                                          sDummyCollissionTime};
   o2::fit::Triggers mTriggers; // pattern of triggers  in this BC
-
-  ClassDefNV(RecPoints, 3);
+  uint8_t mTechnicalWord{0};   // field for keeping ETechnicalBits
+  ClassDefNV(RecPoints, 4);
 };
 } // namespace ft0
 } // namespace o2

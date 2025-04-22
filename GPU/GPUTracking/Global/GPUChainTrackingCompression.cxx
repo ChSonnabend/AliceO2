@@ -18,6 +18,7 @@
 #include "GPUTrackingInputProvider.h"
 #include "GPUTPCCFChainContext.h"
 #include "TPCClusterDecompressor.h"
+#include "GPUDefParametersRuntime.h"
 #include "utils/strtag.h"
 
 #include <numeric>
@@ -30,6 +31,7 @@ int32_t GPUChainTracking::RunTPCCompression()
   mRec->PushNonPersistentMemory(qStr2Tag("TPCCOMPR"));
   RecoStep myStep = RecoStep::TPCCompression;
   bool doGPU = GetRecoStepsGPU() & RecoStep::TPCCompression;
+  int32_t gatherMode = mRec->GetProcessingSettings().tpcCompressionGatherMode == -1 ? mRec->getGPUParameters(doGPU).par_COMP_GATHER_MODE : mRec->GetProcessingSettings().tpcCompressionGatherMode;
   GPUTPCCompression& Compressor = processors()->tpcCompressor;
   GPUTPCCompression& CompressorShadow = doGPU ? processorsShadow()->tpcCompressor : Compressor;
   const auto& threadContext = GetThreadContext();
@@ -37,7 +39,7 @@ int32_t GPUChainTracking::RunTPCCompression()
     RecordMarker(&mEvents->single, 0);
   }
 
-  if (GetProcessingSettings().tpcCompressionGatherMode == 3) {
+  if (gatherMode == 3) {
     mRec->AllocateVolatileDeviceMemory(0); // make future device memory allocation volatile
   }
   SetupGPUProcessor(&Compressor, true);
@@ -70,7 +72,7 @@ int32_t GPUChainTracking::RunTPCCompression()
   Compressor.mOutputFlat->set(outputSize, *Compressor.mOutput);
   char* hostFlatPtr = (char*)Compressor.mOutput->qTotU; // First array as allocated in GPUTPCCompression::SetPointersCompressedClusters
   size_t copySize = 0;
-  if (GetProcessingSettings().tpcCompressionGatherMode == 3) {
+  if (gatherMode == 3) {
     CompressorShadow.mOutputA = Compressor.mOutput;
     copySize = AllocateRegisteredMemory(Compressor.mMemoryResOutputGPU); // We overwrite Compressor.mOutput with the allocated output pointers on the GPU
   }
@@ -81,8 +83,8 @@ int32_t GPUChainTracking::RunTPCCompression()
     SynchronizeStream(OutputStream()); // Synchronize output copies running in parallel from memory that might be released, only the following async copy from stacked memory is safe after the chain finishes.
     outputStream = OutputStream();
   }
-  if (GetProcessingSettings().tpcCompressionGatherMode >= 2) {
-    if (GetProcessingSettings().tpcCompressionGatherMode == 2) {
+  if (gatherMode >= 2) {
+    if (gatherMode == 2) {
       void* devicePtr = mRec->getGPUPointer(Compressor.mOutputFlat);
       if (devicePtr != Compressor.mOutputFlat) {
         CompressedClustersPtrs& ptrs = *Compressor.mOutput; // We need to update the ptrs with the gpu-mapped version of the host address space
@@ -94,7 +96,8 @@ int32_t GPUChainTracking::RunTPCCompression()
     TransferMemoryResourcesToGPU(myStep, &Compressor, outputStream);
     constexpr uint32_t nBlocksDefault = 2;
     constexpr uint32_t nBlocksMulti = 1 + 2 * 200;
-    switch (GetProcessingSettings().tpcCompressionGatherModeKernel) {
+    int32_t gatherModeKernel = mRec->GetProcessingSettings().tpcCompressionGatherModeKernel == -1 ? mRec->getGPUParameters(doGPU).par_COMP_GATHER_KERNEL : mRec->GetProcessingSettings().tpcCompressionGatherMode;
+    switch (gatherModeKernel) {
       case 0:
         runKernel<GPUTPCCompressionGatherKernels, GPUTPCCompressionGatherKernels::unbuffered>(GetGridBlkStep(nBlocksDefault, outputStream, RecoStep::TPCCompression));
         getKernelTimer<GPUTPCCompressionGatherKernels, GPUTPCCompressionGatherKernels::unbuffered>(RecoStep::TPCCompression, 0, outputSize, false);
@@ -117,10 +120,10 @@ int32_t GPUChainTracking::RunTPCCompression()
         getKernelTimer<GPUTPCCompressionGatherKernels, GPUTPCCompressionGatherKernels::multiBlock>(RecoStep::TPCCompression, 0, outputSize, false);
         break;
       default:
-        GPUError("Invalid compression kernel %d selected.", (int32_t)GetProcessingSettings().tpcCompressionGatherModeKernel);
+        GPUError("Invalid compression kernel %d selected.", (int32_t)gatherModeKernel);
         return 1;
     }
-    if (GetProcessingSettings().tpcCompressionGatherMode == 3) {
+    if (gatherMode == 3) {
       RecordMarker(&mEvents->stream[outputStream], outputStream);
       char* deviceFlatPts = (char*)Compressor.mOutput->qTotU;
       if (GetProcessingSettings().doublePipeline) {
@@ -135,9 +138,9 @@ int32_t GPUChainTracking::RunTPCCompression()
     }
   } else {
     int8_t direction = 0;
-    if (GetProcessingSettings().tpcCompressionGatherMode == 0) {
+    if (gatherMode == 0) {
       P = &CompressorShadow.mPtrs;
-    } else if (GetProcessingSettings().tpcCompressionGatherMode == 1) {
+    } else if (gatherMode == 1) {
       P = &Compressor.mPtrs;
       direction = -1;
       gatherTimer = &getTimer<GPUTPCCompressionKernels>("GPUTPCCompression_GatherOnCPU", 0);
@@ -181,11 +184,11 @@ int32_t GPUChainTracking::RunTPCCompression()
     GPUMemCpyAlways(myStep, O->timeA, P->timeA, O->nTracks * sizeof(O->timeA[0]), outputStream, direction);
     GPUMemCpyAlways(myStep, O->padA, P->padA, O->nTracks * sizeof(O->padA[0]), outputStream, direction);
   }
-  if (GetProcessingSettings().tpcCompressionGatherMode == 1) {
+  if (gatherMode == 1) {
     gatherTimer->Stop();
   }
   mIOPtrs.tpcCompressedClusters = Compressor.mOutputFlat;
-  if (GetProcessingSettings().tpcCompressionGatherMode == 3) {
+  if (gatherMode == 3) {
     SynchronizeEventAndRelease(mEvents->stream[outputStream]);
     mRec->ReturnVolatileDeviceMemory();
   }

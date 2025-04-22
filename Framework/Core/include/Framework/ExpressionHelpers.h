@@ -75,18 +75,6 @@ struct ColumnOperationSpec {
     result.type = type;
   }
 };
-
-/// helper struct used to parse trees
-struct NodeRecord {
-  /// pointer to the actual tree node
-  Node* node_ptr = nullptr;
-  size_t index = 0;
-  explicit NodeRecord(Node* node_, size_t index_) : node_ptr(node_), index{index_} {}
-  bool operator!=(NodeRecord const& rhs)
-  {
-    return this->node_ptr != rhs.node_ptr;
-  }
-};
 } // namespace o2::framework::expressions
 
 #endif // O2_FRAMEWORK_EXPRESSIONS_HELPERS_H_

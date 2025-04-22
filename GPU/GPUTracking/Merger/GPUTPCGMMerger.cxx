@@ -37,6 +37,7 @@
 #include "TPCFastTransform.h"
 #include "GPUTPCConvertImpl.h"
 #include "GPUTPCGeometry.h"
+#include "GPUDefParametersRuntime.h"
 
 #include "GPUCommonMath.h"
 #include "GPUCommonAlgorithm.h"
@@ -288,7 +289,8 @@ void* GPUTPCGMMerger::SetPointersMemory(void* mem)
 void* GPUTPCGMMerger::SetPointersRefitScratch(void* mem)
 {
   computePointerWithAlignment(mem, mTrackOrderAttach, mNMaxTracks);
-  if (mRec->GetProcessingSettings().mergerSortTracks) {
+  const bool mergerSortTracks = mRec->GetProcessingSettings().mergerSortTracks == -1 ? mRec->getGPUParameters(mRec->GetRecoStepsGPU() & GPUDataTypes::RecoStep::TPCMerging).par_SORT_BEFORE_FIT : mRec->GetProcessingSettings().mergerSortTracks;
+  if (mergerSortTracks) {
     computePointerWithAlignment(mem, mTrackOrderProcess, mNMaxTracks);
   }
   return mem;
@@ -299,6 +301,7 @@ void* GPUTPCGMMerger::SetPointersOutput(void* mem)
   computePointerWithAlignment(mem, mOutputTracks, mNMaxTracks);
   if (mRec->GetParam().dodEdxDownscaled) {
     computePointerWithAlignment(mem, mOutputTracksdEdx, mNMaxTracks);
+    computePointerWithAlignment(mem, mOutputTracksdEdxAlt, mNMaxTracks);
   }
   computePointerWithAlignment(mem, mClusters, mNMaxOutputTrackClusters);
   if (mRec->GetParam().par.earlyTpcTransform) {
@@ -1740,7 +1743,7 @@ GPUd() void GPUTPCGMMerger::CollectMergedTracks(int32_t nBlocks, int32_t nThread
     p1.DzDs() = p2.DzDs();
     p1.QPt() = p2.QPt();
     mergedTrack.SetAlpha(p2.Alpha());
-    if (CAMath::Abs(Param().polynomialField.GetNominalBz()) < (0.01f * gpu_common_constants::kCLight)) {
+    if (CAMath::Abs(Param().polynomialField.GetNominalBz()) < (0.013f * gpu_common_constants::kCLight)) {
       p1.QPt() = 100.f / Param().rec.bz0Pt10MeV;
     }
 

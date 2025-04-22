@@ -21,6 +21,7 @@
 #include "Framework/DataRefUtils.h"
 #include <Framework/InputRecord.h>
 #include "Framework/InputRecordWalker.h"
+#include "DataSampling/DataSamplingHeader.h"
 #include "DataFormatsTPC/TrackTPC.h"
 #include "SimulationDataFormat/MCCompLabel.h"
 #include "SimulationDataFormat/MCTruthContainer.h"
@@ -80,7 +81,7 @@ static auto getWorkflowTPCInput(o2::framework::ProcessingContext& pc, int verbos
     if (do_digits) {
       std::fill(inputDigitsMCIndex.begin(), inputDigitsMCIndex.end(), -1);
     }
-    for (auto const& ref : o2::framework::InputRecordWalker(pc.inputs(), filter)) {
+    for (auto const& ref : o2::framework::InputRecordWalker<o2::utilities::DataSamplingHeader>(pc.inputs(), filter)) {
       auto const* sectorHeader = o2::framework::DataRefUtils::getHeader<TPCSectorHeader*>(ref);
       if (sectorHeader == nullptr) {
         // FIXME: think about error policy
@@ -127,7 +128,7 @@ static auto getWorkflowTPCInput(o2::framework::ProcessingContext& pc, int verbos
       {"check", o2::framework::ConcreteDataTypeMatcher{o2::header::gDataOriginTPC, "CLUSTERNATIVE"}, o2::framework::Lifetime::Timeframe},
     };
     unsigned long recvMask = 0;
-    for (auto const& ref : o2::framework::InputRecordWalker(pc.inputs(), filter)) {
+    for (auto const& ref : o2::framework::InputRecordWalker<o2::utilities::DataSamplingHeader>(pc.inputs(), filter)) {
       auto const* sectorHeader = o2::framework::DataRefUtils::getHeader<TPCSectorHeader*>(ref);
       if (sectorHeader == nullptr) {
         throw std::runtime_error("sector header missing on header stack");

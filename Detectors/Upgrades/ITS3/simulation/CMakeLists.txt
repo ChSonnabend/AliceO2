@@ -14,6 +14,7 @@ o2_add_library(ITS3Simulation
                        src/ITS3Services.cxx
                        src/DescriptorInnerBarrelITS3.cxx
                        src/Digitizer.cxx
+                       src/DigiParams.cxx
                PUBLIC_LINK_LIBRARIES O2::SimulationDataFormat
                                      O2::ITSBase O2::ITSMFTSimulation
                                      ROOT::Physics)
@@ -23,6 +24,7 @@ o2_target_root_dictionary(ITS3Simulation
                                   include/ITS3Simulation/ITS3Services.h
                                   include/ITS3Simulation/DescriptorInnerBarrelITS3.h
                                   include/ITS3Simulation/Digitizer.h
+                                  include/ITS3Simulation/DigiParams.h
                                   )
 
 o2_data_file(COPY data  DESTINATION Detectors/ITS3/simulation)

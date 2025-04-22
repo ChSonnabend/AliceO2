@@ -25,6 +25,7 @@
 #include "Framework/FairMQDeviceProxy.h"
 #include "Framework/Formatters.h"
 #include "Framework/DeviceState.h"
+#include "Framework/DataTakingContext.h"
 #include "Framework/Signpost.h"
 
 #include "Headers/DataHeader.h"
@@ -421,6 +422,11 @@ ExpirationHandler::Handler LifetimeHelpers::enumerate(ConcreteDataMatcher const&
     dh.payloadSize = sizeof(counter_t);
     dh.payloadSerializationMethod = gSerializationMethodNone;
     dh.tfCounter = timestamp;
+    try {
+      dh.runNumber = strtoull(services.get<RawDeviceService>().device()->fConfig->GetProperty<std::string>("runNumber", "0").c_str(), nullptr, 10);
+    } catch (...) {
+      dh.runNumber = 0;
+    }
     dh.firstTForbit = timestamp * orbitMultiplier + orbitOffset;
     DataProcessingHeader dph{timestamp, 1};
     services.get<CallbackService>().call<CallbackService::Id::NewTimeslice>(dh, dph);

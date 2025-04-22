@@ -201,7 +201,7 @@ class makeEncoder
   template <typename source_T>
   [[nodiscard]] inline static decltype(auto) fromSamples(gsl::span<const source_T> range, size_t renormingPrecision = 0)
   {
-    auto histogram = makeDenseHistogram::template fromSamples(range);
+    auto histogram = makeDenseHistogram::fromSamples(range);
     return makeEncoder::fromHistogram(std::move(histogram), renormingPrecision);
   };
 

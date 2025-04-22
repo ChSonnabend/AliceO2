@@ -10,17 +10,17 @@
 # or submit itself to any jurisdiction.
 
 # Pass ORT variables as a preprocessor definition
-if(DEFINED ENV{ORT_ROCM_BUILD})
-    add_compile_definitions(ORT_ROCM_BUILD=$ENV{ORT_ROCM_BUILD})
+if(ORT_ROCM_BUILD)
+    add_compile_definitions(ORT_ROCM_BUILD=1)
 endif()
-if(DEFINED ENV{ORT_CUDA_BUILD})
-    add_compile_definitions(ORT_CUDA_BUILD=$ENV{ORT_CUDA_BUILD})
+if(ORT_CUDA_BUILD)
+    add_compile_definitions(ORT_CUDA_BUILD=1)
 endif()
-if(DEFINED ENV{ORT_MIGRAPHX_BUILD})
-    add_compile_definitions(ORT_MIGRAPHX_BUILD=$ENV{ORT_MIGRAPHX_BUILD})
+if(ORT_MIGRAPHX_BUILD)
+    add_compile_definitions(ORT_MIGRAPHX_BUILD=1)
 endif()
-if(DEFINED ENV{ORT_TENSORRT_BUILD})
-    add_compile_definitions(ORT_TENSORRT_BUILD=$ENV{ORT_TENSORRT_BUILD})
+if(ORT_TENSORRT_BUILD)
+    add_compile_definitions(ORT_TENSORRT_BUILD=1)
 endif()
 
 o2_add_library(ML

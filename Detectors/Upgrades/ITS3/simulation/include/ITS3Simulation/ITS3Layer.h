@@ -20,13 +20,12 @@
 #include <TGeoTube.h>
 #include <TGeoVolume.h>
 
-#include "Framework/Logger.h"
-#include <fmt/core.h>
+#include "ITS3Base/SpecsV2.h"
 
 namespace o2::its3
 {
 
-/// This class defines the Geometry for the ITS3  using TGeo.
+/// This class defines the geometry for the ITS3 IB layers.
 class ITS3Layer
 {
   // The hierarchy will be the following:
@@ -45,8 +44,8 @@ class ITS3Layer
     kTile,
     kRSU,
     kSegment,
-    kCarbonForm,
     kChip,
+    kCarbonForm,
     kLayer,
     kAll,
   };
@@ -56,11 +55,10 @@ class ITS3Layer
     return mNames[static_cast<size_t>((b == BuildLevel::kAll) ? BuildLevel::kLayer : b)];
   }
 
-  explicit ITS3Layer(int layer = 0) : mNLayer(layer)
-  {
-    LOGP(debug, "Called on {} layer {}", layer, mNLayer);
-    init();
-  }
+  explicit ITS3Layer(int layer = 0) : mNLayer(layer),
+                                      mR(o2::its3::constants::radii[mNLayer]),
+                                      mRmin(o2::its3::constants::radiiInner[mNLayer]),
+                                      mRmax(o2::its3::constants::radiiOuter[mNLayer]) {}
 
   explicit ITS3Layer(TGeoVolume* motherVolume, int layer = 0) : ITS3Layer(layer)
   {
@@ -82,6 +80,7 @@ class ITS3Layer
   TGeoMedium* mSilicon{nullptr};
   TGeoMedium* mAir{nullptr};
   TGeoMedium* mCarbon{nullptr};
+  TGeoMedium* mCopper{nullptr};
   void getMaterials(bool create = false);
   TGeoMedium* getMaterial(const char* matName, bool create = false);
 
@@ -97,10 +96,12 @@ class ITS3Layer
 
   uint8_t mNLayer{0}; // Layer number
   double mR{0};       // Middle Radius
-  double mRmin{};     // Minimum Radius
+  double mRmin{0};    // Minimum Radius
   double mRmax{0};    // Maximum Radius
 
-  // Individual Pieces
+  // Individual pieces
+  // since TGeo manages the resources itself one should not use these pointers
+  // after initializition anymore!
   TGeoVolume* mPixelArray{nullptr};
   TGeoVolumeAssembly* mTile{nullptr};
   TGeoVolumeAssembly* mRSU{nullptr};
@@ -109,7 +110,7 @@ class ITS3Layer
   TGeoVolumeAssembly* mCarbonForm{nullptr};
   TGeoVolumeAssembly* mLayer{nullptr};
 
-  ClassDef(ITS3Layer, 2);
+  ClassDef(ITS3Layer, 3);
 };
 } // namespace o2::its3
 

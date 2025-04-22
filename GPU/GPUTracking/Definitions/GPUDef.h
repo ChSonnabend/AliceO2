@@ -18,7 +18,7 @@
 
 #include "GPUCommonDef.h"
 #include "GPUDefConstantsAndSettings.h"
-#include "GPUDefGPUParameters.h"
+#include "GPUDefParametersWrapper.h"
 #include "GPUCommonRtypes.h"
 
 // Macros for masking ptrs in OpenCL kernel calls as uint64_t (The API only allows us to pass buffer objects)

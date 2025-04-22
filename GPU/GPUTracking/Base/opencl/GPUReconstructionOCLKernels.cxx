@@ -91,8 +91,6 @@ int32_t GPUReconstructionOCLBackend::AddKernels()
   return 0;
 }
 
-#define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward, x_types) \
-  GPUCA_KRNL_PROP(x_class, x_attributes)                                   \
-  template void GPUReconstructionOCLBackend::runKernelBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>(const krnlSetupArgs<GPUCA_M_KRNL_TEMPLATE(x_class) GPUCA_M_STRIP(x_types)>& args);
+#define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward, x_types, ...) template void GPUReconstructionOCLBackend::runKernelBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>(const krnlSetupArgs<GPUCA_M_KRNL_TEMPLATE(x_class) GPUCA_M_STRIP(x_types)>& args);
 #include "GPUReconstructionKernelList.h"
 #undef GPUCA_KRNL

@@ -17,10 +17,7 @@
 #include "ITStracking/Configuration.h"
 
 #include "ITStrackingGPU/ClusterLinesGPU.h"
-#include "ITStrackingGPU/Array.h"
-#include "ITStrackingGPU/Vector.h"
-#include "ITStrackingGPU/Stream.h"
-#include "ITStrackingGPU/TimeFrameChunk.h"
+#include "ITStrackingGPU/Utils.h"
 
 #include <gsl/gsl>
 
@@ -30,6 +27,7 @@ namespace its
 {
 namespace gpu
 {
+class Stream;
 
 class DefaultGPUAllocator : public ExternalAllocator
 {
@@ -39,8 +37,6 @@ class DefaultGPUAllocator : public ExternalAllocator
 template <int nLayers = 7>
 class TimeFrameGPU : public TimeFrame
 {
-  friend class GpuTimeFrameChunk<nLayers>;
-
  public:
   TimeFrameGPU();
   ~TimeFrameGPU();
@@ -88,24 +84,18 @@ class TimeFrameGPU : public TimeFrame
   void downloadCellsDevice();
   void downloadCellsLUTDevice();
   void unregisterRest();
-  void initDeviceChunks(const int, const int);
   template <Task task>
-  size_t loadChunkData(const size_t, const size_t, const size_t);
-  size_t getNChunks() const { return mMemChunks.size(); }
-  GpuTimeFrameChunk<nLayers>& getChunk(const int chunk) { return mMemChunks[chunk]; }
-  Stream& getStream(const size_t stream) { return mGpuStreams[stream]; }
+  Stream& getStream(const size_t stream)
+  {
+    return *mGpuStreams[stream];
+  }
   void wipe(const int);
 
   /// interface
   int getNClustersInRofSpan(const int, const int, const int) const;
   IndexTableUtils* getDeviceIndexTableUtils() { return mIndexTableUtilsDevice; }
   int* getDeviceROFramesClusters(const int layer) { return mROFramesClustersDevice[layer]; }
-  std::vector<std::vector<Vertex>>& getVerticesInChunks() { return mVerticesInChunks; }
-  std::vector<std::vector<int>>& getNVerticesInChunks() { return mNVerticesInChunks; }
   std::vector<o2::its::TrackITSExt>& getTrackITSExt() { return mTrackITSExt; }
-  std::vector<std::vector<o2::MCCompLabel>>& getLabelsInChunks() { return mLabelsInChunks; }
-  int getNAllocatedROFs() const { return mNrof; } // Allocated means maximum nROF for each chunk while populated is the number of loaded ones.
-  StaticTrackingParameters<nLayers>* getDeviceTrackingParameters() { return mTrackingParamsDevice; }
   Vertex* getDeviceVertices() { return mPrimaryVerticesDevice; }
   int* getDeviceROFramesPV() { return mROFramesPVDevice; }
   unsigned char* getDeviceUsedClusters(const int);
@@ -158,16 +148,13 @@ class TimeFrameGPU : public TimeFrame
  private:
   void allocMemAsync(void**, size_t, Stream*, bool); // Abstract owned and unowned memory allocations
   bool mHostRegistered = false;
-  std::vector<GpuTimeFrameChunk<nLayers>> mMemChunks;
   TimeFrameGPUParameters mGpuParams;
-  StaticTrackingParameters<nLayers> mStaticTrackingParams;
 
   // Host-available device buffer sizes
   std::array<int, nLayers - 1> mNTracklets;
   std::array<int, nLayers - 2> mNCells;
 
   // Device pointers
-  StaticTrackingParameters<nLayers>* mTrackingParamsDevice;
   IndexTableUtils* mIndexTableUtilsDevice;
 
   // Hybrid pref
@@ -212,34 +199,13 @@ class TimeFrameGPU : public TimeFrame
   const TrackingFrameInfo** mTrackingFrameInfoDeviceArray;
 
   // State
-  std::vector<Stream> mGpuStreams;
+  std::vector<Stream*> mGpuStreams;
   size_t mAvailMemGB;
   bool mFirstInit = true;
-
-  // Output
-  std::vector<std::vector<Vertex>> mVerticesInChunks;
-  std::vector<std::vector<int>> mNVerticesInChunks;
-  std::vector<std::vector<o2::MCCompLabel>> mLabelsInChunks;
 
   // Temporary buffer for storing output tracks from GPU tracking
   std::vector<TrackITSExt> mTrackITSExt;
 };
-
-template <int nLayers>
-template <Task task>
-size_t TimeFrameGPU<nLayers>::loadChunkData(const size_t chunk, const size_t offset, const size_t maxRofs) // offset: readout frame to start from, maxRofs: to manage boundaries
-{
-  size_t nRof{0};
-
-  mMemChunks[chunk].reset(task, mGpuStreams[chunk]); // Reset chunks memory
-  if constexpr ((bool)task) {
-    nRof = mMemChunks[chunk].loadDataOnDevice(offset, maxRofs, 3, mGpuStreams[chunk]);
-  } else {
-    nRof = mMemChunks[chunk].loadDataOnDevice(offset, maxRofs, nLayers, mGpuStreams[chunk]);
-  }
-  LOGP(debug, "In chunk {}: loaded {} readout frames starting from {}", chunk, nRof, offset);
-  return nRof;
-}
 
 template <int nLayers>
 inline int TimeFrameGPU<nLayers>::getNClustersInRofSpan(const int rofIdstart, const int rofSpanSize, const int layerId) const

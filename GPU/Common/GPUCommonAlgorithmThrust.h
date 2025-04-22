@@ -15,6 +15,7 @@
 #ifndef GPUCOMMONALGORITHMTHRUST_H
 #define GPUCOMMONALGORITHMTHRUST_H
 
+#ifndef GPUCA_GPUCODE_COMPILEKERNELS
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wshadow"
 #include <thrust/sort.h>
@@ -26,13 +27,18 @@
 #include "GPUCommonHelpers.h"
 
 #ifndef __HIPCC__ // CUDA
+#include <cub/cub.cuh>
+#else // HIP
+#include <hipcub/hipcub.hpp>
+#endif
+#endif // GPUCA_GPUCODE_COMPILEKERNELS
+
+#ifndef __HIPCC__ // CUDA
 #define GPUCA_THRUST_NAMESPACE thrust::cuda
 #define GPUCA_CUB_NAMESPACE cub
-#include <cub/cub.cuh>
 #else // HIP
 #define GPUCA_THRUST_NAMESPACE thrust::hip
 #define GPUCA_CUB_NAMESPACE hipcub
-#include <hipcub/hipcub.hpp>
 #endif
 
 namespace o2::gpu
@@ -90,6 +96,7 @@ GPUdi() void GPUCommonAlgorithm::sortDeviceDynamic(T* begin, T* end, const S& co
   thrust::sort(GPUCA_THRUST_NAMESPACE::par, thrustBegin, thrustEnd, comp);
 }
 
+#ifndef GPUCA_GPUCODE_COMPILEKERNELS
 template <class T, class S>
 GPUhi() void GPUCommonAlgorithm::sortOnDevice(auto* rec, int32_t stream, T* begin, size_t N, const S& comp)
 {
@@ -105,6 +112,8 @@ GPUhi() void GPUCommonAlgorithm::sortOnDevice(auto* rec, int32_t stream, T* begi
   GPUChkErrS(GPUCA_CUB_NAMESPACE::DeviceMergeSort::SortKeys(tempMem, tempSize, begin, N, comp, rec->mInternals->Streams[stream]));
 #endif
 }
+#endif // #ifndef GPUCA_GPUCODE_COMPILEKERNELS
+
 } // namespace o2::gpu
 
 #undef GPUCA_THRUST_NAMESPACE

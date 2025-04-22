@@ -39,7 +39,7 @@ GPUdii() void GPUTPCStartHitsFinder::Thread<0>(int32_t /*nBlocks*/, int32_t nThr
     uint32_t linkUpData = tracker.mData.mLinkUpData[lHitNumberOffset + ih];
 
     if (tracker.mData.mLinkDownData[lHitNumberOffset + ih] == CALINK_INVAL && linkUpData != CALINK_INVAL && tracker.mData.mLinkUpData[rowUp.mHitNumberOffset + linkUpData] != CALINK_INVAL) {
-#ifdef GPUCA_SORT_STARTHITS
+#if GPUCA_PAR_SORT_STARTHITS > 0
       GPUglobalref() GPUTPCHitId* const GPUrestrict() startHits = tracker.mTrackletTmpStartHits + s.mIRow * tracker.mNMaxRowStartHits;
       uint32_t nextRowStartHits = CAMath::AtomicAddShared(&s.mNRowStartHits, 1u);
       if (nextRowStartHits >= tracker.mNMaxRowStartHits) {
@@ -61,7 +61,7 @@ GPUdii() void GPUTPCStartHitsFinder::Thread<0>(int32_t /*nBlocks*/, int32_t nThr
   }
   GPUbarrier();
 
-#ifdef GPUCA_SORT_STARTHITS
+#if GPUCA_PAR_SORT_STARTHITS > 0
   if (iThread == 0) {
     uint32_t nOffset = CAMath::AtomicAdd(&tracker.mCommonMem->nStartHits, s.mNRowStartHits);
     tracker.mRowStartHitCountOffset[s.mIRow] = s.mNRowStartHits;

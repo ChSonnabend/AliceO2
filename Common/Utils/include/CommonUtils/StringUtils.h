@@ -146,6 +146,9 @@ struct Str {
     return s.str();
   }
 
+  // replace all occurencies of from by to, return count
+  static int replaceAll(std::string& s, const std::string& from, const std::string& to);
+
   // generate random string of given length, suitable for file names
   static std::string getRandomString(int length);
 

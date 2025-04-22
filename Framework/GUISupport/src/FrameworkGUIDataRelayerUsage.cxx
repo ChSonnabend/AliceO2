@@ -17,8 +17,7 @@
 #include "Framework/DataProcessingStates.h"
 #include "InspectorHelpers.h"
 #include "PaletteHelpers.h"
-#include "Framework/Logger.h"
-#include <iostream>
+#include "FrameworkGUIDataRelayerUsage.h"
 #include <cstring>
 #include <cmath>
 
@@ -27,11 +26,11 @@ static inline ImVec2 operator-(const ImVec2& lhs, const ImVec2& rhs) { return Im
 
 namespace o2::framework::gui
 {
-
 // This is to display the information in the data relayer
 struct HeatMapHelper {
   template <typename RECORD, typename ITEM>
-  static void draw(const char* name,
+  static void draw(const char* /*name*/,
+                   int& v,
                    ImVec2 const& sizeHint,
                    std::function<size_t()> const& getNumInputs,
                    std::function<size_t()> const& getNumRecords,
@@ -42,21 +41,69 @@ struct HeatMapHelper {
                    std::function<ImU32(int value)> const& getColor,
                    std::function<void(int row, int column)> const& describeCell)
   {
-    ImVec2 size = ImVec2(sizeHint.x, std::min(sizeHint.y, 16.f * getNumItems(0) + 2));
-    ImU32 BORDER_COLOR = ImColor(200, 200, 200, 255);
-    ImU32 BACKGROUND_COLOR = ImColor(20, 20, 20, 255);
+    float padding = 1;
+    // add slider to scroll between the grid display windows
+    size_t nw = getNumRecords() / WND;
+    ImGui::PushItemWidth(sizeHint.x);
+    ImGui::SliderInt("##window", &v, 1, nw, "wnd: %d", ImGuiSliderFlags_AlwaysClamp);
+    ImVec2 sliderMin = ImGui::GetItemRectMin();
+
     constexpr float MAX_BOX_X_SIZE = 16.f;
     constexpr float MAX_BOX_Y_SIZE = 16.f;
-    ImDrawList* drawList = ImGui::GetWindowDrawList();
-    ImVec2 winPos = ImGui::GetCursorScreenPos() + ImVec2{0, 7};
-    auto records = getNumRecords();
-    auto boxSizeX = std::min(size.x / records, MAX_BOX_X_SIZE);
-    auto numInputs = getNumInputs();
 
+    ImVec2 size = ImVec2(sizeHint.x, std::min(sizeHint.y, MAX_BOX_Y_SIZE * getNumItems(0) + 2));
+    ImU32 BORDER_COLOR = ImColor(200, 200, 200, 255);
+    ImU32 BACKGROUND_COLOR = ImColor(20, 20, 20, 255);
+    ImU32 BORDER_COLOR_A = ImColor(200, 200, 200, 0);
+    ImU32 BACKGROUND_COLOR_A = ImColor(0, 0, 0, 0);
+
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImVec2 winPos = sliderMin;
+
+    // overlay activity indicator on the slider
+    auto xsz = size.x / nw;
+    drawList->AddRectFilled(
+      ImVec2{0., 0.} + winPos,
+      ImVec2{size.x, size.y} + winPos,
+      BACKGROUND_COLOR_A);
+    drawList->AddRect(
+      ImVec2{0. - 1, -1} + winPos,
+      ImVec2{size.x + 1, size.y - 1} + winPos,
+      BORDER_COLOR_A);
+
+    const static auto colorA = ImColor(ImVec4{0.945, 0.096, 0.278, 0.5});
+    const static auto colorE = ImColor(ImVec4{0, 0, 0, 0});
+
+    drawList->PrimReserve(nw * 6, nw * 4);
+    for (size_t iw = 0; iw < nw; ++iw) {
+      ImVec2 xOffset{iw * xsz + 2 * padding, 0};
+      ImVec2 xSize{xsz - 2 * padding, 0};
+      ImVec2 yOffset{0, 2 * padding};
+      ImVec2 ySize{0, 16 - 4 * padding};
+      bool active = 0;
+      for (size_t ir = iw; ir < ((iw + WND > getNumRecords()) ? getNumRecords() : iw + WND); ++ir) {
+        for (size_t i = 0; i < getNumItems(ir); ++i) {
+          active = getValue(*getItem(ir, i)) > 0;
+          if (active) {
+            break;
+          }
+        }
+      }
+      drawList->PrimRect(
+        xOffset + yOffset + winPos,
+        xOffset + xSize + yOffset + ySize + winPos,
+        active ? colorA : colorE);
+    }
+
+    // display the grid
+    size_t recordsWindow = v * WND;
+    auto boxSizeX = std::min(size.x / WND, MAX_BOX_X_SIZE);
+    auto numInputs = getNumInputs();
+    winPos = ImGui::GetCursorScreenPos() + ImVec2{0, 7};
     ImGui::InvisibleButton("sensible area", ImVec2(size.x, size.y));
     if (ImGui::IsItemHovered()) {
       auto pos = ImGui::GetMousePos() - winPos;
-      auto slot = std::lround(std::trunc(pos.x / size.x * records));
+      auto slot = (v - 1) * WND + std::lround(std::trunc(pos.x / size.x * WND));
       auto row = std::lround(std::trunc(pos.y / size.y * numInputs));
       describeCell(row, slot);
     }
@@ -69,21 +116,21 @@ struct HeatMapHelper {
       ImVec2(0. - 1, -1) + winPos,
       ImVec2{size.x + 1, size.y - 1} + winPos,
       BORDER_COLOR);
-    float padding = 1;
 
     size_t totalRects = 0;
-    for (size_t ri = 0, re = getNumRecords(); ri < re; ri++) {
+    for (size_t ri = (v - 1) * WND; ri < recordsWindow; ri++) {
       auto record = getRecord(ri);
       totalRects += getNumItems(record);
     }
 
     drawList->PrimReserve(totalRects * 6, totalRects * 4);
-    for (size_t ri = 0, re = getNumRecords(); ri < re; ri++) {
+    for (size_t ri = (v - 1) * WND; ri < recordsWindow; ri++) {
       auto record = getRecord(ri);
-      ImVec2 xOffset{(ri * boxSizeX) + padding, 0};
+      ImVec2 xOffset{((ri - (v - 1) * WND) * boxSizeX) + padding, 0};
       ImVec2 xSize{boxSizeX - 2 * padding, 0};
-      auto boxSizeY = std::min(size.y / getNumItems(record), MAX_BOX_Y_SIZE);
-      for (size_t mi = 0, me = getNumItems(record); mi < me; mi++) {
+      auto me = getNumItems(record);
+      auto boxSizeY = std::min(size.y / me, MAX_BOX_Y_SIZE);
+      for (size_t mi = 0; mi < me; mi++) {
         ImVec2 yOffSet{0, (mi * boxSizeY) + padding};
         ImVec2 ySize{0, boxSizeY - 2 * padding};
 
@@ -98,11 +145,12 @@ struct HeatMapHelper {
   }
 };
 
-void displayDataRelayer(DeviceMetricsInfo const& metrics,
-                        DeviceInfo const& info,
+void displayDataRelayer(DeviceMetricsInfo const& /*metrics*/,
+                        DeviceInfo const& /*info*/,
                         DeviceSpec const& spec,
                         DataProcessingStates const& states,
-                        ImVec2 const& size)
+                        ImVec2 const& size,
+                        int& v)
 {
   auto getNumInputs = [&states]() -> size_t {
     auto& inputsView = states.statesViews[(int)ProcessingStateId::DATA_QUERIES];
@@ -146,7 +194,7 @@ void displayDataRelayer(DeviceMetricsInfo const& metrics,
     }
     char const* const beginData = strchr(buffer + view.first, ' ') + 1;
     // Protect against buffer overflows
-    if (view.size <= beginData - buffer + i - view.first) {
+    if ((size_t)view.size <= beginData - buffer + i - view.first) {
       return &error;
     }
     return (int8_t const*)beginData + i; };
@@ -184,7 +232,7 @@ void displayDataRelayer(DeviceMetricsInfo const& metrics,
       if ((end - input) == 0) {
         continue;
       }
-      if (i == row) {
+      if (i == (size_t)row) {
         ImGui::Text("%d %.*s (%s)", row, int(end - input), input, InspectorHelpers::getLifeTimeStr(spec.inputs[i].matcher.lifetime).c_str());
         break;
       }
@@ -226,6 +274,7 @@ void displayDataRelayer(DeviceMetricsInfo const& metrics,
 
   if (getNumRecords()) {
     HeatMapHelper::draw<int, int8_t>("DataRelayer",
+                                     v,
                                      size,
                                      getNumInputs,
                                      getNumRecords,

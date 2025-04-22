@@ -426,6 +426,9 @@ template <typename T>
 concept has_extension = is_metadata<T> && not_void<typename T::extension_table_t>;
 
 template <typename T>
+concept has_configurable_extension = has_extension<T> && requires(T t) { typename T::configurable_t; requires std::same_as<std::true_type, typename T::configurable_t>; };
+
+template <typename T>
 concept is_spawnable_column = std::same_as<typename T::spawnable_t, std::true_type>;
 
 template <typename B, typename E>
@@ -2355,7 +2358,7 @@ O2HASH("TEST/0");
   DECLARE_SOA_BITMAP_COLUMN_FULL(_Name_, _Getter_, _Size_, "f" #_Name_)
 
 /// An 'expression' column. i.e. a column that can be calculated from other
-/// columns with gandiva based on supplied C++ expression.
+/// columns with gandiva based on static C++ expression.
 #define DECLARE_SOA_EXPRESSION_COLUMN_FULL(_Name_, _Getter_, _Type_, _Label_, _Expression_)                                                       \
   struct _Name_ : o2::soa::Column<_Type_, _Name_> {                                                                                               \
     static constexpr const char* mLabel = _Label_;                                                                                                \
@@ -2392,6 +2395,38 @@ O2HASH("TEST/0");
 
 #define DECLARE_SOA_EXPRESSION_COLUMN(_Name_, _Getter_, _Type_, _Expression_) \
   DECLARE_SOA_EXPRESSION_COLUMN_FULL(_Name_, _Getter_, _Type_, "f" #_Name_, _Expression_);
+
+/// A configurable 'expression' column. i.e. a column that can be calculated from other
+/// columns with gandiva based on dynamically supplied C++ expression or a string definition.
+#define DECLARE_SOA_CONFIGURABLE_EXPRESSION_COLUMN(_Name_, _Getter_, _Type_, _Label_)                                                             \
+  struct _Name_ : o2::soa::Column<_Type_, _Name_> {                                                                                               \
+    static constexpr const char* mLabel = _Label_;                                                                                                \
+    static constexpr const int32_t mHash = _Label_ ""_h;                                                                                          \
+    using base = o2::soa::Column<_Type_, _Name_>;                                                                                                 \
+    using type = _Type_;                                                                                                                          \
+    using column_t = _Name_;                                                                                                                      \
+    using spawnable_t = std::true_type;                                                                                                           \
+    _Name_(arrow::ChunkedArray const* column)                                                                                                     \
+      : o2::soa::Column<_Type_, _Name_>(o2::soa::ColumnIterator<type>(column))                                                                    \
+    {                                                                                                                                             \
+    }                                                                                                                                             \
+                                                                                                                                                  \
+    _Name_() = default;                                                                                                                           \
+    _Name_(_Name_ const& other) = default;                                                                                                        \
+    _Name_& operator=(_Name_ const& other) = default;                                                                                             \
+                                                                                                                                                  \
+    decltype(auto) _Getter_() const                                                                                                               \
+    {                                                                                                                                             \
+      return *mColumnIterator;                                                                                                                    \
+    }                                                                                                                                             \
+                                                                                                                                                  \
+    decltype(auto) get() const                                                                                                                    \
+    {                                                                                                                                             \
+      return _Getter_();                                                                                                                          \
+    }                                                                                                                                             \
+  };                                                                                                                                              \
+  [[maybe_unused]] static constexpr o2::framework::expressions::BindingNode _Getter_ { _Label_, o2::framework::TypeIdHelpers::uniqueId<_Name_>(), \
+                                                                                       o2::framework::expressions::selectArrowType<_Type_>() }
 
 /// An index column is a column of indices to elements / of another table named
 /// _Name_##s. The column name will be _Name_##Id and will always be stored in
@@ -3103,6 +3138,32 @@ consteval auto getIndexTargets()
 #define DECLARE_SOA_EXTENDED_TABLE_USER(_Name_, _Table_, _Description_, ...) \
   O2HASH(#_Name_ "Extension");                                               \
   DECLARE_SOA_EXTENDED_TABLE_FULL(_Name_, #_Name_ "Extension", _Table_, "AOD", "EX" _Description_, 0, __VA_ARGS__)
+
+#define DECLARE_SOA_CONFIGURABLE_EXTENDED_TABLE_FULL(_Name_, _Label_, _OriginalTable_, _Origin_, _Desc_, _Version_, ...)           \
+  O2HASH(_Desc_ "/" #_Version_);                                                                                                   \
+  template <typename O>                                                                                                            \
+  using _Name_##CfgExtensionFrom = soa::Table<o2::aod::Hash<_Label_ ""_h>, o2::aod::Hash<_Desc_ "/" #_Version_ ""_h>, O>;          \
+  using _Name_##CfgExtension = _Name_##CfgExtensionFrom<o2::aod::Hash<_Origin_ ""_h>>;                                             \
+  template <typename O = o2::aod::Hash<_Origin_ ""_h>>                                                                             \
+  struct _Name_##CfgExtensionMetadataFrom : TableMetadata<o2::aod::Hash<_Desc_ "/" #_Version_ ""_h>, __VA_ARGS__> {                \
+    using base_table_t = _OriginalTable_;                                                                                          \
+    using extension_table_t = _Name_##CfgExtensionFrom<O>;                                                                         \
+    using placeholders_pack_t = framework::pack<__VA_ARGS__>;                                                                      \
+    using configurable_t = std::true_type;                                                                                         \
+    static constexpr auto sources = _OriginalTable_::originals;                                                                    \
+  };                                                                                                                               \
+  using _Name_##CfgExtensionMetadata = _Name_##CfgExtensionMetadataFrom<o2::aod::Hash<_Origin_ ""_h>>;                             \
+  template <>                                                                                                                      \
+  struct MetadataTrait<o2::aod::Hash<_Desc_ "/" #_Version_ ""_h>> {                                                                \
+    using metadata = _Name_##CfgExtensionMetadata;                                                                                 \
+  };                                                                                                                               \
+  template <typename O>                                                                                                            \
+  using _Name_##From = o2::soa::JoinFull<o2::aod::Hash<_Desc_ "/" #_Version_ ""_h>, _OriginalTable_, _Name_##CfgExtensionFrom<O>>; \
+  using _Name_ = _Name_##From<o2::aod::Hash<_Origin_ ""_h>>;
+
+#define DECLARE_SOA_CONFIGURABLE_EXTENDED_TABLE(_Name_, _Table_, _Description_, ...) \
+  O2HASH(#_Name_ "CfgExtension");                                                    \
+  DECLARE_SOA_CONFIGURABLE_EXTENDED_TABLE_FULL(_Name_, #_Name_ "CfgExtension", _Table_, "AOD", "EX" _Description_, 0, __VA_ARGS__)
 
 #define DECLARE_SOA_INDEX_TABLE_FULL(_Name_, _Key_, _Origin_, _Version_, _Desc_, _Exclusive_, ...)                                         \
   O2HASH(#_Name_);                                                                                                                         \

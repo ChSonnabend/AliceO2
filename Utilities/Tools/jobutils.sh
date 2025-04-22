@@ -189,10 +189,12 @@ taskwrapper() {
              -e \"terminate called without an active\"     \
              -e \"\*\*\* Error in\""                  # <--- LIBC fatal error messages
 
-    grepcommand="grep -a -H ${pattern} $logfile ${JOBUTILS_JOB_SUPERVISEDFILES} >> encountered_exceptions_list 2>/dev/null"
+    exclude_pattern="-e \"To change the tolerance or the exception severity\""
+
+    grepcommand="grep -a -H ${pattern} $logfile ${JOBUTILS_JOB_SUPERVISEDFILES} | grep -a -v ${exclude_pattern} >> encountered_exceptions_list 2>/dev/null"
     eval ${grepcommand}
 
-    grepcommand="grep -a -h --count ${pattern} $logfile ${JOBUTILS_JOB_SUPERVISEDFILES} 2>/dev/null"
+    grepcommand="cat encountered_exceptions_list 2>/dev/null | wc -l"
     # using eval here since otherwise the pattern is translated to a
     # a weirdly quoted stringlist
     RC=$(eval ${grepcommand})

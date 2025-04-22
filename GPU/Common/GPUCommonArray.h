@@ -29,6 +29,12 @@ struct array {
   GPUd() const T& operator[](size_t i) const { return m_internal_V__[i]; };
   GPUd() T* data() { return m_internal_V__; };
   GPUd() const T* data() const { return m_internal_V__; };
+  GPUd() void fill(const T& t)
+  {
+    for (size_t i{0}; i < N; ++i) {
+      m_internal_V__[i] = t;
+    }
+  }
   T m_internal_V__[N];
 };
 template <class T, class... E>

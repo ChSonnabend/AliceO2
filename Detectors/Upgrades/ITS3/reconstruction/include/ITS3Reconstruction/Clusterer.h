@@ -207,7 +207,7 @@ class Clusterer
 
   template <typename VCLUS, typename VPAT>
   static void streamCluster(const std::vector<PixelData>& pixbuf, const std::array<Label, MaxLabels>* lblBuff, const BBox& bbox, const its3::LookUp& pattIdConverter,
-                            VCLUS* compClusPtr, VPAT* patternsPtr, MCTruth* labelsClusPtr, int nlab, bool isHuge = false);
+                            VCLUS* compClusPtr, VPAT* patternsPtr, MCTruth* labelsClusPtr, int nlab, bool isIB, bool isHuge = false);
 
   bool isContinuousReadOut() const { return mContinuousReadout; }
   void setContinuousReadOut(bool v) { mContinuousReadout = v; }
@@ -230,7 +230,7 @@ class Clusterer
   ///< load the dictionary of cluster topologies
   void setDictionary(const its3::TopologyDictionary* dict)
   {
-    LOGP(info, "Setting TopologyDictionary with size={}", dict->getSize());
+    LOGP(info, "Setting TopologyDictionary with IB size={} & OB size={}", dict->getSize(true), dict->getSize(false));
     mPattIdConverter.setDictionary(dict);
     // dict->print();
   }
@@ -274,7 +274,7 @@ class Clusterer
 
 template <typename VCLUS, typename VPAT>
 void Clusterer::streamCluster(const std::vector<PixelData>& pixbuf, const std::array<Label, MaxLabels>* lblBuff, const Clusterer::BBox& bbox, const its3::LookUp& pattIdConverter,
-                              VCLUS* compClusPtr, VPAT* patternsPtr, MCTruth* labelsClusPtr, int nlab, bool isHuge)
+                              VCLUS* compClusPtr, VPAT* patternsPtr, MCTruth* labelsClusPtr, int nlab, bool isIB, bool isHuge)
 {
   if (labelsClusPtr && lblBuff) { // MC labels were requested
     auto cnt = compClusPtr->size();
@@ -291,10 +291,10 @@ void Clusterer::streamCluster(const std::vector<PixelData>& pixbuf, const std::a
     int nbits = ir * colSpanW + ic;
     patt[nbits >> 3] |= (0x1 << (7 - (nbits % 8)));
   }
-  uint16_t pattID = (isHuge || pattIdConverter.size() == 0) ? CompCluster::InvalidPatternID : pattIdConverter.findGroupID(rowSpanW, colSpanW, patt.data());
+  uint16_t pattID = (isHuge || pattIdConverter.size(isIB) == 0) ? CompCluster::InvalidPatternID : pattIdConverter.findGroupID(rowSpanW, colSpanW, isIB, patt.data());
   uint16_t row = bbox.rowMin, col = bbox.colMin;
   LOGP(debug, "PattID: findGroupID({},{},{})={}", row, col, patt[0], pattID);
-  if (pattID == CompCluster::InvalidPatternID || pattIdConverter.isGroup(pattID)) {
+  if (pattID == CompCluster::InvalidPatternID || pattIdConverter.isGroup(pattID, isIB)) {
     if (pattID != CompCluster::InvalidPatternID) {
       // For groupped topologies, the reference pixel is the COG pixel
       float xCOG = 0., zCOG = 0.;

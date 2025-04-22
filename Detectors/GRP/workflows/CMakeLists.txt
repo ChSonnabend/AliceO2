@@ -45,6 +45,7 @@ o2_add_executable(grp-create
                   SOURCES src/create-grp-ecs.cxx
                   PUBLIC_LINK_LIBRARIES O2::DetectorsCommonDataFormats
                                         O2::DataFormatsParameters
+                                        O2::DataFormatsCTP
                                         O2::CommonUtils
                                         O2::CCDB
                                         Boost::program_options)

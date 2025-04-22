@@ -12,11 +12,11 @@
 #define FRAMEWORK_INPUTRECORDWALKER_H
 
 /// @file   InputRecordWalker.h
-/// @author Matthias Richter
 /// @since  2020-03-25
 /// @brief  A helper class to iteratate over all parts of all input routes
 
 #include "Framework/InputRecord.h"
+#include "Framework/DataRefUtils.h"
 
 namespace o2::framework
 {
@@ -49,6 +49,7 @@ namespace o2::framework
 ///   for (auto const& ref : InputRecordWalker(inputs, filter)) {
 ///     // do something with the data
 ///   }
+template <DataHeaderLike... EXTRA_HEADERS>
 class InputRecordWalker
 {
  public:
@@ -131,7 +132,7 @@ class InputRecordWalker
           if (mFilterSpecs.size() > 0) {
             bool isSelected = false;
             for (auto const& spec : mFilterSpecs) {
-              if ((isSelected = DataRefUtils::match(*mCurrent, spec)) == true) {
+              if ((isSelected = DataRefUtils::match<EXTRA_HEADERS...>(*mCurrent, spec)) == true) {
                 break;
               }
             }

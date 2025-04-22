@@ -21,7 +21,6 @@
 #ifndef ALICEO2_ITS3_LOOKUP_H
 #define ALICEO2_ITS3_LOOKUP_H
 
-#include "DataFormatsITSMFT/ClusterTopology.h"
 #include "ITS3Reconstruction/TopologyDictionary.h"
 
 namespace o2::its3
@@ -32,20 +31,21 @@ class LookUp
   LookUp() = default;
   LookUp(std::string fileName);
   static int groupFinder(int nRow, int nCol);
-  int findGroupID(int nRow, int nCol, const unsigned char patt[itsmft::ClusterPattern::MaxPatternBytes]) const;
-  int getTopologiesOverThreshold() const { return mTopologiesOverThreshold; }
+  int findGroupID(int nRow, int nCol, bool IB, const unsigned char patt[itsmft::ClusterPattern::MaxPatternBytes]) const;
+  int getTopologiesOverThreshold(bool IB) const { return (IB) ? mTopologiesOverThresholdIB : mTopologiesOverThresholdOB; }
   void loadDictionary(std::string fileName);
   void setDictionary(const TopologyDictionary* dict);
-  bool isGroup(int id) const { return mDictionary.isGroup(id); }
-  int size() const { return mDictionary.getSize(); }
-  auto getPattern(int id) const { return mDictionary.getPattern(id); }
-  auto getDictionaty() const { return mDictionary; }
+  auto getDictionary() const { return mDictionary; }
+  bool isGroup(int id, bool IB) const { return mDictionary.isGroup(id, IB); }
+  int size(bool IB) const { return mDictionary.getSize(IB); }
+  auto getPattern(int id, bool IB) const { return mDictionary.getPattern(id, IB); }
 
  private:
-  TopologyDictionary mDictionary{};
-  int mTopologiesOverThreshold{0};
+  TopologyDictionary mDictionary;
+  int mTopologiesOverThresholdIB{0};
+  int mTopologiesOverThresholdOB{0};
 
-  ClassDefNV(LookUp, 2);
+  ClassDefNV(LookUp, 3);
 };
 } // namespace o2::its3
 

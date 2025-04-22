@@ -26,6 +26,7 @@ namespace o2::its3::reco_workflow
 framework::WorkflowSpec getWorkflow(bool useMC,
                                     const std::string& trmode,
                                     o2::gpu::GPUDataTypes::DeviceType dtype,
+                                    bool useGPUWorkflow,
                                     bool upstreamDigits,
                                     bool upstreamClusters,
                                     bool disableRootOutput,

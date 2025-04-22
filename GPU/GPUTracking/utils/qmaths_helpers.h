@@ -15,24 +15,33 @@
 #ifndef QMATH_HELPERS_H
 #define QMATH_HELPERS_H
 
-#if defined __has_include
-#if __has_include(<xmmintrin.h>) && __has_include(<pmmintrin.h>)
-#include <xmmintrin.h>
-#include <pmmintrin.h>
-#if defined(_MM_FLUSH_ZERO_OFF) && defined(_MM_DENORMALS_ZERO_ON)
+#if !(defined(__ARM_NEON) || defined(__aarch64__)) && __has_include(<xmmintrin.h>) // clang-format off
+  #include <xmmintrin.h>
+  #if __has_include(<pmmintrin.h>)
+    #include <pmmintrin.h>
+  #endif
+#elif __has_include(<cfenv>)
+  #include <cfenv>
+#endif
+
 static void disable_denormals()
 {
-  _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
-  _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+#if !(defined(__ARM_NEON) || defined(__aarch64__)) && __has_include(<xmmintrin.h>) // clang-format off
+  #if defined(_MM_FLUSH_ZERO_OFF) && defined(_MM_DENORMALS_ZERO_ON)
+    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+  #else
+    #ifndef _MM_FLUSH_ZERO_ON
+      #define _MM_FLUSH_ZERO_ON 0x8000
+    #endif
+    #ifndef _MM_DENORMALS_ZERO_ON
+      #define _MM_DENORMALS_ZERO_ON 0x0040
+    #endif
+    _mm_setcsr(_mm_getcsr() | (_MM_FLUSH_ZERO_ON | _MM_DENORMALS_ZERO_ON));
+  #endif
+#elif __has_include(<cfenv>) && defined(FE_DFL_DISABLE_SSE_DENORMS_ENV)
+  fesetenv(FE_DFL_DISABLE_SSE_DENORMS_ENV);
+#endif // clang-format on
 }
-#define XMM_HAS_DENORMAL_DEACTIVATE
-#endif
-#endif
-#endif
-#ifdef XMM_HAS_DENORMAL_DEACTIVATE
-#undef XMM_HAS_DENORMAL_DEACTIVATE
-#else
-static void disable_denormals() {}
-#endif
 
 #endif

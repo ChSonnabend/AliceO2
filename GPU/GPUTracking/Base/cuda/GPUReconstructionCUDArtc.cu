@@ -16,7 +16,7 @@
 #define GPUCA_GPUCODE_COMPILEKERNELS
 #define GPUCA_RTC_SPECIAL_CODE(...) GPUCA_RTC_SPECIAL_CODE(__VA_ARGS__)
 #define GPUCA_DETERMINISTIC_CODE(...) GPUCA_DETERMINISTIC_CODE(__VA_ARGS__)
-// GPUReconstructionCUDAIncludesHost.h auto-prependended without preprocessor running
+// GPUReconstructionCUDAIncludesSystem.h prependended without preprocessor running
 #include "GPUReconstructionCUDADef.h"
 #include "GPUReconstructionIncludesDeviceAll.h"
 

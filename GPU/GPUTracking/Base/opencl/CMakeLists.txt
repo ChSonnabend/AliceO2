@@ -23,9 +23,9 @@ endif()
 set(CL_SRC ${GPUDIR}/Base/opencl/GPUReconstructionOCL.cl)
 set(CL_BIN ${CMAKE_CURRENT_BINARY_DIR}/GPUReconstructionOCLCode)
 
-set(OCL_FLAGS -Dcl_clang_storage_class_specifiers -cl-std=CLC++2021)
+set(OCL_FLAGS -Dcl_clang_storage_class_specifiers -cl-std=CLC++2021 ${GPUCA_OCL_DENORMALS_FLAGS})
 if(NOT GPUCA_DETERMINISTIC_MODE GREATER_EQUAL ${GPUCA_DETERMINISTIC_MODE_MAP_NO_FAST_MATH})
-  set(OCL_FLAGS ${OCL_FLAGS} -cl-denorms-are-zero -cl-mad-enable -cl-no-signed-zeros -cl-fast-relaxed-math)
+  set(OCL_FLAGS ${OCL_FLAGS} -cl-mad-enable -cl-no-signed-zeros -cl-fast-relaxed-math)
 else()
   set(OCL_FLAGS ${OCL_FLAGS} ${GPUCA_OCL_NO_FAST_MATH_FLAGS})
 endif()
@@ -76,7 +76,7 @@ if(OPENCL_ENABLED) # BUILD OpenCL source code for runtime compilation target
               ${OCL_DEFINECL}
               -cl-no-stdinc
               -nostdinc
-              -E ${CL_SRC} > ${CL_BIN}.src
+              -E -P ${CL_SRC} > ${CL_BIN}.src
       MAIN_DEPENDENCY ${CL_SRC}
       IMPLICIT_DEPENDS CXX ${CL_SRC}
       COMMAND_EXPAND_LISTS

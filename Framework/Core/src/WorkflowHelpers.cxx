@@ -385,6 +385,15 @@ void WorkflowHelpers::injectServiceDevices(WorkflowSpec& workflow, ConfigContext
   auto outputSpecLessThan = [](OutputSpec const& lhs, OutputSpec const& rhs) { return DataSpecUtils::describe(lhs) < DataSpecUtils::describe(rhs); };
   std::sort(ac.requestedDYNs.begin(), ac.requestedDYNs.end(), inputSpecLessThan);
   std::sort(ac.providedDYNs.begin(), ac.providedDYNs.end(), outputSpecLessThan);
+
+  DataProcessorSpec indexBuilder{
+    "internal-dpl-aod-index-builder",
+    {},
+    {},
+    readers::AODReaderHelpers::indexBuilderCallback(ac.requestedIDXs),
+    {}};
+  AnalysisSupportHelpers::addMissingOutputsToBuilder(ac.requestedIDXs, ac.requestedAODs, ac.requestedDYNs, indexBuilder);
+
   for (auto& input : ac.requestedDYNs) {
     if (std::none_of(ac.providedDYNs.begin(), ac.providedDYNs.end(), [&input](auto const& x) { return DataSpecUtils::match(input, x); })) {
       ac.spawnerInputs.emplace_back(input);
@@ -397,15 +406,6 @@ void WorkflowHelpers::injectServiceDevices(WorkflowSpec& workflow, ConfigContext
     {},
     readers::AODReaderHelpers::aodSpawnerCallback(ac.spawnerInputs),
     {}};
-
-  DataProcessorSpec indexBuilder{
-    "internal-dpl-aod-index-builder",
-    {},
-    {},
-    readers::AODReaderHelpers::indexBuilderCallback(ac.requestedIDXs),
-    {}};
-
-  AnalysisSupportHelpers::addMissingOutputsToBuilder(ac.requestedIDXs, ac.requestedAODs, ac.requestedDYNs, indexBuilder);
   AnalysisSupportHelpers::addMissingOutputsToSpawner({}, ac.spawnerInputs, ac.requestedAODs, aodSpawner);
 
   AnalysisSupportHelpers::addMissingOutputsToReader(ac.providedAODs, ac.requestedAODs, aodReader);

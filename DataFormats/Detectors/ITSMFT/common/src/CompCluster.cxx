@@ -15,20 +15,30 @@
 #include "DataFormatsITSMFT/CompCluster.h"
 #include <cassert>
 #include <iostream>
+#include <format>
 
 using namespace o2::itsmft;
 
 std::ostream& operator<<(std::ostream& stream, const CompCluster& cl)
 {
-  stream << " row: " << cl.getRow() << " col: " << cl.getCol()
-         << " pattID " << cl.getPatternID() << " [flag: " << cl.getFlag() << "] ";
+  stream << cl.asString();
   return stream;
 }
 
 std::ostream& operator<<(std::ostream& stream, const CompClusterExt& cl)
 {
-  stream << " chip: " << cl.getChipID() << ((const CompCluster&)cl);
+  stream << cl.asString();
   return stream;
+}
+
+std::string CompCluster::asString() const
+{
+  return std::format(" row: {:4d} col: {:4d} pattID: {:4d} [flag: {:1d}]", getRow(), getCol(), getPatternID(), getFlag());
+}
+
+std::string CompClusterExt::asString() const
+{
+  return std::format(" chip: {:5d} row: {:4d} col: {:4d} pattID: {:4d} [flag: {:1d}]", getChipID(), getRow(), getCol(), getPatternID(), getFlag());
 }
 
 //______________________________________________________________________________

@@ -121,6 +121,8 @@ class CalibdEdx
   }
   void fill(const TFIDInfo& tfid, const std::vector<TrackTPC>& tracks) { fill(tfid, gsl::span(tracks)); }
 
+  const TFIDInfo& getTFID() const { return mTFID; }
+
   /// Add counts from another container.
   void merge(const CalibdEdx* other);
 
@@ -174,10 +176,10 @@ class CalibdEdx
   constexpr static float recoverTgl(float scaledTgl, GEMstack rocType) { return scaledTgl * conf_dedx_corr::TglScale[rocType]; }
 
   /// dump this object to a file - the boost histogram is converted to a ROOT histogram -
-  void dumpToFile(const char* outFile, const char* outName) const;
+  void dumpToFile(const char* outFile);
 
   /// read the object from a file
-  static CalibdEdx readFromFile(const char* inFile, const char* inName);
+  static CalibdEdx readFromFile(const char* inFile);
 
   /// set lower and upper range in units of sigma which are used for the gaussian fits
   /// \param lowerSigma low sigma range

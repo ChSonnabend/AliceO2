@@ -13,6 +13,7 @@
 /// \author David Rohr
 
 #include "GPUReconstructionOCLIncludesHost.h"
+#include "GPUDefParametersLoad.inc"
 
 #include <map>
 
@@ -36,6 +37,7 @@ GPUReconstructionOCLBackend::GPUReconstructionOCLBackend(const GPUSettingsDevice
 {
   if (mMaster == nullptr) {
     mInternals = new GPUReconstructionOCLInternals;
+    *mParDevice = o2::gpu::internal::GPUDefParametersLoad();
   }
   mDeviceBackendSettings.deviceType = DeviceType::OCL;
 }
@@ -56,11 +58,6 @@ int32_t GPUReconstructionOCLBackend::GPUChkErrInternal(const int64_t error, cons
     GPUError("OpenCL Error: %ld / %s (%s:%d)", error, convertErrorToString(error), file, line);
   }
   return error != CL_SUCCESS;
-}
-
-void GPUReconstructionOCLBackend::UpdateAutomaticProcessingSettings()
-{
-  GPUCA_GPUReconstructionUpdateDefaults();
 }
 
 int32_t GPUReconstructionOCLBackend::InitDevice_Runtime()

@@ -16,7 +16,7 @@
 #include "GPUReconstructionIncludes.h"
 #include "GPUReconstructionThreading.h"
 #include "GPUChain.h"
-
+#include "GPUDefParametersRuntime.h"
 #include "GPUTPCClusterData.h"
 #include "GPUTPCSectorOutCluster.h"
 #include "GPUTPCGMMergedTrack.h"
@@ -68,7 +68,7 @@ inline void GPUReconstructionCPUBackend::runKernelBackendInternal(const krnlSetu
   int32_t nThreads = getNKernelHostThreads(false);
   if (nThreads > 1) {
     if (mProcessingSettings.debugLevel >= 5) {
-      printf("Running %d Threads\n", nThreads);
+      printf("Running %d Threads\n", mThreading->activeThreads->max_concurrency());
     }
     tbb::this_task_arena::isolate([&] {
       mThreading->activeThreads->execute([&] {
@@ -91,10 +91,10 @@ inline void GPUReconstructionCPUBackend::runKernelBackendInternal(const krnlSetu
 template <>
 inline void GPUReconstructionCPUBackend::runKernelBackendInternal<GPUMemClean16, 0>(const krnlSetupTime& _xyz, void* const& ptr, uint64_t const& size)
 {
-  int32_t nnThreads = std::max<int32_t>(1, std::min<int32_t>(size / (16 * 1024 * 1024), getNKernelHostThreads(true)));
-  if (nnThreads > 1) {
-    tbb::parallel_for(0, nnThreads, [&](int iThread) {
-      size_t threadSize = size / nnThreads;
+  int32_t nThreads = std::max<int32_t>(1, std::min<int32_t>(size / (16 * 1024 * 1024), getNKernelHostThreads(true)));
+  if (nThreads > 1) {
+    tbb::parallel_for(0, nThreads, [&](int iThread) {
+      size_t threadSize = size / nThreads;
       if (threadSize % 4096) {
         threadSize += 4096 - threadSize % 4096;
       }
@@ -120,15 +120,27 @@ void GPUReconstructionCPUBackend::runKernelBackend(const krnlSetupArgs<T, I, Arg
 #pragma GCC diagnostic push
 }
 
-template <class T, int32_t I>
-krnlProperties GPUReconstructionCPUBackend::getKernelPropertiesBackend()
+template <class S, int32_t I>
+gpu_reconstruction_kernels::krnlProperties GPUReconstructionCPU::getKernelProperties(int gpu)
 {
-  return krnlProperties{1, 1};
+  if (gpu == -1) {
+    gpu = IsGPU();
+  }
+  const auto num = GetKernelNum<S, I>();
+  const auto* p = gpu ? mParDevice : mParCPU;
+  gpu_reconstruction_kernels::krnlProperties ret = {p->par_LB_maxThreads[num], p->par_LB_minBlocks[num], p->par_LB_forceBlocks[num]};
+  if (ret.nThreads == 0) {
+    ret.nThreads = gpu ? mThreadCount : 1u;
+  }
+  if (ret.minBlocks == 0) {
+    ret.minBlocks = 1;
+  }
+  return ret;
 }
 
-#define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward, x_types)                                                                                                       \
+#define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward, x_types, ...)                                                                                                  \
   template void GPUReconstructionCPUBackend::runKernelBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>(const krnlSetupArgs<GPUCA_M_KRNL_TEMPLATE(x_class) GPUCA_M_STRIP(x_types)>& args); \
-  template krnlProperties GPUReconstructionCPUBackend::getKernelPropertiesBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>();
+  template krnlProperties GPUReconstructionCPU::getKernelProperties<GPUCA_M_KRNL_TEMPLATE(x_class)>(int gpu);
 #include "GPUReconstructionKernelList.h"
 #undef GPUCA_KRNL
 
@@ -190,7 +202,7 @@ int32_t GPUReconstructionCPU::InitDevice()
       if (mDeviceMemorySize > mHostMemorySize) {
         mHostMemorySize = mDeviceMemorySize;
       }
-      mHostMemoryBase = operator new(mHostMemorySize GPUCA_OPERATOR_NEW_ALIGNMENT);
+      mHostMemoryBase = operator new(mHostMemorySize, std::align_val_t(GPUCA_BUFFER_ALIGNMENT));
     }
     mHostMemoryPermanent = mHostMemoryBase;
     ClearAllocatedMemory();
@@ -206,7 +218,7 @@ int32_t GPUReconstructionCPU::ExitDevice()
 {
   if (mProcessingSettings.memoryAllocationStrategy == GPUMemoryResource::ALLOCATION_GLOBAL) {
     if (mMaster == nullptr) {
-      operator delete(mHostMemoryBase GPUCA_OPERATOR_NEW_ALIGNMENT);
+      operator delete(mHostMemoryBase, std::align_val_t(GPUCA_BUFFER_ALIGNMENT));
     }
     mHostMemoryPool = mHostMemoryBase = mHostMemoryPoolEnd = mHostMemoryPermanent = nullptr;
     mHostMemorySize = 0;

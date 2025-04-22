@@ -470,7 +470,7 @@ void MatchITSTPCQC::initDataRequest()
   if (mDoK0QC) {
     mDataRequest->requestPrimaryVertices(mUseMC);
     mDataRequest->requestSecondaryVertices(mUseMC);
-    mDataRequest->requestTPCClusters(false);
+    mDataRequest->requestTPCOccMap();
   }
 }
 
@@ -478,7 +478,6 @@ void MatchITSTPCQC::initDataRequest()
 
 void MatchITSTPCQC::run(o2::framework::ProcessingContext& ctx)
 {
-
   // Getting the B field
   mBz = o2::base::Propagator::Instance()->getNominalBz();
 
@@ -1058,7 +1057,6 @@ void MatchITSTPCQC::run(o2::framework::ProcessingContext& ctx)
     } else {
       mTBinClOcc.resize(1);
     }
-
     auto v0IDs = mRecoCont.getV0sIdx();
     auto nv0 = v0IDs.size();
     if (nv0 > mRecoCont.getV0s().size()) {

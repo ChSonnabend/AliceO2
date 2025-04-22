@@ -15,8 +15,10 @@
 #include <regex>
 #include <TSystem.h>
 #include "DataFormatsParameters/GRPECSObject.h"
+#include "DataFormatsCTP/Configuration.h"
 #include "DetectorsCommonDataFormats/DetID.h"
 #include "CCDB/CcdbApi.h"
+#include "CCDB/BasicCCDBManager.h"
 #include "CommonUtils/NameConf.h"
 #include "CommonUtils/StringUtils.h"
 
@@ -31,6 +33,7 @@ enum CCDBRefreshMode { NONE,
 
 int createGRPECSObject(const std::string& dataPeriod,
                        int run,
+                       int runOrig, // in case of replay
                        int runTypeI,
                        int nHBPerTF,
                        const std::string& _detsReadout,
@@ -44,13 +47,14 @@ int createGRPECSObject(const std::string& dataPeriod,
                        long marginAtSOR,
                        long marginAtEOR,
                        const std::string& ccdbServer = "",
+                       std::string ccdbServerInp = "",
                        const std::string& metaDataStr = "",
                        CCDBRefreshMode refresh = CCDBRefreshMode::NONE)
 {
   int retValGLO = 0;
   int retValRCT = 0;
   int retValGLOmd = 0;
-
+  int retValCTP = 0;
   // substitute TRG by CTP
   std::regex regCTP(R"((^\s*|,\s*)(TRG)(\s*,|\s*$))");
   std::string detsReadout{std::regex_replace(_detsReadout, regCTP, "$1CTP$3")};
@@ -78,6 +82,8 @@ int createGRPECSObject(const std::string& dataPeriod,
     tendVal = tend + marginAtEOR;
   }
   GRPECSObject grpecs;
+  o2::ctp::CTPConfiguration* ctpConfig = nullptr;
+  o2::ctp::CTPConfiguration ctpConfigNew;
   grpecs.setTimeStart(tstart);
   grpecs.setTimeEnd(tend);
   grpecs.setTimeStartCTP(tstartCTP);
@@ -119,10 +125,32 @@ int createGRPECSObject(const std::string& dataPeriod,
     }
   };
 
+  if (ccdbServerInp.empty()) {
+    ccdbServerInp = ccdbServer;
+  }
+  if (runOrig > 0 && runOrig != run && tend <= tstart && !ccdbServerInp.empty()) { // create CTP config
+    try {
+      auto& bcm = o2::ccdb::BasicCCDBManager::instance();
+      bcm.setURL(ccdbServerInp);
+      bcm.setFatalWhenNull(false);
+      ctpConfig = bcm.getForRun<o2::ctp::CTPConfiguration>("CTP/Config/Config", runOrig);
+      if (!ctpConfig) {
+        throw std::runtime_error(fmt::format("Failed to access CTP/Config/Config for original run {}", runOrig));
+      }
+      std::string cfstr = ctpConfig->getConfigString(), srun{fmt::format("run {}", run)}, srunOrig{fmt::format("run {}", runOrig)};
+      o2::utils::Str::replaceAll(cfstr, srunOrig, srun);
+      ctpConfigNew.loadConfigurationRun3(cfstr);
+      ctpConfigNew.setRunNumber(run);
+    } catch (std::exception e) {
+      LOGP(error, "Failed to create CTP/Config/Config from the original run {}, reason: {}", runOrig, e.what());
+    }
+  }
+
   toKeyValPairs(metaDataStr);
 
   if (!ccdbServer.empty()) {
     CcdbApi api;
+
     const std::string objPath{"GLO/Config/GRPECS"};
     api.init(ccdbServer);
     metadata["responsible"] = "ECS";
@@ -181,13 +209,33 @@ int createGRPECSObject(const std::string& dataPeriod,
         }
       }
     }
+
+    if (ctpConfig && ctpConfigNew.getRunNumber() == run) { // create CTP config
+      std::map<std::string, std::string> metadataCTP;
+      metadataCTP["runNumber"] = fmt::format("{}", run);
+      metadataCTP["comment"] = fmt::format("cloned from run {}", runOrig);
+      retValCTP = api.storeAsTFileAny(&ctpConfigNew, "CTP/Config/Config", metadataCTP, tstart, tendVal);
+      if (retValCTP == 0) {
+        LOGP(info, "Uploaded to {}/{} with validity {}:{} for SOR:{}/EOR:{}, cloned from run {}", ccdbServer, "CTP/Config/Config", tstart, tendVal, tstart, tend, runOrig);
+      } else {
+        LOGP(alarm, "Upload to {}/{} with validity {}:{} for SOR:{}/EOR:{} (cloned from run {}) FAILED, returned with code {}", ccdbServer, "CTP/Config/Config", tstart, tendVal, tstart, tend, runOrig, retValCTP);
+      }
+    }
   } else { // write a local file
     auto fname = o2::base::NameConf::getGRPECSFileName();
     TFile grpF(fname.c_str(), "recreate");
     grpF.WriteObjectAny(&grpecs, grpecs.Class(), o2::base::NameConf::CCDBOBJECT.data());
-    LOG(info) << "Stored to local file " << fname;
+    grpF.Close();
+    LOGP(info, "Stored GRPECS to local file {}", fname);
+    if (ctpConfig && ctpConfigNew.getRunNumber() == run) {
+      std::string ctnpfname = fmt::format("CTPConfig_{}_from_{}.root", run, runOrig);
+      TFile ctpF(ctnpfname.c_str(), "recreate");
+      ctpF.WriteObjectAny(&ctpConfigNew, ctpConfigNew.Class(), o2::base::NameConf::CCDBOBJECT.data());
+      ctpF.Close();
+      LOGP(info, "Stored CTPConfig to local file {}", ctnpfname);
+    }
   }
-  //
+
   if (refresh != CCDBRefreshMode::NONE && !ccdbServer.empty()) {
     auto cmd = fmt::format("curl -I -i -s \"{}{}latest/%5Cw%7B3%7D/.*/`date +%s000`/?prepare={}\"", ccdbServer, ccdbServer.back() == '/' ? "" : "/", refresh == CCDBRefreshMode::SYNC ? "sync" : "true");
     auto t0 = std::chrono::high_resolution_clock::now();
@@ -195,7 +243,7 @@ int createGRPECSObject(const std::string& dataPeriod,
     auto t1 = std::chrono::high_resolution_clock::now();
     LOGP(info, "Executed [{}] -> {} in {:.3f} s", cmd, res, std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count() / 1000.f);
   }
-  if (retValGLO != 0 || retValRCT != 0 || retValGLOmd != 0) {
+  if (retValGLO != 0 || retValRCT != 0 || retValGLOmd != 0 || retValCTP != 0) {
     return 4;
   }
   return 0;
@@ -229,10 +277,12 @@ int main(int argc, char** argv)
     add_option("start-time-ctp", bpo::value<long>()->default_value(0), "run start CTP time in ms, same as ECS if not set or 0");
     add_option("end-time-ctp", bpo::value<long>()->default_value(0), "run end CTP time in ms, same as ECS if not set or 0");
     add_option("ccdb-server", bpo::value<std::string>()->default_value("http://alice-ccdb.cern.ch"), "CCDB server for upload, local file if empty");
+    add_option("ccdb-server-input", bpo::value<std::string>()->default_value(""), "CCDB server for inputs (if needed, e.g. CTPConfig), dy default ccdb-server is used");
     add_option("meta-data,m", bpo::value<std::string>()->default_value("")->implicit_value(""), "metadata as key1=value1;key2=value2;..");
     add_option("refresh", bpo::value<string>()->default_value("")->implicit_value("async"), R"(refresh server cache after upload: "none" (or ""), "async" (non-blocking) and "sync" (blocking))");
     add_option("marginSOR", bpo::value<long>()->default_value(4 * o2::ccdb::CcdbObjectInfo::DAY), "validity at SOR");
     add_option("marginEOR", bpo::value<long>()->default_value(10 * o2::ccdb::CcdbObjectInfo::MINUTE), "validity margin to add after EOR");
+    add_option("original-run,o", bpo::value<int>()->default_value(0), "if >0, use as the source run to create CTP/Config/Config object");
     opt_all.add(opt_general).add(opt_hidden);
     bpo::store(bpo::command_line_parser(argc, argv).options(opt_all).positional(opt_pos).run(), vm);
 
@@ -253,13 +303,13 @@ int main(int argc, char** argv)
   }
   if (vm.count("run") == 0) {
     std::cerr << "ERROR: "
-              << "obligator run number is missing" << std::endl;
+              << "obligatory run number is missing" << std::endl;
     std::cerr << opt_general << std::endl;
     exit(3);
   }
   if (vm.count("period") == 0) {
     std::cerr << "ERROR: "
-              << "obligator data taking period name is missing" << std::endl;
+              << "obligatory data taking period name is missing" << std::endl;
     std::cerr << opt_general << std::endl;
     exit(3);
   }
@@ -278,6 +328,7 @@ int main(int argc, char** argv)
   int retVal = createGRPECSObject(
     vm["period"].as<std::string>(),
     vm["run"].as<int>(),
+    vm["original-run"].as<int>(),
     vm["run-type"].as<int>(),
     vm["hbf-per-tf"].as<int>(),
     vm["detectors"].as<std::string>(),
@@ -291,6 +342,7 @@ int main(int argc, char** argv)
     vm["marginSOR"].as<long>(),
     vm["marginEOR"].as<long>(),
     vm["ccdb-server"].as<std::string>(),
+    vm["ccdb-server-input"].as<std::string>(),
     vm["meta-data"].as<std::string>(),
     refresh);
 

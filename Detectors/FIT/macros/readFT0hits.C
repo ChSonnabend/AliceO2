@@ -1,12 +1,28 @@
+// Copyright 2019-2025 CERN and copyright holders of ALICE O2.
+// See https://alice-o2.web.cern.ch/copyright for details of the copyright holders.
+// All rights not expressly granted are reserved.
+//
+// This software is distributed under the terms of the GNU General Public
+// License v3 (GPL Version 3), copied verbatim in the file "COPYING".
+//
+// In applying this license CERN does not waive the privileges and immunities
+// granted to it by virtue of its status as an Intergovernmental Organization
+// or submit itself to any jurisdiction.
+
 #if !defined(__CLING__) || defined(__ROOTCLING__)
+
+#include "DataFormatsFIT/Triggers.h"
 #include "DataFormatsFT0/Digit.h"
 #include "DataFormatsFT0/HitType.h"
 #include "SimulationDataFormat/MCEventHeader.h"
 #include <TFile.h>
+#include <TH1F.h>
 #include <TH2F.h>
 #include <TTree.h>
 #include "DetectorsCommonDataFormats/DetID.h"
 #include "DetectorsCommonDataFormats/DetectorNameConf.h"
+
+#endif
 
 void readFT0hits()
 {
@@ -24,6 +40,8 @@ void readFT0hits()
   TH2F* hPel = new TH2F("hPelDig", "N p.e. ", 220, 0, 220, 500, 0, 10000);
   TH2F* hXYA = new TH2F("hXYA", "X vs Y A side", 400, -20, 20, 400, -20, 20);
   TH2F* hXYC = new TH2F("hXYC", "X vs Y C side", 400, -20, 20, 400, -20, 20);
+  TH1F* hZA = new TH1F("hZA", "Z A side", 200, 330, 340);
+  TH1F* hZC = new TH1F("hZC", "Z C side", 200, -90, -80);
 
   gDirectory = cwd;
 
@@ -59,10 +77,13 @@ void readFT0hits()
       hTimeHitA->Fill(detID, hit_time[detID] - 11.04);
       hTimeHitC->Fill(detID, hit_time[detID] - 2.91);
       countE[detID]++;
-      if (detID < 96)
+      if (detID < 96) {
         hXYA->Fill(hit.GetX(), hit.GetY());
-      if (detID > 95)
+        hZA->Fill(hit.GetZ());
+      } else {
         hXYC->Fill(hit.GetX(), hit.GetY());
+        hZC->Fill(hit.GetZ());
+      }
     }
     for (int ii = 0; ii < 220; ii++) {
       if (countE[ii] > 100) {
@@ -82,6 +103,6 @@ void readFT0hits()
   hMultHit->Write();
   hXYA->Write();
   hXYC->Write();
-
+  hZA->Write();
+  hZC->Write();
 } // end of macro
-#endif

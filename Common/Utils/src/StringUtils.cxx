@@ -34,6 +34,19 @@ std::vector<std::string> Str::tokenize(const std::string& src, char delim, bool 
   return tokens;
 }
 
+// replace all occurencies of from by to, return count
+int Str::replaceAll(std::string& s, const std::string& from, const std::string& to)
+{
+  int count = 0;
+  size_t pos = 0;
+  while ((pos = s.find(from, pos)) != std::string::npos) {
+    s.replace(pos, from.length(), to);
+    pos += to.length(); // Handles case where 'to' is a substring of 'from'
+    count++;
+  }
+  return count;
+}
+
 // generate random string of given lenght, suitable for file names
 std::string Str::getRandomString(int lenght)
 {

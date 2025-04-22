@@ -134,13 +134,29 @@ TLorentzVector generate(Vec3D& vtx, std::vector<o2::track::TrackParCov>& vctr, f
       float rad = forceQ[i] == 0 ? 600. : TMath::Abs(1. / trc.getCurvature(bz));
       if (!trc.propagateTo(trc.getX() + (gRandom->Rndm() - 0.5) * rad * 0.05, bz) ||
           !trc.rotate(trc.getAlpha() + (gRandom->Rndm() - 0.5) * 0.2)) {
-        printf("Failed to randomize ");
+        LOGP(error, "Failed to randomize ");
         trc.print();
       }
     }
   } while (!accept);
 
   return parent;
+}
+
+static constexpr int NFitStatus{14};
+using FitStatusArray = std::array<std::array<int, 3>, NFitStatus>;
+static constexpr const char* FitStatusNames[NFitStatus] = {
+  "None", "Converged", "MaxIter", "NoCrossing", "RejRadius", "RejTrackX", "RejTrackRoughZ", "RejChi2Max",
+  "FailProp", "FailInvConv", "FailInvWeight", "FailInv2ndDeriv", "FailCorrTracks", "FailCloserAlt"};
+inline void printStat(const FitStatusArray& a)
+{
+  LOGP(info, "FitStatus summary      : ....A / ..AWD / ...WD (A=abs.dist;AWD=abs.wghPCA.dist;WD=wgh.dist)");
+  for (int i{0}; i < NFitStatus; ++i) {
+    LOGP(info, "{:2d}={:20s}: {:5d} / {:5d} / {:5d}", i, FitStatusNames[i], a[i][0], a[i][1], a[i][2]);
+  }
+  BOOST_CHECK(a[0][0] == 0); // ensure coverage of all possible states
+  BOOST_CHECK(a[0][1] == 0);
+  BOOST_CHECK(a[0][2] == 0);
 }
 
 BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
@@ -159,6 +175,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
   std::vector<double> k0dec = {pion, pion};
   std::vector<double> dchdec = {pion, kch, pion};
   std::vector<o2::track::TrackParCov> vctracks;
+  FitStatusArray fitstat;
   Vec3D vtxGen;
 
   double bz = 5.0;
@@ -166,6 +183,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
   {
     LOG(info) << "\n\nProcessing 2-prong Helix - Helix case";
     std::vector<int> forceQ{1, 1};
+    std::memset(fitstat.data(), 0, sizeof(fitstat));
 
     o2::vertexing::DCAFitterN<2> ft; // 2 prong fitter
     ft.setBz(bz);
@@ -196,6 +214,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
         meanDA += minD;
         nfoundA++;
       }
+      ++fitstat[ft.getFitStatus()][0];
 
       ft.setUseAbsDCA(true);
       ft.setWeightedFinalPCA(true);
@@ -208,6 +227,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
         meanDAW += minD;
         nfoundAW++;
       }
+      ++fitstat[ft.getFitStatus()][1];
 
       ft.setUseAbsDCA(false);
       ft.setWeightedFinalPCA(false);
@@ -220,6 +240,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
         meanDW += minD;
         nfoundW++;
       }
+      ++fitstat[ft.getFitStatus()][2];
     }
     // ft.print();
     meanDA /= nfoundA ? nfoundA : 1;
@@ -232,6 +253,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
               << " mean.dist to truth: " << meanDAW << " CPU time: " << swAW.CpuTime() * 1000 << " ms";
     LOG(info) << "2-prongs with wgh.dist minization: eff= " << float(nfoundW) / NTest
               << " mean.dist to truth: " << meanDW << " CPU time: " << swW.CpuTime() * 1000 << " ms";
+    printStat(fitstat);
     BOOST_CHECK(nfoundA > 0.99 * NTest);
     BOOST_CHECK(nfoundAW > 0.99 * NTest);
     BOOST_CHECK(nfoundW > 0.99 * NTest);
@@ -245,6 +267,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
   {
     LOG(info) << "\n\nProcessing 2-prong Helix - Helix case gamma conversion";
     std::vector<int> forceQ{1, 1};
+    std::memset(fitstat.data(), 0, sizeof(fitstat));
 
     o2::vertexing::DCAFitterN<2> ft; // 2 prong fitter
     ft.setBz(bz);
@@ -254,6 +277,8 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
     ft.setMaxDXYIni(4);          // do not consider V0 seeds with tracks XY-distance exceeding this. This is default anyway
     ft.setMinParamChange(1e-3);  // stop iterations if max correction is below this value. This is default anyway
     ft.setMinRelChi2Change(0.9); // stop iterations if chi2 improves by less that this factor
+    ft.setMaxChi2();
+    ft.setCollinear(true);
 
     std::string treeName2A = "gpr2a", treeName2AW = "gpr2aw", treeName2W = "gpr2w";
     TStopwatch swA, swAW, swW;
@@ -275,6 +300,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
         meanDA += minD;
         nfoundA++;
       }
+      ++fitstat[ft.getFitStatus()][0];
 
       ft.setUseAbsDCA(true);
       ft.setWeightedFinalPCA(true);
@@ -287,6 +313,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
         meanDAW += minD;
         nfoundAW++;
       }
+      ++fitstat[ft.getFitStatus()][1];
 
       ft.setUseAbsDCA(false);
       ft.setWeightedFinalPCA(false);
@@ -299,6 +326,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
         meanDW += minD;
         nfoundW++;
       }
+      ++fitstat[ft.getFitStatus()][2];
     }
     // ft.print();
     meanDA /= nfoundA ? nfoundA : 1;
@@ -311,6 +339,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
               << " mean.dist to truth: " << meanDAW << " CPU time: " << swAW.CpuTime() * 1000 << " ms";
     LOG(info) << "2-prongs with wgh.dist minization: eff= " << float(nfoundW) / NTest
               << " mean.dist to truth: " << meanDW << " CPU time: " << swW.CpuTime() * 1000 << " ms";
+    printStat(fitstat);
     BOOST_CHECK(nfoundA > 0.99 * NTest);
     BOOST_CHECK(nfoundAW > 0.99 * NTest);
     BOOST_CHECK(nfoundW > 0.99 * NTest);
@@ -324,6 +353,8 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
   {
     std::vector<int> forceQ{1, 1};
     LOG(info) << "\n\nProcessing 2-prong Helix - Line case";
+    std::memset(fitstat.data(), 0, sizeof(fitstat));
+
     o2::vertexing::DCAFitterN<2> ft; // 2 prong fitter
     ft.setBz(bz);
     ft.setPropagateToPCA(true);  // After finding the vertex, propagate tracks to the DCA. This is default anyway
@@ -354,6 +385,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
         meanDA += minD;
         nfoundA++;
       }
+      ++fitstat[ft.getFitStatus()][0];
 
       ft.setUseAbsDCA(true);
       ft.setWeightedFinalPCA(true);
@@ -366,6 +398,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
         meanDAW += minD;
         nfoundAW++;
       }
+      ++fitstat[ft.getFitStatus()][1];
 
       ft.setUseAbsDCA(false);
       ft.setWeightedFinalPCA(false);
@@ -378,6 +411,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
         meanDW += minD;
         nfoundW++;
       }
+      ++fitstat[ft.getFitStatus()][2];
     }
     // ft.print();
     meanDA /= nfoundA ? nfoundA : 1;
@@ -390,6 +424,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
               << " mean.dist to truth: " << meanDAW << " CPU time: " << swAW.CpuTime() * 1000 << " ms";
     LOG(info) << "2-prongs with wgh.dist minization: eff= " << float(nfoundW) / NTest
               << " mean.dist to truth: " << meanDW << " CPU time: " << swW.CpuTime() * 1000 << " ms";
+    printStat(fitstat);
     BOOST_CHECK(nfoundA > 0.99 * NTest);
     BOOST_CHECK(nfoundAW > 0.99 * NTest);
     BOOST_CHECK(nfoundW > 0.99 * NTest);
@@ -403,6 +438,8 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
   {
     std::vector<int> forceQ{0, 0};
     LOG(info) << "\n\nProcessing 2-prong Line - Line case";
+    std::memset(fitstat.data(), 0, sizeof(fitstat));
+
     o2::vertexing::DCAFitterN<2> ft; // 2 prong fitter
     ft.setBz(bz);
     ft.setPropagateToPCA(true);  // After finding the vertex, propagate tracks to the DCA. This is default anyway
@@ -432,6 +469,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
         meanDA += minD;
         nfoundA++;
       }
+      ++fitstat[ft.getFitStatus()][0];
 
       ft.setUseAbsDCA(true);
       ft.setWeightedFinalPCA(true);
@@ -444,6 +482,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
         meanDAW += minD;
         nfoundAW++;
       }
+      ++fitstat[ft.getFitStatus()][1];
 
       ft.setUseAbsDCA(false);
       ft.setWeightedFinalPCA(false);
@@ -456,6 +495,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
         meanDW += minD;
         nfoundW++;
       }
+      ++fitstat[ft.getFitStatus()][2];
     }
     // ft.print();
     meanDA /= nfoundA ? nfoundA : 1;
@@ -468,6 +508,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
               << " mean.dist to truth: " << meanDAW << " CPU time: " << swAW.CpuTime() * 1000 << " ms";
     LOG(info) << "2-prongs with wgh.dist minization: eff= " << float(nfoundW) / NTest
               << " mean.dist to truth: " << meanDW << " CPU time: " << swW.CpuTime() * 1000 << " ms";
+    printStat(fitstat);
     BOOST_CHECK(nfoundA > 0.99 * NTest);
     BOOST_CHECK(nfoundAW > 0.99 * NTest);
     BOOST_CHECK(nfoundW > 0.99 * NTest);
@@ -481,6 +522,8 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
   {
     LOG(info) << "\n\nProcessing 3-prong vertices";
     std::vector<int> forceQ{1, 1, 1};
+    std::memset(fitstat.data(), 0, sizeof(fitstat));
+
     o2::vertexing::DCAFitterN<3> ft; // 3 prong fitter
     ft.setBz(bz);
     ft.setPropagateToPCA(true);  // After finding the vertex, propagate tracks to the DCA. This is default anyway
@@ -509,6 +552,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
         meanDA += minD;
         nfoundA++;
       }
+      ++fitstat[ft.getFitStatus()][0];
 
       ft.setUseAbsDCA(true);
       ft.setWeightedFinalPCA(true);
@@ -521,6 +565,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
         meanDAW += minD;
         nfoundAW++;
       }
+      ++fitstat[ft.getFitStatus()][1];
 
       ft.setUseAbsDCA(false);
       ft.setWeightedFinalPCA(false);
@@ -533,6 +578,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
         meanDW += minD;
         nfoundW++;
       }
+      ++fitstat[ft.getFitStatus()][2];
     }
     // ft.print();
     meanDA /= nfoundA ? nfoundA : 1;
@@ -545,6 +591,7 @@ BOOST_AUTO_TEST_CASE(DCAFitterNProngs)
               << " mean.dist to truth: " << meanDAW << " CPU time: " << swAW.CpuTime() * 1000 << " ms";
     LOG(info) << "3-prongs with wgh.dist minization: eff= " << float(nfoundW) / NTest
               << " mean.dist to truth: " << meanDW << " CPU time: " << swW.CpuTime() * 1000 << " ms";
+    printStat(fitstat);
     BOOST_CHECK(nfoundA > 0.99 * NTest);
     BOOST_CHECK(nfoundAW > 0.99 * NTest);
     BOOST_CHECK(nfoundW > 0.99 * NTest);

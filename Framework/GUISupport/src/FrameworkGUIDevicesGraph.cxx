@@ -713,7 +713,8 @@ void showTopologyNodeGraph(WorkspaceGUIState& state,
       default:
         break;
     }
-    gui::displayDataRelayer(metricsInfos[node->ID], infos[node->ID], specs[node->ID], allStates[node->ID], ImVec2(140., 90.));
+
+    gui::displayDataRelayer(metricsInfos[node->ID], infos[node->ID], specs[node->ID], allStates[node->ID], ImVec2(200., 160.), controls[node->ID].firstWnd);
     ImGui::EndGroup();
 
     // Save the size of what we have emitted and whether any of the widgets are being used

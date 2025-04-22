@@ -9,24 +9,27 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file GPUReconstructionHIPIncludesHost.h
+/// \file GPUReconstructionCUDAIncludesSystem.h
 /// \author David Rohr
 
-#ifndef O2_GPU_RECONSTRUCTIONHIPINCLUDES_H
-#define O2_GPU_RECONSTRUCTIONHIPINCLUDES_H
+#ifndef O2_GPU_GPURECONSTRUCTIONCUDAINCLUDESSYSTEM_H
+#define O2_GPU_GPURECONSTRUCTIONCUDAINCLUDESSYSTEM_H
 
-#include <hip/hip_runtime.h>
-#include <hip/hip_ext.h>
-#include <hipcub/hipcub.hpp>
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wshadow" // FIXME: Is this still needed?
+#include <cstdint>
+#include <type_traits>
+#include <string>
+#include <cuda_runtime.h>
+#include <cuda.h>
+#include <cooperative_groups.h>
+#pragma GCC diagnostic push // FIXME: Is this still needed?
+#pragma GCC diagnostic ignored "-Wshadow"
+#include <cub/cub.cuh>
+#include <cub/block/block_scan.cuh>
 #include <thrust/sort.h>
 #include <thrust/execution_policy.h>
 #include <thrust/device_ptr.h>
 #pragma GCC diagnostic pop
+#include <sm_20_atomic_functions.h>
+#include <cuda_fp16.h>
 
-#ifndef GPUCA_RTC_CODE
-#include "GPUReconstructionHIPDef.h"
-#endif
-
-#endif
+#endif // O2_GPU_GPURECONSTRUCTIONCUDAINCLUDESSYSTEM_H

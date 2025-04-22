@@ -58,6 +58,10 @@ RP CollisionTimeRecoTask::processDigit(const o2::ft0::Digit& digit,
   constexpr int nMCPsA = 4 * Geometry::NCellsA;
 
   int nch{0};
+  bool isActiveA = false;
+  bool isActiveC = false;
+  bool isFlangeEvent = false;
+
   for (const auto& channelData : inChData) {
     if (channelData.ChId >= NCHANNELS) {
       // Reference channels shouldn't participate in reco at all!
@@ -68,15 +72,23 @@ RP CollisionTimeRecoTask::processDigit(const o2::ft0::Digit& digit,
       outChData.emplace_back(channelData.ChId, timeInPS, (float)channelData.QTCAmpl, channelData.ChainQTC);
       nch++;
     }
+    const bool isOkForTimeCalc = TimeFilterParam::Instance().checkAll(channelData);
     //  only signals which satisfy conditions may participate in time calculation
-    if (TimeFilterParam::Instance().checkAll(channelData)) {
-      if (channelData.ChId < nMCPsA) {
+    if (channelData.ChId < nMCPsA) {
+      // A-side
+      if (isOkForTimeCalc) {
         sideAtime += timeInPS;
         ndigitsA++;
-      } else {
+      }
+      isActiveA = true;
+    } else {
+      // C-side
+      if (isOkForTimeCalc) {
         sideCtime += timeInPS;
         ndigitsC++;
       }
+      isActiveC = true;
+      isFlangeEvent |= channelData.CFDTime < -350 && channelData.CFDTime > -450;
     }
   }
   std::array<short, 4> mCollisionTime = {RP::sDummyCollissionTime, RP::sDummyCollissionTime, RP::sDummyCollissionTime, RP::sDummyCollissionTime};
@@ -90,7 +102,8 @@ RP CollisionTimeRecoTask::processDigit(const o2::ft0::Digit& digit,
   } else {
     mCollisionTime[TimeMean] = std::min(mCollisionTime[TimeA], mCollisionTime[TimeC]);
   }
-  return RecPoints{mCollisionTime, firstEntry, nch, digit.mIntRecord, digit.mTriggers};
+  const uint8_t extraTrgWord = RecPoints::makeExtraTrgWord(isActiveA, isActiveC, isFlangeEvent);
+  return RecPoints(firstEntry, nch, digit.mIntRecord, mCollisionTime, digit.mTriggers, extraTrgWord);
 }
 //______________________________________________________
 void CollisionTimeRecoTask::FinishTask()

@@ -25,7 +25,7 @@
 #define ENABLE_UPGRADES
 #include "DetectorsCommonDataFormats/DetID.h"
 #include "ITSMFTBase/SegmentationAlpide.h"
-#include "ITS3Base/SegmentationSuperAlpide.h"
+#include "ITS3Base/SegmentationMosaix.h"
 #include "ITS3Base/SpecsV2.h"
 #include "ITSBase/GeometryTGeo.h"
 #include "DataFormatsITSMFT/CompCluster.h"
@@ -50,22 +50,24 @@ void CheckClustersITS3(const std::string& clusfile = "o2clus_its.root",
   using namespace o2::base;
   using namespace o2::its;
 
-  using SuperSegmentation = o2::its3::SegmentationSuperAlpide;
+  using MosaixSegmentation = o2::its3::SegmentationMosaix;
   using Segmentation = o2::itsmft::SegmentationAlpide;
   using o2::itsmft::CompClusterExt;
   using o2::itsmft::Hit;
   using ROFRec = o2::itsmft::ROFRecord;
   using MC2ROF = o2::itsmft::MC2ROFRecord;
   using HitVec = std::vector<Hit>;
-  using MC2HITS_map = std::unordered_map<uint64_t, int>; // maps (track_ID<<16 + chip_ID) to entry in the hit vector
+  using MC2HITS_map = std::unordered_map<uint64_t, int>; // maps (track_ID<<32 + chip_ID) to entry in the hit vector
+  std::array<MosaixSegmentation, 3> mMosaixSegmentations{0, 1, 2};
 
   std::vector<HitVec*> hitVecPool;
   std::vector<MC2HITS_map> mc2hitVec;
 
-  ULong_t cPattValid{0}, cPattInvalid{0}, cLabelInvalid{0}, cNoMC{0};
+  ULong_t cPattValidIB{0}, cPattInvalidIB{0}, cLabelInvalidIB{0}, cNoMCIB{0};
+  ULong_t cPattValidOB{0}, cPattInvalidOB{0}, cLabelInvalidOB{0}, cNoMCOB{0};
 
   TFile fout("CheckClusters.root", "recreate");
-  TNtuple nt("ntc", "cluster ntuple", "ev:lab:hlx:hlz:hgx:hgz:tx:tz:cgx:cgy:cgz:clx:cly:clz:dx:dy:dz:ex:ez:patid:rof:npx:id");
+  TNtuple nt("ntc", "cluster ntuple", "ev:lab:hlx:hlz:hgx:hgz:tx:tz:cgx:cgy:cgz:clx:cly:clz:dx:dy:dz:ex:ez:patid:rof:npx:id:eta:row:col:lay");
 
   // Geometry
   o2::base::GeometryManager::loadGeometry(inputGeom);
@@ -102,6 +104,7 @@ void CheckClustersITS3(const std::string& clusfile = "o2clus_its.root",
   } else {
     LOG(info) << "Running without dictionary !";
   }
+  dict.print();
 
   // ROFrecords
   std::vector<ROFRec> rofRecVec, *rofRecVecP = &rofRecVec;
@@ -174,20 +177,18 @@ void CheckClustersITS3(const std::string& clusfile = "o2clus_its.root",
       auto isIB = o2::its3::constants::detID::isDetITS3(chipID);
       auto layer = o2::its3::constants::detID::getDetID2Layer(chipID);
       auto clusterSize{-1};
-      if (pattID == o2::itsmft::CompCluster::InvalidPatternID || dict.isGroup(pattID)) {
+      if (pattID == o2::itsmft::CompCluster::InvalidPatternID || dict.isGroup(pattID, isIB)) {
         o2::itsmft::ClusterPattern patt(pattIt);
         locC = dict.getClusterCoordinates(cluster, patt, false);
         LOGP(debug, "I am invalid and I am on chip {}", chipID);
-        ++cPattInvalid;
+        (isIB) ? ++cPattInvalidIB : ++cPattInvalidOB;
         continue;
       } else {
         locC = dict.getClusterCoordinates(cluster);
-        errX = dict.getErrX(pattID);
-        errZ = dict.getErrZ(pattID);
-        errX *= (isIB) ? SuperSegmentation::mPitchRow : Segmentation::PitchRow;
-        errZ *= (isIB) ? SuperSegmentation::mPitchCol : Segmentation::PitchCol;
-        npix = dict.getNpixels(pattID);
-        ++cPattValid;
+        errX = dict.getErrX(pattID, isIB);
+        errZ = dict.getErrZ(pattID, isIB);
+        npix = dict.getNpixels(pattID, isIB);
+        (isIB) ? ++cPattValidIB : ++cPattValidOB;
       }
 
       // Transformation to the local --> global
@@ -195,7 +196,7 @@ void CheckClustersITS3(const std::string& clusfile = "o2clus_its.root",
       const auto& lab = (clusLabArr->getLabels(clEntry))[0];
 
       if (!lab.isValid()) {
-        ++cLabelInvalid;
+        (isIB) ? ++cLabelInvalidIB : ++cLabelInvalidOB;
         continue;
       }
 
@@ -207,7 +208,7 @@ void CheckClustersITS3(const std::string& clusfile = "o2clus_its.root",
       auto hitEntry = mc2hit.find(key);
       if (hitEntry == mc2hit.end()) {
         LOG(debug) << "Failed to find MC hit entry for Tr" << trID << " chipID" << chipID;
-        ++cNoMC;
+        (isIB) ? ++cNoMCIB : ++cNoMCOB;
         continue;
       }
       const auto& hit = (*hitArray)[hitEntry->second];
@@ -234,25 +235,22 @@ void CheckClustersITS3(const std::string& clusfile = "o2clus_its.root",
       } else {
         // compare in local flat coordinates
         float xFlatEnd{0.}, yFlatEnd{0.};
-        o2::its3::SuperSegmentations[layer].curvedToFlat(locH.X(), locH.Y(), xFlatEnd, yFlatEnd);
+        mMosaixSegmentations[layer].curvedToFlat(locH.X(), locH.Y(), xFlatEnd, yFlatEnd);
         locH.SetXYZ(xFlatEnd, yFlatEnd, locH.Z());
         float xFlatSta{0.}, yFlatSta{0.};
-        o2::its3::SuperSegmentations[layer].curvedToFlat(locHsta.X(), locHsta.Y(), xFlatSta, yFlatSta);
+        mMosaixSegmentations[layer].curvedToFlat(locHsta.X(), locHsta.Y(), xFlatSta, yFlatSta);
         locHsta.SetXYZ(xFlatSta, yFlatSta, locHsta.Z());
-        // recalculate x/y in flat
-        // x0 = xFlatSta, dltx = xFlatEnd - x0;
-        // y0 = yFlatSta, dlty = yFlatEnd - y0;
-        // r = (0.5 * (SuperSegmentation::mSensorLayerThickness - SuperSegmentation::mSensorLayerThicknessEff) - y0) / dlty;
-        // locH.SetXYZ(x0 + r * dltx, y0 + r * dlty, z0 + r * dltz);
 
         // not really precise, but okish
         locH.SetXYZ(0.5f * (locH.X() + locHsta.X()), 0.5f * (locH.Y() + locHsta.Y()), 0.5f * (locH.Z() + locHsta.Z()));
 
-        o2::its3::SuperSegmentations[layer].curvedToFlat(locC.X(), locC.Y(), xFlatSta, yFlatSta);
+        mMosaixSegmentations[layer].curvedToFlat(locC.X(), locC.Y(), xFlatSta, yFlatSta);
         locC.SetXYZ(xFlatSta, yFlatSta, locC.Z());
       }
+      float theta = std::acos(gloC.Z() / gloC.Rho());
+      float eta = -std::log(std::tan(theta / 2));
 
-      std::array<float, 23> data = {(float)lab.getEventID(), (float)trID,
+      std::array<float, 27> data = {(float)lab.getEventID(), (float)trID,
                                     locH.X(), locH.Z(),
                                     gloH.X(), gloH.Z(),
                                     dltx / dlty, dltz / dlty,
@@ -260,13 +258,15 @@ void CheckClustersITS3(const std::string& clusfile = "o2clus_its.root",
                                     locC.X(), locC.Y(), locC.Z(),
                                     locC.X() - locH.X(), locC.Y() - locH.Y(), locC.Z() - locH.Z(),
                                     errX, errZ, (float)pattID,
-                                    (float)rofRec.getROFrame(), (float)npix, (float)chipID};
+                                    (float)rofRec.getROFrame(), (float)npix, (float)chipID, eta, (float)cluster.getRow(), (float)cluster.getCol(), (float)layer};
       nt.Fill(data.data());
     }
   }
 
-  LOGP(info, "There were {} valid PatternIDs and {} ({:.1f}%) invalid ones", cPattValid, cPattInvalid, ((float)cPattInvalid / (float)(cPattInvalid + cPattValid)) * 100);
-  LOGP(info, "There were {} invalid Labels and {} with No MC Hit information ", cLabelInvalid, cNoMC);
+  LOGP(info, "IB {} valid PatternIDs and {} ({:.1f}%) invalid ones", cPattValidIB, cPattInvalidIB, ((float)cPattInvalidIB / (float)(cPattInvalidIB + cPattValidIB)) * 100);
+  LOGP(info, "IB {} invalid Labels and {} with No MC Hit information ", cLabelInvalidIB, cNoMCIB);
+  LOGP(info, "OB {} valid PatternIDs and {} ({:.1f}%) invalid ones", cPattValidOB, cPattInvalidOB, ((float)cPattInvalidOB / (float)(cPattInvalidOB + cPattValidOB)) * 100);
+  LOGP(info, "OB {} invalid Labels and {} with No MC Hit information ", cLabelInvalidOB, cNoMCOB);
 
   auto canvCgXCgY = new TCanvas("canvCgXCgY", "", 1600, 1600);
   canvCgXCgY->Divide(2, 2);
@@ -291,6 +291,18 @@ void CheckClustersITS3(const std::string& clusfile = "o2clus_its.root",
   canvdXdZ->cd(4)->SetLogz();
   nt.Draw("dx:dz>>h_dx_vs_dz_OB_z(1000, -0.01, 0.01, 1000, -0.01, 0.01)", "id >= 3456 && abs(cgz) < 2", "colz");
   canvdXdZ->SaveAs("it3clusters_dx_vs_dz.pdf");
+
+  auto canvCHXZ = new TCanvas("canvCHXZ", "", 1600, 1600);
+  canvCHXZ->Divide(2, 2);
+  canvCHXZ->cd(1);
+  nt.Draw("(cgx-hgx)*10000:eta>>h_chx_IB(101,-1.4,1.4,101,-50,50)", "id<3456", "prof");
+  canvCHXZ->cd(2);
+  nt.Draw("(cgx-hgx)*10000:eta>>h_chx_OB(101,-1.4,1.4,101,-50,50)", "id>=3456", "prof");
+  canvCHXZ->cd(3);
+  nt.Draw("(cgz-hgz)*10000:eta>>h_chz_IB(101,-1.4,1.4,101,-50,50)", "id<3456", "prof");
+  canvCHXZ->cd(4);
+  nt.Draw("(cgz-hgz)*10000:eta>>h_chz_OB(101,-1.4,1.4,101,-50,50)", "id>=3456", "prof");
+  canvCgXCgY->SaveAs("it3clusters_xz_eta.pdf");
 
   auto c1 = new TCanvas("p1", "pullX");
   c1->cd();

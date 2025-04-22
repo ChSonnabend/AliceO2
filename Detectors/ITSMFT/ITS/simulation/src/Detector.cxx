@@ -190,7 +190,7 @@ Detector::Detector(Bool_t active, TString name)
     } else {
       mLayerName[j].Form("%s%d", GeometryTGeo::getITSSensorPattern(), j); // See V3Layer
     }
-    LOGP(info, "{}: mLayerName={}", j, mLayerName[j].Data());
+    LOGP(debug, "{}: mLayerName={}", j, mLayerName[j].Data());
   }
 
   if (mNumberLayers > 0) { // if not, we'll Fatal-ize in CreateGeometry
@@ -723,8 +723,8 @@ void Detector::defineLayer(Int_t nlay, Double_t phi0, Double_t r, Int_t nstav, I
   // Return:
   //   none.
 
-  LOG(info) << "L# " << nlay << " Phi:" << phi0 << " R:" << r << " Nst:" << nstav << " Nunit:" << nunit
-            << " Lthick:" << lthick << " Dthick:" << dthick << " DetID:" << dettypeID << " B:" << buildLevel;
+  LOG(debug) << "L# " << nlay << " Phi:" << phi0 << " R:" << r << " Nst:" << nstav << " Nunit:" << nunit
+             << " Lthick:" << lthick << " Dthick:" << dthick << " DetID:" << dettypeID << " B:" << buildLevel;
 
   if (nlay >= mNumberLayers || nlay < 0) {
     LOG(error) << "Wrong layer number " << nlay;

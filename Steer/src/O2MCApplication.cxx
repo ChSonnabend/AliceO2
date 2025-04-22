@@ -887,7 +887,7 @@ void addSpecialParticles()
   mode4s[1][1] = 111;        // pion0
   bratio4s[2] = 40.;
   mode4s[2][0] = 1000010030; // tritium
-  mode4s[2][2] = 2212;       // pion+
+  mode4s[2][2] = 211;        // pion+
   mode4s[2][1] = 2112;       // neutron
 
   TVirtualMC::GetMC()->SetDecayMode(1110020040, bratio4s, mode4s);

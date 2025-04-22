@@ -1034,6 +1034,9 @@ uint64_t DataRelayer::getCreationTimeForSlot(TimesliceSlot slot)
 
 void DataRelayer::sendContextState()
 {
+  if (!mContext.get<DriverConfig const>().driverHasGUI) {
+    return;
+  }
   std::scoped_lock<O2_LOCKABLE(std::recursive_mutex)> lock(mMutex);
   auto& states = mContext.get<DataProcessingStates>();
   for (size_t ci = 0; ci < mTimesliceIndex.size(); ++ci) {

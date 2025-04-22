@@ -16,8 +16,6 @@
 #include "DataFormatsITSMFT/ROFRecord.h"
 #include "ITS3Reconstruction/TopologyDictionary.h"
 #include "ITSBase/GeometryTGeo.h"
-#include "ITSMFTBase/SegmentationAlpide.h"
-#include "ITS3Base/SegmentationSuperAlpide.h"
 #include "ITS3Base/SpecsV2.h"
 #include "ITStracking/TrackingConfigParam.h"
 #include "Framework/Logger.h"
@@ -80,7 +78,6 @@ int loadROFrameDataITS3(its::TimeFrame* tf,
       auto isITS3 = its3::constants::detID::isDetITS3(sensorID);
       auto layer = geom->getLayer(sensorID);
 
-      auto pattID = c.getPatternID();
       float sigmaY2{0}, sigmaZ2{0}, sigmaYZ{0};
       uint8_t clusterSize{0};
       auto locXYZ = extractClusterData(c, pattIt, dict, sigmaY2, sigmaZ2, clusterSize);

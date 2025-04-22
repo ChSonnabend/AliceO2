@@ -31,7 +31,8 @@ LookUp::LookUp(std::string fileName)
 void LookUp::loadDictionary(std::string fileName)
 {
   mDictionary.readFromFile(fileName);
-  mTopologiesOverThreshold = mDictionary.mCommonMap.size();
+  mTopologiesOverThresholdIB = mDictionary.mDataIB.mCommonMap.size();
+  mTopologiesOverThresholdOB = mDictionary.mDataOB.mCommonMap.size();
 }
 
 void LookUp::setDictionary(const its3::TopologyDictionary* dict)
@@ -39,7 +40,8 @@ void LookUp::setDictionary(const its3::TopologyDictionary* dict)
   if (dict != nullptr) {
     mDictionary = *dict;
   }
-  mTopologiesOverThreshold = mDictionary.mCommonMap.size();
+  mTopologiesOverThresholdIB = mDictionary.mDataIB.mCommonMap.size();
+  mTopologiesOverThresholdOB = mDictionary.mDataOB.mCommonMap.size();
 }
 
 int LookUp::groupFinder(int nRow, int nCol)
@@ -61,25 +63,26 @@ int LookUp::groupFinder(int nRow, int nCol)
   return grNum;
 }
 
-int LookUp::findGroupID(int nRow, int nCol, const unsigned char patt[itsmft::ClusterPattern::MaxPatternBytes]) const
+int LookUp::findGroupID(int nRow, int nCol, bool IB, const unsigned char patt[itsmft::ClusterPattern::MaxPatternBytes]) const
 {
+  const auto& data = (IB) ? mDictionary.mDataIB : mDictionary.mDataOB;
   int nBits = nRow * nCol;
   if (nBits < 9) { // Small unique topology
-    int ID = mDictionary.mSmallTopologiesLUT[(nCol - 1) * 255 + (int)patt[0]];
+    int ID = data.mSmallTopologiesLUT[(nCol - 1) * 255 + (int)patt[0]];
     if (ID >= 0) {
       return ID;
     }
   } else { // Big unique topology
     unsigned long hash = itsmft::ClusterTopology::getCompleteHash(nRow, nCol, patt);
-    auto ret = mDictionary.mCommonMap.find(hash);
-    if (ret != mDictionary.mCommonMap.end()) {
+    auto ret = data.mCommonMap.find(hash);
+    if (ret != data.mCommonMap.end()) {
       return ret->second;
     }
   }
-  if (!mDictionary.mGroupMap.empty()) { // rare valid topology group
+  if (!data.mGroupMap.empty()) { // rare valid topology group
     int index = groupFinder(nRow, nCol);
-    auto res = mDictionary.mGroupMap.find(index);
-    return res == mDictionary.mGroupMap.end() ? itsmft::CompCluster::InvalidPatternID : res->second;
+    auto res = data.mGroupMap.find(index);
+    return res == data.mGroupMap.end() ? itsmft::CompCluster::InvalidPatternID : res->second;
   }
   return itsmft::CompCluster::InvalidPatternID;
 }

@@ -13,9 +13,10 @@
 /// \author David Rohr
 
 #define GPUCA_GPUCODE_COMPILEKERNELS
-#include "GPUReconstructionHIPIncludesHost.h"
+#include "GPUReconstructionHIPIncludesSystem.h"
 #define GPUCA_KRNL_REG(args) __launch_bounds__(GPUCA_M_MAX2_3(GPUCA_M_STRIP(args)))
 #define GPUCA_KRNL(...) GPUCA_KRNLGPU(__VA_ARGS__);
+#include "GPUReconstructionHIPDef.h"
 #include "GPUReconstructionKernelMacros.h"
 
 // clang-format off

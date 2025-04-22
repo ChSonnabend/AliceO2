@@ -280,6 +280,7 @@ void Detector::ConstructGeometry()
   // mGeometry->enableComponent(Geometry::eAluminiumContainer, false);
   mGeometry->buildGeometry();
 }
+
 void Detector::addAlignableVolumes() const
 {
   //
@@ -292,19 +293,19 @@ void Detector::addAlignableVolumes() const
   LOG(info) << "FV0: Add alignable volumes";
 
   if (!gGeoManager) {
-    LOG(fatal) << "TGeoManager doesn't exist !";
+    LOG(fatal) << "TGeoManager doesn't exist!";
     return;
   }
 
-  TString volPath, symName;
-  for (auto& half : {"RIGHT_0", "LEFT_1"}) {
-    volPath = Form("/cave_1/barrel_1/FV0_1/FV0%s", half);
-    symName = Form("FV0%s", half);
-    LOG(info) << "FV0: Add alignable volume: " << symName << ": " << volPath;
-    if (!gGeoManager->SetAlignableEntry(symName.Data(), volPath.Data())) {
-      LOG(fatal) << "FV0: Unable to set alignable entry! " << symName << ": " << volPath;
+  auto addAlignabelVolume = [](const std::string& volPath, const std::string& symName) -> void {
+    LOG(info) << "FV0: Add alignable volume: " << symName << " <-> " << volPath;
+    if (!gGeoManager->SetAlignableEntry(symName.c_str(), volPath.c_str())) {
+      LOG(fatal) << "FV0: Unable to set alignable entry! " << symName << " <-> " << volPath;
     }
-  }
+  };
+
+  addAlignabelVolume("/cave_1/barrel_1/FV0_1/FV0RIGHT_0", Geometry::getDetectorRightSymName());
+  addAlignabelVolume("/cave_1/barrel_1/FV0_1/FV0LEFT_1", Geometry::getDetectorLeftSymName());
 }
 
 o2::fv0::Hit* Detector::addHit(Int_t trackId, Int_t cellId,

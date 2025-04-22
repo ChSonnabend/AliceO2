@@ -193,12 +193,10 @@ void GPUParamRTC::setFrom(const GPUParam& param)
 
 std::string GPUParamRTC::generateRTCCode(const GPUParam& param, bool useConstexpr)
 {
-  return "#ifndef GPUCA_GPUCODE_DEVICE\n"
-         "#include <string>\n"
+  return "#include <string>\n"
          "#include <vector>\n"
          "#include <cstdint>\n"
          "#include <cstddef>\n"
-         "#endif\n"
          "namespace o2::gpu { class GPUDisplayFrontendInterface; }\n" +
          qConfigPrintRtc(std::make_tuple(&param.rec.tpc, &param.rec.trd, &param.rec, &param.par), useConstexpr);
 }

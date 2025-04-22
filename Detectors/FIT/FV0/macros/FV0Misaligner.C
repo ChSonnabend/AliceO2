@@ -1,13 +1,32 @@
+// Copyright 2021-2025 CERN and copyright holders of ALICE O2.
+// See https://alice-o2.web.cern.ch/copyright for details of the copyright holders.
+// All rights not expressly granted are reserved.
+//
+// This software is distributed under the terms of the GNU General Public
+// License v3 (GPL Version 3), copied verbatim in the file "COPYING".
+//
+// In applying this license CERN does not waive the privileges and immunities
+// granted to it by virtue of its status as an Intergovernmental Organization
+// or submit itself to any jurisdiction.
+
+/// \file  FV0Misaligner.C
+/// \brief ROOT macro for creating an FV0 geometry alignment object. The alignment object will align both
+///        detector halves in the same way. Based on ITSMisaligner.C
+///
+/// \author Andreas Molander andreas.molander@cern.ch, Alla Maevskaya
+
 #if !defined(__CLING__) || defined(__ROOTCLING__)
+
+#include "CCDB/CcdbApi.h"
 #include "DetectorsCommonDataFormats/DetID.h"
 #include "DetectorsCommonDataFormats/DetectorNameConf.h"
 #include "DetectorsCommonDataFormats/AlignParam.h"
-#include "DetectorsBase/GeometryManager.h"
-#include "CCDB/CcdbApi.h"
-#include <TRandom.h>
+#include "FV0Base/Geometry.h"
+
 #include <TFile.h>
 #include <vector>
 #include <fmt/format.h>
+
 #endif
 
 using AlgPar = std::array<double, 6>;
@@ -20,16 +39,14 @@ void FV0Misaligner(const std::string& ccdbHost = "http://ccdb-test.cern.ch:8080"
                    const std::string& fileName = "FV0Alignment.root")
 {
   std::vector<o2::detectors::AlignParam> params;
-  o2::base::GeometryManager::loadGeometry("", false);
   AlgPar pars;
   bool glo = true;
 
   o2::detectors::DetID detFV0("FV0");
 
-  // FV0 detector
-  for (int ihalf = 1; ihalf < 3; ihalf++) {
-    std::string symName = Form("FV0half_%i", ihalf);
-    pars = generateMisalignment(x, y, z, psi, theta, phi);
+  pars = generateMisalignment(x, y, z, psi, theta, phi);
+
+  for (auto& symName : {o2::fv0::Geometry::getDetectorRightSymName(), o2::fv0::Geometry::getDetectorLeftSymName()}) {
     params.emplace_back(symName.c_str(), -1, pars[0], pars[1], pars[2], pars[3], pars[4], pars[5], glo);
   }
 
@@ -50,14 +67,15 @@ void FV0Misaligner(const std::string& ccdbHost = "http://ccdb-test.cern.ch:8080"
     algFile.Close();
   }
 }
+
 AlgPar generateMisalignment(double x, double y, double z, double psi, double theta, double phi)
 {
   AlgPar pars;
-  pars[0] = gRandom->Gaus(0, x);
-  pars[1] = gRandom->Gaus(0, y);
-  pars[2] = gRandom->Gaus(0, z);
-  pars[3] = gRandom->Gaus(0, psi);
-  pars[4] = gRandom->Gaus(0, theta);
-  pars[5] = gRandom->Gaus(0, phi);
+  pars[0] = x;
+  pars[1] = y;
+  pars[2] = z;
+  pars[3] = psi;
+  pars[4] = theta;
+  pars[5] = phi;
   return std::move(pars);
 }

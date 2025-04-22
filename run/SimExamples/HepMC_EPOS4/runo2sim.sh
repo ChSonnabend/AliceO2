@@ -21,6 +21,18 @@ more=""
 optns="example"
 eCM=-1
 JOBS=2
+HEPMC=""
+HQ=false
+
+if [ -z "$EPO4VSN" ]; then
+    echo "Error: EPOS4 version not found"
+    exit 7
+fi
+if [ "$EPO4VSN" == "4.0.0" ]; then
+    HEPMC=";HepMC.version=2"
+else
+    HEPMC=";HepMC.version=3"
+fi
 
 usage()
 {
@@ -35,6 +47,7 @@ Options:
   -j,--jobs    JOBS        Number of jobs ($JOBS)
   -e,--ecm     ENERGY      Center-of-Mass energy
   -h,--help                Print these instructions
+  -hq          HQ          Enable EPOS4HQ
   --                       Rest of command line sent to o2-sim
 
 COMMAND must be quoted if it contains spaces or other special
@@ -56,6 +69,7 @@ while test $# -gt 0 ; do
         -i|--input)   optns=$2 ; shift ;;
         -j|--jobs)    JOBS=$2 ; shift ;;
         -e|--ecm)     eCM=$2 ; shift ;;
+        -hq)          HQ=true ; shift ;;
         -h|--help) usage; o2-sim --help full ; exit 0 ;;
         --)           shift ; break ;;
         *) echo "Unknown option '$1', did you forget '--'?" >/dev/stderr
@@ -111,7 +125,31 @@ else
     fi
 fi
 
-# Starting simulation => seed is fed automatically to epos with the --seed flag. HepMC.version = 2 is mandatory
+# Set HQ mode
+
+if [ "$HQ" = true ]; then
+    echo "Setting HQ mode"
+    if grep -Fq "ihq" $optns.optns; then
+        sed -i "/ihq/c\set ihq 1" $optns.optns
+    else
+        echo "set ihq 1" >> $optns.optns
+    fi
+    if [ -z "$EPO4HQVSN" ]; then
+        echo "Error: EPOS4HQ version not found"
+        exit 7
+    else
+        HEPMC=";HepMC.version=3"
+    fi
+else
+    echo "Turning OFF HQ mode"
+    if grep -Fq "ihq" $optns.optns; then
+        sed -i "/ihq/c\set ihq 0" $optns.optns
+    else
+        echo "set ihq 0" >> $optns.optns
+    fi
+fi
+
+# Starting simulation => seed is fed automatically to epos with the --seed flag. HepMC.version = 2 is mandatory for version 4.0.0
 # otherwise the simulation won't work
 o2-sim -j $JOBS -n ${NEV} -g hepmc --seed $RANDOM  \
-       --configKeyValues "GeneratorFileOrCmd.cmd=$cmd -i $optns;GeneratorFileOrCmd.bMaxSwitch=none;HepMC.version=2;${more}"
+       --configKeyValues "GeneratorFileOrCmd.cmd=$cmd -i $optns;GeneratorFileOrCmd.bMaxSwitch=none$HEPMC;${more}"

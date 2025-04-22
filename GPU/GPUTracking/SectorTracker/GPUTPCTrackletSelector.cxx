@@ -33,7 +33,7 @@ GPUdii() void GPUTPCTrackletSelector::Thread<0>(int32_t nBlocks, int32_t nThread
   }
   GPUbarrier();
 
-  GPUTPCHitId trackHits[GPUCA_ROW_COUNT - GPUCA_TRACKLET_SELECTOR_HITS_REG_SIZE];
+  GPUTPCHitId trackHits[GPUCA_ROW_COUNT - GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE];
   const float maxSharedFrac = tracker.Param().rec.tpc.trackletMaxSharedFraction;
 
   for (int32_t itr = s.mItr0 + iThread; itr < s.mNTracklets; itr += s.mNThreadsTotal) {
@@ -67,13 +67,13 @@ GPUdii() void GPUTPCTrackletSelector::Thread<0>(int32_t nBlocks, int32_t nThread
         bool sharedOK = nShared <= (nHits < sharingMinNorm ? maxShared : nHits * maxSharedFrac);
         if (own || sharedOK) { // SG!!!
           gap = 0;
-#if GPUCA_TRACKLET_SELECTOR_HITS_REG_SIZE != 0
-          if (nHits < GPUCA_TRACKLET_SELECTOR_HITS_REG_SIZE) {
+#if GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE != 0
+          if (nHits < GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE) {
             s.mHits[nHits][iThread].Set(irow, ih);
           } else
-#endif // GPUCA_TRACKLET_SELECTOR_HITS_REG_SIZE != 0
+#endif // GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE != 0
           {
-            trackHits[nHits - GPUCA_TRACKLET_SELECTOR_HITS_REG_SIZE].Set(irow, ih);
+            trackHits[nHits - GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE].Set(irow, ih);
           }
           nHits++;
           if (!own) {
@@ -101,13 +101,13 @@ GPUdii() void GPUTPCTrackletSelector::Thread<0>(int32_t nBlocks, int32_t nThread
           tracker.Tracks()[itrout].SetFirstHitID(nFirstTrackHit);
           tracker.Tracks()[itrout].SetNHits(nHits);
           for (int32_t jh = 0; jh < nHits; jh++) {
-#if GPUCA_TRACKLET_SELECTOR_HITS_REG_SIZE != 0
-            if (jh < GPUCA_TRACKLET_SELECTOR_HITS_REG_SIZE) {
+#if GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE != 0
+            if (jh < GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE) {
               tracker.TrackHits()[nFirstTrackHit + jh] = s.mHits[jh][iThread];
             } else
-#endif // GPUCA_TRACKLET_SELECTOR_HITS_REG_SIZE != 0
+#endif // GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE != 0
             {
-              tracker.TrackHits()[nFirstTrackHit + jh] = trackHits[jh - GPUCA_TRACKLET_SELECTOR_HITS_REG_SIZE];
+              tracker.TrackHits()[nFirstTrackHit + jh] = trackHits[jh - GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE];
             }
           }
         }

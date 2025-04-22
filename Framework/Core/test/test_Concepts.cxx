@@ -161,4 +161,7 @@ TEST_CASE("IdentificationConcepts")
   // Expressions
   expressions::Filter f = o2::aod::track::pt > 1.0f;
   REQUIRE(expressions::is_filter<decltype(f)>);
+
+  using C = SameKindPair<aod::Collisions, aod::Tracks, ColumnBinningPolicy<aod::collision::PosZ>>;
+  REQUIRE(is_combinations_generator<C>);
 }

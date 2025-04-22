@@ -133,6 +133,16 @@ class Geometry
     return o2::base::GeometryManager::getPNEntry(getDetID(), index);
   }
 
+  static std::string getDetectorRightSymName()
+  {
+    return sDetectorRightName + "_0";
+  }
+
+  static std::string getDetectorLeftSymName()
+  {
+    return sDetectorLeftName + "_1";
+  }
+
   /// Get the density of the PMTs.
   static constexpr float getPmtDensity()
   {
@@ -143,6 +153,8 @@ class Geometry
   explicit Geometry(EGeoType initType);
 
   inline static const std::string sDetectorName = "FV0";
+  inline static const std::string sDetectorRightName = sDetectorName + "RIGHT";
+  inline static const std::string sDetectorLeftName = sDetectorName + "LEFT";
 
   // General geometry constants
   static constexpr float sEpsilon = 0.01;     ///< Used to make one spatial dimension infinitesimally larger than other

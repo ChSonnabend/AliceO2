@@ -70,6 +70,12 @@ class Triggers
   {
     return trgWord | (static_cast<uint64_t>(checkMinBiasFT0(trgWord)) << bitMinBias);
   }
+  static constexpr std::pair<uint8_t, uint8_t> parseDigitTriggerWord(uint8_t digitWord, bool shiftTechBitsToBegin = false)
+  {
+    const uint8_t techWordMask = word(bitLaser, bitOutputsAreBlocked, bitDataIsValid);
+    const uint8_t shiftTechWordPos = shiftTechBitsToBegin ? bitLaser : 0;
+    return {(digitWord & (~techWordMask)), (digitWord & techWordMask) >> shiftTechWordPos};
+  }
 
   bool getOrA() const { return (triggersignals & (1 << bitA)) != 0; }
   bool getOrC() const { return (triggersignals & (1 << bitC)) != 0; }               // only used by FT0/FDD (same bit as OrAOut in FV0)
@@ -103,6 +109,10 @@ class Triggers
     amplC = aamplC;
     timeA = atimeA;
     timeC = atimeC;
+  }
+  void setTriggers(uint8_t trgsig)
+  {
+    triggersignals = trgsig;
   }
 
   void setTriggers(Bool_t isA, Bool_t isC, Bool_t isVrtx, Bool_t isCnt, Bool_t isSCnt, uint8_t chanA, uint8_t chanC, int32_t aamplA,

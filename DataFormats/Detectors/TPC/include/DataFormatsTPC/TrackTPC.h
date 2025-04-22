@@ -128,6 +128,9 @@ class TrackTPC : public o2::track::TrackParCov
   GPUd() const dEdxInfo& getdEdx() const { return mdEdx; }
   GPUd() void setdEdx(const dEdxInfo& v) { mdEdx = v; }
 
+  GPUd() const dEdxInfo& getdEdxAlt() const { return mdEdxAlt; }
+  GPUd() void setdEdxAlt(const dEdxInfo& v) { mdEdxAlt = v; }
+
  private:
   float mTime0 = 0.f;                 ///< Assumed time of the vertex that created the track in TPC time bins, 0 for triggered data
   float mDeltaTFwd = 0;               ///< max possible increment to mTime0
@@ -136,9 +139,10 @@ class TrackTPC : public o2::track::TrackParCov
   float mChi2 = 0.f;                  // Chi2 of the track
   o2::track::TrackParCov mOuterParam; // Track parameters at outer end of TPC.
   dEdxInfo mdEdx;                     // dEdx Information
+  dEdxInfo mdEdxAlt;                  // dEdx alternative Information
   ClusRef mClustersReference;         // reference to externale cluster indices
 
-  ClassDefNV(TrackTPC, 4);
+  ClassDefNV(TrackTPC, 5);
 };
 
 } // namespace tpc

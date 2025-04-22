@@ -14,6 +14,7 @@
 #include "ITSBase/GeometryTGeo.h"
 #include "ITSMFTBase/DPLAlpideParam.h"
 #include "DetectorsBase/GRPGeomHelper.h"
+#include "Framework/DeviceSpec.h"
 
 namespace o2::its3
 {
@@ -31,7 +32,17 @@ void ITS3TrackingInterface::updateTimeDependentParams(framework::ProcessingConte
     }
     auto geom = its::GeometryTGeo::Instance();
     geom->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::T2GRot, o2::math_utils::TransformType::T2G));
+    initialise();
     getConfiguration(pc);
+    if (pc.services().get<const o2::framework::DeviceSpec>().inputTimesliceId == 0) { // print settings only for the 1st pipeling
+      o2::its::VertexerParamConfig::Instance().printKeyValues();
+      o2::its::TrackerParamConfig::Instance().printKeyValues();
+      const auto& trParams = getTracker()->getParameters();
+      for (size_t it = 0; it < trParams.size(); it++) {
+        const auto& par = trParams[it];
+        LOGP(info, "recoIter#{} : {}", it, par.asString());
+      }
+    }
   }
 }
 

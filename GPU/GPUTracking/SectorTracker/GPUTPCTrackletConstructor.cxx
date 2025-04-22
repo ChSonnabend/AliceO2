@@ -476,7 +476,7 @@ GPUdic(2, 1) void GPUTPCTrackletConstructor::DoTracklet(GPUconstantref() GPUTPCT
 }
 
 template <>
-GPUdii() void GPUTPCTrackletConstructor::Thread<GPUTPCTrackletConstructor::singleSector>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& sMem, processorType& GPUrestrict() tracker)
+GPUdii() void GPUTPCTrackletConstructor::Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& sMem, processorType& GPUrestrict() tracker)
 {
   if (get_local_id(0) == 0) {
     sMem.mNStartHits = *tracker.NStartHits();
@@ -490,79 +490,6 @@ GPUdii() void GPUTPCTrackletConstructor::Thread<GPUTPCTrackletConstructor::singl
     DoTracklet(tracker, sMem, rMem);
   }
 }
-
-template <>
-GPUdii() void GPUTPCTrackletConstructor::Thread<GPUTPCTrackletConstructor::allSectors>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& sMem, processorType& GPUrestrict() tracker0)
-{
-  GPUconstantref() GPUTPCTracker* GPUrestrict() pTracker = &tracker0;
-#ifdef GPUCA_GPUCODE
-  int32_t mySector = get_group_id(0) % GPUCA_NSECTORS;
-  int32_t currentSector = -1;
-
-  if (get_local_id(0) == 0) {
-    sMem.mNextStartHitFirstRun = 1;
-  }
-  GPUCA_UNROLL(, U())
-  for (uint32_t iSector = 0; iSector < GPUCA_NSECTORS; iSector++) {
-    GPUconstantref() GPUTPCTracker& GPUrestrict() tracker = pTracker[mySector];
-
-    GPUTPCThreadMemory rMem;
-
-    while ((rMem.mISH = FetchTracklet(tracker, sMem)) != -2) {
-      if (rMem.mISH >= 0 && get_local_id(0) < GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCTrackletConstructor)) {
-        rMem.mISH += get_local_id(0);
-      } else {
-        rMem.mISH = -1;
-      }
-
-      if (mySector != currentSector) {
-        if (get_local_id(0) == 0) {
-          sMem.mNStartHits = *tracker.NStartHits();
-        }
-        CA_SHARED_CACHE(&sMem.mRows[0], tracker.TrackingDataRows(), GPUCA_ROW_COUNT * sizeof(GPUTPCRow));
-        GPUbarrier();
-        currentSector = mySector;
-      }
-
-      if (rMem.mISH >= 0 && rMem.mISH < sMem.mNStartHits) {
-        rMem.mGo = true;
-        DoTracklet(tracker, sMem, rMem);
-      }
-    }
-    if (++mySector >= GPUCA_NSECTORS) {
-      mySector = 0;
-    }
-  }
-#else
-  for (int32_t iSector = 0; iSector < GPUCA_NSECTORS; iSector++) {
-    Thread<singleSector>(nBlocks, nThreads, iBlock, iThread, sMem, pTracker[iSector]);
-  }
-#endif
-}
-
-#ifdef GPUCA_GPUCODE
-
-GPUd() int32_t GPUTPCTrackletConstructor::FetchTracklet(GPUconstantref() GPUTPCTracker& GPUrestrict() tracker, GPUsharedref() GPUSharedMemory& sMem)
-{
-  const uint32_t nStartHit = *tracker.NStartHits();
-  GPUbarrier();
-  if (get_local_id(0) == 0) {
-    int32_t firstStartHit = -2;
-    if (sMem.mNextStartHitFirstRun == 1) {
-      firstStartHit = (get_group_id(0) - tracker.ISector()) / GPUCA_NSECTORS * GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCTrackletConstructor);
-      sMem.mNextStartHitFirstRun = 0;
-    } else {
-      if (tracker.GPUParameters()->nextStartHit < nStartHit) {
-        firstStartHit = CAMath::AtomicAdd<uint32_t>(&tracker.GPUParameters()->nextStartHit, GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCTrackletConstructor));
-      }
-    }
-    sMem.mNextStartHitFirst = firstStartHit < (int32_t)nStartHit ? firstStartHit : -2;
-  }
-  GPUbarrier();
-  return (sMem.mNextStartHitFirst);
-}
-
-#endif // GPUCA_GPUCODE
 
 template <> // FIXME: GPUgeneric() needed to make the clang spirv output link correctly
 GPUd() int32_t GPUTPCTrackletConstructor::GPUTPCTrackletConstructorExtrapolationTracking<GPUgeneric() GPUTPCExtrapolationTracking::GPUSharedMemory>(GPUconstantref() GPUTPCTracker& GPUrestrict() tracker, GPUsharedref() GPUTPCExtrapolationTracking::GPUSharedMemory& sMem, GPUTPCTrackParam& GPUrestrict() tParam, int32_t row, int32_t increment, int32_t iTracklet, calink* rowHits)

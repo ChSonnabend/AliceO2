@@ -95,7 +95,7 @@ union GPUConstantMemCopyable {
 static constexpr size_t gGPUConstantMemBufferSize = (sizeof(GPUConstantMem) + sizeof(uint4) - 1);
 #endif
 } // namespace o2::gpu
-#if defined(GPUCA_HAS_GLOBAL_SYMBOL_CONSTANT_MEM) && !defined(GPUCA_GPUCODE_HOSTONLY)
+#if defined(GPUCA_HAS_GLOBAL_SYMBOL_CONSTANT_MEM)
 GPUconstant() o2::gpu::GPUConstantMemCopyable gGPUConstantMemBuffer; // TODO: This should go into o2::gpu namespace, but then CUDA or HIP would not find the symbol
 #endif // GPUCA_HAS_GLOBAL_SYMBOL_CONSTANT_MEM
 namespace o2::gpu
@@ -104,7 +104,7 @@ namespace o2::gpu
 // Must be placed here, to avoid circular header dependency
 GPUdi() GPUconstantref() const GPUConstantMem* GPUProcessor::GetConstantMem() const
 {
-#if defined(GPUCA_GPUCODE_DEVICE) && defined(GPUCA_HAS_GLOBAL_SYMBOL_CONSTANT_MEM) && !defined(GPUCA_GPUCODE_HOSTONLY)
+#if defined(GPUCA_GPUCODE_DEVICE) && defined(GPUCA_HAS_GLOBAL_SYMBOL_CONSTANT_MEM)
   return &GPUCA_CONSMEM;
 #else
   return mConstantMem;

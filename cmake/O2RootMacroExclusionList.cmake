@@ -43,6 +43,7 @@ list(APPEND O2_ROOT_MACRO_EXCLUSION_LIST
             GPU/GPUTracking/Merger/macros/fitPolynomialFieldTpc.C # Needs AliRoot AliMagF
             GPU/GPUTracking/Merger/macros/fitPolynomialFieldTrd.C # Needs AliRoot AliMagF
             GPU/GPUTracking/Standalone/tools/dumpTRDClusterMatrices.C # Needs AliRoot AliCDBManager, AliGeomManager and AliTRDgeometry
+            GPU/GPUTracking/Standalone/tools/dumpGPUDefParam.C # Exampple, which needs special headers to work
             GPU/GPUTracking/TRDTracking/macros/checkDbgOutput.C # Needs AliRoot TStatToolkit
             GPU/TPCFastTransformation/devtools/loadlibs.C # Special macro
             GPU/GPUTracking/TRDTracking/macros/run_trd_tracker.C # Not yet ready
@@ -57,7 +58,6 @@ list(APPEND O2_ROOT_MACRO_EXCLUSION_LIST
             macro/rootlogon.C
             macro/CreateSampleIRFrames.C
             Detectors/Upgrades/ALICE3/macros/ALICE3Field.C)
-
 
 if(NOT BUILD_SIMULATION)
   # some complete sub_directories are not added to the build when not building

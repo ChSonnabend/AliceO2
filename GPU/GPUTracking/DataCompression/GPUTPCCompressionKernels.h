@@ -72,15 +72,19 @@ class GPUTPCCompressionGatherKernels : public GPUKernelTemplate
   using Vec64 = uint64_t;
   using Vec128 = uint4;
 
-  struct GPUSharedMemory : public GPUKernelTemplate::GPUSharedMemoryScan64<uint32_t, GPUCA_GET_THREAD_COUNT(GPUCA_LB_COMPRESSION_GATHER)> {
+  static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_buffered32));
+  static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_buffered64));
+  static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_buffered128));
+  static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_multiBlock));
+  struct GPUSharedMemory : public GPUKernelTemplate::GPUSharedMemoryScan64<uint32_t, GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered)> {
     union {
-      uint32_t warpOffset[GPUCA_GET_WARP_COUNT(GPUCA_LB_COMPRESSION_GATHER)];
-      Vec32 buf32[GPUCA_GET_WARP_COUNT(GPUCA_LB_COMPRESSION_GATHER)][GPUCA_WARP_SIZE];
-      Vec64 buf64[GPUCA_GET_WARP_COUNT(GPUCA_LB_COMPRESSION_GATHER)][GPUCA_WARP_SIZE];
-      Vec128 buf128[GPUCA_GET_WARP_COUNT(GPUCA_LB_COMPRESSION_GATHER)][GPUCA_WARP_SIZE];
+      uint32_t warpOffset[GPUCA_GET_WARP_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered)];
+      Vec32 buf32[GPUCA_GET_WARP_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered)][GPUCA_WARP_SIZE];
+      Vec64 buf64[GPUCA_GET_WARP_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered)][GPUCA_WARP_SIZE];
+      Vec128 buf128[GPUCA_GET_WARP_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered)][GPUCA_WARP_SIZE];
       struct {
-        uint32_t sizes[GPUCA_GET_WARP_COUNT(GPUCA_LB_COMPRESSION_GATHER)][GPUCA_WARP_SIZE];
-        uint32_t srcOffsets[GPUCA_GET_WARP_COUNT(GPUCA_LB_COMPRESSION_GATHER)][GPUCA_WARP_SIZE];
+        uint32_t sizes[GPUCA_GET_WARP_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered)][GPUCA_WARP_SIZE];
+        uint32_t srcOffsets[GPUCA_GET_WARP_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered)][GPUCA_WARP_SIZE];
       } unbuffered;
     };
 

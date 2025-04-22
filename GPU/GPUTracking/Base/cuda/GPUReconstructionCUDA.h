@@ -44,10 +44,6 @@ class GPUReconstructionCUDABackend : public GPUReconstructionDeviceBase
   void runKernelBackend(const krnlSetupArgs<T, I, Args...>& args);
   template <class T, int32_t I = 0, typename... Args>
   void runKernelBackendInternal(const krnlSetupTime& _xyz, const Args&... args);
-  template <class T, int32_t I = 0>
-  gpu_reconstruction_kernels::krnlProperties getKernelPropertiesBackend();
-
-  void getRTCKernelCalls(std::vector<std::string>& kernels);
 
   template <class T, class S>
   friend GPUh() void GPUCommonAlgorithm::sortOnDevice(auto* rec, int32_t stream, T* begin, size_t N, const S& comp);
@@ -63,7 +59,6 @@ class GPUReconstructionCUDA : public GPUReconstructionKernels<GPUReconstructionC
  protected:
   int32_t InitDevice_Runtime() override;
   int32_t ExitDevice_Runtime() override;
-  void UpdateAutomaticProcessingSettings() override;
 
   std::unique_ptr<gpu_reconstruction_kernels::threadContext> GetThreadContext() override;
   void SynchronizeGPU() override;
@@ -93,6 +88,7 @@ class GPUReconstructionCUDA : public GPUReconstructionKernels<GPUReconstructionC
 
  private:
   int32_t genRTC(std::string& filename, uint32_t& nCompile);
+  void getRTCKernelCalls(std::vector<std::string>& kernels);
   void genAndLoadRTC();
   void loadKernelModules(bool perKernel);
   const char *mRtcSrcExtension = ".src", *mRtcBinExtension = ".o";

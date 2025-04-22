@@ -55,7 +55,6 @@ class TrackerTraitsGPU : public TrackerTraits
  private:
   IndexTableUtils* mDeviceIndexTableUtils;
   gpu::TimeFrameGPU<7>* mTimeFrameGPU;
-  gpu::StaticTrackingParameters<nLayers>* mStaticTrkPars;
 };
 
 template <int nLayers>

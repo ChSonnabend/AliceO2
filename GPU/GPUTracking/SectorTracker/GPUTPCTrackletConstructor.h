@@ -28,14 +28,9 @@ namespace o2::gpu
  */
 class GPUTPCTracker;
 
-class GPUTPCTrackletConstructor
+class GPUTPCTrackletConstructor : public GPUKernelTemplate
 {
  public:
-  enum K {
-    singleSector = 0,
-    allSectors = 1
-  };
-
   class GPUTPCThreadMemory
   {
     friend class GPUTPCTrackletConstructor; //! friend class
@@ -88,10 +83,6 @@ class GPUTPCTrackletConstructor
   GPUd() static bool CheckCov(GPUTPCTrackParam& tParam);
 
   GPUd() static void DoTracklet(GPUconstantref() GPUTPCTracker& tracker, GPUsharedref() GPUTPCTrackletConstructor::GPUSharedMemory& sMem, GPUTPCThreadMemory& rMem);
-
-#ifdef GPUCA_GPUCODE
-  GPUd() static int32_t FetchTracklet(GPUconstantref() GPUTPCTracker& tracker, GPUsharedref() GPUSharedMemory& sMem);
-#endif // GPUCA_GPUCODE
 
   template <class T>
   GPUd() static int32_t GPUTPCTrackletConstructorExtrapolationTracking(GPUconstantref() GPUTPCTracker& tracker, GPUsharedref() T& sMem, GPUTPCTrackParam& tParam, int32_t startrow, int32_t increment, int32_t iTracklet, calink* rowHits);

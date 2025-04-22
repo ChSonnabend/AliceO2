@@ -17,6 +17,8 @@
 #include "ITStracking/MathUtils.h"
 #include "ITStracking/IndexTableUtils.h"
 
+#include "GPUCommonArray.h"
+
 namespace o2
 {
 namespace its
@@ -90,8 +92,8 @@ bool Cluster::operator==(const Cluster& rhs) const
          this->indexTableBinIndex == rhs.indexTableBinIndex;
 }
 
-TrackingFrameInfo::TrackingFrameInfo(float x, float y, float z, float xTF, float alpha, GPUArray<float, 2>&& posTF,
-                                     GPUArray<float, 3>&& covTF)
+TrackingFrameInfo::TrackingFrameInfo(float x, float y, float z, float xTF, float alpha, o2::gpu::gpustd::array<float, 2>&& posTF,
+                                     o2::gpu::gpustd::array<float, 3>&& covTF)
   : xCoordinate{x}, yCoordinate{y}, zCoordinate{z}, xTrackingFrame{xTF}, alphaTrackingFrame{alpha}, positionTrackingFrame{posTF}, covarianceTrackingFrame{covTF}
 {
   // Nothing to do

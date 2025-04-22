@@ -744,18 +744,18 @@ void CalibdEdx::finalizeDebugOutput() const
   }
 }
 
-void CalibdEdx::dumpToFile(const char* outFile, const char* outName) const
+void CalibdEdx::dumpToFile(const char* outFile)
 {
   TFile f(outFile, "RECREATE");
-  f.WriteObject(this, outName);
+  f.WriteObject(this, "calib");
   const auto* thn = getRootHist();
   f.WriteObject(thn, "histogram_data");
 }
 
-CalibdEdx CalibdEdx::readFromFile(const char* inFile, const char* inName)
+CalibdEdx CalibdEdx::readFromFile(const char* inFile)
 {
   TFile f(inFile, "READ");
-  auto* obj = (CalibdEdx*)f.Get(inName);
+  auto* obj = (CalibdEdx*)f.Get("calib");
   if (!obj) {
     CalibdEdx calTmp;
     return calTmp;

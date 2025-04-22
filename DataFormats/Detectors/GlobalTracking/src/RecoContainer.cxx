@@ -123,7 +123,7 @@ void DataRequest::requestTPCTracks(bool mc)
   addInput({"trackTPCClRefs", "TPC", "CLUSREFS", 0, Lifetime::Timeframe});
   if (requestMap.find("clusTPC") != requestMap.end()) {
     addInput({"clusTPCshmap", "TPC", "CLSHAREDMAP", 0, Lifetime::Timeframe});
-    addInput({"clusTPCoccmap", "TPC", "TPCOCCUPANCYMAP", 0, Lifetime::Timeframe});
+    requestTPCOccMap();
   }
   if (mc) {
     addInput({"trackTPCMCTR", "TPC", "TRACKSMCLBL", 0, Lifetime::Timeframe});
@@ -267,6 +267,12 @@ void DataRequest::requestMFTClusters(bool mc)
   requestMap["clusMFT"] = mc;
 }
 
+void DataRequest::requestTPCOccMap()
+{
+  addInput({"clusTPCoccmap", "TPC", "TPCOCCUPANCYMAP", 0, Lifetime::Timeframe});
+  requestMap["TPCOcc"] = false;
+}
+
 void DataRequest::requestTPCClusters(bool mc)
 {
   addInput({"clusTPC", ConcreteDataTypeMatcher{"TPC", "CLUSTERNATIVE"}, Lifetime::Timeframe});
@@ -275,7 +281,7 @@ void DataRequest::requestTPCClusters(bool mc)
   }
   if (requestMap.find("trackTPC") != requestMap.end()) {
     addInput({"clusTPCshmap", "TPC", "CLSHAREDMAP", 0, Lifetime::Timeframe});
-    addInput({"clusTPCoccmap", "TPC", "TPCOCCUPANCYMAP", 0, Lifetime::Timeframe});
+    requestTPCOccMap();
   }
   if (mc) {
     addInput({"clusTPCMC", ConcreteDataTypeMatcher{"TPC", "CLNATIVEMCLBL"}, Lifetime::Timeframe});
@@ -704,10 +710,17 @@ void RecoContainer::collectData(ProcessingContext& pc, const DataRequest& reques
     addMFTClusters(pc, req->second);
   }
 
+  req = reqMap.find("TPCOcc");
+  bool TPCOccDone = false;
+  if (req != reqMap.end()) {
+    TPCOccDone = true;
+    addTPCOccMap(pc);
+  }
+
   req = reqMap.find("clusTPC");
   if (req != reqMap.end()) {
     auto tracksON = reqMap.find("trackTPC") != reqMap.end();
-    addTPCClusters(pc, req->second, tracksON, tracksON);
+    addTPCClusters(pc, req->second, tracksON, tracksON && (!TPCOccDone));
   }
 
   req = reqMap.find("trigTPC");
@@ -1098,6 +1111,12 @@ void RecoContainer::addMFTClusters(ProcessingContext& pc, bool mc)
   if (mc) {
     mcITSClusters = pc.inputs().get<const dataformats::MCTruthContainer<MCCompLabel>*>("clusMFTMC");
   }
+}
+
+//__________________________________________________________
+void RecoContainer::addTPCOccMap(ProcessingContext& pc)
+{
+  occupancyMapTPC = pc.inputs().get<gsl::span<unsigned int>>("clusTPCoccmap");
 }
 
 //__________________________________________________________

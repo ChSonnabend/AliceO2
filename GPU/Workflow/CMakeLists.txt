@@ -27,7 +27,8 @@ o2_add_library(GPUWorkflow
                                      O2::DataFormatsGlobalTracking
                                      O2::DataFormatsTRD
                PRIVATE_LINK_LIBRARIES O2::GPUTracking
-                                      O2::ITSTrackingInterface)
+                                      O2::ITSTrackingInterface
+                                      $<$<BOOL:${ENABLE_UPGRADES}>:O2::ITS3TrackingInterface>)
 
 o2_add_executable(reco-workflow
        COMPONENT_NAME gpu

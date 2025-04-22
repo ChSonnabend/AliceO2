@@ -345,7 +345,6 @@ bool StrangenessTracker::matchDecayToITStrack(float decayR, StrangeTrack& strang
   auto trackClusters = getTrackClusters(itsTrack);
   auto trackClusSizes = getTrackClusterSizes(itsTrack);
   auto& lastClus = trackClusters[0];
-  strangeTrack.mMatchChi2 = getMatchingChi2(strangeTrack.mMother, itsTrack);
 
   auto radTol = decayR < 4 ? mStrParams->mRadiusTolIB : mStrParams->mRadiusTolOB;
   auto nMinClusMother = trackClusters.size() < 4 ? 2 : mStrParams->mMinMotherClus;
@@ -413,11 +412,13 @@ bool StrangenessTracker::matchDecayToITStrack(float decayR, StrangeTrack& strang
 
   std::reverse(motherClusters.begin(), motherClusters.end());
 
+  mGlobalChi2 = -1;
   for (auto& clus : motherClusters) {
     if (!updateTrack(clus, motherTrackClone)) {
       break;
     }
   }
+  strangeTrack.mMatchChi2 = mGlobalChi2;
 
   LOG(debug) << "Inward-outward refit finished, starting final topology refit";
   // final Topology refit
@@ -517,6 +518,7 @@ bool StrangenessTracker::updateTrack(const ITSCluster& clus, o2::track::TrackPar
     return false;
   }
 
+  mGlobalChi2 += chi2;
   return true;
 }
 

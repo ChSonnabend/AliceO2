@@ -27,7 +27,7 @@
 #define ENABLE_UPGRADES
 #include "ITSBase/GeometryTGeo.h"
 #include "DataFormatsITSMFT/Digit.h"
-#include "ITS3Base/SegmentationSuperAlpide.h"
+#include "ITS3Base/SegmentationMosaix.h"
 #include "ITSMFTBase/SegmentationAlpide.h"
 #include "ITSMFTSimulation/Hit.h"
 #include "MathUtils/Utils.h"
@@ -51,6 +51,7 @@ void CheckDigitsITS3(std::string digifile = "it3digits.root", std::string hitfil
   using o2::itsmft::Hit;
 
   using o2::itsmft::SegmentationAlpide;
+  std::array<its3::SegmentationMosaix, 3> mMosaixSegmentations{0, 1, 2};
 
   TFile* f = TFile::Open("CheckDigits.root", "recreate");
   TNtuple* nt = new TNtuple("ntd", "digit ntuple", "id:x:y:z:rowD:colD:rowH:colH:xlH:zlH:xlcH:zlcH:dx:dz");
@@ -165,8 +166,8 @@ void CheckDigitsITS3(std::string digifile = "it3digits.root", std::string hitfil
       if (isIB) {
         // ITS3 IB
         float xFlat{0.f}, yFlat{0.f};
-        its3::SuperSegmentations[layer].detectorToLocal(ix, iz, xFlat, z);
-        its3::SuperSegmentations[layer].flatToCurved(xFlat, 0., x, y);
+        mMosaixSegmentations[layer].detectorToLocal(ix, iz, xFlat, z);
+        mMosaixSegmentations[layer].flatToCurved(xFlat, 0., x, y);
       } else {
         // ITS2 OB
         SegmentationAlpide::detectorToLocal(ix, iz, x, z);
@@ -184,7 +185,7 @@ void CheckDigitsITS3(std::string digifile = "it3digits.root", std::string hitfil
       const auto* mc2hit = &mc2hitVec[lab.getEventID()];
       const auto& hitEntry = mc2hit->find(key);
       if (hitEntry == mc2hit->end()) {
-        LOGP(error, "Failed to find MC hit entry for Tr {} chipID {}", trID, chipID);
+        LOGP(debug, "Failed to find MC hit entry for Tr {} chipID {}", trID, chipID);
         continue;
       }
 
@@ -196,18 +197,18 @@ void CheckDigitsITS3(std::string digifile = "it3digits.root", std::string hitfil
       auto xyzLocE = gman->getMatrixL2G(chipID) ^ (hit.GetPos()); // inverse conversion from global to local
       auto xyzLocS = gman->getMatrixL2G(chipID) ^ (hit.GetPosStart());
       o2::math_utils::Vector3D<float> xyzLocM;
-      xyzLocM.SetCoordinates(0.5 * (xyzLocE.X() + xyzLocS.X()), 0.5 * (xyzLocE.Y() + xyzLocS.Y()), 0.5 * (xyzLocE.Z() + xyzLocS.Z()));
+      xyzLocM.SetCoordinates(0.5f * (xyzLocE.X() + xyzLocS.X()), 0.5f * (xyzLocE.Y() + xyzLocS.Y()), 0.5f * (xyzLocE.Z() + xyzLocS.Z()));
       float xlc = 0., zlc = 0.;
       int row = 0, col = 0;
 
       if (isIB) {
         float xFlat{0.}, yFlat{0.};
-        its3::SuperSegmentations[layer].curvedToFlat(xyzLocM.X(), xyzLocM.Y(), xFlat, yFlat);
+        mMosaixSegmentations[layer].curvedToFlat(xyzLocM.X(), xyzLocM.Y(), xFlat, yFlat);
         xyzLocM.SetCoordinates(xFlat, yFlat, xyzLocM.Z());
-        its3::SuperSegmentations[layer].curvedToFlat(locD.X(), locD.Y(), xFlat, yFlat);
+        mMosaixSegmentations[layer].curvedToFlat(locD.X(), locD.Y(), xFlat, yFlat);
         locD.SetCoordinates(xFlat, yFlat, locD.Z());
-        if (auto v1 = !its3::SuperSegmentations[layer].localToDetector(xyzLocM.X(), xyzLocM.Z(), row, col),
-            v2 = !its3::SuperSegmentations[layer].detectorToLocal(row, col, xlc, zlc);
+        if (auto v1 = !mMosaixSegmentations[layer].localToDetector(xyzLocM.X(), xyzLocM.Z(), row, col),
+            v2 = !mMosaixSegmentations[layer].detectorToLocal(row, col, xlc, zlc);
             v1 || v2) {
           continue;
         }
@@ -223,7 +224,7 @@ void CheckDigitsITS3(std::string digifile = "it3digits.root", std::string hitfil
 
       (isIB) ? ++nDigitFilledIB : ++nDigitFilledOB;
     } // end loop on digits array
-  }   // end loop on ROFRecords array
+  } // end loop on ROFRecords array
 
   auto canvXY = new TCanvas("canvXY", "", 1600, 1600);
   canvXY->Divide(2, 2);

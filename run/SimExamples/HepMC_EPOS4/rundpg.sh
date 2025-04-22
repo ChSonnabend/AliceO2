@@ -23,6 +23,18 @@ optns="example"
 TF=1
 eCM=-1
 JOBS=2
+HEPMC=""
+HQ=false
+
+if [ -z "$EPO4VSN" ]; then
+    echo "Error: EPOS4 version not found"
+    exit 7
+fi
+if [ "$EPO4VSN" == "4.0.0" ]; then
+    HEPMC=";HepMC.version=2"
+else
+    HEPMC=";HepMC.version=3"
+fi
 
 usage()
 {
@@ -38,6 +50,7 @@ Options:
   -h,--help                Print these instructions
   -e,--ecm     ENERGY      Center-of-Mass energy
   -t,--tf      TF          Timeframes ($TF)
+  -hq          HQ          Enable EPOS4HQ
   --                       Rest of command line sent to o2-sim
 
 COMMAND must be quoted if it contains spaces or other special
@@ -59,6 +72,7 @@ while test $# -gt 0 ; do
         -i|--input)   optns=$2 ; shift ;;
         -j|--jobs)    JOBS=$2 ; shift ;;
         -e|--ecm)     eCM=$2 ; shift ;;
+        -hq)          HQ=true ; shift ;;
         -h|--help) usage; ${O2DPG_ROOT}/MC/bin/o2dpg_sim_workflow.py --help  ; exit 0 ;;
         -t|--tf)     TF=$2 ; shift ;;
         --)           shift ; break ;;
@@ -115,6 +129,30 @@ else
     fi
 fi
 
+# Set HQ mode
+
+if [ "$HQ" = true ]; then
+    echo "Setting HQ mode"
+    if grep -Fq "ihq" $optns.optns; then
+        sed -i "/ihq/c\set ihq 1" $optns.optns
+    else
+        echo "set ihq 1" >> $optns.optns
+    fi
+    if [ -z "$EPO4HQVSN" ]; then
+        echo "Error: EPOS4HQ version not found"
+        exit 7
+    else
+        HEPMC=";HepMC.version=3"
+    fi
+else
+    echo "Turning OFF HQ mode"
+    if grep -Fq "ihq" $optns.optns; then
+        sed -i "/ihq/c\set ihq 0" $optns.optns
+    else
+        echo "set ihq 0" >> $optns.optns
+    fi
+fi
+
 # Copy options file in each timeframe folder
 for i in $(seq 1 $TF); do
     if [ ! -d tf$i ]; then
@@ -125,8 +163,8 @@ done
 
 # create workflow
 
-${O2DPG_ROOT}/MC/bin/o2dpg_sim_workflow.py -eCM $eCM -ns $NEV -gen hepmc -tf $TF -j $JOBS \
-        -interactionRate 500000 -confKey "GeneratorFileOrCmd.cmd=$cmd -i $optns;GeneratorFileOrCmd.bMaxSwitch=none;HepMC.version=2;${more}"
+${O2DPG_ROOT}/MC/bin/o2dpg_sim_workflow.py -eCM $eCM -ns $NEV -gen hepmc -tf $TF -j $JOBS -seed $RANDOM \
+        -interactionRate 500000 -confKey "GeneratorFileOrCmd.cmd=$cmd -i $optns;GeneratorFileOrCmd.bMaxSwitch=none$HEPMC;${more}"
 
 # Run workflow
 ${O2DPG_ROOT}/MC/bin/o2_dpg_workflow_runner.py -f workflow.json -tt aod --stdout-on-failure

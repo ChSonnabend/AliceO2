@@ -64,3 +64,8 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
   endif()
   install(FILES ${HDRS_INSTALL} DESTINATION include/GPU)
 endif()
+
+if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
+  install(FILES ${HDRS_INSTALL}
+  DESTINATION include)
+endif()

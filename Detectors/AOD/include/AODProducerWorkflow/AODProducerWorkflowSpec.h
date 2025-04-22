@@ -239,6 +239,9 @@ class AODProducerWorkflowDPL : public Task
   bool mPropMuons{false};
   float mTrackQCFraction{0.00};
   int64_t mTrackQCNTrCut{4};
+  float mTrackQCDCAxy{3.};
+  float mTrackQCPt{0.2};
+  int mTrackQCNCls{80};
   float mSqrtS{13860.};
   std::mt19937 mGenerator{}; ///< random generator for trackQA sampling
   o2::base::Propagator::MatCorrType mMatCorr{o2::base::Propagator::MatCorrType::USEMatCorrLUT};
@@ -413,6 +416,7 @@ class AODProducerWorkflowDPL : public Task
   struct TrackQA {
     GID trackID;
     float tpcTime0{};
+    float tpcdEdxNorm{};
     int16_t tpcdcaR{};
     int16_t tpcdcaZ{};
     uint8_t tpcClusterByteMask{};

@@ -26,6 +26,7 @@
 #include "GPUCommonDef.h"
 #include "GPUCommonMath.h"
 #include "GPUCommonLogger.h"
+#include "GPUCommonHelpers.h"
 
 #ifndef __HIPCC__
 #define THRUST_NAMESPACE thrust::cuda
@@ -39,38 +40,37 @@ using constants::GB;
 using constants::MB;
 namespace gpu
 {
-using utils::checkGPUError;
 
 template <int nLayers>
 GpuTimeFrameChunk<nLayers>::~GpuTimeFrameChunk()
 {
   if (mAllocated) {
     for (int i = 0; i < nLayers; ++i) {
-      checkGPUError(cudaFree(mClustersDevice[i]));
-      // checkGPUError(cudaFree(mTrackingFrameInfoDevice[i]));
-      checkGPUError(cudaFree(mClusterExternalIndicesDevice[i]));
-      checkGPUError(cudaFree(mIndexTablesDevice[i]));
+      GPUChkErrS(cudaFree(mClustersDevice[i]));
+      // GPUChkErrS(cudaFree(mTrackingFrameInfoDevice[i]));
+      GPUChkErrS(cudaFree(mClusterExternalIndicesDevice[i]));
+      GPUChkErrS(cudaFree(mIndexTablesDevice[i]));
       if (i < nLayers - 1) {
-        checkGPUError(cudaFree(mTrackletsDevice[i]));
-        checkGPUError(cudaFree(mTrackletsLookupTablesDevice[i]));
+        GPUChkErrS(cudaFree(mTrackletsDevice[i]));
+        GPUChkErrS(cudaFree(mTrackletsLookupTablesDevice[i]));
         if (i < nLayers - 2) {
-          checkGPUError(cudaFree(mCellsDevice[i]));
-          checkGPUError(cudaFree(mCellsLookupTablesDevice[i]));
-          checkGPUError(cudaFree(mRoadsLookupTablesDevice[i]));
+          GPUChkErrS(cudaFree(mCellsDevice[i]));
+          GPUChkErrS(cudaFree(mCellsLookupTablesDevice[i]));
+          GPUChkErrS(cudaFree(mRoadsLookupTablesDevice[i]));
           if (i < nLayers - 3) {
-            checkGPUError(cudaFree(mNeighboursCellLookupTablesDevice[i]));
-            checkGPUError(cudaFree(mNeighboursCellDevice[i]));
+            GPUChkErrS(cudaFree(mNeighboursCellLookupTablesDevice[i]));
+            GPUChkErrS(cudaFree(mNeighboursCellDevice[i]));
           }
         }
       }
     }
-    // checkGPUError(cudaFree(mRoadsDevice));
-    checkGPUError(cudaFree(mCUBTmpBufferDevice));
-    checkGPUError(cudaFree(mFoundTrackletsDevice));
-    checkGPUError(cudaFree(mNFoundCellsDevice));
-    checkGPUError(cudaFree(mCellsDeviceArray));
-    checkGPUError(cudaFree(mNeighboursCellDeviceArray));
-    checkGPUError(cudaFree(mNeighboursCellLookupTablesDeviceArray));
+    // GPUChkErrS(cudaFree(mRoadsDevice));
+    GPUChkErrS(cudaFree(mCUBTmpBufferDevice));
+    GPUChkErrS(cudaFree(mFoundTrackletsDevice));
+    GPUChkErrS(cudaFree(mNFoundCellsDevice));
+    GPUChkErrS(cudaFree(mCellsDeviceArray));
+    GPUChkErrS(cudaFree(mNeighboursCellDeviceArray));
+    GPUChkErrS(cudaFree(mNeighboursCellLookupTablesDeviceArray));
   }
 }
 
@@ -117,9 +117,9 @@ void GpuTimeFrameChunk<nLayers>::allocate(const size_t nrof, Stream& stream)
   // static_cast<TimeFrameGPU<nLayers>*>(mTimeFramePtr)->allocMemAsync(reinterpret_cast<void**>(&mNeighboursCellLookupTablesDeviceArray), (nLayers - 3) * sizeof(int*), &stream, true);
 
   // /// Copy pointers of allocated memory to regrouping arrays
-  // checkGPUError(cudaMemcpyAsync(mCellsDeviceArray, mCellsDevice.data(), (nLayers - 2) * sizeof(CellSeed*), cudaMemcpyHostToDevice, stream.get()));
-  // checkGPUError(cudaMemcpyAsync(mNeighboursCellDeviceArray, mNeighboursCellDevice.data(), (nLayers - 3) * sizeof(int*), cudaMemcpyHostToDevice, stream.get()));
-  // checkGPUError(cudaMemcpyAsync(mNeighboursCellLookupTablesDeviceArray, mNeighboursCellLookupTablesDevice.data(), (nLayers - 3) * sizeof(int*), cudaMemcpyHostToDevice, stream.get()));
+  // GPUChkErrS(cudaMemcpyAsync(mCellsDeviceArray, mCellsDevice.data(), (nLayers - 2) * sizeof(CellSeed*), cudaMemcpyHostToDevice, stream.get()));
+  // GPUChkErrS(cudaMemcpyAsync(mNeighboursCellDeviceArray, mNeighboursCellDevice.data(), (nLayers - 3) * sizeof(int*), cudaMemcpyHostToDevice, stream.get()));
+  // GPUChkErrS(cudaMemcpyAsync(mNeighboursCellLookupTablesDeviceArray, mNeighboursCellLookupTablesDevice.data(), (nLayers - 3) * sizeof(int*), cudaMemcpyHostToDevice, stream.get()));
 
   mAllocated = true;
 }
@@ -133,28 +133,28 @@ void GpuTimeFrameChunk<nLayers>::reset(const Task task, Stream& stream)
   //     auto thrustTrackletsBegin = thrust::device_ptr<Tracklet>(mTrackletsDevice[i]);
   //     auto thrustTrackletsEnd = thrustTrackletsBegin + mTFGPUParams->maxTrackletsPerCluster * mTFGPUParams->clustersPerROfCapacity * mNRof;
   //     thrust::fill(THRUST_NAMESPACE::par.on(stream.get()), thrustTrackletsBegin, thrustTrackletsEnd, Tracklet{});
-  //     checkGPUError(cudaMemsetAsync(mNTrackletsPerClusterDevice[i], 0, sizeof(int) * mTFGPUParams->clustersPerROfCapacity * mNRof, stream.get()));
+  //     GPUChkErrS(cudaMemsetAsync(mNTrackletsPerClusterDevice[i], 0, sizeof(int) * mTFGPUParams->clustersPerROfCapacity * mNRof, stream.get()));
   //   }
-  //   checkGPUError(cudaMemsetAsync(mUsedTrackletsDevice, false, sizeof(unsigned char) * mTFGPUParams->maxTrackletsPerCluster * mTFGPUParams->clustersPerROfCapacity * mNRof, stream.get()));
-  //   checkGPUError(cudaMemsetAsync(mClusteredLinesDevice, -1, sizeof(int) * mTFGPUParams->clustersPerROfCapacity * mTFGPUParams->maxTrackletsPerCluster * mNRof, stream.get()));
+  //   GPUChkErrS(cudaMemsetAsync(mUsedTrackletsDevice, false, sizeof(unsigned char) * mTFGPUParams->maxTrackletsPerCluster * mTFGPUParams->clustersPerROfCapacity * mNRof, stream.get()));
+  //   GPUChkErrS(cudaMemsetAsync(mClusteredLinesDevice, -1, sizeof(int) * mTFGPUParams->clustersPerROfCapacity * mTFGPUParams->maxTrackletsPerCluster * mNRof, stream.get()));
   // } else {
   //   for (int i = 0; i < nLayers; ++i) {
   //     if (i < nLayers - 1) {
-  //       checkGPUError(cudaMemsetAsync(mTrackletsLookupTablesDevice[i], 0, sizeof(int) * mTFGPUParams->clustersPerROfCapacity * mNRof, stream.get()));
+  //       GPUChkErrS(cudaMemsetAsync(mTrackletsLookupTablesDevice[i], 0, sizeof(int) * mTFGPUParams->clustersPerROfCapacity * mNRof, stream.get()));
   //       auto thrustTrackletsBegin = thrust::device_ptr<Tracklet>(mTrackletsDevice[i]);
   //       auto thrustTrackletsEnd = thrustTrackletsBegin + mTFGPUParams->maxTrackletsPerCluster * mTFGPUParams->clustersPerROfCapacity * mNRof;
   //       thrust::fill(THRUST_NAMESPACE::par.on(stream.get()), thrustTrackletsBegin, thrustTrackletsEnd, Tracklet{});
   //       if (i < nLayers - 2) {
-  //         checkGPUError(cudaMemsetAsync(mCellsLookupTablesDevice[i], 0, sizeof(int) * mTFGPUParams->cellsLUTsize * mNRof, stream.get()));
-  //         checkGPUError(cudaMemsetAsync(mRoadsLookupTablesDevice[i], 0, sizeof(int) * mTFGPUParams->maxNeighboursSize * mNRof, stream.get()));
+  //         GPUChkErrS(cudaMemsetAsync(mCellsLookupTablesDevice[i], 0, sizeof(int) * mTFGPUParams->cellsLUTsize * mNRof, stream.get()));
+  //         GPUChkErrS(cudaMemsetAsync(mRoadsLookupTablesDevice[i], 0, sizeof(int) * mTFGPUParams->maxNeighboursSize * mNRof, stream.get()));
   //         if (i < nLayers - 3) {
-  //           checkGPUError(cudaMemsetAsync(mNeighboursCellLookupTablesDevice[i], 0, sizeof(int) * mTFGPUParams->maxNeighboursSize * mNRof, stream.get()));
-  //           checkGPUError(cudaMemsetAsync(mNeighboursCellDevice[i], 0, sizeof(int) * mTFGPUParams->maxNeighboursSize * mNRof, stream.get()));
+  //           GPUChkErrS(cudaMemsetAsync(mNeighboursCellLookupTablesDevice[i], 0, sizeof(int) * mTFGPUParams->maxNeighboursSize * mNRof, stream.get()));
+  //           GPUChkErrS(cudaMemsetAsync(mNeighboursCellDevice[i], 0, sizeof(int) * mTFGPUParams->maxNeighboursSize * mNRof, stream.get()));
   //         }
   //       }
   //     }
   //   }
-  //   checkGPUError(cudaMemsetAsync(mNFoundCellsDevice, 0, (nLayers - 2) * sizeof(int), stream.get()));
+  //   GPUChkErrS(cudaMemsetAsync(mNFoundCellsDevice, 0, (nLayers - 2) * sizeof(int), stream.get()));
   // }
 }
 
@@ -275,12 +275,12 @@ size_t GpuTimeFrameChunk<nLayers>::loadDataOnDevice(const size_t startRof, const
   //   if (mHostClusters[i].size() > mTFGPUParams->clustersPerROfCapacity * nRofs) {
   //     LOGP(warning, "Clusters on layer {} exceed the expected value, resizing to config value: {}, will lose information!", i, mTFGPUParams->clustersPerROfCapacity * nRofs);
   //   }
-  //   checkGPUError(cudaMemcpyAsync(mClustersDevice[i],
+  //   GPUChkErrS(cudaMemcpyAsync(mClustersDevice[i],
   //                                 mHostClusters[i].data(),
   //                                 (int)std::min(mHostClusters[i].size(), mTFGPUParams->clustersPerROfCapacity * nRofs) * sizeof(Cluster),
   //                                 cudaMemcpyHostToDevice, stream.get()));
   //   if (mHostIndexTables[i].data()) {
-  //     checkGPUError(cudaMemcpyAsync(mIndexTablesDevice[i],
+  //     GPUChkErrS(cudaMemcpyAsync(mIndexTablesDevice[i],
   //                                   mHostIndexTables[i].data(),
   //                                   mHostIndexTables[i].size() * sizeof(int),
   //                                   cudaMemcpyHostToDevice, stream.get()));

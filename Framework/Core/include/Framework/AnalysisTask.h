@@ -65,46 +65,6 @@ concept is_enumeration = is_enumeration_v<std::decay_t<T>>;
 // the contents of an AnalysisTask...
 namespace {
 struct AnalysisDataProcessorBuilder {
-  template <typename T>
-  static ConfigParamSpec getSpec()
-  {
-    if constexpr (soa::has_metadata<aod::MetadataTrait<T>>) {
-      return ConfigParamSpec{std::string{"input:"} + aod::MetadataTrait<T>::metadata::tableLabel(), VariantType::String, aod::MetadataTrait<T>::metadata::sourceSpec(), {"\"\""}};
-    } else {
-      using O1 = framework::pack_element_t<0, typename T::originals>;
-      return ConfigParamSpec{std::string{"input:"} + aod::MetadataTrait<T>::metadata::tableLabel(), VariantType::String, aod::MetadataTrait<O1>::metadata::sourceSpec(), {"\"\""}};
-    }
-  }
-
-  template <soa::TableRef R>
-  static ConfigParamSpec getSpec()
-  {
-    return soa::tableRef2ConfigParamSpec<R>();
-  }
-
-  template <soa::with_sources T>
-  static inline auto getSources()
-  {
-    return []<size_t N, std::array<soa::TableRef, N> refs>() {
-      return []<size_t... Is>(std::index_sequence<Is...>) {
-        return std::vector{soa::tableRef2ConfigParamSpec<refs[Is]>()...};
-      }(std::make_index_sequence<N>());
-    }.template operator()<T::sources.size(), T::sources>();
-  }
-
-  template <soa::with_sources T>
-
-  static auto getInputMetadata()
-  {
-    std::vector<ConfigParamSpec> inputMetadata;
-    auto inputSources = getSources<T>();
-    std::sort(inputSources.begin(), inputSources.end(), [](ConfigParamSpec const& a, ConfigParamSpec const& b) { return a.name < b.name; });
-    auto last = std::unique(inputSources.begin(), inputSources.end(), [](ConfigParamSpec const& a, ConfigParamSpec const& b) { return a.name == b.name; });
-    inputSources.erase(last, inputSources.end());
-    inputMetadata.insert(inputMetadata.end(), inputSources.begin(), inputSources.end());
-    return inputMetadata;
-  }
-
   template <typename G, typename... Args>
   static void addGroupingCandidates(std::vector<StringPair>& bk, std::vector<StringPair>& bku)
   {
@@ -130,14 +90,9 @@ struct AnalysisDataProcessorBuilder {
   template <soa::TableRef R>
   static void addOriginalRef(const char* name, bool value, std::vector<InputSpec>& inputs)
   {
-    using metadata = typename aod::MetadataTrait<o2::aod::Hash<R.desc_hash>>::metadata;
-    std::vector<ConfigParamSpec> inputMetadata;
-    inputMetadata.emplace_back(ConfigParamSpec{std::string{"control:"} + name, VariantType::Bool, value, {"\"\""}});
-    if constexpr (soa::with_sources<metadata>) {
-      auto inputSources = getInputMetadata<metadata>();
-      inputMetadata.insert(inputMetadata.end(), inputSources.begin(), inputSources.end());
-    }
-    DataSpecUtils::updateInputList(inputs, InputSpec{o2::aod::label<R>(), o2::aod::origin<R>(), aod::description(o2::aod::signature<R>()), R.version, Lifetime::Timeframe, inputMetadata});
+    auto spec = soa::tableRef2InputSpec<R>();
+    spec.metadata.emplace_back(ConfigParamSpec{std::string{"control:"} + name, VariantType::Bool, value, {"\"\""}});
+    DataSpecUtils::updateInputList(inputs, std::move(spec));
   }
 
   /// helpers to append expression information for a single argument
@@ -576,7 +531,7 @@ DataProcessorSpec adaptAnalysisTask(ConfigContext const& ctx, Args&&... args)
     homogeneous_apply_refs([&ic](auto&& element) { return analysis_task_parsers::prepareService(ic, element); }, *task.get());
 
     auto& callbacks = ic.services().get<CallbackService>();
-    auto endofdatacb = [task](EndOfStreamContext& eosContext) {
+    auto eoscb = [task](EndOfStreamContext& eosContext) {
       homogeneous_apply_refs([&eosContext](auto& element) {
           analysis_task_parsers::postRunService(eosContext, element);
           analysis_task_parsers::postRunOutput(eosContext, element);
@@ -585,13 +540,13 @@ DataProcessorSpec adaptAnalysisTask(ConfigContext const& ctx, Args&&... args)
       eosContext.services().get<ControlService>().readyToQuit(QuitRequest::Me);
     };
 
-    callbacks.set<CallbackService::Id::EndOfStream>(endofdatacb);
+    callbacks.set<CallbackService::Id::EndOfStream>(eoscb);
 
     /// update configurables in filters and partitions
     homogeneous_apply_refs(
       [&ic](auto& element) -> bool { return analysis_task_parsers::updatePlaceholders(ic, element); },
       *task.get());
-    /// create for filters gandiva trees matched to schemas and store the pointers into expressionInfos
+    /// create expression trees for filters gandiva trees matched to schemas and store the pointers into expressionInfos
     homogeneous_apply_refs([&expressionInfos](auto& element) {
       return analysis_task_parsers::createExpressionTrees(expressionInfos, element);
     },

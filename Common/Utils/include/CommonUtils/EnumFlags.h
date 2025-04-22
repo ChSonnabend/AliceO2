@@ -154,14 +154,14 @@ struct FlagsHelper final {
     }
     return values;
   }
-  static constexpr auto Values{getValues(std::make_index_sequence<MaxScan - MinScan - MarginScan>())};              // Enum Values
-  static constexpr auto count() noexcept { return Values.size(); }                                                  // Number of enum members
-  static constexpr auto Min_v{Values.front()};                                                                      // Enum first entry
-  static constexpr auto Max_v{Values.back()};                                                                       // Enum last entry
-  static constexpr auto Min_u_v{static_cast<size_t>(Min_v)};                                                        // Enum first entry as size_t
-  static constexpr auto Max_u_v{static_cast<size_t>(Max_v)};                                                        // Enum last entry as size_t
-  static constexpr bool isContinuous() noexcept { return (Max_u_v - Min_u_v + 1) == count(); }                      // Is the enum continuous
-  static constexpr uint64_t MaxRep{(Max_u_v >= 64) ? std::numeric_limits<uint64_t>::max() : (1ULL << Max_u_v) - 1}; // largest representable value
+  static constexpr auto Values{getValues(std::make_index_sequence<MaxScan - MinScan - MarginScan>())}; // Enum Values
+  static constexpr auto count() noexcept { return Values.size(); }                                     // Number of enum members
+  static constexpr auto Min_v{Values.front()};                                                         // Enum first entry
+  static constexpr auto Max_v{Values.back()};                                                          // Enum last entry
+  static constexpr auto Min_u_v{static_cast<size_t>(Min_v)};                                           // Enum first entry as size_t
+  static constexpr auto Max_u_v{static_cast<size_t>(Max_v)};                                           // Enum last entry as size_t
+  static constexpr bool isContinuous() noexcept { return (Max_u_v - Min_u_v + 1) == count(); }         // Is the enum continuous
+  static constexpr auto MaxRep{((1 << (Max_u_v - Min_u_v + 1)) - 1) << Min_u_v};                       // largest representable value
 
   template <E e>
   static constexpr std::string_view getName()
@@ -398,11 +398,14 @@ class EnumFlags
   // Sets flags from a string representation.
   // This can be either from a number representation (binary or digits) or
   // a concatenation of the enums members name e.g., 'Enum1|Enum2|...'
-  void set(const std::string& s, int base = 2)
+  void set(const std::string& s = "", int base = 2)
   {
     // on throw restore previous state and rethrow
     const U prev = mBits;
     reset();
+    if (s.empty()) { // no-op
+      return;
+    }
     try {
       setImpl(s, base);
     } catch (const std::exception& e) {
@@ -665,7 +668,7 @@ class EnumFlags
         throw std::out_of_range("Values exceeds enum range.");
       }
       mBits = static_cast<U>(v);
-    } else if (std::all_of(s.begin(), s.end(), [](unsigned char c) { return std::isalnum(c) != 0 || c == '|' || c == ' ' || c == ':'; })) {
+    } else if (std::all_of(s.begin(), s.end(), [](unsigned char c) { return std::isalnum(c) != 0 || c == '|' || c == ' ' || c == ':' || c == ','; })) {
       std::string cs{s};
       std::transform(cs.begin(), cs.end(), cs.begin(), [](unsigned char c) { return std::tolower(c); });
       if (cs == H::All) {
@@ -673,7 +676,8 @@ class EnumFlags
       } else if (cs == H::None) {
         mBits = None;
       } else {
-        for (const auto& tok : Str::tokenize(s, '|')) {
+        char token = (s.find(',') != std::string::npos) ? ',' : '|';
+        for (const auto& tok : Str::tokenize(s, token)) {
           if (auto e = H::fromString(tok)) {
             mBits |= to_bit(*e);
           } else {

@@ -17,11 +17,12 @@ set(MODULE GPUTracking)
 if(GPUCA_DETERMINISTIC_MODE GREATER_EQUAL ${GPUCA_DETERMINISTIC_MODE_MAP_NO_FAST_MATH})
   set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} ${GPUCA_CXX_NO_FAST_MATH_FLAGS}")
   if(GPUCA_DETERMINISTIC_MODE GREATER_EQUAL ${GPUCA_DETERMINISTIC_MODE_MAP_OPTO2})
-    set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} -O2 ${GPUCA_CLANG_FTZ}")
+    set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} -O2")
   endif()
 elseif(NOT CMAKE_BUILD_TYPE_UPPER STREQUAL "DEBUG")
-  set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} -O3 -ffast-math ${GPUCA_CLANG_FTZ}")
+  set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} -O3 -ffast-math")
 endif()
+set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} ${GPUCA_CXX_DENORMALS_FLAGS}")
 
 include(cmake/helpers.cmake)
 
@@ -128,7 +129,9 @@ set(HDRS_INSTALL
     DataTypes/GPUTriggerOutputs.h
     Debug/GPUROOTDump.h
     Definitions/GPUDefConstantsAndSettings.h
-    Definitions/GPUDefGPUParameters.h
+    Definitions/GPUDefParametersWrapper.h
+    Definitions/GPUDefParametersConstants.h
+    Definitions/GPUDefParametersDefaults.h
     Definitions/GPUDef.h
     Definitions/GPUDefMacros.h
     Definitions/GPULogging.h
@@ -229,27 +232,38 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
       Interface/GPUO2InterfaceConfigurableParam.cxx)
 endif()
 
+set(TEMPLATE_HEADER_LIST Base/GPUReconstructionKernelList.template.h
+                         Base/GPUReconstructionKernelIncludes.template.h
+                         Base/GPUReconstructionIncludesDeviceAll.template.h
+                         cmake/GPUNoFastMathKernels.template.h
+                         Definitions/GPUDefParametersRuntime.template.h
+                         Definitions/GPUDefParametersLoad.template.inc)
+set(GENERATED_HEADERS_LIST "")
+
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly)
+foreach(TEMPLATE_FILE ${TEMPLATE_HEADER_LIST})
+  get_filename_component(OUTPUT_FILE_NAME ${TEMPLATE_FILE} NAME)
+  string(REPLACE ".template" "" OUTPUT_FILE_NAME ${OUTPUT_FILE_NAME})
+  file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/${OUTPUT_FILE_NAME} INPUT ${TEMPLATE_FILE})
+  list(APPEND GENERATED_HEADERS_LIST ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/${OUTPUT_FILE_NAME})
+endforeach()
+set(GPUDEFPARAMETERSLBLIST "$<JOIN:$<LIST:TRANSFORM,$<LIST:TRANSFORM,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_NAMES>,REPLACE,[^A-Za-z0-9]+,_>,PREPEND,LB_>,\n>\n")
+string(APPEND GPUDEFPARAMETERSLBLIST "$<JOIN:$<LIST:TRANSFORM,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_PARAMS>,PREPEND,PAR_>,\n>\n")
+string(APPEND GPUDEFPARAMETERSLBLIST "$<JOIN:$<LIST:TRANSFORM,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_STRING_PARAMS>,PREPEND,PAR_>,\n>")
 file(GENERATE
-     OUTPUT include_gpu_onthefly/GPUReconstructionKernelList.h
-     INPUT Base/GPUReconstructionKernelList.template.h
+     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/GPUDefParametersLoadPrepareBase
+     CONTENT ${GPUDEFPARAMETERSLBLIST})
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/GPUDefParametersLoadPrepare.h
+  COMMAND awk "{print(\"#ifndef GPUCA_\" $0 \"\\n#define GPUCA_\" $0 \" 0\\n#endif\")}" ${CMAKE_CURRENT_BINARY_DIR}/GPUDefParametersLoadPrepareBase > ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/GPUDefParametersLoadPrepare.h
+  COMMENT "Generating GPUDefParametersLoadPrepare.h"
+  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/GPUDefParametersLoadPrepareBase
+  VERBATIM
+  COMMAND_EXPAND_LISTS
 )
-file(GENERATE
-     OUTPUT include_gpu_onthefly/GPUReconstructionKernelIncludes.h
-     INPUT Base/GPUReconstructionKernelIncludes.template.h
-)
-file(GENERATE
-     OUTPUT include_gpu_onthefly/GPUReconstructionIncludesDeviceAll.h
-     INPUT Base/GPUReconstructionIncludesDeviceAll.template.h
-)
-file(GENERATE
-     OUTPUT include_gpu_onthefly/GPUNoFastMathKernels.h
-     INPUT cmake/GPUNoFastMathKernels.template.h
-)
-if(NOT ALIGPU_BUILD_TYPE STREQUAL "O2")
-  include_directories(${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly)
-endif()
-set(HDRS_INSTALL ${HDRS_INSTALL} ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/GPUReconstructionKernelList.h)
+list(APPEND GENERATED_HEADERS_LIST ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/GPUDefParametersLoadPrepare.h)
+
+set(HDRS_INSTALL ${HDRS_INSTALL} ${GENERATED_HEADERS_LIST})
 include(kernels.cmake)
 
 # Optional sources depending on optional dependencies
@@ -368,13 +382,18 @@ if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
 
   if(GPUCA_CONFIG_ROOT)
     ROOT_GENERATE_DICTIONARY(G__${targetName} ${HDRS_CINT_O2} ${HDRS_CINT_DATATYPES} ${HDRS_CINT_O2_ADDITIONAL} GPUTrackingLinkDef_Standalone.h MODULE ${targetName})
-    INSTALL(FILES
+    install(FILES
       ${CMAKE_CURRENT_BINARY_DIR}/lib${targetName}_rdict.pcm
       ${CMAKE_CURRENT_BINARY_DIR}/lib${targetName}.rootmap
     DESTINATION .)
   else()
     target_compile_definitions(${targetName} PRIVATE GPUCA_NO_ROOT)
   endif()
+  install(FILES ${HDRS_SRCS} ${HDRS_CINT_O2} ${HDRS_CINT_DATATYPES} ${HDRS_INSTALL}
+          DESTINATION include)
+  install(DIRECTORY utils
+          DESTINATION include
+          FILES_MATCHING PATTERN *.h)
 endif()
 
 # GPUReconstructionLibrary needs to know which GPU backends are enabled for proper error messages
@@ -383,6 +402,12 @@ set_source_files_properties(Base/GPUReconstructionLibrary.cxx
                             PROPERTIES
                             INCLUDE_DIRECTORIES "${CMAKE_CURRENT_BINARY_DIR}")
 
+# Make sure header files generated with add_custom_command are built before being used
+target_sources(${targetName}
+               PRIVATE FILE_SET "generatedHeaders"
+               TYPE HEADERS
+               FILES ${GENERATED_HEADERS_LIST}
+               BASE_DIRS ${CMAKE_CURRENT_BINARY_DIR})
 
 # Add compile definitions and libraries depending on available optional dependencies
 if(GPUCA_QA)

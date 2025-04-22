@@ -490,6 +490,10 @@ inline void O2DatabasePDG::addALICEParticles(TDatabasePDG* db)
   }
 
   // glueball hunting
+  ionCode = 225;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("f2_1270", "f2_1270", 1.2754, kFALSE, 0.1858, 0, "Resonance", ionCode);
+  }
   ionCode = 115;
   if (!db->GetParticle(ionCode)) {
     db->AddParticle("a2_1320", "a2_1320", 1.3182, kFALSE, 0.1078, 0, "Resonance", ionCode);

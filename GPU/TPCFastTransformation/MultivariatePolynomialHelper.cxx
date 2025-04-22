@@ -73,8 +73,7 @@ std::vector<std::string> MultivariatePolynomialHelper<0, 0, false>::getTerms() c
 TLinearFitter MultivariatePolynomialHelper<0, 0, false>::getTLinearFitter() const
 {
   const std::string formula = getTLinearFitterFormula();
-  TLinearFitter fitter(int32_t(mDim), formula.data(), "");
-  return fitter;
+  return TLinearFitter(int32_t(mDim), formula.data(), "");
 }
 
 std::vector<float> MultivariatePolynomialHelper<0, 0, false>::fit(TLinearFitter& fitter, std::vector<double>& x, std::vector<double>& y, std::vector<double>& error, const bool clearPoints)

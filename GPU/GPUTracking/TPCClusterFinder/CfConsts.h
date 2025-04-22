@@ -35,11 +35,6 @@ GPUconstexpr() tpccf::Delta2 InnerNeighbors[8] =
     {1, 0},
     {1, 1}};
 
-GPUconstexpr() bool InnerTestEq[8] =
-  {
-    true, true, true, true,
-    false, false, false, false};
-
 GPUconstexpr() tpccf::Delta2 OuterNeighbors[16] =
   {
     {-2, -1},

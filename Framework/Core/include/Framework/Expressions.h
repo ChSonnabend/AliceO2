@@ -41,6 +41,7 @@ class Projector;
 #include <string>
 #include <memory>
 #include <set>
+#include <stack>
 namespace gandiva
 {
 using Selection = std::shared_ptr<gandiva::SelectionVector>;
@@ -114,6 +115,8 @@ struct LiteralNode {
   {
   }
 
+  LiteralNode(LiteralNode const& other) = default;
+
   using var_t = LiteralValue::stored_type;
   var_t value;
   atype::type type = atype::NA;
@@ -132,6 +135,7 @@ struct BindingNode {
 /// An expression tree node corresponding to binary or unary operation
 struct OpNode {
   OpNode(BasicOp op_) : op{op_} {}
+  OpNode(OpNode const& other) = default;
   BasicOp op;
 };
 
@@ -147,6 +151,8 @@ struct PlaceholderNode : LiteralNode {
     }
   }
 
+  PlaceholderNode(PlaceholderNode const& other) = default;
+
   void reset(InitContext& context)
   {
     value = retrieve(context, name.data());
@@ -154,6 +160,28 @@ struct PlaceholderNode : LiteralNode {
 
   std::string const& name;
   LiteralNode::var_t (*retrieve)(InitContext&, char const*);
+};
+
+/// A placeholder node for parameters taken from an array
+struct ParameterNode : LiteralNode {
+  ParameterNode(int index_ = -1)
+    : LiteralNode((float)0),
+      index{index_}
+  {
+  }
+
+  ParameterNode(ParameterNode const&) = default;
+
+  template <typename T>
+  void reset(T value_, int index_ = -1)
+  {
+    (*static_cast<LiteralNode*>(this)) = LiteralNode(value_);
+    if (index_ > 0) {
+      index = index_;
+    }
+  }
+
+  int index;
 };
 
 /// A conditional node
@@ -178,6 +206,10 @@ struct Node {
   {
   }
 
+  Node(ParameterNode&& p) : self{std::forward<ParameterNode>(p)}, left{nullptr}, right{nullptr}, condition{nullptr}
+  {
+  }
+
   Node(ConditionalNode op, Node&& then_, Node&& else_, Node&& condition_)
     : self{op},
       left{std::make_unique<Node>(std::forward<Node>(then_))},
@@ -196,15 +228,69 @@ struct Node {
       right{nullptr},
       condition{nullptr} {}
 
+  Node(Node const& other)
+    : self{other.self},
+      index{other.index}
+  {
+    if (other.left != nullptr) {
+      left = std::make_unique<Node>(*other.left);
+    }
+    if (other.right != nullptr) {
+      right = std::make_unique<Node>(*other.right);
+    }
+    if (other.condition != nullptr) {
+      condition = std::make_unique<Node>(*other.condition);
+    }
+  }
+
   /// variant with possible nodes
-  using self_t = std::variant<LiteralNode, BindingNode, OpNode, PlaceholderNode, ConditionalNode>;
+  using self_t = std::variant<LiteralNode, BindingNode, OpNode, PlaceholderNode, ConditionalNode, ParameterNode>;
   self_t self;
   size_t index = 0;
   /// pointers to children
-  std::unique_ptr<Node> left;
-  std::unique_ptr<Node> right;
-  std::unique_ptr<Node> condition;
+  std::unique_ptr<Node> left = nullptr;
+  std::unique_ptr<Node> right = nullptr;
+  std::unique_ptr<Node> condition = nullptr;
 };
+
+/// helper struct used to parse trees
+struct NodeRecord {
+  /// pointer to the actual tree node
+  Node* node_ptr = nullptr;
+  size_t index = 0;
+  explicit NodeRecord(Node* node_, size_t index_) : node_ptr(node_), index{index_} {}
+  bool operator!=(NodeRecord const& rhs)
+  {
+    return this->node_ptr != rhs.node_ptr;
+  }
+};
+
+/// Tree-walker helper
+template <typename L>
+void walk(Node* head, L const& pred)
+{
+  std::stack<NodeRecord> path;
+  path.emplace(head, 0);
+  while (!path.empty()) {
+    auto& top = path.top();
+    pred(top.node_ptr);
+
+    auto* leftp = top.node_ptr->left.get();
+    auto* rightp = top.node_ptr->right.get();
+    auto* condp = top.node_ptr->condition.get();
+    path.pop();
+
+    if (leftp != nullptr) {
+      path.emplace(leftp, 0);
+    }
+    if (rightp != nullptr) {
+      path.emplace(rightp, 0);
+    }
+    if (condp != nullptr) {
+      path.emplace(condp, 0);
+    }
+  }
+}
 
 /// overloaded operators to build the tree from an expression
 
@@ -402,8 +488,47 @@ inline Node ifnode(Node&& condition_, Configurable<L1> const& then_, Configurabl
   return Node{ConditionalNode{}, PlaceholderNode{then_}, PlaceholderNode{else_}, std::forward<Node>(condition_)};
 }
 
+/// Parameters
+inline Node par(int index)
+{
+  return Node{ParameterNode{index}};
+}
+
+/// binned functional
+template <typename T>
+inline Node binned(std::vector<T> const& binning, std::vector<T> const& parameters, Node&& binned, Node&& pexp, Node&& out)
+{
+  int bins = binning.size() - 1;
+  const auto binned_copy = binned;
+  const auto out_copy = out;
+  auto root = ifnode(Node{binned_copy} < binning[0], Node{out_copy}, LiteralNode{-1});
+  auto* current = &root;
+  for (auto i = 0; i < bins; ++i) {
+    current->right = std::make_unique<Node>(ifnode(Node{binned_copy} < binning[i + 1], updateParameters(pexp, bins, parameters, i), LiteralNode{-1}));
+    current = current->right.get();
+  }
+  current->right = std::make_unique<Node>(out);
+  return root;
+}
+
+template <typename T>
+Node updateParameters(Node const& pexp, int bins, std::vector<T> const& parameters, int bin)
+{
+  Node result{pexp};
+  auto updateParameter = [&bins, &parameters, &bin](Node* node) {
+    if (node->self.index() == 5) {
+      auto* n = std::get_if<5>(&node->self);
+      n->reset(parameters[n->index * bins + bin]);
+    }
+  };
+  walk(&result, updateParameter);
+  return result;
+}
+
 /// A struct, containing the root of the expression tree
 struct Filter {
+  Filter() = default;
+
   Filter(Node&& node_) : node{std::make_unique<Node>(std::forward<Node>(node_))}
   {
     (void)designateSubtrees(node.get());
@@ -413,7 +538,14 @@ struct Filter {
   {
     (void)designateSubtrees(node.get());
   }
-  std::unique_ptr<Node> node;
+
+  Filter& operator=(Filter&& other) noexcept
+  {
+    node = std::move(other.node);
+    return *this;
+  }
+
+  std::unique_ptr<Node> node = nullptr;
 
   size_t designateSubtrees(Node* node, size_t index = 0);
 };

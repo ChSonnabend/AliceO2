@@ -36,6 +36,7 @@
 #include "GPUCommonLogger.h"
 #include <cstdint>
 #include <functional>
+#include <stdexcept>
 
 namespace o2::gpu::internal
 {

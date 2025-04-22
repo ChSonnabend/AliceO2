@@ -1111,24 +1111,18 @@ void ITSThresholdCalibrator::setRunType(const short int& runtype)
 std::vector<float> ITSThresholdCalibrator::calculatePulseParams(const short int& chipID)
 {
 
-  int rt_mindel = -1, rt_maxdel = -1, tot_mindel = -1, tot_maxdel = -1;
-  int sumRt = 0, sumSqRt = 0, countRt = 0, sumTot = 0, sumSqTot = 0, countTot = 0;
+  int tot_mindel = -1, tot_maxdel = -1;
+  float sumToA = 0., sumSqToA = 0., countToA = 0., sumTot = 0., sumSqTot = 0., countTot = 0.;
+  float toa = -1.;
 
   for (auto itrow = mPixelHits[chipID].begin(); itrow != mPixelHits[chipID].end(); itrow++) { // loop over the chip rows
     short int row = itrow->first;
-    for (short int col_i = 0; col_i < this->N_COL; col_i++) {                                                                              // loop over the pixels on the row
-      for (short int sdel_i = 0; sdel_i < this->N_RANGE; sdel_i++) {                                                                       // loop over the strobe delays
-        if (mPixelHits[chipID][row][col_i][0][sdel_i] > 0.1 * nInj && mPixelHits[chipID][row][col_i][0][sdel_i] < nInj && rt_mindel < 0) { // from left, first bin with 10% hits and 90% hits
-          rt_mindel = (sdel_i * mStep) + 1;                                                                                                // + 1 because if delay = n, we get n+1 in reality (ALPIDE feature)
-        }
-        if (mPixelHits[chipID][row][col_i][0][sdel_i] >= 0.9 * nInj) { // for Rt max take the 90% point
-          rt_maxdel = (sdel_i * mStep) + 1;
-          break;
-        }
-      }
+    for (short int col_i = 0; col_i < this->N_COL; col_i++) { // loop over the pixels on the row
+
       for (short int sdel_i = 0; sdel_i < N_RANGE; sdel_i++) {
-        if (mPixelHits[chipID][row][col_i][0][sdel_i] >= 0.5 * nInj) { // for ToT take the 50% point
-          tot_mindel = (sdel_i * mStep) + 1;
+        if (mPixelHits[chipID][row][col_i][0][sdel_i] >= 0.5 * nInj) { // for ToT and ToA take the 50% point
+          tot_mindel = (sdel_i * mStep) + 1;                           // +1 is for n --> n+1 (alpide manual)
+          toa = (sdel_i * mStep) + 1;
           break;
         }
       }
@@ -1146,24 +1140,23 @@ std::vector<float> ITSThresholdCalibrator::calculatePulseParams(const short int&
         countTot++;
       }
 
-      if (rt_maxdel > rt_mindel && rt_maxdel > 0 && rt_mindel > 0) {
-        sumRt += rt_maxdel - rt_mindel + mStrobeWindow;
-        sumSqRt += (rt_maxdel - rt_mindel + mStrobeWindow) * (rt_maxdel - rt_mindel + mStrobeWindow);
-        countRt++;
+      if (toa > 0) {
+        sumToA += toa + float(mStrobeWindow) / 2.;
+        sumSqToA += (toa + float(mStrobeWindow) / 2.) * (toa + float(mStrobeWindow) / 2.);
+        countToA++;
       }
 
-      rt_mindel = -1;
-      rt_maxdel = -1;
+      toa = -1.;
       tot_maxdel = -1;
       tot_mindel = -1;
     } // end loop over col_i
   }   // end loop over chip rows
 
-  std::vector<float> output; // {avgRt, rmsRt, avgTot, rmsTot}
+  std::vector<float> output; // {avgToA, rmsToA, avgTot, rmsTot}
   // Avg Rt
-  output.push_back(!countRt ? 0. : (float)sumRt / (float)countRt);
+  output.push_back(!countToA ? 0. : (float)sumToA / (float)countToA);
   // Rms Rt
-  output.push_back(!countRt ? 0. : (std::sqrt((float)sumSqRt / (float)countRt - output[0] * output[0])) * 25.);
+  output.push_back(!countToA ? 0. : (std::sqrt((float)sumSqToA / (float)countToA - output[0] * output[0])) * 25.);
   output[0] *= 25.;
   // Avg ToT
   output.push_back(!countTot ? 0. : (float)sumTot / (float)countTot);
@@ -1728,8 +1721,8 @@ void ITSThresholdCalibrator::addDatabaseEntry(
     o2::dcs::addConfigItem(this->mTuning, "ChipDbID", std::to_string(confDBid));
     o2::dcs::addConfigItem(this->mTuning, "Tot", std::to_string(data[2]));    // time over threshold
     o2::dcs::addConfigItem(this->mTuning, "TotRms", std::to_string(data[3])); // time over threshold rms
-    o2::dcs::addConfigItem(this->mTuning, "Rt", std::to_string(data[0]));     // rise time
-    o2::dcs::addConfigItem(this->mTuning, "RtRms", std::to_string(data[1]));  // rise time rms
+    o2::dcs::addConfigItem(this->mTuning, "ToA", std::to_string(data[0]));    // rise time
+    o2::dcs::addConfigItem(this->mTuning, "ToARms", std::to_string(data[1])); // rise time rms
   }
 
   //- Pulse shape 2D: avgToT, rmsToT, MTC, rmsMTC, avgMTCD, rmsMTCD, avgMPL, rmsMPL, avgMPLC, rmsMPLC

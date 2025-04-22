@@ -671,7 +671,8 @@ bool MatchTPCITS::prepareITSData()
     auto pattID = clus.getPatternID();
     unsigned int npix;
 #ifdef ENABLE_UPGRADES
-    if ((pattID == o2::itsmft::CompCluster::InvalidPatternID) || ((withITS3) ? mIT3Dict->isGroup(pattID) : mITSDict->isGroup(pattID))) { // braces guarantee evaluation order
+    auto ib = o2::its3::constants::detID::isDetITS3(clus.getChipID());
+    if ((pattID == o2::itsmft::CompCluster::InvalidPatternID) || ((withITS3) ? mIT3Dict->isGroup(pattID, ib) : mITSDict->isGroup(pattID))) { // braces guarantee evaluation order
 #else
     if (pattID == o2::itsmft::CompCluster::InvalidPatternID || mITSDict->isGroup(pattID)) {
 #endif
@@ -681,7 +682,7 @@ bool MatchTPCITS::prepareITSData()
     } else {
 #ifdef ENABLE_UPGRADES
       if (withITS3) {
-        npix = mIT3Dict->getNpixels(pattID);
+        npix = mIT3Dict->getNpixels(pattID, ib);
       } else {
         npix = mITSDict->getNpixels(pattID);
       }
@@ -1444,8 +1445,7 @@ void MatchTPCITS::refitWinners(pmr::vector<o2::dataformats::TrackTPCITS>& matche
 
 #ifdef WITH_OPENMP
 #pragma omp parallel for schedule(dynamic) num_threads(mNThreads) \
-  reduction(+                                                     \
-            : nFailedRefit)
+  reduction(+ : nFailedRefit)
 #endif
   for (int ifit = 0; ifit < nToFit; ifit++) {
     int iTPC = tpcToFit[ifit], iITS;

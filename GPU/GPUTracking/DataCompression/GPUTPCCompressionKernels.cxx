@@ -258,6 +258,9 @@ GPUdii() void GPUTPCCompressionKernels::Thread<GPUTPCCompressionKernels::step1un
         break;
       }
       if (param.rec.tpc.compressionTypeMask & GPUSettings::CompressionDifferences) {
+#ifdef GPUCA_GPUCODE
+        static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionKernels_step1unattached) * 2 <= GPUCA_TPC_COMP_CHUNK_SIZE);
+#endif
         if (param.rec.tpc.compressionSortOrder == GPUSettings::SortZPadTime) {
           CAAlgo::sortInBlock(sortBuffer, sortBuffer + count, GPUTPCCompressionKernels_Compare<GPUSettings::SortZPadTime>(clusters->clusters[iSector][iRow]));
         } else if (param.rec.tpc.compressionSortOrder == GPUSettings::SortZTimePad) {

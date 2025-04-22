@@ -96,18 +96,18 @@ class DigiParams
   const SignalShape& getSignalShape() const { return mSignalShape; }
   SignalShape& getSignalShape() { return (SignalShape&)mSignalShape; }
 
-  void print() const;
+  virtual void print() const;
 
  private:
   static constexpr double infTime = 1e99;
-  bool mIsContinuous = false;        ///< flag for continuous simulation
-  float mNoisePerPixel = 1.e-8;      ///< ALPIDE Noise per chip
-  int mROFrameLengthInBC = 0;        ///< ROF length in BC for continuos mode
-  float mROFrameLength = 0;          ///< length of RO frame in ns
-  float mStrobeDelay = 0.;           ///< strobe start (in ns) wrt ROF start
-  float mStrobeLength = 0;           ///< length of the strobe in ns (sig. over threshold checked in this window only)
-  double mTimeOffset = -2 * infTime; ///< time offset (in seconds!) to calculate ROFrame from hit time
-  int mROFrameBiasInBC = 0;          ///< misalignment of the ROF start in BC
+  bool mIsContinuous = false;              ///< flag for continuous simulation
+  float mNoisePerPixel = 1.e-8;            ///< ALPIDE Noise per chip
+  int mROFrameLengthInBC = 0;              ///< ROF length in BC for continuos mode
+  float mROFrameLength = 0;                ///< length of RO frame in ns
+  float mStrobeDelay = 0.;                 ///< strobe start (in ns) wrt ROF start
+  float mStrobeLength = 0;                 ///< length of the strobe in ns (sig. over threshold checked in this window only)
+  double mTimeOffset = -2 * infTime;       ///< time offset (in seconds!) to calculate ROFrame from hit time
+  int mROFrameBiasInBC = 0;                ///< misalignment of the ROF start in BC
   int mChargeThreshold = 150;              ///< charge threshold in Nelectrons
   int mMinChargeToAccount = 15;            ///< minimum charge contribution to account
   int mNSimSteps = 7;                      ///< number of steps in response simulation
@@ -125,7 +125,7 @@ class DigiParams
   float mROFrameLengthInv = 0; ///< inverse length of RO frame in ns
   float mNSimStepsInv = 0;     ///< its inverse
 
-  ClassDefNV(DigiParams, 2);
+  ClassDef(DigiParams, 2);
 };
 } // namespace itsmft
 } // namespace o2

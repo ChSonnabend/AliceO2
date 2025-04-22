@@ -43,7 +43,7 @@
   #define GPUhd()                                   // Host and device function, inlined during GPU compilation to avoid symbol clashes in host code
   #define GPUhdi() inline                           // Host and device function, to-be-inlined on host and device
   #define GPUhdni()                                 // Host and device function, not to-be-inlined automatically
-  #define GPUg() INVALID_TRIGGER_ERROR_NO_HOST_CODE // GPU kernel
+  #define GPUg() INVALID_TRIGGER_ERROR_NO_GPU_CODE  // GPU kernel
   #define GPUshared()                               // shared memory variable declaration
   #define GPUglobal()                               // global memory variable declaration (only used for kernel input pointers)
   #define GPUconstant()                             // constant memory variable declaraion

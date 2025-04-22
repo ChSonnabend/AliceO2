@@ -38,7 +38,10 @@ std::vector<DataProcessorSpec> defineDataProcessing(ConfigContext const&)
         InputSpec{"atimer", "TST", "TIMER", 0, Lifetime::Timer}},
       {},
       AlgorithmSpec{
-        adaptStateless([](ControlService& control) {
+        adaptStateless([](ControlService& control, InputRecord& inputs) {
+          DataRef ref = inputs.get("atimer");
+          auto* header = o2::header::get<o2::header::DataHeader*>(ref.header);
+          LOG(info) << "Run number: " << header->runNumber;
           // This is invoked autonomously by the timer.
           control.readyToQuit(QuitRequest::Me);
         })}},

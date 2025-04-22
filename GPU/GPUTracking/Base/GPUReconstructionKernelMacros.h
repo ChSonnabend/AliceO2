@@ -38,21 +38,18 @@
 #ifndef GPUCA_KRNL_CUSTOM
 #define GPUCA_KRNL_CUSTOM(...)
 #endif
-#define GPUCA_KRNL_REG_EXTRREG(...) GPUCA_M_STRIP(__VA_ARGS__)
-#define GPUCA_KRNL_CUSTOM_EXTRREG(MODE, ...) GPUCA_ATTRRES_XCUSTOM(MODE, __VA_ARGS__)
-#define GPUCA_KRNL_NONE_EXTRREG(MODE, ...) GPUCA_ATTRRES_XNONE(MODE, __VA_ARGS__)
-#define GPUCA_ATTRRES_REG(MODE, reg, num, ...) GPUCA_M_EXPAND(GPUCA_M_CAT(GPUCA_KRNL_REG, MODE))(num) GPUCA_ATTRRES_XREG (MODE, __VA_ARGS__)
-#define GPUCA_ATTRRES_CUSTOM(MODE, custom, args, ...) GPUCA_M_EXPAND(GPUCA_M_CAT(GPUCA_KRNL_CUSTOM, MODE))(args) GPUCA_ATTRRES_XCUSTOM(MODE, __VA_ARGS__)
-#define GPUCA_ATTRRES_NONE(MODE, none, ...) GPUCA_ATTRRES_XNONE(MODE, __VA_ARGS__)
-#define GPUCA_ATTRRES_(MODE, ...)
-#define GPUCA_ATTRRES_XNONE(MODE, ...) GPUCA_M_EXPAND(GPUCA_M_CAT(GPUCA_ATTRRES_, GPUCA_M_FIRST(__VA_ARGS__)))(MODE, __VA_ARGS__)
-#define GPUCA_ATTRRES_XCUSTOM(MODE, ...) GPUCA_M_EXPAND(GPUCA_M_CAT(GPUCA_ATTRRES_, GPUCA_M_FIRST(__VA_ARGS__)))(MODE, __VA_ARGS__)
-#define GPUCA_ATTRRES_XREG(MODE, ...) GPUCA_M_EXPAND(GPUCA_M_CAT(GPUCA_ATTRRES_, GPUCA_M_FIRST(__VA_ARGS__)))(MODE, __VA_ARGS__)
-#define GPUCA_ATTRRES(MODE, ...) GPUCA_M_EXPAND(GPUCA_M_CAT(GPUCA_ATTRRES_, GPUCA_M_FIRST(__VA_ARGS__)))(MODE, __VA_ARGS__)
+#define GPUCA_ATTRRES_REG(reg, num, ...) GPUCA_M_EXPAND(GPUCA_KRNL_REG)(num) GPUCA_ATTRRES_XREG (__VA_ARGS__)
+#define GPUCA_ATTRRES_CUSTOM(custom, args, ...) GPUCA_M_EXPAND(GPUCA_KRNL_CUSTOM)(args) GPUCA_ATTRRES_XCUSTOM(__VA_ARGS__)
+#define GPUCA_ATTRRES_NONE(none, ...) GPUCA_ATTRRES_XNONE(__VA_ARGS__)
+#define GPUCA_ATTRRES_(...)
+#define GPUCA_ATTRRES_XNONE(...) GPUCA_M_EXPAND(GPUCA_M_CAT(GPUCA_ATTRRES_, GPUCA_M_FIRST(__VA_ARGS__)))(__VA_ARGS__)
+#define GPUCA_ATTRRES_XCUSTOM(...) GPUCA_M_EXPAND(GPUCA_M_CAT(GPUCA_ATTRRES_, GPUCA_M_FIRST(__VA_ARGS__)))(__VA_ARGS__)
+#define GPUCA_ATTRRES_XREG(...) GPUCA_M_EXPAND(GPUCA_M_CAT(GPUCA_ATTRRES_, GPUCA_M_FIRST(__VA_ARGS__)))(__VA_ARGS__)
+#define GPUCA_ATTRRES(...) GPUCA_M_EXPAND(GPUCA_M_CAT(GPUCA_ATTRRES_, GPUCA_M_FIRST(__VA_ARGS__)))(__VA_ARGS__)
 
 // GPU Kernel entry point
 #define GPUCA_KRNLGPU_DEF(x_class, x_attributes, x_arguments, ...) \
-  GPUg() void GPUCA_ATTRRES(, GPUCA_M_STRIP(x_attributes)) GPUCA_M_CAT(krnl_, GPUCA_M_KRNL_NAME(x_class))(GPUCA_CONSMEM_PTR int32_t _iSector_internal GPUCA_M_STRIP(x_arguments))
+  GPUg() void GPUCA_ATTRRES(GPUCA_M_STRIP(x_attributes)) GPUCA_M_CAT(krnl_, GPUCA_M_KRNL_NAME(x_class))(GPUCA_CONSMEM_PTR int32_t _iSector_internal GPUCA_M_STRIP(x_arguments))
 
 #ifdef GPUCA_KRNL_DEFONLY
 #define GPUCA_KRNLGPU(...) GPUCA_KRNLGPU_DEF(__VA_ARGS__);
@@ -78,12 +75,6 @@
       GPUCA_KRNL_CALL(x_class, __VA_ARGS__) \
     } \
   };
-
-#define GPUCA_KRNL_PROP(x_class, x_attributes) \
-  template <> gpu_reconstruction_kernels::krnlProperties GPUCA_M_CAT3(GPUReconstruction, GPUCA_GPUTYPE, Backend)::getKernelPropertiesBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>() { \
-    gpu_reconstruction_kernels::krnlProperties ret = gpu_reconstruction_kernels::krnlProperties{GPUCA_ATTRRES(_EXTRREG, GPUCA_M_STRIP(x_attributes))}; \
-    return ret.nThreads > 0 ? ret : gpu_reconstruction_kernels::krnlProperties{(int32_t)mThreadCount}; \
-  }
 
 #endif // GPUCA_GPUCODE
 

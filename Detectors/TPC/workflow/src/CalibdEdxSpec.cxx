@@ -82,7 +82,12 @@ class CalibdEdxDevice : public Task
       if (!fdEdxCustom || !fdEdxCustom->IsOpen() || fdEdxCustom->IsZombie()) {
         LOGP(error, "Could not open custom TimeGain file {}", mCustomdEdxFileName);
       } else {
-        const auto timeGain = fdEdxCustom->Get<o2::tpc::CalibdEdxCorrection>("CalibdEdxCorrection");
+        auto timeGain = fdEdxCustom->Get<o2::tpc::CalibdEdxCorrection>("CalibdEdxCorrection");
+
+        if (!timeGain) {
+          timeGain = fdEdxCustom->Get<o2::tpc::CalibdEdxCorrection>("ccdb_object");
+        }
+
         if (!timeGain) {
           LOGP(error, "Could not load 'CalibdEdxCorrection' from file {}", mCustomdEdxFileName);
         } else {
@@ -133,7 +138,7 @@ class CalibdEdxDevice : public Task
     sendOutput(eos.outputs());
 
     if (mDumpToFile) {
-      mCalib->dumpToFile("calibdEdx_Obj.root", "calib");
+      mCalib->dumpToFile("calibdEdx_Obj.root");
       mCalib->getCalib().writeToFile("calibdEdx.root");
       if (mDumpToFile > 1) {
         mCalib->writeTTree("calibdEdx.histo.tree.root");

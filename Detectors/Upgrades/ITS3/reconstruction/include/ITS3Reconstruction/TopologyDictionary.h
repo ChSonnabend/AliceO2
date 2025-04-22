@@ -24,6 +24,18 @@ namespace o2::its3
 class BuildTopologyDictionary;
 class LookUp;
 
+struct TopologyDictionaryData {
+  static constexpr int STopoSize{(8 * 255) + 1};
+  std::array<int, STopoSize> mSmallTopologiesLUT{};  ///< Look-Up Table for the topologies with 1-byte linearised matrix
+  std::vector<itsmft::GroupStruct> mVectorOfIDs;     ///< Vector of topologies and groups
+  std::unordered_map<unsigned long, int> mCommonMap; ///< Map of pair <hash, position in mVectorOfIDs>
+  std::unordered_map<int, int> mGroupMap;            ///< Map of pair <groudID, position in mVectorOfIDs>
+
+  void print() const noexcept;
+
+  ClassDefNV(TopologyDictionaryData, 1);
+};
+
 class TopologyDictionary
 {
  public:
@@ -32,91 +44,108 @@ class TopologyDictionary
 
   /// constexpr for the definition of the groups of rare topologies.
   /// The attritbution of the group ID is stringly dependent on the following parameters: it must be a power of 2.
-  static constexpr int RowClassSpan = 4;                                                                    ///< Row span of the classes of rare topologies
-  static constexpr int ColClassSpan = 4;                                                                    ///< Column span of the classes of rare topologies
-  static constexpr int MaxNumberOfRowClasses = 1 + (itsmft::ClusterPattern::MaxRowSpan - 1) / RowClassSpan; ///< Maximum number of row classes for the groups of rare topologies
-  static constexpr int MaxNumberOfColClasses = 1 + (itsmft::ClusterPattern::MaxColSpan - 1) / ColClassSpan; ///< Maximum number of col classes for the groups of rare topologies
-  static constexpr int NumberOfRareGroups = MaxNumberOfRowClasses * MaxNumberOfColClasses;                  ///< Number of entries corresponding to groups of rare topologies (those whos matrix exceed the max number of bytes are empty).
+  static constexpr int RowClassSpan = 4;                                                                      ///< Row span of the classes of rare topologies
+  static constexpr int ColClassSpan = 4;                                                                      ///< Column span of the classes of rare topologies
+  static constexpr int MaxNumberOfRowClasses = 1 + ((itsmft::ClusterPattern::MaxRowSpan - 1) / RowClassSpan); ///< Maximum number of row classes for the groups of rare topologies
+  static constexpr int MaxNumberOfColClasses = 1 + ((itsmft::ClusterPattern::MaxColSpan - 1) / ColClassSpan); ///< Maximum number of col classes for the groups of rare topologies
+  static constexpr int NumberOfRareGroups = MaxNumberOfRowClasses * MaxNumberOfColClasses;                    ///< Number of entries corresponding to groups of rare topologies (those whos matrix exceed the max number of bytes are empty).
+  /// Resets internal structures
+  void reset() noexcept;
+  void resetMaps(bool IB = true) noexcept;
   /// Prints the dictionary
   friend std::ostream& operator<<(std::ostream& os, const its3::TopologyDictionary& dictionary);
   /// Prints the dictionary in a binary file
   void writeBinaryFile(const std::string& outputFile);
   /// Reads the dictionary from a binary file
-  int readBinaryFile(const std::string& fileName);
-
-  int readFromFile(const std::string& fileName);
+  void readBinaryFile(const std::string& fileName);
+  void readFromFile(const std::string& fileName);
+  void print() const noexcept;
 
   /// Returns the x position of the COG for the n_th element
-  inline float getXCOG(int n) const
+  [[nodiscard]] float getXCOG(int n, bool IB = true) const
   {
-    assert(n >= 0 || n < (int)mVectorOfIDs.size());
-    return mVectorOfIDs[n].mXCOG;
+    const auto& data = (IB) ? mDataIB : mDataOB;
+    assert(n >= 0 || n < (int)data.mVectorOfIDs.size());
+    return data.mVectorOfIDs[n].mXCOG;
   }
   /// Returns the error on the x position of the COG for the n_th element
-  inline float getErrX(int n) const
+  [[nodiscard]] float getErrX(int n, bool IB = true) const
   {
-    assert(n >= 0 || n < (int)mVectorOfIDs.size());
-    return mVectorOfIDs[n].mErrX;
+    const auto& data = (IB) ? mDataIB : mDataOB;
+    assert(n >= 0 || n < (int)data.mVectorOfIDs.size());
+    return data.mVectorOfIDs[n].mErrX;
   }
   /// Returns the z position of the COG for the n_th element
-  inline float getZCOG(int n) const
+  [[nodiscard]] float getZCOG(int n, bool IB = true) const
   {
-    assert(n >= 0 || n < (int)mVectorOfIDs.size());
-    return mVectorOfIDs[n].mZCOG;
+    const auto& data = (IB) ? mDataIB : mDataOB;
+    assert(n >= 0 || n < (int)data.mVectorOfIDs.size());
+    return data.mVectorOfIDs[n].mZCOG;
   }
   /// Returns the error on the z position of the COG for the n_th element
-  inline float getErrZ(int n) const
+  [[nodiscard]] float getErrZ(int n, bool IB = true) const
   {
-    assert(n >= 0 || n < (int)mVectorOfIDs.size());
-    return mVectorOfIDs[n].mErrZ;
+    const auto& data = (IB) ? mDataIB : mDataOB;
+    assert(n >= 0 || n < (int)data.mVectorOfIDs.size());
+    return data.mVectorOfIDs[n].mErrZ;
   }
   /// Returns the error^2 on the x position of the COG for the n_th element
-  inline float getErr2X(int n) const
+  [[nodiscard]] float getErr2X(int n, bool IB = true) const
   {
-    assert(n >= 0 || n < (int)mVectorOfIDs.size());
-    return mVectorOfIDs[n].mErr2X;
+    const auto& data = (IB) ? mDataIB : mDataOB;
+    assert(n >= 0 || n < (int)data.mVectorOfIDs.size());
+    return data.mVectorOfIDs[n].mErr2X;
   }
   /// Returns the error^2 on the z position of the COG for the n_th element
-  inline float getErr2Z(int n) const
+  [[nodiscard]] float getErr2Z(int n, bool IB = true) const
   {
-    assert(n >= 0 || n < (int)mVectorOfIDs.size());
-    return mVectorOfIDs[n].mErr2Z;
+    const auto& data = (IB) ? mDataIB : mDataOB;
+    assert(n >= 0 || n < (int)data.mVectorOfIDs.size());
+    return data.mVectorOfIDs[n].mErr2Z;
   }
   /// Returns the hash of the n_th element
-  inline unsigned long getHash(int n) const
+  [[nodiscard]] unsigned long getHash(int n, bool IB = true) const
   {
-    assert(n >= 0 || n < (int)mVectorOfIDs.size());
-    return mVectorOfIDs[n].mHash;
+    const auto& data = (IB) ? mDataIB : mDataOB;
+    assert(n >= 0 || n < (int)data.mVectorOfIDs.size());
+    return data.mVectorOfIDs[n].mHash;
   }
   /// Returns the number of fired pixels of the n_th element
-  inline int getNpixels(int n) const
+  [[nodiscard]] int getNpixels(int n, bool IB = true) const
   {
-    assert(n >= 0 || n < (int)mVectorOfIDs.size());
-    return mVectorOfIDs[n].mNpixels;
+    const auto& data = (IB) ? mDataIB : mDataOB;
+    assert(n >= 0 || n < (int)data.mVectorOfIDs.size());
+    return data.mVectorOfIDs[n].mNpixels;
   }
   /// Returns the frequency of the n_th element;
-  inline double getFrequency(int n) const
+  [[nodiscard]] double getFrequency(int n, bool IB = true) const
   {
-    assert(n >= 0 || n < (int)mVectorOfIDs.size());
-    return mVectorOfIDs[n].mFrequency;
+    const auto& data = (IB) ? mDataIB : mDataOB;
+    assert(n >= 0 || n < (int)data.mVectorOfIDs.size());
+    return data.mVectorOfIDs[n].mFrequency;
   }
   /// Returns true if the element corresponds to a group of rare topologies
-  inline bool isGroup(int n) const
+  [[nodiscard]] bool isGroup(int n, bool IB = true) const
   {
-    assert(n >= 0 || n < (int)mVectorOfIDs.size());
-    return mVectorOfIDs[n].mIsGroup;
+    const auto& data = (IB) ? mDataIB : mDataOB;
+    assert(n >= 0 || n < (int)data.mVectorOfIDs.size());
+    return data.mVectorOfIDs[n].mIsGroup;
   }
   /// Returns the pattern of the topology
-  inline const itsmft::ClusterPattern& getPattern(int n) const
+  [[nodiscard]] const itsmft::ClusterPattern& getPattern(int n, bool IB = true) const
   {
-    assert(n >= 0 || n < (int)mVectorOfIDs.size());
-    return mVectorOfIDs[n].mPattern;
+    const auto& data = (IB) ? mDataIB : mDataOB;
+    assert(n >= 0 || n < (int)data.mVectorOfIDs.size());
+    return data.mVectorOfIDs[n].mPattern;
   }
 
   /// Fills a hostogram with the distribution of the IDs
-  TH1F* getTopologyDistribution(const std::string_view hname = "h_topo_dist") const;
+  [[nodiscard]] TH1F* getTopologyDistribution(const std::string_view hname, bool IB = true) const;
   /// Returns the number of elements in the dicionary;
-  int getSize() const { return (int)mVectorOfIDs.size(); }
+  [[nodiscard]] int getSize(bool IB) const
+  {
+    return static_cast<int>((IB) ? mDataIB.mVectorOfIDs.size() : mDataOB.mVectorOfIDs.size());
+  }
   /// Returns the local position of a compact cluster
 
   /// Returns the local position of a compact cluster
@@ -133,13 +162,10 @@ class TopologyDictionary
   friend its3::LookUp;
 
  private:
-  static constexpr int STopoSize{8 * 255 + 1};
-  std::unordered_map<unsigned long, int> mCommonMap{}; ///< Map of pair <hash, position in mVectorOfIDs>
-  std::unordered_map<int, int> mGroupMap{};            ///< Map of pair <groudID, position in mVectorOfIDs>
-  int mSmallTopologiesLUT[STopoSize]{};                ///< Look-Up Table for the topologies with 1-byte linearised matrix
-  std::vector<itsmft::GroupStruct> mVectorOfIDs{};     ///< Vector of topologies and groups
+  TopologyDictionaryData mDataIB;
+  TopologyDictionaryData mDataOB;
 
-  ClassDefNV(TopologyDictionary, 3);
+  ClassDefNV(TopologyDictionary, 4);
 };
 } // namespace o2::its3
 

@@ -52,6 +52,8 @@ struct DeviceControl {
   int logStreams = 0;
   /// An incremental number to identify the device state
   int requestedState = 0;
+  /// The first window in the records buffer to display in GUI
+  int firstWnd = 1;
 };
 
 } // namespace o2::framework

@@ -24,8 +24,6 @@
 
 #ifdef ENABLE_UPGRADES
 #include "ITS3Base/SpecsV2.h"
-#include "ITS3Base/SegmentationSuperAlpide.h"
-using SuperSegmentation = o2::its3::SegmentationSuperAlpide;
 #endif
 
 #include <TGeoBBox.h>         // for TGeoBBox
@@ -420,31 +418,18 @@ TGeoHMatrix* GeometryTGeo::extractMatrixSensor(int index) const
   static int chipInGlo{0};
 
   // account for the difference between physical sensitive layer (where charge collection is simulated) and effective sensor thicknesses
+  // in the ITS3 case this accounted by specialized functions
   double delta = Segmentation::SensorLayerThickness - Segmentation::SensorLayerThicknessEff;
-#ifdef ENABLE_UPGRADES
-  if (mIsLayerITS3[getLayer(index)]) {
-    delta = its3::SegmentationSuperAlpide::mSensorLayerThickness - its3::SegmentationSuperAlpide::mSensorLayerThicknessEff;
+  static TGeoTranslation tra(0., 0.5 * delta, 0.);
+#ifdef ENABLE_UPGRADES // only apply for non ITS3 OB layers
+  if (!mIsLayerITS3[getLayer(index)]) {
+    matTmp *= tra;
   }
+#else
+  matTmp *= tra;
 #endif
 
-  static TGeoTranslation tra(0., 0.5 * delta, 0.);
-
-  matTmp *= tra;
-
   return &matTmp;
-}
-
-//__________________________________________________________________________
-const o2::math_utils::Transform3D GeometryTGeo::getT2LMatrixITS3(int isn, float alpha)
-{
-  // create for sensor isn the TGeo matrix for Tracking to Local frame transformations
-  static TGeoHMatrix t2l;
-  t2l.Clear();
-  t2l.RotateZ(alpha * RadToDeg()); // rotate in direction of normal to the tangent to the cylinder
-  const TGeoHMatrix& matL2G = getMatrixL2G(isn);
-  const auto& matL2Gi = matL2G.Inverse();
-  t2l.MultiplyLeft(&matL2Gi);
-  return Mat3D(t2l);
 }
 
 //__________________________________________________________________________
@@ -491,23 +476,6 @@ void GeometryTGeo::Build(int loadTrans)
     numberOfChips += mNumberOfChipsPerLayer[i];
     mLastChipIndex[i] = numberOfChips - 1;
   }
-
-  LOGP(debug, "Summary of extracted Geometry:");
-  LOGP(debug, "  There are {} Layers and {} HalfBarrels", mNumberOfLayers, mNumberOfHalfBarrels);
-  for (int i = 0; i < mNumberOfLayers; i++) {
-    LOGP(debug, "    Layer {}: {:*^30}", i, "START");
-    LOGP(debug, "      - mNumberOfStaves={}", mNumberOfStaves[i]);
-    LOGP(debug, "        - mNumberOfChipsPerStave={}", mNumberOfChipsPerStave[i]);
-    LOGP(debug, "      - mNumberOfHalfStaves={}", mNumberOfHalfStaves[i]);
-    LOGP(debug, "        - mNumberOfChipsPerHalfStave={}", mNumberOfChipsPerHalfStave[i]);
-    LOGP(debug, "      - mNumberOfModules={}", mNumberOfModules[i]);
-    LOGP(debug, "        - mNumberOfChipsPerModules={}", mNumberOfChipsPerModule[i]);
-    LOGP(debug, "        - mNumberOfChipsPerLayer={}", mNumberOfChipsPerLayer[i]);
-    LOGP(debug, "        - mNumberOfChipsPerHalfBarrel={}", mNumberOfChipsPerHalfBarrel[i]);
-    LOGP(debug, "      - mLastChipIndex={}", mLastChipIndex[i]);
-    LOGP(debug, "    Layer {}: {:*^30}", i, "END");
-  }
-  LOGP(debug, "In total there {} chips registered", numberOfChips);
 
 #ifdef ENABLE_UPGRADES
   if (std::any_of(mIsLayerITS3.cbegin(), mIsLayerITS3.cend(), [](auto b) { return b; })) {
@@ -880,34 +848,39 @@ void GeometryTGeo::extractSensorXAlpha(int isn, float& x, float& alp)
 
   const TGeoHMatrix* matL2G = extractMatrixSensor(isn);
   double locA[3] = {-100., 0., 0.}, locB[3] = {100., 0., 0.}, gloA[3], gloB[3];
-  int iLayer = getLayer(isn);
+  double xp{0}, yp{0};
 
 #ifdef ENABLE_UPGRADES
-  if (mIsLayerITS3[iLayer]) {
-    // We need to calcualte the line tangent at the mid-point in the geometry
+  if (int iLayer = getLayer(isn); mIsLayerITS3[iLayer]) {
+    // For a TGeoTubeSeg the local coordinate system is defined at the origin
+    // of the circle of the side, since in our implementation we rotated the geometry a bit
     const auto radius = o2::its3::constants::radii[iLayer];
     const auto phi1 = o2::its3::constants::tile::width / radius;
     const auto phi2 = o2::its3::constants::pixelarray::width / radius + phi1;
     const auto phi3 = (phi2 - phi1) / 2.; // mid-point in phi
-    const auto x = radius * std::cos(phi3);
-    const auto y = radius * std::sin(phi3);
-    // For the tangent we make the parametric line equation y = m * x - c
-    const auto m = x / y;
-    const auto c = y - m * x;
-    // Now we can given any x calulate points along this line, we pick points far away,
-    // the calculation of the normal should work then below.
-    locA[1] = m * locA[0] + c;
-    locB[1] = m * locB[0] + c;
+    locA[0] = radius * std::cos(phi3);
+    locA[1] = radius * std::sin(phi3);
+    matL2G->LocalToMaster(locA, gloA);
+    xp = gloA[0];
+    yp = gloA[1];
+  } else {
+    matL2G->LocalToMaster(locA, gloA);
+    matL2G->LocalToMaster(locB, gloB);
+    double dx = gloB[0] - gloA[0], dy = gloB[1] - gloA[1];
+    double t = (gloB[0] * dx + gloB[1] * dy) / (dx * dx + dy * dy);
+    xp = gloB[0] - dx * t;
+    yp = gloB[1] - dy * t;
   }
-#endif
-
+#else // just ITS2 part
   matL2G->LocalToMaster(locA, gloA);
   matL2G->LocalToMaster(locB, gloB);
   double dx = gloB[0] - gloA[0], dy = gloB[1] - gloA[1];
   double t = (gloB[0] * dx + gloB[1] * dy) / (dx * dx + dy * dy);
-  double xp = gloB[0] - dx * t, yp = gloB[1] - dy * t;
-  x = Sqrt(xp * xp + yp * yp);
-  alp = ATan2(yp, xp);
+  xp = gloB[0] - dx * t;
+  yp = gloB[1] - dy * t;
+#endif
+  x = std::hypot(xp, yp);
+  alp = std::atan2(yp, xp);
   o2::math_utils::bringTo02Pi(alp);
 }
 
@@ -924,6 +897,19 @@ TGeoHMatrix& GeometryTGeo::createT2LMatrix(int isn)
   const TGeoHMatrix& matL2Gi = matL2G->Inverse();
   t2l.MultiplyLeft(&matL2Gi);
   return t2l;
+}
+
+//__________________________________________________________________________
+const o2::math_utils::Transform3D GeometryTGeo::getT2LMatrixITS3(int isn, float alpha)
+{
+  // create for sensor isn the TGeo matrix for Tracking to Local frame transformations with correction for effective thickness
+  static TGeoHMatrix t2l;
+  t2l.Clear();
+  t2l.RotateZ(alpha * RadToDeg()); // rotate in direction of normal to the tangent to the cylinder
+  const TGeoHMatrix& matL2G = getMatrixL2G(isn);
+  const auto& matL2Gi = matL2G.Inverse();
+  t2l.MultiplyLeft(&matL2Gi);
+  return Mat3D(t2l);
 }
 
 //__________________________________________________________________________

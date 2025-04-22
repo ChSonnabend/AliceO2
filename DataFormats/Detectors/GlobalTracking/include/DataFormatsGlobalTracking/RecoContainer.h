@@ -225,6 +225,7 @@ struct DataRequest {
   void requestITSClusters(bool mc);
   void requestMFTClusters(bool mc);
   void requestTPCClusters(bool mc);
+  void requestTPCOccMap();
   void requestTPCTriggers();
   void requestTOFClusters(bool mc);
   void requestTRDTracklets(bool mc);
@@ -377,6 +378,7 @@ struct RecoContainer {
   void addITSClusters(o2::framework::ProcessingContext& pc, bool mc);
   void addMFTClusters(o2::framework::ProcessingContext& pc, bool mc);
   void addTPCClusters(o2::framework::ProcessingContext& pc, bool mc, bool shmap, bool occmap);
+  void addTPCOccMap(o2::framework::ProcessingContext& pc);
   void addTPCTriggers(o2::framework::ProcessingContext& pc);
   void addTOFClusters(o2::framework::ProcessingContext& pc, bool mc);
   void addHMPClusters(o2::framework::ProcessingContext& pc, bool mc);

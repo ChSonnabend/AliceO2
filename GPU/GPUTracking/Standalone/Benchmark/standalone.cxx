@@ -53,9 +53,6 @@
 #include "GPUTPCGMMergedTrack.h"
 #include "GPUSettings.h"
 #include <vector>
-#if not(defined(__ARM_NEON) or defined(__aarch64__)) // ARM doesn't have SSE
-#include <xmmintrin.h>
-#endif
 
 #include "GPUO2DataTypes.h"
 #include "GPUChainITS.h"
@@ -74,7 +71,7 @@ GPUChainTracking *chainTracking, *chainTrackingAsync, *chainTrackingPipeline;
 GPUChainITS *chainITS, *chainITSAsync, *chainITSPipeline;
 void unique_ptr_aligned_delete(char* v)
 {
-  operator delete(v GPUCA_OPERATOR_NEW_ALIGNMENT);
+  operator delete(v, std::align_val_t(GPUCA_BUFFER_ALIGNMENT));
 }
 std::unique_ptr<char, void (*)(char*)> outputmemory(nullptr, unique_ptr_aligned_delete), outputmemoryPipeline(nullptr, unique_ptr_aligned_delete), inputmemory(nullptr, unique_ptr_aligned_delete);
 std::unique_ptr<GPUDisplayFrontendInterface> eventDisplay;
@@ -84,23 +81,6 @@ std::atomic<uint32_t> nIteration, nIterationEnd;
 
 std::vector<GPUTrackingInOutPointers> ioPtrEvents;
 std::vector<GPUChainTracking::InOutMemory> ioMemEvents;
-
-void SetCPUAndOSSettings()
-{
-#if not(defined(__ARM_NEON) or defined(__aarch64__)) // ARM doesn't have SSE
-#ifdef FE_DFL_DISABLE_SSE_DENORMS_ENV                // Flush and load denormals to zero in any case
-  fesetenv(FE_DFL_DISABLE_SSE_DENORMS_ENV);
-#else
-#ifndef _MM_FLUSH_ZERO_ON
-#define _MM_FLUSH_ZERO_ON 0x8000
-#endif
-#ifndef _MM_DENORMALS_ZERO_ON
-#define _MM_DENORMALS_ZERO_ON 0x0040
-#endif
-  _mm_setcsr(_mm_getcsr() | (_MM_FLUSH_ZERO_ON | _MM_DENORMALS_ZERO_ON));
-#endif
-#endif // ARM
-}
 
 int32_t ReadConfiguration(int argc, char** argv)
 {
@@ -241,20 +221,20 @@ int32_t ReadConfiguration(int argc, char** argv)
 
   if (configStandalone.outputcontrolmem) {
     bool forceEmptyMemory = getenv("LD_PRELOAD") && strstr(getenv("LD_PRELOAD"), "valgrind") != nullptr;
-    outputmemory.reset((char*)operator new(configStandalone.outputcontrolmem GPUCA_OPERATOR_NEW_ALIGNMENT));
+    outputmemory.reset((char*)operator new(configStandalone.outputcontrolmem, std::align_val_t(GPUCA_BUFFER_ALIGNMENT)));
     if (forceEmptyMemory) {
       printf("Valgrind detected, emptying GPU output memory to avoid false positive undefined reads");
       memset(outputmemory.get(), 0, configStandalone.outputcontrolmem);
     }
     if (configStandalone.proc.doublePipeline) {
-      outputmemoryPipeline.reset((char*)operator new(configStandalone.outputcontrolmem GPUCA_OPERATOR_NEW_ALIGNMENT));
+      outputmemoryPipeline.reset((char*)operator new(configStandalone.outputcontrolmem, std::align_val_t(GPUCA_BUFFER_ALIGNMENT)));
       if (forceEmptyMemory) {
         memset(outputmemoryPipeline.get(), 0, configStandalone.outputcontrolmem);
       }
     }
   }
   if (configStandalone.inputcontrolmem) {
-    inputmemory.reset((char*)operator new(configStandalone.inputcontrolmem GPUCA_OPERATOR_NEW_ALIGNMENT));
+    inputmemory.reset((char*)operator new(configStandalone.inputcontrolmem, std::align_val_t(GPUCA_BUFFER_ALIGNMENT)));
   }
 
   configStandalone.proc.showOutputStat = true;
@@ -739,8 +719,6 @@ int32_t RunBenchmark(GPUReconstruction* recUse, GPUChainTracking* chainTrackingU
 int32_t main(int argc, char** argv)
 {
   std::unique_ptr<GPUReconstruction> recUnique, recUniqueAsync, recUniquePipeline;
-
-  SetCPUAndOSSettings();
 
   if (ReadConfiguration(argc, argv)) {
     return 1;

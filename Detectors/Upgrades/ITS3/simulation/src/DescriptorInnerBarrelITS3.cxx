@@ -18,14 +18,14 @@ ClassImp(DescriptorInnerBarrelITS3);
 
 void DescriptorInnerBarrelITS3::createLayer(int iLayer, TGeoVolume* dest)
 {
-  LOGP(info, "ITS3-IB: Creating Layer {}", iLayer);
+  LOGP(debug, "ITS3-IB: Creating Layer {}", iLayer);
   mIBLayers[iLayer] = std::make_unique<ITS3Layer>(iLayer);
   mIBLayers[iLayer]->createLayer(dest);
 }
 
 void DescriptorInnerBarrelITS3::createServices(TGeoVolume* dest)
 {
-  LOGP(info, "ITS3-IB: Creating Services");
+  LOGP(debug, "ITS3-IB: Creating Services");
   mServices = std::make_unique<ITS3Services>();
   mServices->createCYSSAssembly(dest);
 }

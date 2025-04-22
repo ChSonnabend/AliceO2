@@ -35,6 +35,9 @@ BeginNamespace(gpu)
 
 // Settings concerning the reconstruction, stored as parameters in GPU constant memory
 // There must be no bool in here, use int8_t, as sizeof(bool) is compiler dependent and fails on GPUs!!!!!!
+// Split in different blocks for global and per Detector
+
+// Reconstruction parameters for TPC, no bool in here !!!
 BeginSubConfig(GPUSettingsRecTPC, tpc, configStandalone.rec, "RECTPC", 0, "Reconstruction settings", rec_tpc)
 AddOptionRTC(rejectQPtB5, float, 1.f / GPUCA_MIN_TRACK_PTB5_REJECT_DEFAULT, "", 0, "QPt threshold to reject clusters of TPC tracks (Inverse Pt, scaled to B=0.5T!!!)")
 AddOptionRTC(hitPickUpFactor, float, 1.f, "", 0, "multiplier for the combined cluster+track error during track following")
@@ -155,12 +158,14 @@ AddOptionRTC(enablePID, int8_t, 1, "", 0, "Enable PID response")
 AddOptionRTC(PID_useNsigma, int8_t, 1, "", 0, "Use nSigma instead of absolute distance in PID response")
 AddOptionRTC(adddEdxSubThresholdClusters, int8_t, 1, "", 0, "Add sub threshold clusters in TPC dEdx computation")
 AddOptionRTC(dEdxClusterRejectionFlagMask, int8_t, o2::gpu::GPUTPCGMMergedTrackHit::flagEdge, "", 0, "OR mask of TPC flags that will reject the cluster in dEdx")
+AddOptionRTC(dEdxClusterRejectionFlagMaskAlt, int8_t, o2::gpu::GPUTPCGMMergedTrackHit::flagEdge, "", 0, "OR mask of TPC flags that will reject the cluster in alternative dEdx")
 AddOptionRTC(rejectEdgeClustersInSeeding, int8_t, 0, "", 0, "Reject edge clusters based on uncorrected track Y during seeding")
 AddOptionRTC(rejectEdgeClustersInTrackFit, int8_t, 0, "", 0, "Reject edge clusters based on uncorrected track Y during track fit")
 AddOptionArray(PID_remap, int8_t, 9, (0, 1, 2, 3, 4, 5, 6, 7, 8), "", 0, "Remap Ipid to PID_reamp[Ipid] (no remap if<0)") // BUG: CUDA cannot yet hand AddOptionArrayRTC
 AddHelp("help", 'h')
 EndConfig()
 
+// Reconstruction parameters for TRD, no bool in here !!!
 BeginSubConfig(GPUSettingsRecTRD, trd, configStandalone.rec, "RECTRD", 0, "Reconstruction settings", rec_trd)
 AddOptionRTC(minTrackPt, float, .5f, "", 0, "Min Pt for tracks to be propagated through the TRD")
 AddOptionRTC(maxChi2, float, 20.f, "", 0, "Max chi2 for TRD tracklets to be matched to a track")
@@ -182,11 +187,12 @@ AddOptionRTC(pileupBwdNBC, uint8_t, 80, "", 0, "Pre-trigger Pile-up integration 
 AddHelp("help", 'h')
 EndConfig()
 
-// Dynamic settings, must NOT use AddOptionRTC(...) !!!
+// Dynamic reconstruction parameters, no bool in here!!!, must NOT use AddOptionRTC(...) !!!
 BeginSubConfig(GPUSettingsRecDynamic, dyn, configStandalone.rec, "RECDYN", 0, "Reconstruction settings", rec_dyn)
 AddHelp("help", 'h')
 EndConfig()
 
+// Global reconstruction parameters, no bool in here !!!
 BeginSubConfig(GPUSettingsRec, rec, configStandalone, "REC", 0, "Reconstruction settings", rec)
 AddOptionRTC(maxTrackQPtB5, float, 1.f / GPUCA_MIN_TRACK_PTB5_DEFAULT, "", 0, "required max Q/Pt (==min Pt) of tracks")
 AddOptionRTC(fwdTPCDigitsAsClusters, uint8_t, 0, "", 0, "Forward TPC digits as clusters (if they pass the ZS threshold)")
@@ -203,7 +209,7 @@ AddHelp("help", 'h')
 EndConfig()
 
 #ifndef __OPENCL__
-// Settings steering the processing once the device was selected, only available on the host
+// Parameters that might affect the RTC code (if these change, the cache cannot be used)
 BeginSubConfig(GPUSettingsProcessingRTC, rtc, configStandalone.proc, "RTC", 0, "Processing settings", proc_rtc)
 AddOption(cacheOutput, bool, false, "", 0, "Cache RTC compilation results")
 AddOption(optConstexpr, bool, true, "", 0, "Replace constant variables by static constexpr expressions")
@@ -211,12 +217,23 @@ AddOption(optSpecialCode, int8_t, -1, "", 0, "Insert GPUCA_RTC_SPECIAL_CODE spec
 AddOption(deterministic, bool, false, "", 0, "Compile RTC in deterministic mode, with NO_FAST_MATH flags and GPUCA_DETERMINISTIC_MODE define")
 AddOption(compilePerKernel, bool, true, "", 0, "Run one RTC compilation per kernel")
 AddOption(enable, bool, false, "", 0, "Use RTC to optimize GPU code")
-AddOption(runTest, int32_t, 0, "", 0, "Do not run the actual benchmark, but just test RTC compilation (1 full test, 2 test only compilation)")
-AddOption(cacheMutex, bool, true, "", 0, "Use a file lock to serialize access to the cache folder")
-AddOption(ignoreCacheValid, bool, false, "", 0, "If set, allows to use RTC cached code files even if they are not valid for the current source code / parameters")
 AddHelp("help", 'h')
 EndConfig()
 
+// Technical parameters for RunTimeCompilation, which do not change the RTC code
+BeginSubConfig(GPUSettingsProcessingRTCtechnical, rtctech, configStandalone.proc, "RTCTECH", 0, "Processing settings", proc_rtctech)
+AddOption(runTest, int32_t, 0, "", 0, "Do not run the actual benchmark, but just test RTC compilation (1 full test, 2 test only compilation)")
+AddOption(cacheMutex, bool, true, "", 0, "Use a file lock to serialize access to the cache folder")
+AddOption(ignoreCacheValid, bool, false, "", 0, "If set, allows to use RTC cached code files even if they are not valid for the current source code / parameters")
+AddOption(printLaunchBounds, bool, false, "", 0, "Print launch bounds used for RTC code as debugging option")
+AddOption(cacheFolder, std::string, "./rtccache/", "", 0, "Folder in which the cache file is stored")
+AddOption(prependCommand, std::string, "", "", 0, "Prepend RTC compilation commands by this string")
+AddOption(overrideArchitecture, std::string, "", "", 0, "Override arhcitecture part of RTC compilation command line") // Part of cmdLine, so checked against the cache
+AddOption(loadLaunchBoundsFromFile, std::string, "", "", 0, "Load a parameter object containing the launch bounds from a file")
+AddHelp("help", 'h')
+EndConfig()
+
+// Parameters that steer reconstruction that do not go to the device, or only in derrived form.
 BeginSubConfig(GPUSettingsProcessingParam, param, configStandalone.proc, "PARAM", 0, "Processing settings", proc_param)
 AddOptionArray(tpcErrorParamY, float, 4, (0.06f, 0.24f, 0.12f, 0.1f), "", 0, "TPC Cluster Y Error Parameterization")
 AddOptionArray(tpcErrorParamZ, float, 4, (0.06f, 0.24f, 0.15f, 0.1f), "", 0, "TPC Cluster Z Error Parameterization")
@@ -224,6 +241,7 @@ AddOption(tpcTriggerHandling, bool, true, "", 0, "Enable TPC trigger handling")
 AddHelp("help", 'h')
 EndConfig()
 
+// Settings steering the processing of NN Clusterization
 BeginSubConfig(GPUSettingsProcessingNNclusterizer, nn, configStandalone.proc, "NN", 0, "Processing settings for neural network clusterizer", proc_nn)
 AddOption(applyNNclusterizer, int, 0, "", 0, "(bool, default = 0), if the neural network clusterizer should be used.")
 AddOption(nnInferenceDevice, std::string, "CPU", "", 0, "(std::string) Specify inference device (cpu (default), rocm, cuda)")
@@ -268,6 +286,7 @@ AddOption(nnCCDBInteractionRate, int, 50, "", 0, "Distinguishes between networks
 AddHelp("help", 'h')
 EndConfig()
 
+// Settings steering the processing once the device was selected, only available on the host
 BeginSubConfig(GPUSettingsProcessing, proc, configStandalone, "PROC", 0, "Processing settings", proc)
 AddOption(deviceNum, int32_t, -1, "gpuDevice", 0, "Set GPU device to use (-1: automatic, -2: for round-robin usage in timeslice-pipeline)")
 AddOption(gpuDeviceOnly, bool, false, "", 0, "Use only GPU as device (i.e. no CPU for OpenCL)")
@@ -335,9 +354,6 @@ AddOption(tpcMaxAttachedClustersPerSectorRow, uint32_t, 51000, "", 0, "Maximum n
 AddOption(tpcUseOldCPUDecoding, bool, false, "", 0, "Enable old CPU-based TPC decoding")
 AddOption(tpcApplyCFCutsAtDecoding, bool, false, "", 0, "Apply cluster cuts from clusterization during decoding of compressed clusters")
 AddOption(tpcApplyClusterFilterOnCPU, uint8_t, 0, "", 0, "Apply custom cluster filter of GPUTPCClusterFilter class, 0: off, 1: debug, 2: PbPb23")
-AddOption(RTCcacheFolder, std::string, "./rtccache/", "", 0, "Folder in which the cache file is stored")
-AddOption(RTCprependCommand, std::string, "", "", 0, "Prepend RTC compilation commands by this string")
-AddOption(RTCoverrideArchitecture, std::string, "", "", 0, "Override arhcitecture part of RTC compilation command line")
 AddOption(oclPlatformNum, int32_t, -1, "", 0, "Platform to use, in case the backend provides multiple platforms (OpenCL only, -1 = auto-select, -2 query all platforms (also incompatible))")
 AddOption(oclCompileFromSources, bool, false, "", 0, "Compile OpenCL binary from included source code instead of using included spirv code")
 AddOption(oclOverrideSourceBuildFlags, std::string, "", "", 0, "Override OCL build flags for compilation from source, put a space for empty options")
@@ -345,6 +361,7 @@ AddOption(printSettings, bool, false, "", 0, "Print all settings when initializi
 AddOption(tpcFreeAllocatedMemoryAfterProcessing, bool, false, "", 0, "Clean all memory allocated by TPC when TPC processing done, only data written to external output resources will remain")
 AddVariable(eventDisplay, o2::gpu::GPUDisplayFrontendInterface*, nullptr)
 AddSubConfig(GPUSettingsProcessingRTC, rtc)
+AddSubConfig(GPUSettingsProcessingRTCtechnical, rtctech)
 AddSubConfig(GPUSettingsProcessingParam, param)
 AddSubConfig(GPUSettingsProcessingNNclusterizer, nn)
 AddHelp("help", 'h')

@@ -12,6 +12,9 @@
 /// \file GPUNoFastMathKernels.h
 /// \author David Rohr
 
+#ifndef GPUNOFASTMATHKERNELS_H
+#define GPUNOFASTMATHKERNELS_H
+
 #include <unordered_set>
 #include <string>
 
@@ -21,3 +24,5 @@ namespace o2::gpu::internal
 static const std::unordered_set<std::string> noFastMathKernels = {$<JOIN:$<LIST:TRANSFORM,$<LIST:TRANSFORM,$<LIST:REMOVE_DUPLICATES,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_NO_FAST_MATH>>,APPEND,">,PREPEND,">,$<COMMA> >};
 // clang-format on
 } // namespace o2::gpu::internal
+
+#endif

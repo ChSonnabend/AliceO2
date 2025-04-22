@@ -118,6 +118,13 @@ struct PlaceholderNodeHelper {
     return DatumSpec{node.value, node.type};
   }
 };
+
+struct ParameterNodeHelper {
+  DatumSpec operator()(ParameterNode const& node) const
+  {
+    return DatumSpec{node.value, node.type};
+  }
+};
 } // namespace
 
 std::shared_ptr<arrow::DataType> concreteArrowType(atype::type type)
@@ -189,37 +196,13 @@ std::ostream& operator<<(std::ostream& os, DatumSpec const& spec)
 
 void updatePlaceholders(Filter& filter, InitContext& context)
 {
-  std::stack<NodeRecord> path;
-
-  // insert the top node into stack
-  path.emplace(filter.node.get(), 0);
-
   auto updateNode = [&](Node* node) {
     if (node->self.index() == 3) {
       std::get_if<3>(&node->self)->reset(context);
     }
   };
 
-  // while the stack is not empty
-  while (!path.empty()) {
-    auto& top = path.top();
-    updateNode(top.node_ptr);
-
-    auto* leftp = top.node_ptr->left.get();
-    auto* rightp = top.node_ptr->right.get();
-    auto* condp = top.node_ptr->condition.get();
-    path.pop();
-
-    if (leftp != nullptr) {
-      path.emplace(leftp, 0);
-    }
-    if (rightp != nullptr) {
-      path.emplace(rightp, 0);
-    }
-    if (condp != nullptr) {
-      path.emplace(condp, 0);
-    }
-  }
+  expressions::walk(filter.node.get(), updateNode);
 }
 
 const char* stringType(atype::type t)
@@ -267,6 +250,7 @@ Operations createOperations(Filter const& expression)
         [lh = LiteralNodeHelper{}](LiteralNode const& node) { return lh(node); },
         [bh = BindingNodeHelper{}](BindingNode const& node) { return bh(node); },
         [ph = PlaceholderNodeHelper{}](PlaceholderNode const& node) { return ph(node); },
+        [pr = ParameterNodeHelper{}](ParameterNode const& node) { return pr(node); },
         [](auto&&) { return DatumSpec{}; }},
       node->self);
   };

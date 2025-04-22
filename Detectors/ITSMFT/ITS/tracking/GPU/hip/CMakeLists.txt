@@ -14,16 +14,12 @@ if(HIP_ENABLED)
   set(CMAKE_HIP_FLAGS "${CMAKE_HIP_FLAGS} -fgpu-rdc")
   o2_add_hipified_library(ITStrackingHIP
                  SOURCES ../cuda/ClusterLinesGPU.cu
-                         ../cuda/Context.cu
                          ../cuda/TimeFrameGPU.cu
-                         ../cuda/TimeFrameChunk.cu
-                         ../cuda/Stream.cu
                          ../cuda/TrackerTraitsGPU.cxx
                          ../cuda/TracerGPU.cu
                          ../cuda/TrackingKernels.cu
                          ../cuda/VertexingKernels.cu
                          ../cuda/VertexerTraitsGPU.cxx
-                         ../cuda/Utils.cu
                  PUBLIC_INCLUDE_DIRECTORIES ../
                  PUBLIC_LINK_LIBRARIES O2::ITStracking
                                        O2::GPUTracking

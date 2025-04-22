@@ -14,8 +14,29 @@
 
 #include "GPUReconstructionProcessing.h"
 #include "GPUReconstructionThreading.h"
+#include "GPUDefParametersLoad.inc"
 
 using namespace o2::gpu;
+
+GPUReconstructionProcessing::GPUReconstructionProcessing(const GPUSettingsDeviceBackend& cfg) : GPUReconstruction(cfg)
+{
+  if (mMaster == nullptr) {
+    mParCPU = new GPUDefParameters(o2::gpu::internal::GPUDefParametersLoad());
+    mParDevice = new GPUDefParameters();
+  } else {
+    GPUReconstructionProcessing* master = dynamic_cast<GPUReconstructionProcessing*>(mMaster);
+    mParCPU = master->mParCPU;
+    mParDevice = master->mParDevice;
+  }
+}
+
+GPUReconstructionProcessing::~GPUReconstructionProcessing()
+{
+  if (mMaster == nullptr) {
+    delete mParCPU;
+    delete mParDevice;
+  }
+}
 
 int32_t GPUReconstructionProcessing::getNKernelHostThreads(bool splitCores)
 {
@@ -119,38 +140,22 @@ std::unique_ptr<gpu_reconstruction_kernels::threadContext> GPUReconstructionProc
 gpu_reconstruction_kernels::threadContext::threadContext() = default;
 gpu_reconstruction_kernels::threadContext::~threadContext() = default;
 
-template <class T, int32_t I>
-uint32_t GPUReconstructionProcessing::GetKernelNum(int32_t k)
-{
-  static int32_t num = k;
-  if (num < 0) {
-    throw std::runtime_error("Internal Error - Kernel Number not Set");
-  }
-  return num;
-}
-
-namespace o2::gpu::internal
-{
-static std::vector<std::string> initKernelNames()
-{
-  std::vector<std::string> retVal;
-#define GPUCA_KRNL(x_class, ...)                                                            \
-  GPUReconstructionProcessing::GetKernelNum<GPUCA_M_KRNL_TEMPLATE(x_class)>(retVal.size()); \
-  retVal.emplace_back(GPUCA_M_STR(GPUCA_M_KRNL_NAME(x_class)));
+const std::vector<std::string> GPUReconstructionProcessing::mKernelNames = {
+#define GPUCA_KRNL(x_class, ...) GPUCA_M_STR(GPUCA_M_KRNL_NAME(x_class)),
 #include "GPUReconstructionKernelList.h"
 #undef GPUCA_KRNL
-  return retVal;
-}
-} // namespace o2::gpu::internal
+};
 
-const std::vector<std::string> GPUReconstructionProcessing::mKernelNames = o2::gpu::internal::initKernelNames();
-
-#define GPUCA_KRNL(x_class, ...)                                                                        \
-  template uint32_t GPUReconstructionProcessing::GetKernelNum<GPUCA_M_KRNL_TEMPLATE(x_class)>(int32_t); \
-  template <>                                                                                           \
-  const char* GPUReconstructionProcessing::GetKernelName<GPUCA_M_KRNL_TEMPLATE(x_class)>()              \
-  {                                                                                                     \
-    return GPUCA_M_STR(GPUCA_M_KRNL_NAME(x_class));                                                     \
+#define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward, x_types, x_num)          \
+  template <>                                                                              \
+  uint32_t GPUReconstructionProcessing::GetKernelNum<GPUCA_M_KRNL_TEMPLATE(x_class)>()     \
+  {                                                                                        \
+    return x_num;                                                                          \
+  }                                                                                        \
+  template <>                                                                              \
+  const char* GPUReconstructionProcessing::GetKernelName<GPUCA_M_KRNL_TEMPLATE(x_class)>() \
+  {                                                                                        \
+    return GPUCA_M_STR(GPUCA_M_KRNL_NAME(x_class));                                        \
   }
 #include "GPUReconstructionKernelList.h"
 #undef GPUCA_KRNL

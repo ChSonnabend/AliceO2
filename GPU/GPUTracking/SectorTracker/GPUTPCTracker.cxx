@@ -22,6 +22,7 @@
 #include "GPUTPCTrackParam.h"
 #include "GPUParam.inc"
 #include "GPUTPCConvertImpl.h"
+#include "GPUDefParametersRuntime.h"
 
 #if !defined(GPUCA_GPUCODE)
 #include <cstring>
@@ -143,13 +144,12 @@ void GPUTPCTracker::SetMaxData(const GPUTrackingInOutPointers& io)
   mNMaxRowHits = mRec->MemoryScalers()->NTPCTrackletHits(mData.NumberOfHits());
   mNMaxTracks = mRec->MemoryScalers()->NTPCSectorTracks(mData.NumberOfHits());
   mNMaxTrackHits = mRec->MemoryScalers()->NTPCSectorTrackHits(mData.NumberOfHits(), mRec->GetProcessingSettings().tpcInputWithClusterRejection);
-#ifdef GPUCA_SORT_STARTHITS_GPU
-  if (mRec->GetRecoStepsGPU() & GPUDataTypes::RecoStep::TPCSectorTracking) {
+
+  if (mRec->getGPUParameters(mRec->GetRecoStepsGPU() & GPUDataTypes::RecoStep::TPCSectorTracking).par_SORT_STARTHITS) {
     if (mNMaxStartHits > mNMaxRowStartHits * GPUCA_ROW_COUNT) {
       mNMaxStartHits = mNMaxRowStartHits * GPUCA_ROW_COUNT;
     }
   }
-#endif
   mData.SetMaxData();
 }
 

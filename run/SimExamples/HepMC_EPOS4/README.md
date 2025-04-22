@@ -7,10 +7,12 @@ An in-depth explanation of the mechanisms behind the HepMC(3) data handling can 
 HepMC_fifo folder of the MC examples. The scripts use the `cmd` parameter of `GeneratorHepMC`
 to spawn the EPOS4 generation via the `epos.sh` script.
 
-EPOS4 uses the outdated HepMC2 libraries, so this had to be specified in the steering scripts
+EPOS 4.0.0 uses the outdated HepMC2 libraries, so this had to be specified in the steering scripts
 of the generators configuration. If `HepMC.version=2` is removed then the scripts will not work
 anymore. This is to say that the balance achieved with the configurations provided is easily
 destroyed if the user base edits parts that are not understood completely.
+The latest EPOS 4.0.3 and EPOS4HQ both use HepMC3, so the version is automatically
+updated when these generators are used.
 
 # Scripts description
 
@@ -47,6 +49,7 @@ If no parameters are provided to the scripts, they will run with default values 
 - **-n , --nevents** &rarr; changes the number of events in the .optns file or gets the one in the file if no events are provided
 - **-i , --input** &rarr; .optns filename to feed EPOS4, no extension must be set in the filename
 - **-j , --jobs** &rarr; sets the number of workers (jobs)
+- **-hq** &rarr; enables EPOS4HQ generation
 - **-h , --help** &rarr; prints usage instructions
 - **-e , --ecm** &rarr; sets the center-of-mass energy in the options file
 
@@ -62,6 +65,6 @@ Now the three scripts start to differ:
 - **rundpg.sh** &rarr; first the o2dpg_sim_workflow.py script will be launched generating the json configuration, then the o2_dpg_workflow_runner.py script will start the workflow
 - **rundpl.sh** &rarr; o2-sim-dpl-eventgen is executed piping its results to o2-sim-mctracks-to-aod and afterwards to o2-analysis-mctracks-to-aod-simple-task
 
-The last few lines of the scripts contain the execution of o2-sim, DPG worflow creator/runner and DPL software respectively, so this part can be modified by the users following their requirements. It's important not to delete from the configuration keys `GeneratorFileOrCmd.cmd=$cmd -i $optns;GeneratorFileOrCmd.bMaxSwitch=none;HepMC.version=2;` and it would be better to provide additional configurations via the -m flag. EPOS4 cannot set a maximum impact parameter value, so it's better to leave the bMaxSwitch to none, while the others serve the sole purpose of running successfully the generator using auto generated FIFOs.
+The last few lines of the scripts contain the execution of o2-sim, DPG worflow creator/runner and DPL software respectively, so this part can be modified by the users following their requirements. It's important not to delete from the configuration keys `GeneratorFileOrCmd.cmd=$cmd -i $optns;GeneratorFileOrCmd.bMaxSwitch=none$HEPMC;` and it would be better to provide additional configurations via the -m flag. EPOS4 cannot set a maximum impact parameter value, so it's better to leave the bMaxSwitch to none, while the others serve the sole purpose of running successfully the generator using auto generated FIFOs.
 
 
