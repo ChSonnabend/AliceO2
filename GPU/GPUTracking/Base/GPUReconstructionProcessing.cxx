@@ -15,6 +15,9 @@
 #include "GPUReconstructionProcessing.h"
 #include "GPUReconstructionThreading.h"
 #include "GPUDefParametersLoad.inc"
+#include "GPUReconstructionKernelIncludes.h"
+#include "GPUSettings.h"
+#include "GPULogging.h"
 
 using namespace o2::gpu;
 
@@ -41,7 +44,7 @@ GPUReconstructionProcessing::~GPUReconstructionProcessing()
 int32_t GPUReconstructionProcessing::getNKernelHostThreads(bool splitCores)
 {
   int32_t nThreads = 0;
-  if (mProcessingSettings.inKernelParallel == 2 && mNActiveThreadsOuterLoop) {
+  if (GetProcessingSettings().inKernelParallel == 2 && mNActiveThreadsOuterLoop) {
     if (splitCores) {
       nThreads = mMaxHostThreads / mNActiveThreadsOuterLoop;
       nThreads += (uint32_t)getHostThreadIndex() < mMaxHostThreads % mNActiveThreadsOuterLoop;
@@ -50,7 +53,7 @@ int32_t GPUReconstructionProcessing::getNKernelHostThreads(bool splitCores)
     }
     nThreads = std::max(1, nThreads);
   } else {
-    nThreads = mProcessingSettings.inKernelParallel ? mMaxHostThreads : 1;
+    nThreads = GetProcessingSettings().inKernelParallel ? mMaxHostThreads : 1;
   }
   return nThreads;
 }
@@ -59,7 +62,7 @@ void GPUReconstructionProcessing::SetNActiveThreads(int32_t n)
 {
   mActiveHostKernelThreads = std::max(1, n < 0 ? mMaxHostThreads : std::min(n, mMaxHostThreads));
   mThreading->activeThreads = std::make_unique<tbb::task_arena>(mActiveHostKernelThreads);
-  if (mProcessingSettings.debugLevel >= 3) {
+  if (GetProcessingSettings().debugLevel >= 3) {
     GPUInfo("Set number of active parallel kernels threads on host to %d (%d requested)", mActiveHostKernelThreads, n);
   }
 }
@@ -80,12 +83,12 @@ void GPUReconstructionProcessing::runParallelOuterLoop(bool doGPU, uint32_t nThr
 
 uint32_t GPUReconstructionProcessing::SetAndGetNActiveThreadsOuterLoop(bool condition, uint32_t max)
 {
-  if (condition && mProcessingSettings.inKernelParallel != 1) {
-    mNActiveThreadsOuterLoop = mProcessingSettings.inKernelParallel == 2 ? std::min<uint32_t>(max, mMaxHostThreads) : mMaxHostThreads;
+  if (condition && GetProcessingSettings().inKernelParallel != 1) {
+    mNActiveThreadsOuterLoop = GetProcessingSettings().inKernelParallel == 2 ? std::min<uint32_t>(max, mMaxHostThreads) : mMaxHostThreads;
   } else {
     mNActiveThreadsOuterLoop = 1;
   }
-  if (mProcessingSettings.debugLevel >= 5) {
+  if (GetProcessingSettings().debugLevel >= 5) {
     printf("Running %d threads in outer loop\n", mNActiveThreadsOuterLoop);
   }
   return mNActiveThreadsOuterLoop;
@@ -132,9 +135,9 @@ uint32_t GPUReconstructionProcessing::getNextTimerId()
   return id.fetch_add(1);
 }
 
-std::unique_ptr<gpu_reconstruction_kernels::threadContext> GPUReconstructionProcessing::GetThreadContext()
+std::unique_ptr<GPUReconstructionProcessing::threadContext> GPUReconstructionProcessing::GetThreadContext()
 {
-  return std::make_unique<gpu_reconstruction_kernels::threadContext>();
+  return std::make_unique<threadContext>();
 }
 
 gpu_reconstruction_kernels::threadContext::threadContext() = default;

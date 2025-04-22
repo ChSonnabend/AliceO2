@@ -58,7 +58,7 @@ GPUd() Charge ClusterAccumulator::updateOuter(PackedCharge charge, Delta2 d)
   return q;
 }
 
-GPUd() void ClusterAccumulator::finalize(const ChargePos& pos, const Charge q, TPCTime timeOffset)
+GPUd() void ClusterAccumulator::finalize(const CfChargePos& pos, const Charge q, TPCTime timeOffset)
 {
   mQtot += q;
 
@@ -75,7 +75,7 @@ GPUd() void ClusterAccumulator::finalize(const ChargePos& pos, const Charge q, T
   mTimeMean += timeOffset + pos.time();
 }
 
-GPUd() bool ClusterAccumulator::toNative(const ChargePos& pos, const Charge q, tpc::ClusterNative& cn, const GPUParam& param, const Array2D<PackedCharge>& chargeMap)
+GPUd() bool ClusterAccumulator::toNative(const CfChargePos& pos, const Charge q, tpc::ClusterNative& cn, const GPUParam& param, const CfArray2D<PackedCharge>& chargeMap)
 {
   Pad pad = pos.pad();
 

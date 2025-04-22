@@ -16,9 +16,39 @@
 #define GPURECONSTRUCTIONIO_H
 
 #include "GPUReconstruction.h"
+#include "GPUSettings.h"
 
 namespace o2::gpu
 {
+
+template <class T>
+inline T* GPUReconstruction::AllocateIOMemoryHelper(size_t n, const T*& ptr, std::unique_ptr<T[]>& u)
+{
+  if (n == 0) {
+    u.reset(nullptr);
+    return nullptr;
+  }
+  T* retVal;
+  if (mInputControl.useExternal()) {
+    u.reset(nullptr);
+    mInputControl.checkCurrent();
+    GPUProcessor::computePointerWithAlignment(mInputControl.ptrCurrent, retVal, n);
+    if ((size_t)((char*)mInputControl.ptrCurrent - (char*)mInputControl.ptrBase) > mInputControl.size) {
+      throw std::bad_alloc();
+    }
+  } else {
+    u.reset(new T[n]);
+    retVal = u.get();
+    if (GetProcessingSettings().registerStandaloneInputMemory) {
+      if (registerMemoryForGPU(u.get(), n * sizeof(T))) {
+        GPUError("Error registering memory for GPU: %p - %ld bytes\n", (void*)u.get(), (int64_t)(n * sizeof(T)));
+        throw std::bad_alloc();
+      }
+    }
+  }
+  ptr = retVal;
+  return retVal;
+}
 
 template <class T, class S>
 inline uint32_t GPUReconstruction::DumpData(FILE* fp, const T* const* entries, const S* num, InOutPointerType type)
@@ -38,7 +68,7 @@ inline uint32_t GPUReconstruction::DumpData(FILE* fp, const T* const* entries, c
       fwrite(entries[i], sizeof(*entries[i]), num[i], fp);
     }
   }
-  if (mProcessingSettings.debugLevel >= 2) {
+  if (GetProcessingSettings().debugLevel >= 2) {
     GPUInfo("Dumped %ld %s", (int64_t)numTotal, IOTYPENAMES[type]);
   }
   return numTotal;
@@ -72,7 +102,7 @@ inline size_t GPUReconstruction::ReadData(FILE* fp, const T** entries, S* num, s
     numTotal += num[i];
   }
   (void)r;
-  if (mProcessingSettings.debugLevel >= 2) {
+  if (GetProcessingSettings().debugLevel >= 2) {
     GPUInfo("Read %ld %s", (int64_t)numTotal, IOTYPENAMES[type]);
   }
   return numTotal;
@@ -112,7 +142,7 @@ inline std::unique_ptr<T> GPUReconstruction::ReadFlatObjectFromFile(const char* 
   r = fread((void*)retVal.get(), 1, size[0], fp);
   r = fread(buf, 1, size[1], fp);
   fclose(fp);
-  if (mProcessingSettings.debugLevel >= 2) {
+  if (GetProcessingSettings().debugLevel >= 2) {
     GPUInfo("Read %ld bytes from %s", (int64_t)r, file);
   }
   retVal->clearInternalBufferPtr();
@@ -151,7 +181,7 @@ inline std::unique_ptr<T> GPUReconstruction::ReadStructFromFile(const char* file
   std::unique_ptr<T> newObj(new T);
   r = fread(newObj.get(), 1, size, fp);
   fclose(fp);
-  if (mProcessingSettings.debugLevel >= 2) {
+  if (GetProcessingSettings().debugLevel >= 2) {
     GPUInfo("Read %ld bytes from %s", (int64_t)r, file);
   }
   return newObj;
@@ -172,7 +202,7 @@ inline int32_t GPUReconstruction::ReadStructFromFile(const char* file, T* obj)
   }
   r = fread(obj, 1, size, fp);
   fclose(fp);
-  if (mProcessingSettings.debugLevel >= 2) {
+  if (GetProcessingSettings().debugLevel >= 2) {
     GPUInfo("Read %ld bytes from %s", (int64_t)r, file);
   }
   return 0;

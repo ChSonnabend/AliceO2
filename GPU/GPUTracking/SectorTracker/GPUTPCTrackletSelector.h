@@ -36,10 +36,8 @@ class GPUTPCTrackletSelector : public GPUKernelTemplate
     int32_t mNThreadsTotal; // total n threads
     int32_t mNTracklets;    // n of tracklets
     int32_t mReserved;      // for alignment reasons
-#if GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE != 0
     static_assert(GPUCA_ROW_COUNT >= GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE);
     GPUTPCHitId mHits[GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE][GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCTrackletSelector)];
-#endif // GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE != 0
   };
 
   typedef GPUconstantref() GPUTPCTracker processorType;

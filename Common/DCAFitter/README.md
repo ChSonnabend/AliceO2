@@ -93,3 +93,41 @@ In this case the relevant correlation coefficient of the cov.matrix is redefined
 
 `DCAFitterN::setBadCovPolicy(DCAFitterN::OverrideAnFlag);` continue fit with overridden cov.matrix but set the propagation failure flag (can be checked using the same `isPropagationFailure(int cand = 0)` method).
 
+## Fit status
+The fitter provides a fit status for each candidate, which can be retrieved using:
+```
+FitStatus status = ft.getFitStatus(int cand = 0);
+```
+The possible values are:
+```
+enum FitStatus : uint8_t {    // part of the DCAFitterN class
+     None,                    // no status set (should not be possible!)
+
+     /* Good Conditions */
+     Converged, // fit converged
+     MaxIter,   // max iterations reached before fit convergence (can still be a good vertex)
+
+     /* Error Conditions */
+     NoCrossing,      // no reasonable crossing was found
+     RejRadius,       // radius of crossing was not acceptable
+     RejTrackX,       // one candidate track x was below the minimum required radius
+     RejTrackRoughZ,  // rejected by rough cut on tracks Z difference
+     RejChi2Max,      // rejected by maximum chi2 cut
+     FailProp,        // propagation of at least prong to PCA failed
+     FailInvCov,      // inversion of cov.-matrix failed
+     FailInvWeight,   // inversion of Ti weight matrix failed
+     FailInv2ndDeriv, // inversion of 2nd derivatives failed
+     FailCorrTracks,  // correction of tracks to updated x failed
+     FailCloserAlt,   // alternative PCA is closer
+};
+```
+This is allows to track where candiate fit was abondended.
+```
+int nc = ft.process(tr0,tr1,tr2);
+auto status = ft.getFitStatus();
+if (nc) {
+     // status can either be FitStatus::Converged or FitStatus::MaxIter
+}
+// status can be on of the error conditions
+```
+A more thorough example is given in `testDCAFitterN.cxx`.

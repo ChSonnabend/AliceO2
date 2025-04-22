@@ -14,6 +14,8 @@
 
 #include "GPUReconstructionTimeframe.h"
 #include "GPUReconstruction.h"
+#include "GPUChainTracking.h"
+#include "GPUChainTrackingGetters.inc"
 #include "display/GPUDisplayInterface.h"
 #include "GPUQA.h"
 #include "AliHLTTPCClusterMCData.h"

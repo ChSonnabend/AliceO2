@@ -34,6 +34,7 @@
 #endif
 
 #include "GPUDisplay.h"
+#include "GPULogging.h"
 #include <string>
 
 using namespace o2::gpu;

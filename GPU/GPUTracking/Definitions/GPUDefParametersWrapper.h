@@ -43,11 +43,6 @@ namespace o2::gpu
 
 // #define GPUCA_KERNEL_DEBUGGER_OUTPUT
 
-// Derived parameters
-#ifdef GPUCA_USE_TEXTURES
-  #define GPUCA_TEXTURE_FETCH_CONSTRUCTOR                              // Fetch data through texture cache
-#endif
-
 } // namespace o2::gpu
 
 // clang-format on

@@ -57,6 +57,19 @@ GPUdii() void GPUTPCDecompressionKernels::Thread<GPUTPCDecompressionKernels::ste
     ClusterNative* clout = buffer + decompressor.mNativeClustersIndex[linearIndex];
     uint32_t end = offsets[linearIndex] + ((linearIndex >= decompressor.mInputGPU.nSliceRows) ? 0 : decompressor.mInputGPU.nSliceRowClusters[linearIndex]);
     TPCClusterDecompressionCore::decompressHits(cmprClusters, offsets[linearIndex], end, clout);
+    if (processors.param.rec.tpc.clustersEdgeFixDistance > 0.f) {
+      constexpr GPUTPCGeometry geo;
+      for (uint32_t k = 0; k < outputAccess->nClusters[iSector][iRow]; k++) {
+        auto& cluster = buffer[k];
+        if (cluster.getFlags() & ClusterNative::flagEdge) {
+          auto padF = cluster.getPad();
+          float distEdge = padF < geo.NPads(iRow) / 2 ? padF : geo.NPads(iRow) - 1 - padF;
+          if (distEdge > processors.param.rec.tpc.clustersEdgeFixDistance) {
+            cluster.setFlags(cluster.getFlags() ^ ClusterNative::flagEdge);
+          }
+        }
+      }
+    }
     if (processors.param.rec.tpc.clustersShiftTimebins != 0.f) {
       for (uint32_t k = 0; k < outputAccess->nClusters[iSector][iRow]; k++) {
         auto& cl = buffer[k];

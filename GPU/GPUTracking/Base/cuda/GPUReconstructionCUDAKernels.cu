@@ -20,29 +20,22 @@
 
 using namespace o2::gpu;
 
-#ifdef GPUCA_USE_TEXTURES
-texture<cahit2, cudaTextureType1D, cudaReadModeElementType> gAliTexRefu2;
-texture<calink, cudaTextureType1D, cudaReadModeElementType> gAliTexRefu;
-#endif
-
 #include "GPUReconstructionIncludesDeviceAll.h"
+
+#include "GPUReconstructionCUDAKernelsSpecialize.inc"
+#include "GPUReconstructionProcessingKernels.inc"
+template void GPUReconstructionProcessing::KernelInterface<GPUReconstructionCUDA, GPUReconstructionDeviceBase>::runKernelVirtual(const int num, const void* args);
 
 #if defined(__HIPCC__) && defined(GPUCA_HAS_GLOBAL_SYMBOL_CONSTANT_MEM)
 __global__ void gGPUConstantMemBuffer_dummy(int32_t* p) { *p = *(int32_t*)&gGPUConstantMemBuffer; }
 #endif
 
-template <>
-inline void GPUReconstructionCUDABackend::runKernelBackendInternal<GPUMemClean16, 0>(const krnlSetupTime& _xyz, void* const& ptr, uint64_t const& size)
-{
-  GPUChkErr(cudaMemsetAsync(ptr, 0, size, mInternals->Streams[_xyz.x.stream]));
-}
-
 template <class T, int32_t I, typename... Args>
-inline void GPUReconstructionCUDABackend::runKernelBackendInternal(const krnlSetupTime& _xyz, const Args&... args)
+inline void GPUReconstructionCUDA::runKernelBackendTimed(const krnlSetupTime& _xyz, const Args&... args)
 {
 #if !defined(GPUCA_KERNEL_COMPILE_MODE) || GPUCA_KERNEL_COMPILE_MODE != 1
-  if (!mProcessingSettings.rtc.enable) {
-    backendInternal<T, I>::runKernelBackendMacro(_xyz, this, args...);
+  if (!GetProcessingSettings().rtc.enable) {
+    kernelBackendMacro<T, I>::run(_xyz, this, args...);
   } else
 #endif
   {
@@ -61,18 +54,18 @@ inline void GPUReconstructionCUDABackend::runKernelBackendInternal(const krnlSet
 }
 
 template <class T, int32_t I, typename... Args>
-void GPUReconstructionCUDABackend::runKernelBackend(const krnlSetupArgs<T, I, Args...>& args)
+inline void GPUReconstructionCUDA::runKernelBackend(const krnlSetupTime& _xyz, const Args&... args)
 {
-  auto& x = args.s.x;
-  auto& z = args.s.z;
+  auto& x = _xyz.x;
+  auto& z = _xyz.z;
   if (z.evList) {
     for (int32_t k = 0; k < z.nEvents; k++) {
       GPUChkErr(cudaStreamWaitEvent(mInternals->Streams[x.stream], ((cudaEvent_t*)z.evList)[k], 0));
     }
   }
   {
-    GPUDebugTiming timer(mProcessingSettings.deviceTimers && mProcessingSettings.debugLevel > 0, (deviceEvent*)mDebugEvents, mInternals->Streams, args.s, this);
-    std::apply([this, &args](auto&... vals) { this->runKernelBackendInternal<T, I, Args...>(args.s, vals...); }, args.v);
+    GPUDebugTiming timer(GetProcessingSettings().deviceTimers && GetProcessingSettings().debugLevel > 0, (deviceEvent*)mDebugEvents, mInternals->Streams, _xyz, this);
+    runKernelBackendTimed<T, I, Args...>(_xyz, args...);
   }
   GPUChkErr(cudaGetLastError());
   if (z.ev) {
@@ -83,31 +76,38 @@ void GPUReconstructionCUDABackend::runKernelBackend(const krnlSetupArgs<T, I, Ar
 #undef GPUCA_KRNL_REG
 #define GPUCA_KRNL_REG(args) __launch_bounds__(GPUCA_M_MAX2_3(GPUCA_M_STRIP(args)))
 
-#if defined(GPUCA_KERNEL_COMPILE_MODE) && GPUCA_KERNEL_COMPILE_MODE == 1 // ---------- COMPILE_MODE = perkernel ----------
-#define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward, x_types, ...) template void GPUReconstructionCUDABackend::runKernelBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>(const krnlSetupArgs<GPUCA_M_KRNL_TEMPLATE(x_class) GPUCA_M_STRIP(x_types)>& args);
-#else // ---------- COMPILE_MODE = onefile | rdc ----------
-#if defined(GPUCA_KERNEL_COMPILE_MODE) && GPUCA_KERNEL_COMPILE_MODE == 2
-#define GPUCA_KRNL_DEFONLY // COMPILE_MODE = rdc
-#endif
+// clang-format off
+#if defined(GPUCA_KERNEL_COMPILE_MODE) && GPUCA_KERNEL_COMPILE_MODE != 1 // ---------- COMPILE_MODE = perkernel ----------
+  #if defined(GPUCA_KERNEL_COMPILE_MODE) && GPUCA_KERNEL_COMPILE_MODE == 2
+    #define GPUCA_KRNL_DEFONLY // COMPILE_MODE = rdc
+  #endif
 
-#define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward, x_types, ...)        \
-  GPUCA_KRNL_HOST(x_class, x_attributes, x_arguments, x_forward, x_types, __VA_ARGS__) \
-  template void GPUReconstructionCUDABackend::runKernelBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>(const krnlSetupArgs<GPUCA_M_KRNL_TEMPLATE(x_class) GPUCA_M_STRIP(x_types)>& args);
+  #ifndef __HIPCC__ // CUDA version
+    #define GPUCA_KRNL_CALL(x_class, ...) \
+      GPUCA_M_CAT(krnl_, GPUCA_M_KRNL_NAME(x_class))<<<x.nBlocks, x.nThreads, 0, me->mInternals->Streams[x.stream]>>>(GPUCA_CONSMEM_CALL y.index, args...);
+  #else // HIP version
+    #undef GPUCA_KRNL_CUSTOM
+    #define GPUCA_KRNL_CUSTOM(args) GPUCA_M_STRIP(args)
+    #define GPUCA_KRNL_CALL(x_class, ...) \
+      hipLaunchKernelGGL(HIP_KERNEL_NAME(GPUCA_M_CAT(krnl_, GPUCA_M_KRNL_NAME(x_class))), dim3(x.nBlocks), dim3(x.nThreads), 0, me->mInternals->Streams[x.stream], GPUCA_CONSMEM_CALL y.index, args...);
+  #endif // __HIPCC__
 
-#ifndef __HIPCC__ // CUDA version
-#define GPUCA_KRNL_CALL(x_class, ...) \
-  GPUCA_M_CAT(krnl_, GPUCA_M_KRNL_NAME(x_class))<<<x.nBlocks, x.nThreads, 0, me->mInternals->Streams[x.stream]>>>(GPUCA_CONSMEM_CALL y.index, args...);
-#else // HIP version
-#undef GPUCA_KRNL_CUSTOM
-#define GPUCA_KRNL_CUSTOM(args) GPUCA_M_STRIP(args)
-#define GPUCA_KRNL_CALL(x_class, ...) \
-  hipLaunchKernelGGL(HIP_KERNEL_NAME(GPUCA_M_CAT(krnl_, GPUCA_M_KRNL_NAME(x_class))), dim3(x.nBlocks), dim3(x.nThreads), 0, me->mInternals->Streams[x.stream], GPUCA_CONSMEM_CALL y.index, args...);
-#endif // __HIPCC__
+  #define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward, x_types, ...) \
+    GPUCA_KRNLGPU(x_class, x_attributes, x_arguments, x_forward, x_types, __VA_ARGS__) \
+    template <> struct GPUReconstructionCUDA::kernelBackendMacro<GPUCA_M_KRNL_TEMPLATE(x_class)> { \
+      template <typename... Args> \
+      static inline void run(const GPUReconstructionProcessing::krnlSetupTime& _xyz, auto* me, const Args&... args) \
+      { \
+        auto& x = _xyz.x; \
+        auto& y = _xyz.y; \
+        GPUCA_KRNL_CALL(x_class, x_attributes, x_arguments, x_forward, x_types, __VA_ARGS__) \
+      } \
+    };
 
+  #include "GPUReconstructionKernelList.h"
+  #undef GPUCA_KRNL
 #endif // ---------- COMPILE_MODE = onefile | rdc ----------
-
-#include "GPUReconstructionKernelList.h"
-#undef GPUCA_KRNL
+// clang-format on
 
 #ifndef GPUCA_NO_CONSTANT_MEMORY
 static GPUReconstructionDeviceBase::deviceConstantMemRegistration registerConstSymbol([]() {

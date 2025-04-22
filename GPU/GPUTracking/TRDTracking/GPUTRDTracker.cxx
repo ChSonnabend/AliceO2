@@ -22,6 +22,7 @@
 #include "GPUTRDTrackerDebug.h"
 #include "GPUCommonMath.h"
 #include "GPUCommonAlgorithm.h"
+#include "GPUConstantMem.h"
 
 using namespace o2::gpu;
 

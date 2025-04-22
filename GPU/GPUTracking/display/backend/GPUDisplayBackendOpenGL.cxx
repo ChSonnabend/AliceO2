@@ -27,6 +27,8 @@
 #include "GPUDisplayBackendOpenGL.h"
 #include "shaders/GPUDisplayShaders.h"
 #include "GPUDisplay.h"
+#include "GPULogging.h"
+#include "GPUParam.h"
 
 #define OPENGL_EMULATE_MULTI_DRAW 0
 

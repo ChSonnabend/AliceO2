@@ -24,6 +24,7 @@
 
 #include "GPUReconstruction.h"
 #include "GPUReconstructionAvailableBackends.h"
+#include "GPUSettings.h"
 
 #include "utils/qlibload.h"
 

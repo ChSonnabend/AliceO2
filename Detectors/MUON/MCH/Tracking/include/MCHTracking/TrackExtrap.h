@@ -18,6 +18,7 @@
 #define O2_MCH_TRACKEXTRAP_H_
 
 #include <cstddef>
+#include <optional>
 
 #include <TMatrixD.h>
 
@@ -70,17 +71,21 @@ class TrackExtrap
     /// Add branson correction resolution to parameter covariances
     return extrapToVertex(trackParam, xVtx, yVtx, zVtx, errXVtx, errYVtx, true, false);
   }
-  static bool extrapToVertexWithoutBranson(TrackParam& trackParam, double zVtx)
+  static bool extrapToVertexWithoutBranson(TrackParam& trackParam, double zVtx,
+                                           double xUpstream = 0., double yUpstream = 0.,
+                                           std::optional<double> zUpstream = std::nullopt)
   {
     /// Extrapolate track parameters to vertex, corrected for energy loss effects only
     /// Add dispersion due to multiple scattering and energy loss fluctuation to parameter covariances
-    return extrapToVertex(trackParam, 0., 0., zVtx, 0., 0., false, true);
+    return extrapToVertex(trackParam, 0., 0., zVtx, 0., 0., false, true, xUpstream, yUpstream, zUpstream);
   }
-  static bool extrapToVertexUncorrected(TrackParam& trackParam, double zVtx)
+  static bool extrapToVertexUncorrected(TrackParam& trackParam, double zVtx,
+                                        double xUpstream = 0., double yUpstream = 0.,
+                                        std::optional<double> zUpstream = std::nullopt)
   {
     /// Extrapolate track parameters to vertex without multiple scattering and energy loss corrections
     /// Add dispersion due to multiple scattering to parameter covariances
-    return extrapToVertex(trackParam, 0., 0., zVtx, 0., 0., false, false);
+    return extrapToVertex(trackParam, 0., 0., zVtx, 0., 0., false, false, xUpstream, yUpstream, zUpstream);
   }
 
   static bool extrapToMID(TrackParam& trackParam);
@@ -92,7 +97,8 @@ class TrackExtrap
 
  private:
   static bool extrapToVertex(TrackParam& trackParam, double xVtx, double yVtx, double zVtx,
-                             double errXVtx, double errYVtx, bool correctForMCS, bool correctForEnergyLoss);
+                             double errXVtx, double errYVtx, bool correctForMCS, bool correctForEnergyLoss,
+                             double xUpstream = 0., double yUpstream = 0., std::optional<double> zUpstream = std::nullopt);
 
   static bool getAbsorberCorrectionParam(double trackXYZIn[3], double trackXYZOut[3], double pTotal,
                                          double& pathLength, double& f0, double& f1, double& f2,

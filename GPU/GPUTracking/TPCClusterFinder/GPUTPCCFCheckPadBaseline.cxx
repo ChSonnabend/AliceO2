@@ -13,7 +13,7 @@
 /// \author Felix Weiglhofer
 
 #include "GPUTPCCFCheckPadBaseline.h"
-#include "Array2D.h"
+#include "CfArray2D.h"
 #include "PackedCharge.h"
 #include "GPUTPCGeometry.h"
 #include "clusterFinderDefs.h"
@@ -33,10 +33,10 @@ template <>
 GPUd() void GPUTPCCFCheckPadBaseline::Thread<0>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer)
 {
   const CfFragment& fragment = clusterer.mPmemory->fragment;
-  Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
+  CfArray2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
 
   int32_t basePad = iBlock * PadsPerCacheline;
-  ChargePos basePos = padToChargePos(basePad, clusterer);
+  CfChargePos basePos = padToCfChargePos(basePad, clusterer);
 
   if (not basePos.valid()) {
     return;
@@ -55,7 +55,7 @@ GPUd() void GPUTPCCFCheckPadBaseline::Thread<0>(int32_t nBlocks, int32_t nThread
   bool handlePad = localTimeBin == 0;
 
   for (tpccf::TPCFragmentTime t = fragment.firstNonOverlapTimeBin(); t < fragment.lastNonOverlapTimeBin(); t += NumOfCachedTimebins) {
-    const ChargePos pos = basePos.delta({localPadId, int16_t(t + localTimeBin)});
+    const CfChargePos pos = basePos.delta({localPadId, int16_t(t + localTimeBin)});
     smem.charges[localPadId][localTimeBin] = (pos.valid()) ? chargeMap[pos].unpack() : 0;
     GPUbarrier();
     if (handlePad) {
@@ -150,7 +150,7 @@ GPUd() void GPUTPCCFCheckPadBaseline::Thread<0>(int32_t nBlocks, int32_t nThread
 #endif
 }
 
-GPUd() ChargePos GPUTPCCFCheckPadBaseline::padToChargePos(int32_t& pad, const GPUTPCClusterFinder& clusterer)
+GPUd() CfChargePos GPUTPCCFCheckPadBaseline::padToCfChargePos(int32_t& pad, const GPUTPCClusterFinder& clusterer)
 {
   constexpr GPUTPCGeometry geo;
 
@@ -161,12 +161,12 @@ GPUd() ChargePos GPUTPCCFCheckPadBaseline::padToChargePos(int32_t& pad, const GP
     if (0 <= padInRow && padInRow < CAMath::nextMultipleOf<PadsPerCacheline, int32_t>(npads)) {
       int32_t cachelineOffset = padInRow % PadsPerCacheline;
       pad -= cachelineOffset;
-      return ChargePos{r, Pad(padInRow - cachelineOffset), 0};
+      return CfChargePos{r, Pad(padInRow - cachelineOffset), 0};
     }
     padOffset += npads;
   }
 
-  return ChargePos{0, 0, INVALID_TIME_BIN};
+  return CfChargePos{0, 0, INVALID_TIME_BIN};
 }
 
 GPUd() void GPUTPCCFCheckPadBaseline::updatePadBaseline(int32_t pad, const GPUTPCClusterFinder& clusterer, int32_t totalCharges, int32_t consecCharges, Charge maxCharge)

@@ -22,6 +22,15 @@
 
 using namespace o2::ml;
 
+class OrtMemoryInfo;
+class OrtAllocator;
+struct MockedOrtAllocator;
+namespace Ort
+{
+struct Env;
+struct MemoryInfo;
+} // namespace Ort
+
 namespace o2::OrtDataType
 {
 struct Float16_t;
@@ -30,6 +39,7 @@ struct Float16_t;
 namespace o2::gpu
 {
 
+class GPUReconstruction;
 class GPUTPCNNClusterizer;
 struct GPUSettingsProcessingNNclusterizer;
 
@@ -37,36 +47,26 @@ class GPUTPCNNClusterizerHost
 {
  public:
   GPUTPCNNClusterizerHost() = default;
-  GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer&);
-  void init(const GPUSettingsProcessingNNclusterizer&);
-  void loadFromCCDB(std::map<std::string, std::string>);
+  GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer& settings) { init(settings); }
 
+  void init(const GPUSettingsProcessingNNclusterizer&);
   void initClusterizer(const GPUSettingsProcessingNNclusterizer&, GPUTPCNNClusterizer&);
 
-  void networkInference(o2::ml::OrtModel model, GPUTPCNNClusterizer& clusterer, size_t size, float* output, int32_t dtype);
+  // ONNX
+  void volatileOrtAllocator(Ort::Env*, Ort::MemoryInfo*, GPUReconstruction*, bool = false);
+  MockedOrtAllocator* getMockedAllocator();
+  const OrtMemoryInfo* getMockedMemoryInfo();
 
   void digitWriter(GPUTPCClusterFinder&, std::string);
   void combineDigitFiles(int);
 
   std::unordered_map<std::string, std::string> OrtOptions;
   o2::ml::OrtModel model_class, model_reg_1, model_reg_2; // For splitting clusters
+  std::vector<bool> modelsUsed = {false, false, false};   // 0: class, 1: reg_1, 2: reg_2
+  int32_t deviceId = -1;
+  std::vector<std::string> reg_model_paths;
 
- private:
-  // Avoid including CommonUtils/StringUtils.h
-  std::map<std::string, std::string> metadata;
-  std::map<std::string, std::string> headers;
-  // std::vector<std::string> splitString(const std::string& input, const std::string& delimiter)
-  // {
-  //   std::vector<std::string> tokens;
-  //   std::size_t pos = 0;
-  //   std::size_t found;
-  //   while ((found = input.find(delimiter, pos)) != std::string::npos) {
-  //     tokens.push_back(input.substr(pos, found - pos));
-  //     pos = found + delimiter.length();
-  //   }
-  //   tokens.push_back(input.substr(pos));
-  //   return tokens;
-  // }
+  std::shared_ptr<MockedOrtAllocator> mockedAlloc = nullptr;
 }; // class GPUTPCNNClusterizerHost
 
 } // namespace o2::gpu

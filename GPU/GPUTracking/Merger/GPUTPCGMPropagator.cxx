@@ -691,7 +691,7 @@ GPUd() int32_t GPUTPCGMPropagator::Update(float posY, float posZ, int32_t iRow, 
     return 0;
   }
 
-  return Update(posY, posZ, clusterState, rejectChi2 == rejectDirect, err2Y, err2Z, &param);
+  return Update(posY, posZ, clusterState, rejectChi2 == rejectDirect || rejectChi2 == rejectInterReject, err2Y, err2Z, &param);
 }
 
 GPUd() int32_t GPUTPCGMPropagator::InterpolateReject(const GPUParam& GPUrestrict() param, float posY, float posZ, int16_t clusterState, int8_t rejectChi2, gputpcgmmergertypes::InterpolationErrorHit* inter, float err2Y, float err2Z)
@@ -704,7 +704,7 @@ GPUd() int32_t GPUTPCGMPropagator::InterpolateReject(const GPUParam& GPUrestrict
     inter->errorY = mC[0];
     inter->errorZ = mC[2];
   } else if (rejectChi2 == rejectInterReject) {
-    float chiY, chiZ;
+    float chi2Y, chi2Z;
     if (mFitInProjections || mT->NDF() <= 0) {
       const float Iz0 = inter->posY - mP[0];
       const float Iz1 = inter->posZ - mP[1];
@@ -721,8 +721,8 @@ GPUd() int32_t GPUTPCGMPropagator::InterpolateReject(const GPUParam& GPUrestrict
       const float Jz1 = posZ - ImP1;
       const float Jw0 = 1.f / (ImC0 + err2Y);
       const float Jw2 = 1.f / (ImC2 + err2Z);
-      chiY = Jw0 * Jz0 * Jz0;
-      chiZ = Jw2 * Jz1 * Jz1;
+      chi2Y = Jw0 * Jz0 * Jz0;
+      chi2Z = Jw2 * Jz1 * Jz1;
     } else {
       const float Iz0 = inter->posY - mP[0];
       const float Iz1 = inter->posZ - mP[1];
@@ -751,11 +751,11 @@ GPUd() int32_t GPUTPCGMPropagator::InterpolateReject(const GPUParam& GPUrestrict
       Jw0 *= Jdet;
       const float Jw1 = ImC1 * Jdet;
       Jw2 *= Jdet;
-      chiY = CAMath::Abs((Jw0 * Jz0 + Jw1 * Jz1) * Jz0);
-      chiZ = CAMath::Abs((Jw1 * Jz0 + Jw2 * Jz1) * Jz1);
+      chi2Y = CAMath::Abs((Jw0 * Jz0 + Jw1 * Jz1) * Jz0);
+      chi2Z = CAMath::Abs((Jw1 * Jz0 + Jw2 * Jz1) * Jz1);
     }
-    if (RejectCluster(chiY * param.rec.tpc.clusterRejectChi2TolleranceY, chiZ * param.rec.tpc.clusterRejectChi2TolleranceZ, clusterState)) { // TODO: Relative Pt resolution decreases slightly, why?
-      return updateErrorClusterRejected;
+    if (RejectCluster(chi2Y * param.rec.tpc.clusterRejectChi2TolleranceY, chi2Z * param.rec.tpc.clusterRejectChi2TolleranceZ, clusterState)) { // TODO: Relative Pt resolution decreases slightly, why?
+      return updateErrorClusterRejectedInInterpolation;
     }
   }
   return 0;
@@ -771,13 +771,13 @@ GPUd() int32_t GPUTPCGMPropagator::Update(float posY, float posZ, int16_t cluste
 
   const float z0 = posY - mP[0];
   const float z1 = posZ - mP[1];
-  float w0, w1, w2, chiY, chiZ;
+  float w0, w1, w2, chi2Y, chi2Z;
   if (mFitInProjections || mT->NDF() <= 0) {
     w0 = 1.f / (err2Y + d00);
     w1 = 0;
     w2 = 1.f / (err2Z + d11);
-    chiY = w0 * z0 * z0;
-    chiZ = w2 * z1 * z1;
+    chi2Y = w0 * z0 * z0;
+    chi2Z = w2 * z1 * z1;
   } else {
     w0 = d11 + err2Z, w1 = d10, w2 = d00 + err2Y;
     { // Invert symmetric matrix
@@ -790,13 +790,13 @@ GPUd() int32_t GPUTPCGMPropagator::Update(float posY, float posZ, int16_t cluste
       w1 = -w1 * det;
       w2 = w2 * det;
     }
-    chiY = CAMath::Abs((w0 * z0 + w1 * z1) * z0);
-    chiZ = CAMath::Abs((w1 * z0 + w2 * z1) * z1);
+    chi2Y = CAMath::Abs((w0 * z0 + w1 * z1) * z0);
+    chi2Z = CAMath::Abs((w1 * z0 + w2 * z1) * z1);
   }
-  float dChi2 = chiY + chiZ;
-  // GPUInfo("hits %d chi2 %f, new %f %f (dy %f dz %f)", N, mChi2, chiY, chiZ, z0, z1);
-  if (rejectChi2 == 1 && RejectCluster(chiY * param->rec.tpc.clusterRejectChi2TolleranceY, chiZ * param->rec.tpc.clusterRejectChi2TolleranceZ, clusterState)) {
-    return updateErrorClusterRejected;
+  float dChi2 = chi2Y + chi2Z;
+  // GPUInfo("hits %d chi2 %f, new %f %f (dy %f dz %f)", N, mChi2, chi2Y, chi2Z, z0, z1);
+  if (rejectChi2 && RejectCluster(chi2Y * param->rec.tpc.clusterRejectChi2TolleranceY, chi2Z * param->rec.tpc.clusterRejectChi2TolleranceZ, clusterState)) {
+    return updateErrorClusterRejectedInUpdate;
   }
   mT->Chi2() += dChi2;
   mT->NDF() += 2;

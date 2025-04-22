@@ -18,6 +18,9 @@
 #include "GPUReconstruction.h"
 #include "GPUTPCClusterOccupancyMap.h"
 #include "GPUErrors.h"
+#include "GPUParam.h"
+#include "DataFormatsTPC/ClusterNative.h"
+#include "GPUTRDSpacePoint.h"
 
 using namespace o2::gpu;
 using namespace o2::tpc;

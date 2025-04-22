@@ -17,6 +17,11 @@
 #include "GPUDefParametersRuntime.h"
 #include "GPUO2DataTypes.h"
 #include "GPUQA.h"
+#include "GPUTPCGMMerger.h"
+#include "GPUConstantMem.h"
+#include "GPUTPCGMMergerGPU.h"
+#include "GPUTPCGMO2Output.h"
+#include "GPUTPCGlobalDebugSortKernels.h"
 #include "utils/strtag.h"
 #include <fstream>
 
@@ -292,7 +297,7 @@ int32_t GPUChainTracking::RunTPCTrackingMerger(bool synchronizeOutput)
     SynchronizeEventAndRelease(mEvents->single, doGPU);
 
     if (GetProcessingSettings().clearO2OutputFromGPU) {
-      mRec->AllocateVolatileDeviceMemory(0); // make future device memory allocation volatile
+      mRec->MakeFutureDeviceMemoryAllocationsVolatile();
     }
     AllocateRegisteredMemory(Merger.MemoryResOutputO2(), mSubOutputControls[GPUTrackingOutputs::getIndex(&GPUTrackingOutputs::tpcTracksO2)]);
     AllocateRegisteredMemory(Merger.MemoryResOutputO2Clus(), mSubOutputControls[GPUTrackingOutputs::getIndex(&GPUTrackingOutputs::tpcTracksO2ClusRefs)]);

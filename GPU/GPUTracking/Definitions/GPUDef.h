@@ -58,12 +58,6 @@
   #define CA_SHARED_CACHE_REF(target, src, size, reftype, ref) GPUglobalref() const reftype* __restrict__ ref = src
 #endif
 
-#ifdef GPUCA_TEXTURE_FETCH_CONSTRUCTOR
-  #define CA_TEXTURE_FETCH(type, texture, address, entry) tex1Dfetch(texture, ((char*) address - tracker.Data().GPUTextureBase()) / sizeof(type) + entry);
-#else
-  #define CA_TEXTURE_FETCH(type, texture, address, entry) address[entry];
-#endif
-
 #endif //GPUTPCDEF_H
 
 #ifdef GPUCA_CADEBUG

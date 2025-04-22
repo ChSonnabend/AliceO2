@@ -16,6 +16,7 @@
 #include "GPUReconstruction.h"
 #include "GPUTPCHitId.h"
 #include "GPUTPCTrack.h"
+#include "GPULogging.h"
 
 #include <iostream>
 #include <cstring>

@@ -113,7 +113,7 @@ set(HDRS_INSTALL
     Base/GPUReconstructionIO.h
     Base/GPUReconstructionIncludesITS.h
     Base/GPUReconstructionKernelMacros.h
-    Base/GPUReconstructionKernels.h
+    Base/GPUReconstructionCPUKernels.h
     DataCompression/GPUTPCClusterRejection.h
     DataCompression/GPUTPCCompressionKernels.inc
     DataCompression/TPCClusterDecompressionCore.inc
@@ -127,6 +127,7 @@ set(HDRS_INSTALL
     DataTypes/GPUTRDDef.h
     DataTypes/GPUTRDInterfaceO2Track.h
     DataTypes/GPUTriggerOutputs.h
+    DataTypes/GPUKernelClassesFwd.h
     Debug/GPUROOTDump.h
     Definitions/GPUDefConstantsAndSettings.h
     Definitions/GPUDefParametersWrapper.h
@@ -137,6 +138,7 @@ set(HDRS_INSTALL
     Definitions/GPULogging.h
     Definitions/GPUSettingsList.h
     Global/GPUChainTrackingDefs.h
+    Global/GPUChainTrackingGetters.inc
     Global/GPUErrorCodes.h
     Merger/GPUTPCGMBorderTrack.h
     Merger/GPUTPCGMMergedTrack.h
@@ -217,11 +219,11 @@ set(SRCS_NO_H ${SRCS_NO_H}
 
 set(HDRS_INSTALL ${HDRS_INSTALL}
                   ITS/GPUITSTrack.h
-                  TPCClusterFinder/Array2D.h
+                  TPCClusterFinder/CfArray2D.h
                   TPCClusterFinder/CfConsts.h
                   TPCClusterFinder/CfFragment.h
                   TPCClusterFinder/CfUtils.h
-                  TPCClusterFinder/ChargePos.h
+                  TPCClusterFinder/CfChargePos.h
                   Definitions/clusterFinderDefs.h
                   TPCClusterFinder/PackedCharge.h
                   TPCClusterFinder/GPUTPCCFChainContext.h)
@@ -342,6 +344,7 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
                                        O2::DetectorsRaw
                                        O2::Steer
                                        O2::ML
+                 PRIVATE_LINK_LIBRARIES ONNXRuntime::ONNXRuntime
                  PUBLIC_INCLUDE_DIRECTORIES ${INCDIRS}
                  SOURCES ${SRCS} ${SRCS_NO_CINT} ${SRCS_NO_H})
 

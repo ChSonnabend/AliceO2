@@ -38,6 +38,7 @@
 #include "GPUTPCDef.h"
 #include "GPUTPCTrackingData.h"
 #include "GPUChainTracking.h"
+#include "GPUChainTrackingGetters.inc"
 #include "GPUTPCTrack.h"
 #include "GPUTPCTracker.h"
 #include "GPUTPCGMMergedTrack.h"
@@ -1702,7 +1703,7 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
     }
   }
 
-  uint32_t nCl = clNative ? clNative->nClustersTotal : mTracking->GetTPCMerger().NMaxClusters();
+  uint32_t nCl = clNative ? clNative->nClustersTotal : mTracking->GetProcessors()->tpcMerger.NMaxClusters();
   mClusterCounts.nTotal += nCl;
   if (mQATasks & taskClusterCounts) {
     for (uint32_t i = 0; i < nCl; i++) {

@@ -14,7 +14,7 @@
 
 #include "GPUProcessor.h"
 #include "GPUReconstruction.h"
-#include "GPUReconstructionDeviceBase.h"
+#include "GPUSettings.h"
 
 using namespace o2::gpu;
 

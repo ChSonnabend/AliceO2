@@ -14,6 +14,7 @@
 
 #include "GPUReconstructionDeviceBase.h"
 #include "GPUReconstructionIncludes.h"
+#include "GPUConstantMem.h"
 
 #include "GPUTPCTracker.h"
 
@@ -93,21 +94,21 @@ int32_t GPUReconstructionDeviceBase::InitDevice()
   // CPU_SET(0, &mask);
   // sched_setaffinity(0, sizeof(mask), &mask);
 
-  if (mProcessingSettings.memoryAllocationStrategy == GPUMemoryResource::ALLOCATION_INDIVIDUAL) {
+  if (GetProcessingSettings().memoryAllocationStrategy == GPUMemoryResource::ALLOCATION_INDIVIDUAL) {
     GPUError("Individual memory allocation strategy unsupported for device\n");
     return (1);
   }
-  if (mProcessingSettings.nStreams > GPUCA_MAX_STREAMS) {
-    GPUError("Too many straems requested %d > %d\n", mProcessingSettings.nStreams, GPUCA_MAX_STREAMS);
+  if (GetProcessingSettings().nStreams > GPUCA_MAX_STREAMS) {
+    GPUError("Too many straems requested %d > %d\n", GetProcessingSettings().nStreams, GPUCA_MAX_STREAMS);
     return (1);
   }
 
   void* semLock = nullptr;
-  if (mProcessingSettings.globalInitMutex && GetGlobalLock(semLock)) {
+  if (GetProcessingSettings().globalInitMutex && GetGlobalLock(semLock)) {
     return (1);
   }
 
-  if (mProcessingSettings.deviceTimers) {
+  if (GetProcessingSettings().deviceTimers) {
     AddGPUEvents(mDebugEvents);
   }
 
@@ -117,7 +118,7 @@ int32_t GPUReconstructionDeviceBase::InitDevice()
     return (1);
   }
 
-  if (mProcessingSettings.globalInitMutex) {
+  if (GetProcessingSettings().globalInitMutex) {
     ReleaseGlobalLock(semLock);
   }
 
@@ -129,7 +130,7 @@ int32_t GPUReconstructionDeviceBase::InitDevice()
   mProcShadow.mMemoryResProcessors = RegisterMemoryAllocation(&mProcShadow, &GPUProcessorProcessors::SetPointersDeviceProcessor, GPUMemoryResource::MEMORY_PERMANENT | GPUMemoryResource::MEMORY_HOST, "Processors");
   AllocateRegisteredMemory(mProcShadow.mMemoryResProcessors);
 
-  if (mMaster == nullptr || mProcessingSettings.debugLevel >= 2) {
+  if (mMaster == nullptr || GetProcessingSettings().debugLevel >= 2) {
     GPUInfo("GPU Tracker initialization successfull"); // Verbosity reduced because GPU backend will print GPUImportant message!
   }
 
@@ -186,13 +187,15 @@ void GPUReconstructionDeviceBase::runConstantRegistrators()
 size_t GPUReconstructionDeviceBase::TransferMemoryInternal(GPUMemoryResource* res, int32_t stream, deviceEvent* ev, deviceEvent* evList, int32_t nEvents, bool toGPU, const void* src, void* dst)
 {
   if (!(res->Type() & GPUMemoryResource::MEMORY_GPU)) {
-    if (mProcessingSettings.debugLevel >= 4) {
+    if (GetProcessingSettings().debugLevel >= 4) {
       GPUInfo("Skipped transfer of non-GPU memory resource: %s", res->Name());
     }
     return 0;
   }
-  if (mProcessingSettings.debugLevel >= 3 && (strcmp(res->Name(), "ErrorCodes") || mProcessingSettings.debugLevel >= 4)) {
+  if (GetProcessingSettings().debugLevel >= 3 && (strcmp(res->Name(), "ErrorCodes") || GetProcessingSettings().debugLevel >= 4)) {
     GPUInfo("Copying to %s: %s - %ld bytes", toGPU ? "GPU" : "Host", res->Name(), (int64_t)res->Size());
   }
   return GPUMemCpy(dst, src, res->Size(), stream, toGPU, ev, evList, nEvents);
 }
+
+const GPUParam* GPUReconstructionDeviceBase::DeviceParam() const { return &mDeviceConstantMem->param; }

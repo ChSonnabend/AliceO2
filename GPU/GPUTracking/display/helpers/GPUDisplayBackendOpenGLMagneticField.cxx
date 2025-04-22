@@ -31,6 +31,7 @@
 #include "backend/GPUDisplayBackendOpenGL.h"
 #include "shaders/GPUDisplayShaders.h"
 #include "GPUDisplay.h"
+#include "GPULogging.h"
 
 using namespace o2::gpu;
 

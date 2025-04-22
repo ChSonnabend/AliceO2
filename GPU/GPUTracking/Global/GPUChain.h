@@ -16,11 +16,14 @@
 #define GPUCHAIN_H
 
 #include "GPUReconstructionCPU.h"
+#include "GPUReconstructionCPUKernels.h"
+#include "GPUKernelClassesFwd.h"
 
 #include <ctime>
 
 namespace o2::gpu
 {
+
 class GPUChain
 {
   friend class GPUReconstruction;
@@ -30,10 +33,10 @@ class GPUChain
   using GeneralStep = GPUReconstruction::GeneralStep;
   using InOutPointerType = GPUReconstruction::InOutPointerType;
   using GeometryType = GPUReconstruction::GeometryType;
-  using krnlRunRange = gpu_reconstruction_kernels::krnlRunRange;
-  using krnlExec = gpu_reconstruction_kernels::krnlExec;
-  using krnlEvent = gpu_reconstruction_kernels::krnlEvent;
-  using deviceEvent = gpu_reconstruction_kernels::deviceEvent;
+  using krnlRunRange = GPUReconstructionProcessing::krnlRunRange;
+  using krnlExec = GPUReconstructionProcessing::krnlExec;
+  using krnlEvent = GPUReconstructionProcessing::krnlEvent;
+  using deviceEvent = GPUReconstructionProcessing::deviceEvent;
   static constexpr krnlRunRange krnlRunRangeNone{0};
   static constexpr krnlEvent krnlEventNone = krnlEvent{nullptr, nullptr, 0};
 
@@ -56,20 +59,20 @@ class GPUChain
   virtual void DumpSettings(const char* dir = "") {}
   virtual void ReadSettings(const char* dir = "") {}
 
-  const GPUParam& GetParam() const { return mRec->mHostConstantMem->param; }
-  const GPUSettingsGRP& GetGRPSettings() const { return mRec->mGRPSettings; }
-  const GPUCalibObjectsConst& calib() const { return processors()->calibObjects; }
+  const GPUParam& GetParam() const { return mRec->GetParam(); }
+  const GPUSettingsGRP& GetGRPSettings() const { return mRec->GetGRPSettings(); }
+  const GPUCalibObjectsConst& GetCalib() const { return mRec->GetCalib(); }
   GPUReconstruction* rec() { return mRec; }
   const GPUReconstruction* rec() const { return mRec; }
-  inline const GPUConstantMem* GetProcessors() { return mRec->processors(); }
+  inline const GPUConstantMem* GetProcessors() const { return mRec->processors(); }
 
   // Make functions from GPUReconstruction*** available
   GPUReconstruction::RecoStepField GetRecoSteps() const { return mRec->GetRecoSteps(); }
   GPUReconstruction::RecoStepField GetRecoStepsGPU() const { return mRec->GetRecoStepsGPU(); }
   GPUReconstruction::InOutTypeField GetRecoStepsInputs() const { return mRec->GetRecoStepsInputs(); }
   GPUReconstruction::InOutTypeField GetRecoStepsOutputs() const { return mRec->GetRecoStepsOutputs(); }
-  inline const GPUSettingsDeviceBackend& GetDeviceBackendSettings() const { return mRec->mDeviceBackendSettings; }
-  inline const GPUSettingsProcessing& GetProcessingSettings() const { return mRec->mProcessingSettings; }
+  inline const GPUSettingsDeviceBackend& GetDeviceBackendSettings() const { return mRec->GetDeviceBackendSettings(); }
+  inline const GPUSettingsProcessing& GetProcessingSettings() const { return mRec->GetProcessingSettings(); }
 
  protected:
   GPUReconstructionCPU* mRec;
@@ -83,6 +86,7 @@ class GPUChain
   inline GPUParam& param() { return mRec->param(); }
   inline const GPUConstantMem* processors() const { return mRec->processors(); }
   inline void SynchronizeStream(int32_t stream) { mRec->SynchronizeStream(stream); }
+  inline void SetONNXGPUStream(Ort::SessionOptions& opt, int32_t stream, int32_t* deviceId) { mRec->SetONNXGPUStream(opt, stream, deviceId); }
   inline void SynchronizeEvents(deviceEvent* evList, int32_t nEvents = 1) { mRec->SynchronizeEvents(evList, nEvents); }
   inline void SynchronizeEventAndRelease(deviceEvent& ev, bool doGPU = true)
   {
@@ -101,7 +105,7 @@ class GPUChain
   }
   inline bool IsEventDone(deviceEvent* evList, int32_t nEvents = 1) { return mRec->IsEventDone(evList, nEvents); }
   inline void RecordMarker(deviceEvent* ev, int32_t stream) { mRec->RecordMarker(ev, stream); }
-  virtual inline std::unique_ptr<gpu_reconstruction_kernels::threadContext> GetThreadContext() { return mRec->GetThreadContext(); }
+  virtual inline std::unique_ptr<GPUReconstructionProcessing::threadContext> GetThreadContext() { return mRec->GetThreadContext(); }
   inline void SynchronizeGPU() { mRec->SynchronizeGPU(); }
   inline void ReleaseEvent(deviceEvent ev, bool doGPU = true)
   {
@@ -170,13 +174,16 @@ class GPUChain
   {
     mRec->ReadStructFromFile<T>(file, obj);
   }
+
   template <class S, int32_t I = 0, typename... Args>
-  inline void runKernel(gpu_reconstruction_kernels::krnlSetup&& setup, Args&&... args)
+    requires(sizeof(S) >= 0) // Yields better incomplete type errors than calling runKernelCallInterface directly
+  inline void runKernel(GPUReconstructionProcessing::krnlSetup&& setup, Args const&... args)
   {
-    return mRec->runKernel<S, I, Args...>(std::forward<gpu_reconstruction_kernels::krnlSetup&&>(setup), std::forward<Args>(args)...);
+    runKernelCallInterface<S, I>(std::forward<GPUReconstructionProcessing::krnlSetup&&>(setup), args...);
   }
+
   template <class S, int32_t I = 0>
-  gpu_reconstruction_kernels::krnlProperties getKernelProperties()
+  GPUReconstructionProcessing::krnlProperties getKernelProperties()
   {
     return mRec->getKernelProperties<S, I>();
   }
@@ -216,7 +223,6 @@ class GPUChain
 
   inline GPUChain* GetNextChainInQueue() { return mRec->GetNextChainInQueue(); }
 
-  virtual int32_t PrepareTextures() { return 0; }
   virtual int32_t DoStuckProtection(int32_t stream, deviceEvent event) { return 0; }
 
   template <class T, class S, typename... Args>
@@ -233,6 +239,16 @@ class GPUChain
  private:
   template <bool Always = false, class T, class S, typename... Args>
   void timeCpy(RecoStep step, int32_t toGPU, S T::*func, Args... args);
+
+#define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward, x_types, ...)                                                                                                                                                                             \
+  template <class S, int32_t I>                                                                                                                                                                                                                             \
+    requires(std::is_same_v<S, GPUCA_M_FIRST(GPUCA_M_STRIP(x_class))> && I == S::GPUCA_M_FIRST(GPUCA_M_SHIFT(GPUCA_M_STRIP(x_class), defaultKernel)))                                                                                                       \
+  inline void runKernelCallInterface(GPUReconstructionProcessing::krnlSetup&& setup GPUCA_M_STRIP(x_arguments))                                                                                                                                             \
+  {                                                                                                                                                                                                                                                         \
+    mRec->runKernelInterface<GPUCA_M_FIRST(GPUCA_M_STRIP(x_class)), S::GPUCA_M_FIRST(GPUCA_M_SHIFT(GPUCA_M_STRIP(x_class), defaultKernel)) GPUCA_M_STRIP(x_types)>(std::forward<GPUReconstructionProcessing::krnlSetup&&>(setup) GPUCA_M_STRIP(x_forward)); \
+  }
+#include "GPUReconstructionKernelList.h"
+#undef GPUCA_KRNL
 };
 
 template <bool Always, class T, class S, typename... Args>
@@ -243,7 +259,7 @@ inline void GPUChain::timeCpy(RecoStep step, int32_t toGPU, S T::*func, Args... 
   }
   HighResTimer* timer = nullptr;
   size_t* bytes = nullptr;
-  if (mRec->mProcessingSettings.debugLevel >= 1 && toGPU >= 0) { // Todo: time special cases toGPU < 0
+  if (mRec->GetProcessingSettings().debugLevel >= 1 && toGPU >= 0) { // Todo: time special cases toGPU < 0
     int32_t id = mRec->getRecoStepNum(step, false);
     if (id != -1) {
       auto& tmp = mRec->mTimersRecoSteps[id];

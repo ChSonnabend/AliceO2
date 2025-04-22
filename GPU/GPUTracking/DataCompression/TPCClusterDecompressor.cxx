@@ -94,6 +94,19 @@ int32_t TPCClusterDecompressor::decompress(const CompressedClusters* clustersCom
       ClusterNative* clout = buffer + clusters[i][j].size();
       uint32_t end = offsets[i][j] + ((i * GPUCA_ROW_COUNT + j >= clustersCompressed->nSliceRows) ? 0 : clustersCompressed->nSliceRowClusters[i * GPUCA_ROW_COUNT + j]);
       TPCClusterDecompressionCore::decompressHits(*clustersCompressed, offsets[i][j], end, clout);
+      if (param.rec.tpc.clustersEdgeFixDistance > 0.f) {
+        constexpr GPUTPCGeometry geo;
+        for (uint32_t k = 0; k < clustersNative.nClusters[i][j]; k++) {
+          auto& cluster = buffer[k];
+          if (cluster.getFlags() & ClusterNative::flagEdge) {
+            auto padF = cluster.getPad();
+            float distEdge = padF < geo.NPads(j) / 2 ? padF : geo.NPads(j) - 1 - padF;
+            if (distEdge > param.rec.tpc.clustersEdgeFixDistance) {
+              cluster.setFlags(cluster.getFlags() ^ ClusterNative::flagEdge);
+            }
+          }
+        }
+      }
       if (param.rec.tpc.clustersShiftTimebins != 0.f) {
         for (uint32_t k = 0; k < clustersNative.nClusters[i][j]; k++) {
           auto& cl = buffer[k];

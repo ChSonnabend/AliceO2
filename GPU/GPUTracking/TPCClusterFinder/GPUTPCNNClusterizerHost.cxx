@@ -28,135 +28,66 @@
 #include "CCDB/CcdbApi.h"
 #include "GPUSettings.h"
 #include "ML/3rdparty/GPUORTFloat16.h"
+#include "GPUReconstruction.h"
+
+#ifdef GPUCA_HAS_ONNX
+#include <onnxruntime_cxx_api.h>
+#endif
 
 using namespace o2::gpu;
-
-GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer& settings)
-{
-  init(settings);
-}
-
-void GPUTPCNNClusterizerHost::loadFromCCDB(std::map<std::string, std::string> settings) {
-  o2::ccdb::CcdbApi ccdbApi;
-  ccdbApi.init(settings["nnCCDBURL"]);
-
-  metadata["inputDType"] = settings["inputDType"];
-  metadata["outputDType"] = settings["outputDType"];
-  metadata["nnCCDBEvalType"] = settings["nnCCDBEvalType"]; // classification_1C, classification_2C, regression_1C, regression_2C
-  metadata["nnCCDBWithMomentum"] = settings["nnCCDBWithMomentum"]; // 0, 1 -> Only for regression model
-  metadata["nnCCDBLayerType"] = settings["nnCCDBLayerType"]; // FC, CNN
-  if (settings["nnCCDBInteractionRate"] != "" && std::stoi(settings["nnCCDBInteractionRate"]) > 0) {
-    metadata["nnCCDBInteractionRate"] = settings["nnCCDBInteractionRate"];
-  }
-  if (settings["nnCCDBBeamType"] != "") {
-    metadata["nnCCDBBeamType"] = settings["nnCCDBBeamType"];
-  }
-
-  bool retrieveSuccess = ccdbApi.retrieveBlob(settings["nnCCDBPath"], ".", metadata, 1, false, settings["outputFile"]);
-  // headers = ccdbApi.retrieveHeaders(settings["nnPathCCDB"], metadata, 1); // potentially needed to init some local variables
-
-  if (retrieveSuccess) {
-    LOG(info) << "Network " << settings["nnCCDBPath"] << " retrieved from CCDB, stored at " << settings["outputFile"];
-  } else {
-    LOG(error) << "Failed to retrieve network from CCDB";
-  }
-}
 
 void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& settings)
 {
   std::string class_model_path = settings.nnClassificationPath, reg_model_path = settings.nnRegressionPath;
   std::vector<std::string> reg_model_paths;
+  std::vector<std::string> evalMode = o2::utils::Str::tokenize(settings.nnEvalMode, ':');
 
-  if(settings.nnLoadFromCCDB) {
-    std::map<std::string, std::string> ccdbSettings = {
-      {"nnCCDBURL", settings.nnCCDBURL},
-      {"nnCCDBPath", settings.nnCCDBPath},
-      {"inputDType", settings.nnInferenceInputDType},
-      {"outputDType", settings.nnInferenceOutputDType},
-      {"nnCCDBWithMomentum", std::to_string(settings.nnCCDBWithMomentum)},
-      {"nnCCDBBeamType", settings.nnCCDBBeamType},
-      {"nnCCDBInteractionRate", std::to_string(settings.nnCCDBInteractionRate)}
-    };
-
-    std::string nnFetchFolder = "";
-    std::vector<std::string> fetchMode = o2::utils::Str::tokenize(settings.nnCCDBFetchMode, ':');
-    std::map<std::string, std::string> networkRetrieval = ccdbSettings;
-
-    if (fetchMode[0] == "c1") {
-      networkRetrieval["nnCCDBLayerType"] = settings.nnCCDBClassificationLayerType;
-      networkRetrieval["nnCCDBEvalType"] = "classification_c1";
-      networkRetrieval["outputFile"] = nnFetchFolder + "net_classification_c1.onnx";
-      loadFromCCDB(networkRetrieval);
-    } else if (fetchMode[0] == "c2") {
-      networkRetrieval["nnCCDBLayerType"] = settings.nnCCDBClassificationLayerType;
-      networkRetrieval["nnCCDBEvalType"] = "classification_c2";
-      networkRetrieval["outputFile"] = nnFetchFolder + "net_classification_c2.onnx";
-      loadFromCCDB(networkRetrieval);
+  if (settings.nnLoadFromCCDB) {
+    reg_model_path = settings.nnLocalFolder + "/net_regression_c1.onnx"; // Needs to be set identical to NeuralNetworkClusterizer.cxx, otherwise the networks might be loaded from the wrong place
+    if (evalMode[0] == "c1") {
+      class_model_path = settings.nnLocalFolder + "/net_classification_c1.onnx";
+    } else if (evalMode[0] == "c2") {
+      class_model_path = settings.nnLocalFolder + "/net_classification_c2.onnx";
     }
-    class_model_path = networkRetrieval["outputFile"]; // Setting the proper path from the where the models will be initialized locally
 
-    networkRetrieval["nnCCDBLayerType"] = settings.nnCCDBRegressionLayerType;
-    networkRetrieval["nnCCDBEvalType"] = "regression_c1";
-    networkRetrieval["outputFile"] = nnFetchFolder + "net_regression_c1.onnx";
-    loadFromCCDB(networkRetrieval);
-    reg_model_path = networkRetrieval["outputFile"];
-    if (fetchMode[1] == "r2") {
-      networkRetrieval["nnCCDBLayerType"] = settings.nnCCDBRegressionLayerType;
-      networkRetrieval["nnCCDBEvalType"] = "regression_c2";
-      networkRetrieval["outputFile"] = nnFetchFolder + "net_regression_c2.onnx";
-      loadFromCCDB(networkRetrieval);
-      reg_model_path += ":", networkRetrieval["outputFile"];
+    if (evalMode[1] == "r2") {
+      reg_model_path += ":" + settings.nnLocalFolder + "/net_regression_c2.onnx";
     }
   }
 
   OrtOptions = {
     {"model-path", class_model_path},
-    {"device", settings.nnInferenceDevice},
-    {"device-id", std::to_string(settings.nnInferenceDeviceId)},
+    {"device-type", settings.nnInferenceDevice},
     {"allocate-device-memory", std::to_string(settings.nnInferenceAllocateDevMem)},
     {"intra-op-num-threads", std::to_string(settings.nnInferenceIntraOpNumThreads)},
     {"inter-op-num-threads", std::to_string(settings.nnInferenceInterOpNumThreads)},
     {"enable-optimizations", std::to_string(settings.nnInferenceEnableOrtOptimization)},
     {"enable-profiling", std::to_string(settings.nnInferenceOrtProfiling)},
     {"profiling-output-path", settings.nnInferenceOrtProfilingPath},
-    {"logging-level", std::to_string(settings.nnInferenceVerbosity)}};
+    {"logging-level", std::to_string(settings.nnInferenceVerbosity)},
+    {"onnx-environment-name", "c1"}};
 
-  model_class.init(OrtOptions);
+  model_class.initOptions(OrtOptions);
+  modelsUsed[0] = true;
 
   reg_model_paths = o2::utils::Str::tokenize(reg_model_path, ':');
 
   if (!settings.nnClusterizerUseCfRegression) {
-    if (model_class.getNumOutputNodes()[0][1] == 1 || reg_model_paths.size() == 1) {
+    if (reg_model_paths.size() == 1) {
       OrtOptions["model-path"] = reg_model_paths[0];
-      model_reg_1.init(OrtOptions);
+      OrtOptions["onnx-environment-name"] = "r1";
+      model_reg_1.initOptions(OrtOptions);
+      modelsUsed[1] = true;
     } else {
       OrtOptions["model-path"] = reg_model_paths[0];
-      model_reg_1.init(OrtOptions);
+      OrtOptions["onnx-environment-name"] = "r1";
+      model_reg_1.initOptions(OrtOptions);
+      modelsUsed[1] = true;
       OrtOptions["model-path"] = reg_model_paths[1];
-      model_reg_2.init(OrtOptions);
+      OrtOptions["onnx-environment-name"] = "r2";
+      model_reg_2.initOptions(OrtOptions);
+      modelsUsed[2] = true;
     }
-  }
-}
-
-void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclusterizer& settings, GPUTPCNNClusterizer& clusterer)
-{
-  clusterer.nnClusterizerModelClassNumOutputNodes = model_class.getNumOutputNodes()[0][1];
-  if (!settings.nnClusterizerUseCfRegression) {
-    if (model_class.getNumOutputNodes()[0][1] == 1 || !model_reg_2.isInitialized()) {
-      clusterer.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
-    } else {
-      clusterer.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
-      clusterer.nnClusterizerModelReg2NumOutputNodes = model_reg_2.getNumOutputNodes()[0][1];
-    }
-  }
-}
-
-void GPUTPCNNClusterizerHost::networkInference(o2::ml::OrtModel model, GPUTPCNNClusterizer& clustererNN, size_t size, float* output, int32_t dtype)
-{
-  if (dtype == 0) {
-    model.inference<OrtDataType::Float16_t, float>(clustererNN.inputData16, size, output);
-  } else {
-    model.inference<float, float>(clustererNN.inputData32, size, output);
   }
 }
 
@@ -213,10 +144,10 @@ void GPUTPCNNClusterizerHost::digitWriter(GPUTPCClusterFinder& clusterer, std::s
     }
   }
 
-  Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
+  CfArray2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
 
   for (size_t entry = 0; entry < clusterer.mPmemory->counters.nPositions; entry++) {
-    ChargePos pos = clusterer.mPpositions[entry];
+    CfChargePos pos = clusterer.mPpositions[entry];
     PackedCharge charge = chargeMap[pos];
 
     if (charge.unpack() > 0) {
@@ -275,4 +206,138 @@ void GPUTPCNNClusterizerHost::combineDigitFiles(int sector)
   gSystem->Exec(("rm -rf " + outputDir + "/tpcdigits_reco_" + std::to_string(sector) + "_*.root").c_str());
 
   LOG(info) << "Successfully combined digit files for sector " << sector << " into " << outputFile;
+}
+
+void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclusterizer& settings, GPUTPCNNClusterizer& clustererNN)
+{
+  clustererNN.nnClusterizerUseCfRegression = settings.nnClusterizerUseCfRegression;
+  clustererNN.nnClusterizerSizeInputRow = settings.nnClusterizerSizeInputRow;
+  clustererNN.nnClusterizerSizeInputPad = settings.nnClusterizerSizeInputPad;
+  clustererNN.nnClusterizerSizeInputTime = settings.nnClusterizerSizeInputTime;
+  clustererNN.nnClusterizerAddIndexData = settings.nnClusterizerAddIndexData;
+  clustererNN.nnClusterizerElementSize = ((2 * settings.nnClusterizerSizeInputRow + 1) * (2 * settings.nnClusterizerSizeInputPad + 1) * (2 * settings.nnClusterizerSizeInputTime + 1)) + (settings.nnClusterizerAddIndexData ? 3 : 0);
+  clustererNN.nnClusterizerBatchedMode = settings.nnClusterizerBatchedMode;
+  clustererNN.nnClusterizerBoundaryFillValue = settings.nnClusterizerBoundaryFillValue;
+  clustererNN.nnSigmoidTrafoClassThreshold = settings.nnSigmoidTrafoClassThreshold;
+  if (clustererNN.nnSigmoidTrafoClassThreshold) {
+    clustererNN.nnClassThreshold = (float)std::log(settings.nnClassThreshold / (1.f - settings.nnClassThreshold));
+  } else {
+    clustererNN.nnClassThreshold = settings.nnClassThreshold;
+  }
+  if (settings.nnClusterizerVerbosity < 0) {
+    clustererNN.nnClusterizerVerbosity = settings.nnInferenceVerbosity;
+  } else {
+    clustererNN.nnClusterizerVerbosity = settings.nnClusterizerVerbosity;
+  }
+  clustererNN.nnInferenceInputDType = settings.nnInferenceInputDType.find("32") != std::string::npos;
+  clustererNN.nnInferenceOutputDType = settings.nnInferenceOutputDType.find("32") != std::string::npos;
+  clustererNN.nnClusterizerModelClassNumOutputNodes = model_class.getNumOutputNodes()[0][1];
+  if (!settings.nnClusterizerUseCfRegression) {
+    if (model_class.getNumOutputNodes()[0][1] == 1 || !model_reg_2.isInitialized()) {
+      clustererNN.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
+    } else {
+      clustererNN.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
+      clustererNN.nnClusterizerModelReg2NumOutputNodes = model_reg_2.getNumOutputNodes()[0][1];
+    }
+  }
+}
+
+// MockedOrtAllocator implementation to be able to use volatile assignment
+struct MockedOrtAllocator : OrtAllocator {
+  MockedOrtAllocator(GPUReconstruction* = nullptr, OrtMemoryInfo* = nullptr);
+  ~MockedOrtAllocator();
+
+  void* Alloc(size_t size);
+  void Free(void* p);
+  const OrtMemoryInfo* Info() const;
+  void* Reserve(size_t size);
+  size_t NumAllocations() const;
+  size_t NumReserveAllocations() const;
+
+  void LeakCheck();
+
+ private:
+  MockedOrtAllocator(const MockedOrtAllocator&) = delete;
+  MockedOrtAllocator& operator=(const MockedOrtAllocator&) = delete;
+
+  std::atomic<size_t> memory_inuse{0};
+  std::atomic<size_t> num_allocations{0};
+  std::atomic<size_t> num_reserve_allocations{0};
+  OrtMemoryInfo* memory_info;
+  GPUReconstruction* rec;
+};
+
+MockedOrtAllocator::MockedOrtAllocator(GPUReconstruction* r, OrtMemoryInfo* info)
+{
+  OrtAllocator::version = ORT_API_VERSION;
+  OrtAllocator::Alloc = [](OrtAllocator* this_, size_t size) { return static_cast<MockedOrtAllocator*>(this_)->Alloc(size); };
+  OrtAllocator::Free = [](OrtAllocator* this_, void* p) { static_cast<MockedOrtAllocator*>(this_)->Free(p); };
+  OrtAllocator::Info = [](const OrtAllocator* this_) { return static_cast<const MockedOrtAllocator*>(this_)->Info(); };
+  OrtAllocator::Reserve = [](OrtAllocator* this_, size_t size) { return static_cast<MockedOrtAllocator*>(this_)->Reserve(size); };
+  rec = r;
+  memory_info = info;
+}
+
+MockedOrtAllocator::~MockedOrtAllocator()
+{
+  // Ort::GetApi().ReleaseMemoryInfo(memory_info);
+}
+
+void* MockedOrtAllocator::Alloc(size_t size)
+{
+  // LOG(info) << "(ORT) Allocating volatile memory of size " << size << " bytes";
+  return rec->AllocateVolatileDeviceMemory(size);
+}
+
+void* MockedOrtAllocator::Reserve(size_t size)
+{
+  // LOG(info) << "(ORT) Reserving volatile memory of size " << size << " bytes";
+  return rec->AllocateVolatileDeviceMemory(size);
+}
+
+void MockedOrtAllocator::Free(void* p)
+{
+  // LOG(info) << "(ORT) Freeing volatile memory " << p;
+  rec->ReturnVolatileDeviceMemory();
+}
+
+const OrtMemoryInfo* MockedOrtAllocator::Info() const
+{
+  return memory_info;
+}
+
+size_t MockedOrtAllocator::NumAllocations() const
+{
+  return num_allocations.load();
+}
+
+size_t MockedOrtAllocator::NumReserveAllocations() const
+{
+  return num_reserve_allocations.load();
+}
+
+void MockedOrtAllocator::LeakCheck()
+{
+  if (memory_inuse.load())
+    LOG(warning) << "memory leak!!!";
+}
+
+void GPUTPCNNClusterizerHost::volatileOrtAllocator(Ort::Env* env, Ort::MemoryInfo* memInfo, GPUReconstruction* rec, bool recreate)
+{
+  mockedAlloc = std::make_shared<MockedOrtAllocator>(rec, (OrtMemoryInfo*)(*memInfo));
+  if (recreate) {
+    Ort::ThrowOnError(Ort::GetApi().UnregisterAllocator((OrtEnv*)(*env), (OrtMemoryInfo*)(*memInfo)));
+  }
+  Ort::ThrowOnError(Ort::GetApi().RegisterAllocator((OrtEnv*)(*env), mockedAlloc.get()));
+  memInfo = (Ort::MemoryInfo*)mockedAlloc->Info();
+}
+
+const OrtMemoryInfo* GPUTPCNNClusterizerHost::getMockedMemoryInfo()
+{
+  return mockedAlloc->Info();
+}
+
+MockedOrtAllocator* GPUTPCNNClusterizerHost::getMockedAllocator()
+{
+  return mockedAlloc.get();
 }

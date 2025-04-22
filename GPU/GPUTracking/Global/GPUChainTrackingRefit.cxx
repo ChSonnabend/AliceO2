@@ -13,8 +13,12 @@
 /// \author David Rohr
 
 #include "GPUChainTracking.h"
+#include "GPUChainTrackingGetters.inc"
 #include "GPULogging.h"
 #include "GPUO2DataTypes.h"
+#include "GPUTrackingRefit.h"
+#include "GPUConstantMem.h"
+#include "GPUTrackingRefitKernel.h"
 
 using namespace o2::gpu;
 

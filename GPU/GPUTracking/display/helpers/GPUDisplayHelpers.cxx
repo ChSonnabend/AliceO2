@@ -13,6 +13,9 @@
 /// \author David Rohr
 
 #include "GPUDisplay.h"
+#include "GPUChainTracking.h"
+#include "GPULogging.h"
+#include "GPUParam.h"
 
 #ifndef _WIN32
 #include "bitmapfile.h"

@@ -48,11 +48,11 @@ GPUdii() void GPUTPCTrackletSelector::Thread<0>(int32_t nBlocks, int32_t nThread
 
     int32_t irow = firstRow;
 
-    int32_t gap = 0;
-    int32_t nShared = 0;
-    int32_t nHits = 0;
-    const int32_t minHits = tracker.Param().rec.tpc.minNClustersTrackSeed == -1 ? GPUCA_TRACKLET_SELECTOR_MIN_HITS_B5(tracklet.Param().QPt() * tracker.Param().qptB5Scaler) : tracker.Param().rec.tpc.minNClustersTrackSeed;
-    const int32_t sharingMinNorm = minHits * tracker.Param().rec.tpc.trackletMinSharedNormFactor;
+    uint32_t gap = 0;
+    uint32_t nShared = 0;
+    uint32_t nHits = 0;
+    const uint32_t minHits = tracker.Param().rec.tpc.minNClustersTrackSeed == -1 ? GPUCA_TRACKLET_SELECTOR_MIN_HITS_B5(tracklet.Param().QPt() * tracker.Param().qptB5Scaler) : tracker.Param().rec.tpc.minNClustersTrackSeed;
+    const uint32_t sharingMinNorm = minHits * tracker.Param().rec.tpc.trackletMinSharedNormFactor;
     float maxShared = maxSharedFrac * sharingMinNorm;
 
     GPUCA_UNROLL(, U(1))
@@ -63,16 +63,20 @@ GPUdii() void GPUTPCTrackletSelector::Thread<0>(int32_t nBlocks, int32_t nThread
       }
       if (ih != CALINK_INVAL && ih != CALINK_DEAD_CHANNEL) {
         GPUglobalref() const GPUTPCRow& row = tracker.Row(irow);
-        bool own = (tracker.HitWeight(row, ih) <= w);
-        bool sharedOK = nShared <= (nHits < sharingMinNorm ? maxShared : nHits * maxSharedFrac);
+        const bool own = (tracker.HitWeight(row, ih) <= w);
+        const bool sharedOK = nShared <= (nHits < sharingMinNorm ? maxShared : nHits * maxSharedFrac);
         if (own || sharedOK) { // SG!!!
           gap = 0;
-#if GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE != 0
-          if (nHits < GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE) {
-            s.mHits[nHits][iThread].Set(irow, ih);
-          } else
-#endif // GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE != 0
-          {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
+          const bool inShared = nHits < (uint32_t)GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE;
+#pragma GCC diagnostic pop
+          if constexpr (GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE > 0) {
+            if (inShared) {
+              s.mHits[nHits][iThread].Set(irow, ih);
+            }
+          }
+          if (!inShared) {
             trackHits[nHits - GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE].Set(irow, ih);
           }
           nHits++;
@@ -100,13 +104,17 @@ GPUdii() void GPUTPCTrackletSelector::Thread<0>(int32_t nBlocks, int32_t nThread
           tracker.Tracks()[itrout].SetParam(tracklet.Param());
           tracker.Tracks()[itrout].SetFirstHitID(nFirstTrackHit);
           tracker.Tracks()[itrout].SetNHits(nHits);
-          for (int32_t jh = 0; jh < nHits; jh++) {
-#if GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE != 0
-            if (jh < GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE) {
-              tracker.TrackHits()[nFirstTrackHit + jh] = s.mHits[jh][iThread];
-            } else
-#endif // GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE != 0
-            {
+          for (uint32_t jh = 0; jh < nHits; jh++) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
+            const bool inShared = jh < (uint32_t)GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE;
+#pragma GCC diagnostic pop
+            if constexpr (GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE > 0) {
+              if (inShared) {
+                tracker.TrackHits()[nFirstTrackHit + jh] = s.mHits[jh][iThread];
+              }
+            }
+            if (!inShared) {
               tracker.TrackHits()[nFirstTrackHit + jh] = trackHits[jh - GPUCA_PAR_TRACKLET_SELECTOR_HITS_REG_SIZE];
             }
           }

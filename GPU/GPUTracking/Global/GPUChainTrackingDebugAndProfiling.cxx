@@ -15,6 +15,8 @@
 #include "GPUChainTracking.h"
 #include "GPUTrackingInputProvider.h"
 #include "GPUMemorySizeScalers.h"
+#include "GPUConstantMem.h"
+#include "GPUTPCClusterFilter.h"
 #include <map>
 #include <memory>
 #include <string>
@@ -22,8 +24,6 @@
 #ifdef GPUCA_TRACKLET_CONSTRUCTOR_DO_PROFILE
 #include "bitmapfile.h"
 #endif
-
-#include "GPUTPCClusterFilter.h"
 
 #define PROFILE_MAX_SIZE (100 * 1024 * 1024)
 
@@ -34,7 +34,7 @@ static inline uint32_t RGB(uint8_t r, uint8_t g, uint8_t b) { return (uint32_t)r
 int32_t GPUChainTracking::PrepareProfile()
 {
 #ifdef GPUCA_TRACKLET_CONSTRUCTOR_DO_PROFILE
-  char* tmpMem = (char*)mRec->AllocateUnmanagedMemory(PROFILE_MAX_SIZE, GPUMemoryResource::MEMORY_GPU);
+  char* tmpMem = (char*)mRec->AllocateDirectMemory(PROFILE_MAX_SIZE, GPUMemoryResource::MEMORY_GPU);
   processorsShadow()->tpcTrackers[0].mStageAtSync = tmpMem;
   runKernel<GPUMemClean16>({{BlockCount(), ThreadCount(), -1}}, tmpMem, PROFILE_MAX_SIZE);
 #endif
@@ -209,7 +209,7 @@ void GPUChainTracking::PrintDebugOutput()
 void GPUChainTracking::PrintOutputStat()
 {
   int32_t nTracks = 0, nAttachedClusters = 0, nAttachedClustersFitted = 0, nAdjacentClusters = 0;
-  uint32_t nCls = GetProcessingSettings().doublePipeline ? mIOPtrs.clustersNative->nClustersTotal : GetTPCMerger().NMaxClusters();
+  uint32_t nCls = GetProcessingSettings().doublePipeline ? mIOPtrs.clustersNative->nClustersTotal : processors()->tpcMerger.NMaxClusters();
   if (GetProcessingSettings().createO2Output > 1) {
     nTracks = mIOPtrs.nOutputTracksTPCO2;
     nAttachedClusters = mIOPtrs.nMergedTrackHits;

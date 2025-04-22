@@ -17,6 +17,9 @@
 #endif
 
 #include "GPUDisplay.h"
+#include "GPULogging.h"
+#include "GPUConstantMem.h"
+#include "GPUChainTracking.h"
 using namespace o2::gpu;
 
 #ifndef GPUCA_NO_ROOT

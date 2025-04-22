@@ -209,6 +209,8 @@ Bool_t GeneratorPythia8::Init()
       mPythia.setUserHooksPtr((Pythia8::UserHooksPtr)powhegHooks);
     }
   }
+  /** Add 20Neon to collision particle database */
+  mPythia.particleData.addParticle(1000100200, "20Ne", 6, 30, 0, 19.992440);
   /** initialise **/
   if (!mPythia.init()) {
     LOG(fatal) << "Failed to init \'Pythia8\': init returned with error";

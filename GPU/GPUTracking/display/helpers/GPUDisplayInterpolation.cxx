@@ -14,6 +14,7 @@
 
 #include <cstdio>
 #include "GPUDisplay.h"
+#include "GPULogging.h"
 
 using namespace o2::gpu;
 

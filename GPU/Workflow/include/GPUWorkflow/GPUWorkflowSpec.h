@@ -83,6 +83,7 @@ class GPUO2Interface;
 struct TPCPadGainCalib;
 struct TPCZSLinkMapping;
 struct GPUSettingsO2;
+struct GPUSettingsProcessingNNclusterizer;
 class GPUO2InterfaceQA;
 struct GPUTrackingInOutPointers;
 struct GPUTrackingInOutZS;
@@ -225,6 +226,8 @@ class GPURecoWorkflowSpec : public o2::framework::Task
   uint32_t mNextThreadIndex = 0;
   bool mUpdateGainMapCCDB = true;
   std::unique_ptr<o2::gpu::GPUSettingsTF> mTFSettings;
+  std::unique_ptr<o2::gpu::GPUSettingsProcessingNNclusterizer> mNNClusterizerSettings;
+
   Config mSpecConfig;
   std::shared_ptr<o2::base::GRPGeomRequest> mGGR;
   bool mGRPGeomUpdated = false;

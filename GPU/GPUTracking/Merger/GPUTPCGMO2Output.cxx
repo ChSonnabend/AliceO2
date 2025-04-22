@@ -93,21 +93,6 @@ GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::sort>(int32_t nBlocks, 
 #endif
 }
 
-#if defined(GPUCA_SPECIALIZE_THRUST_SORTS) && !defined(GPUCA_GPUCODE_COMPILEKERNELS) // Specialize GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::sort>
-struct GPUTPCGMO2OutputSort_comp {
-  GPUd() bool operator()(const GPUTPCGMMerger::tmpSort& a, const GPUTPCGMMerger::tmpSort& b)
-  {
-    return (a.y > b.y);
-  }
-};
-
-template <>
-inline void GPUCA_M_CAT3(GPUReconstruction, GPUCA_GPUTYPE, Backend)::runKernelBackendInternal<GPUTPCGMO2Output, GPUTPCGMO2Output::sort>(const krnlSetupTime& _xyz)
-{
-  GPUCommonAlgorithm::sortOnDevice(this, _xyz.x.stream, mProcessorsShadow->tpcMerger.TrackSortO2(), processors()->tpcMerger.NOutputTracksTPCO2(), GPUTPCGMO2OutputSort_comp());
-}
-#endif // GPUCA_SPECIALIZE_THRUST_SORTS - Specialize GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::sort>
-
 template <>
 GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::output>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() merger)
 {

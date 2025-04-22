@@ -19,6 +19,9 @@
 #include "GPUTPCCFChainContext.h"
 #include "TPCClusterDecompressor.h"
 #include "GPUDefParametersRuntime.h"
+#include "GPUConstantMem.h" // TODO: Try to get rid of as many GPUConstantMem includes as possible!
+#include "GPUTPCCompressionKernels.h"
+#include "GPUTPCDecompressionKernels.h"
 #include "utils/strtag.h"
 
 #include <numeric>
@@ -40,7 +43,7 @@ int32_t GPUChainTracking::RunTPCCompression()
   }
 
   if (gatherMode == 3) {
-    mRec->AllocateVolatileDeviceMemory(0); // make future device memory allocation volatile
+    mRec->MakeFutureDeviceMemoryAllocationsVolatile();
   }
   SetupGPUProcessor(&Compressor, true);
   new (Compressor.mMemory) GPUTPCCompression::memory;

@@ -51,6 +51,8 @@
 #include "GPUTRDTrackletWord.h"
 #include "GPUTRDInterfaces.h"
 #include "GPUTRDGeometry.h"
+#include "GPUConstantMem.h"
+#include "GPUTRDTrackerKernels.h"
 
 #ifdef ENABLE_UPGRADES
 #include "ITS3Reconstruction/IOUtils.h"

@@ -9,7 +9,7 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file ChargePos.h
+/// \file CfChargePos.h
 /// \author Felix Weiglhofer
 
 #ifndef O2_GPU_CHARGE_POS_H
@@ -22,20 +22,20 @@ namespace o2::gpu
 
 #define INVALID_TIME_BIN (-GPUCF_PADDING_TIME - 1)
 
-struct ChargePos {
+struct CfChargePos {
   tpccf::GlobalPad gpad;
   tpccf::TPCFragmentTime timePadded;
 
-  GPUdDefault() ChargePos() = default;
+  GPUdDefault() CfChargePos() = default;
 
-  constexpr GPUhdi() ChargePos(tpccf::Row row, tpccf::Pad pad, tpccf::TPCFragmentTime t)
+  constexpr GPUhdi() CfChargePos(tpccf::Row row, tpccf::Pad pad, tpccf::TPCFragmentTime t)
     : gpad(tpcGlobalPadIdx(row, pad)), timePadded(t + GPUCF_PADDING_TIME)
   {
   }
 
-  GPUdi() ChargePos(const tpccf::GlobalPad& p, const tpccf::TPCFragmentTime& t) : gpad(p), timePadded(t) {}
+  GPUdi() CfChargePos(const tpccf::GlobalPad& p, const tpccf::TPCFragmentTime& t) : gpad(p), timePadded(t) {}
 
-  GPUdi() ChargePos delta(const tpccf::Delta2& d) const
+  GPUdi() CfChargePos delta(const tpccf::Delta2& d) const
   {
     return {tpccf::GlobalPad(gpad + d.x), tpccf::TPCFragmentTime(timePadded + d.y)};
   }
@@ -56,7 +56,7 @@ struct ChargePos {
   }
 };
 
-inline constexpr ChargePos INVALID_CHARGE_POS{255, 255, INVALID_TIME_BIN};
+inline constexpr CfChargePos INVALID_CHARGE_POS{255, 255, INVALID_TIME_BIN};
 
 } // namespace o2::gpu
 

@@ -15,6 +15,7 @@
 #include "GPUO2Interface.h"
 #include "GPUReconstruction.h"
 #include "GPUChainTracking.h"
+#include "GPUChainTrackingGetters.inc"
 #include "GPUChainITS.h"
 #include "GPUMemorySizeScalers.h"
 #include "GPUOutputControl.h"
@@ -23,6 +24,7 @@
 #include "GPUParam.inc"
 #include "GPUQA.h"
 #include "GPUOutputControl.h"
+#include "DetectorsBase/Propagator.h"
 #include <iostream>
 #include <fstream>
 #include <thread>

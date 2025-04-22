@@ -19,8 +19,8 @@ GPUdii() void GPUTPCCFClusterizer::computeClustersImpl(int32_t nBlocks, int32_t 
                                                        processorType& clusterer,
                                                        const CfFragment& fragment,
                                                        GPUSharedMemory& smem,
-                                                       const Array2D<PackedCharge>& chargeMap,
-                                                       const ChargePos* filteredPeakPositions,
+                                                       const CfArray2D<PackedCharge>& chargeMap,
+                                                       const CfChargePos* filteredPeakPositions,
                                                        const GPUSettingsRec& calib,
                                                        MCLabelAccumulator* labelAcc,
                                                        uint32_t clusternum,
@@ -34,7 +34,7 @@ GPUdii() void GPUTPCCFClusterizer::computeClustersImpl(int32_t nBlocks, int32_t 
   // For certain configurations dummy work items are added, so the total
   // number of work items is dividable by 64.
   // These dummy items also compute the last cluster but discard the result.
-  ChargePos pos = filteredPeakPositions[CAMath::Min(idx, clusternum - 1)];
+  CfChargePos pos = filteredPeakPositions[CAMath::Min(idx, clusternum - 1)];
   Charge charge = chargeMap[pos].unpack();
 
   ClusterAccumulator pc;
@@ -94,7 +94,7 @@ GPUdii() void GPUTPCCFClusterizer::updateClusterInner(
   uint16_t lid,
   uint16_t N,
   const PackedCharge* buf,
-  const ChargePos& pos,
+  const CfChargePos& pos,
   ClusterAccumulator* cluster,
   MCLabelAccumulator* labelAcc,
   uint8_t* innerAboveThreshold)
@@ -125,7 +125,7 @@ GPUdii() void GPUTPCCFClusterizer::updateClusterOuter(
   uint16_t M,
   uint16_t offset,
   const PackedCharge* buf,
-  const ChargePos& pos,
+  const CfChargePos& pos,
   ClusterAccumulator* cluster,
   MCLabelAccumulator* labelAcc)
 {
@@ -144,9 +144,9 @@ GPUdii() void GPUTPCCFClusterizer::updateClusterOuter(
 
 GPUdii() void GPUTPCCFClusterizer::buildCluster(
   const GPUSettingsRec& calib,
-  const Array2D<PackedCharge>& chargeMap,
-  ChargePos pos,
-  ChargePos* posBcast,
+  const CfArray2D<PackedCharge>& chargeMap,
+  CfChargePos pos,
+  CfChargePos* posBcast,
   PackedCharge* buf,
   uint8_t* innerAboveThreshold,
   ClusterAccumulator* myCluster,

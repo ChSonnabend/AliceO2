@@ -21,13 +21,19 @@
 #include "GPUTRDTracker.h"
 #include "GPUTrackingInputProvider.h"
 #include "GPUTRDTrackerKernels.h"
+#include "GPUConstantMem.h"
 #include "utils/strtag.h"
 
 using namespace o2::gpu;
 using namespace o2::trd;
 
-template <int32_t I>
 int32_t GPUChainTracking::RunTRDTracking()
+{
+  return GetProcessingSettings().trdTrackModelO2 ? RunTRDTrackingInternal<GPUTRDTrackerKernels::o2Version>() : RunTRDTrackingInternal<GPUTRDTrackerKernels::gpuVersion>();
+}
+
+template <int32_t I>
+int32_t GPUChainTracking::RunTRDTrackingInternal()
 {
   auto& Tracker = processors()->getTRDTracker<I>();
   if (!Tracker.IsInitialized()) {
@@ -189,9 +195,7 @@ int32_t GPUChainTracking::DoTRDGPUTracking(T* externalInstance)
   return (0);
 }
 
-template int32_t GPUChainTracking::RunTRDTracking<GPUTRDTrackerKernels::gpuVersion>();
 template int32_t GPUChainTracking::DoTRDGPUTracking<GPUTRDTrackerKernels::gpuVersion>(GPUTRDTrackerGPU*);
 template int32_t GPUChainTracking::DoTRDGPUTracking<GPUTRDTrackerKernels::gpuVersion>(GPUTRDTracker*);
-template int32_t GPUChainTracking::RunTRDTracking<GPUTRDTrackerKernels::o2Version>();
 template int32_t GPUChainTracking::DoTRDGPUTracking<GPUTRDTrackerKernels::o2Version>(GPUTRDTracker*);
 template int32_t GPUChainTracking::DoTRDGPUTracking<GPUTRDTrackerKernels::o2Version>(GPUTRDTrackerGPU*);

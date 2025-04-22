@@ -13,6 +13,8 @@
 /// \author David Rohr
 
 #include "GPUDisplay.h"
+#include "frontend/GPUDisplayInfo.inc"
+#include "GPUCommonMath.h"
 
 using namespace o2::gpu;
 

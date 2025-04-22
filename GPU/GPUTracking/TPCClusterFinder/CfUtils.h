@@ -17,7 +17,7 @@
 
 #include "clusterFinderDefs.h"
 #include "GPUCommonAlgorithm.h"
-#include "Array2D.h"
+#include "CfArray2D.h"
 #include "CfConsts.h"
 
 namespace o2::gpu
@@ -169,14 +169,14 @@ class CfUtils
 
   template <typename T>
   static GPUdi() void blockLoad(
-    const Array2D<T>& map,
+    const CfArray2D<T>& map,
     uint32_t wgSize,
     uint32_t elems,
     uint16_t ll,
     uint32_t offset,
     uint32_t N,
     GPUconstexprref() const tpccf::Delta2* neighbors,
-    const ChargePos* posBcast,
+    const CfChargePos* posBcast,
     GPUgeneric() T* buf)
   {
 #if defined(GPUCA_GPUCODE)
@@ -186,7 +186,7 @@ class CfUtils
     tpccf::Delta2 d = neighbors[x + offset];
 
     for (uint32_t i = y; i < wgSize; i += (elems / N)) {
-      ChargePos readFrom = posBcast[i];
+      CfChargePos readFrom = posBcast[i];
       uint32_t writeTo = N * i + x;
       buf[writeTo] = map[readFrom.delta(d)];
     }
@@ -196,7 +196,7 @@ class CfUtils
       return;
     }
 
-    ChargePos readFrom = posBcast[ll];
+    CfChargePos readFrom = posBcast[ll];
 
     GPUbarrier();
 
@@ -213,14 +213,14 @@ class CfUtils
 
   template <typename T, bool Inv = false>
   static GPUdi() void condBlockLoad(
-    const Array2D<T>& map,
+    const CfArray2D<T>& map,
     uint16_t wgSize,
     uint16_t elems,
     uint16_t ll,
     uint16_t offset,
     uint16_t N,
     GPUconstexprref() const tpccf::Delta2* neighbors,
-    const ChargePos* posBcast,
+    const CfChargePos* posBcast,
     const uint8_t* aboveThreshold,
     GPUgeneric() T* buf)
   {
@@ -230,7 +230,7 @@ class CfUtils
     uint16_t x = ll % N;
     tpccf::Delta2 d = neighbors[x + offset];
     for (uint32_t i = y; i < wgSize; i += (elems / N)) {
-      ChargePos readFrom = posBcast[i];
+      CfChargePos readFrom = posBcast[i];
       uint8_t above = aboveThreshold[i];
       uint32_t writeTo = N * i + x;
       T v(0);
@@ -247,7 +247,7 @@ class CfUtils
       return;
     }
 
-    ChargePos readFrom = posBcast[ll];
+    CfChargePos readFrom = posBcast[ll];
     uint8_t above = aboveThreshold[ll];
     GPUbarrier();
 

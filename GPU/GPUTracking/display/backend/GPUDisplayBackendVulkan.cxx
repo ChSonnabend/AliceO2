@@ -19,6 +19,8 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 #include "GPUCommonDef.h"
 #include "GPUDisplayBackendVulkan.h"
 #include "GPUDisplay.h"
+#include "GPULogging.h"
+#include "GPUParam.h"
 
 #include <mutex>
 

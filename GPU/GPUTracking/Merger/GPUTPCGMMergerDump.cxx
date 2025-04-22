@@ -36,6 +36,7 @@
 #include "GPUTPCClusterOccupancyMap.h"
 #include "GPUTrackingRefit.h"
 #include "CorrectionMapsHelper.h"
+#include "GPUConstantMem.h"
 
 using namespace o2::gpu;
 using namespace gputpcgmmergertypes;

@@ -13,6 +13,7 @@
 /// \author David Rohr
 
 #include "GPUDisplay.h"
+#include "frontend/GPUDisplayInfo.inc"
 
 using namespace o2::gpu;
 

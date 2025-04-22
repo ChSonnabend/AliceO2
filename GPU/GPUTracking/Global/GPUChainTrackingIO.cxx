@@ -34,6 +34,7 @@
 #include "GPUTrackingInputProvider.h"
 #include "TPCZSLinkMapping.h"
 #include "GPUTriggerOutputs.h"
+#include "GPUConstantMem.h"
 
 #include "SimulationDataFormat/MCCompLabel.h"
 #include "SimulationDataFormat/MCTruthContainer.h"

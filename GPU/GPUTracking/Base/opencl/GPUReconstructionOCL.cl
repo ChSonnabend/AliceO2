@@ -73,8 +73,6 @@ typedef signed char int8_t;
 #include "GPUConstantMem.h"
 #include "GPUReconstructionIncludesDeviceAll.h"
 
-// if (gpu_mem != pTracker.GPUParametersConst()->gpumem) return; //TODO!
-
 #define GPUCA_KRNL(...) GPUCA_KRNLGPU(__VA_ARGS__)
 #define GPUCA_CONSMEM_PTR GPUglobal() char *gpu_mem, GPUconstant() GPUConstantMem* pConstant,
 #define GPUCA_CONSMEM (*pConstant)

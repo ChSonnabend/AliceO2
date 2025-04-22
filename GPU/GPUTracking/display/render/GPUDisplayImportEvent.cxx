@@ -17,6 +17,7 @@
 #endif
 
 #include "GPUDisplay.h"
+#include "frontend/GPUDisplayInfo.inc"
 #include "GPUO2DataTypes.h"
 #include "GPUTPCClusterData.h"
 #include "GPUTPCConvertImpl.h"

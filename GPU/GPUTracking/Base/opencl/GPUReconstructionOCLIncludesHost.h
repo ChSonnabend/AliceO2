@@ -54,7 +54,7 @@ struct GPUReconstructionOCLInternals {
 } // namespace o2::gpu
 
 template <typename T, typename... Args>
-inline int64_t GPUReconstructionOCLBackend::OCLsetKernelParameters_helper(cl_kernel& kernel, int32_t i, const T& firstParameter, const Args&... restOfParameters)
+inline int64_t GPUReconstructionOCL::OCLsetKernelParameters_helper(cl_kernel& kernel, int32_t i, const T& firstParameter, const Args&... restOfParameters)
 {
   int64_t retVal = clSetKernelArg(kernel, i, sizeof(T), &firstParameter);
   if (retVal) {
@@ -67,12 +67,12 @@ inline int64_t GPUReconstructionOCLBackend::OCLsetKernelParameters_helper(cl_ker
 }
 
 template <typename... Args>
-inline int64_t GPUReconstructionOCLBackend::OCLsetKernelParameters(cl_kernel& kernel, const Args&... args)
+inline int64_t GPUReconstructionOCL::OCLsetKernelParameters(cl_kernel& kernel, const Args&... args)
 {
   return OCLsetKernelParameters_helper(kernel, 0, args...);
 }
 
-inline int64_t GPUReconstructionOCLBackend::clExecuteKernelA(cl_command_queue queue, cl_kernel krnl, size_t local_size, size_t global_size, cl_event* pEvent, cl_event* wait, cl_int nWaitEvents)
+inline int64_t GPUReconstructionOCL::clExecuteKernelA(cl_command_queue queue, cl_kernel krnl, size_t local_size, size_t global_size, cl_event* pEvent, cl_event* wait, cl_int nWaitEvents)
 {
   return clEnqueueNDRangeKernel(queue, krnl, 1, nullptr, &global_size, &local_size, wait == nullptr ? 0 : nWaitEvents, wait, pEvent);
 }

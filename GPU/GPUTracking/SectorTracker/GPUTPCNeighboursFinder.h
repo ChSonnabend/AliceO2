@@ -40,12 +40,10 @@ class GPUTPCNeighboursFinder : public GPUKernelTemplate
     int32_t mIRow;   // row number
     int32_t mIRowUp; // next row number
     int32_t mIRowDn; // previous row number
-#if GPUCA_PAR_NEIGHBOURS_FINDER_MAX_NNEIGHUP > 0
     static_assert(GPUCA_MAXN >= GPUCA_PAR_NEIGHBOURS_FINDER_MAX_NNEIGHUP);
     float mA1[GPUCA_PAR_NEIGHBOURS_FINDER_MAX_NNEIGHUP][GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNeighboursFinder)];
     float mA2[GPUCA_PAR_NEIGHBOURS_FINDER_MAX_NNEIGHUP][GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNeighboursFinder)];
     calink mB[GPUCA_PAR_NEIGHBOURS_FINDER_MAX_NNEIGHUP][GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNeighboursFinder)];
-#endif
     GPUTPCRow mRow, mRowUp, mRowDown;
   };
 

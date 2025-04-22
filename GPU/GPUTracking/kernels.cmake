@@ -115,6 +115,7 @@ o2_gpu_add_kernel("GPUTPCCFDeconvolution"                             "= TPCCLUS
 o2_gpu_add_kernel("GPUTPCCFClusterizer"                               "= TPCCLUSTERFINDER"                                    LB int8_t onlyMC)
 if(NOT ALIGPU_BUILD_TYPE STREQUAL "Standalone")
 o2_gpu_add_kernel("GPUTPCNNClusterizerKernels, runCfClusterizer"            "= TPCNNCLUSTERFINDER"                            LB uint8_t sector int8_t dtype int8_t onlyMC uint batchStart)
+o2_gpu_add_kernel("GPUTPCNNClusterizerKernels, fillInputNNSingleElement"    "= TPCNNCLUSTERFINDER"                            LB uint8_t sector int8_t dtype int8_t onlyMC uint batchStart)
 o2_gpu_add_kernel("GPUTPCNNClusterizerKernels, fillInputNN"                 "= TPCNNCLUSTERFINDER"                            LB uint8_t sector int8_t dtype int8_t onlyMC uint batchStart)
 o2_gpu_add_kernel("GPUTPCNNClusterizerKernels, determineClass1Labels"       "= TPCNNCLUSTERFINDER"                            LB uint8_t sector int8_t dtype int8_t onlyMC uint batchStart)
 o2_gpu_add_kernel("GPUTPCNNClusterizerKernels, determineClass2Labels"       "= TPCNNCLUSTERFINDER"                            LB uint8_t sector int8_t dtype int8_t onlyMC uint batchStart)
@@ -130,7 +131,7 @@ o2_gpu_add_kernel("GPUTPCCFStreamCompaction, scanStart"               "= TPCCLUS
 o2_gpu_add_kernel("GPUTPCCFStreamCompaction, scanUp"                  "= TPCCLUSTERFINDER"                                    LB int32_t iBuf int32_t nElems)
 o2_gpu_add_kernel("GPUTPCCFStreamCompaction, scanTop"                 "= TPCCLUSTERFINDER"                                    LB int32_t iBuf int32_t nElems)
 o2_gpu_add_kernel("GPUTPCCFStreamCompaction, scanDown"                "= TPCCLUSTERFINDER"                                    LB int32_t iBuf "uint32_t" offset int32_t nElems)
-o2_gpu_add_kernel("GPUTPCCFStreamCompaction, compactDigits"           "= TPCCLUSTERFINDER"                                    LB int32_t iBuf int32_t stage ChargePos* in ChargePos* out)
+o2_gpu_add_kernel("GPUTPCCFStreamCompaction, compactDigits"           "= TPCCLUSTERFINDER"                                    LB int32_t iBuf int32_t stage CfChargePos* in CfChargePos* out)
 o2_gpu_add_kernel("GPUTPCCFDecodeZS"                                  "= TPCCLUSTERFINDER"                                    LB int32_t firstHBF)
 o2_gpu_add_kernel("GPUTPCCFDecodeZSLink"                              "GPUTPCCFDecodeZS"                                      LB int32_t firstHBF)
 o2_gpu_add_kernel("GPUTPCCFDecodeZSDenseLink"                         "GPUTPCCFDecodeZS"                                      LB int32_t firstHBF)
@@ -139,6 +140,8 @@ o2_gpu_add_kernel("GPUTrackingRefitKernel, mode0asGPU"                "= GLOBALR
 o2_gpu_add_kernel("GPUTrackingRefitKernel, mode1asTrackParCov"        "= GLOBALREFIT "                                        LB)
 
 o2_gpu_kernel_add_parameter(NEIGHBOURS_FINDER_MAX_NNEIGHUP
+                            NEIGHBOURS_FINDER_UNROLL_GLOBAL
+                            NEIGHBOURS_FINDER_UNROLL_SHARED
                             TRACKLET_SELECTOR_HITS_REG_SIZE
                             ALTERNATE_BORDER_SORT
                             SORT_BEFORE_FIT

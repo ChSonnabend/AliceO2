@@ -19,9 +19,13 @@
 #include "GPUTPCClusterData.h"
 #include "GPUReconstructionConvert.h"
 #include "GPUMemorySizeScalers.h"
+#include "GPUTPCConvert.h"
 #include "AliHLTTPCRawCluster.h"
+#include "GPUConstantMem.h"
+#include "GPUTPCConvertKernel.h"
 
 #include "DataFormatsTPC/ClusterNative.h"
+#include "DataFormatsTPC/ZeroSuppression.h"
 #include "CommonDataFormat/InteractionRecord.h"
 #include "utils/strtag.h"
 

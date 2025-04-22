@@ -123,10 +123,10 @@ GPUdic(2, 1) void GPUTPCTrackletConstructor::UpdateTracklet(int32_t /*nBlocks*/,
         break; // SG!!! - jump over the row
       }
 
-      cahit2 hh = CA_TEXTURE_FETCH(cahit22, gAliTexRefu2, tracker.HitData(row), r.mCurrIH);
+      cahit2 hh = tracker.HitData(row)[r.mCurrIH];
 
       int32_t seedIH = r.mCurrIH;
-      r.mCurrIH = CA_TEXTURE_FETCH(calink, gAliTexRefs, tracker.HitLinkUpData(row), r.mCurrIH);
+      r.mCurrIH = tracker.HitLinkUpData(row)[r.mCurrIH];
 
       float x = row.X();
       float y = y0 + hh.x * stepY;
@@ -282,10 +282,8 @@ GPUdic(2, 1) void GPUTPCTrackletConstructor::UpdateTracklet(int32_t /*nBlocks*/,
           break;
         }
 
-#ifndef GPUCA_TEXTURE_FETCH_CONSTRUCTOR
         GPUglobalref() const cahit2* hits = tracker.HitData(row);
         GPUglobalref() const calink* firsthit = tracker.FirstHitInBin(row);
-#endif //! GPUCA_TEXTURE_FETCH_CONSTRUCTOR
         tracker.GetConstantMem()->calibObjects.fastTransformHelper->InverseTransformYZtoNominalYZ(tracker.ISector(), iRow, yUncorrected, zUncorrected, yUncorrected, zUncorrected);
 
         if (tracker.Param().rec.tpc.rejectEdgeClustersInSeeding && tracker.Param().rejectEdgeClusterByY(yUncorrected, iRow, CAMath::Sqrt(tParam.Err2Y()))) {
@@ -318,14 +316,14 @@ GPUdic(2, 1) void GPUTPCTrackletConstructor::UpdateTracklet(int32_t /*nBlocks*/,
 #endif
             int32_t nBinsY = row.Grid().Ny();
             int32_t mybin = bin + k * nBinsY;
-            uint32_t hitFst = CA_TEXTURE_FETCH(calink, gAliTexRefu, firsthit, mybin);
-            uint32_t hitLst = CA_TEXTURE_FETCH(calink, gAliTexRefu, firsthit, mybin + ny + 1);
+            uint32_t hitFst = firsthit[mybin];
+            uint32_t hitLst = firsthit[mybin + ny + 1];
 #ifdef __HIPCC__ // Todo: fixme!
             for (uint32_t ih = hitFst - 1; ++ih < hitLst; /*ih++*/) {
 #else
             for (uint32_t ih = hitFst; ih < hitLst; ih++) {
 #endif
-              cahit2 hh = CA_TEXTURE_FETCH(cahit2, gAliTexRefu2, hits, ih);
+              cahit2 hh = hits[ih];
               float y = y0 + hh.x * stepY;
               float z = z0 + hh.y * stepZ;
               float dy = y - yUncorrected;
@@ -353,7 +351,7 @@ GPUdic(2, 1) void GPUTPCTrackletConstructor::UpdateTracklet(int32_t /*nBlocks*/,
           }
         }
 
-        cahit2 hh = CA_TEXTURE_FETCH(cahit2, gAliTexRefu2, hits, best);
+        cahit2 hh = hits[best];
         float y = y0 + hh.x * stepY + tParam.GetY() - yUncorrected;
         float z = z0 + hh.y * stepZ + tParam.GetZ() - zUncorrected;
 
@@ -390,8 +388,8 @@ GPUdic(2, 1) void GPUTPCTrackletConstructor::UpdateTracklet(int32_t /*nBlocks*/,
     const GPUglobalref() GPUTPCRow& GPUrestrict() row2 = tracker.Row(r.mLastRow);
     GPUglobalref() const cahit2* hits1 = tracker.HitData(row1);
     GPUglobalref() const cahit2* hits2 = tracker.HitData(row2);
-    const cahit2 hh1 = CA_TEXTURE_FETCH(cahit2, gAliTexRefu2, hits1, rowHits[r.mFirstRow]);
-    const cahit2 hh2 = CA_TEXTURE_FETCH(cahit2, gAliTexRefu2, hits2, rowHits[r.mLastRow]);
+    const cahit2 hh1 = hits1[rowHits[r.mFirstRow]];
+    const cahit2 hh2 = hits2[rowHits[r.mLastRow]];
     const float z1 = row1.Grid().ZMin() + hh1.y * row1.HstepZ();
     const float z2 = row2.Grid().ZMin() + hh2.y * row2.HstepZ();
     float oldOffset = tParam.ZOffset();

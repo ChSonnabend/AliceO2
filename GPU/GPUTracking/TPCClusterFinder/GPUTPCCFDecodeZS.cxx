@@ -15,7 +15,7 @@
 #include "GPUTPCCFDecodeZS.h"
 #include "GPUCommonMath.h"
 #include "GPUTPCClusterFinder.h"
-#include "Array2D.h"
+#include "CfArray2D.h"
 #include "PackedCharge.h"
 #include "CfUtils.h"
 #include "CommonConstants/LHCConstants.h"
@@ -53,8 +53,8 @@ GPUdii() void GPUTPCCFDecodeZS::decode(GPUTPCClusterFinder& clusterer, GPUShared
   if (zs.count[endpoint] == 0) {
     return;
   }
-  ChargePos* positions = clusterer.mPpositions;
-  Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
+  CfChargePos* positions = clusterer.mPpositions;
+  CfArray2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   const size_t nDigits = clusterer.mPzsOffsets[iBlock].offset;
   if (iThread == 0) {
     const int32_t region = endpoint / 2;
@@ -175,7 +175,7 @@ GPUdii() void GPUTPCCFDecodeZS::decode(GPUTPCClusterFinder& clusterer, GPUShared
                   TPCTime globalTime = timeBin + l;
                   bool inFragment = fragment.contains(globalTime);
                   Row row = rowOffset + m;
-                  ChargePos pos(row, Pad(pad), inFragment ? fragment.toLocal(globalTime) : INVALID_TIME_BIN);
+                  CfChargePos pos(row, Pad(pad), inFragment ? fragment.toLocal(globalTime) : INVALID_TIME_BIN);
                   positions[nDigitsTmp++] = pos;
 
                   if (inFragment) {
@@ -552,7 +552,7 @@ GPUd() o2::tpc::PadPos GPUTPCCFDecodeZSLinkBase::GetPadAndRowFromFEC(processorTy
 GPUd() void GPUTPCCFDecodeZSLinkBase::WriteCharge(processorType& clusterer, float charge, PadPos padAndRow, TPCFragmentTime localTime, size_t positionOffset)
 {
   const uint32_t sector = clusterer.mISector;
-  ChargePos* positions = clusterer.mPpositions;
+  CfChargePos* positions = clusterer.mPpositions;
 #ifdef GPUCA_CHECK_TPCZS_CORRUPTION
   if (padAndRow.getRow() >= GPUCA_ROW_COUNT) {
     positions[positionOffset] = INVALID_CHARGE_POS;
@@ -560,9 +560,9 @@ GPUd() void GPUTPCCFDecodeZSLinkBase::WriteCharge(processorType& clusterer, floa
     return;
   }
 #endif
-  Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
+  CfArray2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
 
-  ChargePos pos(padAndRow.getRow(), padAndRow.getPad(), localTime);
+  CfChargePos pos(padAndRow.getRow(), padAndRow.getPad(), localTime);
   positions[positionOffset] = pos;
 
   charge *= clusterer.GetConstantMem()->calibObjects.tpcPadGain->getGainCorrection(sector, padAndRow.getRow(), padAndRow.getPad());

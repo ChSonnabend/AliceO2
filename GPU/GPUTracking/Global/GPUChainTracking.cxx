@@ -18,6 +18,8 @@
 #include <chrono>
 
 #include "GPUChainTracking.h"
+#include "GPUChainTrackingGetters.inc"
+#include "GPUReconstructionIO.h"
 #include "GPUChainTrackingDefs.h"
 #include "GPUTPCClusterData.h"
 #include "GPUTPCSectorOutCluster.h"
@@ -755,7 +757,7 @@ int32_t GPUChainTracking::RunChain()
     }
   }
 
-  if (GetProcessingSettings().trdTrackModelO2 ? runRecoStep(RecoStep::TRDTracking, &GPUChainTracking::RunTRDTracking<GPUTRDTrackerKernels::o2Version>) : runRecoStep(RecoStep::TRDTracking, &GPUChainTracking::RunTRDTracking<GPUTRDTrackerKernels::gpuVersion>)) {
+  if (runRecoStep(RecoStep::TRDTracking, &GPUChainTracking::RunTRDTracking)) {
     return 1;
   }
 

@@ -17,10 +17,23 @@
 #include "GPUReconstructionTimeframe.h"
 #include "GPUReconstructionConvert.h"
 #include "GPUChainTracking.h"
+#include "GPUChainTrackingGetters.inc"
 #include "GPUTPCDef.h"
 #include "GPUQA.h"
+#include "GPUParam.h"
 #include "display/GPUDisplayInterface.h"
 #include "genEvents.h"
+
+#include "TPCFastTransform.h"
+#include "CorrectionMapsHelper.h"
+#include "GPUTPCGMMergedTrack.h"
+#include "GPUSettings.h"
+#include "GPUConstantMem.h"
+
+#include "GPUO2DataTypes.h"
+#include "GPUChainITS.h"
+
+#include "DataFormatsTPC/CompressedClusters.h"
 
 #include <iostream>
 #include <fstream>
@@ -32,6 +45,7 @@
 #include <thread>
 #include <future>
 #include <atomic>
+#include <vector>
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -47,15 +61,6 @@
 #include "utils/timer.h"
 #include "utils/qmaths_helpers.h"
 #include "utils/vecpod.h"
-
-#include "TPCFastTransform.h"
-#include "CorrectionMapsHelper.h"
-#include "GPUTPCGMMergedTrack.h"
-#include "GPUSettings.h"
-#include <vector>
-
-#include "GPUO2DataTypes.h"
-#include "GPUChainITS.h"
 
 using namespace o2::gpu;
 
@@ -915,7 +920,7 @@ int32_t main(int argc, char** argv)
       nEventsProcessed++;
 
       if (configStandalone.timeFrameTime) {
-        double nClusters = chainTracking->GetTPCMerger().NMaxClusters();
+        double nClusters = chainTracking->GetProcessors()->tpcMerger.NMaxClusters();
         if (nClusters > 0) {
           const int32_t nOrbits = 32;
           const double colRate = 50000;

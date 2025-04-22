@@ -17,6 +17,7 @@
 #include "GPUTPCClusterData.h"
 #include "GPUReconstruction.h"
 #include "GPUO2DataTypes.h"
+#include "GPUParam.h"
 
 using namespace o2::gpu;
 

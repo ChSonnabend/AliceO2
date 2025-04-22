@@ -29,7 +29,7 @@ class GPUTPCHit;
 class GPUTPCTrackingData
 {
  public:
-  GPUTPCTrackingData() : mNumberOfHits(0), mNumberOfHitsPlusAlign(0), mClusterIdOffset(0), mGPUTextureBase(nullptr), mRows(nullptr), mLinkUpData(nullptr), mLinkDownData(nullptr), mClusterData(nullptr) {}
+  GPUTPCTrackingData() : mNumberOfHits(0), mNumberOfHitsPlusAlign(0), mClusterIdOffset(0), mRows(nullptr), mLinkUpData(nullptr), mLinkDownData(nullptr), mClusterData(nullptr) {}
 
 #ifndef GPUCA_GPUCODE_DEVICE
   ~GPUTPCTrackingData() = default;
@@ -112,10 +112,6 @@ class GPUTPCTrackingData
 
   GPUhdi() GPUglobalref() GPUAtomic(uint32_t) * HitWeights() { return (mHitWeights); }
 
-  GPUhdi() void SetGPUTextureBase(GPUglobalref() const void* val) { mGPUTextureBase = val; }
-  GPUhdi() char* GPUTextureBase() const { return ((char*)mGPUTextureBase); }
-  GPUhdi() char* GPUTextureBaseConst() const { return ((char*)mGPUTextureBase); }
-
   GPUhdi() GPUglobalref() const GPUTPCClusterData* ClusterData() const { return mClusterData; }
 
  private:
@@ -134,8 +130,6 @@ class GPUTPCTrackingData
   int32_t mNumberOfHits; // the number of hits in this sector
   int32_t mNumberOfHitsPlusAlign;
   int32_t mClusterIdOffset;
-
-  GPUglobalref() const void* mGPUTextureBase; // pointer to start of GPU texture
 
   GPUglobalref() GPUTPCRow* mRows; // The row objects needed for most accessor functions
 

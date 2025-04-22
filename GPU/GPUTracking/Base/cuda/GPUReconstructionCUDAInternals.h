@@ -44,7 +44,7 @@ struct GPUReconstructionCUDAInternals {
 class GPUDebugTiming
 {
  public:
-  GPUDebugTiming(bool d, gpu_reconstruction_kernels::deviceEvent* t, cudaStream_t* s, const gpu_reconstruction_kernels::krnlSetupTime& x, GPUReconstructionCUDABackend* r) : mDeviceTimers(t), mStreams(s), mXYZ(x), mRec(r), mDo(d)
+  GPUDebugTiming(bool d, GPUReconstructionProcessing::deviceEvent* t, cudaStream_t* s, const GPUReconstructionProcessing::krnlSetupTime& x, GPUReconstructionCUDA* r) : mDeviceTimers(t), mStreams(s), mXYZ(x), mRec(r), mDo(d)
   {
     if (mDo) {
       if (mDeviceTimers) {
@@ -71,10 +71,10 @@ class GPUDebugTiming
   }
 
  private:
-  gpu_reconstruction_kernels::deviceEvent* mDeviceTimers;
+  GPUReconstructionProcessing::deviceEvent* mDeviceTimers;
   cudaStream_t* mStreams;
-  const gpu_reconstruction_kernels::krnlSetupTime& mXYZ;
-  GPUReconstructionCUDABackend* mRec;
+  const GPUReconstructionProcessing::krnlSetupTime& mXYZ;
+  GPUReconstructionCUDA* mRec;
   HighResTimer mTimer;
   bool mDo;
 };

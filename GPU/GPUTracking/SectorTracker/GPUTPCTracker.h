@@ -59,24 +59,14 @@ class GPUTPCTracker : public GPUProcessor
   void DumpTrackletHits(std::ostream& out);         // Same for Track Hits
 #endif
 
-  struct StructGPUParameters {
-    GPUAtomic(uint32_t) nextStartHit; // Next Tracklet to process
-  };
-
-  struct StructGPUParametersConst {
-    GPUglobalref() char* gpumem; // Base pointer to GPU memory (Needed for OpenCL for verification)
-  };
-
   struct commonMemoryStruct {
-    commonMemoryStruct() : nStartHits(0), nTracklets(0), nRowHits(0), nTracks(0), nLocalTracks(0), nTrackHits(0), nLocalTrackHits(0), gpuParameters() {}
-    GPUAtomic(uint32_t) nStartHits;    // number of start hits
-    GPUAtomic(uint32_t) nTracklets;    // number of tracklets
-    GPUAtomic(uint32_t) nRowHits;      // number of tracklet hits
-    GPUAtomic(uint32_t) nTracks;       // number of reconstructed tracks
-    int32_t nLocalTracks;              // number of reconstructed tracks before extrapolation tracking
-    GPUAtomic(uint32_t) nTrackHits;    // number of track hits
-    int32_t nLocalTrackHits;           // see above
-    StructGPUParameters gpuParameters; // GPU parameters
+    GPUAtomic(uint32_t) nStartHits = 0; // number of start hits
+    GPUAtomic(uint32_t) nTracklets = 0; // number of tracklets
+    GPUAtomic(uint32_t) nRowHits = 0;   // number of tracklet hits
+    GPUAtomic(uint32_t) nTracks = 0;    // number of reconstructed tracks
+    int32_t nLocalTracks = 0;           // number of reconstructed tracks before extrapolation tracking
+    GPUAtomic(uint32_t) nTrackHits = 0; // number of track hits
+    int32_t nLocalTrackHits = 0;        // see above
   };
 
   GPUhdi() GPUglobalref() const GPUTPCClusterData* ClusterData() const
@@ -205,13 +195,6 @@ class GPUTPCTracker : public GPUProcessor
 
   GPUhd() GPUglobalref() GPUTPCRow* TrackingDataRows() const { return (mData.Rows()); }
   GPUhd() GPUglobalref() int32_t* RowStartHitCountOffset() const { return (mRowStartHitCountOffset); }
-  GPUhd() GPUglobalref() StructGPUParameters* GPUParameters() const { return (&mCommonMem->gpuParameters); }
-  GPUhd() StructGPUParametersConst* GPUParametersConst()
-  {
-    return (&mGPUParametersConst);
-  }
-  GPUhd() const StructGPUParametersConst* GetGPUParametersConst() const { return (&mGPUParametersConst); }
-  GPUhd() void SetGPUTextureBase(GPUglobalref() const void* val) { mData.SetGPUTextureBase(val); }
 
   struct trackSortData {
     int32_t fTtrack; // Track ID
@@ -252,8 +235,6 @@ class GPUTPCTracker : public GPUProcessor
   GPUglobalref() int32_t* mRowStartHitCountOffset = nullptr;   // Offset, length and new offset of start hits in row
   GPUglobalref() GPUTPCHitId* mTrackletTmpStartHits = nullptr; // Unsorted start hits
   GPUglobalref() char* mGPUTrackletTemp = nullptr;             // Temp Memory for GPU Tracklet Constructor
-
-  StructGPUParametersConst mGPUParametersConst; // Parameters for GPU if this is a GPU tracker
 
   // event
   GPUglobalref() commonMemoryStruct* mCommonMem = nullptr;  // common event memory

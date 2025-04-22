@@ -19,7 +19,7 @@
 #include "GPUGeneralKernels.h"
 #include "GPUConstantMem.h"
 #include "GPUTPCClusterFinder.h"
-#include "Array2D.h"
+#include "CfArray2D.h"
 #include "PackedCharge.h"
 #include "GPUTPCNNClusterizer.h"
 
@@ -39,14 +39,19 @@ class GPUTPCNNClusterizerKernels : public GPUKernelTemplate
  public:
   // Must all have same number of threads, since they use a common SCRATCH_PAD_WORK_GROUP_SIZE below
   static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_fillInputNN) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
+  static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_fillInputNNSingleElement) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
   static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_determineClass1Labels) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
   static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_determineClass2Labels) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
   static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_publishClass1Regression) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
   static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_publishClass2Regression) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
+  static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_publishClass2Regression) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
+  static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_removeAllSplitFlags) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
+  static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_setDeconvolutionFlags) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
+  static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_publishDeconvolutionFlags) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
   static constexpr size_t SCRATCH_PAD_WORK_GROUP_SIZE = GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer);
   struct GPUSharedMemory {
     // Regular cluster finder
-    ChargePos posBcast[SCRATCH_PAD_WORK_GROUP_SIZE];
+    CfChargePos posBcast[SCRATCH_PAD_WORK_GROUP_SIZE];
     PackedCharge buf[SCRATCH_PAD_WORK_GROUP_SIZE * SCRATCH_PAD_BUILD_N];
     uint8_t innerAboveThreshold[SCRATCH_PAD_WORK_GROUP_SIZE];
   };
@@ -59,13 +64,14 @@ class GPUTPCNNClusterizerKernels : public GPUKernelTemplate
   enum K : int32_t {
     runCfClusterizer = 0,
     fillInputNN = 1,
-    determineClass1Labels = 2,
-    determineClass2Labels = 3,
-    publishClass1Regression = 4,
-    publishClass2Regression = 5,
-    removeAllSplitFlags = 6,
-    setDeconvolutionFlags = 7,
-    publishDeconvolutionFlags = 8
+    fillInputNNSingleElement = 2,
+    determineClass1Labels = 3,
+    determineClass2Labels = 4,
+    publishClass1Regression = 5,
+    publishClass2Regression = 6,
+    removeAllSplitFlags = 7,
+    setDeconvolutionFlags = 8,
+    publishDeconvolutionFlags = 9
   };
 
   template <int32_t iKernel = defaultKernel, typename... Args>

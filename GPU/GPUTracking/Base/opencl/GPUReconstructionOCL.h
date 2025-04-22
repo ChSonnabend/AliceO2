@@ -27,14 +27,16 @@ namespace o2::gpu
 {
 struct GPUReconstructionOCLInternals;
 
-class GPUReconstructionOCLBackend : public GPUReconstructionDeviceBase
+class GPUReconstructionOCL : public GPUReconstructionProcessing::KernelInterface<GPUReconstructionOCL, GPUReconstructionDeviceBase>
 {
  public:
-  ~GPUReconstructionOCLBackend() override;
+  GPUReconstructionOCL(const GPUSettingsDeviceBackend& cfg);
+  ~GPUReconstructionOCL() override;
+
+  template <class T, int32_t I = 0, typename... Args>
+  void runKernelBackend(const krnlSetupTime& _xyz, const Args&... args);
 
  protected:
-  GPUReconstructionOCLBackend(const GPUSettingsDeviceBackend& cfg);
-
   int32_t InitDevice_Runtime() override;
   int32_t ExitDevice_Runtime() override;
 
@@ -55,14 +57,10 @@ class GPUReconstructionOCLBackend : public GPUReconstructionDeviceBase
 
   template <class T, int32_t I = 0>
   int32_t AddKernel();
-  template <class T, int32_t I = 0, typename... Args>
-  void runKernelBackendInternal(const krnlSetupTime& _xyz, const Args&... args);
 
   GPUReconstructionOCLInternals* mInternals;
   float mOclVersion;
 
-  template <class T, int32_t I = 0, typename... Args>
-  void runKernelBackend(const krnlSetupArgs<T, I, Args...>& args);
   template <class S, class T, int32_t I>
   S& getKernelObject();
 
@@ -78,7 +76,6 @@ class GPUReconstructionOCLBackend : public GPUReconstructionDeviceBase
   int32_t AddKernels();
 };
 
-using GPUReconstructionOCL = GPUReconstructionKernels<GPUReconstructionOCLBackend>;
 } // namespace o2::gpu
 
 #endif

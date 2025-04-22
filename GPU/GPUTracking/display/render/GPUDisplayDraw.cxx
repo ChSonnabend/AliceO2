@@ -28,6 +28,7 @@
 #include "GPUTPCMCInfo.h"
 #include "GPUParam.inc"
 #include "GPUCommonMath.h"
+#include "GPUChainTracking.h"
 
 #include <type_traits>
 
@@ -43,7 +44,7 @@ using namespace o2::gpu;
 #define GET_CID(sector, i) (mParam->par.earlyTpcTransform ? mIOPtrs->clusterData[sector][i].id : (mIOPtrs->clustersNative->clusterOffset[sector][0] + i))
 
 const GPUTRDGeometry* GPUDisplay::trdGeometry() { return (GPUTRDGeometry*)mCalib->trdGeometry; }
-const GPUTPCTracker& GPUDisplay::sectorTracker(int32_t iSector) { return mChain->GetTPCSectorTrackers()[iSector]; }
+const GPUTPCTracker& GPUDisplay::sectorTracker(int32_t iSector) { return mChain->GetProcessors()->tpcTrackers[iSector]; }
 
 inline void GPUDisplay::insertVertexList(std::pair<vecpod<int32_t>*, vecpod<uint32_t>*>& vBuf, size_t first, size_t last)
 {

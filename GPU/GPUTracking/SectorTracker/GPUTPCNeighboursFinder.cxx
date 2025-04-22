@@ -75,14 +75,11 @@ GPUdii() void GPUTPCNeighboursFinder::Thread<0>(int32_t /*nBlocks*/, int32_t nTh
     return;
   }
 
-#define UnrollGlobal 4
-#define MaxShared GPUCA_PAR_NEIGHBOURS_FINDER_MAX_NNEIGHUP
-#if MaxShared < GPUCA_MAXN
-#define MaxGlobal ((GPUCA_MAXN - MaxShared - 1) / UnrollGlobal + 1) * UnrollGlobal
-#else
-#define MaxGlobal 0
-#endif
-#define MaxTotal MaxShared + MaxGlobal
+  static constexpr uint32_t UNROLL_GLOBAL = GPUCA_PAR_NEIGHBOURS_FINDER_UNROLL_GLOBAL > 1 ? GPUCA_PAR_NEIGHBOURS_FINDER_UNROLL_GLOBAL : 1;
+  static_assert(GPUCA_MAXN % UNROLL_GLOBAL == 0);
+  static constexpr uint32_t MAX_SHARED = GPUCA_PAR_NEIGHBOURS_FINDER_MAX_NNEIGHUP;
+  static constexpr uint32_t MAX_GLOBAL = (MAX_SHARED < GPUCA_MAXN) ? (((GPUCA_MAXN - MAX_SHARED - 1) / UNROLL_GLOBAL + 1) * UNROLL_GLOBAL) : 0;
+  static constexpr uint32_t MAX_TOTAL = MAX_SHARED + MAX_GLOBAL;
 
   const float chi2Cut = 3.f * 3.f * 4 * (s.mUpDx * s.mUpDx + s.mDnDx * s.mDnDx);
   // float chi2Cut = 3.f*3.f*(s.mUpDx*s.mUpDx + s.mDnDx*s.mDnDx ); //SG
@@ -117,10 +114,8 @@ GPUdii() void GPUTPCNeighboursFinder::Thread<0>(int32_t /*nBlocks*/, int32_t nTh
   const float kAreaSlopeZUp = kAngularMultiplier != 0.f ? 1.f : s.mUpTx;
   const float kAreaSlopeZDn = kAngularMultiplier != 0.f ? 1.f : s.mDnTx;
 
-#if MaxGlobal > 0
-  calink neighUp[MaxGlobal];
-  float yzUp[2 * MaxGlobal];
-#endif
+  calink neighUp[MAX_GLOBAL];
+  float yzUp[2 * MAX_GLOBAL];
 
   for (int32_t ih = iThread; ih < s.mNHits; ih += nThreads) {
 
@@ -128,7 +123,7 @@ GPUdii() void GPUTPCNeighboursFinder::Thread<0>(int32_t /*nBlocks*/, int32_t nTh
     const float y = y0 + hitData.x * stepY;
     const float z = z0 + hitData.y * stepZ;
 
-    int32_t nNeighUp = 0;
+    uint32_t nNeighUp = 0;
     float minZ, maxZ, minY, maxY;
     int32_t binYmin, binYmax, binZmin, binZmax;
     int32_t nY;
@@ -145,11 +140,11 @@ GPUdii() void GPUTPCNeighboursFinder::Thread<0>(int32_t /*nBlocks*/, int32_t nTh
       nY = rowUp.Grid().Ny();
     }
 
-    for (int32_t k1 = binZmin; k1 <= binZmax && (nNeighUp < MaxTotal); k1++) {
+    for (int32_t k1 = binZmin; k1 <= binZmax && (nNeighUp < MAX_TOTAL); k1++) {
       int32_t iMin = lFirstHitInBin[lFirstHitInBinOffsetUp + k1 * nY + binYmin];
       int32_t iMax = lFirstHitInBin[lFirstHitInBinOffsetUp + k1 * nY + binYmax + 1];
       GPUCA_UNROLL(U(4), U(2))
-      for (int32_t i = iMin; i < iMax && (nNeighUp < MaxTotal); i++) {
+      for (int32_t i = iMin; i < iMax && (nNeighUp < MAX_TOTAL); i++) {
         const GPUglobalref() cahit2& hitDataUp = pHitData[lHitNumberOffsetUp + i];
         GPUTPCHit h;
         h.mY = y0Up + (hitDataUp.x) * stepYUp;
@@ -159,51 +154,48 @@ GPUdii() void GPUTPCNeighboursFinder::Thread<0>(int32_t /*nBlocks*/, int32_t nTh
           continue;
         }
 
-#if MaxGlobal > 0
-#if MaxShared == 0
-        if (true) {
-#else
-        if (nNeighUp >= MaxShared) {
-#endif
-          neighUp[nNeighUp - MaxShared] = (calink)i;
-          yzUp[2 * (nNeighUp - MaxShared)] = s.mDnDx * (h.Y() - y);
-          yzUp[2 * (nNeighUp - MaxShared) + 1] = s.mDnDx * (h.Z() - z);
-        } else
-#endif
-        {
-#if MaxShared > 0
-          s.mB[nNeighUp][iThread] = (calink)i;
-          s.mA1[nNeighUp][iThread] = s.mDnDx * (h.Y() - y);
-          s.mA2[nNeighUp][iThread] = s.mDnDx * (h.Z() - z);
-#endif
+        const bool inGlobal = nNeighUp >= MAX_SHARED;
+        if constexpr (MAX_GLOBAL > 0) {
+          if (inGlobal) {
+            neighUp[nNeighUp - MAX_SHARED] = (calink)i;
+            yzUp[2 * (nNeighUp - MAX_SHARED)] = s.mDnDx * (h.Y() - y);
+            yzUp[2 * (nNeighUp - MAX_SHARED) + 1] = s.mDnDx * (h.Z() - z);
+          }
+        }
+        if constexpr (MAX_SHARED > 0) {
+          if (!inGlobal) {
+            s.mB[nNeighUp][iThread] = (calink)i;
+            s.mA1[nNeighUp][iThread] = s.mDnDx * (h.Y() - y);
+            s.mA2[nNeighUp][iThread] = s.mDnDx * (h.Z() - z);
+          }
         }
         nNeighUp++;
       }
     }
 
-#if MaxShared > 0 // init a rest of the shared array
-    for (int32_t iUp = nNeighUp; iUp < MaxShared; iUp++) {
-      s.mA1[iUp][iThread] = -1.e10f;
-      s.mA2[iUp][iThread] = -1.e10f;
-      s.mB[iUp][iThread] = (calink)-1;
+    if constexpr (MAX_SHARED > 0 && GPUCA_PAR_NEIGHBOURS_FINDER_UNROLL_SHARED) { // init the rest of the shared array
+      for (uint32_t iUp = nNeighUp; iUp < MAX_SHARED; iUp++) {
+        s.mA1[iUp][iThread] = -1.e10f;
+        s.mA2[iUp][iThread] = -1.e10f;
+        s.mB[iUp][iThread] = (calink)-1;
+      }
     }
-#endif
 
-#if MaxGlobal > 0 // init a rest of the UnrollGlobal chunk of the global array
-    int32_t Nrest = nNeighUp - MaxShared;
-    int32_t N4 = (Nrest / UnrollGlobal) * UnrollGlobal;
-    if (N4 < Nrest) {
-      N4 += UnrollGlobal;
-      GPUCA_UNROLL(U(UnrollGlobal - 1), U(UnrollGlobal - 1))
-      for (int32_t k = 0; k < UnrollGlobal - 1; k++) {
-        if (Nrest + k < N4) {
-          yzUp[2 * (Nrest + k)] = -1.e10f;
-          yzUp[2 * (Nrest + k) + 1] = -1.e10f;
-          neighUp[Nrest + k] = (calink)-1;
+    const uint32_t nRest = nNeighUp - MAX_SHARED;
+    uint32_t nRestUnrolled = (nRest / UNROLL_GLOBAL) * UNROLL_GLOBAL;
+    if constexpr (MAX_GLOBAL > 1) { // init the rest of the UNROLL_GLOBAL chunk of the global array
+      if (nNeighUp > MAX_SHARED && nRestUnrolled < nRest) {
+        nRestUnrolled += UNROLL_GLOBAL;
+        GPUCA_UNROLL(U(UNROLL_GLOBAL - 1), U(UNROLL_GLOBAL - 1))
+        for (uint32_t k = 0; k + 1 < UNROLL_GLOBAL; k++) {
+          if (nRest + k < nRestUnrolled) {
+            yzUp[2 * (nRest + k)] = -1.e10f;
+            yzUp[2 * (nRest + k) + 1] = -1.e10f;
+            neighUp[nRest + k] = (calink)-1;
+          }
         }
       }
     }
-#endif
 
     { // area in the lower row
       const float yy = y * s.mDnTx;
@@ -236,47 +228,50 @@ GPUdii() void GPUTPCNeighboursFinder::Thread<0>(int32_t /*nBlocks*/, int32_t nTh
         float yDnProjUp = s.mUpDx * (yDn - y);
         float zDnProjUp = s.mUpDx * (zDn - z);
 
-#if MaxShared > 0
-        GPUCA_UNROLL(U(MaxShared), U(MaxShared))
-        for (int32_t iUp = 0; iUp < MaxShared; iUp++) {
-          const float dy = yDnProjUp - s.mA1[iUp][iThread];
-          const float dz = zDnProjUp - s.mA2[iUp][iThread];
-          const float d = dy * dy + dz * dz;
-          if (d < bestD) {
-            bestD = d;
-            linkDn = i;
-            linkUp = iUp;
-          }
-        }
-#endif
-
-#if MaxGlobal > 0
-        for (int32_t iUp = 0; iUp < N4; iUp += UnrollGlobal) {
-          GPUCA_UNROLL(U(UnrollGlobal), U(UnrollGlobal))
-          for (int32_t k = 0; k < UnrollGlobal; k++) {
-            int32_t jUp = iUp + k;
-            const float dy = yDnProjUp - yzUp[2 * jUp];
-            const float dz = zDnProjUp - yzUp[2 * jUp + 1];
+        if constexpr (MAX_SHARED > 0) {
+          const uint32_t maxSharedUp = GPUCA_PAR_NEIGHBOURS_FINDER_UNROLL_SHARED ? MAX_SHARED : CAMath::Min(nNeighUp, MAX_SHARED);
+          GPUCA_UNROLL(U(MAX_SHARED), U(MAX_SHARED))
+          for (uint32_t iUp = 0; iUp < maxSharedUp; iUp++) {
+            const float dy = yDnProjUp - s.mA1[iUp][iThread];
+            const float dz = zDnProjUp - s.mA2[iUp][iThread];
             const float d = dy * dy + dz * dz;
             if (d < bestD) {
               bestD = d;
               linkDn = i;
-              linkUp = MaxShared + jUp;
+              linkUp = iUp;
             }
           }
         }
-#endif
+
+        if constexpr (MAX_GLOBAL > 0) {
+          if (nNeighUp > MAX_SHARED) {
+            for (uint32_t iUp = 0; iUp < nRestUnrolled; iUp += UNROLL_GLOBAL) {
+              GPUCA_UNROLL(U(UNROLL_GLOBAL), U(UNROLL_GLOBAL))
+              for (uint32_t k = 0; k < UNROLL_GLOBAL; k++) {
+                const uint32_t jUp = iUp + k;
+                const float dy = yDnProjUp - yzUp[2 * jUp];
+                const float dz = zDnProjUp - yzUp[2 * jUp + 1];
+                const float d = dy * dy + dz * dz;
+                if (d < bestD) {
+                  bestD = d;
+                  linkDn = i;
+                  linkUp = MAX_SHARED + jUp;
+                }
+              }
+            }
+          }
+        }
       }
     }
 
     if (linkUp >= 0) {
-#if MaxShared > 0 && MaxGlobal > 0
-      linkUp = (linkUp >= MaxShared) ? neighUp[linkUp - MaxShared] : s.mB[linkUp][iThread];
-#elif MaxShared > 0
-      linkUp = s.mB[linkUp][iThread];
-#else
-      linkUp = neighUp[linkUp];
-#endif
+      if constexpr (MAX_SHARED > 0 && MAX_GLOBAL > 0) {
+        linkUp = ((uint32_t)linkUp >= MAX_SHARED) ? neighUp[linkUp - MAX_SHARED] : s.mB[linkUp][iThread];
+      } else if constexpr (MAX_SHARED > 0) {
+        linkUp = s.mB[linkUp][iThread];
+      } else {
+        linkUp = neighUp[linkUp];
+      }
     }
 
     tracker.mData.mLinkUpData[lHitNumberOffset + ih] = linkUp;

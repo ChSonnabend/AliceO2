@@ -891,6 +891,11 @@ o2::framework::ServiceSpec CommonServices::dataProcessingStats()
       if (!DefaultsHelpers::onlineDeploymentMode() && DefaultsHelpers::deploymentMode() != DeploymentMode::FST) {
         arrowAndResourceLimitingMetrics = true;
       }
+
+      int64_t consumedTimeframesPublishInterval = 0;
+      if (DefaultsHelpers::deploymentMode() == DeploymentMode::OnlineECS) {
+        consumedTimeframesPublishInterval = 5000;
+      }
       // Input proxies should not report cpu_usage_fraction,
       // because of the rate limiting which biases the measurement.
       auto& spec = services.get<DeviceSpec const>();
@@ -950,7 +955,7 @@ o2::framework::ServiceSpec CommonServices::dataProcessingStats()
         MetricSpec{.name = "consumed-timeframes",
                    .metricId = (int)ProcessingStatsId::CONSUMED_TIMEFRAMES,
                    .kind = Kind::UInt64,
-                   .minPublishInterval = 0,
+                   .minPublishInterval = consumedTimeframesPublishInterval,
                    .maxRefreshLatency = quickRefreshInterval,
                    .sendInitialValue = true},
         MetricSpec{.name = "min_input_latency_ms",

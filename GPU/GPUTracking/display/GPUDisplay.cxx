@@ -13,6 +13,7 @@
 /// \author David Rohr
 
 #include "GPUDisplay.h"
+#include "frontend/GPUDisplayInfo.inc"
 
 #include "GPUTPCDef.h"
 
@@ -204,7 +205,7 @@ int32_t GPUDisplay::DrawGLScene()
   int32_t retVal = 0;
   if (mChain) {
     mIOPtrs = &mChain->mIOPtrs;
-    mCalib = &mChain->calib();
+    mCalib = &mChain->GetCalib();
   }
   if (!mIOPtrs) {
     mNCollissions = 0;

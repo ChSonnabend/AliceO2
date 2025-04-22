@@ -18,6 +18,7 @@
 #include "GPUDisplayGUIWrapper.h"
 #include "GPUDisplay.h"
 #include "GPULogging.h"
+#include "GPUParam.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>

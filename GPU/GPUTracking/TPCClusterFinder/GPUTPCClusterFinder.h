@@ -46,7 +46,7 @@ namespace o2::gpu
 struct GPUTPCClusterMCInterimArray;
 struct TPCPadGainCalib;
 
-struct ChargePos;
+struct CfChargePos;
 
 class GPUTPCClusterFinder : public GPUProcessor
 {
@@ -98,9 +98,9 @@ class GPUTPCClusterFinder : public GPUProcessor
   MinMaxCN* mMinMaxCN = nullptr;
   uint8_t* mPpadIsNoisy = nullptr;
   tpc::Digit* mPdigits = nullptr; // input digits, only set if ZS is skipped
-  ChargePos* mPpositions = nullptr;
-  ChargePos* mPpeakPositions = nullptr;
-  ChargePos* mPfilteredPeakPositions = nullptr;
+  CfChargePos* mPpositions = nullptr;
+  CfChargePos* mPpeakPositions = nullptr;
+  CfChargePos* mPfilteredPeakPositions = nullptr;
   uint8_t* mPisPeak = nullptr;
   uint32_t* mPclusterPosInRow = nullptr; // store the index where the corresponding cluster is stored in a bucket.
                                          // Required when MC are enabled to write the mc data to the correct position.

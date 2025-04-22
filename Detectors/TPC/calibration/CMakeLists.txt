@@ -25,6 +25,7 @@ o2_add_library(TPCCalibration
                        src/CalibPadGainTracksBase.cxx
                        src/CalibLaserTracks.cxx
                        src/LaserTracksCalibrator.cxx
+                       src/NeuralNetworkClusterizer.cxx
                        src/SACDecoder.cxx
                        src/IDCAverageGroup.cxx
                        src/IDCAverageGroupBase.cxx
@@ -82,6 +83,7 @@ o2_target_root_dictionary(TPCCalibration
                                   include/TPCCalibration/FastHisto.h
                                   include/TPCCalibration/CalibLaserTracks.h
                                   include/TPCCalibration/LaserTracksCalibrator.h
+                                  include/TPCCalibration/NeuralNetworkClusterizer.h
                                   include/TPCCalibration/SACDecoder.h
                                   include/TPCCalibration/IDCAverageGroup.h
                                   include/TPCCalibration/IDCAverageGroupBase.h

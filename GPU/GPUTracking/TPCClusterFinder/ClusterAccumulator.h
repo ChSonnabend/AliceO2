@@ -17,7 +17,7 @@
 
 #include "clusterFinderDefs.h"
 #include "PackedCharge.h"
-#include "Array2D.h"
+#include "CfArray2D.h"
 
 namespace o2
 {
@@ -30,7 +30,7 @@ struct ClusterNative;
 namespace gpu
 {
 
-struct ChargePos;
+struct CfChargePos;
 struct GPUParam;
 class GPUTPCGeometry;
 
@@ -52,8 +52,8 @@ class ClusterAccumulator
     mSplitInTime = splitInTime;
   }
 
-  GPUd() void finalize(const ChargePos&, const tpccf::Charge, tpccf::TPCTime);
-  GPUd() bool toNative(const ChargePos&, const tpccf::Charge, tpc::ClusterNative&, const GPUParam&, const Array2D<PackedCharge>&);
+  GPUd() void finalize(const CfChargePos&, const tpccf::Charge, tpccf::TPCTime);
+  GPUd() bool toNative(const CfChargePos&, const tpccf::Charge, tpc::ClusterNative&, const GPUParam&, const CfArray2D<PackedCharge>&);
 
  private:
   float mQtot = 0;

@@ -14,7 +14,7 @@
 
 #include "GPUTPCCFPeakFinder.h"
 
-#include "Array2D.h"
+#include "CfArray2D.h"
 #include "CfUtils.h"
 #include "PackedCharge.h"
 #include "TPCPadGainCalib.h"
@@ -25,19 +25,19 @@ using namespace o2::gpu::tpccf;
 template <>
 GPUdii() void GPUTPCCFPeakFinder::Thread<0>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer)
 {
-  Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
-  Array2D<uint8_t> isPeakMap(clusterer.mPpeakMap);
+  CfArray2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
+  CfArray2D<uint8_t> isPeakMap(clusterer.mPpeakMap);
   findPeaksImpl(get_num_groups(0), get_local_size(0), get_group_id(0), get_local_id(0), smem, chargeMap, clusterer.mPpadIsNoisy, clusterer.mPpositions, clusterer.mPmemory->counters.nPositions, clusterer.Param().rec, *clusterer.GetConstantMem()->calibObjects.tpcPadGain, clusterer.mPisPeak, isPeakMap);
 }
 
 GPUdii() bool GPUTPCCFPeakFinder::isPeak(
   GPUSharedMemory& smem,
   Charge q,
-  const ChargePos& pos,
+  const CfChargePos& pos,
   uint16_t N,
-  const Array2D<PackedCharge>& chargeMap,
+  const CfArray2D<PackedCharge>& chargeMap,
   const GPUSettingsRec& calib,
-  ChargePos* posBcast,
+  CfChargePos* posBcast,
   PackedCharge* buf)
 {
   uint16_t ll = get_local_id(0);
@@ -91,21 +91,21 @@ GPUdii() bool GPUTPCCFPeakFinder::isPeak(
 }
 
 GPUd() void GPUTPCCFPeakFinder::findPeaksImpl(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem,
-                                              const Array2D<PackedCharge>& chargeMap,
+                                              const CfArray2D<PackedCharge>& chargeMap,
                                               const uint8_t* padHasLostBaseline,
-                                              const ChargePos* positions,
+                                              const CfChargePos* positions,
                                               SizeT digitnum,
                                               const GPUSettingsRec& calib,
                                               const TPCPadGainCalib& gainCorrection, // Only used for globalPad() function
                                               uint8_t* isPeakPredicate,
-                                              Array2D<uint8_t>& peakMap)
+                                              CfArray2D<uint8_t>& peakMap)
 {
   SizeT idx = get_global_id(0);
 
   // For certain configurations dummy work items are added, so the total
   // number of work items is dividable by 64.
   // These dummy items also compute the last digit but discard the result.
-  ChargePos pos = positions[CAMath::Min(idx, (SizeT)(digitnum - 1))];
+  CfChargePos pos = positions[CAMath::Min(idx, (SizeT)(digitnum - 1))];
   Charge charge = pos.valid() ? chargeMap[pos].unpack() : Charge(0);
 
   bool hasLostBaseline = padHasLostBaseline[gainCorrection.globalPad(pos.row(), pos.pad())];

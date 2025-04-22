@@ -30,6 +30,9 @@
 #include "GPUDisplayFrontendWayland.h"
 #endif
 
+#include "GPULogging.h"
+#include <cstring>
+
 #ifdef GPUCA_BUILD_EVENT_DISPLAY_QT
 #include "GPUDisplayGUIWrapper.h"
 #else

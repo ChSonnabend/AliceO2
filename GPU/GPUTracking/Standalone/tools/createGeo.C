@@ -20,6 +20,7 @@
 #include "GPUO2Interface.h"
 #include "GPUReconstruction.h"
 #include "GPUChainTracking.h"
+#include "GPUChainTrackingGetters.inc"
 
 using namespace o2::gpu;
 

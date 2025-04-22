@@ -16,22 +16,22 @@
 #define O2_GPU_ARRAY2D_H
 
 #include "clusterFinderDefs.h"
-#include "ChargePos.h"
+#include "CfChargePos.h"
 
 namespace o2::gpu
 {
 
 template <typename T, typename Layout>
-class AbstractArray2D
+class AbstractCfArray2D
 {
 
  public:
-  GPUdi() explicit AbstractArray2D(T* d) : data(d) {}
+  GPUdi() explicit AbstractCfArray2D(T* d) : data(d) {}
 
-  GPUdi() T& operator[](const ChargePos& p) { return data[Layout::idx(p)]; }
-  GPUdi() const T& operator[](const ChargePos& p) const { return data[Layout::idx(p)]; }
+  GPUdi() T& operator[](const CfChargePos& p) { return data[Layout::idx(p)]; }
+  GPUdi() const T& operator[](const CfChargePos& p) const { return data[Layout::idx(p)]; }
 
-  GPUdi() void safeWrite(const ChargePos& p, const T& v)
+  GPUdi() void safeWrite(const CfChargePos& p, const T& v)
   {
     if (data != nullptr) {
       (*this)[p] = v;
@@ -52,7 +52,7 @@ class TilingLayout
     WidthInTiles = (TPC_NUM_OF_PADS + Width - 1) / Width,
   };
 
-  GPUdi() static tpccf::SizeT idx(const ChargePos& p)
+  GPUdi() static tpccf::SizeT idx(const CfChargePos& p)
   {
     const tpccf::SizeT tilePad = p.gpad / Width;
     const tpccf::SizeT tileTime = p.timePadded / Height;
@@ -72,7 +72,7 @@ class TilingLayout
 class LinearLayout
 {
  public:
-  GPUdi() static tpccf::SizeT idx(const ChargePos& p)
+  GPUdi() static tpccf::SizeT idx(const CfChargePos& p)
   {
     return TPC_NUM_OF_PADS * p.timePadded + p.gpad;
   }
@@ -119,7 +119,7 @@ using TPCMapMemoryLayout = LinearLayout;
 #endif
 
 template <typename T>
-using Array2D = AbstractArray2D<T, TPCMapMemoryLayout<T>>;
+using CfArray2D = AbstractCfArray2D<T, TPCMapMemoryLayout<T>>;
 
 } // namespace o2::gpu
 

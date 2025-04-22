@@ -30,7 +30,7 @@ using namespace o2::gpu::tpccf;
 template <>
 GPUdii() void GPUTPCCFClusterizer::Thread<0>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer, int8_t onlyMC)
 {
-  Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
+  CfArray2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   CPU_ONLY(MCLabelAccumulator labelAcc(clusterer));
 
   tpc::ClusterNative* clusterOut = (onlyMC) ? nullptr : clusterer.mPclusterByRow;

@@ -15,7 +15,7 @@
 #include "GPUTPCCFStreamCompaction.h"
 #include "GPUCommonAlgorithm.h"
 
-#include "ChargePos.h"
+#include "CfChargePos.h"
 #include "CfUtils.h"
 
 using namespace o2::gpu;
@@ -92,7 +92,7 @@ GPUdii() void GPUTPCCFStreamCompaction::Thread<GPUTPCCFStreamCompaction::scanDow
 }
 
 template <>
-GPUdii() void GPUTPCCFStreamCompaction::Thread<GPUTPCCFStreamCompaction::compactDigits>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer, int32_t iBuf, int32_t stage, ChargePos* in, ChargePos* out)
+GPUdii() void GPUTPCCFStreamCompaction::Thread<GPUTPCCFStreamCompaction::compactDigits>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer, int32_t iBuf, int32_t stage, CfChargePos* in, CfChargePos* out)
 {
   uint32_t nElems = CompactionElems(clusterer, stage);
   SizeT bufferSize = (stage) ? clusterer.mNMaxClusters : clusterer.mNMaxPeaks;

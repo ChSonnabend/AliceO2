@@ -276,7 +276,8 @@ bool TrackExtrap::extrapToMID(TrackParam& trackParam)
 
 //__________________________________________________________________________
 bool TrackExtrap::extrapToVertex(TrackParam& trackParam, double xVtx, double yVtx, double zVtx,
-                                 double errXVtx, double errYVtx, bool correctForMCS, bool correctForEnergyLoss)
+                                 double errXVtx, double errYVtx, bool correctForMCS, bool correctForEnergyLoss,
+                                 double xUpstream, double yUpstream, std::optional<double> zUpstream)
 {
   /// Main method for extrapolation to the vertex:
   /// Returns the track parameters and covariances resulting from the extrapolation of the current trackParam
@@ -285,6 +286,8 @@ bool TrackExtrap::extrapToVertex(TrackParam& trackParam, double xVtx, double yVt
   /// if correctForMCS=false: add parameter dispersion due to MCS in parameter covariances
   /// if correctForEnergyLoss=true:  correct parameters for energy loss and add energy loss fluctuation to covariances
   /// if correctForEnergyLoss=false: do nothing about energy loss
+  /// In case correctForMCS=false and the position of the track upstream the absorber is provided, it is used
+  /// to compute the absorber correction parameters, instead of the extrapolated track position from downstream
 
   if (trackParam.getZ() == zVtx) {
     return true; // nothing to be done if already at vertex
@@ -297,6 +300,18 @@ bool TrackExtrap::extrapToVertex(TrackParam& trackParam, double xVtx, double yVt
       return false;
     } else {
       LOG(warning) << "Ending Z (" << zVtx << ") inside the front absorber (" << SAbsZBeg << ", " << SAbsZEnd << ")";
+      return false;
+    }
+  }
+
+  // check the upstream track position with respect to the absorber if provided and used (spectro z<0)
+  // zUpstream must be >= SAbsZBeg with 100 µm tolerance to account for numerical precision
+  if (!correctForMCS && zUpstream && *zUpstream < SAbsZBeg - 0.01) {
+    if (*zUpstream < SAbsZEnd) {
+      LOG(warning) << "Upstream Z (" << *zUpstream << ") downstream the front absorber (zAbsorberEnd = " << SAbsZEnd << ")";
+      return false;
+    } else {
+      LOG(warning) << "Upstream Z (" << *zUpstream << ") inside the front absorber (" << SAbsZBeg << ", " << SAbsZEnd << ")";
       return false;
     }
   }
@@ -328,6 +343,10 @@ bool TrackExtrap::extrapToVertex(TrackParam& trackParam, double xVtx, double yVt
     trackXYZIn[2] = SAbsZBeg;
     trackXYZIn[0] = trackXYZOut[0] + (xVtx - trackXYZOut[0]) / (zVtx - trackXYZOut[2]) * (trackXYZIn[2] - trackXYZOut[2]);
     trackXYZIn[1] = trackXYZOut[1] + (yVtx - trackXYZOut[1]) / (zVtx - trackXYZOut[2]) * (trackXYZIn[2] - trackXYZOut[2]);
+  } else if (zUpstream) { // or linear propagation to the upstream track position
+    trackXYZIn[2] = SAbsZBeg;
+    trackXYZIn[0] = trackXYZOut[0] + (xUpstream - trackXYZOut[0]) / (*zUpstream - trackXYZOut[2]) * (trackXYZIn[2] - trackXYZOut[2]);
+    trackXYZIn[1] = trackXYZOut[1] + (yUpstream - trackXYZOut[1]) / (*zUpstream - trackXYZOut[2]) * (trackXYZIn[2] - trackXYZOut[2]);
   } else { // or standard propagation without vertex constraint
     TrackParam trackParamIn(trackParam);
     if (!extrapToZ(trackParamIn, SAbsZBeg)) {

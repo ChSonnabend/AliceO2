@@ -39,36 +39,38 @@ GPUdii() void GPUTPCStartHitsFinder::Thread<0>(int32_t /*nBlocks*/, int32_t nThr
     uint32_t linkUpData = tracker.mData.mLinkUpData[lHitNumberOffset + ih];
 
     if (tracker.mData.mLinkDownData[lHitNumberOffset + ih] == CALINK_INVAL && linkUpData != CALINK_INVAL && tracker.mData.mLinkUpData[rowUp.mHitNumberOffset + linkUpData] != CALINK_INVAL) {
-#if GPUCA_PAR_SORT_STARTHITS > 0
-      GPUglobalref() GPUTPCHitId* const GPUrestrict() startHits = tracker.mTrackletTmpStartHits + s.mIRow * tracker.mNMaxRowStartHits;
-      uint32_t nextRowStartHits = CAMath::AtomicAddShared(&s.mNRowStartHits, 1u);
-      if (nextRowStartHits >= tracker.mNMaxRowStartHits) {
-        tracker.raiseError(GPUErrors::ERROR_ROWSTARTHIT_OVERFLOW, tracker.ISector() * 1000 + s.mIRow, nextRowStartHits, tracker.mNMaxRowStartHits);
-        CAMath::AtomicExchShared(&s.mNRowStartHits, tracker.mNMaxRowStartHits);
-        break;
+      GPUglobalref() GPUTPCHitId* GPUrestrict() startHits;
+      uint32_t nextRowStartHits;
+      if constexpr (GPUCA_PAR_SORT_STARTHITS > 0) {
+        startHits = tracker.mTrackletTmpStartHits + s.mIRow * tracker.mNMaxRowStartHits;
+        nextRowStartHits = CAMath::AtomicAddShared(&s.mNRowStartHits, 1u);
+        if (nextRowStartHits >= tracker.mNMaxRowStartHits) {
+          tracker.raiseError(GPUErrors::ERROR_ROWSTARTHIT_OVERFLOW, tracker.ISector() * 1000 + s.mIRow, nextRowStartHits, tracker.mNMaxRowStartHits);
+          CAMath::AtomicExchShared(&s.mNRowStartHits, tracker.mNMaxRowStartHits);
+          break;
+        }
+      } else {
+        startHits = tracker.mTrackletStartHits;
+        nextRowStartHits = CAMath::AtomicAdd(&tracker.mCommonMem->nStartHits, 1u);
+        if (nextRowStartHits >= tracker.mNMaxStartHits) {
+          tracker.raiseError(GPUErrors::ERROR_STARTHIT_OVERFLOW, tracker.ISector() * 1000 + s.mIRow, nextRowStartHits, tracker.mNMaxStartHits);
+          CAMath::AtomicExch(&tracker.mCommonMem->nStartHits, tracker.mNMaxStartHits);
+          break;
+        }
       }
-#else
-      GPUglobalref() GPUTPCHitId* const GPUrestrict() startHits = tracker.mTrackletStartHits;
-      uint32_t nextRowStartHits = CAMath::AtomicAdd(&tracker.mCommonMem->nStartHits, 1u);
-      if (nextRowStartHits >= tracker.mNMaxStartHits) {
-        tracker.raiseError(GPUErrors::ERROR_STARTHIT_OVERFLOW, tracker.ISector() * 1000 + s.mIRow, nextRowStartHits, tracker.mNMaxStartHits);
-        CAMath::AtomicExch(&tracker.mCommonMem->nStartHits, tracker.mNMaxStartHits);
-        break;
-      }
-#endif
       startHits[nextRowStartHits].Set(s.mIRow, ih);
     }
   }
   GPUbarrier();
 
-#if GPUCA_PAR_SORT_STARTHITS > 0
-  if (iThread == 0) {
-    uint32_t nOffset = CAMath::AtomicAdd(&tracker.mCommonMem->nStartHits, s.mNRowStartHits);
-    tracker.mRowStartHitCountOffset[s.mIRow] = s.mNRowStartHits;
-    if (nOffset + s.mNRowStartHits > tracker.mNMaxStartHits) {
-      tracker.raiseError(GPUErrors::ERROR_STARTHIT_OVERFLOW, tracker.ISector() * 1000 + s.mIRow, nOffset + s.mNRowStartHits, tracker.mNMaxStartHits);
-      CAMath::AtomicExch(&tracker.mCommonMem->nStartHits, tracker.mNMaxStartHits);
+  if constexpr (GPUCA_PAR_SORT_STARTHITS > 0) {
+    if (iThread == 0) {
+      uint32_t nOffset = CAMath::AtomicAdd(&tracker.mCommonMem->nStartHits, s.mNRowStartHits);
+      tracker.mRowStartHitCountOffset[s.mIRow] = s.mNRowStartHits;
+      if (nOffset + s.mNRowStartHits > tracker.mNMaxStartHits) {
+        tracker.raiseError(GPUErrors::ERROR_STARTHIT_OVERFLOW, tracker.ISector() * 1000 + s.mIRow, nOffset + s.mNRowStartHits, tracker.mNMaxStartHits);
+        CAMath::AtomicExch(&tracker.mCommonMem->nStartHits, tracker.mNMaxStartHits);
+      }
     }
   }
-#endif
 }

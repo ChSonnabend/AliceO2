@@ -16,12 +16,14 @@
 #include "GPUReconstruction.h"
 #include "GPUMemorySizeScalers.h"
 #include "GPUHostDataTypes.h"
+#include "GPUSettings.h"
 
+#include "DataFormatsTPC/ClusterNative.h"
 #include "DataFormatsTPC/ZeroSuppression.h"
 #include "DataFormatsTPC/Digit.h"
 
-#include "ChargePos.h"
-#include "Array2D.h"
+#include "CfChargePos.h"
+#include "CfArray2D.h"
 
 using namespace o2::gpu;
 using namespace o2::tpc;

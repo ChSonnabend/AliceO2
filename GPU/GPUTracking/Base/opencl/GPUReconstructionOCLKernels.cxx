@@ -13,16 +13,14 @@
 /// \author David Rohr
 
 #include "GPUReconstructionOCLIncludesHost.h"
+#include "GPUReconstructionKernelIncludes.h"
 
-template <>
-inline void GPUReconstructionOCLBackend::runKernelBackendInternal<GPUMemClean16, 0>(const krnlSetupTime& _xyz, void* const& ptr, uint64_t const& size)
-{
-  cl_int4 val0 = {0, 0, 0, 0};
-  GPUChkErr(clEnqueueFillBuffer(mInternals->command_queue[_xyz.x.stream], mInternals->mem_gpu, &val0, sizeof(val0), (char*)ptr - (char*)mDeviceMemoryBase, (size + sizeof(val0) - 1) & ~(sizeof(val0) - 1), _xyz.z.evList == nullptr ? 0 : _xyz.z.nEvents, _xyz.z.evList->getEventList<cl_event>(), _xyz.z.ev->getEventList<cl_event>()));
-}
+#include "GPUReconstructionOCLKernelsSpecialize.inc"
+#include "GPUReconstructionProcessingKernels.inc"
+template void GPUReconstructionProcessing::KernelInterface<GPUReconstructionOCL, GPUReconstructionDeviceBase>::runKernelVirtual(const int num, const void* args);
 
 template <class T, int32_t I, typename... Args>
-inline void GPUReconstructionOCLBackend::runKernelBackendInternal(const krnlSetupTime& _xyz, const Args&... args)
+inline void GPUReconstructionOCL::runKernelBackend(const krnlSetupTime& _xyz, const Args&... args)
 {
   cl_kernel k = getKernelObject<cl_kernel, T, I>();
   auto& x = _xyz.x;
@@ -33,14 +31,14 @@ inline void GPUReconstructionOCLBackend::runKernelBackendInternal(const krnlSetu
   cl_event ev;
   cl_event* evr;
   bool tmpEvent = false;
-  if (z.ev == nullptr && mProcessingSettings.deviceTimers && mProcessingSettings.debugLevel > 0) {
+  if (z.ev == nullptr && GetProcessingSettings().deviceTimers && GetProcessingSettings().debugLevel > 0) {
     evr = &ev;
     tmpEvent = true;
   } else {
     evr = (cl_event*)z.ev;
   }
   GPUChkErr(clExecuteKernelA(mInternals->command_queue[x.stream], k, x.nThreads, x.nThreads * x.nBlocks, evr, (cl_event*)z.evList, z.nEvents));
-  if (mProcessingSettings.deviceTimers && mProcessingSettings.debugLevel > 0) {
+  if (GetProcessingSettings().deviceTimers && GetProcessingSettings().debugLevel > 0) {
     cl_ulong time_start, time_end;
     GPUChkErr(clWaitForEvents(1, evr));
     GPUChkErr(clGetEventProfilingInfo(*evr, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, nullptr));
@@ -52,14 +50,8 @@ inline void GPUReconstructionOCLBackend::runKernelBackendInternal(const krnlSetu
   }
 }
 
-template <class T, int32_t I, typename... Args>
-void GPUReconstructionOCLBackend::runKernelBackend(const krnlSetupArgs<T, I, Args...>& args)
-{
-  std::apply([this, &args](auto&... vals) { runKernelBackendInternal<T, I, Args...>(args.s, vals...); }, args.v);
-}
-
 template <class T, int32_t I>
-int32_t GPUReconstructionOCLBackend::AddKernel()
+int32_t GPUReconstructionOCL::AddKernel()
 {
   std::string name(GetKernelName<T, I>());
   std::string kname("krnl_" + name);
@@ -75,12 +67,12 @@ int32_t GPUReconstructionOCLBackend::AddKernel()
 }
 
 template <class S, class T, int32_t I>
-S& GPUReconstructionOCLBackend::getKernelObject()
+S& GPUReconstructionOCL::getKernelObject()
 {
   return mInternals->kernels[GetKernelNum<T, I>()];
 }
 
-int32_t GPUReconstructionOCLBackend::AddKernels()
+int32_t GPUReconstructionOCL::AddKernels()
 {
 #define GPUCA_KRNL(x_class, ...)                     \
   if (AddKernel<GPUCA_M_KRNL_TEMPLATE(x_class)>()) { \
@@ -90,7 +82,3 @@ int32_t GPUReconstructionOCLBackend::AddKernels()
 #undef GPUCA_KRNL
   return 0;
 }
-
-#define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward, x_types, ...) template void GPUReconstructionOCLBackend::runKernelBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>(const krnlSetupArgs<GPUCA_M_KRNL_TEMPLATE(x_class) GPUCA_M_STRIP(x_types)>& args);
-#include "GPUReconstructionKernelList.h"
-#undef GPUCA_KRNL

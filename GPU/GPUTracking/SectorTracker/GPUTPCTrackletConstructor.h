@@ -63,9 +63,6 @@ class GPUTPCTrackletConstructor : public GPUKernelTemplate
 
   struct GPUSharedMemory {
     CA_SHARED_STORAGE(GPUTPCRow mRows[GPUCA_ROW_COUNT]); // rows
-    int32_t mNextStartHitFirst;                          // First start hit to be processed by CUDA block during next iteration
-    int32_t mNextStartHitCount;                          // Number of start hits to be processed by CUDA block during next iteration
-    int32_t mNextStartHitFirstRun;                       // First run for dynamic scheduler?
     int32_t mNStartHits;                                 // Total number of start hits
 
 #ifdef GPUCA_TRACKLET_CONSTRUCTOR_DO_PROFILE

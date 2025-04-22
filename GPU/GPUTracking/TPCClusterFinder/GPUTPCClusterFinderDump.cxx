@@ -17,14 +17,19 @@
 
 #include "GPUTPCClusterFinder.h"
 #include "GPUReconstruction.h"
-#include "Array2D.h"
+#include "CfArray2D.h"
 #include "DataFormatsTPC/Digit.h"
 #include "clusterFinderDefs.h"
 
 #include <vector>
+#include <iostream>
+#include <sstream>
 
 unsigned long totalPeaks = 0;
 std::vector<std::vector<int>> maxima;
+
+#include "DataFormatsTPC/ClusterNative.h"
+#include "GPUSettings.h"
 
 using namespace o2::gpu;
 using namespace o2::gpu::tpccf;
@@ -46,7 +51,7 @@ void GPUTPCClusterFinder::DumpDigits(std::ostream& out)
 void GPUTPCClusterFinder::DumpChargeMap(std::ostream& out, std::string_view title)
 {
   out << "\nClusterer - " << title << " - Sector " << mISector << " - Fragment " << mPmemory->fragment.index << "\n";
-  Array2D<uint16_t> map(mPchargeMap);
+  CfArray2D<uint16_t> map(mPchargeMap);
 
   out << std::hex;
 
@@ -80,7 +85,7 @@ void GPUTPCClusterFinder::DumpPeakMap(std::ostream& out, std::string_view title)
 {
   out << "\nClusterer - " << title << " - Sector " << mISector << " - Fragment " << mPmemory->fragment.index << "\n";
 
-  Array2D<uint8_t> map(mPpeakMap);
+  CfArray2D<uint8_t> map(mPpeakMap);
 
   out << std::hex;
 

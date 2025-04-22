@@ -13,10 +13,10 @@
 /// \author Felix Weiglhofer
 
 #include "GPUTPCCFNoiseSuppression.h"
-#include "Array2D.h"
+#include "CfArray2D.h"
 #include "CfConsts.h"
 #include "CfUtils.h"
-#include "ChargePos.h"
+#include "CfChargePos.h"
 
 using namespace o2::gpu;
 using namespace o2::gpu::tpccf;
@@ -24,29 +24,29 @@ using namespace o2::gpu::tpccf;
 template <>
 GPUdii() void GPUTPCCFNoiseSuppression::Thread<GPUTPCCFNoiseSuppression::noiseSuppression>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer)
 {
-  Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
-  Array2D<uint8_t> isPeakMap(clusterer.mPpeakMap);
+  CfArray2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
+  CfArray2D<uint8_t> isPeakMap(clusterer.mPpeakMap);
   noiseSuppressionImpl(get_num_groups(0), get_local_size(0), get_group_id(0), get_local_id(0), smem, clusterer.Param().rec, chargeMap, isPeakMap, clusterer.mPpeakPositions, clusterer.mPmemory->counters.nPeaks, clusterer.mPisPeak);
 }
 
 template <>
 GPUdii() void GPUTPCCFNoiseSuppression::Thread<GPUTPCCFNoiseSuppression::updatePeaks>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer)
 {
-  Array2D<uint8_t> isPeakMap(clusterer.mPpeakMap);
+  CfArray2D<uint8_t> isPeakMap(clusterer.mPpeakMap);
   updatePeaksImpl(get_num_groups(0), get_local_size(0), get_group_id(0), get_local_id(0), clusterer.mPpeakPositions, clusterer.mPisPeak, clusterer.mPmemory->counters.nPeaks, isPeakMap);
 }
 
 GPUdii() void GPUTPCCFNoiseSuppression::noiseSuppressionImpl(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem,
                                                              const GPUSettingsRec& calibration,
-                                                             const Array2D<PackedCharge>& chargeMap,
-                                                             const Array2D<uint8_t>& peakMap,
-                                                             const ChargePos* peakPositions,
+                                                             const CfArray2D<PackedCharge>& chargeMap,
+                                                             const CfArray2D<uint8_t>& peakMap,
+                                                             const CfChargePos* peakPositions,
                                                              const uint32_t peaknum,
                                                              uint8_t* isPeakPredicate)
 {
   SizeT idx = get_global_id(0);
 
-  ChargePos pos = peakPositions[CAMath::Min(idx, (SizeT)(peaknum - 1))];
+  CfChargePos pos = peakPositions[CAMath::Min(idx, (SizeT)(peaknum - 1))];
   Charge charge = chargeMap[pos].unpack();
 
   uint64_t minimas, bigger, peaksAround;
@@ -75,10 +75,10 @@ GPUdii() void GPUTPCCFNoiseSuppression::noiseSuppressionImpl(int32_t nBlocks, in
 }
 
 GPUd() void GPUTPCCFNoiseSuppression::updatePeaksImpl(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread,
-                                                      const ChargePos* peakPositions,
+                                                      const CfChargePos* peakPositions,
                                                       const uint8_t* isPeak,
                                                       const uint32_t peakNum,
-                                                      Array2D<uint8_t>& peakMap)
+                                                      CfArray2D<uint8_t>& peakMap)
 {
   SizeT idx = get_global_id(0);
 
@@ -86,7 +86,7 @@ GPUd() void GPUTPCCFNoiseSuppression::updatePeaksImpl(int32_t nBlocks, int32_t n
     return;
   }
 
-  ChargePos pos = peakPositions[idx];
+  CfChargePos pos = peakPositions[idx];
 
   uint8_t peak = isPeak[idx];
 
@@ -164,12 +164,12 @@ GPUdi() bool GPUTPCCFNoiseSuppression::keepPeak(
 }
 
 GPUd() void GPUTPCCFNoiseSuppression::findMinimaAndPeaks(
-  const Array2D<PackedCharge>& chargeMap,
-  const Array2D<uint8_t>& peakMap,
+  const CfArray2D<PackedCharge>& chargeMap,
+  const CfArray2D<uint8_t>& peakMap,
   const GPUSettingsRec& calibration,
   float q,
-  const ChargePos& pos,
-  ChargePos* posBcast,
+  const CfChargePos& pos,
+  CfChargePos* posBcast,
   PackedCharge* buf,
   uint64_t* minimas,
   uint64_t* bigger,

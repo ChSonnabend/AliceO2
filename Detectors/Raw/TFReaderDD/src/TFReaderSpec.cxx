@@ -327,7 +327,12 @@ void TFReaderSpec::stopProcessing(o2f::ProcessingContext& ctx)
     auto device = ctx.services().get<o2f::RawDeviceService>().device();
     o2f::SourceInfoHeader exitHdr;
     exitHdr.state = o2f::InputChannelState::Completed;
-    const auto exitStack = o2h::Stack(o2h::DataHeader(o2h::gDataDescriptionInfo, o2h::gDataOriginAny, 0, 0), o2f::DataProcessingHeader(), exitHdr);
+    o2h::DataHeader dh = o2h::DataHeader(o2h::gDataDescriptionInfo, o2h::gDataOriginAny, 0, 0);
+    try {
+      dh.runNumber = strtoul(device->fConfig->GetProperty<std::string>("runNumber", "").c_str(), nullptr, 10);
+    } catch (...) {
+    }
+    const auto exitStack = o2h::Stack(dh, o2f::DataProcessingHeader(), exitHdr);
     auto fmqFactory = device->GetChannel(mInput.rawChannelConfig, 0).Transport();
     auto hdEOSMessage = fmqFactory->CreateMessage(exitStack.size(), fair::mq::Alignment{64});
     auto plEOSMessage = fmqFactory->CreateMessage(0, fair::mq::Alignment{64});

@@ -16,6 +16,7 @@
 #include "frontend/GPUDisplayFrontend.h"
 #include "GPUDisplayInterface.h"
 
+#include <cstring>
 #include <tuple>
 #include <stdexcept>
 
