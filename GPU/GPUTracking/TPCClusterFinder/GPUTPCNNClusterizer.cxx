@@ -58,17 +58,6 @@ void* GPUTPCNNClusterizer::setIOPointers(void* mem)
         }
       }
     }
-    if (!nnClusterizerUseCfRegression) {
-      if (nnClusterizerModelReg1NumOutputNodes > 0) {
-        computePointerWithAlignment(mem, outputDataReg1_32, nnClusterizerBatchedMode * nnClusterizerModelReg1NumOutputNodes);
-      }
-      if (nnClusterizerModelReg2NumOutputNodes > 0) {
-        computePointerWithAlignment(mem, outputDataReg2_32, nnClusterizerBatchedMode * nnClusterizerModelReg2NumOutputNodes);
-      }
-    }
-  }
-  if (nnClusterizerTotalClusters > 0) {
-    computePointerWithAlignment(mem, outputDataClass, nnClusterizerTotalClusters);
   }
   if (mNnClusterizerTotalClusters > 0) {
     computePointerWithAlignment(mem, mOutputDataClass, mNnClusterizerTotalClusters);
