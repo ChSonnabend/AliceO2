@@ -506,7 +506,7 @@ DataProcessorSpec getTPCFactorizeIDCSpec(const int lane, const std::vector<uint3
             {"dump-IDCDelta", VariantType::Bool, false, {"Dump IDCDelta to file"}},
             {"dump-IDCDelta-calib-data", VariantType::Bool, false, {"Dump IDCDelta as calibration data to file"}},
             {"add-offset-for-CCDB-timestamp", VariantType::Bool, false, {"Add an offset of 1 hour for the validity range of the CCDB objects"}},
-            {"pad-status-map-offset", VariantType::Float, 0.f, {"Offset in seconds for timestamp of pad status map CCDB object (overwrites pad-status-map-offset-nslots)"}},
+            {"pad-status-map-offset", VariantType::Float, 120.f, {"Offset in seconds for timestamp of pad status map CCDB object (overwrites pad-status-map-offset-nslots)"}},
             {"pad-status-map-offset-nslots", VariantType::Int, 0, {"Offset in slot length units for timestamp of pad status map CCDB object"}},
             {"output-dir", VariantType::String, "none", {"calibration files output directory, must exist"}},
             {"meta-output-dir", VariantType::String, "/dev/null", {"calibration metadata output directory, must exist (if not /dev/null)"}},

@@ -176,8 +176,7 @@ void computeCellNeighboursHandler(CellSeed** cellsLayersDevice,
                                   const int nBlocks,
                                   const int nThreads);
 
-int filterCellNeighboursHandler(std::vector<int>&,
-                                gpuPair<int, int>*,
+int filterCellNeighboursHandler(gpuPair<int, int>*,
                                 int*,
                                 unsigned int);
 

@@ -41,8 +41,6 @@ o2_build_sanity_checks()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
-include(dependencies/FindONNXRuntime.cmake)
-
 include(O2CheckCXXFeatures)
 o2_check_cxx_features()
 

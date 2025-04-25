@@ -162,7 +162,7 @@ class ConfigurableParam
   virtual std::string getName() const = 0;
 
   // print the current keys and values to screen (optionally with provenance information)
-  virtual void printKeyValues(bool showprov = true, bool useLogger = false) const = 0;
+  virtual void printKeyValues(bool showprov = true, bool useLogger = false, bool withPadding = false, bool showHash = false) const = 0;
 
   // get a single size_t hash_value of this parameter (can be used as a checksum to see
   // if object changed or different)

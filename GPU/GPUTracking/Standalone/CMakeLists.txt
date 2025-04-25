@@ -121,11 +121,25 @@ else()
 endif()
 
 # Detect GPU Backends
-find_package(O2GPU)
+find_package(O2GPU REQUIRED)
+
+if(GPUCA_CONFIG_ONNX)
+  find_package(onnxruntime REQUIRED)
+  if(HIP_ENABLED AND NOT DEFINED ORT_ROCM_BUILD)
+    set(ORT_ROCM_BUILD ON)
+  elseif(CUDA_ENABLED AND NOT DEFINED ORT_CUDA_BUILD)
+    set(ORT_CUDA_BUILD ON)
+  endif()
+else()
+  set(onnxruntime_FOUND OFF)
+endif()
 
 # Create main targets
 add_subdirectory(../../ GPU)
-add_library(standalone_support SHARED ${O2_DIR}/Common/Field/src/MagFieldFast.cxx
+add_library(standalone_support SHARED
+            ${O2_DIR}/Common/Field/src/MagFieldFast.cxx
+            ${O2_DIR}/Common/ML/src/OrtInterface.cxx
+            ${O2_DIR}/Common/Utils/src/StringUtils.cxx
             ${O2_DIR}/DataFormats/Detectors/TPC/src/CompressedClusters.cxx
             ${O2_DIR}/DataFormats/Reconstruction/src/TrackParametrization.cxx
             ${O2_DIR}/DataFormats/Reconstruction/src/TrackParametrizationWithError.cxx
@@ -150,6 +164,7 @@ target_include_directories(standalone_support PUBLIC
                            ${O2_DIR}/Common/Constants/include
                            ${O2_DIR}/Common/MathUtils/include
                            ${O2_DIR}/Common/Utils/include
+                           ${O2_DIR}/Common/ML/include
                            ${O2_DIR}/DataFormats/common/include
                            ${O2_DIR}/DataFormats/Detectors/Common/include
                            ${O2_DIR}/DataFormats/Detectors/ITSMFT/common/include
@@ -208,6 +223,10 @@ if(GPUCA_CONFIG_ROOT)
                         ROOT::Hist
                         ROOT::Gui
                         ROOT::Tree)
+endif()
+
+if(GPUCA_CONFIG_ONNX)
+  target_link_libraries(standalone_support PRIVATE onnxruntime::onnxruntime)
 endif()
 
 if (GPUCA_BUILD_DEBUG_SANITIZE AND CMAKE_CXX_COMPILER MATCHES "clang\\+\\+")

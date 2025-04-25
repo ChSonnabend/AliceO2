@@ -26,6 +26,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/functional/hash.hpp>
 #include <functional>
+#include <format>
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
@@ -35,16 +36,25 @@ using namespace o2::conf;
 
 // ----------------------------------------------------------------------
 
-std::string ParamDataMember::toString(std::string const& prefix, bool showProv) const
+std::string ParamDataMember::toString(std::string const& prefix, bool showProv, size_t padding) const
 {
-  std::string nil = "<null>";
-
+  const std::string label = prefix + "." + name + " : " + value;
   std::ostringstream out;
-  out << prefix << "." << name << " : " << value;
+  out << label;
 
   if (showProv) {
-    std::string prov = (provenance.compare("") == 0 ? nil : provenance);
-    out << "\t\t[ " + prov + " ]";
+    std::string prov = (provenance.compare("") == 0 ? "<null>" : provenance);
+    if (padding) {
+      size_t len = label.size() - prefix.size() - 5; // 4 four the extra chars + 1 for the maxpad
+      if (len < padding) {
+        out << std::string(padding - len, ' ');
+      } else {
+        out << ' ';
+      }
+      out << "[ " + prov + " ]";
+    } else {
+      out << "\t\t[ " + prov + " ]";
+    }
   }
   return out.str();
 }
@@ -308,23 +318,40 @@ void _ParamHelper::fillKeyValuesImpl(std::string const& mainkey, TClass* cl, voi
 
 // ----------------------------------------------------------------------
 
-void _ParamHelper::printMembersImpl(std::string const& mainkey, std::vector<ParamDataMember> const* members, bool showProv, bool useLogger)
+void _ParamHelper::printMembersImpl(std::string const& mainkey, std::vector<ParamDataMember> const* members, bool showProv, bool useLogger, bool withPadding, bool showHash)
 {
 
-  _ParamHelper::outputMembersImpl(std::cout, mainkey, members, showProv, useLogger);
+  _ParamHelper::outputMembersImpl(std::cout, mainkey, members, showProv, useLogger, withPadding, showHash);
 }
 
-void _ParamHelper::outputMembersImpl(std::ostream& out, std::string const& mainkey, std::vector<ParamDataMember> const* members, bool showProv, bool useLogger)
+void _ParamHelper::outputMembersImpl(std::ostream& out, std::string const& mainkey, std::vector<ParamDataMember> const* members, bool showProv, bool useLogger, bool withPadding, bool showHash)
 {
   if (members == nullptr) {
     return;
   }
 
+  size_t maxpad{0};
+  if (withPadding) {
+    for (auto& member : *members) {
+      maxpad = std::max(maxpad, member.name.size() + member.value.size());
+    }
+  }
+
+  if (showHash) {
+    std::string shash = std::format("{:07x}", getHashImpl(mainkey, members));
+    shash = shash.substr(0, 7);
+    if (useLogger) {
+      LOG(info) << mainkey << " [Hash#" << shash << "]";
+    } else {
+      out << mainkey << " [Hash#" << shash << "]\n";
+    }
+  }
+
   for (auto& member : *members) {
     if (useLogger) {
-      LOG(info) << member.toString(mainkey, showProv);
+      LOG(info) << member.toString(mainkey, showProv, maxpad);
     } else {
-      out << member.toString(mainkey, showProv) << "\n";
+      out << member.toString(mainkey, showProv, maxpad) << "\n";
     }
   }
 }

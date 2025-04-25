@@ -69,7 +69,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::run
   uint glo_idx = get_global_id(0);
   auto& clusterer = processors.tpcClusterer[sector];
   auto& clustererNN = processors.tpcNNClusterer[sector];
-  if (clustererNN.outputDataClass[glo_idx] == 0) { // default clusterizer should not be called in batched mode due to mess-up with thread indices
+  if (clustererNN.mOutputDataClass[glo_idx] == 0) { // default clusterizer should not be called in batched mode due to mess-up with thread indices
     return;
   }
   CfArray2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
@@ -85,56 +85,56 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
   uint glo_idx = get_global_id(0);
   auto& clusterer = processors.tpcClusterer[sector];
   auto& clustererNN = processors.tpcNNClusterer[sector];
-  uint write_idx = glo_idx * clustererNN.nnClusterizerElementSize; // Potential optimization: Either choose nnClusterizerBatchedMode as a power of 2 or calculate from threadId and blockId
+  uint write_idx = glo_idx * clustererNN.mNnClusterizerElementSize; // Potential optimization: Either choose mNnClusterizerBatchedMode as a power of 2 or calculate from threadId and blockId
 
   CfArray2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   CfArray2D<uint8_t> isPeakMap(clusterer.mPpeakMap);
   CfChargePos peak = clusterer.mPfilteredPeakPositions[glo_idx + batchStart];
   int row = static_cast<int>(peak.row()), pad = static_cast<int>(peak.pad()), time = static_cast<int>(peak.time()); // Explicit casting to avoid conversion errors
   float central_charge = static_cast<float>(chargeMap[peak].unpack());
-  int row_offset = GPUTPCNNClusterizerKernels::rowOffset(row, clustererNN.nnClusterizerSizeInputRow);
+  int row_offset = GPUTPCNNClusterizerKernels::rowOffset(row, clustererNN.mNnClusterizerSizeInputRow);
 
 #ifndef GPUCA_GPUCODE
   GPUCA_UNROLL(U(), U());
 #endif
-  for (int r = -clustererNN.nnClusterizerSizeInputRow; r <= clustererNN.nnClusterizerSizeInputRow; r++) {
+  for (int r = -clustererNN.mNnClusterizerSizeInputRow; r <= clustererNN.mNnClusterizerSizeInputRow; r++) {
     bool is_row_boundary = ((row + r) > (o2::tpc::constants::MAXGLOBALPADROW - 1)) || ((row + r) < 0);
     int pad_offset = is_row_boundary ? 0 : GPUTPCNNClusterizerKernels::padOffset(row, row + r);
-    for (int p = -clustererNN.nnClusterizerSizeInputPad + pad_offset; p <= clustererNN.nnClusterizerSizeInputPad + pad_offset; p++) {
-      bool is_boundary = is_row_boundary || GPUTPCNNClusterizerKernels::isBoundary(row + r + row_offset, pad + p, clustererNN.nnClusterizerSizeInputRow);
-      for (int t = -clustererNN.nnClusterizerSizeInputTime; t <= clustererNN.nnClusterizerSizeInputTime; t++) {
+    for (int p = -clustererNN.mNnClusterizerSizeInputPad + pad_offset; p <= clustererNN.mNnClusterizerSizeInputPad + pad_offset; p++) {
+      bool is_boundary = is_row_boundary || GPUTPCNNClusterizerKernels::isBoundary(row + r + row_offset, pad + p, clustererNN.mNnClusterizerSizeInputRow);
+      for (int t = -clustererNN.mNnClusterizerSizeInputTime; t <= clustererNN.mNnClusterizerSizeInputTime; t++) {
         if (!is_boundary) {
           CfChargePos tmp_pos(row + r, pad + p, time + t);
-          if (r == 0 && !clustererNN.clusterFlags[2 * glo_idx] && CAMath::Abs(p) < 3 && CAMath::Abs(t) < 3 && p != 0 && t != 0) { // ordering is done for short circuit optimization
-            clustererNN.clusterFlags[2 * glo_idx] += CfUtils::isPeak(isPeakMap[tmp_pos]);
-            clustererNN.clusterFlags[2 * glo_idx + 1] = clustererNN.clusterFlags[2 * glo_idx];
+          if (r == 0 && !clustererNN.mClusterFlags[2 * glo_idx] && CAMath::Abs(p) < 3 && CAMath::Abs(t) < 3 && p != 0 && t != 0) { // ordering is done for short circuit optimization
+            clustererNN.mClusterFlags[2 * glo_idx] += CfUtils::isPeak(isPeakMap[tmp_pos]);
+            clustererNN.mClusterFlags[2 * glo_idx + 1] = clustererNN.mClusterFlags[2 * glo_idx];
           }
           if (dtype == 0) {
-            clustererNN.inputData_16[write_idx] = (OrtDataType::Float16_t)(static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge);
+            clustererNN.mInputData_16[write_idx] = (OrtDataType::Float16_t)(static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge);
           } else if (dtype == 1) {
-            clustererNN.inputData_32[write_idx] = static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge;
+            clustererNN.mInputData_32[write_idx] = static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge;
           }
         } else {
           // Filling boundary just to make sure that no values are left unintentionally
           if (dtype == 0) {
-            clustererNN.inputData_16[write_idx] = (OrtDataType::Float16_t)(static_cast<float>(clustererNN.nnClusterizerBoundaryFillValue));
+            clustererNN.mInputData_16[write_idx] = (OrtDataType::Float16_t)(static_cast<float>(clustererNN.mNnClusterizerBoundaryFillValue));
           } else {
-            clustererNN.inputData_32[write_idx] = static_cast<float>(clustererNN.nnClusterizerBoundaryFillValue);
+            clustererNN.mInputData_32[write_idx] = static_cast<float>(clustererNN.mNnClusterizerBoundaryFillValue);
           }
         }
         write_idx++;
       }
     }
   }
-  if (clustererNN.nnClusterizerAddIndexData) {
+  if (clustererNN.mNnClusterizerAddIndexData) {
     if (dtype == 0) {
-      clustererNN.inputData_16[write_idx] = (OrtDataType::Float16_t)(sector / 36.f);
-      clustererNN.inputData_16[write_idx + 1] = (OrtDataType::Float16_t)(row / 152.f);
-      clustererNN.inputData_16[write_idx + 2] = (OrtDataType::Float16_t)(static_cast<float>(pad) / GPUTPCGeometry::NPads(row));
+      clustererNN.mInputData_16[write_idx] = (OrtDataType::Float16_t)(sector / 36.f);
+      clustererNN.mInputData_16[write_idx + 1] = (OrtDataType::Float16_t)(row / 152.f);
+      clustererNN.mInputData_16[write_idx + 2] = (OrtDataType::Float16_t)(static_cast<float>(pad) / GPUTPCGeometry::NPads(row));
     } else {
-      clustererNN.inputData_32[write_idx] = sector / 36.f;
-      clustererNN.inputData_32[write_idx + 1] = row / 152.f;
-      clustererNN.inputData_32[write_idx + 2] = static_cast<float>(pad) / GPUTPCGeometry::NPads(row);
+      clustererNN.mInputData_32[write_idx] = sector / 36.f;
+      clustererNN.mInputData_32[write_idx + 1] = row / 152.f;
+      clustererNN.mInputData_32[write_idx + 2] = static_cast<float>(pad) / GPUTPCGeometry::NPads(row);
     }
   }
 }
@@ -145,62 +145,62 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
   uint glo_idx = get_global_id(0);
   auto& clusterer = processors.tpcClusterer[sector];
   auto& clustererNN = processors.tpcNNClusterer[sector];
-  uint base_idx = CAMath::Floor(glo_idx / clustererNN.nnClusterizerElementSize);
-  uint transient_index = glo_idx % clustererNN.nnClusterizerElementSize;
+  uint base_idx = CAMath::Floor(glo_idx / clustererNN.mNnClusterizerElementSize);
+  uint transient_index = glo_idx % clustererNN.mNnClusterizerElementSize;
 
   CfArray2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   CfArray2D<uint8_t> isPeakMap(clusterer.mPpeakMap);
   CfChargePos peak = clusterer.mPfilteredPeakPositions[base_idx + batchStart];
   int row = static_cast<int>(peak.row()), pad = static_cast<int>(peak.pad());
 
-  if (clustererNN.nnClusterizerAddIndexData && transient_index == (clustererNN.nnClusterizerElementSize - 1)) {
-    uint top_idx = (base_idx + 1) * clustererNN.nnClusterizerElementSize;
+  if (clustererNN.mNnClusterizerAddIndexData && (int32_t)transient_index == (clustererNN.mNnClusterizerElementSize - 1)) {
+    uint top_idx = (base_idx + 1) * clustererNN.mNnClusterizerElementSize;
     for (uint16_t i = 0; i < 8; i++) {
       Delta2 d = cfconsts::InnerNeighbors[i];
       CfChargePos tmp_pos = peak.delta(d);
-      clustererNN.clusterFlags[2 * glo_idx] += CfUtils::isPeak(isPeakMap[tmp_pos]);
-      clustererNN.clusterFlags[2 * glo_idx + 1] = clustererNN.clusterFlags[2 * glo_idx];
+      clustererNN.mClusterFlags[2 * glo_idx] += CfUtils::isPeak(isPeakMap[tmp_pos]);
+      clustererNN.mClusterFlags[2 * glo_idx + 1] = clustererNN.mClusterFlags[2 * glo_idx];
     }
     if (dtype == 0) {
-      clustererNN.inputData_16[top_idx - 3] = (OrtDataType::Float16_t)(sector / 36.f);
-      clustererNN.inputData_16[top_idx - 2] = (OrtDataType::Float16_t)(row / 152.f);
-      clustererNN.inputData_16[top_idx - 1] = (OrtDataType::Float16_t)(static_cast<float>(pad) / GPUTPCGeometry::NPads(row));
+      clustererNN.mInputData_16[top_idx - 3] = (OrtDataType::Float16_t)(sector / 36.f);
+      clustererNN.mInputData_16[top_idx - 2] = (OrtDataType::Float16_t)(row / 152.f);
+      clustererNN.mInputData_16[top_idx - 1] = (OrtDataType::Float16_t)(static_cast<float>(pad) / GPUTPCGeometry::NPads(row));
     } else {
-      clustererNN.inputData_32[top_idx - 3] = sector / 36.f;
-      clustererNN.inputData_32[top_idx - 2] = row / 152.f;
-      clustererNN.inputData_32[top_idx - 1] = static_cast<float>(pad) / GPUTPCGeometry::NPads(row);
+      clustererNN.mInputData_32[top_idx - 3] = sector / 36.f;
+      clustererNN.mInputData_32[top_idx - 2] = row / 152.f;
+      clustererNN.mInputData_32[top_idx - 1] = static_cast<float>(pad) / GPUTPCGeometry::NPads(row);
     }
-  } else if (transient_index < (clustererNN.nnClusterizerElementSize - 3)) {
+  } else if ((int32_t)transient_index < (clustererNN.mNnClusterizerElementSize - 3)) {
     int time = static_cast<int>(peak.time());
-    int r = CAMath::Floor(transient_index / ((2 * clustererNN.nnClusterizerSizeInputPad + 1) * (2 * clustererNN.nnClusterizerSizeInputTime + 1))) - clustererNN.nnClusterizerSizeInputRow;
+    int r = CAMath::Floor(transient_index / ((2 * clustererNN.mNnClusterizerSizeInputPad + 1) * (2 * clustererNN.mNnClusterizerSizeInputTime + 1))) - clustererNN.mNnClusterizerSizeInputRow;
     bool is_row_boundary = ((row + r) > (o2::tpc::constants::MAXGLOBALPADROW - 1)) || ((row + r) < 0);
     if (is_row_boundary) {
       if (dtype == 0) {
-        clustererNN.inputData_16[base_idx * clustererNN.nnClusterizerElementSize + transient_index] = (OrtDataType::Float16_t)(static_cast<float>(clustererNN.nnClusterizerBoundaryFillValue));
+        clustererNN.mInputData_16[base_idx * clustererNN.mNnClusterizerElementSize + transient_index] = (OrtDataType::Float16_t)(static_cast<float>(clustererNN.mNnClusterizerBoundaryFillValue));
       } else {
-        clustererNN.inputData_32[base_idx * clustererNN.nnClusterizerElementSize + transient_index] = static_cast<float>(clustererNN.nnClusterizerBoundaryFillValue);
+        clustererNN.mInputData_32[base_idx * clustererNN.mNnClusterizerElementSize + transient_index] = static_cast<float>(clustererNN.mNnClusterizerBoundaryFillValue);
       }
     } else {
-      int row_offset = GPUTPCNNClusterizerKernels::rowOffset(row, clustererNN.nnClusterizerSizeInputRow);
+      int row_offset = GPUTPCNNClusterizerKernels::rowOffset(row, clustererNN.mNnClusterizerSizeInputRow);
       int pad_offset = GPUTPCNNClusterizerKernels::padOffset(row, row + r);
-      int rest_1 = transient_index % ((2 * clustererNN.nnClusterizerSizeInputPad + 1) * (2 * clustererNN.nnClusterizerSizeInputTime + 1));
-      int p = CAMath::Floor(rest_1 / (2 * clustererNN.nnClusterizerSizeInputTime + 1)) - clustererNN.nnClusterizerSizeInputPad + pad_offset;
-      bool is_boundary = GPUTPCNNClusterizerKernels::isBoundary(row + r + row_offset, pad + p, clustererNN.nnClusterizerSizeInputRow);
+      int rest_1 = transient_index % ((2 * clustererNN.mNnClusterizerSizeInputPad + 1) * (2 * clustererNN.mNnClusterizerSizeInputTime + 1));
+      int p = CAMath::Floor(rest_1 / (2 * clustererNN.mNnClusterizerSizeInputTime + 1)) - clustererNN.mNnClusterizerSizeInputPad + pad_offset;
+      bool is_boundary = GPUTPCNNClusterizerKernels::isBoundary(row + r + row_offset, pad + p, clustererNN.mNnClusterizerSizeInputRow);
 
       if (!is_boundary) {
         float central_charge = static_cast<float>(chargeMap[peak].unpack());
-        int t = (rest_1 % (2 * clustererNN.nnClusterizerSizeInputTime + 1)) - clustererNN.nnClusterizerSizeInputTime;
+        int t = (rest_1 % (2 * clustererNN.mNnClusterizerSizeInputTime + 1)) - clustererNN.mNnClusterizerSizeInputTime;
         CfChargePos tmp_pos(row + r, pad + p, time + t);
         if (dtype == 0) {
-          clustererNN.inputData_16[base_idx * clustererNN.nnClusterizerElementSize + transient_index] = (OrtDataType::Float16_t)(static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge);
+          clustererNN.mInputData_16[base_idx * clustererNN.mNnClusterizerElementSize + transient_index] = (OrtDataType::Float16_t)(static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge);
         } else if (dtype == 1) {
-          clustererNN.inputData_32[base_idx * clustererNN.nnClusterizerElementSize + transient_index] = static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge;
+          clustererNN.mInputData_32[base_idx * clustererNN.mNnClusterizerElementSize + transient_index] = static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge;
         }
       } else {
         if (dtype == 0) {
-          clustererNN.inputData_16[base_idx * clustererNN.nnClusterizerElementSize + transient_index] = (OrtDataType::Float16_t)(static_cast<float>(clustererNN.nnClusterizerBoundaryFillValue));
+          clustererNN.mInputData_16[base_idx * clustererNN.mNnClusterizerElementSize + transient_index] = (OrtDataType::Float16_t)(static_cast<float>(clustererNN.mNnClusterizerBoundaryFillValue));
         } else {
-          clustererNN.inputData_32[base_idx * clustererNN.nnClusterizerElementSize + transient_index] = static_cast<float>(clustererNN.nnClusterizerBoundaryFillValue);
+          clustererNN.mInputData_32[base_idx * clustererNN.mNnClusterizerElementSize + transient_index] = static_cast<float>(clustererNN.mNnClusterizerBoundaryFillValue);
         }
       }
     }
@@ -212,9 +212,9 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::det
 {
   uint glo_idx = get_global_id(0);
   if (dtype == 0) {
-    processors.tpcNNClusterer[sector].outputDataClass[glo_idx + batchStart] = (int)((processors.tpcNNClusterer[sector].modelProbabilities_16[glo_idx]).ToFloat() > processors.tpcNNClusterer[sector].nnClassThreshold);
+    processors.tpcNNClusterer[sector].mOutputDataClass[glo_idx + batchStart] = (int)((processors.tpcNNClusterer[sector].mModelProbabilities_16[glo_idx]).ToFloat() > processors.tpcNNClusterer[sector].mNnClassThreshold);
   } else if (dtype == 1) {
-    processors.tpcNNClusterer[sector].outputDataClass[glo_idx + batchStart] = (int)(processors.tpcNNClusterer[sector].modelProbabilities_32[glo_idx] > processors.tpcNNClusterer[sector].nnClassThreshold);
+    processors.tpcNNClusterer[sector].mOutputDataClass[glo_idx + batchStart] = (int)(processors.tpcNNClusterer[sector].mModelProbabilities_32[glo_idx] > processors.tpcNNClusterer[sector].mNnClassThreshold);
   }
 }
 
@@ -223,29 +223,29 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::det
 {
   auto& clustererNN = processors.tpcNNClusterer[sector];
   uint glo_idx = get_global_id(0);
-  uint elem_iterator = glo_idx * clustererNN.nnClusterizerModelClassNumOutputNodes;
+  uint elem_iterator = glo_idx * clustererNN.mNnClusterizerModelClassNumOutputNodes;
   float current_max_prob = 0.f; // If the neural network doesn't contain the softmax as a last layer, the outputs can range in [-infty, infty]
   uint class_label = 0;
-  for (int pIdx = elem_iterator; pIdx < elem_iterator + clustererNN.nnClusterizerModelClassNumOutputNodes; pIdx++) {
+  for (uint pIdx = elem_iterator; pIdx < elem_iterator + clustererNN.mNnClusterizerModelClassNumOutputNodes; pIdx++) {
     if (pIdx == elem_iterator) {
       if (dtype == 0) {
-        current_max_prob = static_cast<float>(clustererNN.modelProbabilities_16[pIdx]);
+        current_max_prob = static_cast<float>(clustererNN.mModelProbabilities_16[pIdx]);
       } else if (dtype == 1) {
-        current_max_prob = clustererNN.modelProbabilities_32[pIdx];
+        current_max_prob = clustererNN.mModelProbabilities_32[pIdx];
       }
     } else {
       if (dtype == 0) {
-        current_max_prob = CAMath::Max(current_max_prob, clustererNN.modelProbabilities_16[pIdx].ToFloat());
+        current_max_prob = CAMath::Max(current_max_prob, clustererNN.mModelProbabilities_16[pIdx].ToFloat());
       } else if (dtype == 1) {
-        current_max_prob = CAMath::Max(current_max_prob, clustererNN.modelProbabilities_32[pIdx]);
+        current_max_prob = CAMath::Max(current_max_prob, clustererNN.mModelProbabilities_32[pIdx]);
       }
     }
   }
-  // uint class_label = std::distance(elem_iterator, std::max_element(elem_iterator, elem_iterator + clustererNN.nnClusterizerModelClassNumOutputNodes)); // Multiple outputs of the class network are the probabilities for each class. The highest one "wins"
-  clustererNN.outputDataClass[glo_idx + batchStart] = class_label;
+  // uint class_label = std::distance(elem_iterator, std::max_element(elem_iterator, elem_iterator + clustererNN.mNnClusterizerModelClassNumOutputNodes)); // Multiple outputs of the class network are the probabilities for each class. The highest one "wins"
+  clustererNN.mOutputDataClass[glo_idx + batchStart] = class_label;
   if (class_label > 1) {
-    clustererNN.clusterFlags[2 * glo_idx] = 1;
-    clustererNN.clusterFlags[2 * glo_idx + 1] = 1;
+    clustererNN.mClusterFlags[2 * glo_idx] = 1;
+    clustererNN.mClusterFlags[2 * glo_idx + 1] = 1;
   }
 }
 
@@ -264,11 +264,11 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
   MCLabelAccumulator* labelAcc = CPU_PTR(&labelAccElem);
   tpc::ClusterNative* clusterOut = (withMC) ? nullptr : clusterer.mPclusterByRow;
   uint full_glo_idx = glo_idx + batchStart;
-  int model_output_index = glo_idx * clustererNN.nnClusterizerModelReg1NumOutputNodes;
+  int model_output_index = glo_idx * clustererNN.mNnClusterizerModelReg1NumOutputNodes;
 
-  // LOG(info) << glo_idx << " -- " << model_output_index << " / " << clustererNN.outputDataReg1.size() << " / " << clustererNN.nnClusterizerModelReg1NumOutputNodes << " -- " << clusterer.peakPositions.size() << " -- " << clusterer.centralCharges.size();
+  // LOG(info) << glo_idx << " -- " << model_output_index << " / " << clustererNN.outputDataReg1.size() << " / " << clustererNN.mNnClusterizerModelReg1NumOutputNodes << " -- " << clusterer.peakPositions.size() << " -- " << clusterer.centralCharges.size();
 
-  if (clustererNN.outputDataClass[full_glo_idx] == 1 || (clustererNN.nnClusterizerModelReg2NumOutputNodes == -1 && clustererNN.outputDataClass[full_glo_idx] >= 1)) {
+  if (clustererNN.mOutputDataClass[full_glo_idx] == 1 || (clustererNN.mNnClusterizerModelReg2NumOutputNodes == -1 && clustererNN.mOutputDataClass[full_glo_idx] >= 1)) {
 
     ClusterAccumulator pc;
 
@@ -294,21 +294,21 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
     }
 
     if (dtype == 0) {
-      pc.setFull(central_charge * clustererNN.outputDataReg1_16[model_output_index + 4].ToFloat(),
-                 static_cast<float>(peak.pad()) + clustererNN.outputDataReg1_16[model_output_index].ToFloat(),
-                 clustererNN.outputDataReg1_16[model_output_index + 2].ToFloat(),
-                 (clusterer.mPmemory->fragment).start + static_cast<float>(peak.time()) + clustererNN.outputDataReg1_16[model_output_index + 1].ToFloat(),
-                 clustererNN.outputDataReg1_16[model_output_index + 3].ToFloat(),
-                 clustererNN.clusterFlags[2 * glo_idx],
-                 clustererNN.clusterFlags[2 * glo_idx + 1]);
+      pc.setFull(central_charge * clustererNN.mOutputDataReg1_16[model_output_index + 4].ToFloat(),
+                 static_cast<float>(peak.pad()) + clustererNN.mOutputDataReg1_16[model_output_index].ToFloat(),
+                 clustererNN.mOutputDataReg1_16[model_output_index + 2].ToFloat(),
+                 (clusterer.mPmemory->fragment).start + static_cast<float>(peak.time()) + clustererNN.mOutputDataReg1_16[model_output_index + 1].ToFloat(),
+                 clustererNN.mOutputDataReg1_16[model_output_index + 3].ToFloat(),
+                 clustererNN.mClusterFlags[2 * glo_idx],
+                 clustererNN.mClusterFlags[2 * glo_idx + 1]);
     } else if (dtype == 1) {
-      pc.setFull(central_charge * clustererNN.outputDataReg1_32[model_output_index + 4],
-                 static_cast<float>(peak.pad()) + clustererNN.outputDataReg1_32[model_output_index],
-                 clustererNN.outputDataReg1_32[model_output_index + 2],
-                 (clusterer.mPmemory->fragment).start + static_cast<float>(peak.time()) + clustererNN.outputDataReg1_32[model_output_index + 1],
-                 clustererNN.outputDataReg1_32[model_output_index + 3],
-                 clustererNN.clusterFlags[2 * glo_idx],
-                 clustererNN.clusterFlags[2 * glo_idx + 1]);
+      pc.setFull(central_charge * clustererNN.mOutputDataReg1_32[model_output_index + 4],
+                 static_cast<float>(peak.pad()) + clustererNN.mOutputDataReg1_32[model_output_index],
+                 clustererNN.mOutputDataReg1_32[model_output_index + 2],
+                 (clusterer.mPmemory->fragment).start + static_cast<float>(peak.time()) + clustererNN.mOutputDataReg1_32[model_output_index + 1],
+                 clustererNN.mOutputDataReg1_32[model_output_index + 3],
+                 clustererNN.mClusterFlags[2 * glo_idx],
+                 clustererNN.mClusterFlags[2 * glo_idx + 1]);
     }
 
     tpc::ClusterNative myCluster;
@@ -359,9 +359,9 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
   MCLabelAccumulator* labelAcc = CPU_PTR(&labelAccElem);
   tpc::ClusterNative* clusterOut = (withMC) ? nullptr : clusterer.mPclusterByRow;
   uint full_glo_idx = glo_idx + batchStart;
-  int model_output_index = glo_idx * clustererNN.nnClusterizerModelReg2NumOutputNodes;
+  int model_output_index = glo_idx * clustererNN.mNnClusterizerModelReg2NumOutputNodes;
 
-  if (clustererNN.outputDataClass[full_glo_idx] > 0) {
+  if (clustererNN.mOutputDataClass[full_glo_idx] > 0) {
 
     ClusterAccumulator pc;
 
@@ -387,21 +387,21 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
 
     // Cluster 1
     if (dtype == 0) {
-      pc.setFull(central_charge * clustererNN.outputDataReg2_16[model_output_index + 8].ToFloat(),
-                 static_cast<float>(peak.pad()) + clustererNN.outputDataReg2_16[model_output_index].ToFloat(),
-                 clustererNN.outputDataReg2_16[model_output_index + 4].ToFloat(),
-                 (clusterer.mPmemory->fragment).start + static_cast<float>(peak.time()) + clustererNN.outputDataReg2_16[model_output_index + 2].ToFloat(),
-                 clustererNN.outputDataReg2_16[model_output_index + 6].ToFloat(),
-                 clustererNN.clusterFlags[2 * glo_idx],
-                 clustererNN.clusterFlags[2 * glo_idx + 1]);
+      pc.setFull(central_charge * clustererNN.mOutputDataReg2_16[model_output_index + 8].ToFloat(),
+                 static_cast<float>(peak.pad()) + clustererNN.mOutputDataReg2_16[model_output_index].ToFloat(),
+                 clustererNN.mOutputDataReg2_16[model_output_index + 4].ToFloat(),
+                 (clusterer.mPmemory->fragment).start + static_cast<float>(peak.time()) + clustererNN.mOutputDataReg2_16[model_output_index + 2].ToFloat(),
+                 clustererNN.mOutputDataReg2_16[model_output_index + 6].ToFloat(),
+                 clustererNN.mClusterFlags[2 * glo_idx],
+                 clustererNN.mClusterFlags[2 * glo_idx + 1]);
     } else if (dtype == 1) {
-      pc.setFull(central_charge * clustererNN.outputDataReg2_32[model_output_index + 8],
-                 static_cast<float>(peak.pad()) + clustererNN.outputDataReg2_32[model_output_index],
-                 clustererNN.outputDataReg2_32[model_output_index + 4],
-                 (clusterer.mPmemory->fragment).start + static_cast<float>(peak.time()) + clustererNN.outputDataReg2_32[model_output_index + 2],
-                 clustererNN.outputDataReg2_32[model_output_index + 6],
-                 clustererNN.clusterFlags[2 * glo_idx],
-                 clustererNN.clusterFlags[2 * glo_idx + 1]);
+      pc.setFull(central_charge * clustererNN.mOutputDataReg2_32[model_output_index + 8],
+                 static_cast<float>(peak.pad()) + clustererNN.mOutputDataReg2_32[model_output_index],
+                 clustererNN.mOutputDataReg2_32[model_output_index + 4],
+                 (clusterer.mPmemory->fragment).start + static_cast<float>(peak.time()) + clustererNN.mOutputDataReg2_32[model_output_index + 2],
+                 clustererNN.mOutputDataReg2_32[model_output_index + 6],
+                 clustererNN.mClusterFlags[2 * glo_idx],
+                 clustererNN.mClusterFlags[2 * glo_idx + 1]);
     }
 
     tpc::ClusterNative myCluster;
@@ -432,21 +432,21 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
 
     // Cluster 2
     if (dtype == 0) {
-      pc.setFull(central_charge * clustererNN.outputDataReg2_16[model_output_index + 9].ToFloat(),
-                 static_cast<float>(peak.pad()) + clustererNN.outputDataReg2_16[model_output_index + 1].ToFloat(),
-                 clustererNN.outputDataReg2_16[model_output_index + 5].ToFloat(),
-                 (clusterer.mPmemory->fragment).start + static_cast<float>(peak.time()) + clustererNN.outputDataReg2_16[model_output_index + 3].ToFloat(),
-                 clustererNN.outputDataReg2_16[model_output_index + 7].ToFloat(),
-                 clustererNN.clusterFlags[2 * glo_idx],
-                 clustererNN.clusterFlags[2 * glo_idx + 1]);
+      pc.setFull(central_charge * clustererNN.mOutputDataReg2_16[model_output_index + 9].ToFloat(),
+                 static_cast<float>(peak.pad()) + clustererNN.mOutputDataReg2_16[model_output_index + 1].ToFloat(),
+                 clustererNN.mOutputDataReg2_16[model_output_index + 5].ToFloat(),
+                 (clusterer.mPmemory->fragment).start + static_cast<float>(peak.time()) + clustererNN.mOutputDataReg2_16[model_output_index + 3].ToFloat(),
+                 clustererNN.mOutputDataReg2_16[model_output_index + 7].ToFloat(),
+                 clustererNN.mClusterFlags[2 * glo_idx],
+                 clustererNN.mClusterFlags[2 * glo_idx + 1]);
     } else if (dtype == 1) {
-      pc.setFull(central_charge * clustererNN.outputDataReg2_32[model_output_index + 9],
-                 static_cast<float>(peak.pad()) + clustererNN.outputDataReg2_32[model_output_index + 1],
-                 clustererNN.outputDataReg2_32[model_output_index + 5],
-                 (clusterer.mPmemory->fragment).start + static_cast<float>(peak.time()) + clustererNN.outputDataReg2_32[model_output_index + 3],
-                 clustererNN.outputDataReg2_32[model_output_index + 7],
-                 clustererNN.clusterFlags[2 * glo_idx],
-                 clustererNN.clusterFlags[2 * glo_idx + 1]);
+      pc.setFull(central_charge * clustererNN.mOutputDataReg2_32[model_output_index + 9],
+                 static_cast<float>(peak.pad()) + clustererNN.mOutputDataReg2_32[model_output_index + 1],
+                 clustererNN.mOutputDataReg2_32[model_output_index + 5],
+                 (clusterer.mPmemory->fragment).start + static_cast<float>(peak.time()) + clustererNN.mOutputDataReg2_32[model_output_index + 3],
+                 clustererNN.mOutputDataReg2_32[model_output_index + 7],
+                 clustererNN.mClusterFlags[2 * glo_idx],
+                 clustererNN.mClusterFlags[2 * glo_idx + 1]);
     }
 
     rejectCluster = !pc.toNative(peak, central_charge, myCluster, clusterer.Param(), chargeMap);

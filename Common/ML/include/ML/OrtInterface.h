@@ -22,9 +22,10 @@
 #include <memory>
 #include <map>
 #include <thread>
+#include <unordered_map>
 
 // O2 includes
-#include "Framework/Logger.h"
+#include "GPUCommonLogger.h"
 
 namespace Ort
 {
@@ -69,23 +70,23 @@ class OrtModel
   Ort::SessionOptions* getSessionOptions();
   Ort::MemoryInfo* getMemoryInfo();
   Ort::Env* getEnv();
-  int32_t getIntraOpNumThreads() const { return intraOpNumThreads; }
-  int32_t getInterOpNumThreads() const { return interOpNumThreads; }
+  int32_t getIntraOpNumThreads() const { return mIntraOpNumThreads; }
+  int32_t getInterOpNumThreads() const { return mInterOpNumThreads; }
 
   // Setters
-  void setDeviceId(int32_t id) { deviceId = id; }
+  void setDeviceId(int32_t id) { mDeviceId = id; }
   void setIO();
-  void setActiveThreads(int threads) { intraOpNumThreads = threads; }
+  void setActiveThreads(int threads) { mIntraOpNumThreads = threads; }
   void setIntraOpNumThreads(int threads)
   {
-    if (deviceType == "CPU") {
-      intraOpNumThreads = threads;
+    if (mDeviceType == "CPU") {
+      mIntraOpNumThreads = threads;
     }
   }
   void setInterOpNumThreads(int threads)
   {
-    if (deviceType == "CPU") {
-      interOpNumThreads = threads;
+    if (mDeviceType == "CPU") {
+      mInterOpNumThreads = threads;
     }
   }
   void setEnv(Ort::Env*);
@@ -112,19 +113,19 @@ class OrtModel
  private:
   // ORT variables -> need to be hidden as pImpl
   struct OrtVariables;
-  OrtVariables* pImplOrt;
+  OrtVariables* mPImplOrt;
 
   // Input & Output specifications of the loaded network
-  std::vector<const char*> inputNamesChar, outputNamesChar;
+  std::vector<const char*> mInputNamesChar, mOutputNamesChar;
   std::vector<std::string> mInputNames, mOutputNames;
-  std::vector<std::vector<int64_t>> mInputShapes, mOutputShapes, inputShapesCopy, outputShapesCopy; // Input shapes
-  std::vector<int64_t> inputSizePerNode, outputSizePerNode;                                         // Output shapes
-  int32_t mInputsTotal = 0, mOutputsTotal = 0;                                                      // Total number of inputs and outputs
+  std::vector<std::vector<int64_t>> mInputShapes, mOutputShapes, mInputShapesCopy, mOutputShapesCopy; // Input shapes
+  std::vector<int64_t> mInputSizePerNode, mOutputSizePerNode;                                         // Output shapes
+  int32_t mInputsTotal = 0, mOutputsTotal = 0;                                                        // Total number of inputs and outputs
 
   // Environment settings
   bool mInitialized = false;
-  std::string modelPath, envName = "", deviceType = "CPU", thread_affinity = ""; // device options should be cpu, rocm, migraphx, cuda
-  int32_t intraOpNumThreads = 1, interOpNumThreads = 1, deviceId = -1, enableProfiling = 0, loggingLevel = 0, allocateDeviceMemory = 0, enableOptimizations = 0;
+  std::string mModelPath, mEnvName = "", mDeviceType = "CPU", mThreadAffinity = ""; // device options should be cpu, rocm, migraphx, cuda
+  int32_t mIntraOpNumThreads = 1, mInterOpNumThreads = 1, mDeviceId = -1, mEnableProfiling = 0, mLoggingLevel = 0, mAllocateDeviceMemory = 0, mEnableOptimizations = 0;
 
   std::string printShape(const std::vector<int64_t>&);
   std::string printShape(const std::vector<std::vector<int64_t>>&, std::vector<std::string>&);

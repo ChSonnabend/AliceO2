@@ -34,7 +34,7 @@ struct ParamDataMember {
   std::string value;
   std::string provenance;
 
-  std::string toString(std::string const& prefix, bool showProv) const;
+  std::string toString(std::string const& prefix, bool showProv, size_t padding = 0) const;
 };
 
 // ----------------------------------------------------------------
@@ -58,8 +58,8 @@ class _ParamHelper
   static void syncCCDBandRegistry(std::string const& mainkey, TClass* cl, void* to, void* from,
                                   std::map<std::string, ConfigurableParam::EParamProvenance>* provmap, size_t offset);
 
-  static void outputMembersImpl(std::ostream& out, std::string const& mainkey, std::vector<ParamDataMember> const* members, bool showProv, bool useLogger);
-  static void printMembersImpl(std::string const& mainkey, std::vector<ParamDataMember> const* members, bool showProv, bool useLogger);
+  static void outputMembersImpl(std::ostream& out, std::string const& mainkey, std::vector<ParamDataMember> const* members, bool showProv, bool useLogger, bool withPadding = false, bool showHash = false);
+  static void printMembersImpl(std::string const& mainkey, std::vector<ParamDataMember> const* members, bool showProv, bool useLogger, bool withPadding, bool showHash);
 
   static size_t getHashImpl(std::string const& mainkey, std::vector<ParamDataMember> const* members);
 
@@ -100,13 +100,13 @@ class ConfigurableParamHelper : virtual public ConfigurableParam
   // ----------------------------------------------------------------
 
   // one of the key methods, using introspection to print itself
-  void printKeyValues(bool showProv = true, bool useLogger = false) const final
+  void printKeyValues(bool showProv = true, bool useLogger = false, bool withPadding = true, bool showHash = true) const final
   {
     if (!isInitialized()) {
       initialize();
     }
     auto members = getDataMembers();
-    _ParamHelper::printMembersImpl(getName(), members, showProv, useLogger);
+    _ParamHelper::printMembersImpl(getName(), members, showProv, useLogger, withPadding, showHash);
   }
 
   //
@@ -237,13 +237,13 @@ class ConfigurableParamPromoter : public Base, virtual public ConfigurableParam
   // ----------------------------------------------------------------
 
   // one of the key methods, using introspection to print itself
-  void printKeyValues(bool showProv = true, bool useLogger = false) const final
+  void printKeyValues(bool showProv = true, bool useLogger = false, bool withPadding = true, bool showHash = true) const final
   {
     if (!isInitialized()) {
       initialize();
     }
     auto members = getDataMembers();
-    _ParamHelper::printMembersImpl(getName(), members, showProv, useLogger);
+    _ParamHelper::printMembersImpl(getName(), members, showProv, useLogger, withPadding, showHash);
   }
 
   //

@@ -275,7 +275,7 @@ AddOption(removeAllSplitFlags, int, 0, "", 0, "Remove all the isSplit for the Pa
 AddOption(setDeconvolutionFlags, int, 0, "", 0, "Set the flags of the charge map identical to the deconvolution kernel flags")
 AddOption(nnEvalMode, std::string, "c1:r1", "", 0, "Concatention of modes, e.g. c1:r1 (classification class 1, regression class 1)")
 // CCDB
-AddOption(nnLoadFromCCDB, int, 1, "", 0, "If 1 networks are fetched from ccdb, else locally")
+AddOption(nnLoadFromCCDB, int, 0, "", 0, "If 1 networks are fetched from ccdb, else locally")
 AddOption(nnLocalFolder, std::string, ".", "", 0, "Local folder in which the networks will be fetched")
 AddOption(nnCCDBURL, std::string, "http://ccdb-test.cern.ch:8080", "", 0, "The CCDB URL from where the network files are fetched")
 AddOption(nnCCDBPath, std::string, "Users/c/csonnabe/TPC/Clusterization", "", 0, "Folder path containing the networks")

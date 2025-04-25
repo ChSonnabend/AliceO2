@@ -114,19 +114,12 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
     ${MODULE}
     SOURCES ${SRCS}
     PUBLIC_LINK_LIBRARIES O2::GPUTracking O2::ITStrackingCUDA
-    PRIVATE_LINK_LIBRARIES ONNXRuntime::ONNXRuntime
     PRIVATE_INCLUDE_DIRECTORIES
       ${CMAKE_SOURCE_DIR}/Detectors/Base/src
       ${CMAKE_SOURCE_DIR}/Detectors/TRD/base/src
       ${CMAKE_SOURCE_DIR}/DataFormats/Reconstruction/src
       ${CMAKE_CURRENT_SOURCE_DIR}
     TARGETVARNAME targetName)
-
-  target_compile_definitions(${targetName} PRIVATE
-    GPUCA_HAS_ONNX=1
-    $<$<BOOL:${ORT_CUDA_BUILD}>:ORT_CUDA_BUILD>
-    $<$<BOOL:${ORT_TENSORRT_BUILD}>:ORT_TENSORRT_BUILD>)
-
   install(FILES ${HDRS} DESTINATION include/GPU)
 endif()
 
@@ -140,6 +133,13 @@ if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
 endif()
 
 target_compile_definitions(${targetName} PRIVATE $<TARGET_PROPERTY:O2::GPUTracking,COMPILE_DEFINITIONS>)
+
+if (onnxruntime_FOUND)
+  target_compile_definitions(${targetName} PRIVATE
+                                           $<$<BOOL:${ORT_CUDA_BUILD}>:ORT_CUDA_BUILD>
+                                           $<$<BOOL:${ORT_TENSORRT_BUILD}>:ORT_TENSORRT_BUILD>)
+  target_link_libraries(${targetName} PRIVATE onnxruntime::onnxruntime)
+endif()
 
 # Setting target architecture and adding GPU libraries
 target_link_libraries(${targetName} PRIVATE cuda cudart nvrtc)

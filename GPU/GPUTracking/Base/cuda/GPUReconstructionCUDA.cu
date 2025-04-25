@@ -621,51 +621,34 @@ void GPUReconstructionCUDA::loadKernelModules(bool perKernel)
   }
 }
 
-#ifndef __HIPCC__ // CUDA
-void GPUReconstructionCUDA::startGPUProfiling()
-{
-  GPUChkErr(cudaProfilerStart());
-}
-
-void GPUReconstructionCUDA::endGPUProfiling()
-{
-  GPUChkErr(cudaProfilerStop());
-}
+#define ORTCHK(command)                               \
+  {                                                   \
+    OrtStatus* status = command;                      \
+    if (status != nullptr) {                          \
+      const char* msg = api->GetErrorMessage(status); \
+      GPUFatal("ONNXRuntime Error: %s", msg);         \
+    }                                                 \
+  }
 
 void GPUReconstructionCUDA::SetONNXGPUStream(Ort::SessionOptions& session_options, int32_t stream, int32_t* deviceId)
 {
-#ifdef ORT_CUDA_BUILD
-  cudaGetDevice(deviceId);
+  GPUChkErr(cudaGetDevice(deviceId));
+#if !defined(__HIPCC__) && defined(ORT_CUDA_BUILD)
+  const OrtApi* api = OrtGetApiBase()->GetApi(ORT_API_VERSION);
   OrtCUDAProviderOptionsV2* cuda_options = nullptr;
-  CreateCUDAProviderOptions(&cuda_options);
+  ORTCHK(api->CreateCUDAProviderOptions(&cuda_options));
 
   // std::vector<const char*> keys{"device_id", "gpu_mem_limit", "arena_extend_strategy", "cudnn_conv_algo_search", "do_copy_in_default_stream", "cudnn_conv_use_max_workspace", "cudnn_conv1d_pad_to_nc1d"};
   // std::vector<const char*> values{"0", "2147483648", "kSameAsRequested", "DEFAULT", "1", "1", "1"};
   // UpdateCUDAProviderOptions(cuda_options, keys.data(), values.data(), keys.size());
 
   // this implicitly sets "has_user_compute_stream"
-  cuda_options.has_user_compute_stream = 1;
-  UpdateCUDAProviderOptionsWithValue(cuda_options, "user_compute_stream", mInternals->Streams[stream]);
-  session_options.AppendExecutionProvider_CUDA_V2(cuda_options);
+  ORTCHK(api->UpdateCUDAProviderOptionsWithValue(cuda_options, "user_compute_stream", mInternals->Streams[stream]));
+  ORTCHK(api->SessionOptionsAppendExecutionProvider_CUDA_V2(session_options, cuda_options));
 
   // Finally, don't forget to release the provider options
-  ReleaseCUDAProviderOptions(cuda_options);
-#endif // ORT_CUDA_BUILD
-}
-
-#else  // HIP
-void* GPUReconstructionHIP::getGPUPointer(void* ptr)
-{
-  void* retVal = nullptr;
-  GPUChkErr(hipHostGetDevicePointer(&retVal, ptr, 0));
-  return retVal;
-}
-
-void GPUReconstructionHIP::SetONNXGPUStream(Ort::SessionOptions& session_options, int32_t stream, int32_t* deviceId)
-{
-#ifdef ORT_ROCM_BUILD
-  // Create ROCm provider options
-  cudaGetDevice(deviceId);
+  api->ReleaseCUDAProviderOptions(cuda_options);
+#elif defined(ORT_ROCM_BUILD)
   // const auto& api = Ort::GetApi();
   // api.GetCurrentGpuDeviceId(deviceId);
   OrtROCMProviderOptions rocm_options;
@@ -676,4 +659,25 @@ void GPUReconstructionHIP::SetONNXGPUStream(Ort::SessionOptions& session_options
   session_options.AppendExecutionProvider_ROCM(rocm_options);
 #endif // ORT_ROCM_BUILD
 }
+
+#ifndef __HIPCC__ // CUDA
+
+void GPUReconstructionCUDA::startGPUProfiling()
+{
+  GPUChkErr(cudaProfilerStart());
+}
+
+void GPUReconstructionCUDA::endGPUProfiling()
+{
+  GPUChkErr(cudaProfilerStop());
+}
+
+#else // HIP
+void* GPUReconstructionHIP::getGPUPointer(void* ptr)
+{
+  void* retVal = nullptr;
+  GPUChkErr(hipHostGetDevicePointer(&retVal, ptr, 0));
+  return retVal;
+}
+
 #endif // __HIPCC__

@@ -37,9 +37,7 @@ class ITSTrackingInterface
                        const bool overrBeamEst)
     : mIsMC{isMC},
       mUseTriggers{trgType},
-      mOverrideBeamEstimation{overrBeamEst}
-  {
-  }
+      mOverrideBeamEstimation{overrBeamEst} {}
 
   void setClusterDictionary(const o2::itsmft::TopologyDictionary* d) { mDict = d; }
   void setMeanVertex(const o2::dataformats::MeanVertexObject* v)
@@ -56,6 +54,7 @@ class ITSTrackingInterface
   void initialise();
   template <bool isGPU = false>
   void run(framework::ProcessingContext& pc);
+  void printSummary() const;
 
   virtual void updateTimeDependentParams(framework::ProcessingContext& pc);
   virtual void finaliseCCDB(framework::ConcreteDataMatcher& matcher, void* obj);

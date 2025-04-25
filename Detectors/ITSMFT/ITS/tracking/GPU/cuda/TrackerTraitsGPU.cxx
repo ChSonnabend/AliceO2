@@ -11,10 +11,7 @@
 ///
 
 #include <array>
-#include <sstream>
-#include <iostream>
 #include <unistd.h>
-#include <thread>
 
 #include "DataFormatsITS/TrackITS.h"
 
@@ -41,54 +38,7 @@ void TrackerTraitsGPU<nLayers>::initialiseTimeFrame(const int iteration)
 }
 
 template <int nLayers>
-void TrackerTraitsGPU<nLayers>::computeLayerTracklets(const int iteration, int, int)
-{
-}
-
-template <int nLayers>
-void TrackerTraitsGPU<nLayers>::computeLayerCells(const int iteration)
-{
-}
-
-template <int nLayers>
-void TrackerTraitsGPU<nLayers>::findCellsNeighbours(const int iteration)
-{
-}
-
-template <int nLayers>
-void TrackerTraitsGPU<nLayers>::extendTracks(const int iteration)
-{
-}
-
-template <int nLayers>
-void TrackerTraitsGPU<nLayers>::setBz(float bz)
-{
-  mBz = bz;
-  mTimeFrameGPU->setBz(bz);
-}
-
-template <int nLayers>
-int TrackerTraitsGPU<nLayers>::getTFNumberOfClusters() const
-{
-  return mTimeFrameGPU->getNumberOfClusters();
-}
-
-template <int nLayers>
-int TrackerTraitsGPU<nLayers>::getTFNumberOfTracklets() const
-{
-  return std::accumulate(mTimeFrameGPU->getNTracklets().begin(), mTimeFrameGPU->getNTracklets().end(), 0);
-}
-
-template <int nLayers>
-int TrackerTraitsGPU<nLayers>::getTFNumberOfCells() const
-{
-  return mTimeFrameGPU->getNumberOfCells();
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Hybrid tracking
-template <int nLayers>
-void TrackerTraitsGPU<nLayers>::computeTrackletsHybrid(const int iteration, int iROFslice, int iVertex)
+void TrackerTraitsGPU<nLayers>::computeLayerTracklets(const int iteration, int iROFslice, int iVertex)
 {
   auto& conf = o2::its::ITSGpuTrackingParamConfig::Instance();
   mTimeFrameGPU->createTrackletsLUTDevice(iteration);
@@ -161,7 +111,7 @@ void TrackerTraitsGPU<nLayers>::computeTrackletsHybrid(const int iteration, int 
 }
 
 template <int nLayers>
-void TrackerTraitsGPU<nLayers>::computeCellsHybrid(const int iteration)
+void TrackerTraitsGPU<nLayers>::computeLayerCells(const int iteration)
 {
   mTimeFrameGPU->createCellsLUTDevice();
   auto& conf = o2::its::ITSGpuTrackingParamConfig::Instance();
@@ -208,7 +158,7 @@ void TrackerTraitsGPU<nLayers>::computeCellsHybrid(const int iteration)
 }
 
 template <int nLayers>
-void TrackerTraitsGPU<nLayers>::findCellsNeighboursHybrid(const int iteration)
+void TrackerTraitsGPU<nLayers>::findCellsNeighbours(const int iteration)
 {
   mTimeFrameGPU->createNeighboursIndexTablesDevice();
   auto& conf = o2::its::ITSGpuTrackingParamConfig::Instance();
@@ -250,8 +200,7 @@ void TrackerTraitsGPU<nLayers>::findCellsNeighboursHybrid(const int iteration)
                                  conf.nBlocks,
                                  conf.nThreads);
 
-    filterCellNeighboursHandler(mTimeFrameGPU->getCellsNeighbours()[iLayer],
-                                mTimeFrameGPU->getDeviceNeighbourPairs(iLayer),
+    filterCellNeighboursHandler(mTimeFrameGPU->getDeviceNeighbourPairs(iLayer),
                                 mTimeFrameGPU->getDeviceNeighbours(iLayer),
                                 nNeigh);
   }
@@ -270,9 +219,6 @@ void TrackerTraitsGPU<nLayers>::findRoads(const int iteration)
       if ((mTrkParams[iteration].StartLayerMask & (1 << (startLayer + 2))) == 0) {
         continue;
       }
-      std::vector<int> lastCellId, updatedCellId;
-      std::vector<CellSeed> lastCellSeed, updatedCellSeed;
-
       processNeighboursHandler<nLayers>(startLayer,
                                         startLevel,
                                         mTimeFrameGPU->getDeviceArrayCells(),
@@ -365,6 +311,31 @@ void TrackerTraitsGPU<nLayers>::findRoads(const int iteration)
     mTimeFrameGPU->unregisterHostMemory(0);
   }
 };
+
+template <int nLayers>
+int TrackerTraitsGPU<nLayers>::getTFNumberOfClusters() const
+{
+  return mTimeFrameGPU->getNumberOfClusters();
+}
+
+template <int nLayers>
+int TrackerTraitsGPU<nLayers>::getTFNumberOfTracklets() const
+{
+  return std::accumulate(mTimeFrameGPU->getNTracklets().begin(), mTimeFrameGPU->getNTracklets().end(), 0);
+}
+
+template <int nLayers>
+int TrackerTraitsGPU<nLayers>::getTFNumberOfCells() const
+{
+  return mTimeFrameGPU->getNumberOfCells();
+}
+
+template <int nLayers>
+void TrackerTraitsGPU<nLayers>::setBz(float bz)
+{
+  mBz = bz;
+  mTimeFrameGPU->setBz(bz);
+}
 
 template class TrackerTraitsGPU<7>;
 } // namespace o2::its

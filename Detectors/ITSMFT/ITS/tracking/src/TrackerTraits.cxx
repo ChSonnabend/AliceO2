@@ -19,7 +19,9 @@
 #include <cassert>
 #include <iostream>
 
-#include <fmt/format.h>
+#ifdef OPTIMISATION_OUTPUT
+#include <format>
+#endif
 
 #include "CommonConstants/MathConstants.h"
 #include "DetectorsBase/Propagator.h"
@@ -38,7 +40,7 @@ using o2::base::PropagatorF;
 
 namespace
 {
-float Sq(float q)
+inline float Sq(float q)
 {
   return q * q;
 }
@@ -57,7 +59,7 @@ void TrackerTraits::computeLayerTracklets(const int iteration, int iROFslice, in
 
 #ifdef OPTIMISATION_OUTPUT
   static int iter{0};
-  std::ofstream off(fmt::format("tracklets{}.txt", iter++));
+  std::ofstream off(std::format("tracklets{}.txt", iter++));
 #endif
 
   for (int iLayer = 0; iLayer < mTrkParams[iteration].TrackletsPerRoad(); ++iLayer) {
@@ -173,7 +175,7 @@ void TrackerTraits::computeLayerTracklets(const int iteration, int iROFslice, in
                     break;
                   }
                 }
-                off << fmt::format("{}\t{:d}\t{}\t{}\t{}\t{}", iLayer, label.isValid(), (tanLambda * (nextCluster.radius - currentCluster.radius) + currentCluster.zCoordinate - nextCluster.zCoordinate) / sigmaZ, tanLambda, resolution, sigmaZ) << std::endl;
+                off << std::format("{}\t{:d}\t{}\t{}\t{}\t{}", iLayer, label.isValid(), (tanLambda * (nextCluster.radius - currentCluster.radius) + currentCluster.zCoordinate - nextCluster.zCoordinate) / sigmaZ, tanLambda, resolution, sigmaZ) << std::endl;
 #endif
 
                 if (deltaZ / sigmaZ < mTrkParams[iteration].NSigmaCut &&
@@ -270,7 +272,7 @@ void TrackerTraits::computeLayerCells(const int iteration)
 {
 #ifdef OPTIMISATION_OUTPUT
   static int iter{0};
-  std::ofstream off(fmt::format("cells{}.txt", iter++));
+  std::ofstream off(std::format("cells{}.txt", iter++));
 #endif
 
   for (int iLayer = 0; iLayer < mTrkParams[iteration].CellsPerRoad(); ++iLayer) {
@@ -318,7 +320,7 @@ void TrackerTraits::computeLayerCells(const int iteration)
 #ifdef OPTIMISATION_OUTPUT
         bool good{tf->getTrackletsLabel(iLayer)[iTracklet] == tf->getTrackletsLabel(iLayer + 1)[iNextTracklet]};
         float signedDelta{currentTracklet.tanLambda - nextTracklet.tanLambda};
-        off << fmt::format("{}\t{:d}\t{}\t{}\t{}\t{}", iLayer, good, signedDelta, signedDelta / (mTrkParams[iteration].CellDeltaTanLambdaSigma), tanLambda, resolution) << std::endl;
+        off << std::format("{}\t{:d}\t{}\t{}\t{}\t{}", iLayer, good, signedDelta, signedDelta / (mTrkParams[iteration].CellDeltaTanLambdaSigma), tanLambda, resolution) << std::endl;
 #endif
 
         if (deltaTanLambda / mTrkParams[iteration].CellDeltaTanLambdaSigma < mTrkParams[iteration].NSigmaCut) {
@@ -402,7 +404,7 @@ void TrackerTraits::computeLayerCells(const int iteration)
 void TrackerTraits::findCellsNeighbours(const int iteration)
 {
 #ifdef OPTIMISATION_OUTPUT
-  std::ofstream off(fmt::format("cellneighs{}.txt", iteration));
+  std::ofstream off(std::format("cellneighs{}.txt", iteration));
 #endif
   for (int iLayer{0}; iLayer < mTrkParams[iteration].CellsPerRoad() - 1; ++iLayer) {
     const int nextLayerCellsNum{static_cast<int>(mTimeFrame->getCells()[iLayer + 1].size())};
@@ -439,7 +441,7 @@ void TrackerTraits::findCellsNeighbours(const int iteration)
 
 #ifdef OPTIMISATION_OUTPUT
         bool good{mTimeFrame->getCellsLabel(iLayer)[iCell] == mTimeFrame->getCellsLabel(iLayer + 1)[iNextCell]};
-        off << fmt::format("{}\t{:d}\t{}", iLayer, good, chi2) << std::endl;
+        off << std::format("{}\t{:d}\t{}", iLayer, good, chi2) << std::endl;
 #endif
 
         if (chi2 > mTrkParams[0].MaxChi2ClusterAttachment) {
@@ -469,6 +471,7 @@ void TrackerTraits::findCellsNeighbours(const int iteration)
 
 void TrackerTraits::processNeighbours(int iLayer, int iLevel, const std::vector<CellSeed>& currentCellSeed, const std::vector<int>& currentCellId, std::vector<CellSeed>& updatedCellSeeds, std::vector<int>& updatedCellsIds)
 {
+  bool print = iLayer == 3 && iLevel == 2;
   if (iLevel < 2 || iLayer < 1) {
     std::cout << "Error: layer " << iLayer << " or level " << iLevel << " cannot be processed by processNeighbours" << std::endl;
     exit(1);
@@ -723,10 +726,7 @@ void TrackerTraits::extendTracks(const int iteration)
 
 void TrackerTraits::findShortPrimaries()
 {
-  if (!mTrkParams[0].FindShortTracks) {
-    return;
-  }
-  auto propagator = o2::base::Propagator::Instance();
+  const auto propagator = o2::base::Propagator::Instance();
   mTimeFrame->fillPrimaryVerticesXandAlpha();
 
   for (auto& cell : mTimeFrame->getCells()[0]) {

@@ -1778,6 +1778,23 @@ DECLARE_SOA_COLUMN(DCAr, dcaR, float);                                  //! DCA 
 DECLARE_SOA_COLUMN(DCAz, dcaZ, float);                                  //! DCA in z direction
 DECLARE_SOA_COLUMN(Mass, mass, float);                                  //! mass of the conversion. Do NOT use for cut!
 } // namespace oftv0
+namespace pmd
+{
+DECLARE_SOA_INDEX_COLUMN(BC, bc);                       //! BC index
+DECLARE_SOA_COLUMN(X, pmdclsx, float);                  //! cluster x position
+DECLARE_SOA_COLUMN(Y, pmdclsy, float);                  //! cluster y position
+DECLARE_SOA_COLUMN(Z, pmdclsz, float);                  //! cluster z position
+DECLARE_SOA_COLUMN(CluADC, pmdclsadc, float);           //! cluster energy in ADC
+DECLARE_SOA_COLUMN(CluPID, pmdclspid, float);           //! cluster probability, 1: photon, 0:hadron
+DECLARE_SOA_COLUMN(Det, pmddet, uint8_t);               //! Detector, 0:PRE, 1:CPV
+DECLARE_SOA_COLUMN(Ncell, pmdncell, uint8_t);           //! cluster cells
+DECLARE_SOA_COLUMN(Smn, pmdmodule, int32_t);            //! module number
+DECLARE_SOA_COLUMN(TrackNo, pmdtrackno, int32_t);       //! Track number assigned to clus from simulation
+DECLARE_SOA_COLUMN(TrackPid, pmdtrackpid, int32_t);     //! Track PID assigned to clus from simulation
+DECLARE_SOA_COLUMN(SigX, pmdsigx, float);               //! Cluster x-width
+DECLARE_SOA_COLUMN(SigY, pmdsigy, float);               //! Cluster y-width
+DECLARE_SOA_COLUMN(ClMatching, pmdclmatching, int32_t); //! Cluster of PRE matching with CPV
+} // namespace pmd
 } // namespace run2
 
 DECLARE_SOA_TABLE(Run2BCInfos_000, "AOD", "RUN2BCINFO", run2::EventCuts, //! Legacy information for Run 2 event selection
@@ -1810,6 +1827,14 @@ DECLARE_SOA_TABLE(Run2OTFV0s, "AOD", "Run2OTFV0", //! Run 2 V0 on the fly table
                   run2::oftv0::Mass);
 
 using Run2OTFV0 = Run2OTFV0s::iterator;
+
+DECLARE_SOA_TABLE(Pmds, "AOD", "PMD", //! Photon information from PMD detector
+                  o2::soa::Index<>, run2::pmd::BCId, run2::pmd::X, run2::pmd::Y,
+                  run2::pmd::Z, run2::pmd::CluADC, run2::pmd::CluPID, run2::pmd::Det,
+                  run2::pmd::Ncell, run2::pmd::Smn, run2::pmd::TrackNo, run2::pmd::TrackPid,
+                  run2::pmd::SigX, run2::pmd::SigY, run2::pmd::ClMatching);
+
+using Pmd = Pmds::iterator;
 
 // ---- MC tables ----
 namespace mccollision

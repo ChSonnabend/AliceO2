@@ -15,18 +15,13 @@
 
 #include "ITStracking/TimeFrame.h"
 #include "ITStracking/Configuration.h"
-
-#include "ITStrackingGPU/ClusterLinesGPU.h"
 #include "ITStrackingGPU/Utils.h"
 
 #include <gsl/gsl>
 
-namespace o2
+namespace o2::its::gpu
 {
-namespace its
-{
-namespace gpu
-{
+
 class Stream;
 
 class DefaultGPUAllocator : public ExternalAllocator
@@ -228,7 +223,6 @@ inline int TimeFrameGPU<nLayers>::getNumberOfCells() const
   return std::accumulate(mNCells.begin(), mNCells.end(), 0);
 }
 
-} // namespace gpu
-} // namespace its
-} // namespace o2
+} // namespace o2::its::gpu
+
 #endif

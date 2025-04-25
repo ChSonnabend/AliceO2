@@ -205,7 +205,7 @@ class NoiseMap
   NoiseMap merge(const NoiseMap* prev)
   {
     int incre = 0;
-    for (size_t i = 0; i < (int)mNoisyPixels.size(); ++i) {
+    for (size_t i = 0; i < mNoisyPixels.size(); ++i) {
       for (const auto& prev_np : prev->mNoisyPixels[i]) { // only enters this for loop if the "i" chip exists.
         if (mNoisyPixels[i].find(prev_np.first) == mNoisyPixels[i].end()) {
           mNoisyPixels[i][prev_np.first] = prev_np.second;

@@ -56,7 +56,7 @@ enum DauType : int {
 
 struct ClusAttachments {
 
-  std::array<unsigned int, 7> arr;
+  std::array<int, 7> arr;
 };
 
 class StrangenessTracker
@@ -357,10 +357,7 @@ class StrangenessTracker
   std::vector<DCAFitter4> mFitter4Body; // optional DCA Fitter for final 4 Body refit (per thread)
 
   o2::base::PropagatorImpl<float>::MatCorrType mCorrType = o2::base::PropagatorImpl<float>::MatCorrType::USEMatCorrNONE; // use mat correction
-
-  std::vector<std::vector<o2::track::TrackParCovF>> mDaughterTracks; // vector of daughter tracks (per thread)
-  ClusAttachments mStructClus;                                       // # of attached tracks, 1 for mother, 2 for daughter
-
+  std::vector<std::vector<o2::track::TrackParCovF>> mDaughterTracks;                                                     // vector of daughter tracks (per thread)
   ClassDefNV(StrangenessTracker, 1);
 };
 

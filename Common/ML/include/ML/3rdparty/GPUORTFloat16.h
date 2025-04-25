@@ -535,9 +535,9 @@ GPUdi() uint16_t BFloat16Impl<Derived>::ToUint16Impl(float v) noexcept
     result = kPositiveQNaNBits;
   } else {
     auto get_msb_half = [](float fl) {
-      uint16_t result;
+      uint16_t res;
 #ifdef GPUCA_GPUCODE
-      o2::gpu::CAMath::memcpy(&result, reinterpret_cast<char*>(&fl) + sizeof(uint16_t), sizeof(uint16_t));
+      o2::gpu::CAMath::memcpy(&res, reinterpret_cast<char*>(&fl) + sizeof(uint16_t), sizeof(uint16_t));
 #else
 #ifdef __cpp_if_constexpr
       if constexpr (detail::endian::native == detail::endian::little)
@@ -545,12 +545,12 @@ GPUdi() uint16_t BFloat16Impl<Derived>::ToUint16Impl(float v) noexcept
       if (detail::endian::native == detail::endian::little)
 #endif
       {
-        std::memcpy(&result, reinterpret_cast<char*>(&fl) + sizeof(uint16_t), sizeof(uint16_t));
+        std::memcpy(&res, reinterpret_cast<char*>(&fl) + sizeof(uint16_t), sizeof(uint16_t));
       } else {
-        std::memcpy(&result, &fl, sizeof(uint16_t));
+        std::memcpy(&res, &fl, sizeof(uint16_t));
       }
 #endif
-      return result;
+      return res;
     };
 
     uint16_t upper_bits = get_msb_half(v);

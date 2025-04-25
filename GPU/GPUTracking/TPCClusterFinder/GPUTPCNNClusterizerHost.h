@@ -60,13 +60,11 @@ class GPUTPCNNClusterizerHost
   void digitWriter(GPUTPCClusterFinder&, std::string);
   void combineDigitFiles(int);
 
-  std::unordered_map<std::string, std::string> OrtOptions;
-  o2::ml::OrtModel model_class, model_reg_1, model_reg_2; // For splitting clusters
-  std::vector<bool> modelsUsed = {false, false, false};   // 0: class, 1: reg_1, 2: reg_2
-  int32_t deviceId = -1;
-  std::vector<std::string> reg_model_paths;
-
-  std::shared_ptr<MockedOrtAllocator> mockedAlloc = nullptr;
+  std::unordered_map<std::string, std::string> mOrtOptions;
+  o2::ml::OrtModel mModelClass, mModelReg1, mModelReg2;  // For splitting clusters
+  std::vector<bool> mModelsUsed = {false, false, false}; // 0: class, 1: reg_1, 2: reg_2
+  int32_t mDeviceId = -1;
+  std::shared_ptr<MockedOrtAllocator> mMockedAlloc = nullptr;
 }; // class GPUTPCNNClusterizerHost
 
 } // namespace o2::gpu

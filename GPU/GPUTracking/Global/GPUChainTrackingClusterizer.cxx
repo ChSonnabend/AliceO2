@@ -645,41 +645,41 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
     // bool recreateMemoryAllocator = false;
     mRec->runParallelOuterLoop(doGPU, numLanes, [&](uint32_t lane) {
       nnApplications[lane].init(nn_settings);
-      if (nnApplications[lane].modelsUsed[0]) {
-        SetONNXGPUStream(*(nnApplications[lane].model_class).getSessionOptions(), lane, &deviceId);
-        (nnApplications[lane].model_class).setDeviceId(deviceId);
-        if (nnApplications[lane].model_class.getIntraOpNumThreads() > maxThreads) {
-          nnApplications[lane].model_class.setIntraOpNumThreads(maxThreads);
+      if (nnApplications[lane].mModelsUsed[0]) {
+        SetONNXGPUStream(*(nnApplications[lane].mModelClass).getSessionOptions(), lane, &deviceId);
+        (nnApplications[lane].mModelClass).setDeviceId(deviceId);
+        if (nnApplications[lane].mModelClass.getIntraOpNumThreads() > maxThreads) {
+          nnApplications[lane].mModelClass.setIntraOpNumThreads(maxThreads);
         }
-        (nnApplications[lane].model_class).initEnvironment();
+        (nnApplications[lane].mModelClass).initEnvironment();
         // Registering this once seems to be enough, even with different environmnents / models. ONNX apparently uses this per device and stores the OrtAllocator internally. All models will then use the volatile allocation.
         // But environment must be valid, so we init the model environment first and use it here afterwards.
         // Either this is done in one environment with lane == 0 or by recreating the allocator using recreateMemoryAllocator.
         // TODO: Volatile allocation works for reserving, but not yet for allocations when binding the input tensor
-        // nnApplications[lane].volatileOrtAllocator((nnApplications[lane].model_class).getEnv(), (nnApplications[lane].model_class).getMemoryInfo(), mRec, recreateMemoryAllocator);
+        // nnApplications[lane].volatileOrtAllocator((nnApplications[lane].mModelClass).getEnv(), (nnApplications[lane].mModelClass).getMemoryInfo(), mRec, recreateMemoryAllocator);
         // recreateMemoryAllocator = true;
-        (nnApplications[lane].model_class).initSession();
+        (nnApplications[lane].mModelClass).initSession();
       }
-      if (nnApplications[lane].modelsUsed[1]) {
-        SetONNXGPUStream(*(nnApplications[lane].model_reg_1).getSessionOptions(), lane, &deviceId);
-        (nnApplications[lane].model_reg_1).setDeviceId(deviceId);
-        if (nnApplications[lane].model_reg_1.getIntraOpNumThreads() > maxThreads) {
-          nnApplications[lane].model_reg_1.setIntraOpNumThreads(maxThreads);
+      if (nnApplications[lane].mModelsUsed[1]) {
+        SetONNXGPUStream(*(nnApplications[lane].mModelReg1).getSessionOptions(), lane, &deviceId);
+        (nnApplications[lane].mModelReg1).setDeviceId(deviceId);
+        if (nnApplications[lane].mModelReg1.getIntraOpNumThreads() > maxThreads) {
+          nnApplications[lane].mModelReg1.setIntraOpNumThreads(maxThreads);
         }
-        // (nnApplications[lane].model_reg_1).setEnv((nnApplications[lane].model_class).getEnv());
-        (nnApplications[lane].model_reg_1).initEnvironment();
-        // nnApplications[lane].volatileOrtAllocator((nnApplications[lane].model_reg_1).getEnv(), (nnApplications[lane].model_reg_1).getMemoryInfo(), mRec, recreateMemoryAllocator);
-        (nnApplications[lane].model_reg_1).initSession();
+        // (nnApplications[lane].mModelReg1).setEnv((nnApplications[lane].mModelClass).getEnv());
+        (nnApplications[lane].mModelReg1).initEnvironment();
+        // nnApplications[lane].volatileOrtAllocator((nnApplications[lane].mModelReg1).getEnv(), (nnApplications[lane].mModelReg1).getMemoryInfo(), mRec, recreateMemoryAllocator);
+        (nnApplications[lane].mModelReg1).initSession();
       }
-      if (nnApplications[lane].modelsUsed[2]) {
-        SetONNXGPUStream(*(nnApplications[lane].model_reg_2).getSessionOptions(), lane, &deviceId);
-        (nnApplications[lane].model_reg_2).setDeviceId(deviceId);
-        if (nnApplications[lane].model_reg_2.getIntraOpNumThreads() > maxThreads) {
-          nnApplications[lane].model_reg_2.setIntraOpNumThreads(maxThreads);
+      if (nnApplications[lane].mModelsUsed[2]) {
+        SetONNXGPUStream(*(nnApplications[lane].mModelReg2).getSessionOptions(), lane, &deviceId);
+        (nnApplications[lane].mModelReg2).setDeviceId(deviceId);
+        if (nnApplications[lane].mModelReg2.getIntraOpNumThreads() > maxThreads) {
+          nnApplications[lane].mModelReg2.setIntraOpNumThreads(maxThreads);
         }
-        (nnApplications[lane].model_reg_2).initEnvironment();
-        // nnApplications[lane].volatileOrtAllocator((nnApplications[lane].model_class).getEnv(), (nnApplications[lane].model_class).getMemoryInfo(), mRec, recreateMemoryAllocator);
-        (nnApplications[lane].model_reg_2).initSession();
+        (nnApplications[lane].mModelReg2).initEnvironment();
+        // nnApplications[lane].volatileOrtAllocator((nnApplications[lane].mModelClass).getEnv(), (nnApplications[lane].mModelClass).getMemoryInfo(), mRec, recreateMemoryAllocator);
+        (nnApplications[lane].mModelReg2).initSession();
       }
       if (nn_settings.nnClusterizerVerbosity < 3) {
         LOG(info) << "(ORT) Allocated ONNX stream for lane " << lane << " and device " << deviceId;
@@ -689,14 +689,14 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
       GPUTPCNNClusterizer& clustererNN = processors()->tpcNNClusterer[sector];
       GPUTPCNNClusterizer& clustererNNShadow = doGPU ? processorsShadow()->tpcNNClusterer[sector] : clustererNN;
       int32_t lane = sector % numLanes;
-      clustererNN.deviceId = deviceId;
+      clustererNN.mDeviceId = deviceId;
       clustererNN.mISector = sector;
-      clustererNN.nnClusterizerTotalClusters = processors()->tpcClusterer[lane].mNMaxClusters;
+      clustererNN.mNnClusterizerTotalClusters = processors()->tpcClusterer[lane].mNMaxClusters;
       nnApplications[lane].initClusterizer(nn_settings, clustererNN);
       if (doGPU) {
-        clustererNNShadow.deviceId = deviceId;
+        clustererNNShadow.mDeviceId = deviceId;
         clustererNNShadow.mISector = sector;
-        clustererNNShadow.nnClusterizerTotalClusters = processors()->tpcClusterer[lane].mNMaxClusters;
+        clustererNNShadow.mNnClusterizerTotalClusters = processors()->tpcClusterer[lane].mNMaxClusters;
         nnApplications[lane].initClusterizer(nn_settings, clustererNNShadow);
       }
       AllocateRegisteredMemory(clustererNN.mMemoryId);
@@ -981,62 +981,62 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
           int withMC = (doGPU && propagateMCLabels);
 
-          if (clustererNNShadow.nnClusterizerUseCfRegression || (int)(nn_settings.nnClusterizerApplyCfDeconvolution)) {
+          if (clustererNNShadow.mNnClusterizerUseCfRegression || (int)(nn_settings.nnClusterizerApplyCfDeconvolution)) {
             runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}});
             DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 4, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
           }
 
-          float time_clusterizer = 0, time_fill = 0, time_networks = 0;
-          for (int batch = 0; batch < std::ceil((float)clusterer.mPmemory->counters.nClusters / clustererNNShadow.nnClusterizerBatchedMode); batch++) {
-            uint batchStart = batch * clustererNNShadow.nnClusterizerBatchedMode;
-            size_t iSize = CAMath::Min((uint)clustererNNShadow.nnClusterizerBatchedMode, (uint)(clusterer.mPmemory->counters.nClusters - batchStart));
+          // float time_clusterizer = 0, time_fill = 0, time_networks = 0;
+          for (int batch = 0; batch < std::ceil((float)clusterer.mPmemory->counters.nClusters / clustererNNShadow.mNnClusterizerBatchedMode); batch++) {
+            uint batchStart = batch * clustererNNShadow.mNnClusterizerBatchedMode;
+            size_t iSize = CAMath::Min((uint)clustererNNShadow.mNnClusterizerBatchedMode, (uint)(clusterer.mPmemory->counters.nClusters - batchStart));
 
             auto start0 = std::chrono::high_resolution_clock::now();
-            runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::fillInputNNSingleElement>({GetGrid(iSize * clustererNNShadow.nnClusterizerElementSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceInputDType, withMC, batchStart); // Filling the data
+            runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::fillInputNNSingleElement>({GetGrid(iSize * clustererNNShadow.mNnClusterizerElementSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, batchStart); // Filling the data
             auto stop0 = std::chrono::high_resolution_clock::now();
 
             auto start1 = std::chrono::high_resolution_clock::now();
 
             // NN evaluations
-            if (clustererNNShadow.nnInferenceInputDType == 0) {
-              if (clustererNNShadow.nnInferenceOutputDType == 0) {
-                (nnApplication.model_class).inference(clustererNNShadow.inputData_16, iSize, clustererNNShadow.modelProbabilities_16);
-              } else if (clustererNNShadow.nnInferenceOutputDType == 1) {
-                (nnApplication.model_class).inference(clustererNNShadow.inputData_16, iSize, clustererNNShadow.modelProbabilities_32);
+            if (clustererNNShadow.mNnInferenceInputDType == 0) {
+              if (clustererNNShadow.mNnInferenceOutputDType == 0) {
+                (nnApplication.mModelClass).inference(clustererNNShadow.mInputData_16, iSize, clustererNNShadow.mModelProbabilities_16);
+              } else if (clustererNNShadow.mNnInferenceOutputDType == 1) {
+                (nnApplication.mModelClass).inference(clustererNNShadow.mInputData_16, iSize, clustererNNShadow.mModelProbabilities_32);
               }
-            } else if (clustererNNShadow.nnInferenceInputDType == 1) {
-              if (clustererNNShadow.nnInferenceOutputDType == 0) {
-                (nnApplication.model_class).inference(clustererNNShadow.inputData_32, iSize, clustererNNShadow.modelProbabilities_16);
-              } else if (clustererNNShadow.nnInferenceOutputDType == 1) {
-                (nnApplication.model_class).inference(clustererNNShadow.inputData_32, iSize, clustererNNShadow.modelProbabilities_32);
+            } else if (clustererNNShadow.mNnInferenceInputDType == 1) {
+              if (clustererNNShadow.mNnInferenceOutputDType == 0) {
+                (nnApplication.mModelClass).inference(clustererNNShadow.mInputData_32, iSize, clustererNNShadow.mModelProbabilities_16);
+              } else if (clustererNNShadow.mNnInferenceOutputDType == 1) {
+                (nnApplication.mModelClass).inference(clustererNNShadow.mInputData_32, iSize, clustererNNShadow.mModelProbabilities_32);
               }
             }
-            if (!clustererNNShadow.nnClusterizerUseCfRegression) {
-              if (clustererNNShadow.nnInferenceInputDType == 0) {
-                if (clustererNNShadow.nnInferenceOutputDType == 0) {
-                  (nnApplication.model_reg_1).inference(clustererNNShadow.inputData_16, iSize, clustererNNShadow.outputDataReg1_16);
-                } else if (clustererNNShadow.nnInferenceOutputDType == 1) {
-                  (nnApplication.model_reg_1).inference(clustererNNShadow.inputData_16, iSize, clustererNNShadow.outputDataReg1_32);
+            if (!clustererNNShadow.mNnClusterizerUseCfRegression) {
+              if (clustererNNShadow.mNnInferenceInputDType == 0) {
+                if (clustererNNShadow.mNnInferenceOutputDType == 0) {
+                  (nnApplication.mModelReg1).inference(clustererNNShadow.mInputData_16, iSize, clustererNNShadow.mOutputDataReg1_16);
+                } else if (clustererNNShadow.mNnInferenceOutputDType == 1) {
+                  (nnApplication.mModelReg1).inference(clustererNNShadow.mInputData_16, iSize, clustererNNShadow.mOutputDataReg1_32);
                 }
-              } else if (clustererNNShadow.nnInferenceInputDType == 1) {
-                if (clustererNNShadow.nnInferenceOutputDType == 0) {
-                  (nnApplication.model_reg_1).inference(clustererNNShadow.inputData_32, iSize, clustererNNShadow.outputDataReg1_16);
-                } else if (clustererNNShadow.nnInferenceOutputDType == 1) {
-                  (nnApplication.model_reg_1).inference(clustererNNShadow.inputData_32, iSize, clustererNNShadow.outputDataReg1_32);
+              } else if (clustererNNShadow.mNnInferenceInputDType == 1) {
+                if (clustererNNShadow.mNnInferenceOutputDType == 0) {
+                  (nnApplication.mModelReg1).inference(clustererNNShadow.mInputData_32, iSize, clustererNNShadow.mOutputDataReg1_16);
+                } else if (clustererNNShadow.mNnInferenceOutputDType == 1) {
+                  (nnApplication.mModelReg1).inference(clustererNNShadow.mInputData_32, iSize, clustererNNShadow.mOutputDataReg1_32);
                 }
               }
-              if (nnApplication.model_class.getNumOutputNodes()[0][1] > 1 && nnApplication.model_reg_2.isInitialized()) {
-                if (clustererNNShadow.nnInferenceInputDType == 0) {
-                  if (clustererNNShadow.nnInferenceOutputDType == 0) {
-                    (nnApplication.model_reg_2).inference(clustererNNShadow.inputData_16, iSize, clustererNNShadow.outputDataReg2_16);
-                  } else if (clustererNNShadow.nnInferenceOutputDType == 1) {
-                    (nnApplication.model_reg_2).inference(clustererNNShadow.inputData_16, iSize, clustererNNShadow.outputDataReg2_32);
+              if (nnApplication.mModelClass.getNumOutputNodes()[0][1] > 1 && nnApplication.mModelReg2.isInitialized()) {
+                if (clustererNNShadow.mNnInferenceInputDType == 0) {
+                  if (clustererNNShadow.mNnInferenceOutputDType == 0) {
+                    (nnApplication.mModelReg2).inference(clustererNNShadow.mInputData_16, iSize, clustererNNShadow.mOutputDataReg2_16);
+                  } else if (clustererNNShadow.mNnInferenceOutputDType == 1) {
+                    (nnApplication.mModelReg2).inference(clustererNNShadow.mInputData_16, iSize, clustererNNShadow.mOutputDataReg2_32);
                   }
-                } else if (clustererNNShadow.nnInferenceInputDType == 1) {
-                  if (clustererNNShadow.nnInferenceOutputDType == 0) {
-                    (nnApplication.model_reg_2).inference(clustererNNShadow.inputData_32, iSize, clustererNNShadow.outputDataReg2_16);
-                  } else if (clustererNNShadow.nnInferenceOutputDType == 1) {
-                    (nnApplication.model_reg_2).inference(clustererNNShadow.inputData_32, iSize, clustererNNShadow.outputDataReg2_32);
+                } else if (clustererNNShadow.mNnInferenceInputDType == 1) {
+                  if (clustererNNShadow.mNnInferenceOutputDType == 0) {
+                    (nnApplication.mModelReg2).inference(clustererNNShadow.mInputData_32, iSize, clustererNNShadow.mOutputDataReg2_16);
+                  } else if (clustererNNShadow.mNnInferenceOutputDType == 1) {
+                    (nnApplication.mModelReg2).inference(clustererNNShadow.mInputData_32, iSize, clustererNNShadow.mOutputDataReg2_32);
                   }
                 }
               }
@@ -1054,24 +1054,24 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             auto stopNNs = std::chrono::high_resolution_clock::now();
 
             // Publishing kernels
-            if (nnApplication.model_class.getNumOutputNodes()[0][1] == 1) {
-              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass1Labels>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceOutputDType, withMC, batchStart); // Assigning class labels
+            if (nnApplication.mModelClass.getNumOutputNodes()[0][1] == 1) {
+              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass1Labels>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceOutputDType, withMC, batchStart); // Assigning class labels
             } else {
-              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass2Labels>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceOutputDType, withMC, batchStart); // Assigning class labels
+              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass2Labels>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceOutputDType, withMC, batchStart); // Assigning class labels
             }
-            if (!clustererNNShadow.nnClusterizerUseCfRegression) {
-              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass1Regression>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceOutputDType, withMC, batchStart); // Publishing class 1 regression results
-              if (nnApplication.model_class.getNumOutputNodes()[0][1] > 1 && nnApplication.model_reg_2.isInitialized()) {
-                runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass2Regression>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceOutputDType, withMC, batchStart); // Publishing class 2 regression results
+            if (!clustererNNShadow.mNnClusterizerUseCfRegression) {
+              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass1Regression>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceOutputDType, withMC, batchStart); // Publishing class 1 regression results
+              if (nnApplication.mModelClass.getNumOutputNodes()[0][1] > 1 && nnApplication.mModelReg2.isInitialized()) {
+                runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass2Regression>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceOutputDType, withMC, batchStart); // Publishing class 2 regression results
               }
             }
 
             // for(int i = 0; i < iSize; ++i) {
-            //   if(clustererNNShadow.outputDataClass[i + batchStart] > 1) {
-            //     LOG(info) << "WARNING ORT: Output of  " << i + batchStart << " / " << clusterer.mPmemory->counters.nClusters << " is " << clustererNNShadow.modelProbabilities_16[i].ToFloat() << " and " << clustererNNShadow.outputDataClass[i + batchStart] << " thresh " << clustererNNShadow.nnClassThreshold << " instead of 0 or 1. Please check the model and the input data.";
+            //   if(clustererNNShadow.mOutputDataClass[i + batchStart] > 1) {
+            //     LOG(info) << "WARNING ORT: Output of  " << i + batchStart << " / " << clusterer.mPmemory->counters.nClusters << " is " << clustererNNShadow.mModelProbabilities_16[i].ToFloat() << " and " << clustererNNShadow.mOutputDataClass[i + batchStart] << " thresh " << clustererNNShadow.mNnClassThreshold << " instead of 0 or 1. Please check the model and the input data.";
             //     // std::string input = "[";
-            //     // for(int j = 0; j < clustererNNShadow.nnClusterizerElementSize; j++){
-            //     //   input += std::to_string(clustererNNShadow.inputData_16[i * clustererNNShadow.nnClusterizerElementSize + j].ToFloat()) + ", ";
+            //     // for(int j = 0; j < clustererNNShadow.mNnClusterizerElementSize; j++){
+            //     //   input += std::to_string(clustererNNShadow.mInputData_16[i * clustererNNShadow.mNnClusterizerElementSize + j].ToFloat()) + ", ";
             //     // }
             //     // input += "]";
             //     // LOG(info) << "Input is: " << input;
@@ -1084,19 +1084,20 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             time_clusterizer += std::chrono::duration_cast<std::chrono::nanoseconds>(stop1 - start1).count() / 1e9;
             time_fill += std::chrono::duration_cast<std::chrono::nanoseconds>(stop0 - start0).count() / 1e9;
           }
+
           if (clustererNNShadow.nnClusterizerUseCfRegression) {
             auto start1 = std::chrono::high_resolution_clock::now();
-            runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::runCfClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceInputDType, withMC, 0); // Running the CF regression kernel - no batching needed: batchStart = 0
+            runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::runCfClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, 0); // Running the CF regression kernel - no batching needed: batchStart = 0
             auto stop1 = std::chrono::high_resolution_clock::now();
             time_clusterizer += std::chrono::duration_cast<std::chrono::nanoseconds>(stop1 - start1).count() / 1e9;
           }
           if (clustererNNShadow.nnClusterizerVerbosity < 3) {
             // int acceptedClusters = 0;
             // for (size_t i = 0; i < clusterer.mPmemory->counters.nClusters; ++i) {
-            //   if(clustererNNShadow.outputDataClass[i] > 1 || clustererNNShadow.outputDataClass[i] < 0) {
-            //     LOG(info) << "WARNING ORT 2: " << clustererNNShadow.outputDataClass[i] << " for index " << i << " / " << clusterer.mPmemory->counters.nClusters;
+            //   if(clustererNNShadow.mOutputDataClass[i] > 1 || clustererNNShadow.mOutputDataClass[i] < 0) {
+            //     LOG(info) << "WARNING ORT 2: " << clustererNNShadow.mOutputDataClass[i] << " for index " << i << " / " << clusterer.mPmemory->counters.nClusters;
             //   }
-            //   acceptedClusters += clustererNNShadow.outputDataClass[i];
+            //   acceptedClusters += clustererNNShadow.mOutputDataClass[i];
             // }
             LOG(info) << "[NN CF] Apply NN (fragment " << fragment.index << ", lane: " << lane << ", sector: " << iSector << "): filling data " << time_fill << "s ; networks: " << time_networks << "s ; clusterizer: " << time_clusterizer << "s ; " << clusterer.mPmemory->counters.nClusters /* << " clusters, " << acceptedClusters << " accepted. " */ << " --> " << (int32_t)clusterer.mPmemory->counters.nClusters / (time_fill + time_clusterizer) << " clusters/s";
           }
@@ -1218,9 +1219,9 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
   for (int32_t i = 0; i < GetProcessingSettings().nTPCClustererLanes; i++) {
     // if (GetProcessingSettings().nn.applyNNclusterizer) {
     //   GPUTPCNNClusterizerHost& nnApplication = nnApplications[i];
-    //   nnApplication.model_class.release(GetProcessingSettings().nn.nnInferenceOrtProfiling);
-    //   nnApplication.model_reg_1.release(GetProcessingSettings().nn.nnInferenceOrtProfiling);
-    //   nnApplication.model_reg_2.release(GetProcessingSettings().nn.nnInferenceOrtProfiling);
+    //   nnApplication.mModelClass.release(GetProcessingSettings().nn.nnInferenceOrtProfiling);
+    //   nnApplication.mModelReg1.release(GetProcessingSettings().nn.nnInferenceOrtProfiling);
+    //   nnApplication.mModelReg2.release(GetProcessingSettings().nn.nnInferenceOrtProfiling);
     // }
     if (transferRunning[i]) {
       ReleaseEvent(mEvents->stream[i], doGPU);

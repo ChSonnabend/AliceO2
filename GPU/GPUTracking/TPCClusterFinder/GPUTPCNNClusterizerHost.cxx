@@ -39,7 +39,7 @@ using namespace o2::gpu;
 void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& settings)
 {
   std::string class_model_path = settings.nnClassificationPath, reg_model_path = settings.nnRegressionPath;
-  std::vector<std::string> reg_model_paths;
+  std::vector<std::string> reg_model_paths_local;
   std::vector<std::string> evalMode = o2::utils::Str::tokenize(settings.nnEvalMode, ':');
 
   if (settings.nnLoadFromCCDB) {
@@ -55,7 +55,7 @@ void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& set
     }
   }
 
-  OrtOptions = {
+  mOrtOptions = {
     {"model-path", class_model_path},
     {"device-type", settings.nnInferenceDevice},
     {"allocate-device-memory", std::to_string(settings.nnInferenceAllocateDevMem)},
@@ -67,26 +67,26 @@ void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& set
     {"logging-level", std::to_string(settings.nnInferenceVerbosity)},
     {"onnx-environment-name", "c1"}};
 
-  model_class.initOptions(OrtOptions);
-  modelsUsed[0] = true;
+  mModelClass.initOptions(mOrtOptions);
+  mModelsUsed[0] = true;
 
-  reg_model_paths = o2::utils::Str::tokenize(reg_model_path, ':');
+  reg_model_paths_local = o2::utils::Str::tokenize(reg_model_path, ':');
 
   if (!settings.nnClusterizerUseCfRegression) {
-    if (reg_model_paths.size() == 1) {
-      OrtOptions["model-path"] = reg_model_paths[0];
-      OrtOptions["onnx-environment-name"] = "r1";
-      model_reg_1.initOptions(OrtOptions);
-      modelsUsed[1] = true;
+    if (reg_model_paths_local.size() == 1) {
+      mOrtOptions["model-path"] = reg_model_paths_local[0];
+      mOrtOptions["onnx-environment-name"] = "r1";
+      mModelReg1.initOptions(mOrtOptions);
+      mModelsUsed[1] = true;
     } else {
-      OrtOptions["model-path"] = reg_model_paths[0];
-      OrtOptions["onnx-environment-name"] = "r1";
-      model_reg_1.initOptions(OrtOptions);
-      modelsUsed[1] = true;
-      OrtOptions["model-path"] = reg_model_paths[1];
-      OrtOptions["onnx-environment-name"] = "r2";
-      model_reg_2.initOptions(OrtOptions);
-      modelsUsed[2] = true;
+      mOrtOptions["model-path"] = reg_model_paths_local[0];
+      mOrtOptions["onnx-environment-name"] = "r1";
+      mModelReg1.initOptions(mOrtOptions);
+      mModelsUsed[1] = true;
+      mOrtOptions["model-path"] = reg_model_paths_local[1];
+      mOrtOptions["onnx-environment-name"] = "r2";
+      mModelReg2.initOptions(mOrtOptions);
+      mModelsUsed[2] = true;
     }
   }
 }
@@ -210,34 +210,34 @@ void GPUTPCNNClusterizerHost::combineDigitFiles(int sector)
 
 void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclusterizer& settings, GPUTPCNNClusterizer& clustererNN)
 {
-  clustererNN.nnClusterizerUseCfRegression = settings.nnClusterizerUseCfRegression;
-  clustererNN.nnClusterizerSizeInputRow = settings.nnClusterizerSizeInputRow;
-  clustererNN.nnClusterizerSizeInputPad = settings.nnClusterizerSizeInputPad;
-  clustererNN.nnClusterizerSizeInputTime = settings.nnClusterizerSizeInputTime;
-  clustererNN.nnClusterizerAddIndexData = settings.nnClusterizerAddIndexData;
-  clustererNN.nnClusterizerElementSize = ((2 * settings.nnClusterizerSizeInputRow + 1) * (2 * settings.nnClusterizerSizeInputPad + 1) * (2 * settings.nnClusterizerSizeInputTime + 1)) + (settings.nnClusterizerAddIndexData ? 3 : 0);
-  clustererNN.nnClusterizerBatchedMode = settings.nnClusterizerBatchedMode;
-  clustererNN.nnClusterizerBoundaryFillValue = settings.nnClusterizerBoundaryFillValue;
-  clustererNN.nnSigmoidTrafoClassThreshold = settings.nnSigmoidTrafoClassThreshold;
-  if (clustererNN.nnSigmoidTrafoClassThreshold) {
-    clustererNN.nnClassThreshold = (float)std::log(settings.nnClassThreshold / (1.f - settings.nnClassThreshold));
+  clustererNN.mNnClusterizerUseCfRegression = settings.nnClusterizerUseCfRegression;
+  clustererNN.mNnClusterizerSizeInputRow = settings.nnClusterizerSizeInputRow;
+  clustererNN.mNnClusterizerSizeInputPad = settings.nnClusterizerSizeInputPad;
+  clustererNN.mNnClusterizerSizeInputTime = settings.nnClusterizerSizeInputTime;
+  clustererNN.mNnClusterizerAddIndexData = settings.nnClusterizerAddIndexData;
+  clustererNN.mNnClusterizerElementSize = ((2 * settings.nnClusterizerSizeInputRow + 1) * (2 * settings.nnClusterizerSizeInputPad + 1) * (2 * settings.nnClusterizerSizeInputTime + 1)) + (settings.nnClusterizerAddIndexData ? 3 : 0);
+  clustererNN.mNnClusterizerBatchedMode = settings.nnClusterizerBatchedMode;
+  clustererNN.mNnClusterizerBoundaryFillValue = settings.nnClusterizerBoundaryFillValue;
+  clustererNN.mNnSigmoidTrafoClassThreshold = settings.nnSigmoidTrafoClassThreshold;
+  if (clustererNN.mNnSigmoidTrafoClassThreshold) {
+    clustererNN.mNnClassThreshold = (float)std::log(settings.nnClassThreshold / (1.f - settings.nnClassThreshold));
   } else {
-    clustererNN.nnClassThreshold = settings.nnClassThreshold;
+    clustererNN.mNnClassThreshold = settings.nnClassThreshold;
   }
   if (settings.nnClusterizerVerbosity < 0) {
-    clustererNN.nnClusterizerVerbosity = settings.nnInferenceVerbosity;
+    clustererNN.mNnClusterizerVerbosity = settings.nnInferenceVerbosity;
   } else {
-    clustererNN.nnClusterizerVerbosity = settings.nnClusterizerVerbosity;
+    clustererNN.mNnClusterizerVerbosity = settings.nnClusterizerVerbosity;
   }
-  clustererNN.nnInferenceInputDType = settings.nnInferenceInputDType.find("32") != std::string::npos;
-  clustererNN.nnInferenceOutputDType = settings.nnInferenceOutputDType.find("32") != std::string::npos;
-  clustererNN.nnClusterizerModelClassNumOutputNodes = model_class.getNumOutputNodes()[0][1];
+  clustererNN.mNnInferenceInputDType = settings.nnInferenceInputDType.find("32") != std::string::npos;
+  clustererNN.mNnInferenceOutputDType = settings.nnInferenceOutputDType.find("32") != std::string::npos;
+  clustererNN.mNnClusterizerModelClassNumOutputNodes = mModelClass.getNumOutputNodes()[0][1];
   if (!settings.nnClusterizerUseCfRegression) {
-    if (model_class.getNumOutputNodes()[0][1] == 1 || !model_reg_2.isInitialized()) {
-      clustererNN.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
+    if (mModelClass.getNumOutputNodes()[0][1] == 1 || !mModelReg2.isInitialized()) {
+      clustererNN.mNnClusterizerModelReg1NumOutputNodes = mModelReg1.getNumOutputNodes()[0][1];
     } else {
-      clustererNN.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
-      clustererNN.nnClusterizerModelReg2NumOutputNodes = model_reg_2.getNumOutputNodes()[0][1];
+      clustererNN.mNnClusterizerModelReg1NumOutputNodes = mModelReg1.getNumOutputNodes()[0][1];
+      clustererNN.mNnClusterizerModelReg2NumOutputNodes = mModelReg2.getNumOutputNodes()[0][1];
     }
   }
 }
@@ -281,6 +281,7 @@ MockedOrtAllocator::MockedOrtAllocator(GPUReconstruction* r, OrtMemoryInfo* info
 MockedOrtAllocator::~MockedOrtAllocator()
 {
   // Ort::GetApi().ReleaseMemoryInfo(memory_info);
+  (void)0; // Suppress warning for empty destructor
 }
 
 void* MockedOrtAllocator::Alloc(size_t size)
@@ -318,26 +319,27 @@ size_t MockedOrtAllocator::NumReserveAllocations() const
 
 void MockedOrtAllocator::LeakCheck()
 {
-  if (memory_inuse.load())
+  if (memory_inuse.load()) {
     LOG(warning) << "memory leak!!!";
+  }
 }
 
 void GPUTPCNNClusterizerHost::volatileOrtAllocator(Ort::Env* env, Ort::MemoryInfo* memInfo, GPUReconstruction* rec, bool recreate)
 {
-  mockedAlloc = std::make_shared<MockedOrtAllocator>(rec, (OrtMemoryInfo*)(*memInfo));
+  mMockedAlloc = std::make_shared<MockedOrtAllocator>(rec, (OrtMemoryInfo*)(*memInfo));
   if (recreate) {
     Ort::ThrowOnError(Ort::GetApi().UnregisterAllocator((OrtEnv*)(*env), (OrtMemoryInfo*)(*memInfo)));
   }
-  Ort::ThrowOnError(Ort::GetApi().RegisterAllocator((OrtEnv*)(*env), mockedAlloc.get()));
-  memInfo = (Ort::MemoryInfo*)mockedAlloc->Info();
+  Ort::ThrowOnError(Ort::GetApi().RegisterAllocator((OrtEnv*)(*env), mMockedAlloc.get()));
+  memInfo = (Ort::MemoryInfo*)mMockedAlloc->Info();
 }
 
 const OrtMemoryInfo* GPUTPCNNClusterizerHost::getMockedMemoryInfo()
 {
-  return mockedAlloc->Info();
+  return mMockedAlloc->Info();
 }
 
 MockedOrtAllocator* GPUTPCNNClusterizerHost::getMockedAllocator()
 {
-  return mockedAlloc.get();
+  return mMockedAlloc.get();
 }

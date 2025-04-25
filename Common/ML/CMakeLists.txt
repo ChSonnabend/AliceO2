@@ -12,7 +12,7 @@
 o2_add_library(ML
                SOURCES src/OrtInterface.cxx
                TARGETVARNAME targetName
-               PRIVATE_LINK_LIBRARIES O2::Framework ONNXRuntime::ONNXRuntime)
+               PRIVATE_LINK_LIBRARIES O2::GPUCommon onnxruntime::onnxruntime)
 
 # Pass ORT variables as a preprocessor definition
 target_compile_definitions(${targetName} PRIVATE

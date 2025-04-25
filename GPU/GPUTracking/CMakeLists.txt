@@ -200,7 +200,7 @@ set(SRCS_NO_CINT ${SRCS_NO_CINT}
     Refit/GPUTrackingRefitKernel.cxx
     Merger/GPUTPCGMO2Output.cxx)
 
-if(NOT ALIGPU_BUILD_TYPE STREQUAL "Standalone")
+if(onnxruntime_FOUND)
   list(APPEND SRCS_NO_CINT TPCClusterFinder/GPUTPCNNClusterizerKernels.cxx TPCClusterFinder/GPUTPCNNClusterizer.cxx TPCClusterFinder/GPUTPCNNClusterizerHost.cxx)
 endif()
 
@@ -344,7 +344,6 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
                                        O2::DetectorsRaw
                                        O2::Steer
                                        O2::ML
-                 PRIVATE_LINK_LIBRARIES ONNXRuntime::ONNXRuntime
                  PUBLIC_INCLUDE_DIRECTORIES ${INCDIRS}
                  SOURCES ${SRCS} ${SRCS_NO_CINT} ${SRCS_NO_H})
 
@@ -352,7 +351,7 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
     ${targetName}
     PRIVATE $<TARGET_PROPERTY:O2::Framework,INTERFACE_INCLUDE_DIRECTORIES>)
 
-  target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2 GPUCA_HAS_ONNX=1)
+  target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2)
 
   o2_target_root_dictionary(${MODULE}
                             HEADERS ${HDRS_CINT_O2} ${HDRS_CINT_O2_ADDITIONAL}
@@ -421,6 +420,11 @@ endif()
 target_link_libraries(${targetName} PRIVATE TBB::tbb)
 
 target_compile_options(${targetName} PRIVATE -Wno-instantiation-after-specialization)
+
+if (onnxruntime_FOUND)
+  target_compile_definitions(${targetName} PRIVATE GPUCA_HAS_ONNX=1)
+  target_link_libraries(${targetName} PRIVATE onnxruntime::onnxruntime)
+endif()
 
 # Add CMake recipes for GPU Tracking librararies
 if(CUDA_ENABLED OR OPENCL_ENABLED OR HIP_ENABLED)

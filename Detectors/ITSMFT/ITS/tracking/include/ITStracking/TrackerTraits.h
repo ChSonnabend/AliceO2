@@ -16,23 +16,12 @@
 #ifndef TRACKINGITSU_INCLUDE_TRACKERTRAITS_H_
 #define TRACKINGITSU_INCLUDE_TRACKERTRAITS_H_
 
-#include <array>
-#include <chrono>
 #include <cmath>
-#include <fstream>
-#include <iomanip>
-#include <iosfwd>
-#include <memory>
-#include <utility>
-#include <functional>
 
 #include "DetectorsBase/Propagator.h"
-#include "DetectorsBase/MatLayerCylSet.h"
 #include "ITStracking/Configuration.h"
-#include "ITStracking/Definitions.h"
 #include "ITStracking/MathUtils.h"
 #include "ITStracking/TimeFrame.h"
-#include "ITStracking/Road.h"
 
 // #define OPTIMISATION_OUTPUT
 
@@ -52,30 +41,29 @@ class TrackerTraits
   virtual ~TrackerTraits() = default;
   virtual void adoptTimeFrame(TimeFrame* tf);
   virtual void initialiseTimeFrame(const int iteration);
+
   virtual void computeLayerTracklets(const int iteration, int iROFslice, int iVertex);
   virtual void computeLayerCells(const int iteration);
   virtual void findCellsNeighbours(const int iteration);
   virtual void findRoads(const int iteration);
-  virtual void initialiseTimeFrameHybrid(const int iteration) { LOGP(error, "initialiseTimeFrameHybrid: this method should never be called with CPU traits"); }
-  virtual void computeTrackletsHybrid(const int iteration, int, int) { LOGP(error, "computeTrackletsHybrid: this method should never be called with CPU traits"); }
-  virtual void computeCellsHybrid(const int iteration) { LOGP(error, "computeCellsHybrid: this method should never be called with CPU traits"); }
-  virtual void findCellsNeighboursHybrid(const int iteration) { LOGP(error, "findCellsNeighboursHybrid: this method should never be called with CPU traits"); }
-  virtual void findRoadsHybrid(const int iteration) { LOGP(error, "findRoadsHybrid: this method should never be called with CPU traits"); }
-  virtual void findTracksHybrid(const int iteration) { LOGP(error, "findTracksHybrid: this method should never be called with CPU traits"); }
-  virtual void findTracks() { LOGP(error, "findTracks: this method is deprecated."); }
+
+  virtual bool supportsExtendTracks() const noexcept { return true; }
   virtual void extendTracks(const int iteration);
+  virtual bool supportsFindShortPrimaries() const noexcept { return true; }
   virtual void findShortPrimaries();
-  virtual void setBz(float bz);
+
   virtual bool trackFollowing(TrackITSExt* track, int rof, bool outward, const int iteration);
   virtual void processNeighbours(int iLayer, int iLevel, const std::vector<CellSeed>& currentCellSeed, const std::vector<int>& currentCellId, std::vector<CellSeed>& updatedCellSeed, std::vector<int>& updatedCellId);
 
   void UpdateTrackingParameters(const std::vector<TrackingParameters>& trkPars);
   TimeFrame* getTimeFrame() { return mTimeFrame; }
 
-  void setIsGPU(const unsigned char isgpu) { mIsGPU = isgpu; };
+  virtual void setBz(float bz);
   float getBz() const;
   void setCorrType(const o2::base::PropagatorImpl<float>::MatCorrType type) { mCorrType = type; }
   bool isMatLUT() const;
+  virtual const char* getName() const noexcept { return "CPU"; }
+  virtual bool isGPU() const noexcept { return false; }
 
   // Others
   GPUhd() static consteval int4 getEmptyBinsRect() { return int4{0, 0, 0, 0}; }
@@ -109,13 +97,11 @@ class TrackerTraits
   o2::gpu::GPUChainITS* mChain = nullptr;
   TimeFrame* mTimeFrame;
   std::vector<TrackingParameters> mTrkParams;
-  bool mIsGPU = false;
 };
 
 inline void TrackerTraits::initialiseTimeFrame(const int iteration)
 {
   mTimeFrame->initialise(iteration, mTrkParams[iteration], mTrkParams[iteration].NLayers);
-  setIsGPU(false);
 }
 
 inline float TrackerTraits::getBz() const

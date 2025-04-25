@@ -37,42 +37,42 @@ class GPUTPCNNClusterizer : public GPUProcessor
 
   // Neural network clusterization
 
-  int nnClusterizerSizeInputRow = 3;
-  int nnClusterizerSizeInputPad = 3;
-  int nnClusterizerSizeInputTime = 3;
-  int nnClusterizerElementSize = -1;
-  bool nnClusterizerAddIndexData = true;
-  float nnClassThreshold = 0.01;
-  bool nnSigmoidTrafoClassThreshold = 1;
-  int nnClusterizerUseCfRegression = 0;
-  int nnClusterizerBatchedMode = 1;
-  int nnClusterizerTotalClusters = 1;
-  int nnClusterizerVerbosity = 0;
-  int nnClusterizerBoundaryFillValue = -1;
-  int nnClusterizerModelClassNumOutputNodes = -1;
-  int nnClusterizerModelReg1NumOutputNodes = -1;
-  int nnClusterizerModelReg2NumOutputNodes = -1;
-  int nnInferenceInputDType = 0;  // 0: float16, 1: float32
-  int nnInferenceOutputDType = 0; // 0: float16, 1: float32
+  int mNnClusterizerSizeInputRow = 3;
+  int mNnClusterizerSizeInputPad = 3;
+  int mNnClusterizerSizeInputTime = 3;
+  int mNnClusterizerElementSize = -1;
+  bool mNnClusterizerAddIndexData = true;
+  float mNnClassThreshold = 0.01;
+  bool mNnSigmoidTrafoClassThreshold = 1;
+  int mNnClusterizerUseCfRegression = 0;
+  int mNnClusterizerBatchedMode = 1;
+  int mNnClusterizerTotalClusters = 1;
+  int mNnClusterizerVerbosity = 0;
+  int mNnClusterizerBoundaryFillValue = -1;
+  int mNnClusterizerModelClassNumOutputNodes = -1;
+  int mNnClusterizerModelReg1NumOutputNodes = -1;
+  int mNnClusterizerModelReg2NumOutputNodes = -1;
+  int mNnInferenceInputDType = 0;  // 0: float16, 1: float32
+  int mNnInferenceOutputDType = 0; // 0: float16, 1: float32
   int mISector = -1;
-  int deviceId = -1;
+  int mDeviceId = -1;
 
   // Memory allocation for neural network
 
-  bool* clusterFlags = nullptr; // mSplitInTime, mSplitInPad. Techincally both flags are set in the same way -> ClusterAccumulator.cx=nullptr
-  int* outputDataClass = nullptr;
+  bool* mClusterFlags = nullptr; // mSplitInTime, mSplitInPad. Techincally both flags are set in the same way -> ClusterAccumulator.cx=nullptr
+  int* mOutputDataClass = nullptr;
 
   // FP32
-  float* inputData_32 = nullptr;
-  float* modelProbabilities_32 = nullptr;
-  float* outputDataReg1_32 = nullptr;
-  float* outputDataReg2_32 = nullptr;
+  float* mInputData_32 = nullptr;
+  float* mModelProbabilities_32 = nullptr;
+  float* mOutputDataReg1_32 = nullptr;
+  float* mOutputDataReg2_32 = nullptr;
 
   // FP16
-  OrtDataType::Float16_t* inputData_16 = nullptr;
-  OrtDataType::Float16_t* modelProbabilities_16 = nullptr;
-  OrtDataType::Float16_t* outputDataReg1_16 = nullptr;
-  OrtDataType::Float16_t* outputDataReg2_16 = nullptr;
+  OrtDataType::Float16_t* mInputData_16 = nullptr;
+  OrtDataType::Float16_t* mModelProbabilities_16 = nullptr;
+  OrtDataType::Float16_t* mOutputDataReg1_16 = nullptr;
+  OrtDataType::Float16_t* mOutputDataReg2_16 = nullptr;
 
   int16_t mMemoryId = -1;
 }; // class GPUTPCNNClusterizer
