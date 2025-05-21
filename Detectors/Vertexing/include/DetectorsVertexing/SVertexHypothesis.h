@@ -60,7 +60,7 @@ class SVertexHypothesis
 
   bool check(float p2Pos, float p2Neg, float p2V0, float ptV0) const
   { // check if given mass and pt is matching to hypothesis
-    return check(calcMass(p2Pos, p2Neg, p2V0), ptV0);
+    return mPars[SigmaM] > 0 && check(calcMass(p2Pos, p2Neg, p2V0), ptV0);
   }
   bool check(float mass, float pt) const
   { // check if given mass and pt is matching to hypothesis
@@ -151,7 +151,7 @@ class SVertex3Hypothesis
 
   bool check(float p2Pos, float p2Neg, float p2Bach, float p2Tot, float ptV0) const
   { // check if given mass and pt is matching to hypothesis
-    return check(calcMass(p2Pos, p2Neg, p2Bach, p2Tot), ptV0);
+    return mPars[SigmaM] > 0 && check(calcMass(p2Pos, p2Neg, p2Bach, p2Tot), ptV0);
   }
 
   bool check(float mass, float pt) const

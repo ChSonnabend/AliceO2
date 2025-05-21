@@ -42,6 +42,7 @@ TEST_CASE("ConcreteData")
     CHECK(std::string(concrete.description.as<std::string>()) == "FOOO");
     CHECK(concrete.subSpec == 1);
     CHECK(DataSpecUtils::describe(spec) == "TEST/FOOO/1");
+    CHECK(DataSpecUtils::describe(spec) == "TEST/FOOO/1");
     CHECK(*DataSpecUtils::getOptionalSubSpec(spec) == 1);
 
     ConcreteDataTypeMatcher dataType = DataSpecUtils::asConcreteDataTypeMatcher(spec);
@@ -56,6 +57,44 @@ TEST_CASE("ConcreteData")
     CHECK(DataSpecUtils::match(inputSpec, ConcreteDataMatcher{"TEST", "FOOO", 0}) == false);
     DataSpecUtils::updateMatchingSubspec(inputSpec, 0);
     CHECK(DataSpecUtils::match(inputSpec, ConcreteDataMatcher{"TEST", "FOOO", 0}) == true);
+  }
+}
+
+TEST_CASE("DescribeUsingBuffer")
+{
+  o2::framework::clean_all_runtime_errors();
+  OutputSpec spec{
+    "TEST",
+    "FOOO",
+    1,
+    Lifetime::Timeframe};
+
+  InputSpec inputSpec{
+    "binding",
+    "TEST",
+    "FOOO",
+    1,
+    Lifetime::Timeframe};
+
+  REQUIRE(DataSpecUtils::validate(inputSpec));
+
+  {
+    char buffer[1024];
+
+    ConcreteDataMatcher concrete = DataSpecUtils::asConcreteDataMatcher(spec);
+    CHECK(std::string(concrete.origin.as<std::string>()) == "TEST");
+    CHECK(std::string(concrete.description.as<std::string>()) == "FOOO");
+    CHECK(concrete.subSpec == 1);
+    auto size = DataSpecUtils::describe(buffer, 1024, spec);
+    CHECK(std::string_view(buffer, size) == "TEST/FOOO/1");
+    size = DataSpecUtils::describe(buffer, 1024, spec);
+    CHECK(std::string_view(buffer, size) == "TEST/FOOO/1");
+    CHECK(*DataSpecUtils::getOptionalSubSpec(spec) == 1);
+
+    char buffer2[1024];
+    size = DataSpecUtils::describe(buffer2, 5, spec);
+    // We always nullterminate the string
+    CHECK(std::string_view(buffer2, size) == "TEST");
   }
 }
 
@@ -76,6 +115,22 @@ TEST_CASE("WithWildCards")
   CHECK(DataSpecUtils::describe(spec) == "TEST/FOOO");
 
   CHECK(DataSpecUtils::getOptionalSubSpec(spec) == std::nullopt);
+}
+
+TEST_CASE("WithWildCardsBuffer")
+{
+  char buffer[1024];
+  OutputSpec spec{
+    {"TEST", "FOOO"},
+    Lifetime::Timeframe};
+
+  auto size = DataSpecUtils::describe(buffer, 1024, spec);
+  CHECK(std::string_view(buffer, size) == "<matcher query: TEST/FOOO>");
+
+  char buffer2[1024];
+  size = DataSpecUtils::describe(buffer2, 5, spec);
+  // We always null terminate the buffer.
+  CHECK(std::string_view(buffer2, size) == "<mat");
 }
 
 TEST_CASE("MatchingInputs")

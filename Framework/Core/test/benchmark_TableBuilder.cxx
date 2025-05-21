@@ -62,39 +62,6 @@ static void BM_TableBuilderScalarReserved(benchmark::State& state)
 BENCHMARK(BM_TableBuilderScalarReserved)->Arg(1 << 21);
 BENCHMARK(BM_TableBuilderScalarReserved)->Range(8, 8 << 16);
 
-static void BM_TableBuilderScalarPresized(benchmark::State& state)
-{
-  using namespace o2::framework;
-  for (auto _ : state) {
-    TableBuilder builder;
-    auto rowWriter = builder.preallocatedPersist<float>({"x"}, state.range(0));
-    for (auto i = 0; i < state.range(0); ++i) {
-      rowWriter(0, 0.f);
-    }
-    auto table = builder.finalize();
-  }
-}
-
-BENCHMARK(BM_TableBuilderScalarPresized)->Arg(1 << 20);
-BENCHMARK(BM_TableBuilderScalarPresized)->Range(8, 8 << 16);
-
-static void BM_TableBuilderScalarBulk(benchmark::State& state)
-{
-  using namespace o2::framework;
-  auto chunkSize = state.range(0) / 256;
-  std::vector<float> buffer(chunkSize, 0.); // We assume data is chunked in blocks 256th of the total size
-  for (auto _ : state) {
-    TableBuilder builder;
-    auto bulkWriter = builder.bulkPersist<float>({"x"}, state.range(0));
-    for (auto i = 0; i < state.range(0) / chunkSize; ++i) {
-      bulkWriter(0, chunkSize, buffer.data());
-    }
-    auto table = builder.finalize();
-  }
-}
-
-BENCHMARK(BM_TableBuilderScalarBulk)->Range(256, 1 << 20);
-
 static void BM_TableBuilderSimple(benchmark::State& state)
 {
   using namespace o2::framework;

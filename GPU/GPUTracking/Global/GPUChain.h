@@ -20,6 +20,7 @@
 #include "GPUKernelClassesFwd.h"
 
 #include <ctime>
+#include <functional>
 
 namespace o2::gpu
 {
@@ -226,12 +227,19 @@ class GPUChain
   virtual int32_t DoStuckProtection(int32_t stream, deviceEvent event) { return 0; }
 
   template <class T, class S, typename... Args>
-  bool DoDebugAndDump(RecoStep step, int32_t mask, T& processor, S T::*func, Args&&... args)
+  bool DoDebugAndDump(RecoStep step, uint32_t mask, T& processor, S T::*func, Args&&... args)
   {
     return DoDebugAndDump(step, mask, true, processor, func, args...);
   }
   template <class T, class S, typename... Args>
-  bool DoDebugAndDump(RecoStep step, int32_t mask, bool transfer, T& processor, S T::*func, Args&&... args);
+  bool DoDebugAndDump(RecoStep step, uint32_t mask, bool transfer, T& processor, S T::*func, Args&&... args);
+  template <typename... Args>
+  bool DoDebugDump(uint32_t mask, std::function<void(Args&...)> func, Args&... args);
+  template <class S, typename... Args>
+  bool DoDebugDump(uint32_t mask, S* func, Args&&... args)
+  {
+    return DoDebugDump(mask, std::function<void(Args && ...)>([&func](Args&&... args_tmp) { (*func)(args_tmp...); }), args...);
+  }
 
   template <class T, class S, typename... Args>
   int32_t runRecoStep(RecoStep step, S T::*func, Args... args);
@@ -278,24 +286,7 @@ inline void GPUChain::timeCpy(RecoStep step, int32_t toGPU, S T::*func, Args... 
 }
 
 template <class T, class S, typename... Args>
-bool GPUChain::DoDebugAndDump(GPUChain::RecoStep step, int32_t mask, bool transfer, T& processor, S T::*func, Args&&... args)
-{
-  if (GetProcessingSettings().keepAllMemory) {
-    if (transfer) {
-      TransferMemoryResourcesToHost(step, &processor, -1, true);
-    }
-    if (GetProcessingSettings().debugLevel >= 6 && (mask == 0 || (GetProcessingSettings().debugMask & mask))) {
-      if (func) {
-        (processor.*func)(args...);
-      }
-      return true;
-    }
-  }
-  return false;
-}
-
-template <class T, class S, typename... Args>
-int32_t GPUChain::runRecoStep(RecoStep step, S T::*func, Args... args)
+inline int32_t GPUChain::runRecoStep(RecoStep step, S T::*func, Args... args)
 {
   if (GetRecoSteps().isSet(step)) {
     auto* timer = GetProcessingSettings().recoTaskTiming ? &mRec->getRecoStepTimer(step) : nullptr;

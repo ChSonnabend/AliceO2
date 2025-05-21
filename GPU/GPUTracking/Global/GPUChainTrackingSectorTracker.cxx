@@ -13,6 +13,7 @@
 /// \author David Rohr
 
 #include "GPUChainTracking.h"
+#include "GPUChainTrackingDebug.h"
 #include "GPULogging.h"
 #include "GPUO2DataTypes.h"
 #include "GPUMemorySizeScalers.h"
@@ -175,8 +176,10 @@ int32_t GPUChainTracking::RunTPCTrackingSectors_internal()
     }
 
     if (GetProcessingSettings().debugLevel >= 6) {
-      *mDebugFile << "\n\nReconstruction: Sector " << iSector << "/" << NSECTORS << std::endl;
-      if (GetProcessingSettings().debugMask & 1) {
+      if ((GetProcessingSettings().debugMask & 63)) {
+        *mDebugFile << "\n\nReconstruction: Sector " << iSector << "/" << NSECTORS << std::endl;
+      }
+      if (GetProcessingSettings().debugMask & GPUChainTrackingDebugFlags::TPCSectorTrackingData) {
         if (doGPU) {
           TransferMemoryResourcesToHost(RecoStep::TPCSectorTracking, &trk, -1, true);
         }
@@ -191,13 +194,13 @@ int32_t GPUChainTracking::RunTPCTrackingSectors_internal()
     if (GetProcessingSettings().keepDisplayMemory) {
       TransferMemoryResourcesToHost(RecoStep::TPCSectorTracking, &trk, -1, true);
       memcpy(trk.LinkTmpMemory(), mRec->Res(trk.MemoryResLinks()).Ptr(), mRec->Res(trk.MemoryResLinks()).Size());
-      if (GetProcessingSettings().debugMask & 2) {
+      if (GetProcessingSettings().debugMask & GPUChainTrackingDebugFlags::TPCPreLinks) {
         trk.DumpLinks(*mDebugFile, 0);
       }
     }
 
     runKernel<GPUTPCNeighboursCleaner>({GetGridBlk(GPUCA_ROW_COUNT - 2, useStream), {iSector}});
-    DoDebugAndDump(RecoStep::TPCSectorTracking, 4, trk, &GPUTPCTracker::DumpLinks, *mDebugFile, 1);
+    DoDebugAndDump(RecoStep::TPCSectorTracking, GPUChainTrackingDebugFlags::TPCLinks, trk, &GPUTPCTracker::DumpLinks, *mDebugFile, 1);
 
     runKernel<GPUTPCStartHitsFinder>({GetGridBlk(GPUCA_ROW_COUNT - 6, useStream), {iSector}});
     if (mRec->getGPUParameters(doGPU).par_SORT_STARTHITS) {
@@ -206,7 +209,7 @@ int32_t GPUChainTracking::RunTPCTrackingSectors_internal()
     if (GetProcessingSettings().deterministicGPUReconstruction) {
       runKernel<GPUTPCSectorDebugSortKernels, GPUTPCSectorDebugSortKernels::startHits>({GetGrid(1, 1, useStream), {iSector}});
     }
-    DoDebugAndDump(RecoStep::TPCSectorTracking, 32, trk, &GPUTPCTracker::DumpStartHits, *mDebugFile);
+    DoDebugAndDump(RecoStep::TPCSectorTracking, GPUChainTrackingDebugFlags::TPCStartHits, trk, &GPUTPCTracker::DumpStartHits, *mDebugFile);
 
     if (GetProcessingSettings().memoryAllocationStrategy == GPUMemoryResource::ALLOCATION_INDIVIDUAL) {
       trk.UpdateMaxData();
@@ -215,8 +218,8 @@ int32_t GPUChainTracking::RunTPCTrackingSectors_internal()
     }
 
     runKernel<GPUTPCTrackletConstructor>({GetGridAuto(useStream), {iSector}});
-    DoDebugAndDump(RecoStep::TPCSectorTracking, 128, trk, &GPUTPCTracker::DumpTrackletHits, *mDebugFile);
-    if (GetProcessingSettings().debugMask & 256 && GetProcessingSettings().deterministicGPUReconstruction < 2) {
+    DoDebugAndDump(RecoStep::TPCSectorTracking, GPUChainTrackingDebugFlags::TPCTracklets, trk, &GPUTPCTracker::DumpTrackletHits, *mDebugFile);
+    if (GetProcessingSettings().debugMask & GPUChainTrackingDebugFlags::TPCHitWeights && GetProcessingSettings().deterministicGPUReconstruction < 2) {
       trk.DumpHitWeights(*mDebugFile);
     }
 
@@ -230,7 +233,7 @@ int32_t GPUChainTracking::RunTPCTrackingSectors_internal()
     if (GetProcessingSettings().debugLevel >= 3) {
       GPUInfo("Sector %u, Number of tracks: %d", iSector, *trk.NTracks());
     }
-    DoDebugAndDump(RecoStep::TPCSectorTracking, 512, trk, &GPUTPCTracker::DumpTrackHits, *mDebugFile);
+    DoDebugAndDump(RecoStep::TPCSectorTracking, GPUChainTrackingDebugFlags::TPCSectorTracks, trk, &GPUTPCTracker::DumpTrackHits, *mDebugFile);
   });
   mRec->SetNActiveThreadsOuterLoop(1);
   if (error) {

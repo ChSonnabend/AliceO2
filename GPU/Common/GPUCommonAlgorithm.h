@@ -282,6 +282,11 @@ GPUdi() void GPUCommonAlgorithm::sortInBlock(T* begin, T* end, const S& comp)
 {
 #ifndef GPUCA_GPUCODE
   GPUCommonAlgorithm::sort(begin, end, comp);
+#elif defined(GPUCA_DETERMINISTIC_MODE) // Not using GPUCA_DETERMINISTIC_CODE, which is enforced in TPC compression
+  if (get_local_id(0) == 0) {
+    GPUCommonAlgorithm::sort(begin, end, comp);
+  }
+  GPUbarrier();
 #else
   int32_t n = end - begin;
   for (int32_t i = 0; i < n; i++) {

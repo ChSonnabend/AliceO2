@@ -40,6 +40,8 @@ class FairOutputTBuffer : public TBufferFile
     : TBufferFile(TBuffer::kWrite, msg.GetSize() - sizeof(char*), embedInItself(msg), false, fairMQrealloc)
   {
   }
+
+  ~FairOutputTBuffer() override;
   // Helper function to keep track of the FairMQ message that holds the data
   // in the data itself. We can use this to make sure the message can be reallocated
   // even if we simply have a pointer to the data. Hopefully ROOT will not play dirty
@@ -60,6 +62,7 @@ class FairInputTBuffer : public TBufferFile
     : TBufferFile(TBuffer::kRead, size - sizeof(char*), data + sizeof(char*), false, nullptr)
   {
   }
+  ~FairInputTBuffer() override;
 };
 
 struct TMessageSerializer {

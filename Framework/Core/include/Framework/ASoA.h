@@ -1245,7 +1245,7 @@ struct TableIterator : IP, C... {
 };
 
 struct ArrowHelpers {
-  static std::shared_ptr<arrow::Table> joinTables(std::vector<std::shared_ptr<arrow::Table>>&& tables);
+  static std::shared_ptr<arrow::Table> joinTables(std::vector<std::shared_ptr<arrow::Table>>&& tables, std::span<const char* const> labels);
   static std::shared_ptr<arrow::Table> concatTables(std::vector<std::shared_ptr<arrow::Table>>&& tables);
 };
 
@@ -1400,10 +1400,10 @@ namespace o2::framework
 
 struct PreslicePolicyBase {
   const std::string binding;
-  StringPair bindingKey;
+  Entry bindingKey;
 
   bool isMissing() const;
-  StringPair const& getBindingKey() const;
+  Entry const& getBindingKey() const;
 };
 
 struct PreslicePolicySorted : public PreslicePolicyBase {
@@ -1428,7 +1428,7 @@ struct PresliceBase : public Policy {
   const std::string binding;
 
   PresliceBase(expressions::BindingNode index_)
-    : Policy{PreslicePolicyBase{{o2::soa::getLabelFromTypeForKey<T, OPT>(std::string{index_.name})}, std::make_pair(o2::soa::getLabelFromTypeForKey<T, OPT>(std::string{index_.name}), std::string{index_.name})}, {}}
+    : Policy{PreslicePolicyBase{{o2::soa::getLabelFromTypeForKey<T, OPT>(std::string{index_.name})}, Entry(o2::soa::getLabelFromTypeForKey<T, OPT>(std::string{index_.name}), std::string{index_.name})}, {}}
   {
   }
 
@@ -1508,7 +1508,7 @@ auto doSliceBy(T const* table, o2::framework::PresliceBase<C, Policy, OPT> const
 {
   if constexpr (OPT) {
     if (container.isMissing()) {
-      missingOptionalPreslice(getLabelFromType<std::decay_t<T>>().data(), container.bindingKey.second.c_str());
+      missingOptionalPreslice(getLabelFromType<std::decay_t<T>>().data(), container.bindingKey.key.c_str());
     }
   }
   uint64_t offset = 0;
@@ -1545,7 +1545,7 @@ auto doSliceBy(T const* table, o2::framework::PresliceBase<C, Policy, OPT> const
 {
   if constexpr (OPT) {
     if (container.isMissing()) {
-      missingOptionalPreslice(getLabelFromType<std::decay_t<T>>().data(), container.bindingKey.second.c_str());
+      missingOptionalPreslice(getLabelFromType<std::decay_t<T>>().data(), container.bindingKey.key.c_str());
     }
   }
   auto selection = container.getSliceFor(value);
@@ -1574,7 +1574,7 @@ auto doFilteredSliceBy(T const* table, o2::framework::PresliceBase<C, framework:
 {
   if constexpr (OPT) {
     if (container.isMissing()) {
-      missingOptionalPreslice(getLabelFromType<T>().data(), container.bindingKey.second.c_str());
+      missingOptionalPreslice(getLabelFromType<T>().data(), container.bindingKey.key.c_str());
     }
   }
   uint64_t offset = 0;
@@ -1683,6 +1683,7 @@ class Table
   using table_t = self_t;
 
   static constexpr const auto originals = computeOriginals<ref, Ts...>();
+  static constexpr const auto originalLabels = []<size_t N, std::array<TableRef, N> refs, size_t... Is>(std::index_sequence<Is...>) { return std::array<const char*, N>{o2::aod::label<refs[Is]>()...}; }.template operator()<originals.size(), originals>(std::make_index_sequence<originals.size()>());
 
   template <size_t N, std::array<TableRef, N> bindings>
     requires(ref.origin_hash == "CONC"_h)
@@ -1931,7 +1932,7 @@ class Table
 
   Table(std::vector<std::shared_ptr<arrow::Table>>&& tables, uint64_t offset = 0)
     requires(ref.origin_hash != "CONC"_h)
-    : Table(ArrowHelpers::joinTables(std::move(tables)), offset)
+    : Table(ArrowHelpers::joinTables(std::move(tables), std::span{originalLabels}), offset)
   {
   }
 
@@ -3213,7 +3214,7 @@ struct JoinFull : Table<o2::aod::Hash<"JOIN"_h>, D, o2::aod::Hash<"JOIN"_h>, Ts.
     bindInternalIndicesTo(this);
   }
   JoinFull(std::vector<std::shared_ptr<arrow::Table>>&& tables, uint64_t offset = 0)
-    : base{ArrowHelpers::joinTables(std::move(tables)), offset}
+    : base{ArrowHelpers::joinTables(std::move(tables), std::span{base::originalLabels}), offset}
   {
     bindInternalIndicesTo(this);
   }
@@ -3223,6 +3224,7 @@ struct JoinFull : Table<o2::aod::Hash<"JOIN"_h>, D, o2::aod::Hash<"JOIN"_h>, Ts.
   using self_t = JoinFull<D, Ts...>;
   using table_t = base;
   static constexpr const auto originals = base::originals;
+  static constexpr const auto originalLabels = base::originalLabels;
   using columns_t = typename table_t::columns_t;
   using persistent_columns_t = typename table_t::persistent_columns_t;
   using iterator = table_t::template iterator_template<DefaultIndexPolicy, self_t, Ts...>;
@@ -3293,7 +3295,7 @@ using Join = JoinFull<o2::aod::Hash<"JOIN/0"_h>, Ts...>;
 template <typename... Ts>
 constexpr auto join(Ts const&... t)
 {
-  return Join<Ts...>(ArrowHelpers::joinTables({t.asArrowTable()...}));
+  return Join<Ts...>(ArrowHelpers::joinTables({t.asArrowTable()...}, std::span{Join<Ts...>::base::originalLabels}));
 }
 
 template <typename T>

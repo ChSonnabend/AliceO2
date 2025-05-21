@@ -14,27 +14,67 @@
 
 #include "Framework/Logger.h"
 #include "ITS3Simulation/DigiParams.h"
+#include <cstdio>
 
 ClassImp(o2::its3::DigiParams);
 
 namespace o2::its3
 {
 
+DigiParams::DigiParams()
+{
+  // make sure the defaults are consistent
+  setIBNSimSteps(mIBNSimSteps);
+}
+
+void DigiParams::setIBNSimSteps(int v)
+{
+  // set number of sampling steps in silicon
+  mIBNSimSteps = v > 0 ? v : 1;
+  mIBNSimStepsInv = 1.f / mIBNSimSteps;
+}
+
+void DigiParams::setIBChargeThreshold(int v, float frac2Account)
+{
+  // set charge threshold for digits creation and its fraction to account
+  // contribution from single hit
+  mIBChargeThreshold = v;
+  mIBMinChargeToAccount = v * frac2Account;
+  if (mIBMinChargeToAccount < 0 || mIBMinChargeToAccount > mIBChargeThreshold) {
+    mIBMinChargeToAccount = mIBChargeThreshold;
+  }
+  LOG(info) << "Set Mosaix charge threshold to " << mIBChargeThreshold
+            << ", single hit will be accounted from " << mIBMinChargeToAccount
+            << " electrons";
+}
+
 void DigiParams::print() const
 {
   // print settings
-  LOGF(info, "ITS3 DigiParams settings:");
-  LOGF(info, "Continuous readout             : %s", isContinuous() ? "ON" : "OFF");
-  LOGF(info, "Readout Frame Length(ns)       : %f", getROFrameLength());
-  LOGF(info, "Strobe delay (ns)              : %f", getStrobeDelay());
-  LOGF(info, "Strobe length (ns)             : %f", getStrobeLength());
-  LOGF(info, "Threshold (N electrons)        : %d", getChargeThreshold());
-  LOGF(info, "Min N electrons to account     : %d", getMinChargeToAccount());
-  LOGF(info, "Number of charge sharing steps : %d", getNSimSteps());
-  LOGF(info, "ELoss to N electrons factor    : %e", getEnergyToNElectrons());
-  LOGF(info, "Noise level per pixel          : %e", getNoisePerPixel());
-  LOGF(info, "Charge time-response:\n");
+  printf("ITS3 DigiParams settings:\n");
+  printf("Continuous readout                   : %s\n", isContinuous() ? "ON" : "OFF");
+  printf("Readout Frame Length(ns)             : %f\n", getROFrameLength());
+  printf("Strobe delay (ns)                    : %f\n", getStrobeDelay());
+  printf("Strobe length (ns)                   : %f\n", getStrobeLength());
+  printf("IB Threshold (N electrons)           : %d\n", getIBChargeThreshold());
+  printf("OB Threshold (N electrons)           : %d\n", getChargeThreshold());
+  printf("Min N electrons to account for IB    : %d\n", getIBMinChargeToAccount());
+  printf("Min N electrons to account for OB    : %d\n", getMinChargeToAccount());
+  printf("Number of charge sharing steps of IB : %d\n", getIBNSimSteps());
+  printf("Number of charge sharing steps of OB : %d\n", getNSimSteps());
+  printf("ELoss to N electrons factor          : %e\n", getEnergyToNElectrons());
+  printf("Noise level per pixel of IB          : %e\n", getIBNoisePerPixel());
+  printf("Noise level per pixel of OB          : %e\n", getNoisePerPixel());
+  printf("Charge time-response:\n");
   getSignalShape().print();
+}
+
+void DigiParams::setIBSimResponse(o2::its3::ChipSimResponse* response)
+{
+  mIBSimResponse = response;
+  if (mIBSimResponse) {
+    mIBSimResponse->computeCentreFromData();
+  }
 }
 
 } // namespace o2::its3

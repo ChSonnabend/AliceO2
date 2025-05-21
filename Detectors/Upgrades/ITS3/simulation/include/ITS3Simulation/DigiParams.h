@@ -13,21 +13,43 @@
 #define ITS3_DIGIPARAMS_H
 
 #include "ITSMFTSimulation/DigiParams.h"
+#include "ITS3Simulation/ChipSimResponse.h"
 
 namespace o2::its3
 {
 
 class DigiParams final : public o2::itsmft::DigiParams
 {
+ private:
+  float mIBNoisePerPixel = 1.e-8;
+  int mIBChargeThreshold = 150;   ///< charge threshold in Nelectrons
+  int mIBMinChargeToAccount = 15; ///< minimum charge contribution to account
+  int mIBNSimSteps = 18;          ///< number of steps in response simulation
+  float mIBNSimStepsInv = 0;      ///< its inverse
+
  public:
+  DigiParams();
+
+  void setIBNoisePerPixel(float v) { mIBNoisePerPixel = v; }
+  float getIBNoisePerPixel() const { return mIBNoisePerPixel; }
+
+  void setIBChargeThreshold(int v, float frac2Account = 0.1);
+  int getIBChargeThreshold() const { return mIBChargeThreshold; }
+
+  void setIBNSimSteps(int v);
+  int getIBNSimSteps() const { return mIBNSimSteps; }
+  float getIBNSimStepsInv() const { return mIBNSimStepsInv; }
+
+  int getIBMinChargeToAccount() const { return mIBMinChargeToAccount; }
+
   const o2::itsmft::AlpideSimResponse* getAlpSimResponse() const = delete;
   void setAlpSimResponse(const o2::itsmft::AlpideSimResponse* par) = delete;
 
   const o2::itsmft::AlpideSimResponse* getOBSimResponse() const { return mOBSimResponse; }
   void setOBSimResponse(const o2::itsmft::AlpideSimResponse* response) { mOBSimResponse = response; }
 
-  const o2::itsmft::AlpideSimResponse* getIBSimResponse() const { return mIBSimResponse; }
-  void setIBSimResponse(const o2::itsmft::AlpideSimResponse* response) { mIBSimResponse = response; }
+  o2::its3::ChipSimResponse* getIBSimResponse() const { return mIBSimResponse; }
+  void setIBSimResponse(o2::its3::ChipSimResponse* response);
 
   bool hasResponseFunctions() const { return mIBSimResponse != nullptr && mOBSimResponse != nullptr; }
 
@@ -35,7 +57,7 @@ class DigiParams final : public o2::itsmft::DigiParams
 
  private:
   const o2::itsmft::AlpideSimResponse* mOBSimResponse = nullptr; //!< pointer to external response
-  const o2::itsmft::AlpideSimResponse* mIBSimResponse = nullptr; //!< pointer to external response
+  o2::its3::ChipSimResponse* mIBSimResponse = nullptr;           //!< pointer to external response
 
   ClassDef(DigiParams, 1);
 };

@@ -67,8 +67,10 @@ set(GPU_RTC_BIN ${CMAKE_CURRENT_BINARY_DIR}/GPUReconstructionCUDArtc)
 # cmake-format: off
 add_custom_command(
     OUTPUT ${GPU_RTC_BIN}.src
-    COMMAND cp ${GPUDIR}/Base/cuda/GPUReconstructionCUDAIncludesSystem.h ${GPU_RTC_BIN}.src
-    COMMAND ${CMAKE_CXX_COMPILER} ${GPU_RTC_DEFINES} ${GPU_RTC_INCLUDES} -std=c++${CMAKE_CUDA_STANDARD} -D__CUDA_ARCH__=${RTC_CUDA_ARCH} -D__CUDACC__ -x c++ -nostdinc -E -P ${GPU_RTC_SRC} >> ${GPU_RTC_BIN}.src
+    COMMAND cp ${GPUDIR}/Base/GPUStdSystemHeaders.h ${GPU_RTC_BIN}.src
+    COMMAND cat ${GPUDIR}/Base/cuda/GPUReconstructionCUDAIncludesSystem.h | grep -v GPUStdSystemHeaders.h >> ${GPU_RTC_BIN}.src
+    COMMAND cat ${GPUDIR}/Base/GPUStdSystemHeaders.h >> ${GPU_RTC_BIN}.src
+    COMMAND ${CMAKE_CUDA_COMPILER} ${GPU_RTC_DEFINES} ${GPU_RTC_INCLUDES} -std=c++${CMAKE_CUDA_STANDARD} -D__CUDA_ARCH__=${RTC_CUDA_ARCH} -D__CUDACC__ -x c++ -E -Xcompiler "-nostdinc -P" ${GPU_RTC_SRC} >> ${GPU_RTC_BIN}.src
     MAIN_DEPENDENCY ${GPU_RTC_SRC}
     IMPLICIT_DEPENDS CXX ${GPU_RTC_SRC}
     COMMAND_EXPAND_LISTS
@@ -120,7 +122,6 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
       ${CMAKE_SOURCE_DIR}/DataFormats/Reconstruction/src
       ${CMAKE_CURRENT_SOURCE_DIR}
     TARGETVARNAME targetName)
-  install(FILES ${HDRS} DESTINATION include/GPU)
 endif()
 
 if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
@@ -131,6 +132,8 @@ if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
   install(TARGETS GPUTrackingCUDA)
   include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 endif()
+
+install(FILES ${HDRS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/GPU)
 
 target_compile_definitions(${targetName} PRIVATE $<TARGET_PROPERTY:O2::GPUTracking,COMPILE_DEFINITIONS>)
 

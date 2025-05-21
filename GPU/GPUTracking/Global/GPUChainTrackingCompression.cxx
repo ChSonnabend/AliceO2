@@ -13,6 +13,7 @@
 /// \author David Rohr
 
 #include "GPUChainTracking.h"
+#include "GPUChainTrackingDebug.h"
 #include "GPULogging.h"
 #include "GPUO2DataTypes.h"
 #include "GPUTrackingInputProvider.h"
@@ -202,6 +203,11 @@ int32_t GPUChainTracking::RunTPCCompression()
     ((GPUChainTracking*)GetNextChainInQueue())->mRec->BlockStackedMemory(mRec);
   }
   mRec->PopNonPersistentMemory(RecoStep::TPCCompression, qStr2Tag("TPCCOMPR"));
+  if (GetProcessingSettings().deterministicGPUReconstruction) {
+    SynchronizeGPU();
+    DebugSortCompressedClusters(Compressor.mOutputFlat);
+  }
+  DoDebugAndDump(RecoStep::TPCCompression, GPUChainTrackingDebugFlags::TPCCompressedClusters, Compressor, &GPUTPCCompression::DumpCompressedClusters, *mDebugFile);
   return 0;
 }
 
@@ -425,5 +431,6 @@ int32_t GPUChainTracking::RunTPCDecompression()
     }
     mRec->PopNonPersistentMemory(RecoStep::TPCDecompression, qStr2Tag("TPCDCMPR"));
   }
+  DoDebugDump(GPUChainTrackingDebugFlags::TPCDecompressedClusters, &GPUChainTracking::DumpClusters, *mDebugFile, mIOPtrs.clustersNative);
   return 0;
 }

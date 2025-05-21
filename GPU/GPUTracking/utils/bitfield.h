@@ -15,10 +15,6 @@
 #ifndef Q_BITFIELD_H
 #define Q_BITFIELD_H
 
-#if !defined(GPUCA_GPUCODE_DEVICE) && !defined(GPUCA_GPUCODE_COMPILEKERNELS)
-#include <type_traits>
-#endif
-
 template <class T, class S>
 class bitfield
 {
@@ -93,7 +89,8 @@ class bitfield
   }
 
 #if !defined(GPUCA_GPUCODE_DEVICE)
-  static_assert(std::is_integral<S>::value, "Storage type non integral");
+  static_assert(std::is_void_v<void>, "type_traits header missing");
+  static_assert(std::is_integral_v<S>, "Storage type non integral");
   static_assert(sizeof(S) >= sizeof(T), "Storage type has insufficient capacity");
 #endif
 

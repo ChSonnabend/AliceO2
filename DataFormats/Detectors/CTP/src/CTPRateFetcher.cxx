@@ -10,6 +10,7 @@
 // or submit itself to any jurisdiction.
 
 #include "DataFormatsCTP/CTPRateFetcher.h"
+#include "CCDB/BasicCCDBManager.h"
 
 #include <map>
 #include <vector>

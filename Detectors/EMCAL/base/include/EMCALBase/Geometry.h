@@ -22,7 +22,9 @@
 #include <TNamed.h>
 #include <TParticle.h>
 #include <TVector3.h>
+#include <TObjArray.h>
 
+#include "CCDB/BasicCCDBManager.h"
 #include "DataFormatsEMCAL/Constants.h"
 #include "EMCALBase/GeometryBase.h"
 #include "MathUtils/Cartesian.h"
@@ -57,7 +59,7 @@ class Geometry
   /// | EMCAL_COMPLETE12SMV1_DCAL             | Full EMCAL, 10 DCAL Supermodules (not used in practice)  |
   /// | EMCAL_COMPLETE12SMV1_DCAL_8SM         | Full EMCAL, 8 DCAL Supermodules (run2)                   |
   /// | EMCAL_COMPLETE12SMV1_DCAL_DEV         | Full EMCAL, DCAL development geometry (not used)         |
-  Geometry(const std::string_view name, const std::string_view mcname = "", const std::string_view mctitle = "");
+  explicit Geometry(const std::string_view name, const std::string_view mcname = "", const std::string_view mctitle = "");
 
   /// \brief Copy constructor.
   Geometry(const Geometry& geom);
@@ -563,6 +565,11 @@ class Geometry
   /// Move from header due to coding violations : Dec 2,2011 by PAI
   ///
   void SetMisalMatrix(const TGeoHMatrix* m, Int_t smod) const;
+
+  ///
+  /// Method to set shift-rotational matrixes from CCDB
+  ///
+  void SetMisalMatrixFromCcdb(const char* path = "Users/m/mhemmer/EMCAL/Config/GeometryAligned", int timestamp = 10000) const;
 
   ///
   /// Transform clusters cell position into global with alternative method, taking into account the depth calculation.

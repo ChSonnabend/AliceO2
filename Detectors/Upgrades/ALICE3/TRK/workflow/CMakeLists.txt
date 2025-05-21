@@ -10,23 +10,21 @@
 # or submit itself to any jurisdiction.
 
 o2_add_library(TRKWorkflow
+               TARGETVARNAME targetName
                SOURCES src/DigitReaderSpec.cxx
                        src/DigitWriterSpec.cxx
-                    #    src/RecoWorkflow.cxx
-                    #    src/ClusterWriterWorkflow.cxx
-                    #    src/ClustererSpec.cxx
-                    #    src/ClusterWriterSpec.cxx
-                    #    src/TrackerSpec.cxx
-                    #    src/TrackWriterSpec.cxx
-                    #    src/TrackReaderSpec.cxx
-                    #    src/VertexReaderSpec.cxx
+                       src/TrackerSpec.cxx
+                       src/RecoWorkflow.cxx
                PUBLIC_LINK_LIBRARIES O2::Framework
+                                     O2::GPUWorkflow
                                      O2::SimConfig
                                      O2::DataFormatsITSMFT
                                      O2::SimulationDataFormat
                                      O2::DPLUtils)
 
-# o2_add_executable(reco-workflow
-#                   SOURCES src/trk-reco-workflow.cxx
-#                   COMPONENT_NAME alice3-trk
-#                   PUBLIC_LINK_LIBRARIES O2::TRKWorkflow)
+o2_add_executable(reco-workflow
+                  SOURCES src/trk-reco-workflow.cxx
+                  COMPONENT_NAME alice3-trk
+                  PUBLIC_LINK_LIBRARIES O2::TRKWorkflow
+                                        O2::TRKSimulation
+                                        O2::ITStracking)

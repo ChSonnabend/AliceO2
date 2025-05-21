@@ -113,6 +113,16 @@ class V3Cage : public V11Geometry
   /// \param mgr  The GeoManager (used only to get the proper material)
   TGeoVolume* createCageClosingCross(const TGeoManager* mgr = gGeoManager);
 
+  /// Creates and places the MFT rails inside the Cage
+  /// \param mother The mother volume to place the rails into
+  /// \param mgr  The GeoManager (used only to get the proper material)
+  void createAndPlaceMFTRailsInsideCage(TGeoVolume* mother, const TGeoManager* mgr = gGeoManager);
+
+  /// Creates a pair of MFT rails inside the Cage
+  /// \param motmed  Medium material of the mother volume
+  /// \param mgr  The GeoManager (used only to get the proper material)
+  TGeoVolume* createMFTRailsPair(const TGeoMedium* motmed, const TGeoManager* mgr = gGeoManager);
+
   // Parameters
   static const Double_t sCageYInBarrel; ///< Global Y translation
 
@@ -243,6 +253,17 @@ class V3Cage : public V11Geometry
   static const Double_t sCageCrossZLength;    ///< Closing cross Z length
   static const Double_t sCageCrossBarThick;   ///< Closing cross bar thickness
   static const Double_t sCageCrossBarPhi;     ///< Closing cross bar angle
+
+  // MFT Rails inside the Cage
+  static const Double_t sCageMFTRailZLen;      ///< Total length of the rail
+  static const Double_t sCageMFTRailTotWidth;  ///< Total width of the rail
+  static const Double_t sCageMFTRailExtWidth;  ///< Width of the external part
+  static const Double_t sCageMFTRailIntWidth;  ///< Width of the internal part
+  static const Double_t sCageMFTRailBaseWidth; ///< Width of the rail base
+  static const Double_t sCageMFTRailTotHeight; ///< Total height of the rail
+  static const Double_t sCageMFTRailExtHeight; ///< Height of the external part
+  static const Double_t sCageMFTRailIntHeight; ///< Height of the internal part
+  static const Double_t sCageMFTRailsXDist;    ///< X distance between rails
 
   ClassDefOverride(V3Cage, 0); // ITS v3 support geometry
 };

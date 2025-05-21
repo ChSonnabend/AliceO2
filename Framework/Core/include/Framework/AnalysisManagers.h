@@ -282,14 +282,14 @@ template <is_spawns T>
 bool prepareOutput(ProcessingContext& context, T& spawns)
 {
   using metadata = o2::aod::MetadataTrait<o2::aod::Hash<T::spawnable_t::ref.desc_hash>>::metadata;
-  auto originalTable = soa::ArrowHelpers::joinTables(extractOriginals<metadata::sources.size(), metadata::sources>(context));
+  auto originalTable = soa::ArrowHelpers::joinTables(extractOriginals<metadata::sources.size(), metadata::sources>(context), std::span{metadata::base_table_t::originalLabels});
   if (originalTable->schema()->fields().empty() == true) {
     using base_table_t = typename T::base_table_t::table_t;
     originalTable = makeEmptyTable<base_table_t>(o2::aod::label<metadata::extension_table_t::ref>());
   }
 
   spawns.extension = std::make_shared<typename T::extension_t>(o2::framework::spawner<o2::aod::Hash<metadata::extension_table_t::ref.desc_hash>>(originalTable, o2::aod::label<metadata::extension_table_t::ref>(), spawns.projector));
-  spawns.table = std::make_shared<typename T::spawnable_t::table_t>(soa::ArrowHelpers::joinTables({spawns.extension->asArrowTable(), originalTable}));
+  spawns.table = std::make_shared<typename T::spawnable_t::table_t>(soa::ArrowHelpers::joinTables({spawns.extension->asArrowTable(), originalTable}, std::span{T::spawnable_t::table_t::originalLabels}));
   return true;
 }
 
@@ -304,14 +304,14 @@ template <is_defines T>
 bool prepareOutput(ProcessingContext& context, T& defines)
 {
   using metadata = o2::aod::MetadataTrait<o2::aod::Hash<T::spawnable_t::ref.desc_hash>>::metadata;
-  auto originalTable = soa::ArrowHelpers::joinTables(extractOriginals<metadata::sources.size(), metadata::sources>(context));
+  auto originalTable = soa::ArrowHelpers::joinTables(extractOriginals<metadata::sources.size(), metadata::sources>(context), std::span{metadata::base_table_t::originalLabels});
   if (originalTable->schema()->fields().empty() == true) {
     using base_table_t = typename T::base_table_t::table_t;
     originalTable = makeEmptyTable<base_table_t>(o2::aod::label<metadata::extension_table_t::ref>());
   }
 
   defines.extension = std::make_shared<typename T::extension_t>(o2::framework::spawner<o2::aod::Hash<metadata::extension_table_t::ref.desc_hash>>(originalTable, o2::aod::label<metadata::extension_table_t::ref>(), defines.projectors.data(), defines.projector));
-  defines.table = std::make_shared<typename T::spawnable_t::table_t>(soa::ArrowHelpers::joinTables({defines.extension->asArrowTable(), originalTable}));
+  defines.table = std::make_shared<typename T::spawnable_t::table_t>(soa::ArrowHelpers::joinTables({defines.extension->asArrowTable(), originalTable}, std::span{T::spawnable_t::table_t::originalLabels}));
   return true;
 }
 
@@ -534,39 +534,43 @@ static void setGroupedCombination(C& comb, TG& grouping, std::tuple<Ts...>& asso
 /// Preslice handling
 template <typename T>
   requires(!is_preslice<T>)
-bool registerCache(T&, std::vector<StringPair>&, std::vector<StringPair>&)
+bool registerCache(T&, Cache&, Cache&)
 {
   return false;
 }
 
 template <is_preslice T>
   requires std::same_as<typename T::policy_t, framework::PreslicePolicySorted>
-bool registerCache(T& preslice, std::vector<StringPair>& bsks, std::vector<StringPair>&)
+bool registerCache(T& preslice, Cache& bsks, Cache&)
 {
   if constexpr (T::optional) {
     if (preslice.binding == "[MISSING]") {
       return true;
     }
   }
-  auto locate = std::find_if(bsks.begin(), bsks.end(), [&](auto const& entry) { return (entry.first == preslice.bindingKey.first) && (entry.second == preslice.bindingKey.second); });
+  auto locate = std::find_if(bsks.begin(), bsks.end(), [&](auto const& entry) { return (entry.binding == preslice.bindingKey.binding) && (entry.key == preslice.bindingKey.key); });
   if (locate == bsks.end()) {
     bsks.emplace_back(preslice.getBindingKey());
+  } else if (locate->enabled == false) {
+    locate->enabled = true;
   }
   return true;
 }
 
 template <is_preslice T>
   requires std::same_as<typename T::policy_t, framework::PreslicePolicyGeneral>
-bool registerCache(T& preslice, std::vector<StringPair>&, std::vector<StringPair>& bsksU)
+bool registerCache(T& preslice, Cache&, Cache& bsksU)
 {
   if constexpr (T::optional) {
     if (preslice.binding == "[MISSING]") {
       return true;
     }
   }
-  auto locate = std::find_if(bsksU.begin(), bsksU.end(), [&](auto const& entry) { return (entry.first == preslice.bindingKey.first) && (entry.second == preslice.bindingKey.second); });
+  auto locate = std::find_if(bsksU.begin(), bsksU.end(), [&](auto const& entry) { return (entry.binding == preslice.bindingKey.binding) && (entry.key == preslice.bindingKey.key); });
   if (locate == bsksU.end()) {
     bsksU.emplace_back(preslice.getBindingKey());
+  } else if (locate->enabled == false) {
+    locate->enabled = true;
   }
   return true;
 }

@@ -27,11 +27,20 @@ namespace o2
 namespace ml
 {
 
+OrtModel::OrtModel() = default;
+OrtModel::OrtModel(std::unordered_map<std::string, std::string> optionsMap) { init(optionsMap); }
+OrtModel::~OrtModel() = default;
+void OrtModel::init(std::unordered_map<std::string, std::string> optionsMap)
+{
+  initOptions(optionsMap);
+  initEnvironment();
+}
+
 struct OrtModel::OrtVariables { // The actual implementation is hidden in the .cxx file
   // ORT runtime objects
   Ort::RunOptions runOptions;
-  std::shared_ptr<Ort::Env> env = nullptr;
-  std::shared_ptr<Ort::Session> session = nullptr; ///< ONNX session
+  std::unique_ptr<Ort::Env> env = nullptr;
+  std::unique_ptr<Ort::Session> session = nullptr; ///< ONNX session
   Ort::SessionOptions sessionOptions;
   Ort::AllocatorWithDefaultOptions allocator;
   Ort::MemoryInfo memoryInfo = Ort::MemoryInfo("Cpu", OrtAllocatorType::OrtDeviceAllocator, 0, OrtMemType::OrtMemTypeDefault);
@@ -41,7 +50,7 @@ struct OrtModel::OrtVariables { // The actual implementation is hidden in the .c
 // General purpose
 void OrtModel::initOptions(std::unordered_map<std::string, std::string> optionsMap)
 {
-  mPImplOrt = new OrtVariables();
+  mPImplOrt = std::make_unique<OrtVariables>();
 
   // Load from options map
   if (!optionsMap.contains("model-path")) {
@@ -101,7 +110,7 @@ void OrtModel::initOptions(std::unordered_map<std::string, std::string> optionsM
 
 void OrtModel::initEnvironment()
 {
-  mPImplOrt->env = std::make_shared<Ort::Env>(
+  mPImplOrt->env = std::make_unique<Ort::Env>(
     OrtLoggingLevel(mLoggingLevel),
     (mEnvName.empty() ? "ORT" : mEnvName.c_str()),
     // Integrate ORT logging into Fairlogger
@@ -129,7 +138,7 @@ void OrtModel::initSession()
   if (mAllocateDeviceMemory) {
     memoryOnDevice(mDeviceId);
   }
-  mPImplOrt->session = std::make_shared<Ort::Session>(*mPImplOrt->env, mModelPath.c_str(), mPImplOrt->sessionOptions);
+  mPImplOrt->session = std::make_unique<Ort::Session>(*mPImplOrt->env, mModelPath.c_str(), mPImplOrt->sessionOptions);
   mPImplOrt->ioBinding = std::make_unique<Ort::IoBinding>(*mPImplOrt->session);
 
   setIO();
@@ -147,12 +156,12 @@ void OrtModel::memoryOnDevice(int32_t deviceIndex)
     (mPImplOrt->sessionOptions).AddConfigEntry("session.use_env_allocators", "1");                    // This should enable to use the volatile memory allocation defined in O2/GPU/GPUTracking/TPCClusterFinder/GPUTPCNNClusterizerHost.cxx; not working yet: ONNX still assigns new memory at init time
     (mPImplOrt->sessionOptions).AddConfigEntry("session_options.enable_cpu_mem_arena", "0");          // This should enable to use the volatile memory allocation defined in O2/GPU/GPUTracking/TPCClusterFinder/GPUTPCNNClusterizerHost.cxx; not working yet: ONNX still assigns new memory at init time
     // Arena memory shrinkage comes at performance cost
-    /// For now prefer to use single allocation, enabled by O2/GPU/GPUTracking/Base/cuda/GPUReconstructionCUDA.cu -> SetONNXGPUStream -> rocm_options.arena_extend_strategy = 0;
-    // (mPImplOrt->runOptions).AddConfigEntry("memory.enable_memory_arena_shrinkage", ("gpu:" + std::to_string(deviceIndex)).c_str()); // See kOrtRunOptionsConfigEnableMemoryArenaShrinkage, https://github.com/microsoft/onnxruntime/blob/90c263f471bbce724e77d8e62831d3a9fa838b2f/include/onnxruntime/core/session/onnxruntime_run_options_config_keys.h#L27
+    // For now prefer to use single allocation, enabled by O2/GPU/GPUTracking/Base/cuda/GPUReconstructionCUDA.cu -> SetONNXGPUStream -> rocm_options.arena_extend_strategy = 0;
+    (mPImplOrt->runOptions).AddConfigEntry("memory.enable_memory_arena_shrinkage", ("gpu:" + std::to_string(deviceIndex)).c_str()); // See kOrtRunOptionsConfigEnableMemoryArenaShrinkage, https://github.com/microsoft/onnxruntime/blob/90c263f471bbce724e77d8e62831d3a9fa838b2f/include/onnxruntime/core/session/onnxruntime_run_options_config_keys.h#L27
 
     std::string dev_mem_str = "";
     if (mDeviceType == "ROCM") {
-      dev_mem_str = "Hip";
+      dev_mem_str = "HipPinned";
     }
     if (mDeviceType == "CUDA") {
       dev_mem_str = "Cuda";
@@ -166,7 +175,7 @@ void OrtModel::memoryOnDevice(int32_t deviceIndex)
 
 void OrtModel::resetSession()
 {
-  mPImplOrt->session = std::make_shared<Ort::Session>(*(mPImplOrt->env), mModelPath.c_str(), mPImplOrt->sessionOptions);
+  mPImplOrt->session = std::make_unique<Ort::Session>(*(mPImplOrt->env), mModelPath.c_str(), mPImplOrt->sessionOptions);
 }
 
 // Getters
@@ -252,7 +261,7 @@ void OrtModel::setIO()
 
 void OrtModel::setEnv(Ort::Env* env)
 {
-  mPImplOrt->env = std::shared_ptr<Ort::Env>(env);
+  mPImplOrt->env.reset(env);
 }
 
 // Inference
@@ -312,6 +321,14 @@ void OrtModel::inference(I* input, int64_t input_size, O* output)
   (mPImplOrt->ioBinding)->BindOutput(mOutputNames[0].c_str(), outputTensor);
 
   (mPImplOrt->session)->Run(mPImplOrt->runOptions, *mPImplOrt->ioBinding);
+  // mPImplOrt->session->Run(
+  //   mPImplOrt->runOptions,
+  //   mInputNamesChar.data(),
+  //   &inputTensor,
+  //   mInputNamesChar.size(),
+  //   mOutputNamesChar.data(),
+  //   &outputTensor,
+  //   mOutputNamesChar.size());
 }
 
 template void OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(OrtDataType::Float16_t*, int64_t, OrtDataType::Float16_t*);
@@ -431,10 +448,7 @@ template std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType::Fl
 // Release session
 void OrtModel::release(bool profilingEnabled)
 {
-  // if (profilingEnabled) {
-  //   mPImplOrt->session->EndProfiling();
-  // }
-  LOG(info) << "(ORT) Size of mPImplOrt: " << sizeof(*mPImplOrt) << " bytes";
+  mPImplOrt.reset();
 }
 
 // private

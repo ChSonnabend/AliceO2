@@ -18,7 +18,10 @@
 
 #include "GPUCommonDef.h"
 #include "GPUCommonRtypes.h"
-#include "GPUCommonTypeTraits.h"
+#ifndef GPUCA_GPUCODE_DEVICE
+#include <type_traits>
+#endif
+
 
 namespace o2::dataformats
 {

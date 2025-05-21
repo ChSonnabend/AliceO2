@@ -683,7 +683,7 @@ TEST_CASE("ArrowDirectSlicing")
 
   std::vector<arrow::Datum> slices;
   std::vector<uint64_t> offsts;
-  auto bk = std::make_pair(soa::getLabelFromType<aod::Events>(), "fID");
+  auto bk = Entry(soa::getLabelFromType<aod::Events>(), "fID");
   ArrowTableSlicingCache cache({bk});
   auto s = cache.updateCacheEntry(0, {evtTable});
   auto lcache = cache.getCacheFor(bk);
@@ -741,7 +741,7 @@ TEST_CASE("TestSlicingException")
   }
   auto evtTable = builderE.finalize();
 
-  auto bk = std::make_pair(soa::getLabelFromType<aod::Events>(), "fID");
+  auto bk = Entry(soa::getLabelFromType<aod::Events>(), "fID");
   ArrowTableSlicingCache cache({bk});
 
   try {

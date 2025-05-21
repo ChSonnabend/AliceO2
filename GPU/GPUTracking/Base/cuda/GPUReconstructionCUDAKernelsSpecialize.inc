@@ -14,88 +14,6 @@
 
 #if defined(GPUCA_SPECIALIZE_THRUST_SORTS) && !defined(GPUCA_GPUCODE_COMPILEKERNELS)
 
-namespace o2::gpu::internal
-{
-namespace // anonymous
-{
-struct MergeBorderTracks_compMax {
-  GPUd() bool operator()(const GPUTPCGMBorderRange& a, const GPUTPCGMBorderRange& b)
-  {
-    return GPUCA_DETERMINISTIC_CODE((a.fMax != b.fMax) ? (a.fMax < b.fMax) : (a.fId < b.fId), a.fMax < b.fMax);
-  }
-};
-struct MergeBorderTracks_compMin {
-  GPUd() bool operator()(const GPUTPCGMBorderRange& a, const GPUTPCGMBorderRange& b)
-  {
-    return GPUCA_DETERMINISTIC_CODE((a.fMin != b.fMin) ? (a.fMin < b.fMin) : (a.fId < b.fId), a.fMin < b.fMin);
-  }
-};
-
-struct GPUTPCGMMergerSortTracks_comp {
-  const GPUTPCGMMergedTrack* const mCmp;
-  GPUhd() GPUTPCGMMergerSortTracks_comp(GPUTPCGMMergedTrack* cmp) : mCmp(cmp) {}
-  GPUd() bool operator()(const int32_t aa, const int32_t bb)
-  {
-    const GPUTPCGMMergedTrack& GPUrestrict() a = mCmp[aa];
-    const GPUTPCGMMergedTrack& GPUrestrict() b = mCmp[bb];
-    if (a.CCE() != b.CCE()) {
-      return a.CCE() > b.CCE();
-    }
-    if (a.Legs() != b.Legs()) {
-      return a.Legs() > b.Legs();
-    }
-    GPUCA_DETERMINISTIC_CODE( // clang-format off
-      if (a.NClusters() != b.NClusters()) {
-        return a.NClusters() > b.NClusters();
-      } if (CAMath::Abs(a.GetParam().GetQPt()) != CAMath::Abs(b.GetParam().GetQPt())) {
-        return CAMath::Abs(a.GetParam().GetQPt()) > CAMath::Abs(b.GetParam().GetQPt());
-      } if (a.GetParam().GetY() != b.GetParam().GetY()) {
-        return a.GetParam().GetY() > b.GetParam().GetY();
-      }
-      return aa > bb;
-    , // !GPUCA_DETERMINISTIC_CODE
-      return a.NClusters() > b.NClusters();
-    ) // clang-format on
-  }
-};
-
-struct GPUTPCGMMergerSortTracksQPt_comp {
-  const GPUTPCGMMergedTrack* const mCmp;
-  GPUhd() GPUTPCGMMergerSortTracksQPt_comp(GPUTPCGMMergedTrack* cmp) : mCmp(cmp) {}
-  GPUd() bool operator()(const int32_t aa, const int32_t bb)
-  {
-    const GPUTPCGMMergedTrack& GPUrestrict() a = mCmp[aa];
-    const GPUTPCGMMergedTrack& GPUrestrict() b = mCmp[bb];
-    GPUCA_DETERMINISTIC_CODE( // clang-format off
-      if (CAMath::Abs(a.GetParam().GetQPt()) != CAMath::Abs(b.GetParam().GetQPt())) {
-        return CAMath::Abs(a.GetParam().GetQPt()) > CAMath::Abs(b.GetParam().GetQPt());
-      } if (a.GetParam().GetY() != b.GetParam().GetY()) {
-        return a.GetParam().GetY() > b.GetParam().GetY();
-      }
-      return a.GetParam().GetZ() > b.GetParam().GetZ();
-    , // !GPUCA_DETERMINISTIC_CODE
-      return CAMath::Abs(a.GetParam().GetQPt()) > CAMath::Abs(b.GetParam().GetQPt());
-    ) // clang-format on
-  }
-};
-
-struct GPUTPCGMMergerMergeLoopers_comp {
-  GPUd() bool operator()(const MergeLooperParam& a, const MergeLooperParam& b)
-  {
-    return CAMath::Abs(a.refz) < CAMath::Abs(b.refz);
-  }
-};
-
-struct GPUTPCGMO2OutputSort_comp {
-  GPUd() bool operator()(const GPUTPCGMMerger::tmpSort& a, const GPUTPCGMMerger::tmpSort& b)
-  {
-    return (a.y > b.y);
-  }
-};
-
-} // anonymous namespace
-} // namespace o2::gpu::internal
-
 template <>
 inline void GPUCA_M_CAT(GPUReconstruction, GPUCA_GPUTYPE)::runKernelBackendTimed<GPUTPCGMMergerMergeBorders, 3>(const krnlSetupTime& _xyz, GPUTPCGMBorderRange* const& range, int32_t const& N, int32_t const& cmpMax)
 {
@@ -109,13 +27,13 @@ inline void GPUCA_M_CAT(GPUReconstruction, GPUCA_GPUTYPE)::runKernelBackendTimed
 template <>
 inline void GPUCA_M_CAT(GPUReconstruction, GPUCA_GPUTYPE)::runKernelBackendTimed<GPUTPCGMMergerSortTracks, 0>(const krnlSetupTime& _xyz)
 {
-  GPUCommonAlgorithm::sortOnDevice(this, _xyz.x.stream, mProcessorsShadow->tpcMerger.TrackOrderProcess(), processors()->tpcMerger.NOutputTracks(), GPUTPCGMMergerSortTracks_comp(mProcessorsShadow->tpcMerger.OutputTracks()));
+  GPUCommonAlgorithm::sortOnDevice(this, _xyz.x.stream, mProcessorsShadow->tpcMerger.TrackOrderProcess(), processors()->tpcMerger.NMergedTracks(), GPUTPCGMMergerSortTracks_comp(mProcessorsShadow->tpcMerger.MergedTracks()));
 }
 
 template <>
 inline void GPUCA_M_CAT(GPUReconstruction, GPUCA_GPUTYPE)::runKernelBackendTimed<GPUTPCGMMergerSortTracksQPt, 0>(const krnlSetupTime& _xyz)
 {
-  GPUCommonAlgorithm::sortOnDevice(this, _xyz.x.stream, mProcessorsShadow->tpcMerger.TrackSort(), processors()->tpcMerger.NOutputTracks(), GPUTPCGMMergerSortTracksQPt_comp(mProcessorsShadow->tpcMerger.OutputTracks()));
+  GPUCommonAlgorithm::sortOnDevice(this, _xyz.x.stream, mProcessorsShadow->tpcMerger.TrackSort(), processors()->tpcMerger.NMergedTracks(), GPUTPCGMMergerSortTracksQPt_comp(mProcessorsShadow->tpcMerger.MergedTracks()));
 }
 
 template <>

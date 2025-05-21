@@ -59,6 +59,10 @@ COMMAND_INSERT_PIX_AT_L9
   GLOBAL_TOWER_TOLX       0.02  Air
   GLOBAL_TOWER_TOLY       0.8   Al
   GLOBAL_FOCAL_Z          763.5
+# Open the detector on the right and left in cm,
+# can only work if the GLOBAL_HCAL_TOWER_NY is odd number and GLOBAL_HCAL_TOWER_NX is even number
+#  GLOBAL_DetectorOpen_Right 5
+#  GLOBAL_DetectorOpen_Left  5
   GLOBAL_Tower_NX      2
   GLOBAL_Tower_NY      11
   GLOBAL_MIDDLE_TOWER_OFFSET 5

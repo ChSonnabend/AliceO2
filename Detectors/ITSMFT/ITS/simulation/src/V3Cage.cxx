@@ -167,6 +167,16 @@ const Double_t V3Cage::sCageCrossZLength = 8 * sMm;
 const Double_t V3Cage::sCageCrossBarThick = 20 * sMm;
 const Double_t V3Cage::sCageCrossBarPhi = 25; // Deg
 
+const Double_t V3Cage::sCageMFTRailZLen = 1807 * sMm;
+const Double_t V3Cage::sCageMFTRailTotWidth = 27 * sMm;
+const Double_t V3Cage::sCageMFTRailExtWidth = 24 * sMm;
+const Double_t V3Cage::sCageMFTRailIntWidth = 17.5 * sMm;
+const Double_t V3Cage::sCageMFTRailBaseWidth = 22 * sMm;
+const Double_t V3Cage::sCageMFTRailTotHeight = 8.9 * sMm;
+const Double_t V3Cage::sCageMFTRailExtHeight = 5.9 * sMm;
+const Double_t V3Cage::sCageMFTRailIntHeight = 3.5 * sMm;
+const Double_t V3Cage::sCageMFTRailsXDist = 44 * sMm;
+
 ClassImp(V3Cage);
 
 V3Cage::V3Cage()
@@ -250,6 +260,9 @@ void V3Cage::createAndPlaceCage(TGeoVolume* mother, const TGeoManager* mgr)
   ypos = sCageYInBarrel - sBPSuppLowCollTailHei / 2;
   zpos = sBPSuppZPos + sBPSuppCollarBeamWid / 2;
   mother->AddNode(cageBPSupport, 1, new TGeoTranslation(0, ypos, zpos));
+
+  // The MFT Rails inside the Cage
+  createAndPlaceMFTRailsInsideCage(mother, mgr);
 
   return;
 }
@@ -1647,4 +1660,137 @@ TGeoVolume* V3Cage::createCageClosingCross(const TGeoManager* mgr)
 
   // Finally return the closing cross volume
   return closCrossVol;
+}
+
+void V3Cage::createAndPlaceMFTRailsInsideCage(TGeoVolume* mother, const TGeoManager* mgr)
+{
+  //
+  // Creates the MFT Rails located inside the Cage and place them
+  //
+  // Input:
+  //         motmat : the material of the mother volume (for the container box)
+  //         mgr : the GeoManager (used only to get the proper material)
+  //
+  // Output:
+  //
+  // Return:
+  //
+  // Created:      10 May 2025  Mario Sitta
+  //
+
+  // Local variables
+  Double_t rdist, rpos, xpos, ypos, alpha;
+  Double_t xbox, ybox;
+
+  // Create a pair of rails (a BBox container is returned)
+  TGeoVolume* cageMFTRails = createMFTRailsPair(mother->GetMedium(), mgr);
+
+  // Now compute the radial distance and the XY position of the box
+  xbox = (static_cast<TGeoBBox*>(cageMFTRails->GetShape()))->GetDX();
+  ybox = (static_cast<TGeoBBox*>(cageMFTRails->GetShape()))->GetDY();
+
+  rdist = TMath::Sqrt(sCageCoverRint * sCageCoverRint - xbox * xbox);
+  rpos = rdist - ybox;
+
+  // Finally place the four pairs of rails inside the mother volume
+  xpos = rpos * TMath::Sin(sCageEndCapCableCutPhi * TMath::DegToRad());
+  ypos = rpos * TMath::Cos(sCageEndCapCableCutPhi * TMath::DegToRad()) + sCageYInBarrel;
+
+  alpha = -sCageEndCapCableCutPhi + 180;
+  mother->AddNode(cageMFTRails, 1, new TGeoCombiTrans(xpos, ypos, 0, new TGeoRotation("", alpha, 0, 0)));
+  alpha = sCageEndCapCableCutPhi + 180;
+  mother->AddNode(cageMFTRails, 2, new TGeoCombiTrans(-xpos, ypos, 0, new TGeoRotation("", alpha, 0, 0)));
+
+  ypos = rpos * TMath::Cos(sCageEndCapCableCutPhi * TMath::DegToRad()) - sCageYInBarrel;
+
+  alpha = sCageEndCapCableCutPhi;
+  mother->AddNode(cageMFTRails, 3, new TGeoCombiTrans(xpos, -ypos, 0, new TGeoRotation("", alpha, 0, 0)));
+  alpha = -sCageEndCapCableCutPhi;
+  mother->AddNode(cageMFTRails, 4, new TGeoCombiTrans(-xpos, -ypos, 0, new TGeoRotation("", alpha, 0, 0)));
+
+  return;
+}
+
+TGeoVolume* V3Cage::createMFTRailsPair(const TGeoMedium* motmed, const TGeoManager* mgr)
+{
+  //
+  // Creates a pair of MFT Rails located inside the Cage (from drawings
+  // ALI-MFT-DF-0057 and elements therein)
+  // A box containing a pair of rails is returned (a physical box
+  // is preferred over an Assembly for better performance)
+  //
+  // Input:
+  //         motmat : the material of the mother volume (for the container box)
+  //         mgr : the GeoManager (used only to get the proper material)
+  //
+  // Output:
+  //
+  // Return:
+  //         A rail pair as a TGeoVolume
+  //
+  // Created:      10 May 2025  Mario Sitta
+  //
+
+  // Local variables
+  const Int_t nv = 16;
+  Double_t xv[nv], yv[nv];
+  Double_t deltah, xlen, ylen, zlen;
+  Double_t xpos, ypos;
+
+  // The shape of a single rail: a Xtru
+  xv[0] = sCageMFTRailBaseWidth / 2;
+  yv[0] = 0.;
+  xv[1] = xv[0];
+  yv[1] = sCageMFTRailTotHeight - sCageMFTRailExtHeight;
+  xv[2] = sCageMFTRailTotWidth / 2;
+  yv[2] = yv[1];
+  xv[3] = xv[2];
+  yv[3] = sCageMFTRailTotHeight;
+  xv[4] = sCageMFTRailIntWidth / 2;
+  yv[4] = yv[3];
+  deltah = (sCageMFTRailExtHeight - sCageMFTRailIntHeight) / 2;
+  xv[5] = xv[4];
+  yv[5] = yv[4] - deltah;
+  xv[6] = sCageMFTRailExtWidth / 2;
+  yv[6] = yv[5];
+  xv[7] = xv[6];
+  yv[7] = yv[6] - sCageMFTRailIntHeight;
+
+  for (Int_t i = 8; i < nv; i++) {
+    xv[i] = -xv[15 - i];
+    yv[i] = yv[15 - i];
+  }
+
+  zlen = sCageMFTRailZLen / 2;
+
+  TGeoXtru* mftRailSh = new TGeoXtru(2);
+  mftRailSh->SetName("mftrailshape");
+  mftRailSh->DefinePolygon(nv, xv, yv);
+  mftRailSh->DefineSection(0, -zlen);
+  mftRailSh->DefineSection(1, zlen);
+
+  // The air container: a BBox
+  xlen = 2 * sCageMFTRailTotWidth + sCageMFTRailsXDist;
+  ylen = sCageMFTRailTotHeight / 2;
+  zlen = sCageMFTRailZLen / 2;
+  TGeoBBox* mftRailBoxSh = new TGeoBBox(xlen / 2, ylen, zlen);
+
+  // We have the shape: now create the real volume
+  TGeoMedium* medAl = mgr->GetMedium(Form("%s_ALUMINUM$", GetDetName()));
+
+  TGeoVolume* mftRailVol = new TGeoVolume("MFTRailInsideCage", mftRailSh, medAl);
+  mftRailVol->SetFillColor(kGray);
+  mftRailVol->SetLineColor(kGray);
+
+  TGeoVolume* mftRailBoxVol = new TGeoVolume("MFTRailPairInsideCage", mftRailBoxSh, motmed);
+
+  // Put the two rails inside the holding box
+  // (rail Y origin is on its lower face)
+  xpos = mftRailBoxSh->GetDX() - 0.5 * sCageMFTRailTotWidth;
+  ypos = mftRailBoxSh->GetDY();
+  mftRailBoxVol->AddNode(mftRailVol, 1, new TGeoTranslation(xpos, -ypos, 0));
+  mftRailBoxVol->AddNode(mftRailVol, 2, new TGeoTranslation(-xpos, -ypos, 0));
+
+  // Finally return the rails volume
+  return mftRailBoxVol;
 }

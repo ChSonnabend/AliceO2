@@ -38,14 +38,14 @@ class TrackParametrizationWithError : public TrackParametrization<value_T>
   static_assert(std::is_floating_point_v<value_t>);
 #endif
 
-  using covMat_t = gpu::gpustd::array<value_t, kCovMatSize>;
+  using covMat_t = std::array<value_t, kCovMatSize>;
   using MatrixDSym5 = o2::math_utils::SMatrix<double, kNParams, kNParams, o2::math_utils::MatRepSym<double, kNParams>>;
   using MatrixD5 = o2::math_utils::SMatrix<double, kNParams, kNParams, o2::math_utils::MatRepStd<double, kNParams, kNParams>>;
 
   GPUhd() TrackParametrizationWithError();
   GPUd() TrackParametrizationWithError(value_t x, value_t alpha, const params_t& par, const covMat_t& cov, int charge = 1, const PID pid = PID::Pion);
   GPUd() TrackParametrizationWithError(const dim3_t& xyz, const dim3_t& pxpypz,
-                                       const gpu::gpustd::array<value_t, kLabCovMatSize>& cv, int sign, bool sectorAlpha = true, const PID pid = PID::Pion);
+                                       const std::array<value_t, kLabCovMatSize>& cv, int sign, bool sectorAlpha = true, const PID pid = PID::Pion);
 
   GPUhdDefault() TrackParametrizationWithError(const TrackParametrizationWithError& src) = default;
   GPUdDefault() TrackParametrizationWithError(TrackParametrizationWithError&& src) = default;
@@ -57,7 +57,7 @@ class TrackParametrizationWithError : public TrackParametrization<value_T>
   using TrackParametrization<value_T>::set;
   GPUd() void set(value_t x, value_t alpha, const params_t& par, const covMat_t& cov, int charge = 1, const PID pid = PID::Pion);
   GPUd() void set(value_t x, value_t alpha, const value_t* par, const value_t* cov, int charge = 1, const PID pid = PID::Pion);
-  GPUd() void set(const dim3_t& xyz, const dim3_t& pxpypz, const gpu::gpustd::array<value_t, kLabCovMatSize>& cv, int sign, bool sectorAlpha = true, const PID pid = PID::Pion);
+  GPUd() void set(const dim3_t& xyz, const dim3_t& pxpypz, const std::array<value_t, kLabCovMatSize>& cv, int sign, bool sectorAlpha = true, const PID pid = PID::Pion);
   GPUd() const covMat_t& getCov() const;
   GPUd() value_t getSigmaY2() const;
   GPUd() value_t getSigmaZY() const;
@@ -77,7 +77,7 @@ class TrackParametrizationWithError : public TrackParametrization<value_T>
   GPUd() value_t getCovarElem(int i, int j) const;
   GPUd() value_t getDiagError2(int i) const;
 
-  GPUd() bool getCovXYZPxPyPzGlo(gpu::gpustd::array<value_t, kLabCovMatSize>& c) const;
+  GPUd() bool getCovXYZPxPyPzGlo(std::array<value_t, kLabCovMatSize>& c) const;
 
   GPUd() void print() const;
   GPUd() void printHexadecimal();

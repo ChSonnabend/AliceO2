@@ -18,9 +18,9 @@
 #define INCLUDE_RECONSTRUCTIONDATAFORMATS_TRACKUTILS_H_
 
 #include "GPUCommonRtypes.h"
-#include "GPUCommonArray.h"
 
 #ifndef GPUCA_GPUCODE_DEVICE
+#include <array>
 #include <cmath>
 #endif
 
@@ -39,11 +39,11 @@ template <typename value_T = float>
 GPUd() value_T BetheBlochSolidOpt(value_T bg);
 
 template <typename value_T = float>
-GPUd() void g3helx3(value_T qfield, value_T step, gpu::gpustd::array<value_T, 7>& vect);
+GPUd() void g3helx3(value_T qfield, value_T step, std::array<value_T, 7>& vect);
 
 //____________________________________________________
 template <typename value_T>
-GPUd() void g3helx3(value_T qfield, value_T step, gpu::gpustd::array<value_T, 7>& vect)
+GPUd() void g3helx3(value_T qfield, value_T step, std::array<value_T, 7>& vect)
 {
   /******************************************************************
    *                                                                *

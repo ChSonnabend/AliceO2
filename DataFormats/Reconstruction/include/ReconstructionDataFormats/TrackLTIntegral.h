@@ -63,7 +63,7 @@ class TrackLTIntegral
     }
   }
 
-  GPUd() void addStep(float dL, float p2Inv);
+  GPUd() void addStep(float dL, float q2p2);
   GPUd() void addX2X0(float d) { mX2X0 += d; }
   GPUd() void addXRho(float d) { mXRho += d; }
 

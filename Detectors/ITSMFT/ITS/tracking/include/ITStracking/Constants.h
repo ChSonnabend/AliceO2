@@ -16,17 +16,17 @@
 #ifndef TRACKINGITSU_INCLUDE_CONSTANTS_H_
 #define TRACKINGITSU_INCLUDE_CONSTANTS_H_
 
-#ifndef GPUCA_GPUCODE_DEVICE
-#include <climits>
-#include <vector>
-#endif
-
 #include "ITStracking/Definitions.h"
 #include "CommonConstants/MathConstants.h"
 
 #include "GPUCommonMath.h"
 #include "GPUCommonDef.h"
-#include "GPUCommonArray.h"
+
+#ifndef GPUCA_GPUCODE_DEVICE
+#include <climits>
+#include <vector>
+#include <array>
+#endif
 
 namespace o2
 {
@@ -54,9 +54,9 @@ constexpr int ClustersPerCell{3};
 constexpr int UnusedIndex{-1};
 constexpr float Resolution{0.0005f};
 
-GPUhdi() constexpr o2::gpu::gpustd::array<float, 3> VertexerHistogramVolume()
+GPUhdi() constexpr std::array<float, 3> VertexerHistogramVolume()
 {
-  return o2::gpu::gpustd::array<float, 3>{{1.98, 1.98, 40.f}};
+  return std::array<float, 3>{{1.98, 1.98, 40.f}};
 }
 } // namespace its
 
@@ -66,24 +66,24 @@ constexpr int LayersNumber{7};
 constexpr int TrackletsPerRoad{LayersNumber - 1};
 constexpr int CellsPerRoad{LayersNumber - 2};
 
-GPUhdi() constexpr o2::gpu::gpustd::array<float, LayersNumber> LayersZCoordinate()
+GPUhdi() constexpr std::array<float, LayersNumber> LayersZCoordinate()
 {
   constexpr double s = 1.; // safety margin
-  return o2::gpu::gpustd::array<float, LayersNumber>{16.333f + s, 16.333f + s, 16.333f + s, 42.140f + s, 42.140f + s, 73.745f + s, 73.745f + s};
+  return std::array<float, LayersNumber>{16.333f + s, 16.333f + s, 16.333f + s, 42.140f + s, 42.140f + s, 73.745f + s, 73.745f + s};
 }
 
-GPUhdi() constexpr o2::gpu::gpustd::array<float, LayersNumber> LayersRCoordinate()
+GPUhdi() constexpr std::array<float, LayersNumber> LayersRCoordinate()
 {
-  return o2::gpu::gpustd::array<float, LayersNumber>{{2.33959f, 3.14076f, 3.91924f, 19.6213f, 24.5597f, 34.388f, 39.3329f}};
+  return std::array<float, LayersNumber>{{2.33959f, 3.14076f, 3.91924f, 19.6213f, 24.5597f, 34.388f, 39.3329f}};
 }
 
 constexpr int ZBins{256};
 constexpr int PhiBins{128};
 constexpr float InversePhiBinSize{PhiBins / constants::math::TwoPi};
-GPUhdi() constexpr o2::gpu::gpustd::array<float, LayersNumber> InverseZBinSize()
+GPUhdi() constexpr std::array<float, LayersNumber> InverseZBinSize()
 {
   constexpr auto zSize = LayersZCoordinate();
-  return o2::gpu::gpustd::array<float, LayersNumber>{0.5f * ZBins / (zSize[0]), 0.5f * ZBins / (zSize[1]), 0.5f * ZBins / (zSize[2]),
+  return std::array<float, LayersNumber>{0.5f * ZBins / (zSize[0]), 0.5f * ZBins / (zSize[1]), 0.5f * ZBins / (zSize[2]),
                                                      0.5f * ZBins / (zSize[3]), 0.5f * ZBins / (zSize[4]), 0.5f * ZBins / (zSize[5]),
                                                      0.5f * ZBins / (zSize[6])};
 }

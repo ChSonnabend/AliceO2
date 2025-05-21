@@ -190,6 +190,7 @@ class GPUReconstruction
   // Helpers to fetch processors from other shared libraries
   virtual void GetITSTraits(std::unique_ptr<o2::its::TrackerTraits>* trackerTraits, std::unique_ptr<o2::its::VertexerTraits>* vertexerTraits, std::unique_ptr<o2::its::TimeFrame>* timeFrame);
   bool slavesExist() { return mSlaves.size() || mMaster; }
+  int slaveId() { return mSlaveId; }
 
   // Getters / setters for parameters
   DeviceType GetDeviceType() const;
@@ -339,6 +340,7 @@ class GPUReconstruction
 
   GPUReconstruction* mMaster = nullptr;    // Ptr to a GPUReconstruction object serving as master, sharing GPU memory, events, etc.
   std::vector<GPUReconstruction*> mSlaves; // Ptr to slave GPUReconstructions
+  int mSlaveId = -1;                       // Id of this slave (-1 for master)
 
   // Others
   bool mInitialized = false;

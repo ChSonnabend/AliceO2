@@ -130,7 +130,7 @@ GPUd() bool TrackParametrization<value_T>::getPxPyPzGlo(dim3_t& pxyz) const
 
 //____________________________________________________
 template <typename value_T>
-GPUd() bool TrackParametrization<value_T>::getPosDirGlo(gpu::gpustd::array<value_t, 9>& posdirp) const
+GPUd() bool TrackParametrization<value_T>::getPosDirGlo(std::array<value_t, 9>& posdirp) const
 {
   // fill vector with lab x,y,z,px/p,py/p,pz/p,p,sinAlpha,cosAlpha
   value_t ptI = getPtInv();
@@ -231,7 +231,7 @@ GPUd() bool TrackParametrization<value_T>::propagateParamTo(value_t xk, const di
   step *= gpu::CAMath::Sqrt(1.f + getTgl() * getTgl());
   //
   // get the track x,y,z,px/p,py/p,pz/p,p,sinAlpha,cosAlpha in the Global System
-  gpu::gpustd::array<value_t, 9> vecLab{0.f};
+  std::array<value_t, 9> vecLab{0.f};
   if (!getPosDirGlo(vecLab)) {
     return false;
   }
@@ -250,7 +250,7 @@ GPUd() bool TrackParametrization<value_T>::propagateParamTo(value_t xk, const di
     costet = b[2] / bb;
     sintet = bt / bb;
   }
-  gpu::gpustd::array<value_t, 7> vect{costet * cosphi * vecLab[0] + costet * sinphi * vecLab[1] - sintet * vecLab[2],
+  std::array<value_t, 7> vect{costet * cosphi * vecLab[0] + costet * sinphi * vecLab[1] - sintet * vecLab[2],
                                       -sinphi * vecLab[0] + cosphi * vecLab[1],
                                       sintet * cosphi * vecLab[0] + sintet * sinphi * vecLab[1] + costet * vecLab[2],
                                       costet * cosphi * vecLab[3] + costet * sinphi * vecLab[4] - sintet * vecLab[5],

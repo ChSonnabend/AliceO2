@@ -51,7 +51,11 @@ if [[ $EPNSYNCMODE == 1 ]] || type numactl >/dev/null 2>&1 && [[ `numactl -H | g
   [[ $NUMAGPUIDS != 0 ]] && ARGS_ALL+=" --child-driver 'numactl --membind $NUMAID --cpunodebind $NUMAID'"
 fi
 if [[ -z ${TIMEFRAME_RATE_LIMIT:-} ]] && [[ $DIGITINPUT != 1 ]]; then
-  RECO_NUM_NODES_WORKFLOW_CMP=$(($RECO_NUM_NODES_WORKFLOW > 15 ? ($RECO_NUM_NODES_WORKFLOW < 230 ? $RECO_NUM_NODES_WORKFLOW : 230) : 15))
+  if [[ ${GEN_TOPO_NO_TF_RATE_UPSCALING:-0} == 1 ]]; then
+    RECO_NUM_NODES_WORKFLOW_CMP=$RECO_NUM_NODES_WORKFLOW
+  else
+    RECO_NUM_NODES_WORKFLOW_CMP=$(($RECO_NUM_NODES_WORKFLOW > 15 ? ($RECO_NUM_NODES_WORKFLOW < 230 ? $RECO_NUM_NODES_WORKFLOW : 230) : 15))
+  fi
   TIMEFRAME_RATE_LIMIT=$((12 * 230 / ${RECO_NUM_NODES_WORKFLOW_CMP} * ($NUMAGPUIDS != 0 ? 1 : 2) * 128 / $NHBPERTF))
   [[ $BEAMTYPE != "PbPb" && ${HIGH_RATE_PP:-0} == 0 ]] && TIMEFRAME_RATE_LIMIT=$(($TIMEFRAME_RATE_LIMIT * 3))
   ! has_detector TPC && TIMEFRAME_RATE_LIMIT=$(($TIMEFRAME_RATE_LIMIT * 4))
@@ -90,6 +94,7 @@ TPC_CORR_OPT=
 TPC_CORR_KEY=
 INTERACTION_TAG_CONFIG_KEY=
 EVE_OPT=" --jsons-folder $EDJSONS_DIR"
+: ${SECVTXK0ONLY:=}
 : ${EVE_CONFIG:=}
 : ${STRTRACKING:=}
 : ${ITSEXTRAERR:=}
@@ -351,16 +356,14 @@ has_detector_reco MID && has_detector_matching MCHMID && MFTMCHConf="FwdMatching
 if has_processing_step MUON_SYNC_RECO; then
   [[ -z ${ARGS_EXTRA_PROCESS_o2_mid_reco_workflow:-} ]] && ARGS_EXTRA_PROCESS_o2_mid_reco_workflow="--mid-tracker-keep-best"
   [[ -z ${ARGS_EXTRA_PROCESS_o2_mch_reco_workflow:-} ]] && ARGS_EXTRA_PROCESS_o2_mch_reco_workflow="--digits"
-  if [[ -z ${CONFIG_EXTRA_PROCESS_o2_mch_reco_workflow:-} ]]; then
-    if [[ $IS_SIMULATED_DATA == 1 ]]; then
-      CONFIG_EXTRA_PROCESS_o2_mch_reco_workflow="MCHTimeClusterizer.peakSearchSignalOnly=false;MCHDigitFilter.rejectBackground=false;"
-    elif [[ $RUNTYPE == "PHYSICS" && $BEAMTYPE == "pp" ]] || [[ $RUNTYPE == "COSMICS" ]]; then
-      CONFIG_EXTRA_PROCESS_o2_mch_reco_workflow="MCHTracking.chamberResolutionX=0.4;MCHTracking.chamberResolutionY=0.4;MCHTracking.sigmaCutForTracking=7.;MCHTracking.sigmaCutForImprovement=6.;"
-    fi
-    has_detector_reco ITS && [[ $RUNTYPE != "COSMICS" ]] && CONFIG_EXTRA_PROCESS_o2_mch_reco_workflow+="MCHTimeClusterizer.irFramesOnly=true;"
-    [[ ! -z ${CUT_RANDOM_FRACTION_MCH:-} ]] && CONFIG_EXTRA_PROCESS_o2_mch_reco_workflow+="MCHTimeClusterizer.rofRejectionFraction=$CUT_RANDOM_FRACTION_MCH;"
-    CONFIG_EXTRA_PROCESS_o2_mch_reco_workflow+="MCHStatusMap.useHV=false;MCHDigitFilter.statusMask=3;"
+  if [[ $IS_SIMULATED_DATA == 1 ]]; then
+    MCH_CONFIG_KEY+="MCHTimeClusterizer.peakSearchSignalOnly=false;MCHDigitFilter.rejectBackground=false;"
+  elif [[ $RUNTYPE == "PHYSICS" && $BEAMTYPE == "pp" ]] || [[ $RUNTYPE == "COSMICS" ]]; then
+    MCH_CONFIG_KEY+="MCHTracking.chamberResolutionX=0.4;MCHTracking.chamberResolutionY=0.4;MCHTracking.sigmaCutForTracking=7.;MCHTracking.sigmaCutForImprovement=6.;"
   fi
+  has_detector_reco ITS && [[ $RUNTYPE != "COSMICS" ]] && MCH_CONFIG_KEY+="MCHTimeClusterizer.irFramesOnly=true;"
+  [[ ! -z ${CUT_RANDOM_FRACTION_MCH:-} ]] && MCH_CONFIG_KEY+="MCHTimeClusterizer.rofRejectionFraction=$CUT_RANDOM_FRACTION_MCH;"
+  MCH_CONFIG_KEY+="MCHStatusMap.useHV=false;MCHDigitFilter.statusMask=3;"
   [[ $RUNTYPE == "COSMICS" ]] && [[ -z ${CONFIG_EXTRA_PROCESS_o2_mft_reco_workflow:-} ]] && CONFIG_EXTRA_PROCESS_o2_mft_reco_workflow="MFTTracking.FullClusterScan=true"
 fi
 [[ $SYNCRAWMODE == 1 ]] && [[ -z ${CONFIG_EXTRA_PROCESS_o2_zdc_digits_reco:-} ]] && CONFIG_EXTRA_PROCESS_o2_zdc_digits_reco='RecoParamZDC.tdc_calib[9]=1;RecoParamZDC.tdc_calib[0]=1;RecoParamZDC.tdc_calib[8]=1;RecoParamZDC.tdc_calib[1]=1;RecoParamZDC.tdc_calib[3]=1;RecoParamZDC.tdc_calib[6]=1;RecoParamZDC.tdc_calib[5]=1;RecoParamZDC.tdc_calib[4]=1;RecoParamZDC.tdc_calib[2]=1;RecoParamZDC.tdc_calib[7]=1;RecoParamZDC.energy_calib[13]=1;RecoParamZDC.energy_calib[12]=1;RecoParamZDC.energy_calib[11]=1;RecoParamZDC.energy_calib[6]=1;RecoParamZDC.energy_calib[25]=1;RecoParamZDC.energy_calib[14]=1;RecoParamZDC.energy_calib[20]=1;RecoParamZDC.energy_calib[5]=1;RecoParamZDC.energy_calib[0]=1;RecoParamZDC.energy_calib[19]=1;RecoParamZDC.tower_calib[1]=1;RecoParamZDC.tower_calib[2]=1;RecoParamZDC.tower_calib[3]=1;RecoParamZDC.tower_calib[4]=1;RecoParamZDC.tower_calib[24]=1;RecoParamZDC.tower_calib[21]=1;RecoParamZDC.tower_calib[22]=1;RecoParamZDC.tower_calib[23]=1;RecoParamZDC.tower_calib[18]=1;RecoParamZDC.tower_calib[16]=1;RecoParamZDC.tower_calib[17]=1;RecoParamZDC.tower_calib[15]=1;RecoParamZDC.tower_calib[8]=1;RecoParamZDC.tower_calib[9]=1;RecoParamZDC.tower_calib[7]=1;RecoParamZDC.tower_calib[10]=1'
@@ -589,7 +592,14 @@ has_detector_reco ITS && has_detector_gpu ITS TPC && [[ -z "$DISABLE_ROOT_OUTPUT
 has_detector_matching PRIMVTX && [[ ! -z "$VERTEXING_SOURCES" ]] && [[ $GLOBAL_READER_NEEDS_PV != 1 ]] && add_W o2-primary-vertexing-workflow "$DISABLE_MC $DISABLE_ROOT_INPUT $DISABLE_ROOT_OUTPUT $PVERTEX_CONFIG --pipeline $(get_N primary-vertexing MATCH REST 1 PRIMVTX),$(get_N pvertex-track-matching MATCH REST 1 PRIMVTXMATCH)" "${PVERTEXING_CONFIG_KEY};${INTERACTION_TAG_CONFIG_KEY};"
 
 if [[ $BEAMTYPE != "cosmic" ]] && has_detectors_reco ITS && has_detector_matching SECVTX && [[ ! -z "$SVERTEXING_SOURCES" ]]; then
-  [[ $GLOBAL_READER_NEEDS_SV != 1 ]] && add_W o2-secondary-vertexing-workflow "$DISABLE_MC $STRTRACKING $DISABLE_ROOT_INPUT $DISABLE_ROOT_OUTPUT $TPC_CORR_OPT --vertexing-sources $SVERTEXING_SOURCES --threads $SVERTEX_THREADS --pipeline $(get_N secondary-vertexing MATCH REST $SVERTEX_THREADS SECVTX)" "$TPC_CORR_KEY"
+  : ${REDUCESV_OPT:=}
+  : ${REDUCESV_CONF:=}
+  if [[ $SYNCMODE == 1 ]] && [[ $SECVTXK0ONLY != 0 ]] ; then
+    : ${STRTRACKING:=" --disable-strangeness-tracker "}
+    : ${REDUCESV_OPT:=" --disable-cascade-finder --disable-3body-finder "}
+    : ${REDUCESV_CONF:="svertexer.pidCutsPhoton[0]=-1;svertexer.pidCutsLambda[0]=-1;svertexer.pidCutsHTriton[0]=-1;svertexer.pidCutsHhydrog4[0]=-1;"}
+  fi
+  [[ $GLOBAL_READER_NEEDS_SV != 1 ]] && add_W o2-secondary-vertexing-workflow "$DISABLE_MC $STRTRACKING $REDUCESV_OPT $DISABLE_ROOT_INPUT $DISABLE_ROOT_OUTPUT $TPC_CORR_OPT --vertexing-sources $SVERTEXING_SOURCES --threads $SVERTEX_THREADS --pipeline $(get_N secondary-vertexing MATCH REST $SVERTEX_THREADS SECVTX)" "$TPC_CORR_KEY;$REDUCESV_CONF"
   SECTVTX_ON="1"
 else
   SECTVTX_ON="0"

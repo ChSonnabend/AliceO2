@@ -263,8 +263,8 @@ struct MockedOrtAllocator : OrtAllocator {
   std::atomic<size_t> memory_inuse{0};
   std::atomic<size_t> num_allocations{0};
   std::atomic<size_t> num_reserve_allocations{0};
-  OrtMemoryInfo* memory_info;
-  GPUReconstruction* rec;
+  OrtMemoryInfo* mMemoryInfoInternal;
+  GPUReconstruction* mRecInternal;
 };
 
 MockedOrtAllocator::MockedOrtAllocator(GPUReconstruction* r, OrtMemoryInfo* info)
@@ -274,37 +274,36 @@ MockedOrtAllocator::MockedOrtAllocator(GPUReconstruction* r, OrtMemoryInfo* info
   OrtAllocator::Free = [](OrtAllocator* this_, void* p) { static_cast<MockedOrtAllocator*>(this_)->Free(p); };
   OrtAllocator::Info = [](const OrtAllocator* this_) { return static_cast<const MockedOrtAllocator*>(this_)->Info(); };
   OrtAllocator::Reserve = [](OrtAllocator* this_, size_t size) { return static_cast<MockedOrtAllocator*>(this_)->Reserve(size); };
-  rec = r;
-  memory_info = info;
+  mRecInternal = r;
+  mMemoryInfoInternal = info;
 }
 
 MockedOrtAllocator::~MockedOrtAllocator()
 {
-  // Ort::GetApi().ReleaseMemoryInfo(memory_info);
+  // Ort::GetApi().ReleaseMemoryInfo(mMemoryInfoInternal);
   (void)0; // Suppress warning for empty destructor
 }
 
 void* MockedOrtAllocator::Alloc(size_t size)
 {
-  // LOG(info) << "(ORT) Allocating volatile memory of size " << size << " bytes";
-  return rec->AllocateVolatileDeviceMemory(size);
+  LOG(info) << "(ORT) Allocating direct memory of size " << size << " bytes";
+  return mRecInternal->AllocateDirectMemory(size, GPUMemoryResource::MEMORY_GPU | GPUMemoryResource::MEMORY_STACK);
 }
 
 void* MockedOrtAllocator::Reserve(size_t size)
 {
-  // LOG(info) << "(ORT) Reserving volatile memory of size " << size << " bytes";
-  return rec->AllocateVolatileDeviceMemory(size);
+  LOG(info) << "(ORT) Reserving direct memory of size " << size << " bytes";
+  return mRecInternal->AllocateDirectMemory(size, GPUMemoryResource::MEMORY_GPU | GPUMemoryResource::MEMORY_STACK);
 }
 
 void MockedOrtAllocator::Free(void* p)
 {
   // LOG(info) << "(ORT) Freeing volatile memory " << p;
-  rec->ReturnVolatileDeviceMemory();
 }
 
 const OrtMemoryInfo* MockedOrtAllocator::Info() const
 {
-  return memory_info;
+  return mMemoryInfoInternal;
 }
 
 size_t MockedOrtAllocator::NumAllocations() const
@@ -324,7 +323,7 @@ void MockedOrtAllocator::LeakCheck()
   }
 }
 
-void GPUTPCNNClusterizerHost::volatileOrtAllocator(Ort::Env* env, Ort::MemoryInfo* memInfo, GPUReconstruction* rec, bool recreate)
+void GPUTPCNNClusterizerHost::directOrtAllocator(Ort::Env* env, Ort::MemoryInfo* memInfo, GPUReconstruction* rec, bool recreate)
 {
   mMockedAlloc = std::make_shared<MockedOrtAllocator>(rec, (OrtMemoryInfo*)(*memInfo));
   if (recreate) {

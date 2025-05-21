@@ -39,9 +39,9 @@ GPUd() void TrackLTIntegral::print() const
 }
 
 //_____________________________________________________
-GPUd() void TrackLTIntegral::addStep(float dL, float p2Inv)
+GPUd() void TrackLTIntegral::addStep(float dL, float q2p2)
 {
-  ///< add step in cm to integrals
+  ///< add step in cm to integrals, q2p2 is (q/p)^2.
   mL += dL;
   if (isTimeNotNeeded()) {
     return;
@@ -49,7 +49,7 @@ GPUd() void TrackLTIntegral::addStep(float dL, float p2Inv)
   const float dTns = dL * 1000.f / o2::constants::physics::LightSpeedCm2NS; // time change in ps for beta = 1 particle
   for (int id = 0; id < getNTOFs(); id++) {
     const float m2z = track::PID::getMass2Z(id);
-    const float betaInv = math_utils::sqrt(1.f + m2z * m2z * p2Inv);
+    const float betaInv = math_utils::sqrt(1.f + m2z * m2z * q2p2);
     mT[id] += dTns * betaInv;
   }
 }

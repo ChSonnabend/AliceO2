@@ -126,7 +126,7 @@ static inline int32_t qAddOptionMainTupleElem(qConfigSettings<typename qSettings
   qConfigSettings<T> settings = settingsTup;
   return (qAddOptionType<T>(settings, ref, i, argv, argc, def));
 }
-template <typename T, int32_t index = 0, int32_t left = std::tuple_size<T>::value>
+template <typename T, int32_t index = 0, int32_t left = std::tuple_size_v<T>>
 struct qAddOptionMainTupleStruct {
   static inline int32_t qAddOptionMainTuple(qConfigSettings<typename qSettingsType<T>::settingsType> settings, T& tup, int32_t& i, const char** argv, const int argc)
   {
@@ -157,13 +157,13 @@ struct qConfigType {
   // Recursive handling of additional settings
   static inline void qProcessSetting(qConfigSettings<T>& settings, qmin_t<T> minval)
   {
-    static_assert(!std::is_same<T, bool>::value, "min option not supported for boolean settings");
+    static_assert(!std::is_same_v<T, bool>, "min option not supported for boolean settings");
     settings.checkMin = true;
     settings.min = minval.v;
   }
   static inline void qProcessSetting(qConfigSettings<T>& settings, qmax_t<T> maxval)
   {
-    static_assert(!std::is_same<T, bool>::value, "max option not supported for boolean settings");
+    static_assert(!std::is_same_v<T, bool>, "max option not supported for boolean settings");
     settings.checkMax = true;
     settings.max = maxval.v;
   }
@@ -244,7 +244,7 @@ struct qConfigType {
   static inline void qConfigHelpOption(const char* name, const char* type, const char* def, const char* optname, char optnameshort, const char* preopt, char preoptshort, int32_t optionType, const char* help, Args&&... args)
   {
     auto settings = qConfigGetSettings(args...);
-    const bool boolType = optionType != 1 && std::is_same<T, bool>::value;
+    const bool boolType = optionType != 1 && std::is_same_v<T, bool>;
     const char* arguments = settings.doSet ? " (" : (settings.doDefault || optionType == 1 || boolType) ? " [arg] (" : optionType == 2 ? " [...] (" : " arg (";
     char argBuffer[4] = {0};
     uint32_t argBufferPos = 0;

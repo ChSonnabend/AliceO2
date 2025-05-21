@@ -14,10 +14,10 @@
 
 #include "GPUCommonDef.h"
 #include "GPUCommonRtypes.h"
-#include "GPUCommonArray.h"
 
 #ifndef GPUCA_GPUCODE_DEVICE
 #include <iosfwd>
+#include <array>
 #endif
 
 /// \author ruben.shahoyan@cern.ch
@@ -67,7 +67,7 @@ class DCA
  private:
   float mY = 0.f;
   float mZ = 0.f;
-  gpu::gpustd::array<float, 3> mCov; ///< s2y, syz, s2z
+  std::array<float, 3> mCov; ///< s2y, syz, s2z
 
   ClassDefNV(DCA, 1);
 };

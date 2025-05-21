@@ -70,6 +70,9 @@ typedef signed char int8_t;
 #endif
 #define assert(param)
 
+#include "GPUCommonDef.h"
+#include "GPUCommonTypeTraits.h" // TODO: Once possible in OpenCL, should use GPUStdSystemHeaders.h here
+#include "GPUCommonArray.h"      // TODO: Same
 #include "GPUConstantMem.h"
 #include "GPUReconstructionIncludesDeviceAll.h"
 

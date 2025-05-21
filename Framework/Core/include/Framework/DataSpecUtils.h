@@ -18,10 +18,11 @@
 
 #include <optional>
 
-namespace o2
+namespace o2::framework
 {
-namespace framework
-{
+
+template <typename T>
+concept HasMatcher = requires(T& t) { t.matcher; };
 
 struct DataSpecUtils {
   /// @return true if a given InputSpec @a spec matches with a @a target ConcreteDataMatcher
@@ -152,10 +153,8 @@ struct DataSpecUtils {
   static bool validate(OutputSpec const& output);
 
   /// Same as the other describe, but uses a buffer to reduce memory churn.
-  static void describe(char* buffer, size_t size, InputSpec const& spec);
-
-  /// Same as the other describe, but uses a buffer to reduce memory churn.
-  static void describe(char* buffer, size_t size, OutputSpec const& spec);
+  template <HasMatcher T>
+  static size_t describe(char* buffer, size_t size, T const& spec);
 
   /// If possible extract the ConcreteDataMatcher from an InputSpec. This
   /// can be done either if the InputSpec is defined in terms for a ConcreteDataMatcher
@@ -250,6 +249,6 @@ struct DataSpecUtils {
   static void updateOutputList(std::vector<OutputSpec>& list, OutputSpec&& input);
 };
 
-} // namespace framework
-} // namespace o2
+} // namespace o2::framework
+
 #endif // FRAMEWORK_DATASPECUTILS_H

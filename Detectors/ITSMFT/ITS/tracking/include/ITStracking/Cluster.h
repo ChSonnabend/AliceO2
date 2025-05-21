@@ -16,14 +16,13 @@
 #ifndef TRACKINGITSU_INCLUDE_CACLUSTER_H_
 #define TRACKINGITSU_INCLUDE_CACLUSTER_H_
 
+#include "GPUCommonRtypes.h"
+#include "ITStracking/Definitions.h"
+#include "ITStracking/MathUtils.h"
+
 #ifndef GPUCA_GPUCODE_DEVICE
 #include <array>
 #endif
-
-#include "GPUCommonRtypes.h"
-#include "GPUCommonArray.h"
-#include "ITStracking/Definitions.h"
-#include "ITStracking/MathUtils.h"
 
 namespace o2
 {
@@ -61,15 +60,15 @@ GPUhdi() void Cluster::print() const
 
 struct TrackingFrameInfo {
   TrackingFrameInfo() = default;
-  TrackingFrameInfo(float x, float y, float z, float xTF, float alpha, o2::gpu::gpustd::array<float, 2>&& posTF, o2::gpu::gpustd::array<float, 3>&& covTF);
+  TrackingFrameInfo(float x, float y, float z, float xTF, float alpha, std::array<float, 2>&& posTF, std::array<float, 3>&& covTF);
 
   float xCoordinate;
   float yCoordinate;
   float zCoordinate;
   float xTrackingFrame;
   float alphaTrackingFrame;
-  o2::gpu::gpustd::array<float, 2> positionTrackingFrame = {-1., -1.};
-  o2::gpu::gpustd::array<float, 3> covarianceTrackingFrame = {999., 999., 999.};
+  std::array<float, 2> positionTrackingFrame = {-1., -1.};
+  std::array<float, 3> covarianceTrackingFrame = {999., 999., 999.};
   GPUdi() void print() const
   {
 #if !defined(GPUCA_GPUCODE_DEVICE) || (!defined(__OPENCL__) && defined(GPUCA_GPU_DEBUG_PRINT))

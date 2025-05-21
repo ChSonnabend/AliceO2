@@ -35,7 +35,7 @@ struct GPUTPCGMMergedTrackHit {
                   flagRejectDistance = 0x20,
                   flagRejectErr = 0x40,
                   flagReject = 0x60,
-                  flagNotFit = 0x80 };
+                  flagHighIncl = 0x80 };
 };
 
 struct GPUTPCGMMergedTrackHitXYZ {

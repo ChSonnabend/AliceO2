@@ -146,6 +146,15 @@ TEST_CASE("TestTreeParsing")
   REQUIRE(ptfilterspecs2[0].left == (DatumSpec{std::string{"fPt"}, typeid(o2::aod::track::Pt).hash_code(), atype::FLOAT}));
   REQUIRE(ptfilterspecs2[0].right == (DatumSpec{LiteralNode::var_t{1.0f}, atype::FLOAT}));
   REQUIRE(ptfilterspecs2[0].result == (DatumSpec{0u, atype::BOOL}));
+
+  Configurable<int> cvalue{"cvalue", 1, "test value"};
+  Filter testFilter = o2::aod::track::tpcNClsShared < as<uint8_t>(cvalue);
+  REQUIRE(testFilter.node->self.index() == 2);
+  REQUIRE(testFilter.node->left->self.index() == 1);
+  REQUIRE(testFilter.node->right->self.index() == 3);
+  REQUIRE(std::get<PlaceholderNode>(testFilter.node->right->self).name == "cvalue");
+  auto testSpecs = createOperations(testFilter);
+  REQUIRE(testSpecs[0].right == (DatumSpec{LiteralNode::var_t{(uint8_t)1}, atype::UINT8}));
 }
 
 TEST_CASE("TestGandivaTreeCreation")

@@ -74,6 +74,17 @@ class RawDecoderSpec : public framework::Task
   std::deque<size_t> mHistoryT;
   std::deque<size_t> mHistoryV;
   RawDataDecoder mDecoder;
+  // Errors
+  int mLostDueToShiftInps = 0;
+  int mErrorIR = 0;
+  int mErrorTCR = 0;
+  int mIRRejected = 0;
+  int mTCRRejected = 0;
+  std::array<uint64_t, o2::ctp::CTP_NCLASSES> mClsEA{};
+  std::array<uint64_t, o2::ctp::CTP_NCLASSES> mClsEB{}; // from inputs
+  std::array<uint64_t, o2::ctp::CTP_NCLASSES> mClsA{};
+  std::array<uint64_t, o2::ctp::CTP_NCLASSES> mClsB{}; // from inputs
+  bool mCheckConsistency = false;
 };
 
 /// \brief Creating DataProcessorSpec for the CTP

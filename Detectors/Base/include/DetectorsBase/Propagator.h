@@ -17,7 +17,6 @@
 #define ALICEO2_BASE_PROPAGATOR_
 
 #include "GPUCommonRtypes.h"
-#include "GPUCommonArray.h"
 #include "CommonConstants/PhysicsConstants.h"
 #include "ReconstructionDataFormats/Track.h"
 #include "ReconstructionDataFormats/DCA.h"
@@ -25,6 +24,7 @@
 #include "DetectorsBase/MatLayerCylSet.h"
 
 #ifndef GPUCA_GPUCODE
+#include <array>
 #include <string>
 #endif
 
@@ -111,12 +111,12 @@ class PropagatorImpl
 
   GPUd() bool propagateToDCA(const o2::math_utils::Point3D<value_type>& vtx, o2::track::TrackParametrization<value_type>& track, value_type bZ,
                              value_type maxStep = MAX_STEP, MatCorrType matCorr = MatCorrType::USEMatCorrLUT,
-                             gpu::gpustd::array<value_type, 2>* dca = nullptr, track::TrackLTIntegral* tofInfo = nullptr,
+                             std::array<value_type, 2>* dca = nullptr, track::TrackLTIntegral* tofInfo = nullptr,
                              int signCorr = 0, value_type maxD = 999.f) const;
 
   GPUd() bool propagateToDCABxByBz(const o2::math_utils::Point3D<value_type>& vtx, o2::track::TrackParametrization<value_type>& track,
                                    value_type maxStep = MAX_STEP, MatCorrType matCorr = MatCorrType::USEMatCorrLUT,
-                                   gpu::gpustd::array<value_type, 2>* dca = nullptr, track::TrackLTIntegral* tofInfo = nullptr,
+                                   std::array<value_type, 2>* dca = nullptr, track::TrackLTIntegral* tofInfo = nullptr,
                                    int signCorr = 0, value_type maxD = 999.f) const;
 
   PropagatorImpl(PropagatorImpl const&) = delete;

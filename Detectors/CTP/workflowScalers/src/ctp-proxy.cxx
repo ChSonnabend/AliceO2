@@ -46,13 +46,14 @@
 #include "BookkeepingApi/BkpClient.h"
 using namespace o2::framework;
 using DetID = o2::detectors::DetID;
-InjectorFunction dcs2dpl(std::string& ccdbhost, std::string& bkhost, std::string& qchost, int qcwriteperiod)
+InjectorFunction dcs2dpl(std::string& ccdbhost, std::string& bkhost, std::string& qchost, int qcwriteperiod, std::string& ctpcfgdir)
 {
   auto runMgr = std::make_shared<o2::ctp::CTPRunManager>();
   runMgr->setCCDBHost(ccdbhost);
   runMgr->setBKHost(bkhost);
   runMgr->setQCDBHost(qchost);
   runMgr->setQCWritePeriod(qcwriteperiod);
+  runMgr->setCtpCfgDir(ctpcfgdir);
   runMgr->init();
   // runMgr->setClient(client);
   return [runMgr](TimingInfo&, ServiceRegistryRef const& services, fair::mq::Parts& parts, ChannelRetriever channelRetriever, size_t newTimesliceId, bool& stop) -> bool {
@@ -78,6 +79,7 @@ void customize(std::vector<ConfigParamSpec>& workflowOptions)
   workflowOptions.push_back(ConfigParamSpec{"ccdb-host", VariantType::String, "http://o2-ccdb.internal:8080", {"ccdb host"}});
   workflowOptions.push_back(ConfigParamSpec{"bk-host", VariantType::String, "none", {"bk host"}});
   workflowOptions.push_back(ConfigParamSpec{"qc-host", VariantType::String, "none", {"qc host"}});
+  workflowOptions.push_back(ConfigParamSpec{"ctpcfg-dir", VariantType::String, "none", {"ctp.cfg file directory"}});
   workflowOptions.push_back(ConfigParamSpec{"qc-writeperiod", VariantType::Int, 30, {"Period of writing to QCDB in units of 10secs, default = 30 (5 mins)"}});
 }
 
@@ -104,6 +106,7 @@ WorkflowSpec defineDataProcessing(ConfigContext const& config)
   std::string bkhost = config.options().get<std::string>("bk-host");
   std::string qchost = config.options().get<std::string>("qc-host");
   int qcwriteperiod = config.options().get<int>("qc-writeperiod");
+  std::string ctpcfgdir = config.options().get<std::string>("ctpcfg-dir");
   if (chan.empty()) {
     throw std::runtime_error("input channel is not provided");
   }
@@ -118,7 +121,7 @@ WorkflowSpec defineDataProcessing(ConfigContext const& config)
     std::move(ctpCountersOutputs),
     // this is just default, can be overriden by --ctp-config-proxy '--channel-config..'
     chan.c_str(),
-    dcs2dpl(ccdbhost, bkhost, qchost, qcwriteperiod));
+    dcs2dpl(ccdbhost, bkhost, qchost, qcwriteperiod, ctpcfgdir));
   ctpProxy.labels.emplace_back(DataProcessorLabel{"input-proxy"});
   LOG(info) << "===> Proxy done";
   WorkflowSpec workflow;

@@ -41,9 +41,6 @@ class GPUTPCGMMergedTrack
   {
     return mAlpha;
   }
-  GPUd() float LastX() const { return mLastX; }
-  GPUd() float LastY() const { return mLastY; }
-  GPUd() float LastZ() const { return mLastZ; }
   GPUd() bool OK() const { return mFlags & 0x01; }
   GPUd() bool Looper() const { return mFlags & 0x02; }
   GPUd() bool CSide() const { return mFlags & 0x04; }
@@ -55,9 +52,6 @@ class GPUTPCGMMergedTrack
   GPUd() void SetFirstClusterRef(int32_t v) { mFirstClusterRef = v; }
   GPUd() void SetParam(const GPUTPCGMTrackParam& v) { mParam = v; }
   GPUd() void SetAlpha(float v) { mAlpha = v; }
-  GPUd() void SetLastX(float v) { mLastX = v; }
-  GPUd() void SetLastY(float v) { mLastY = v; }
-  GPUd() void SetLastZ(float v) { mLastZ = v; }
   GPUd() void SetOK(bool v)
   {
     if (v) {
@@ -101,6 +95,7 @@ class GPUTPCGMMergedTrack
   GPUd() void SetFlags(uint8_t v) { mFlags = v; }
   GPUd() void SetLegs(uint8_t v) { mLegs = v; }
   GPUd() uint8_t Legs() const { return mLegs; }
+  GPUd() uint8_t Flags() const { return mFlags; }
 
   GPUd() const gputpcgmmergertypes::GPUTPCOuterParam& OuterParam() const { return mOuterParam; }
   GPUd() gputpcgmmergertypes::GPUTPCOuterParam& OuterParam() { return mOuterParam; }
@@ -110,9 +105,6 @@ class GPUTPCGMMergedTrack
   gputpcgmmergertypes::GPUTPCOuterParam mOuterParam; //* outer param
 
   float mAlpha;              //* alpha angle
-  float mLastX;              //* outer X
-  float mLastY;              //* outer Y
-  float mLastZ;              //* outer Z
   uint32_t mFirstClusterRef; //* index of the first track cluster in corresponding cluster arrays
   // TODO: Change to 8 bit
   uint32_t mNClusters;       //* number of track clusters

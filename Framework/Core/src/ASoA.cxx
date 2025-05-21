@@ -64,7 +64,7 @@ SelectionVector sliceSelection(gsl::span<int64_t const> const& mSelectedRows, in
   return slicedSelection;
 }
 
-std::shared_ptr<arrow::Table> ArrowHelpers::joinTables(std::vector<std::shared_ptr<arrow::Table>>&& tables)
+std::shared_ptr<arrow::Table> ArrowHelpers::joinTables(std::vector<std::shared_ptr<arrow::Table>>&& tables, std::span<const char* const> labels)
 {
   if (tables.size() == 1) {
     return tables[0];
@@ -72,10 +72,7 @@ std::shared_ptr<arrow::Table> ArrowHelpers::joinTables(std::vector<std::shared_p
   for (auto i = 0U; i < tables.size() - 1; ++i) {
     if (tables[i]->num_rows() != tables[i + 1]->num_rows()) {
       throw o2::framework::runtime_error_f("Tables %s and %s have different sizes (%d vs %d) and cannot be joined!",
-                                           tables[i]->schema()->metadata()->Get("label").ValueOrDie().c_str(),
-                                           tables[i + 1]->schema()->metadata()->Get("label").ValueOrDie().c_str(),
-                                           tables[i]->num_rows(),
-                                           tables[i + 1]->num_rows());
+                                           labels[i], labels[i + 1], tables[i]->num_rows(), tables[i + 1]->num_rows());
     }
   }
   std::vector<std::shared_ptr<arrow::Field>> fields;
@@ -197,7 +194,7 @@ bool PreslicePolicyBase::isMissing() const
   return binding == "[MISSING]";
 }
 
-StringPair const& PreslicePolicyBase::getBindingKey() const
+Entry const& PreslicePolicyBase::getBindingKey() const
 {
   return bindingKey;
 }

@@ -16,15 +16,16 @@
 #ifndef MATHUTILS_INCLUDE_MATHUTILS_DETAIL_TRIGONOMETRIC_H_
 #define MATHUTILS_INCLUDE_MATHUTILS_DETAIL_TRIGONOMETRIC_H_
 
-#ifndef GPUCA_GPUCODE_DEVICE
-#include <cmath>
-#include <tuple>
-#endif
-#include "GPUCommonArray.h"
 #include "GPUCommonDef.h"
 #include "GPUCommonMath.h"
 #include "CommonConstants/MathConstants.h"
 #include "MathUtils/detail/basicMath.h"
+
+#ifndef GPUCA_GPUCODE_DEVICE
+#include <cmath>
+#include <tuple>
+#include <array>
+#endif
 
 namespace o2
 {
@@ -156,7 +157,7 @@ GPUhdi() std::tuple<T, T> rotateZInv(T xG, T yG, T snAlp, T csAlp)
 #endif
 
 template <typename T>
-GPUhdi() void rotateZ(gpu::gpustd::array<T, 3>& xy, T alpha)
+GPUhdi() void rotateZ(std::array<T, 3>& xy, T alpha)
 {
   // transforms vector in tracking frame alpha to global frame
   T sin, cos;

@@ -62,10 +62,6 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
                 COMPONENT_NAME GPU
                 LABELS gpu)
   endif()
-  install(FILES ${HDRS_INSTALL} DESTINATION include/GPU)
 endif()
 
-if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
-  install(FILES ${HDRS_INSTALL}
-  DESTINATION include)
-endif()
+install(FILES ${HDRS_INSTALL} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/GPU)

@@ -135,9 +135,9 @@ void GPUParam::UpdateSettings(const GPUSettingsGRP* g, const GPUSettingsProcessi
     UpdateRun3ClusterErrors(p->param.tpcErrorParamY, p->param.tpcErrorParamZ);
   }
   if (w) {
-    par.dodEdx = dodEdxDownscaled = w->steps.isSet(GPUDataTypes::RecoStep::TPCdEdx);
-    if (par.dodEdx && p && p->tpcDownscaledEdx != 0) {
-      dodEdxDownscaled = (rand() % 100) < p->tpcDownscaledEdx;
+    par.dodEdx = dodEdxEnabled = w->steps.isSet(GPUDataTypes::RecoStep::TPCdEdx);
+    if (dodEdxEnabled && p && p->tpcDownscaledEdx != 0) {
+      dodEdxEnabled = (rand() % 100) < p->tpcDownscaledEdx;
     }
   }
   if (d) {

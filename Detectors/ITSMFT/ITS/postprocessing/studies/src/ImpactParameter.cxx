@@ -358,7 +358,7 @@ void ImpactParameterStudy::process(o2::globaltracking::RecoContainer& recoData)
             auto trueID = trueVec_globID_contr[it];
             const o2::track::TrackParCov& trc = recoData.getTrackParam(trueID);
             auto pt = trc.getPt();
-            o2::gpu::gpustd::array<float, 2> dcaInfo{-999., -999.};
+            std::array<float, 2> dcaInfo{-999., -999.};
             // LOGP(info, " ---> Bz={}", o2::base::Propagator::Instance()->getNominalBz());
             o2::track::TrackPar trcTmp{trc};
             if (o2::base::Propagator::Instance()->propagateToDCABxByBz({Pvtx_refitted.getX(), Pvtx_refitted.getY(), Pvtx_refitted.getZ()}, trcTmp, 2.f, matCorr, &dcaInfo)) {

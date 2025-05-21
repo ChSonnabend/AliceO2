@@ -17,10 +17,10 @@
 #ifndef AliceO2_TPC_CLUSTERS_H
 #define AliceO2_TPC_CLUSTERS_H
 
-//root includes
+// root includes
 #include "TCanvas.h"
 
-//o2 includes
+// o2 includes
 #include "TPCBase/CalDet.h"
 #include "TPCBase/Sector.h"
 #include "DataFormatsTPC/Defs.h"
@@ -74,6 +74,8 @@ class Clusters
   CalPad& getSigmaTime() { return mSigmaTime; }
   CalPad& getSigmaPad() { return mSigmaPad; }
   CalPad& getTimeBin() { return mTimeBin; }
+
+  CalPad getOccupancy(int nHBFPerTF = 32);
 
   void endTF() { ++mProcessedTFs; }
 

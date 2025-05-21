@@ -259,7 +259,7 @@ GPUd() bool TrackParametrizationWithError<value_T>::propagateToDCA(const o2::dat
 //______________________________________________________________
 template <typename value_T>
 GPUd() TrackParametrizationWithError<value_T>::TrackParametrizationWithError(const dim3_t& xyz, const dim3_t& pxpypz,
-                                                                             const gpu::gpustd::array<value_t, kLabCovMatSize>& cv, int charge, bool sectorAlpha, const PID pid)
+                                                                             const std::array<value_t, kLabCovMatSize>& cv, int charge, bool sectorAlpha, const PID pid)
 {
   // construct track param and covariance from kinematics and lab errors
   set(xyz, pxpypz, cv, charge, sectorAlpha, pid);
@@ -268,7 +268,7 @@ GPUd() TrackParametrizationWithError<value_T>::TrackParametrizationWithError(con
 //______________________________________________________________
 template <typename value_T>
 GPUd() void TrackParametrizationWithError<value_T>::set(const dim3_t& xyz, const dim3_t& pxpypz,
-                                                        const gpu::gpustd::array<value_t, kLabCovMatSize>& cv, int charge, bool sectorAlpha, const PID pid)
+                                                        const std::array<value_t, kLabCovMatSize>& cv, int charge, bool sectorAlpha, const PID pid)
 {
   // set track param and covariance from kinematics and lab errors
 
@@ -475,7 +475,7 @@ GPUd() bool TrackParametrizationWithError<value_T>::propagateTo(value_t xk, cons
   step *= gpu::CAMath::Sqrt(1.f + this->getTgl() * this->getTgl());
   //
   // get the track x,y,z,px/p,py/p,pz/p,p,sinAlpha,cosAlpha in the Global System
-  gpu::gpustd::array<value_t, 9> vecLab{0.f};
+  std::array<value_t, 9> vecLab{0.f};
   if (!this->getPosDirGlo(vecLab)) {
     return false;
   }
@@ -542,7 +542,7 @@ GPUd() bool TrackParametrizationWithError<value_T>::propagateTo(value_t xk, cons
     costet = b[2] / bb;
     sintet = bt / bb;
   }
-  gpu::gpustd::array<value_t, 7> vect{costet * cosphi * vecLab[0] + costet * sinphi * vecLab[1] - sintet * vecLab[2],
+  std::array<value_t, 7> vect{costet * cosphi * vecLab[0] + costet * sinphi * vecLab[1] - sintet * vecLab[2],
                                       -sinphi * vecLab[0] + cosphi * vecLab[1],
                                       sintet * cosphi * vecLab[0] + sintet * sinphi * vecLab[1] + costet * vecLab[2],
                                       costet * cosphi * vecLab[3] + costet * sinphi * vecLab[4] - sintet * vecLab[5],
@@ -1115,7 +1115,7 @@ GPUd() bool TrackParametrizationWithError<value_T>::correctForMaterial(value_t x
 
 //______________________________________________________________
 template <typename value_T>
-GPUd() bool TrackParametrizationWithError<value_T>::getCovXYZPxPyPzGlo(gpu::gpustd::array<value_t, kLabCovMatSize>& cv) const
+GPUd() bool TrackParametrizationWithError<value_T>::getCovXYZPxPyPzGlo(std::array<value_t, kLabCovMatSize>& cv) const
 {
   //---------------------------------------------------------------------
   // This function returns the global covariance matrix of the track params

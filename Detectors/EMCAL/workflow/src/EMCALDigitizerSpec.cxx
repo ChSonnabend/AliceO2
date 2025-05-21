@@ -332,15 +332,17 @@ void DigitizerSpec::run(framework::ProcessingContext& ctx)
     if (!trigger.any()) {
       continue;
     }
+
+    mDigitizer.setEventTime(timesview[collID], trigger.any());
+    if (!mDigitizer.isCurrentEventTriggered()) {
+      LOG(debug) << "reject collision";
+      continue;
+    }
+    LOG(debug) << "accept collision";
+
     // Trigger sim: Prepare CTP input digit
     acceptedTriggers.push_back(std::make_tuple(timesview[collID], trigger));
     LOG(debug) << "EMCAL TRU simulation: Sending trg = " << trigger << " to CTP";
-
-    mDigitizer.setEventTime(timesview[collID], trigger.any());
-
-    if (!mDigitizer.isLive()) {
-      continue;
-    }
 
     // for each collision, loop over the constituents event and source IDs
     // (background signal merging is basically taking place here)

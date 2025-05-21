@@ -57,6 +57,10 @@ class GPUTPCCompression : public GPUProcessor
   GPUd() static void truncateSignificantBitsChargeMax(uint16_t& charge, const GPUParam& param) { truncateSignificantBits(charge, param.rec.tpc.sigBitsCharge, P_MAX_QMAX); }
   GPUd() static void truncateSignificantBitsWidth(uint8_t& width, const GPUParam& param) { truncateSignificantBits(width, param.rec.tpc.sigBitsWidth, P_MAX_SIGMA); }
 
+#ifndef GPUCA_GPUCODE
+  void DumpCompressedClusters(std::ostream& out);
+#endif
+
  protected:
   struct memory {
     uint32_t nStoredTracks = 0;

@@ -72,6 +72,7 @@ class Digitizer : public TObject
   double getEventTime() const { return mDigits.getEventTime(); }
   bool isLive(double t) const { return mDigits.isLive(t); }
   bool isLive() const { return mDigits.isLive(); }
+  bool isCurrentEventTriggered() const { return mDigits.isCurrentEventTriggered(); }
 
   void setDebugStreaming(bool doStreaming) { mEnableDebugStreaming = doStreaming; }
 

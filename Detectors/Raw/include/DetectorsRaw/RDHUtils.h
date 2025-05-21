@@ -19,13 +19,15 @@
 #include "GPUCommonRtypes.h"
 #include "Headers/RAWDataHeader.h"
 #include "Headers/RDHAny.h"
-#include "GPUCommonTypeTraits.h"
+#ifndef GPUCA_GPUCODE_DEVICE
+#include <type_traits>
+#endif
 #if !defined(GPUCA_GPUCODE)
 #include "CommonDataFormat/InteractionRecord.h"
 #endif
 #if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE)
 #include "Headers/DAQID.h"
-#endif // GPUCA_GPUCODE / GPUCA_STANDALONE
+#endif
 
 namespace o2
 {

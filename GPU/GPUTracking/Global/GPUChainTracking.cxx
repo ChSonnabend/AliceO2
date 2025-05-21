@@ -378,7 +378,8 @@ int32_t GPUChainTracking::Init()
   }
 
   if (GetProcessingSettings().debugLevel >= 6) {
-    mDebugFile->open(mRec->IsGPU() ? "GPU.out" : "CPU.out");
+    std::string filename = std::string(mRec->IsGPU() ? "GPU" : "CPU") + (mRec->slaveId() != -1 ? (std::string("_slave") + std::to_string(mRec->slaveId())) : std::string(mRec->slavesExist() ? "_master" : "")) + GetProcessingSettings().debugLogSuffix + ".out";
+    mDebugFile->open(filename.c_str());
   }
 
   return 0;
@@ -837,7 +838,7 @@ int32_t GPUChainTracking::RunChainFinalize()
 
     int32_t iKey;
     do {
-      Sleep(10);
+      usleep(10000);
       if (GetProcessingSettings().eventDisplay->EnableSendKey()) {
         iKey = kbhit() ? getch() : 0;
         if (iKey == 27) {
@@ -846,7 +847,7 @@ int32_t GPUChainTracking::RunChainFinalize()
           break;
         } else if (iKey) {
           while (GetProcessingSettings().eventDisplay->getSendKey() != 0) {
-            Sleep(1);
+            usleep(1000);
           }
           GetProcessingSettings().eventDisplay->setSendKey(iKey);
         }

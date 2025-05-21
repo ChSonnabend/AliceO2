@@ -498,11 +498,11 @@
   #define GPUCA_LB_GPUTPCNNClusterizerKernels_publishClass1Regression GPUCA_LB_GPUTPCNNClusterizerKernels
   #define GPUCA_LB_GPUTPCNNClusterizerKernels_publishClass2Regression GPUCA_LB_GPUTPCNNClusterizerKernels
 
-  #define GPUCA_LB_GPUTPCCFStreamCompaction_scanStart GPUCA_THREAD_COUNT_SCAN
-  #define GPUCA_LB_GPUTPCCFStreamCompaction_scanUp GPUCA_THREAD_COUNT_SCAN
-  #define GPUCA_LB_GPUTPCCFStreamCompaction_scanTop GPUCA_THREAD_COUNT_SCAN
-  #define GPUCA_LB_GPUTPCCFStreamCompaction_scanDown GPUCA_THREAD_COUNT_SCAN
-  #define GPUCA_LB_GPUTPCCFStreamCompaction_compactDigits GPUCA_THREAD_COUNT_SCAN
+  #define GPUCA_LB_GPUTPCCFStreamCompaction_scanStart GPUCA_PAR_CF_SCAN_WORKGROUP_SIZE
+  #define GPUCA_LB_GPUTPCCFStreamCompaction_scanUp GPUCA_PAR_CF_SCAN_WORKGROUP_SIZE
+  #define GPUCA_LB_GPUTPCCFStreamCompaction_scanTop GPUCA_PAR_CF_SCAN_WORKGROUP_SIZE
+  #define GPUCA_LB_GPUTPCCFStreamCompaction_scanDown GPUCA_PAR_CF_SCAN_WORKGROUP_SIZE
+  #define GPUCA_LB_GPUTPCCFStreamCompaction_compactDigits GPUCA_PAR_CF_SCAN_WORKGROUP_SIZE
   #define GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered GPUCA_LB_COMPRESSION_GATHER
   #define GPUCA_LB_GPUTPCCompressionGatherKernels_buffered32 GPUCA_LB_COMPRESSION_GATHER
   #define GPUCA_LB_GPUTPCCompressionGatherKernels_buffered64 GPUCA_LB_COMPRESSION_GATHER
@@ -540,6 +540,9 @@
   #ifndef GPUCA_PAR_COMP_GATHER_MODE
     #define GPUCA_PAR_COMP_GATHER_MODE 2
   #endif
+  #ifndef GPUCA_PAR_CF_SCAN_WORKGROUP_SIZE
+    #define GPUCA_PAR_CF_SCAN_WORKGROUP_SIZE 512
+  #endif
 #endif // defined(GPUCA_GPUCODE) && !defined(GPUCA_GPUCODE_GENRTC) && !defined(GPUCA_GPUCODE_NO_LAUNCH_BOUNDS)
 
 #ifndef GPUCA_GPUCODE_GENRTC
@@ -576,6 +579,9 @@
   #endif
   #ifndef GPUCA_PAR_NO_ATOMIC_PRECHECK
     #define GPUCA_PAR_NO_ATOMIC_PRECHECK 0
+  #endif
+  #ifndef GPUCA_PAR_CF_SCAN_WORKGROUP_SIZE
+    #define GPUCA_PAR_CF_SCAN_WORKGROUP_SIZE 0
   #endif
   #ifndef GPUCA_PAR_DEDX_STORAGE_TYPE
     #define GPUCA_PAR_DEDX_STORAGE_TYPE float

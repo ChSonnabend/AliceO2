@@ -80,8 +80,6 @@ void CheckDigitsITS3(std::string digifile = "it3digits.root", std::string hitfil
 
   int nevD = digTree->GetEntries(); // digits in cont. readout may be grouped as few events per entry
 
-  int lastReadHitEv = -1;
-
   int nDigitReadIB{0}, nDigitReadOB{0};
   int nDigitFilledIB{0}, nDigitFilledOB{0};
 

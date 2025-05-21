@@ -22,8 +22,10 @@
 #include "TPCBase/ROC.h"
 #include "TPCBase/CRU.h"
 #include "TPCBase/Mapper.h"
+#include "TPCBase/ParameterElectronics.h"
 #include "DataFormatsTPC/ClusterNative.h"
 #include "DataFormatsTPC/KrCluster.h"
+#include "CommonConstants/LHCConstants.h"
 
 ClassImp(o2::tpc::qc::Clusters);
 
@@ -152,6 +154,13 @@ void Clusters::reset()
   mProcessedTFs = 0;
 }
 
+//______________________________________________________________________________
+o2::tpc::CalPad Clusters::getOccupancy(int nHBFPerTF)
+{
+  o2::tpc::CalPad occupancy = mNClusters;
+  occupancy /= float(mProcessedTFs * (o2::constants::lhc::LHCMaxBunches * nHBFPerTF) / float(o2::tpc::ParameterElectronics::TIMEBININBC));
+  return occupancy;
+}
 //______________________________________________________________________________
 void Clusters::merge(Clusters& clusters)
 {

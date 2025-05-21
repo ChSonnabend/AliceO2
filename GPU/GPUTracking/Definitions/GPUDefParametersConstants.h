@@ -18,8 +18,6 @@
 #define GPUDEFPARAMETERSCONSTANTS_H
 // clang-format off
 
-#define GPUCA_THREAD_COUNT_SCAN 512 // TODO: WARNING!!! Must not be GPUTYPE-dependent right now! // TODO: Fix!
-
 #if defined(__CUDACC__) || defined(__HIPCC__)
   #define GPUCA_SPECIALIZE_THRUST_SORTS // Not compiled with RTC, so must be compile-time constant
 #endif

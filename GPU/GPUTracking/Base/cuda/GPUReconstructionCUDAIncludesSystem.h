@@ -15,9 +15,10 @@
 #ifndef O2_GPU_GPURECONSTRUCTIONCUDAINCLUDESSYSTEM_H
 #define O2_GPU_GPURECONSTRUCTIONCUDAINCLUDESSYSTEM_H
 
-#include <cstdint>
-#include <type_traits>
-#include <string>
+#ifndef GPUCA_GPUCODE_GENRTC
+#include "GPUStdSystemHeaders.h"
+#endif
+
 #include <cuda_runtime.h>
 #include <cuda.h>
 #include <cooperative_groups.h>

@@ -47,8 +47,6 @@
 #include "TPCFastTransform.h"
 #include "CorrectionMapsHelper.h"
 
-#include "utils/linux_helpers.h"
-
 using namespace o2::gpu;
 
 #include "GPUO2DataTypes.h"

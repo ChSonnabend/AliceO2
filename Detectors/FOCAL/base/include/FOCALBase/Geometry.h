@@ -135,6 +135,9 @@ class Geometry
   bool getInsertFrontPadLayers() const { return mInsertFrontPadLayers; }
   bool getInsertHCalReadoutMaterial() const { return mInsertFrontHCalReadoutMaterial; }
 
+  float getDetectorOpeningRight() const { return mGlobal_DetectorOpening_Right; }
+  float getDetectorOpeningLeft() const { return mGlobal_DetectorOpening_Left; }
+
   std::vector<const Composition*> getFOCALMicroModule(int layer) const;
   const Composition* getComposition(int layer, int stack) const;
   std::string_view getTowerGapMaterial() const { return mGlobal_Gap_Material; }
@@ -174,6 +177,9 @@ class Geometry
   float mGlobal_PAD_SKIN = 0.0; // dead area (guard ring) on the wafer
   float mWaferSizeX = 0.0;      // Wafer X size
   float mWaferSizeY = 0.0;      // Wafer Y size
+
+  float mGlobal_DetectorOpening_Right = 0.0; // detector opening in X
+  float mGlobal_DetectorOpening_Left = 0.0;  // detector opening in Y
 
   // PIX setup
   float mGlobal_Pixel_Size = 0.0;  // pixel size

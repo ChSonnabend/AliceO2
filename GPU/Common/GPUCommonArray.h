@@ -15,12 +15,14 @@
 #ifndef GPUCOMMONARRAY_H
 #define GPUCOMMONARRAY_H
 
-#ifndef GPUCA_GPUCODE_DEVICE
+#if !defined(GPUCA_GPUCODE_DEVICE) || defined(__CUDACC__) || defined(__HIPCC__) // TODO: Get rid of GPUCommonArray once OpenCL supports <array>
+#ifndef GPUCA_GPUCODE_COMPILEKERNELS
 #include <array>
 #endif
+#else
 
 #include "GPUCommonDef.h"
-namespace o2::gpu::gpustd
+namespace std
 {
 #ifdef GPUCA_GPUCODE_DEVICE
 template <typename T, size_t N>
@@ -43,5 +45,13 @@ GPUd() array(T, E...)->array<T, 1 + sizeof...(E)>;
 template <typename T, size_t N>
 using array = std::array<T, N>;
 #endif
-} // namespace o2::gpu::gpustd
+} // namespace std
 #endif
+
+namespace o2::gpu::gpustd
+{
+template <class T, size_t I>
+using array = ::std::array<T, I>; // temporary alias, to remove dependent types
+} // o2::gpu::gpustd
+
+#endif // GPUCOMMONARRAY_H
