@@ -259,6 +259,7 @@ AddOption(nnInferenceOrtProfiling, int, 0, "", 0, "Enables profiling of model ex
 AddOption(nnInferenceOrtProfilingPath, std::string, ".", "", 0, "If nnInferenceOrtProfiling is set, the path to store the profiling data")
 AddOption(nnInferenceVerbosity, int, 1, "", 0, "0: No messages; 1: Warnings; 2: Warnings + major debugs; >3: All debugs")
 AddOption(nnClusterizerAddIndexData, int, 1, "", 0, "If normalized index data (sector, row, pad), should be appended to the input")
+AddOption(nnClusterizerAddMeanSigma, int, 0, "", 0, "If the mean and sigma values should be added to the input of the models")
 AddOption(nnClusterizerSizeInputRow, int, 3, "", 0, "Size of the input to the NN (currently calcualted as (length-1)/2")
 AddOption(nnClusterizerSizeInputPad, int, 3, "", 0, "Size of the input to the NN (currently calcualted as (length-1)/2")
 AddOption(nnClusterizerSizeInputTime, int, 3, "", 0, "Size of the input to the NN (currently calcualted as (length-1)/2")
