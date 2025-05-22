@@ -1,0 +1,112 @@
+diff --git a/GPU/GPUTracking/ITS/GPUITSFitterKernels.cxx b/GPU/GPUTracking/ITS/GPUITSFitterKernels.cxx
+index 1601e11f2c..ca36a0b4fd 100644
+--- a/GPU/GPUTracking/ITS/GPUITSFitterKernels.cxx
++++ b/GPU/GPUTracking/ITS/GPUITSFitterKernels.cxx
+@@ -42,7 +42,7 @@ GPUdii() bool GPUITSFitterKernels::fitTrack(GPUITSFitter& GPUrestrict() Fitter,
+       return false;
+     }
+ 
+-    if (prop.Update(trackingHit.positionTrackingFrame[0], trackingHit.positionTrackingFrame[1], 0, false, trackingHit.covarianceTrackingFrame[0], trackingHit.covarianceTrackingFrame[2])) {
++    if (prop.Update(trackingHit.positionTrackingFrame[0], trackingHit.positionTrackingFrame[1], 0, false, trackingHit.covarianceTrackingFrame[0], trackingHit.covarianceTrackingFrame[2], trackingHit.covarianceTrackingFrame[0], trackingHit.covarianceTrackingFrame[2])) {
+       return false;
+     }
+ 
+diff --git a/GPU/GPUTracking/Merger/GPUTPCGMPropagator.cxx b/GPU/GPUTracking/Merger/GPUTPCGMPropagator.cxx
+index 9e23f9af3c..586e36767e 100644
+--- a/GPU/GPUTracking/Merger/GPUTPCGMPropagator.cxx
++++ b/GPU/GPUTracking/Merger/GPUTPCGMPropagator.cxx
+@@ -691,7 +691,9 @@ GPUd() int32_t GPUTPCGMPropagator::Update(float posY, float posZ, int32_t iRow,
+     return 0;
+   }
+ 
+-  return Update(posY, posZ, clusterState, rejectChi2 == rejectDirect || rejectChi2 == rejectInterReject, err2Y, err2Z, &param);
++  float err2Ychi2, err2Zchi2;
++  GetErr2(err2Ychi2, err2Zchi2, param, posZ, iRow, 0, sector, time, avgInvCharge, invCharge);
++  return Update(posY, posZ, clusterState, rejectChi2 == rejectDirect, err2Y, err2Z, err2Ychi2, err2Zchi2, &param);
+ }
+ 
+ GPUd() int32_t GPUTPCGMPropagator::InterpolateReject(const GPUParam& GPUrestrict() param, float posY, float posZ, int16_t clusterState, int8_t rejectChi2, gputpcgmmergertypes::InterpolationErrorHit* inter, float err2Y, float err2Z)
+@@ -761,7 +763,7 @@ GPUd() int32_t GPUTPCGMPropagator::InterpolateReject(const GPUParam& GPUrestrict
+   return 0;
+ }
+ 
+-GPUd() int32_t GPUTPCGMPropagator::Update(float posY, float posZ, int16_t clusterState, bool rejectChi2, float err2Y, float err2Z, const GPUParam* GPUrestrict() param)
++GPUd() int32_t GPUTPCGMPropagator::Update(float posY, float posZ, int16_t clusterState, bool rejectChi2, float err2Y, float err2Z, float err2Ychi2, float err2Zchi2, const GPUParam* GPUrestrict() param)
+ {
+   float* GPUrestrict() mC = mT->Cov();
+   float* GPUrestrict() mP = mT->Par();
+@@ -772,33 +774,46 @@ GPUd() int32_t GPUTPCGMPropagator::Update(float posY, float posZ, int16_t cluste
+   const float z0 = posY - mP[0];
+   const float z1 = posZ - mP[1];
+   float w0, w1, w2, chi2Y, chi2Z;
++  float w0X, w1X, w2X, chiYX, chiZX;
+   if (mFitInProjections || mT->NDF() <= 0) {
+     w0 = 1.f / (err2Y + d00);
+     w1 = 0;
+     w2 = 1.f / (err2Z + d11);
+     chi2Y = w0 * z0 * z0;
+     chi2Z = w2 * z1 * z1;
++    w0X = 1.f / (err2Ychi2 + d00);
++    w1X = 0;
++    w2X = 1.f / (err2Zchi2 + d11);
++    chiYX = w0X * z0 * z0;
++    chiZX = w2X * z1 * z1;
+   } else {
+     w0 = d11 + err2Z, w1 = d10, w2 = d00 + err2Y;
++    w0X = d11 + err2Zchi2, w1X = d10, w2X = d00 + err2Ychi2;
+     { // Invert symmetric matrix
+       float det = w0 * w2 - w1 * w1;
++      float detX = w0X * w2X - w1X * w1X;
+       if (CAMath::Abs(det) < 1.e-10f) {
+         return updateErrorFitFailed;
+       }
+       det = 1.f / det;
++      detX = 1.f / detX;
+       w0 = w0 * det;
+       w1 = -w1 * det;
+       w2 = w2 * det;
++      w0X = w0X * detX;
++      w1X = -w1X * detX;
++      w2X = w2X * detX;
+     }
+     chi2Y = CAMath::Abs((w0 * z0 + w1 * z1) * z0);
+     chi2Z = CAMath::Abs((w1 * z0 + w2 * z1) * z1);
++    chiYX = CAMath::Abs((w0X * z0 + w1X * z1) * z0);
++    chiZX = CAMath::Abs((w1X * z0 + w2X * z1) * z1);
+   }
+-  float dChi2 = chi2Y + chi2Z;
+   // GPUInfo("hits %d chi2 %f, new %f %f (dy %f dz %f)", N, mChi2, chi2Y, chi2Z, z0, z1);
+   if (rejectChi2 && RejectCluster(chi2Y * param->rec.tpc.clusterRejectChi2TolleranceY, chi2Z * param->rec.tpc.clusterRejectChi2TolleranceZ, clusterState)) {
+     return updateErrorClusterRejectedInUpdate;
+   }
+-  mT->Chi2() += dChi2;
++  mT->Chi2() += chiYX + chiZX;
+   mT->NDF() += 2;
+ 
+   if (mFitInProjections || mT->NDF() <= 0) {
+diff --git a/GPU/GPUTracking/Merger/GPUTPCGMPropagator.h b/GPU/GPUTracking/Merger/GPUTPCGMPropagator.h
+index d2d06df7b5..c4fe520282 100644
+--- a/GPU/GPUTracking/Merger/GPUTPCGMPropagator.h
++++ b/GPU/GPUTracking/Merger/GPUTPCGMPropagator.h
+@@ -111,7 +111,7 @@ class GPUTPCGMPropagator
+   GPUd() int32_t PropagateToXAlphaBz(float posX, float posAlpha, bool inFlyDirection);
+ 
+   GPUd() int32_t Update(float posY, float posZ, int32_t iRow, const GPUParam& param, int16_t clusterState, int8_t rejectChi2, gputpcgmmergertypes::InterpolationErrorHit* inter, bool refit, int8_t sideC, float time, float avgInvCharge, float invCharge GPUCA_DEBUG_STREAMER_CHECK(, DebugStreamerVals* debugVals = nullptr));
+-  GPUd() int32_t Update(float posY, float posZ, int16_t clusterState, bool rejectChi2, float err2Y, float err2Z, const GPUParam* param = nullptr);
++  GPUd() int32_t Update(float posY, float posZ, int16_t clusterState, bool rejectChi2, float err2Y, float err2Z, float err2Ychi2, float err2Zchi2, const GPUParam* param = nullptr);
+   GPUd() int32_t InterpolateReject(const GPUParam& param, float posY, float posZ, int16_t clusterState, int8_t rejectChi2, gputpcgmmergertypes::InterpolationErrorHit* inter, float err2Y, float err2Z);
+   GPUd() float PredictChi2(float posY, float posZ, int32_t iRow, const GPUParam& param, int16_t clusterState, int8_t sideC, float time, float avgCharge, float charge) const;
+   GPUd() float PredictChi2(float posY, float posZ, float err2Y, float err2Z) const;
+diff --git a/GPU/GPUTracking/TRDTracking/GPUTRDInterfaces.h b/GPU/GPUTracking/TRDTracking/GPUTRDInterfaces.h
+index f6b8bea298..57a610d389 100644
+--- a/GPU/GPUTracking/TRDTracking/GPUTRDInterfaces.h
++++ b/GPU/GPUTracking/TRDTracking/GPUTRDInterfaces.h
+@@ -219,7 +219,7 @@ class propagatorInterface<GPUTPCGMPropagator> : public GPUTPCGMPropagator
+   GPUd() bool update(const float p[2], const float cov[3])
+   {
+     // TODO sigma_yz not taken into account yet, is not zero due to pad tilting!
+-    return Update(p[0], p[1], 0, false, cov[0], cov[2]) == 0 ? true : false;
++    return Update(p[0], p[1], 0, false, cov[0], cov[2], cov[0], cov[2]) == 0 ? true : false;
+   }
+   GPUd() float getAlpha() { return GetAlpha(); }
+   // TODO sigma_yz not taken into account yet, is not zero due to pad tilting!

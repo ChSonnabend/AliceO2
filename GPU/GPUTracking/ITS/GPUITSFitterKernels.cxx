@@ -42,7 +42,7 @@ GPUdii() bool GPUITSFitterKernels::fitTrack(GPUITSFitter& GPUrestrict() Fitter, 
       return false;
     }
 
-    if (prop.Update(trackingHit.positionTrackingFrame[0], trackingHit.positionTrackingFrame[1], 0, false, trackingHit.covarianceTrackingFrame[0], trackingHit.covarianceTrackingFrame[2])) {
+    if (prop.Update(trackingHit.positionTrackingFrame[0], trackingHit.positionTrackingFrame[1], 0, false, trackingHit.covarianceTrackingFrame[0], trackingHit.covarianceTrackingFrame[2], trackingHit.covarianceTrackingFrame[0], trackingHit.covarianceTrackingFrame[2])) {
       return false;
     }
 

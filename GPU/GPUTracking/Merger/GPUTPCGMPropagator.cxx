@@ -691,7 +691,9 @@ GPUd() int32_t GPUTPCGMPropagator::Update(float posY, float posZ, int32_t iRow, 
     return 0;
   }
 
-  return Update(posY, posZ, clusterState, rejectChi2 == rejectDirect || rejectChi2 == rejectInterReject, err2Y, err2Z, &param);
+  float err2Ychi2, err2Zchi2;
+  GetErr2(err2Ychi2, err2Zchi2, param, posZ, iRow, 0, sector, time, avgInvCharge, invCharge);
+  return Update(posY, posZ, clusterState, rejectChi2 == rejectDirect, err2Y, err2Z, err2Ychi2, err2Zchi2, &param);
 }
 
 GPUd() int32_t GPUTPCGMPropagator::InterpolateReject(const GPUParam& GPUrestrict() param, float posY, float posZ, int16_t clusterState, int8_t rejectChi2, gputpcgmmergertypes::InterpolationErrorHit* inter, float err2Y, float err2Z)
@@ -761,7 +763,7 @@ GPUd() int32_t GPUTPCGMPropagator::InterpolateReject(const GPUParam& GPUrestrict
   return 0;
 }
 
-GPUd() int32_t GPUTPCGMPropagator::Update(float posY, float posZ, int16_t clusterState, bool rejectChi2, float err2Y, float err2Z, const GPUParam* GPUrestrict() param)
+GPUd() int32_t GPUTPCGMPropagator::Update(float posY, float posZ, int16_t clusterState, bool rejectChi2, float err2Y, float err2Z, float err2Ychi2, float err2Zchi2, const GPUParam* GPUrestrict() param)
 {
   float* GPUrestrict() mC = mT->Cov();
   float* GPUrestrict() mP = mT->Par();
@@ -772,33 +774,46 @@ GPUd() int32_t GPUTPCGMPropagator::Update(float posY, float posZ, int16_t cluste
   const float z0 = posY - mP[0];
   const float z1 = posZ - mP[1];
   float w0, w1, w2, chi2Y, chi2Z;
+  float w0X, w1X, w2X, chiYX, chiZX;
   if (mFitInProjections || mT->NDF() <= 0) {
     w0 = 1.f / (err2Y + d00);
     w1 = 0;
     w2 = 1.f / (err2Z + d11);
     chi2Y = w0 * z0 * z0;
     chi2Z = w2 * z1 * z1;
+    w0X = 1.f / (err2Ychi2 + d00);
+    w1X = 0;
+    w2X = 1.f / (err2Zchi2 + d11);
+    chiYX = w0X * z0 * z0;
+    chiZX = w2X * z1 * z1;
   } else {
     w0 = d11 + err2Z, w1 = d10, w2 = d00 + err2Y;
+    w0X = d11 + err2Zchi2, w1X = d10, w2X = d00 + err2Ychi2;
     { // Invert symmetric matrix
       float det = w0 * w2 - w1 * w1;
+      float detX = w0X * w2X - w1X * w1X;
       if (CAMath::Abs(det) < 1.e-10f) {
         return updateErrorFitFailed;
       }
       det = 1.f / det;
+      detX = 1.f / detX;
       w0 = w0 * det;
       w1 = -w1 * det;
       w2 = w2 * det;
+      w0X = w0X * detX;
+      w1X = -w1X * detX;
+      w2X = w2X * detX;
     }
     chi2Y = CAMath::Abs((w0 * z0 + w1 * z1) * z0);
     chi2Z = CAMath::Abs((w1 * z0 + w2 * z1) * z1);
+    chiYX = CAMath::Abs((w0X * z0 + w1X * z1) * z0);
+    chiZX = CAMath::Abs((w1X * z0 + w2X * z1) * z1);
   }
-  float dChi2 = chi2Y + chi2Z;
   // GPUInfo("hits %d chi2 %f, new %f %f (dy %f dz %f)", N, mChi2, chi2Y, chi2Z, z0, z1);
   if (rejectChi2 && RejectCluster(chi2Y * param->rec.tpc.clusterRejectChi2TolleranceY, chi2Z * param->rec.tpc.clusterRejectChi2TolleranceZ, clusterState)) {
     return updateErrorClusterRejectedInUpdate;
   }
-  mT->Chi2() += dChi2;
+  mT->Chi2() += chiYX + chiZX;
   mT->NDF() += 2;
 
   if (mFitInProjections || mT->NDF() <= 0) {

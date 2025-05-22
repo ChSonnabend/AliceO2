@@ -219,7 +219,7 @@ class propagatorInterface<GPUTPCGMPropagator> : public GPUTPCGMPropagator
   GPUd() bool update(const float p[2], const float cov[3])
   {
     // TODO sigma_yz not taken into account yet, is not zero due to pad tilting!
-    return Update(p[0], p[1], 0, false, cov[0], cov[2]) == 0 ? true : false;
+    return Update(p[0], p[1], 0, false, cov[0], cov[2], cov[0], cov[2]) == 0 ? true : false;
   }
   GPUd() float getAlpha() { return GetAlpha(); }
   // TODO sigma_yz not taken into account yet, is not zero due to pad tilting!
