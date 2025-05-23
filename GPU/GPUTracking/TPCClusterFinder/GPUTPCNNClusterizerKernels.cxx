@@ -216,13 +216,13 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
     }
     mean /= acc_charge;
     sigma = CAMath::Sqrt(sigma / acc_charge - mean * mean);
-    // -4 = mean_pad, -3 = sigma_pad, -2 = mean_time, -1 = sigma_time
+    // -4 = mean_pad, -3 = mean_time, -2 = sigma_pad, -1 = sigma_time
     if (dtype == 0) {
-      clustererNN.mInputData_16[top_idx - 2 - 2*pad_time_calculation] = (OrtDataType::Float16_t)(static_cast<float>(mean));
-      clustererNN.mInputData_16[top_idx - 1 - 2*pad_time_calculation] = (OrtDataType::Float16_t)(static_cast<float>(sigma));
+      clustererNN.mInputData_16[top_idx - 3 - pad_time_calculation] = (OrtDataType::Float16_t)(static_cast<float>(mean));
+      clustererNN.mInputData_16[top_idx - 1 - pad_time_calculation] = (OrtDataType::Float16_t)(static_cast<float>(sigma));
     } else {
-      clustererNN.mInputData_32[top_idx - 2 - 2*pad_time_calculation] = static_cast<float>(mean);
-      clustererNN.mInputData_32[top_idx - 1 - 2*pad_time_calculation] = static_cast<float>(sigma);
+      clustererNN.mInputData_32[top_idx - 3 - pad_time_calculation] = static_cast<float>(mean);
+      clustererNN.mInputData_32[top_idx - 1 - pad_time_calculation] = static_cast<float>(sigma);
     }
   } else if ((int32_t)transient_index < (clustererNN.mNnClusterizerElementSize - 3)) {
     int32_t time = static_cast<int>(peak.time());
