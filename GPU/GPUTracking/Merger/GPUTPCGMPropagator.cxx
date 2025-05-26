@@ -693,7 +693,7 @@ GPUd() int32_t GPUTPCGMPropagator::Update(float posY, float posZ, int32_t iRow, 
 
   float err2Ychi2, err2Zchi2;
   GetErr2(err2Ychi2, err2Zchi2, param, posZ, iRow, 0, sector, time, avgInvCharge, invCharge);
-  return Update(posY, posZ, clusterState, rejectChi2 == rejectDirect || (param.rec.tpc.mergerInterpolateRejectAlsoOnCurrentPosition && rejectChi2 == rejectInterReject), err2Y, err2Z, &param);
+  return Update(posY, posZ, clusterState, rejectChi2 == rejectDirect || (param.rec.tpc.mergerInterpolateRejectAlsoOnCurrentPosition && rejectChi2 == rejectInterReject), err2Y, err2Z, err2Ychi2, err2Zchi2, &param);
 }
 
 GPUd() int32_t GPUTPCGMPropagator::InterpolateReject(const GPUParam& GPUrestrict() param, float posY, float posZ, int16_t clusterState, int8_t rejectChi2, gputpcgmmergertypes::InterpolationErrorHit* inter, float err2Y, float err2Z)
