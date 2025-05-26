@@ -1079,16 +1079,14 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
               }
             }
 
-            // for(int i = 0; i < iSize; ++i) {
-            //   if(clustererNNShadow.mOutputDataClass[i + batchStart] > 1) {
-            //     LOG(info) << "WARNING ORT: Output of  " << i + batchStart << " / " << clusterer.mPmemory->counters.nClusters << " is " << clustererNNShadow.mModelProbabilities_16[i].ToFloat() << " and " << clustererNNShadow.mOutputDataClass[i + batchStart] << " thresh " << clustererNNShadow.mNnClassThreshold << " instead of 0 or 1. Please check the model and the input data.";
-            //     // std::string input = "[";
-            //     // for(int j = 0; j < clustererNNShadow.mNnClusterizerElementSize; j++){
-            //     //   input += std::to_string(clustererNNShadow.mInputData_16[i * clustererNNShadow.mNnClusterizerElementSize + j].ToFloat()) + ", ";
-            //     // }
-            //     // input += "]";
-            //     // LOG(info) << "Input is: " << input;
+            // for(int i = 0; i < 10; ++i) {
+            //   LOG(info) << "WARNING ORT: Output of  " << i + batchStart << " / " << clusterer.mPmemory->counters.nClusters << " is " << clustererNNShadow.mModelProbabilities_32[i] << " and " << clustererNNShadow.mOutputDataClass[i + batchStart] << " thresh " << clustererNNShadow.mNnClassThreshold << " instead of 0 or 1. Please check the model and the input data.";
+            //   std::string input = "Print input: [";
+            //   for(int j = 0; j < clustererNNShadow.mNnClusterizerElementSize; j++){
+            //     input += std::to_string(clustererNNShadow.mInputData_32[i * clustererNNShadow.mNnClusterizerElementSize + j]) + ((j < (clustererNNShadow.mNnClusterizerElementSize - 1)) ? ", " : "");
             //   }
+            //   input += "]";
+            //   LOG(info) << "Input is: " << input;
             // }
 
             auto stop1 = std::chrono::high_resolution_clock::now();

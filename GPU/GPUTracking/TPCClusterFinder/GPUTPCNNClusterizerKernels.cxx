@@ -78,7 +78,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::run
   }
   CfArray2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   CPU_ONLY(MCLabelAccumulator labelAcc(clusterer));
-  tpc::ClusterNative* clusterOut = (withMC) ? nullptr : clusterer.mPclusterByRow;
+  tpc::ClusterNative* clusterOut = clusterer.mPclusterByRow;
   o2::gpu::GPUTPCCFClusterizer::GPUSharedMemory smem_new;
   GPUTPCCFClusterizer::computeClustersImpl(get_num_groups(0), get_local_size(0), get_group_id(0), get_local_id(0), clusterer, clusterer.mPmemory->fragment, smem_new, chargeMap, clusterer.mPfilteredPeakPositions, clusterer.Param().rec, CPU_PTR(&labelAcc), clusterer.mPmemory->counters.nClusters, clusterer.mNMaxClusterPerRow, clusterer.mPclusterInRow, clusterOut, clusterer.mPclusterPosInRow);
 }
@@ -116,10 +116,10 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
             if (CAMath::Abs(p) < 2 && CAMath::Abs(t) < 2 && p != 0 && t != 0) {
               tmp_charge += static_cast<float>(chargeMap[tmp_pos].unpack());
               if (p != 0 || t != 0) {
-                tmp_meant += tmp_charge * (t + 1);
-                tmp_sigmat += tmp_charge * (t + 1) * (t + 1);
-                tmp_meanp += tmp_charge * (p + 1);
-                tmp_sigmap += tmp_charge * (p + 1) * (p + 1);
+                tmp_meant += tmp_charge * t;
+                tmp_sigmat += tmp_charge * t * t;
+                tmp_meanp += tmp_charge * p;
+                tmp_sigmap += tmp_charge * p * p;
               }
             }
           }
@@ -224,7 +224,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
       clustererNN.mInputData_32[top_idx - 3 - pad_time_calculation] = static_cast<float>(mean);
       clustererNN.mInputData_32[top_idx - 1 - pad_time_calculation] = static_cast<float>(sigma);
     }
-  } else if ((int32_t)transient_index < (clustererNN.mNnClusterizerElementSize - 3)) {
+  } else if ((int32_t)transient_index < (clustererNN.mNnClusterizerElementSize - 3 - (clustererNN.mNnClusterizerAddMeanSigma ? 4 : 0))) {
     int32_t time = static_cast<int>(peak.time());
     int32_t r = CAMath::Floor(transient_index / ((2 * clustererNN.mNnClusterizerSizeInputPad + 1) * (2 * clustererNN.mNnClusterizerSizeInputTime + 1))) - clustererNN.mNnClusterizerSizeInputRow;
     bool is_row_boundary = ((row + r) > (o2::tpc::constants::MAXGLOBALPADROW - 1)) || ((row + r) < 0);
@@ -324,11 +324,11 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
 
   CPU_ONLY(MCLabelAccumulator labelAccElem(clusterer));
   MCLabelAccumulator* labelAcc = CPU_PTR(&labelAccElem);
-  tpc::ClusterNative* clusterOut = (withMC) ? nullptr : clusterer.mPclusterByRow;
+  tpc::ClusterNative* clusterOut = clusterer.mPclusterByRow;
 
   // LOG(info) << glo_idx << " -- " << model_output_index << " / " << clustererNN.outputDataReg1.size() << " / " << clustererNN.mNnClusterizerModelReg1NumOutputNodes << " -- " << clusterer.peakPositions.size() << " -- " << clusterer.centralCharges.size();
 
-  if (clustererNN.mOutputDataClass[full_glo_idx] == 1 || (clustererNN.mNnClusterizerModelReg2NumOutputNodes != -1 && clustererNN.mOutputDataClass[full_glo_idx] >= 1)) {
+  if (clustererNN.mOutputDataClass[full_glo_idx] == 1 || (clustererNN.mNnClusterizerModelReg2NumOutputNodes == -1 && clustererNN.mOutputDataClass[full_glo_idx] >= 1)) {
 
     ClusterAccumulator pc;
 
@@ -381,19 +381,15 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
     }
 
     uint32_t rowIndex = 0;
-    if (clusterOut != nullptr) {
-      rowIndex = GPUTPCCFClusterizer::sortIntoBuckets(
-        clusterer,
-        myCluster,
-        peak.row(),
-        clusterer.mNMaxClusterPerRow,
-        clusterer.mPclusterInRow,
-        clusterOut);
-      if (clusterer.mPclusterPosInRow != nullptr) {
-        clusterer.mPclusterPosInRow[full_glo_idx] = rowIndex;
-      }
-    } else if (clusterer.mPclusterPosInRow) {
-      rowIndex = clusterer.mPclusterPosInRow[full_glo_idx];
+    rowIndex = GPUTPCCFClusterizer::sortIntoBuckets(
+      clusterer,
+      myCluster,
+      peak.row(),
+      clusterer.mNMaxClusterPerRow,
+      clusterer.mPclusterInRow,
+      clusterOut);
+    if (clusterer.mPclusterPosInRow != nullptr) {
+      clusterer.mPclusterPosInRow[full_glo_idx] = rowIndex;
     }
     CPU_ONLY(labelAcc->commit(peak.row(), rowIndex, clusterer.mNMaxClusterPerRow));
   } else {
@@ -417,7 +413,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
 
   CPU_ONLY(MCLabelAccumulator labelAccElem(clusterer));
   MCLabelAccumulator* labelAcc = CPU_PTR(&labelAccElem);
-  tpc::ClusterNative* clusterOut = (withMC) ? nullptr : clusterer.mPclusterByRow;
+  tpc::ClusterNative* clusterOut = clusterer.mPclusterByRow;
   uint32_t full_glo_idx = glo_idx + batchStart;
   uint32_t model_output_index = glo_idx * clustererNN.mNnClusterizerModelReg2NumOutputNodes;
 
@@ -517,19 +513,15 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
       return;
     }
 
-    if (clusterOut != nullptr) {
-      rowIndex = GPUTPCCFClusterizer::sortIntoBuckets(
-        clusterer,
-        myCluster,
-        peak.row(),
-        clusterer.mNMaxClusterPerRow,
-        clusterer.mPclusterInRow,
-        clusterOut);
-      if (clusterer.mPclusterPosInRow != nullptr) {
-        clusterer.mPclusterPosInRow[full_glo_idx] = rowIndex;
-      }
-    } else if (clusterer.mPclusterPosInRow) {
-      rowIndex = clusterer.mPclusterPosInRow[full_glo_idx];
+    rowIndex = GPUTPCCFClusterizer::sortIntoBuckets(
+      clusterer,
+      myCluster,
+      peak.row(),
+      clusterer.mNMaxClusterPerRow,
+      clusterer.mPclusterInRow,
+      clusterOut);
+    if (clusterer.mPclusterPosInRow != nullptr) {
+      clusterer.mPclusterPosInRow[full_glo_idx] = rowIndex;
     }
     // CPU_ONLY(labelAcc->commit(peak.row(), rowIndex, clusterer.mNMaxClusterPerRow)); // -> Is this needed? How to handle MC labels for split clusters?
   } else {
