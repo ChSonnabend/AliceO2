@@ -178,7 +178,7 @@ bool MIPTrackFilterDevice::acceptDCA(const TrackTPC& track)
   }
 
   auto propagator = o2::base::Propagator::Instance();
-  o2::gpu::gpustd::array<float, 2> dca;
+  std::array<float, 2> dca;
   const o2::math_utils::Point3D<float> refPoint{0, 0, 0};
   o2::track::TrackPar propTrack(track);
   const auto ok = propagator->propagateToDCABxByBz(refPoint, propTrack, 2., o2::base::Propagator::MatCorrType::USEMatCorrLUT, &dca);

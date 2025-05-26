@@ -13,6 +13,7 @@
 cmake_minimum_required(VERSION 3.27 FATAL_ERROR)
 project(GPUTrackingStandalone)
 include(FeatureSummary)
+include(GNUInstallDirs)
 set(CMAKE_INSTALL_MESSAGE LAZY)
 
 set(CMAKE_INSTALL_BINDIR "${CMAKE_INSTALL_PREFIX}")
@@ -138,7 +139,6 @@ endif()
 add_subdirectory(../../ GPU)
 add_library(standalone_support SHARED
             ${O2_DIR}/Common/Field/src/MagFieldFast.cxx
-            ${O2_DIR}/Common/ML/src/OrtInterface.cxx
             ${O2_DIR}/Common/Utils/src/StringUtils.cxx
             ${O2_DIR}/DataFormats/Detectors/TPC/src/CompressedClusters.cxx
             ${O2_DIR}/DataFormats/Reconstruction/src/TrackParametrization.cxx
@@ -227,6 +227,7 @@ endif()
 
 if(GPUCA_CONFIG_ONNX)
   target_link_libraries(standalone_support PRIVATE onnxruntime::onnxruntime)
+  target_sources(standalone_support PRIVATE ${O2_DIR}/Common/ML/src/OrtInterface.cxx)
 endif()
 
 if (GPUCA_BUILD_DEBUG_SANITIZE AND CMAKE_CXX_COMPILER MATCHES "clang\\+\\+")
@@ -241,3 +242,4 @@ install(TARGETS ca TPCFastTransformation standalone_support)
 install(FILES "cmake/makefile" DESTINATION "${CMAKE_INSTALL_PREFIX}")
 install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${O2_DIR} ${CMAKE_INSTALL_PREFIX}/src)")
 install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_BINARY_DIR}/config.cmake ${CMAKE_INSTALL_PREFIX}/config.cmake)")
+install(DIRECTORY tools DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/GPU)

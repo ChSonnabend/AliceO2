@@ -46,4 +46,4 @@ target_include_directories(${targetName}
 target_compile_definitions(${targetName} PRIVATE $<TARGET_PROPERTY:O2::GPUTracking,COMPILE_DEFINITIONS>)
 
 
-install(FILES ${HDRS} DESTINATION include/GPU)
+install(FILES ${HDRS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/GPU)

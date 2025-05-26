@@ -37,9 +37,12 @@ class AlignParam
   AlignParam(const char* symname, int algID,       // volume symbolic name and its alignable ID
              double x, double y, double z,         // delta translation
              double psi, double theta, double phi, // delta rotation
-             bool global = true);                  // global (preferable) or local delta definition
+             bool global = true,                   // global (preferable) or local delta definition
+             bool convertLocalToGlobal = true);    // if local is provided, convert it to global
 
-  AlignParam(const char* symname, int algID, TGeoMatrix& m, bool global = true);
+  AlignParam(const char* symname, int algID, TGeoMatrix& m,
+             bool global = true,                // global (preferable) or local delta definition
+             bool convertLocalToGlobal = true); // if local is provided, convert it to global
 
   /// return symbolic name of the volume
   const std::string& getSymName() const { return mSymName; }
@@ -69,6 +72,9 @@ class AlignParam
   /// set alignable entry ID
   void setAlignableID(int id) { mAlignableID = id; }
   /// ================ methods for direct setting of delta params
+
+  /// set parameters
+  void setParams(double x, double y, double z, double psi, double theta, double phi);
 
   /// set parameters of global delta
   void setGlobalParams(double x, double y, double z, double psi, double theta, double phi);
@@ -114,6 +120,9 @@ class AlignParam
 
   int rectify(double zero = 1e-13);
 
+  bool isGlobal() const { return mIsGlobal; }
+  void setIsGlobal(bool v) { mIsGlobal = v; }
+
  protected:
   bool matrixToAngles(const double* rot, double& psi, double& theta, double& phi) const;
   void anglesToMatrix(double psi, double theta, double phi, double* rot) const;
@@ -123,8 +132,8 @@ class AlignParam
  private:
   std::string mSymName{};
 
+  bool mIsGlobal = true; /// is this global delta?
   int mAlignableID = -1; /// alignable ID (set for sensors only)
-
   double mX = 0.; ///< X translation of global delta
   double mY = 0.; ///< Y translation of global delta
   double mZ = 0.; ///< Z translation of global delta
@@ -133,7 +142,7 @@ class AlignParam
   double mTheta = 0.; ///< "roll"  : Euler angle of rotation around Y axis after 1st rotation (radians)
   double mPhi = 0.;   ///< "yaw"   : Euler angle of rotation around Z axis (radians)
 
-  ClassDefNV(AlignParam, 1);
+  ClassDefNV(AlignParam, 2);
 };
 
 } // namespace detectors

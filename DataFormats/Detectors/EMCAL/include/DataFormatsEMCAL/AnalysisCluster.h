@@ -182,6 +182,9 @@ class AnalysisCluster
   float getCoreEnergy() const { return mCoreEnergy; }
   void setCoreEnergy(float energy) { mCoreEnergy = energy; }
 
+  float getFCross() const { return mFCross; }
+  void setFCross(float fCross) { mFCross = fCross; }
+
   ///
   /// Returns TLorentzVector with momentum of the cluster. Only valid for clusters
   /// identified as photons or pi0 (overlapped gamma) produced on the vertex
@@ -223,12 +226,13 @@ class AnalysisCluster
   float mTime = 0.; ///<  Time of the digit/cell with maximal energy deposition
 
   bool mIsExotic = false; //!<! Cluster marked as "exotic" (high energy deposition concentrated in a single cell)
+  float mFCross = 0.f;    //! exoticity parameter (1-E_cross/E_cell^max)
 
   int mInputIndMax = -1; ///<  index of digit/cell with max energy
 
-  ClassDefNV(AnalysisCluster, 1);
+  ClassDefNV(AnalysisCluster, 2);
 };
 
 } // namespace emcal
 } // namespace o2
-#endif //ANALYSISCLUSTER_H
+#endif // ANALYSISCLUSTER_H

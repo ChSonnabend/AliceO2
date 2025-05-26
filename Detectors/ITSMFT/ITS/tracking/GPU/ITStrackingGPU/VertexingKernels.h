@@ -22,8 +22,6 @@
 #include "ITStrackingGPU/VertexerTraitsGPU.h"
 #include "ITStrackingGPU/TracerGPU.h"
 
-#include "GPUCommonArray.h"
-
 namespace o2::its::gpu
 {
 #ifdef GPUCA_GPUCODE // GPUg() global kernels must only when compiled by GPU compiler

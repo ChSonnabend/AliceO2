@@ -12,27 +12,24 @@
 /// \file dumpGPUDefParam.C
 /// \author David Rohr
 
-// Run e.g. as:
-// ROOT_INCLUDE_PATH="`pwd`/include" root -l -q -b src/GPU/GPUTracking/Standalone/tools/dumpGPUDefParam.C'()'
+// Run e.g. as (replacing [FILE] and [OUTPUT]:
+// echo -e '#define PARAMETER_FILE "[FILE]"\ngInterpreter->AddIncludePath("'`pwd`'/include/GPU");\n.x share/GPU/tools/dumpGPUDefParam.C("[OUTPUT]")\n.q\n' | root -l -b
+// To dump the defaults for AMPERE architecture, run
+// echo -e '#define GPUCA_GPUTYPE_AMPERE\n#define PARAMETER_FILE "GPUDefParametersDefaults.h"\ngInterpreter->AddIncludePath("'`pwd`'/include/GPU");\n.x share/GPU/tools/dumpGPUDefParam.C("default_AMPERE.par")\n.q\n' | root -l -b
 
-// Logic for testing to load the default parameters
-/* #define GPUCA_GPUCODE
-#define GPUCA_GPUTYPE_AMPERE
-#define GPUCA_MAXN 40
-#define GPUCA_ROW_COUNT 152
-#define GPUCA_TPC_COMP_CHUNK_SIZE 1024
-#include "GPUDefParametersConstants.h"
-#include "GPUDefParametersDefaults.h" */
+#ifndef PARAMETER_FILE
+#error Must provide the PARAMETER_FILE as preprocessor define, e.g. -DHEADER_TO_INCLUDE='"GPUDefParametersDefaults.h"'
+#endif
 
-// Alternatively, logic to load file that sets GPUDefParameters
-#include "testParam.h"
+#define GPUCA_GPUCODE
+#include PARAMETER_FILE
 
 #include "GPUDefParametersLoad.inc"
-void dumpGPUDefParam()
+void dumpGPUDefParam(const char* outputfile = "parameters.out")
 {
   auto param = o2::gpu::internal::GPUDefParametersLoad();
-  printf("Loaded params:\n%s", o2::gpu::internal::GPUDefParametersExport(param, false).c_str());
-  FILE* fp = fopen("parameters.out", "w+b");
+  printf("Loaded params:\n%s\nWriting them to %s\n", o2::gpu::internal::GPUDefParametersExport(param, false).c_str(), outputfile);
+  FILE* fp = fopen(outputfile, "w+b");
   fwrite(&param, 1, sizeof(param), fp);
   fclose(fp);
 }

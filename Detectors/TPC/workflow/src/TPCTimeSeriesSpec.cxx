@@ -1143,7 +1143,7 @@ class TPCTimeSeries : public Task
     auto propagator = o2::base::Propagator::Instance();
 
     // propagate track to DCA
-    o2::gpu::gpustd::array<float, 2> dca;
+    std::array<float, 2> dca;
     const o2::math_utils::Point3D<float> refPoint{0, 0, 0};
 
     // coarse propagation
@@ -1252,7 +1252,7 @@ class TPCTimeSeries : public Task
 
     // make propagation for ITS-TPC Track
     // check if the track was assigned to ITS track
-    o2::gpu::gpustd::array<float, 2> dcaITSTPC{0, 0};
+    std::array<float, 2> dcaITSTPC{0, 0};
     float deltaP0 = -999;
     float deltaP1 = -999;
     float deltaP2 = -999;
@@ -1270,7 +1270,7 @@ class TPCTimeSeries : public Task
           // store TPC only DCAs
           // propagate to vertex in case the track belongs to vertex
           const bool contributeToVertex = (idxITSTPC.back() != -1);
-          o2::gpu::gpustd::array<float, 2> dcaITSTPCTmp{-1, -1};
+          std::array<float, 2> dcaITSTPCTmp{-1, -1};
 
           if (contributeToVertex) {
             if (propagator->propagateToDCA(vertex.getXYZ(), trackITSTPCTmp, propagator->getNominalBz(), mFineStep, mMatType, &dcaITSTPCTmp)) {
@@ -1279,7 +1279,7 @@ class TPCTimeSeries : public Task
             }
 
             // propagate TPC track to vertex
-            o2::gpu::gpustd::array<float, 2> dcaTPCTmp{-1, -1};
+            std::array<float, 2> dcaTPCTmp{-1, -1};
             if (propagator->propagateToDCA(vertex.getXYZ(), track, propagator->getNominalBz(), mFineStep, mMatType, &dcaTPCTmp)) {
               dcaTPCAtVertex = dcaTPCTmp[0];
             }
@@ -1401,7 +1401,7 @@ class TPCTimeSeries : public Task
         const bool contributeToVertex = (idxITSTPC.back() != -1);
         if (hasITSTPC && contributeToVertex) {
           o2::track::TrackParCov trackITSTPCTmp = tracksITSTPC[idxITSTPC.front()];
-          o2::gpu::gpustd::array<float, 2> dcaITSTPCTmp{-1, -1};
+          std::array<float, 2> dcaITSTPCTmp{-1, -1};
           if (propagator->propagateToDCA(vertex.getXYZ(), trackITSTPCTmp, propagator->getNominalBz(), mFineStep, mMatType, &dcaITSTPCTmp)) {
             o2::track::TrackParCov trackTPC = tracksTPC[iTrk];
             if (trackTPC.rotate(trackITSTPCTmp.getAlpha()) && propagator->propagateTo(trackTPC, trackITSTPCTmp.getX(), false, mMaxSnp, mFineStep, mMatType)) {

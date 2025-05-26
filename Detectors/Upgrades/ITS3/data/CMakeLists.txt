@@ -9,17 +9,26 @@
 # granted to it by virtue of its status as an Intergovernmental Organization
 # or submit itself to any jurisdiction.
 
+set(APTS_RESPONSE_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/APTSResponseData.root")
+
+add_custom_command(
+  OUTPUT ${APTS_RESPONSE_OUTPUT}
+  COMMAND ${CMAKE_BINARY_DIR}/stage/bin/o2-alpide-response-generator
+    -c APTS
+    -i ${ITSRESPONSE_DIR}/response/ITS3ChipResponseData/AptsResponseData/
+    -o ${CMAKE_CURRENT_BINARY_DIR}/
+  DEPENDS GenerateAlpideResponse
+          ${ITSRESPONSE_DIR}/response/ITS3ChipResponseData/AptsResponseData/
+  COMMENT "Generating APTSResponseData.root"
+  VERBATIM
+)
+
 add_custom_target(
   GenerateAPTSResponse ALL
-  COMMAND
-    ${CMAKE_BINARY_DIR}/stage/bin/o2-alpide-response-generator -c APTS -i
-    ${ITSRESPONSE_DIR}/response/ITS3ChipResponseData/AptsResponseData/ -o
-    ${CMAKE_CURRENT_BINARY_DIR}/
-  BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/APTSResponseData.root
-  DEPENDS GenerateAlpideResponse
-  COMMENT "Generating APTSResponseData.root")
+  DEPENDS ${APTS_RESPONSE_OUTPUT}
+)
+
 install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/APTSResponseData.root"
-  DESTINATION
-    "${CMAKE_INSTALL_PREFIX}/share/Detectors/Upgrades/ITS3/data/ITS3ChipResponseData/"
+  FILES ${APTS_RESPONSE_OUTPUT}
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/share/Detectors/Upgrades/ITS3/data/ITS3ChipResponseData/"
 )

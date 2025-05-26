@@ -14,7 +14,6 @@
 
 #include "GPUCommonDef.h"
 #include "GPUCommonMath.h"
-#include "GPUCommonArray.h"
 #include <MathUtils/Cartesian.h>
 
 #include "CommonDataFormat/TimeStamp.h"
@@ -22,6 +21,7 @@
 #include <iosfwd>
 #include <string>
 #include <type_traits>
+#include <array>
 #endif
 
 namespace o2
@@ -42,7 +42,7 @@ class VertexBase
   static constexpr int kNCov = 6;
   GPUhdDefault() VertexBase() = default;
   GPUhdDefault() ~VertexBase() = default;
-  GPUhd() VertexBase(const math_utils::Point3D<float>& pos, const gpu::gpustd::array<float, kNCov>& cov) : mPos(pos), mCov(cov)
+  GPUhd() VertexBase(const math_utils::Point3D<float>& pos, const std::array<float, kNCov>& cov) : mPos(pos), mCov(cov)
   {
   }
 
@@ -65,7 +65,7 @@ class VertexBase
   GPUd() float getSigmaY() const { return gpu::CAMath::Sqrt(getSigmaY2()); }
   GPUd() float getSigmaZ() const { return gpu::CAMath::Sqrt(getSigmaZ2()); }
 
-  GPUd() const gpu::gpustd::array<float, kNCov>& getCov() const { return mCov; }
+  GPUd() const std::array<float, kNCov>& getCov() const { return mCov; }
 
   GPUd() math_utils::Point3D<float> getXYZ() const { return mPos; }
   GPUd() math_utils::Point3D<float>& getXYZ() { return mPos; }
@@ -101,14 +101,14 @@ class VertexBase
     setSigmaXZ(sxz);
     setSigmaYZ(syz);
   }
-  GPUd() void setCov(const gpu::gpustd::array<float, kNCov>& cov) { mCov = cov; }
+  GPUd() void setCov(const std::array<float, kNCov>& cov) { mCov = cov; }
 
   bool operator==(const VertexBase& other) const;
   bool operator!=(const VertexBase& other) const { return !(*this == other); }
 
  protected:
   math_utils::Point3D<float> mPos{0., 0., 0.}; ///< cartesian position
-  gpu::gpustd::array<float, kNCov> mCov{};     ///< errors, see CovElems enum
+  std::array<float, kNCov> mCov{};             ///< errors, see CovElems enum
 
   ClassDefNV(VertexBase, 1);
 };
@@ -130,7 +130,7 @@ class Vertex : public VertexBase
 
   GPUhdDefault() Vertex() = default;
   GPUhdDefault() ~Vertex() = default;
-  GPUhd() Vertex(const math_utils::Point3D<float>& pos, const gpu::gpustd::array<float, kNCov>& cov, ushort nCont, float chi2)
+  GPUhd() Vertex(const math_utils::Point3D<float>& pos, const std::array<float, kNCov>& cov, ushort nCont, float chi2)
     : VertexBase(pos, cov), mChi2(chi2), mNContributors(nCont)
   {
   }

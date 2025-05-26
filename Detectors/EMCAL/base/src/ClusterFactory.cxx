@@ -73,8 +73,11 @@ o2::emcal::AnalysisCluster ClusterFactory<InputType>::buildCluster(int clusterIn
 
   float exoticTime = mInputsContainer[inputIndMax].getTimeStamp();
 
+  float fCross = 0.;
+
   try {
-    clusterAnalysis.setIsExotic(isExoticCell(towerId, inputEnergyMax, exoticTime));
+    clusterAnalysis.setIsExotic(isExoticCell(towerId, inputEnergyMax, exoticTime, fCross));
+    clusterAnalysis.setFCross(fCross);
   } catch (UninitLookUpTableException& e) {
     LOG(error) << e.what();
   }
@@ -253,7 +256,7 @@ void ClusterFactory<InputType>::evalLocalPosition(gsl::span<const int> inputsInd
         clRmsXYZ[i] += (w * xyzi[i] * xyzi[i]);
       }
     } // w > 0
-  }   // dig loop
+  } // dig loop
 
   //  cout << " wtot " << wtot << endl;
 
@@ -600,7 +603,7 @@ std::tuple<int, float, float, bool> ClusterFactory<InputType>::getMaximalEnergyI
 /// Look to cell neighbourhood and reject if it seems exotic
 //____________________________________________________________________________
 template <class InputType>
-bool ClusterFactory<InputType>::isExoticCell(short towerId, float ecell, float const exoticTime) const
+bool ClusterFactory<InputType>::isExoticCell(short towerId, float ecell, float const exoticTime, float& fCross) const
 {
   if (ecell < mExoticCellMinAmplitude) {
     return false; // do not reject low energy cells
@@ -612,8 +615,9 @@ bool ClusterFactory<InputType>::isExoticCell(short towerId, float ecell, float c
   }
 
   float eCross = getECross(towerId, ecell, exoticTime);
+  fCross = 1.f - eCross / ecell;
 
-  if (1 - eCross / ecell > mExoticCellFraction) {
+  if (fCross > mExoticCellFraction) {
     LOG(debug) << "EXOTIC CELL id " << towerId << ", eCell " << ecell << ", eCross " << eCross << ", 1-eCross/eCell " << 1 - eCross / ecell;
     return true;
   }

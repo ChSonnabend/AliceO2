@@ -451,7 +451,7 @@ void Detector::ConstructGeometry()
   }
 
   float pars[4];
-  pars[0] = (mGeometry->getFOCALSizeX() + 2 * mGeometry->getMiddleTowerOffset()) / 2;
+  pars[0] = (mGeometry->getFOCALSizeX() + 2 * mGeometry->getMiddleTowerOffset() + mGeometry->getDetectorOpeningRight() + mGeometry->getDetectorOpeningLeft()) / 2;
   pars[1] = mGeometry->getFOCALSizeY() / 2;
   pars[2] = mGeometry->getFOCALSizeZ() / 2;
   // Add space to place 2 SiPad layers in front of ECAL
@@ -539,6 +539,8 @@ void Detector::CreateHCALSpaghetti()
     }
   }
 
+  bool splitDet = mGeometry->getDetectorOpeningRight() > 0.0 || mGeometry->getDetectorOpeningLeft() > 0.0;
+
   double TowerSize = mGeometry->getHCALTowerSize();
   double CuBoxThickness = 0.3; // Thickness of the Cu box carrying capillary tubes
 
@@ -598,25 +600,57 @@ void Detector::CreateHCALSpaghetti()
   Columns = 0;
   RowPos = 0.;
   Int_t NumTowers = 1;
-  for (Rows = 0; Rows < nTowersY; Rows++) {
 
-    float ColumnPos = 0.;
-    RowPos = Rows * TowerSize;
-    for (Columns = 0; Columns < nTowersX; Columns++) {
-      ColumnPos = Columns * TowerSize;
-      TGeoTranslation* trans = new TGeoTranslation(ColumnPos - SizeXHCAL / 2 + TowerSize / 2, RowPos - SizeYHCAL / 2 + TowerSize / 2, 0.);
+  if (splitDet) {
+    SizeXHCAL = SizeXHCAL / 2;
 
-      // Remove the Towers that overlaps with the beam pipe
-      Double_t RadialDistance = TMath::Power(trans->GetTranslation()[0], 2) + TMath::Power(trans->GetTranslation()[1], 2);
+    TGeoVolumeAssembly* volHalfHCAL = new TGeoVolumeAssembly("HalfHCAL");
 
-      if (RadialDistance < MinRadius * MinRadius || TMath::Abs(trans->GetTranslation()[0]) > SizeXHCAL / 2) {
-        continue;
+    for (Rows = 0; Rows < nTowersY; Rows++) {
+
+      float ColumnPos = 0.;
+      RowPos = Rows * TowerSize;
+      for (Columns = 0; Columns < nTowersX / 2; Columns++) {
+        ColumnPos = Columns * TowerSize;
+        TGeoTranslation* trans = new TGeoTranslation(ColumnPos - SizeXHCAL / 2 + TowerSize / 2, RowPos - SizeYHCAL / 2 + TowerSize / 2, 0.);
+
+        // Shit the beampipe towers by TowerSize/2
+        if (Rows == nTowersY / 2) {
+          trans->SetDx(trans->GetTranslation()[0] + TowerSize / 2);
+        }
+
+        // Adding the Tower to the HCAL
+        volHalfHCAL->AddNode(volTowerHCAL, NumTowers, trans);
+
+        NumTowers++;
       }
+      volHCAL->AddNode(volHalfHCAL, 1, new TGeoTranslation(SizeXHCAL / 2 + mGeometry->getDetectorOpeningRight(), 0, 0));
+      TGeoRotation* rotFlipZ = new TGeoRotation();
+      rotFlipZ->RotateY(180); // Flip around Y to reverse Z
+      TGeoCombiTrans* combHalf = new TGeoCombiTrans(-SizeXHCAL / 2 - mGeometry->getDetectorOpeningLeft(), 0., 0., rotFlipZ);
+      volHCAL->AddNode(volHalfHCAL, 2, combHalf);
+    }
+  } else {
+    for (Rows = 0; Rows < nTowersY; Rows++) {
 
-      // Adding the Tower to the HCAL
-      volHCAL->AddNode(volTowerHCAL, NumTowers, trans);
+      float ColumnPos = 0.;
+      RowPos = Rows * TowerSize;
+      for (Columns = 0; Columns < nTowersX; Columns++) {
+        ColumnPos = Columns * TowerSize;
+        TGeoTranslation* trans = new TGeoTranslation(ColumnPos - SizeXHCAL / 2 + TowerSize / 2, RowPos - SizeYHCAL / 2 + TowerSize / 2, 0.);
 
-      NumTowers++;
+        // Remove the Towers that overlaps with the beam pipe
+        Double_t RadialDistance = TMath::Power(trans->GetTranslation()[0], 2) + TMath::Power(trans->GetTranslation()[1], 2);
+
+        if (RadialDistance < MinRadius * MinRadius || TMath::Abs(trans->GetTranslation()[0]) > SizeXHCAL / 2) {
+          continue;
+        }
+
+        // Adding the Tower to the HCAL
+        volHCAL->AddNode(volTowerHCAL, NumTowers, trans);
+
+        NumTowers++;
+      }
     }
   }
 
@@ -791,6 +825,8 @@ void Detector::CreateECALGeometry()
   // this shifts all the pixel layers to the center near the beampipe
   double pixshift = geom->getTowerSizeX() - (geom->getGlobalPixelWaferSizeX() * geom->getNumberOfPIXsInX());
 
+  bool splitDet = mGeometry->getDetectorOpeningRight() > 0.0 || mGeometry->getDetectorOpeningLeft() > 0.0;
+
   float offset = pars[2];
   // gMC->Gsvolu("EMSC1", "BOX", idtmed[3698], pars, 4);//Left towers (pixels shifted right)
   // gMC->Gsvolu("EMSC2", "BOX", idtmed[3698], pars, 4);//Right towers (pixels shifted left)
@@ -948,7 +984,7 @@ void Detector::CreateECALGeometry()
   // Place the towers in the ECAL
   // --- Place the ECAL in FOCAL
   float fcal_pars[4];
-  fcal_pars[0] = (geom->getFOCALSizeX() + 2. * geom->getMiddleTowerOffset()) / 2.;
+  fcal_pars[0] = (geom->getFOCALSizeX() + 2. * geom->getMiddleTowerOffset() + mGeometry->getDetectorOpeningRight() + mGeometry->getDetectorOpeningLeft()) / 2.;
   fcal_pars[1] = geom->getFOCALSizeY() / 2.;
   fcal_pars[2] = geom->getECALSizeZ() / 2.;
   fcal_pars[3] = 0.;
@@ -977,9 +1013,13 @@ void Detector::CreateECALGeometry()
     // const auto towerCenter = geom->getGeoTowerCenter(number); //only ECAL part, second parameter = -1 by default
     // xp = std::get<0>towerCenter;
     // std::tie(xp, yp, zp) = geom->getGeoTowerCenter(number);
-    const auto [xp, yp, zp] = geom->getGeoTowerCenter(number); // only ECAL part, second parameter = -1 by default
+    auto [xp, yp, zp] = geom->getGeoTowerCenter(number); // only ECAL part, second parameter = -1 by default
 
     if (itowerx == 0) {
+      if (splitDet) {
+        xp -= geom->getDetectorOpeningLeft();
+      }
+
       TVirtualMC::GetMC()->Gspos("EMSC1", number + 1, "ECAL", xp, yp, 0, 0, "ONLY");
       // Add the SiPad front volumes directly under the FOCAL volume
       if (geom->getInsertFrontPadLayers()) {
@@ -992,6 +1032,10 @@ void Detector::CreateECALGeometry()
       }
     }
     if (itowerx == 1) {
+      if (splitDet) {
+        xp += geom->getDetectorOpeningRight();
+      }
+
       TVirtualMC::GetMC()->Gspos("EMSC2", number + 1, "ECAL", xp, yp, 0, 0, "ONLY");
       // Add the SiPad front volumes directly under the FOCAL volume
       if (geom->getInsertFrontPadLayers()) {

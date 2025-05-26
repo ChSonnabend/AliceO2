@@ -26,6 +26,8 @@ using namespace o2::ctp::reco_workflow;
 
 void RawDecoderSpec::init(framework::InitContext& ctx)
 {
+  mCheckConsistency = ctx.options().get<bool>("check-consistency");
+  mDecoder.setCheckConsistency(mCheckConsistency);
   mDecodeinputs = ctx.options().get<bool>("ctpinputs-decoding");
   mDecoder.setDecodeInps(mDecodeinputs);
   mNTFToIntegrate = ctx.options().get<int>("ntf-to-average");
@@ -43,7 +45,7 @@ void RawDecoderSpec::init(framework::InitContext& ctx)
   mOutputLumiInfo.inp2 = inp2;
   mMaxInputSize = ctx.options().get<int>("max-input-size");
   mMaxInputSizeFatal = ctx.options().get<bool>("max-input-size-fatal");
-  LOG(info) << "CTP reco init done. Inputs decoding here:" << mDecodeinputs << " DoLumi:" << mDoLumi << " DoDigits:" << mDoDigits << " NTF:" << mNTFToIntegrate << " Lumi inputs:" << lumiinp1 << ":" << inp1 << " " << lumiinp2 << ":" << inp2 << " Max errors:" << maxerrors << " Max input size:" << mMaxInputSize << " MaxInputSizeFatal:" << mMaxInputSizeFatal;
+  LOG(info) << "CTP reco init done. Inputs decoding here:" << mDecodeinputs << " DoLumi:" << mDoLumi << " DoDigits:" << mDoDigits << " NTF:" << mNTFToIntegrate << " Lumi inputs:" << lumiinp1 << ":" << inp1 << " " << lumiinp2 << ":" << inp2 << " Max errors:" << maxerrors << " Max input size:" << mMaxInputSize << " MaxInputSizeFatal:" << mMaxInputSizeFatal << " CheckConsistency:" << mCheckConsistency;
   // mOutputLumiInfo.printInputs();
 }
 void RawDecoderSpec::endOfStream(framework::EndOfStreamContext& ec)
@@ -69,8 +71,23 @@ void RawDecoderSpec::endOfStream(framework::EndOfStreamContext& ec)
     o0 = TFOrbits[i];
   }
   std::cout << std::endl;
-  std::cout << "Number of missing TF:" << nmiss << std::endl;
-  std::cout << "# of IR errors:" << mDecoder.getErrorIR() << " TCR errors:" << mDecoder.getErrorTCR() << std::endl;
+  LOG(info) << "Number of non continous TF:" << nmiss << std::endl;
+  LOG(info) << "Lost in shiftInputs:" << mLostDueToShiftInps;
+  LOG(info) << "Lost in addDigit Inputs:" << mIRRejected << " Classes:" << mTCRRejected;
+  if (mErrorIR || mErrorTCR) {
+    LOG(error) << "# of IR errors:" << mErrorIR << " TCR errors:" << mErrorTCR << std::endl;
+  }
+  if (mCheckConsistency) {
+    LOG(info) << "Lost due to the shift Consistency Checker:" << mDecoder.getLostDueToShiftCls();
+    auto ctpcfg = mDecoder.getCTPConfig();
+    for (int i = 0; i < o2::ctp::CTP_NCLASSES; i++) {
+      std::string name = ctpcfg.getClassNameFromIndex(i);
+      if (mClsEA[i]) {
+        LOG(error) << " Class without inputs:";
+      }
+      LOG(important) << "CLASS:" << name << ":" << i << " Cls=>Inp:" << mClsA[i] << " Inp=>Cls:" << mClsB[i] << "  ErrorsCls=>Inps:" << mClsEA[i] << "  MissingInps=>Cls:" << mClsEB[i];
+    }
+  }
 }
 void RawDecoderSpec::run(framework::ProcessingContext& ctx)
 {
@@ -146,6 +163,21 @@ void RawDecoderSpec::run(framework::ProcessingContext& ctx)
   if (mDoDigits) {
     LOG(info) << "[CTPRawToDigitConverter - run] Writing " << mOutputDigits.size() << " digits. IR rejected:" << mDecoder.getIRRejected() << " TCR rejected:" << mDecoder.getTCRRejected();
     ctx.outputs().snapshot(o2::framework::Output{"CTP", "DIGITS", 0}, mOutputDigits);
+    mLostDueToShiftInps += mDecoder.getLostDueToShiftInp();
+    mErrorIR += mDecoder.getErrorIR();
+    mErrorTCR += mDecoder.getErrorTCR();
+    mIRRejected += mDecoder.getIRRejected();
+    mTCRRejected += mDecoder.getTCRRejected();
+    auto clsEA = mDecoder.getClassErrorsA();
+    auto clsEB = mDecoder.getClassErrorsB();
+    auto cntCA = mDecoder.getClassCountersA();
+    auto cntCB = mDecoder.getClassCountersB();
+    for (int i = 0; i < o2::ctp::CTP_NCLASSES; i++) {
+      mClsEA[i] += clsEA[i];
+      mClsEB[i] += clsEB[i];
+      mClsA[i] += cntCA[i];
+      mClsB[i] += cntCB[i];
+    }
   }
   if (mDoLumi) {
     uint32_t tfCountsT = 0;
@@ -221,7 +253,8 @@ o2::framework::DataProcessorSpec o2::ctp::reco_workflow::getRawDecoderSpec(bool 
       {"lumi-inp2", o2::framework::VariantType::String, "VBA", {"The second input used for online lumi. Name in capital."}},
       {"use-verbose-mode", o2::framework::VariantType::Bool, false, {"Verbose logging"}},
       {"max-input-size", o2::framework::VariantType::Int, 0, {"Do not process input if bigger than max size, 0 - do not check"}},
-      {"max-input-size-fatal", o2::framework::VariantType::Bool, false, {"If true issue fatal error otherwise error on;y"}},
+      {"max-input-size-fatal", o2::framework::VariantType::Bool, false, {"If true issue fatal error otherwise error only"}},
+      {"check-consistency", o2::framework::VariantType::Bool, false, {"If true checks digits consistency using ctp config"}},
       {"ctpinputs-decoding", o2::framework::VariantType::Bool, false, {"Inputs alignment: true - raw decoder - has to be compatible with CTF decoder: allowed options: 10,01,00"}}}};
 }
 void RawDecoderSpec::updateTimeDependentParams(framework::ProcessingContext& pc)

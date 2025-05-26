@@ -60,8 +60,21 @@ class DigitsWriteoutBuffer
 
   double getTriggerTime() const { return mTriggerTime; }
   double getEventTime() const { return mLastEventTime; }
-  bool isLive(double t) const { return ((t - mTriggerTime) < mLiveTime || (t - mTriggerTime) >= (mLiveTime + mBusyTime - mPreTriggerTime)); }
-  bool isLive() const { return ((mLastEventTime - mTriggerTime) < mLiveTime || (mLastEventTime - mTriggerTime) >= (mLiveTime + mBusyTime - mPreTriggerTime)); }
+  bool isLive(double t) const
+  {
+    return ((t - mTriggerTime) < mLiveTime || (t - mTriggerTime) >= (mLiveTime + mBusyTime - mPreTriggerTime));
+  }
+  bool isLive() const
+  {
+    return ((mLastEventTime - mTriggerTime) < (mLiveTime - mPreTriggerTime) || (mLastEventTime - mTriggerTime) >= (mLiveTime + mBusyTime - mPreTriggerTime));
+  }
+
+  /// Check if current collision was triggered
+  /// \return true if event was triggered
+  bool isCurrentEventTriggered() const
+  {
+    return mLastEventTime == mTriggerTime;
+  }
 
   // function returns true if the collision occurs 600ns before the readout window is open
   // Look here for more details https://alice.its.cern.ch/jira/browse/EMCAL-681

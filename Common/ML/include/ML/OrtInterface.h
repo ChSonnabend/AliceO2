@@ -45,14 +45,10 @@ class OrtModel
 
  public:
   // Constructors & destructors
-  OrtModel() = default;
-  OrtModel(std::unordered_map<std::string, std::string> optionsMap) { init(optionsMap); }
-  void init(std::unordered_map<std::string, std::string> optionsMap)
-  {
-    initOptions(optionsMap);
-    initEnvironment();
-  }
-  virtual ~OrtModel() = default;
+  OrtModel();
+  OrtModel(std::unordered_map<std::string, std::string> optionsMap);
+  void init(std::unordered_map<std::string, std::string> optionsMap);
+  virtual ~OrtModel();
 
   // General purpose
   void initOptions(std::unordered_map<std::string, std::string> optionsMap);
@@ -113,7 +109,7 @@ class OrtModel
  private:
   // ORT variables -> need to be hidden as pImpl
   struct OrtVariables;
-  OrtVariables* mPImplOrt;
+  std::unique_ptr<OrtVariables> mPImplOrt;
 
   // Input & Output specifications of the loaded network
   std::vector<const char*> mInputNamesChar, mOutputNamesChar;

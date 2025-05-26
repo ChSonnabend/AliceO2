@@ -39,6 +39,7 @@
 #include <cstring>
 #include <iosfwd>
 #include <type_traits>
+#include <array>
 #endif
 
 #ifndef GPUCA_ALIGPUCODE // Used only by functions that are hidden on the GPU
@@ -128,9 +129,9 @@ class TrackParametrization
 
  public:
   using value_t = value_T;
-  using dim2_t = gpu::gpustd::array<value_t, 2>;
-  using dim3_t = gpu::gpustd::array<value_t, 3>;
-  using params_t = gpu::gpustd::array<value_t, kNParams>;
+  using dim2_t = std::array<value_t, 2>;
+  using dim3_t = std::array<value_t, 3>;
+  using params_t = std::array<value_t, kNParams>;
 
   struct yzerr_t { // 2 measurement with error
     dim2_t yz;
@@ -191,6 +192,7 @@ class TrackParametrization
   GPUd() value_t getPhi() const;
   GPUd() value_t getPhiPos() const;
 
+  GPUd() value_t getQ2P2() const;
   GPUd() value_t getPtInv() const;
   GPUd() value_t getP2Inv() const;
   GPUd() value_t getP2() const;
@@ -208,7 +210,7 @@ class TrackParametrization
   GPUd() math_utils::Point3D<value_t> getXYZGlo() const;
   GPUd() void getXYZGlo(dim3_t& xyz) const;
   GPUd() bool getPxPyPzGlo(dim3_t& pxyz) const;
-  GPUd() bool getPosDirGlo(gpu::gpustd::array<value_t, 9>& posdirp) const;
+  GPUd() bool getPosDirGlo(std::array<value_t, 9>& posdirp) const;
 
   // methods for track params estimate at other point
   GPUd() bool getYZAt(value_t xk, value_t b, value_t& y, value_t& z) const;
@@ -553,6 +555,18 @@ GPUdi() auto TrackParametrization<value_T>::getPhiPos() const -> value_t
   value_t phi = gpu::CAMath::ATan2(getY(), getX()) + getAlpha();
   math_utils::detail::bringTo02Pi<value_t>(phi);
   return phi;
+}
+
+//____________________________________________________________
+template <typename value_T>
+GPUdi() auto TrackParametrization<value_T>::getQ2P2() const -> value_t
+{
+  // return the (q/p)^2
+  value_t q2pt2 = mP[kQ2Pt] * mP[kQ2Pt];
+  if (q2pt2 < MinPTInv * MinPTInv) {
+    q2pt2 = MinPTInv * MinPTInv;
+  }
+  return q2pt2 / (1.f + getTgl() * getTgl());
 }
 
 //____________________________________________________________

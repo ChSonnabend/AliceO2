@@ -55,7 +55,7 @@ struct GroupSlicer {
     {
       constexpr auto index = framework::has_type_at_v<std::decay_t<T>>(associated_pack_t{});
       auto binding = o2::soa::getLabelFromTypeForKey<std::decay_t<T>>(mIndexColumnName);
-      auto bk = std::make_pair(binding, mIndexColumnName);
+      auto bk = Entry(binding, mIndexColumnName);
       if constexpr (!o2::soa::is_smallgroups<std::decay_t<T>>) {
         if (table.size() == 0) {
           return;

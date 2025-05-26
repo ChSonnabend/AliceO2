@@ -42,6 +42,7 @@ class GPUTPCNNClusterizer : public GPUProcessor
   int mNnClusterizerSizeInputTime = 3;
   int mNnClusterizerElementSize = -1;
   bool mNnClusterizerAddIndexData = true;
+  bool mNnClusterizerAddMeanSigma = false;
   float mNnClassThreshold = 0.01;
   bool mNnSigmoidTrafoClassThreshold = 1;
   int mNnClusterizerUseCfRegression = 0;

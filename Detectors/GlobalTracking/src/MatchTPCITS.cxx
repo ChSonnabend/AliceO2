@@ -1714,7 +1714,7 @@ bool MatchTPCITS::refitTrackTPCITS(int slot, int iTPC, int& iITS, pmr::vector<o2
     }
     auto posEnd = tracOut.getXYZGlo();
     auto lInt = propagator->estimateLTIncrement(tracOut, posStart, posEnd);
-    tofL.addStep(lInt, tracOut.getP2Inv());
+    tofL.addStep(lInt, tracOut.getQ2P2());
     tofL.addX2X0(lInt * mTPCmeanX0Inv);
     propagator->PropagateToXBxByBz(tracOut, o2::constants::geom::XTPCOuterRef, MaxSnp, 10., mUseMatCorrFlag, &tofL);
 
@@ -1804,7 +1804,7 @@ bool MatchTPCITS::refitABTrack(int iITSAB, const TPCABSeed& seed, pmr::vector<o2
     }
     auto posEnd = tracOut.getXYZGlo();
     auto lInt = propagator->estimateLTIncrement(tracOut, posStart, posEnd);
-    tofL.addStep(lInt, tracOut.getP2Inv());
+    tofL.addStep(lInt, tracOut.getQ2P2());
     tofL.addX2X0(lInt * mTPCmeanX0Inv);
     propagator->PropagateToXBxByBz(tracOut, o2::constants::geom::XTPCOuterRef, MaxSnp, 10., mUseMatCorrFlag, &tofL);
     const auto& trackTune = TrackTuneParams::Instance();

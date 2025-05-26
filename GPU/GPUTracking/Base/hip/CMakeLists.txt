@@ -114,8 +114,9 @@ set(GPU_RTC_BIN ${CMAKE_CURRENT_BINARY_DIR}/GPUReconstructionHIPrtc)
 # cmake-format: off
 add_custom_command(
     OUTPUT ${GPU_RTC_BIN}.src
-    COMMAND cp ${GPUDIR}/Base/hip/GPUReconstructionHIPIncludesSystem.h ${GPU_RTC_BIN}.src
-    COMMAND ${CMAKE_CXX_COMPILER} ${GPU_RTC_DEFINES} ${GPU_RTC_INCLUDES} -std=c++${CMAKE_HIP_STANDARD} -D__HIPCC__ -D__HIP_DEVICE_COMPILE__ -x c++ -nostdinc -E -P ${GPU_RTC_SRC} >> ${GPU_RTC_BIN}.src
+    COMMAND cp ${GPUDIR}/Base/GPUStdSystemHeaders.h ${GPU_RTC_BIN}.src
+    COMMAND cat ${GPUDIR}/Base/hip/GPUReconstructionHIPIncludesSystem.h | grep -v GPUStdSystemHeaders.h >> ${GPU_RTC_BIN}.src
+    COMMAND ${CMAKE_HIP_COMPILER} ${GPU_RTC_DEFINES} ${GPU_RTC_INCLUDES} -std=c++${CMAKE_HIP_STANDARD} -D__HIPCC__ -D__HIP_DEVICE_COMPILE__ -x c++ -nostdinc -E -P ${GPU_RTC_SRC} >> ${GPU_RTC_BIN}.src
     MAIN_DEPENDENCY ${GPU_RTC_SRC}
     IMPLICIT_DEPENDS CXX ${GPU_RTC_SRC}
     DEPENDS ${MODULE}_HIPIFIED
@@ -169,8 +170,6 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
       ${GPUCA_HIP_SOURCE_DIR}
     TARGETVARNAME targetName)
 
-  install(FILES ${HDRS} DESTINATION include/GPU)
-
 #  o2_add_test(GPUsortHIP NAME test_GPUsortHIP
 #                  SOURCES test/testGPUsortHIP.hip
 #                  PUBLIC_LINK_LIBRARIES O2::GPUCommon hip::host hip::device hip::hipcub roc::rocthrust
@@ -186,6 +185,8 @@ if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
   install(TARGETS GPUTrackingHIP)
   include_directories(${GPUCA_HIP_SOURCE_DIR})
 endif()
+
+install(FILES ${HDRS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/GPU)
 
 target_compile_definitions(${targetName} PRIVATE $<TARGET_PROPERTY:O2::GPUTracking,COMPILE_DEFINITIONS>)
 

@@ -36,6 +36,7 @@ class ConstMCTruthContainerView;
 namespace tpc
 {
 struct ClusterNative;
+struct ClusterNativeAccess;
 class Digit;
 } // namespace tpc
 
@@ -111,10 +112,10 @@ class GPUTPCClusterFinder : public GPUProcessor
   uint32_t* mPclusterInRow = nullptr;
   tpc::ClusterNative* mPclusterByRow = nullptr;
   GPUTPCClusterMCInterimArray* mPlabelsByRow = nullptr;
-  int32_t* mPbuf = nullptr;
+  int32_t* mPscanBuf = nullptr;
   Memory* mPmemory = nullptr;
 
-  GPUdi() int32_t* GetScanBuffer(int32_t iBuf) const { return mPbuf + iBuf * mBufSize; }
+  GPUdi() int32_t* GetScanBuffer(int32_t iBuf) const { return mPscanBuf + iBuf * mBufSize; }
 
   o2::dataformats::ConstMCTruthContainerView<o2::MCCompLabel> const* mPinputLabels = nullptr;
   uint32_t* mPlabelsInRow = nullptr;
@@ -122,7 +123,6 @@ class GPUTPCClusterFinder : public GPUProcessor
   uint32_t mPlabelsDataGlobalOffset = 0;
 
   int32_t mISector = 0;
-  constexpr static int32_t mScanWorkGroupSize = GPUCA_THREAD_COUNT_SCAN;
   uint32_t mNMaxClusterPerRow = 0;
   uint32_t mNMaxClusters = 0;
   uint32_t mNMaxPages = 0;

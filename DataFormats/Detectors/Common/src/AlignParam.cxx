@@ -26,8 +26,9 @@ using namespace o2::detectors;
 AlignParam::AlignParam(const char* symname, int algID,       // volume symbolic name and its alignable ID
                        double x, double y, double z,         // delta translation
                        double psi, double theta, double phi, // delta rotation
-                       bool global)                          // global (preferable) or local delta definition
-  : mSymName(symname), mAlignableID(algID)
+                       bool global,                          // global (preferable) or local delta definition
+                       bool convertLocalToGlobal)            // if local is provided, convert it to global
+  : mSymName(symname), mIsGlobal(global || convertLocalToGlobal), mAlignableID(algID)
 {
   /// standard constructor with 3 translation + 3 rotation parameters
   /// If the user explicitly sets the global variable to false then the
@@ -35,23 +36,22 @@ AlignParam::AlignParam(const char* symname, int algID,       // volume symbolic 
   /// This requires to have a gGeoMenager active instance, otherwise the
   /// constructor will fail (no object created)
 
-  if (global) {
-    setGlobalParams(x, y, z, psi, theta, phi);
-  } else {
+  setParams(x, y, z, psi, theta, phi);
+  if (!global && convertLocalToGlobal) {
     setLocalParams(x, y, z, psi, theta, phi);
   }
 }
 
 //___________________________________________________
-AlignParam::AlignParam(const char* symname, int algID, TGeoMatrix& m, bool global)
-  : mSymName(symname), mAlignableID(algID)
+AlignParam::AlignParam(const char* symname, int algID, TGeoMatrix& m, bool global, bool convertLocalToGlobal)
+  : mSymName(symname), mIsGlobal(global || convertLocalToGlobal), mAlignableID(algID)
 {
   setTranslation(m);
   if (!setRotation(m)) {
     const double* rot = m.GetRotationMatrix();
     throw std::runtime_error(fmt::format("Failed to extract roll-pitch-yall angles from [[{},{},{}], [{},{},{}], [{},{},{}] for {}", rot[0], rot[1], rot[2], rot[3], rot[4], rot[5], rot[6], rot[7], rot[8], symname));
   }
-  if (!global && !setLocalParams(mX, mY, mZ, mPsi, mTheta, mPhi)) {
+  if (!global && convertLocalToGlobal && !setLocalParams(mX, mY, mZ, mPsi, mTheta, mPhi)) {
     throw std::runtime_error(fmt::format("Alignment creation for {} failed: geomManager is absent", symname));
   }
 }
@@ -223,6 +223,10 @@ bool AlignParam::createLocalMatrix(TGeoHMatrix& m) const
   // In case that the TGeo was not initialized or not closed,
   // returns false and the object parameters are not set.
   //
+  m = createMatrix();
+  if (!mIsGlobal) {
+    return true;
+  }
   if (!gGeoManager || !gGeoManager->IsClosed()) {
     LOG(error) << "Can't get the local alignment object parameters! gGeoManager doesn't exist or it is still open!";
     return false;
@@ -247,7 +251,6 @@ bool AlignParam::createLocalMatrix(TGeoHMatrix& m) const
     LOG(error) << "Volume name or path " << symname << " is not valid!";
     return false;
   }
-  m = createMatrix();
   TGeoHMatrix gprime, gprimeinv;
   gprime = *node->GetMatrix();
   gprimeinv = gprime.Inverse();
@@ -302,18 +305,15 @@ bool AlignParam::applyToGeometry() const
   }
 
   //  double threshold = 0.001;
-
-  TGeoHMatrix gprime = *node->GetMatrix();
-  TGeoHMatrix align = createMatrix();
-  gprime.MultiplyLeft(&align);
-  TGeoHMatrix* ginv = new TGeoHMatrix; // TGeoPhysicalNode takes and manages raw pointer, need naked new!
-  TGeoHMatrix* g = node->GetMatrix(node->GetLevel() - 1);
-  *ginv = g->Inverse();
-  *ginv *= gprime;
-
+  TGeoHMatrix* align = new TGeoHMatrix(createMatrix());
+  if (mIsGlobal) {
+    align->Multiply(node->GetMatrix());
+    TGeoHMatrix* g = node->GetMatrix(node->GetLevel() - 1);
+    align->MultiplyLeft(node->GetMatrix(node->GetLevel() - 1)->Inverse());
+  }
   LOG(debug) << "Aligning volume " << symname;
 
-  node->Align(ginv);
+  node->Align(align);
 
   return true;
 }
@@ -353,6 +353,14 @@ void AlignParam::print() const
 
 //_____________________________________________________________________________
 void AlignParam::setGlobalParams(double x, double y, double z, double psi, double theta, double phi)
+{
+  /// set parameters of global delta
+  setTranslation(x, y, z);
+  setRotation(psi, theta, phi);
+}
+
+//_____________________________________________________________________________
+void AlignParam::setParams(double x, double y, double z, double psi, double theta, double phi)
 {
   /// set parameters of global delta
   setTranslation(x, y, z);

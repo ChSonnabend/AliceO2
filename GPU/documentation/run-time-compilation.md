@@ -1,0 +1,21 @@
+Run time compilation is a feature of the GPUReconstruction library, which can recompile the GPU code for HIP and for CUDA at runtime, and apply some optimizations and changes. It is planned to add support for CPU code and OpenCL code in the future.
+
+The changes that can be applied are:
+- `constexpr` optimization: configuration values that are constant during the processing are replaced by `constexpr` expressions, which allows the compiler to optimize the code better. Benchmarks in 2024 habe shown 5% performance improvement with CUDA and 2% improvement with HIP.
+- Disabling of unused code, in particular this is currently used to remove the TPC code for V/M shape correction during online processing, simplifying the code, and yielding better compiler optimization, for a 20%-30% speedup on the MI50 GPUs.
+- Use different GPU constant parameters / launch bounds: These are tuning parameters, which are architecutre-dependent. The default values are taken from the first architecture the GPU code is compiled for in the normal compilation phase. If the architecture we are running on is different, different parameters can be loaded for RTC.
+- Compiling for different target architectures. This allows us to enable running on hardware, for which the code was not compiled in the original compilation.
+
+Generally, RTC is enabled via the `--RTCenable` flag for the standalone benchmark, or via the `GPU_proc_rtc.enable=1` `configKeyValue` for O2.
+For a list of RTC options, please see [GPUSettingsList.h](https://github.com/AliceO2Group/AliceO2/blob/80a80a17f5a1d9cb77743e2a39b15b653fe1a4f9/GPU/GPUTracking/Definitions/GPUSettingsList.h#L215).
+
+Caching the output:
+- The RTC output can be cached and reused, so that when running multiple times, compilation is not repeated. This is enabled via the `--RTCcacheOutput` setting. The folder to store the cache files can be selected via `--RTCTECHcacheFolder` and with `--RTCTECHcacheMutex` (default: enabled), a file-lock mutex can be used to synchronize access to the cache folder. The cached code is checked against the to-be-compiled source code with SHA1 hashes, and only if the code is not change the cache is used, otherwise the code is recompiled and the cache updated. It is possible to force using outdated cache files via the `--RTCTECHignoreCacheValid` option.
+
+For chaning the launch bounds and other parameters, please consider `--RTCTECHloadLaunchBoundsFromFile` (and `--RTCTECHprintLaunchBounds`), which can launch a parameter set which can be created via [dumpGPUDefParam.C](https://github.com/AliceO2Group/AliceO2/blob/dev/GPU/GPUTracking/Standalone/tools/dumpGPUDefParam.C). A set of default parameters is stored in `[INSTALL_FOLDER]/share/GPU`.
+
+It is possible to select a different target architecture for the compilation via `--RTCTECHoverrideArchitecture`, and the compilation can be prepended by a command with `--RTCTECHprependCommand`, e.g. for CPU pinning. See for example [dpl-workflow.sh](https://github.com/AliceO2Group/AliceO2/blob/80a80a17f5a1d9cb77743e2a39b15b653fe1a4f9/prodtests/full-system-test/dpl-workflow.sh#L335).
+
+`--RTCdeterministic` enables the [Deterministic Mode](https://github.com/AliceO2Group/AliceO2/blob/dev/GPU/documentation/deterministic-mode.md) (compile-time setting) for RTC. Usually you don't need to bother, as for the deterministic mode it is autoenabled from `--PROCdeterministicGPUReconstruction`, but the explicit `--RTCdeterministic` is available for tests.
+
+Finally, `--RTCoptConstexpr` and `--RTCoptSpecialCode` enable the constexpr and code removal optimizations. For an example how the TPC V/M shape corrections are removed, see [TPCFastTransform.h](https://github.com/AliceO2Group/AliceO2/blob/fc3ace17eca580c338751163ef4528e3ec47f9d6/GPU/TPCFastTransformation/TPCFastTransform.h#L445).

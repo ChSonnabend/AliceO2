@@ -12,11 +12,10 @@
 /// \file SegmentationMosaix.h
 /// \brief Definition of the SegmentationMosaix class
 /// \author felix.schlepper@cern.ch
+/// \author chunzheng.wang@cern.ch
 
 #ifndef ALICEO2_ITS3_SEGMENTATIONMOSAIX_H_
 #define ALICEO2_ITS3_SEGMENTATIONMOSAIX_H_
-
-#include <type_traits>
 
 #include "MathUtils/Cartesian.h"
 #include "ITS3Base/SpecsV2.h"
@@ -43,24 +42,22 @@ class SegmentationMosaix
   // 3. The detector coordinate system. Defined by the row and column segmentation
   //    defined at the upper edge in the flat coord.
 
-  // row,col=0
-  // |
-  // v
-  // x----------------------x
+  // O----------------------|
   // |           |          |
+  // |           |          |  ^ x
+  // |           |          |  |
+  // |           |          |  |
+  // |           |          |  |
+  // |           |          |  X----> z   X marks (x,z)=(0,0)
+  // |-----------X----------|
+  // |           |          |  O----> col O marks (row,col)=(0,0)
+  // |           |          |  |
+  // |           |          |  |
+  // |           |          |  v
+  // |           |          |  row
   // |           |          |
-  // |           |          |                        ^ x
-  // |           |          |                        |
-  // |           |          |                        |
-  // |           |          |                        |
-  // |-----------X----------|  X marks (x,z)=(0,0)   X----> z
-  // |           |          |
-  // |           |          |
-  // |           |          |
-  // |           |          |
-  // |           |          |
-  // |           |          |
-  // x----------------------x
+  // |----------------------|
+
  public:
   constexpr SegmentationMosaix(int layer) : mRadius(static_cast<float>(constants::radiiMiddle[layer])) {}
   constexpr ~SegmentationMosaix() = default;
@@ -79,7 +76,6 @@ class SegmentationMosaix
   static constexpr float PitchCol{constants::pixelarray::pixels::mosaix::pitchZ};
   static constexpr float PitchRow{constants::pixelarray::pixels::mosaix::pitchX};
   static constexpr float SensorLayerThickness{constants::totalThickness};
-  static constexpr float NominalYShift{constants::nominalYShift};
 
   /// Transformation from the curved surface to a flat surface.
   /// Additionally a shift in the flat coordinates must be applied because
@@ -102,10 +98,10 @@ class SegmentationMosaix
     // stack
     float dist = std::hypot(xCurved, yCurved);
     float phi = std::atan2(yCurved, xCurved);
-    xFlat = (mRadius * phi) - WidthH;
     // the y position is in the silicon volume however we need the chip volume (silicon+metalstack)
     // this is accounted by a y shift
-    yFlat = dist - mRadius + NominalYShift;
+    xFlat = WidthH - mRadius * phi;
+    yFlat = dist - mRadius;
   }
 
   /// Transformation from the flat surface to a curved surface
@@ -122,11 +118,12 @@ class SegmentationMosaix
   {
     // MUST align the flat surface with the curved surface with the original pixel array is on and account for metal
     // stack
+    float dist = yFlat + mRadius;
+    float phi = (WidthH - xFlat) / mRadius;
     // the y position is in the chip volume however we need the silicon volume
     // this is accounted by a -y shift
-    float dist = yFlat - NominalYShift + mRadius;
-    xCurved = dist * std::cos((xFlat + WidthH) / mRadius);
-    yCurved = dist * std::sin((xFlat + WidthH) / mRadius);
+    xCurved = dist * std::cos(phi);
+    yCurved = dist * std::sin(phi);
   }
 
   /// Transformation from Geant detector centered local coordinates (cm) to
@@ -142,8 +139,11 @@ class SegmentationMosaix
   /// \param int iCol Detector z cell coordinate.
   constexpr bool localToDetector(float const xRow, float const zCol, int& iRow, int& iCol) const noexcept
   {
+    if (!isValidLoc(xRow, zCol)) {
+      return false;
+    }
     localToDetectorUnchecked(xRow, zCol, iRow, iCol);
-    if (!isValid(iRow, iCol)) {
+    if (!isValidDet(iRow, iCol)) {
       iRow = iCol = -1;
       return false;
     }
@@ -167,49 +167,54 @@ class SegmentationMosaix
   /// center of the sensitive volume.
   /// If iRow and or iCol is outside of the segmentation range a value of -0.5*Dx()
   /// or -0.5*Dz() is returned.
-  constexpr bool detectorToLocal(int const iRow, int const iCol, float& xRow, float& zCol) const noexcept
+  bool detectorToLocal(float const row, float const col, float& xRow, float& zCol) const noexcept
   {
-    if (!isValid(iRow, iCol)) {
+    if (!isValidDet(row, col)) {
       return false;
     }
-    detectorToLocalUnchecked(iRow, iCol, xRow, zCol);
-    return isValid(xRow, zCol);
+    detectorToLocalUnchecked(row, col, xRow, zCol);
+    return isValidLoc(xRow, zCol);
   }
 
   // Same as detectorToLocal w.o. checks.
   // We position ourself in the middle of the pixel.
-  constexpr void detectorToLocalUnchecked(int const iRow, int const iCol, float& xRow, float& zCol) const noexcept
+  void detectorToLocalUnchecked(float const row, float const col, float& xRow, float& zCol) const noexcept
   {
-    xRow = -(static_cast<float>(iRow) + 0.5f) * PitchRow + WidthH;
-    zCol = (static_cast<float>(iCol) + 0.5f) * PitchCol - LengthH;
+    xRow = -(row + 0.5f) * PitchRow + WidthH;
+    zCol = (col + 0.5f) * PitchCol - LengthH;
   }
 
-  bool detectorToLocal(int const row, int const col, math_utils::Point3D<float>& loc) const noexcept
+  bool detectorToLocal(float const row, float const col, math_utils::Point3D<float>& loc) const noexcept
   {
     float xRow{0.}, zCol{0.};
     if (!detectorToLocal(row, col, xRow, zCol)) {
       return false;
     }
-    loc.SetCoordinates(xRow, NominalYShift, zCol);
+    loc.SetCoordinates(xRow, 0.0f, zCol);
     return true;
   }
 
-  void detectorToLocalUnchecked(int const row, int const col, math_utils::Point3D<float>& loc) const noexcept
+  void detectorToLocalUnchecked(float const row, float const col, math_utils::Point3D<float>& loc) const noexcept
   {
     float xRow{0.}, zCol{0.};
     detectorToLocalUnchecked(row, col, xRow, zCol);
-    loc.SetCoordinates(xRow, NominalYShift, zCol);
+    loc.SetCoordinates(xRow, 0.0f, zCol);
   }
 
  private:
+  // Check local coordinates (cm) validity.
   template <typename T>
-  [[nodiscard]] constexpr bool isValid(T const row, T const col) const noexcept
+  constexpr bool isValidLoc(T const x, T const z) const noexcept
   {
-    if constexpr (std::is_floating_point_v<T>) { // compares in local coord.
-      return (-WidthH < row && row < WidthH && -LengthH < col && col < LengthH);
-    } else { // compares in rows/cols
-      return !static_cast<bool>(row < 0 || row >= static_cast<int>(NRows) || col < 0 || col >= static_cast<int>(NCols));
-    }
+    return (-WidthH < x && x < WidthH && -LengthH < z && z < LengthH);
+  }
+
+  // Check detector coordinates validity.
+  template <typename T>
+  constexpr bool isValidDet(T const row, T const col) const noexcept
+  {
+    return (row >= 0 && row < static_cast<T>(NRows) &&
+            col >= 0 && col < static_cast<T>(NCols));
   }
 
   float mRadius;

@@ -27,7 +27,8 @@
 #include <numeric>
 
 using o2::itsmft::Hit;
-using SegmentationAlpide = o2::itsmft::SegmentationAlpide;
+using SegmentationOB = o2::itsmft::SegmentationAlpide;
+using SegmentationIB = o2::its3::SegmentationMosaix;
 using o2::itsmft::AlpideRespSimMat;
 using o2::itsmft::PreDigit;
 
@@ -46,8 +47,8 @@ void Digitizer::init()
   }
 
   if (!mParams.hasResponseFunctions()) {
-    auto loadSetResponseFunc = [&](const char* name, const char* fileIB, const char* nameIB, const char* fileOB, const char* nameOB) {
-      LOGP(info, "Loading response function for {}: IB={}:{} ; OB={}:{}", name, nameIB, fileIB, nameOB, fileOB);
+    auto loadSetResponseFunc = [&](const char* fileIB, const char* nameIB, const char* fileOB, const char* nameOB) {
+      LOGP(info, "Loading response function IB={}:{} ; OB={}:{}", nameIB, fileIB, nameOB, fileOB);
       auto fIB = TFile::Open(fileIB, "READ");
       if (!fIB || fIB->IsZombie() || !fIB->IsOpen()) {
         LOGP(fatal, "Cannot open file {}", fileIB);
@@ -56,7 +57,7 @@ void Digitizer::init()
       if (!fOB || fOB->IsZombie() || !fOB->IsOpen()) {
         LOGP(fatal, "Cannot open file {}", fileOB);
       }
-      mParams.setIBSimResponse(mSimRespIB = fIB->Get<o2::itsmft::AlpideSimResponse>(nameIB));
+      mParams.setIBSimResponse(mSimRespIB = fIB->Get<o2::its3::ChipSimResponse>(nameIB));
       mParams.setOBSimResponse(mSimRespOB = fOB->Get<o2::itsmft::AlpideSimResponse>(nameOB));
       fIB->Close();
       fOB->Close();
@@ -64,25 +65,27 @@ void Digitizer::init()
 
     if (const auto& func = ITS3Params::Instance().chipResponseFunction; func == "Alpide") {
       constexpr const char* responseFile = "$(O2_ROOT)/share/Detectors/ITSMFT/data/AlpideResponseData/AlpideResponseData.root";
-      loadSetResponseFunc("Alpide", responseFile, "response0", responseFile, "response1");
-      mSimRespIBShift = mSimRespIB->getDepthMax() - SegmentationMosaix::SensorLayerThickness / 2.f + 10.e-4f;
-      mSimRespOBShift = mSimRespOB->getDepthMax() - SegmentationAlpide::SensorLayerThickness / 2.f;
+      loadSetResponseFunc(responseFile, "response0", responseFile, "response0");
+      mSimRespIBScaleX = o2::itsmft::SegmentationAlpide::PitchRow / SegmentationIB::PitchRow;
+      mSimRespIBScaleZ = o2::itsmft::SegmentationAlpide::PitchCol / SegmentationIB::PitchCol;
     } else if (func == "APTS") {
       constexpr const char* responseFileIB = "$(O2_ROOT)/share/Detectors/Upgrades/ITS3/data/ITS3ChipResponseData/APTSResponseData.root";
       constexpr const char* responseFileOB = "$(O2_ROOT)/share/Detectors/ITSMFT/data/AlpideResponseData/AlpideResponseData.root";
-      loadSetResponseFunc("APTS", responseFileIB, "response1", responseFileOB, "response1");
-      mSimRespIBShift = mSimRespIB->getDepthMax() + (float)constants::pixelarray::pixels::apts::responseYShift;
-      mSimRespOBShift = mSimRespOB->getDepthMax() - SegmentationAlpide::SensorLayerThickness / 2.f;
-      mSimRespIBScaleX = 0.5f * constants::pixelarray::pixels::apts::pitchX / SegmentationMosaix::PitchRow;
-      mSimRespIBScaleZ = 0.5f * constants::pixelarray::pixels::apts::pitchZ / SegmentationMosaix::PitchCol;
+      loadSetResponseFunc(responseFileIB, "response1", responseFileOB, "response0");
+      mSimRespIBScaleX = constants::pixelarray::pixels::apts::pitchX / SegmentationIB::PitchRow;
+      mSimRespIBScaleZ = constants::pixelarray::pixels::apts::pitchZ / SegmentationIB::PitchCol;
       mSimRespIBOrientation = true;
     } else {
       LOGP(fatal, "ResponseFunction '{}' not implemented!", func);
     }
+    mSimRespIBShift = mSimRespIB->getDepthMax() - constants::silicon::thickness / 2.f;
+    mSimRespOBShift = mSimRespOB->getDepthMax() - SegmentationOB::SensorLayerThickness / 2.f;
   }
+
   mParams.print();
-  LOGP(info, "IBShift = {} ; OBShift = {}", mSimRespIBShift, mSimRespOBShift);
-  LOGP(info, "IB-Scale: X={} ; Z={}", mSimRespIBScaleX, mSimRespIBScaleZ);
+  LOGP(info, "IB shift = {} ; OB shift = {}", mSimRespIBShift, mSimRespOBShift);
+  LOGP(info, "IB pixel scale on x = {} ; z = {}", mSimRespIBScaleX, mSimRespIBScaleZ);
+  LOGP(info, "IB response orientation: {}", mSimRespIBOrientation ? "flipped" : "normal");
   mIRFirstSampledTF = o2::raw::HBFUtils::Instance().getFirstSampledTFIR();
 }
 
@@ -173,11 +176,7 @@ void Digitizer::fillOutputContainer(uint32_t frameLast)
     auto& extra = *(mExtraBuff.front().get());
     for (size_t iChip{0}; iChip < mChips.size(); ++iChip) {
       auto& chip = mChips[iChip];
-      if (constants::detID::isDetITS3(iChip)) { // Check if this is a chip of ITS3
-        chip.addNoise(mROFrameMin, mROFrameMin, &mParams, SegmentationMosaix::NRows, SegmentationMosaix::NCols);
-      } else {
-        chip.addNoise(mROFrameMin, mROFrameMin, &mParams);
-      }
+      chip.addNoise(mROFrameMin, mROFrameMin, &mParams);
       auto& buffer = chip.getPreDigits();
       if (buffer.empty()) {
         continue;
@@ -190,7 +189,7 @@ void Digitizer::fillOutputContainer(uint32_t frameLast)
           break; // is the digit ROFrame from the key > the max requested frame
         }
         auto& preDig = iter->second; // preDigit
-        if (preDig.charge >= mParams.getChargeThreshold()) {
+        if (preDig.charge >= (chip.isIB() ? mParams.getIBChargeThreshold() : mParams.getChargeThreshold())) {
           int digID = mDigits->size();
           mDigits->emplace_back(chip.getChipIndex(), preDig.row, preDig.col, preDig.charge);
           mMCLabels->addElement(digID, preDig.labelRef.label);
@@ -257,16 +256,15 @@ void Digitizer::processHit(const o2::itsmft::Hit& hit, uint32_t& maxFr, int evID
   }
 
   // here we start stepping in the depth of the sensor to generate charge diffision
-  float nStepsInv = mParams.getNSimStepsInv();
-  int nSteps = mParams.getNSimSteps();
   int detID{hit.GetDetectorID()};
   int layer = mGeometry->getLayer(detID);
   const auto& matrix = mGeometry->getMatrixL2G(detID);
-  bool innerBarrel{layer < 3};
+  int nSteps = chip.isIB() ? mParams.getIBNSimSteps() : mParams.getNSimSteps();
+  float nStepsInv = chip.isIB() ? mParams.getIBNSimStepsInv() : mParams.getNSimStepsInv();
   math_utils::Vector3D<float> xyzLocS, xyzLocE;
   xyzLocS = matrix ^ (hit.GetPosStart()); // Global hit coordinates to local detector coordinates
   xyzLocE = matrix ^ (hit.GetPos());
-  if (innerBarrel) {
+  if (chip.isIB()) {
     // transform the point on the curved surface to a flat one
     float xFlatE{0.f}, yFlatE{0.f}, xFlatS{0.f}, yFlatS{0.f};
     mIBSegmentations[layer].curvedToFlat(xyzLocS.X(), xyzLocS.Y(), xFlatS, yFlatS);
@@ -284,7 +282,7 @@ void Digitizer::processHit(const o2::itsmft::Hit& hit, uint32_t& maxFr, int evID
   xyzLocS += stepH; // Adjust start position to the middle of the first step
   xyzLocE -= stepH; // Adjust end position to the middle of the last step
   int rowS = -1, colS = -1, rowE = -1, colE = -1, nSkip = 0;
-  if (innerBarrel) {
+  if (chip.isIB()) {
     // get entrance pixel row and col
     while (!mIBSegmentations[layer].localToDetector(xyzLocS.X(), xyzLocS.Z(), rowS, colS)) { // guard-ring ?
       if (++nSkip >= nSteps) {
@@ -301,14 +299,14 @@ void Digitizer::processHit(const o2::itsmft::Hit& hit, uint32_t& maxFr, int evID
     }
   } else {
     // get entrance pixel row and col
-    while (!SegmentationAlpide::localToDetector(xyzLocS.X(), xyzLocS.Z(), rowS, colS)) { // guard-ring ?
+    while (!SegmentationOB::localToDetector(xyzLocS.X(), xyzLocS.Z(), rowS, colS)) { // guard-ring ?
       if (++nSkip >= nSteps) {
         return; // did not enter to sensitive matrix
       }
       xyzLocS += step;
     }
     // get exit pixel row and col
-    while (!SegmentationAlpide::localToDetector(xyzLocE.X(), xyzLocE.Z(), rowE, colE)) { // guard-ring ?
+    while (!SegmentationOB::localToDetector(xyzLocE.X(), xyzLocE.Z(), rowE, colE)) { // guard-ring ?
       if (++nSkip >= nSteps) {
         return; // did not enter to sensitive matrix
       }
@@ -327,8 +325,8 @@ void Digitizer::processHit(const o2::itsmft::Hit& hit, uint32_t& maxFr, int evID
   rowE += AlpideRespSimMat::NPix / 2;
   rowS = std::max(rowS, 0);
 
-  const int maxNrows{innerBarrel ? SegmentationMosaix::NRows : SegmentationAlpide::NRows};
-  const int maxNcols{innerBarrel ? SegmentationMosaix::NCols : SegmentationAlpide::NCols};
+  const int maxNrows{chip.isIB() ? SegmentationIB::NRows : SegmentationOB::NRows};
+  const int maxNcols{chip.isIB() ? SegmentationIB::NCols : SegmentationOB::NCols};
 
   rowE = std::min(rowE, maxNrows - 1);
   colS -= AlpideRespSimMat::NPix / 2;
@@ -352,22 +350,22 @@ void Digitizer::processHit(const o2::itsmft::Hit& hit, uint32_t& maxFr, int evID
   // take into account that the AlpideSimResponse depth defintion has different min/max boundaries
   // although the max should coincide with the surface of the epitaxial layer, which in the chip
   // local coordinates has Y = +SensorLayerThickness/2
-  xyzLocS.SetY(xyzLocS.Y() + ((innerBarrel) ? mSimRespIBShift : mSimRespOBShift));
+  xyzLocS.SetY(xyzLocS.Y() + ((chip.isIB()) ? mSimRespIBShift : mSimRespOBShift));
 
   // collect charge in evey pixel which might be affected by the hit
   for (int iStep = nSteps; iStep--;) {
     // Get the pixel ID
-    if (innerBarrel) {
+    if (chip.isIB()) {
       mIBSegmentations[layer].localToDetector(xyzLocS.X(), xyzLocS.Z(), row, col);
     } else {
-      SegmentationAlpide::localToDetector(xyzLocS.X(), xyzLocS.Z(), row, col);
+      SegmentationOB::localToDetector(xyzLocS.X(), xyzLocS.Z(), row, col);
     }
     if (row != rowPrev || col != colPrev) { // update pixel and coordinates of its center
-      if (innerBarrel) {
+      if (chip.isIB()) {
         if (!mIBSegmentations[layer].detectorToLocal(row, col, cRowPix, cColPix)) {
           continue;
         }
-      } else if (!SegmentationAlpide::detectorToLocal(row, col, cRowPix, cColPix)) {
+      } else if (!SegmentationOB::detectorToLocal(row, col, cRowPix, cColPix)) {
         continue; // should not happen
       }
       rowPrev = row;
@@ -377,13 +375,13 @@ void Digitizer::processHit(const o2::itsmft::Hit& hit, uint32_t& maxFr, int evID
     // note that response needs coordinates along column row (locX) (locZ) then depth (locY)
     float rowMax{}, colMax{};
     const AlpideRespSimMat* rspmat{nullptr};
-    if (innerBarrel) {
-      rowMax = 0.5f * SegmentationMosaix::PitchRow;
-      colMax = 0.5f * SegmentationMosaix::PitchCol;
+    if (chip.isIB()) {
+      rowMax = 0.5f * SegmentationIB::PitchRow * mSimRespIBScaleX;
+      colMax = 0.5f * SegmentationIB::PitchCol * mSimRespIBScaleZ;
       rspmat = mSimRespIB->getResponse(mSimRespIBScaleX * (xyzLocS.X() - cRowPix), mSimRespIBScaleZ * (xyzLocS.Z() - cColPix), xyzLocS.Y(), flipRow, flipCol, rowMax, colMax);
     } else {
-      rowMax = 0.5f * SegmentationAlpide::PitchRow;
-      colMax = 0.5f * SegmentationAlpide::PitchCol;
+      rowMax = 0.5f * SegmentationOB::PitchRow;
+      colMax = 0.5f * SegmentationOB::PitchCol;
       rspmat = mSimRespOB->getResponse(xyzLocS.X() - cRowPix, xyzLocS.Z() - cColPix, xyzLocS.Y(), flipRow, flipCol, rowMax, colMax);
     }
 
@@ -402,7 +400,7 @@ void Digitizer::processHit(const o2::itsmft::Hit& hit, uint32_t& maxFr, int evID
         if (colDest < 0 || colDest >= colSpan) {
           continue;
         }
-        respMatrix[rowDest][colDest] += rspmat->getValue(irow, icol, ((innerBarrel && mSimRespIBOrientation) ? !flipRow : flipRow), flipCol);
+        respMatrix[rowDest][colDest] += rspmat->getValue(irow, icol, ((chip.isIB() && mSimRespIBOrientation) ? !flipRow : flipRow), flipCol);
       }
     }
   }
@@ -419,7 +417,7 @@ void Digitizer::processHit(const o2::itsmft::Hit& hit, uint32_t& maxFr, int evID
       }
       int nEle = gRandom->Poisson(nElectrons * nEleResp); // total charge in given pixel
       // ignore charge which have no chance to fire the pixel
-      if (nEle < mParams.getMinChargeToAccount()) {
+      if (nEle < (chip.isIB() ? mParams.getIBChargeThreshold() : mParams.getChargeThreshold())) {
         continue;
       }
       uint16_t colIS = icol + colS;
@@ -428,7 +426,7 @@ void Digitizer::processHit(const o2::itsmft::Hit& hit, uint32_t& maxFr, int evID
   }
 }
 
-void Digitizer::registerDigits(o2::itsmft::ChipDigitsContainer& chip, uint32_t roFrame, float tInROF, int nROF,
+void Digitizer::registerDigits(o2::its3::ChipDigitsContainer& chip, uint32_t roFrame, float tInROF, int nROF,
                                uint16_t row, uint16_t col, int nEle, o2::MCCompLabel& lbl)
 {
   // Register digits for given pixel, accounting for the possible signal contribution to
@@ -442,7 +440,7 @@ void Digitizer::registerDigits(o2::itsmft::ChipDigitsContainer& chip, uint32_t r
     tStrobe += mParams.getROFrameLength(); // for the next ROF
 
     // discard too small contributions, they have no chance to produce a digit
-    if (nEleROF < mParams.getMinChargeToAccount()) {
+    if (nEleROF < (chip.isIB() ? mParams.getIBChargeThreshold() : mParams.getChargeThreshold())) {
       continue;
     }
     if (roFr > mEventROFrameMax) {

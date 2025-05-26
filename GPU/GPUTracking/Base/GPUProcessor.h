@@ -63,7 +63,7 @@ class GPUProcessor
   }
 
   template <size_t alignment = GPUCA_BUFFER_ALIGNMENT>
-  static inline size_t getAlignmentMod(size_t addr)
+  static constexpr inline size_t getAlignmentMod(size_t addr)
   {
     static_assert((alignment & (alignment - 1)) == 0, "Invalid alignment, not power of 2");
     if (alignment <= 1) {
@@ -72,7 +72,7 @@ class GPUProcessor
     return addr & (alignment - 1);
   }
   template <size_t alignment = GPUCA_BUFFER_ALIGNMENT>
-  static inline size_t getAlignment(size_t addr)
+  static constexpr inline size_t getAlignment(size_t addr)
   {
     size_t mod = getAlignmentMod<alignment>(addr);
     if (mod == 0) {
@@ -81,9 +81,21 @@ class GPUProcessor
     return (alignment - mod);
   }
   template <size_t alignment = GPUCA_BUFFER_ALIGNMENT>
-  static inline size_t nextMultipleOf(size_t size)
+  static constexpr inline size_t nextMultipleOf(size_t size)
   {
     return size + getAlignment<alignment>(size);
+  }
+  static constexpr inline size_t nextMultipleOf(size_t size, size_t alignment)
+  {
+    if (alignment & (alignment - 1)) {
+      size_t tmp = size % alignment;
+      if (tmp) {
+        size += alignment - tmp;
+      }
+      return size;
+    } else {
+      return (size + alignment - 1) & ~(alignment - 1);
+    }
   }
   template <size_t alignment = GPUCA_BUFFER_ALIGNMENT>
   static inline void* alignPointer(void* ptr)

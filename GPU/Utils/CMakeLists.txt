@@ -31,5 +31,6 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
                             HEADERS ${HDRS_CINT}
                             LINKDEF GPUUtilsLinkDef.h)
 
-  install(FILES ${HDRS_CINT} ${HDRS_INSTALL} DESTINATION include/GPU)
 endif()
+
+install(FILES ${HDRS_CINT} ${HDRS_INSTALL} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/GPU)

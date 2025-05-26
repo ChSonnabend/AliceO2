@@ -567,26 +567,27 @@ o2::framework::ServiceSpec ArrowSupport::arrowTableSlicingCacheSpec()
     .name = "arrow-slicing-cache",
     .uniqueId = CommonServices::simpleServiceId<ArrowTableSlicingCache>(),
     .init = [](ServiceRegistryRef services, DeviceState&, fair::mq::ProgOptions&) { return ServiceHandle{TypeIdHelpers::uniqueId<ArrowTableSlicingCache>(),
-                                                                                                         new ArrowTableSlicingCache(std::vector<std::pair<std::string, std::string>>{services.get<ArrowTableSlicingCacheDef>().bindingsKeys}, std::vector{services.get<ArrowTableSlicingCacheDef>().bindingsKeysUnsorted}),
+                                                                                                         new ArrowTableSlicingCache(Cache{services.get<ArrowTableSlicingCacheDef>().bindingsKeys},
+                                                                                                                                    Cache{services.get<ArrowTableSlicingCacheDef>().bindingsKeysUnsorted}),
                                                                                                          ServiceKind::Stream, typeid(ArrowTableSlicingCache).name()}; },
     .configure = CommonServices::noConfiguration(),
     .preProcessing = [](ProcessingContext& pc, void* service_ptr) {
       auto* service = static_cast<ArrowTableSlicingCache*>(service_ptr);
       auto& caches = service->bindingsKeys;
-      for (auto i = 0; i < caches.size(); ++i) {
-        if (pc.inputs().getPos(caches[i].first.c_str()) >= 0) {
-          auto status = service->updateCacheEntry(i, pc.inputs().get<TableConsumer>(caches[i].first.c_str())->asArrowTable());
+      for (auto i = 0u; i < caches.size(); ++i) {
+        if (caches[i].enabled && pc.inputs().getPos(caches[i].binding.c_str()) >= 0) {
+          auto status = service->updateCacheEntry(i, pc.inputs().get<TableConsumer>(caches[i].binding.c_str())->asArrowTable());
           if (!status.ok()) {
-            throw runtime_error_f("Failed to update slice cache for %s/%s", caches[i].first.c_str(), caches[i].second.c_str());
+            throw runtime_error_f("Failed to update slice cache for %s/%s", caches[i].binding.c_str(), caches[i].key.c_str());
           }
         }
       }
       auto& unsortedCaches = service->bindingsKeysUnsorted;
-      for (auto i = 0; i < unsortedCaches.size(); ++i) {
-        if (pc.inputs().getPos(unsortedCaches[i].first.c_str()) >= 0) {
-          auto status = service->updateCacheEntryUnsorted(i, pc.inputs().get<TableConsumer>(unsortedCaches[i].first.c_str())->asArrowTable());
+      for (auto i = 0u; i < unsortedCaches.size(); ++i) {
+        if (unsortedCaches[i].enabled && pc.inputs().getPos(unsortedCaches[i].binding.c_str()) >= 0) {
+          auto status = service->updateCacheEntryUnsorted(i, pc.inputs().get<TableConsumer>(unsortedCaches[i].binding.c_str())->asArrowTable());
           if (!status.ok()) {
-            throw runtime_error_f("failed to update slice cache (unsorted) for %s/%s", unsortedCaches[i].first.c_str(), unsortedCaches[i].second.c_str());
+            throw runtime_error_f("failed to update slice cache (unsorted) for %s/%s", unsortedCaches[i].binding.c_str(), unsortedCaches[i].key.c_str());
           }
         }
       } },

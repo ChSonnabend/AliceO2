@@ -24,11 +24,12 @@ namespace o2
 namespace eventgen
 {
 struct QEDGenParam : public o2::conf::ConfigurableParamHelper<QEDGenParam> {
-
-  float yMin = -6.f;    ///< min Y
-  float yMax = 6.f;     ///< max Y
-  float ptMin = 0.4e-3; ///< min pT
-  float ptMax = 10.f;   ///< min pT
+  float yMin = -6.f;       ///< min Y
+  float yMax = 6.f;        ///< max Y
+  float ptMin = 0.4e-3;    ///< min pT
+  float ptMax = 10.f;      ///< min pT
+  float cmEnergy = 5360.f; ///< center of mass energy per nucleon pair in GeV
+  float Z = 82.f;          ///< atomic number of the projectile/target (only symmetric systems are compatible for now)
   //
   float xSectionQED = -1; ///< estimated QED x-section in barns
   float xSectionHad = 8.; ///< reference hadronic x-section for the same system

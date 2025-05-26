@@ -27,6 +27,7 @@
 #include "DataFormatsITSMFT/ROFRecord.h"
 #include "ITS3Simulation/Digitizer.h"
 #include "ITSMFTSimulation/DPLDigitizerParam.h"
+#include "ITS3Simulation/ITS3DPLDigitizerParam.h"
 #include "ITSMFTBase/DPLAlpideParam.h"
 #include "ITSBase/GeometryTGeo.h"
 #include "ITS3Base/ITS3Params.h"
@@ -216,6 +217,7 @@ class ITS3DPLDigitizerTask : BaseDPLDigitizer
       mDigitizer.setGeometry(geom);
 
       const auto& dopt = o2::itsmft::DPLDigitizerParam<o2::detectors::DetID::ITS>::Instance();
+      const auto& doptIB = o2::its3::ITS3DPLDigitizerParam::Instance();
       pc.inputs().get<o2::itsmft::DPLAlpideParam<o2::detectors::DetID::ITS>*>("ITS_alppar");
       const auto& aopt = o2::itsmft::DPLAlpideParam<o2::detectors::DetID::ITS>::Instance();
       digipar.setContinuous(dopt.continuous);
@@ -237,6 +239,11 @@ class ITS3DPLDigitizerTask : BaseDPLDigitizer
       digipar.setNoisePerPixel(dopt.noisePerPixel);     // noise level
       digipar.setTimeOffset(dopt.timeOffset);
       digipar.setNSimSteps(dopt.nSimSteps);
+
+      // ITS3 inner barrel specific parameters
+      digipar.setIBChargeThreshold(doptIB.IBChargeThreshold);
+      digipar.setIBNSimSteps(doptIB.nIBSimSteps);
+      digipar.setIBNoisePerPixel(doptIB.IBNoisePerPixel);
 
       mROMode = digipar.isContinuous() ? o2::parameters::GRPObject::CONTINUOUS : o2::parameters::GRPObject::PRESENT;
       LOG(info) << mID.getName() << " simulated in "

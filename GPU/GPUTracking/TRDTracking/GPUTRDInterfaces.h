@@ -59,8 +59,8 @@ class propagatorInterface<o2::base::Propagator>
   GPUdi() bool update(const float p[2], const float cov[3])
   {
     if (mParam) {
-      gpustd::array<float, 2> pTmp = {p[0], p[1]};
-      gpustd::array<float, 3> covTmp = {cov[0], cov[1], cov[2]};
+      std::array<float, 2> pTmp = {p[0], p[1]};
+      std::array<float, 3> covTmp = {cov[0], cov[1], cov[2]};
       return mParam->update(pTmp, covTmp);
     } else {
       return false;
@@ -69,8 +69,8 @@ class propagatorInterface<o2::base::Propagator>
   GPUdi() float getPredictedChi2(const float p[2], const float cov[3])
   {
     if (mParam) {
-      gpustd::array<float, 2> pTmp = {p[0], p[1]};
-      gpustd::array<float, 3> covTmp = {cov[0], cov[1], cov[2]};
+      std::array<float, 2> pTmp = {p[0], p[1]};
+      std::array<float, 3> covTmp = {cov[0], cov[1], cov[2]};
       return mParam->getPredictedChi2(pTmp, covTmp);
     } else {
       return 99999.f;

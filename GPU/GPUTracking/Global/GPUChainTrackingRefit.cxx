@@ -33,7 +33,7 @@ int32_t GPUChainTracking::RunRefit()
   SetupGPUProcessor(&Refit, false);
   RefitShadow.SetPtrsFromGPUConstantMem(processorsShadow(), doGPU ? &processorsDevice()->param : nullptr);
   RefitShadow.SetPropagator(doGPU ? processorsShadow()->calibObjects.o2Propagator : GetO2Propagator());
-  RefitShadow.mPTracks = (doGPU ? processorsShadow() : processors())->tpcMerger.OutputTracks();
+  RefitShadow.mPTracks = (doGPU ? processorsShadow() : processors())->tpcMerger.MergedTracks();
   WriteToConstantMemory(RecoStep::Refit, (char*)&processors()->trackingRefit - (char*)processors(), &RefitShadow, sizeof(RefitShadow), 0);
   // TransferMemoryResourcesToGPU(RecoStep::Refit, &Refit, 0);
   if (param().rec.trackingRefitGPUModel) {

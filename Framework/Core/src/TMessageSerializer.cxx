@@ -15,6 +15,9 @@
 
 using namespace o2::framework;
 
+FairOutputTBuffer::~FairOutputTBuffer() = default;
+FairInputTBuffer::~FairInputTBuffer() = default;
+
 void* FairOutputTBuffer::embedInItself(fair::mq::Message& msg)
 {
   // The first bytes of the message are used to store the pointer to the message itself

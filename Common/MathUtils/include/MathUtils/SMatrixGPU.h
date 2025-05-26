@@ -25,11 +25,13 @@
 #define ALICEO2_SMATRIX_GPU_H
 
 #include "GPUCommonDef.h"
-#include "GPUCommonArray.h"
 #include "GPUCommonMath.h"
 #include "GPUCommonAlgorithm.h"
 #include "GPUCommonLogger.h"
-#include "GPUCommonTypeTraits.h"
+#ifndef GPUCA_GPUCODE_DEVICE
+#include <type_traits>
+#include <array>
+#endif
 
 namespace o2::math_utils::detail
 {
@@ -281,14 +283,14 @@ struct make_indices : make_indices_impl<0, indices<>, N> {
 };
 
 template <int I0, class F, int... I>
-constexpr auto do_make(F f, indices<I...>) -> gpu::gpustd::array<int, sizeof...(I)>
+constexpr auto do_make(F f, indices<I...>) -> std::array<int, sizeof...(I)>
 {
-  gpu::gpustd::array<int, sizeof...(I)> retarr = {f(I0 + I)...};
+  std::array<int, sizeof...(I)> retarr = {f(I0 + I)...};
   return retarr;
 }
 
 template <int N, int I0 = 0, class F>
-constexpr auto make(F f) -> gpu::gpustd::array<int, N>
+constexpr auto make(F f) -> std::array<int, N>
 {
   return do_make<I0>(f, typename make_indices<N>::type());
 }

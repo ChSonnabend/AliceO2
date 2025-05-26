@@ -72,6 +72,10 @@
   #define GPUCA_RTC_SPECIAL_CODE(...)
 #endif
 
+#ifndef GPUCA_RTC_CONSTEXPR
+  #define GPUCA_RTC_CONSTEXPR
+#endif
+
 #ifndef GPUCA_DETERMINISTIC_CODE
   #ifdef GPUCA_DETERMINISTIC_MODE
     #define GPUCA_DETERMINISTIC_CODE(det, indet) det // In deterministic mode, take deterministic code path

@@ -15,6 +15,10 @@
 #ifndef O2_GPU_RECONSTRUCTIONHIPINCLUDESSYSTEM_H
 #define O2_GPU_RECONSTRUCTIONHIPINCLUDESSYSTEM_H
 
+#ifndef GPUCA_GPUCODE_GENRTC
+#include "GPUStdSystemHeaders.h"
+#endif
+
 #include <hip/hip_runtime.h>
 #include <hip/hip_ext.h>
 #include <hipcub/hipcub.hpp>

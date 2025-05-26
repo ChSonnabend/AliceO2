@@ -87,6 +87,7 @@ GPUReconstruction::GPUReconstruction(const GPUSettingsDeviceBackend& cfg) : mHos
       throw std::invalid_argument("Cannot be slave to a slave");
     }
     mMaster = cfg.master;
+    mSlaveId = cfg.master->mSlaves.size();
     cfg.master->mSlaves.emplace_back(this);
   }
   param().SetDefaults(mGRPSettings.get());
@@ -346,13 +347,20 @@ int32_t GPUReconstruction::InitPhaseBeforeDevice()
     mProcessingSettings->nTPCClustererLanes = GPUCA_NSECTORS;
   }
 
+  if (GetProcessingSettings().doublePipeline) {
+    mProcessingSettings->rtctech.allowOptimizedSlaveReconstruction = true;
+  }
   if (GetProcessingSettings().doublePipeline && (mChains.size() != 1 || mChains[0]->SupportsDoublePipeline() == false || !IsGPU() || GetProcessingSettings().memoryAllocationStrategy != GPUMemoryResource::ALLOCATION_GLOBAL)) {
     GPUError("Must use double pipeline mode only with exactly one chain that must support it");
     return 1;
   }
-
   if (mMaster == nullptr && GetProcessingSettings().doublePipeline) {
     mPipelineContext.reset(new GPUReconstructionPipelineContext);
+  }
+
+  if (mMaster && GetProcessingSettings().rtc.enable && (GetProcessingSettings().rtc.optConstexpr || GetProcessingSettings().rtc.optSpecialCode) && !GetProcessingSettings().rtctech.allowOptimizedSlaveReconstruction) {
+    GPUError("Not allowed to create optimized RTC code with more than one GPUReconstruction instances");
+    return 1;
   }
 
   mDeviceMemorySize = mHostMemorySize = 0;

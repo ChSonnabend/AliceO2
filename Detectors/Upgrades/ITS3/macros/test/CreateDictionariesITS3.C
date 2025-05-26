@@ -52,7 +52,7 @@
 
 #endif
 
-void CreateDictionariesITS3(bool saveDeltas = false,
+void CreateDictionariesITS3(bool saveDeltas = true,
                             float probThreshold = 1e-6,
                             std::string clusDictFile = "",
                             std::string clusfile = "o2clus_its.root",
@@ -94,7 +94,7 @@ void CreateDictionariesITS3(bool saveDeltas = false,
   TNtuple* nt = nullptr;
   if (saveDeltas) {
     fout = TFile::Open("CreateDictionaries.root", "recreate");
-    nt = new TNtuple("nt", "hashes ntuple", "hash:dx:dz");
+    nt = new TNtuple("nt", "hashes ntuple", "hash:layer:chipID:xhf:zhf:xcf:zcf:dx:dz:outlimDx:outlimDz");
   }
 
   const o2::steer::DigitizationContext* digContext = nullptr;
@@ -284,18 +284,24 @@ void CreateDictionariesITS3(bool saveDeltas = false,
                 dZ = xyzLocM.Z() - locC.Z();
                 dX /= (ib) ? o2::its3::SegmentationMosaix::PitchRow : o2::itsmft::SegmentationAlpide::PitchRow;
                 dZ /= (ib) ? o2::its3::SegmentationMosaix::PitchCol : o2::itsmft::SegmentationAlpide::PitchCol;
-                if (saveDeltas) {
-                  nt->Fill(topology.getHash(), dX, dZ);
-                }
+
+                float outLimitDx{-1}, outLimitDz{-1};
                 if (checkOutliers > 0.) {
-                  if (bool bX = std::abs(dX) > topology.getRowSpan() * checkOutliers, bZ = std::abs(dZ) > topology.getColumnSpan() * checkOutliers; bX || bZ) { // ignore outlier
+                  outLimitDx = topology.getRowSpan() * checkOutliers;
+                  outLimitDz = topology.getColumnSpan() * checkOutliers;
+                  bool isOutDx = std::abs(dX) > outLimitDx;
+                  bool isOutDz = std::abs(dZ) > outLimitDz;
+                  if (isOutDx || isOutDz) { // ignore outlier
                     (ib) ? ++cOutliersIB : ++cOutliersOB;
-                    LOGP(debug, "Ignored Value dX={} > {} * {} -> {}", dX, topology.getRowSpan(), checkOutliers, bX);
-                    LOGP(debug, "Ignored Value dZ={} > {} * {} -> {}", dZ, topology.getColumnSpan(), checkOutliers, bZ);
+                    LOGP(debug, "Ignored Value dX={} > {} * {} -> {}", dX, topology.getRowSpan(), checkOutliers, isOutDx);
+                    LOGP(debug, "Ignored Value dZ={} > {} * {} -> {}", dZ, topology.getColumnSpan(), checkOutliers, isOutDz);
                     dX = dZ = BuildTopologyDictionary::IgnoreVal;
                   } else {
                     (ib) ? ++cOkIB : ++cOkOB;
                   }
+                }
+                if (saveDeltas) {
+                  nt->Fill(topology.getHash(), layer, chipID, xyzLocM.X(), xyzLocM.Z(), locC.X(), locC.Z(), dX, dZ, outLimitDx, outLimitDz);
                 }
               }
             } else {

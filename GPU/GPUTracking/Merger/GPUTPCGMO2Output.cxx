@@ -20,6 +20,7 @@
 #include "DataFormatsTPC/PIDResponse.h"
 #include "TPCFastTransform.h"
 #include "CorrectionMapsHelper.h"
+#include "GPUGetConstexpr.h"
 
 #ifndef GPUCA_GPUCODE
 #include "SimulationDataFormat/ConstMCTruthContainer.h"
@@ -31,20 +32,32 @@ using namespace o2::gpu;
 using namespace o2::tpc;
 using namespace o2::tpc::constants;
 
-GPUdi() static constexpr uint8_t getFlagsReject() { return GPUTPCGMMergedTrackHit::flagReject | GPUTPCGMMergedTrackHit::flagNotFit; }
+GPUdi() static constexpr uint8_t getFlagsReject() { return GPUTPCGMMergedTrackHit::flagReject | GPUTPCGMMergedTrackHit::flagHighIncl; }
 GPUdi() static uint32_t getFlagsRequired(const GPUSettingsRec& rec) { return rec.tpc.dropSecondaryLegsInOutput ? gputpcgmmergertypes::attachGoodLeg : gputpcgmmergertypes::attachZero; }
+
+namespace o2::gpu::internal
+{
+
+struct GPUTPCGMO2OutputSort_comp {
+  GPUd() bool operator()(const GPUTPCGMMerger::tmpSort& a, const GPUTPCGMMerger::tmpSort& b)
+  {
+    return GPUCA_DETERMINISTIC_CODE(a.y != b.y ? a.y > b.y : a.x > b.x, a.y > b.y);
+  }
+};
+
+} // namespace o2::gpu::internal
 
 template <>
 GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::prepare>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() merger)
 {
-  const GPUTPCGMMergedTrack* tracks = merger.OutputTracks();
-  const uint32_t nTracks = merger.NOutputTracks();
+  const GPUTPCGMMergedTrack* tracks = merger.MergedTracks();
+  const uint32_t nTracks = merger.NMergedTracks();
   const GPUTPCGMMergedTrackHit* trackClusters = merger.Clusters();
-  const GPUdEdxInfo* tracksdEdx = merger.OutputTracksdEdx();
+  const GPUdEdxInfo* tracksdEdx = merger.MergedTracksdEdx();
 
   constexpr uint8_t flagsReject = getFlagsReject();
   const uint32_t flagsRequired = getFlagsRequired(merger.Param().rec);
-  bool cutOnTrackdEdx = merger.Param().par.dodEdx && merger.Param().dodEdxDownscaled && merger.Param().rec.tpc.minTrackdEdxMax2Tot > 0.f;
+  bool cutOnTrackdEdx = merger.Param().par.dodEdx && merger.Param().dodEdxEnabled && merger.Param().rec.tpc.minTrackdEdxMax2Tot > 0.f;
 
   GPUTPCGMMerger::tmpSort* GPUrestrict() trackSort = merger.TrackSortO2();
   uint2* GPUrestrict() tmpData = merger.ClusRefTmp();
@@ -84,12 +97,10 @@ template <>
 GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::sort>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() merger)
 {
 #ifndef GPUCA_SPECIALIZE_THRUST_SORTS
-  if (iThread || iBlock) {
-    return;
+  if (iThread == 0 && iBlock == 0) {
+    GPUTPCGMMerger::tmpSort* GPUrestrict() trackSort = merger.TrackSortO2();
+    GPUCommonAlgorithm::sortDeviceDynamic(trackSort, trackSort + merger.Memory()->nO2Tracks, internal::GPUTPCGMO2OutputSort_comp());
   }
-  GPUTPCGMMerger::tmpSort* GPUrestrict() trackSort = merger.TrackSortO2();
-  auto comp = [](const auto& a, const auto& b) { return (a.y > b.y); };
-  GPUCommonAlgorithm::sortDeviceDynamic(trackSort, trackSort + merger.Memory()->nO2Tracks, comp);
 #endif
 }
 
@@ -97,15 +108,16 @@ template <>
 GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::output>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() merger)
 {
   constexpr float MinDelta = 0.1f;
-  const GPUTPCGMMergedTrack* tracks = merger.OutputTracks();
-  GPUdEdxInfo* tracksdEdx = merger.OutputTracksdEdx();
-  GPUdEdxInfo* tracksdEdxAlt = merger.OutputTracksdEdxAlt();
+  const GPUTPCGMMergedTrack* tracks = merger.MergedTracks();
+  GPUdEdxInfo* tracksdEdx = merger.MergedTracksdEdx();
+  GPUdEdxInfo* tracksdEdxAlt = merger.MergedTracksdEdxAlt();
   const int32_t nTracks = merger.NOutputTracksTPCO2();
   const GPUTPCGMMergedTrackHit* trackClusters = merger.Clusters();
   constexpr uint8_t flagsReject = getFlagsReject();
   const uint32_t flagsRequired = getFlagsRequired(merger.Param().rec);
   TrackTPC* outputTracks = merger.OutputTracksTPCO2();
   uint32_t* clusRefs = merger.OutputClusRefsTPCO2();
+  const auto& param = merger.Param();
 
   GPUTPCGMMerger::tmpSort* GPUrestrict() trackSort = merger.TrackSortO2();
   uint2* GPUrestrict() tmpData = merger.ClusRefTmp();
@@ -130,9 +142,15 @@ GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::output>(int32_t nBlocks
 
     oTrack.setChi2(tracks[i].GetParam().GetChi2());
     auto& outerPar = tracks[i].OuterParam();
-    if (merger.Param().par.dodEdx && merger.Param().dodEdxDownscaled) {
-      oTrack.setdEdx(tracksdEdx[i]);
-      oTrack.setdEdxAlt(tracksdEdxAlt[i]);
+    if GPUCA_RTC_CONSTEXPR (GPUCA_GET_CONSTEXPR(param.par, dodEdx)) {
+      if (param.dodEdxEnabled) {
+        oTrack.setdEdx(tracksdEdx[i]);
+        if GPUCA_RTC_CONSTEXPR (GPUCA_GET_CONSTEXPR(param.rec.tpc, dEdxClusterRejectionFlagMask) != GPUCA_GET_CONSTEXPR(param.rec.tpc, dEdxClusterRejectionFlagMaskAlt)) {
+          oTrack.setdEdxAlt(tracksdEdxAlt[i]);
+        } else {
+          oTrack.setdEdxAlt(tracksdEdx[i]);
+        }
+      }
     }
 
     auto snpOut = outerPar.P[2];
@@ -148,9 +166,9 @@ GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::output>(int32_t nBlocks
        outerPar.C[6], outerPar.C[7], outerPar.C[8], outerPar.C[9], outerPar.C[10], outerPar.C[11],
        outerPar.C[12], outerPar.C[13], outerPar.C[14]}));
 
-    if (merger.Param().par.dodEdx && merger.Param().dodEdxDownscaled && merger.Param().rec.tpc.enablePID) {
+    if (param.par.dodEdx && param.dodEdxEnabled && param.rec.tpc.enablePID) {
       PIDResponse pidResponse{};
-      auto pid = pidResponse.getMostProbablePID(oTrack, merger.Param().rec.tpc.PID_EKrangeMin, merger.Param().rec.tpc.PID_EKrangeMax, merger.Param().rec.tpc.PID_EPrangeMin, merger.Param().rec.tpc.PID_EPrangeMax, merger.Param().rec.tpc.PID_EDrangeMin, merger.Param().rec.tpc.PID_EDrangeMax, merger.Param().rec.tpc.PID_ETrangeMin, merger.Param().rec.tpc.PID_ETrangeMax, merger.Param().rec.tpc.PID_useNsigma, merger.Param().rec.tpc.PID_sigma);
+      auto pid = pidResponse.getMostProbablePID(oTrack, param.rec.tpc.PID_EKrangeMin, param.rec.tpc.PID_EKrangeMax, param.rec.tpc.PID_EPrangeMin, param.rec.tpc.PID_EPrangeMax, param.rec.tpc.PID_EDrangeMin, param.rec.tpc.PID_EDrangeMax, param.rec.tpc.PID_ETrangeMin, merger.Param().rec.tpc.PID_ETrangeMax, merger.Param().rec.tpc.PID_useNsigma, merger.Param().rec.tpc.PID_sigma);
       auto pidRemap = merger.Param().rec.tpc.PID_remap[pid];
       if (pidRemap >= 0) {
         pid = pidRemap;

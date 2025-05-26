@@ -14,9 +14,13 @@
 
 #define GPUCA_GPUCODE_GENRTC
 #define GPUCA_GPUCODE_COMPILEKERNELS
+
+// Keep some preprocessor calls unprocessed
 #define GPUCA_RTC_SPECIAL_CODE(...) GPUCA_RTC_SPECIAL_CODE(__VA_ARGS__)
 #define GPUCA_DETERMINISTIC_CODE(...) GPUCA_DETERMINISTIC_CODE(__VA_ARGS__)
-// GPUReconstructionCUDAIncludesSystem.h prependended without preprocessor running
+#define GPUCA_RTC_CONSTEXPR GPUCA_RTC_CONSTEXPR
+
+// GPUReconstructionCUDAIncludesSystem.h prependended by CMakewithout preprocessor running
 #include "GPUReconstructionCUDADef.h"
 #include "GPUReconstructionIncludesDeviceAll.h"
 

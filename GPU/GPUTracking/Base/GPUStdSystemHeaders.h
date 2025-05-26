@@ -9,21 +9,18 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file GPUTPCGMTracksToTPCSeeds.h
+/// \file GPUStdSystemHeaders.h
 /// \author David Rohr
 
-#ifndef GPUTPCGMTRACKSTOTPCSEEDS_H
-#define GPUTPCGMTRACKSTOTPCSEEDS_H
+#ifndef GPUSTDSYSTEMHEADERS_H
+#define GPUSTDSYSTEMHEADERS_H
 
-class TObjArray;
-class AliTPCtracker;
-
-class GPUTPCGMTracksToTPCSeeds
-{
- public:
-  static void CreateSeedsFromHLTTracks(TObjArray* seeds, AliTPCtracker* tpctracker);
-  static void UpdateParamsOuter(TObjArray* seeds);
-  static void UpdateParamsInner(TObjArray* seeds);
-};
+#include <string>
+#include <cstddef>
+#include <cstdint>
+#include <cfloat>
+#include <cmath>
+#include <type_traits>
+#include <array>
 
 #endif

@@ -150,7 +150,8 @@ o2_gpu_kernel_add_parameter(NEIGHBOURS_FINDER_MAX_NNEIGHUP
                             NO_ATOMIC_PRECHECK
                             COMP_GATHER_KERNEL
                             COMP_GATHER_MODE
-                            SORT_STARTHITS)
+                            SORT_STARTHITS
+                            CF_SCAN_WORKGROUP_SIZE)
 
 o2_gpu_kernel_add_string_parameter(DEDX_STORAGE_TYPE
                                    MERGER_INTERPOLATION_ERROR_TYPE)

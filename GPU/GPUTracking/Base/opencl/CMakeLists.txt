@@ -23,7 +23,7 @@ endif()
 set(CL_SRC ${GPUDIR}/Base/opencl/GPUReconstructionOCL.cl)
 set(CL_BIN ${CMAKE_CURRENT_BINARY_DIR}/GPUReconstructionOCLCode)
 
-set(OCL_FLAGS -Dcl_clang_storage_class_specifiers -cl-std=CLC++2021 ${GPUCA_OCL_DENORMALS_FLAGS})
+set(OCL_FLAGS -Dcl_clang_storage_class_specifiers -x cl -cl-std=CLC++2021 ${GPUCA_OCL_DENORMALS_FLAGS})
 if(NOT GPUCA_DETERMINISTIC_MODE GREATER_EQUAL ${GPUCA_DETERMINISTIC_MODE_MAP_NO_FAST_MATH})
   set(OCL_FLAGS ${OCL_FLAGS} -cl-mad-enable -cl-no-signed-zeros -cl-fast-relaxed-math)
 else()
@@ -42,6 +42,11 @@ set(HDRS GPUReconstructionOCL.h GPUReconstructionOCLIncludesHost.h)
 if (NOT DEFINED GPUCA_OCL_SPIRV_VERSION)
   set(GPUCA_OCL_SPIRV_VERSION 1.2)
 endif()
+
+# execute_process(COMMAND bash -c "${LLVM_CLANG} -stdlib=libc++ -E -H -x c++ - <<< '#include <type_traits>' 2>&1 1>/dev/null | grep type_traits | head -n 1 | sed 's/^\\.* *//'"
+#                 OUTPUT_VARIABLE CLANG_STD_INCLUDE_DIR)
+# get_filename_component(CLANG_STD_INCLUDE_DIR "${CLANG_STD_INCLUDE_DIR}" DIRECTORY)
+# get_filename_component(CLANG_STD_INCLUDE_DIR "${CLANG_STD_INCLUDE_DIR}" ABSOLUTE) # TODO: For using <type_traits> in OpenCL, we would need to add -I${CLANG_STD_INCLUDE_DIR}
 
 if(OPENCL_ENABLED_SPIRV) # BUILD OpenCL intermediate code for SPIR-V target
   # executes clang to create llvm IL code
@@ -71,6 +76,7 @@ if(OPENCL_ENABLED) # BUILD OpenCL source code for runtime compilation target
   add_custom_command(
       OUTPUT ${CL_BIN}.src
       COMMAND ${LLVM_CLANG}
+              -target spir64
               -Wno-unused-command-line-argument
               ${OCL_FLAGS}
               ${OCL_DEFINECL}
@@ -96,8 +102,6 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
   # the compile_defitions are not propagated automatically on purpose (they are
   # declared PRIVATE) so we are not leaking them outside of the GPU**
   # directories
-
-  install(FILES ${HDRS} DESTINATION include/GPU)
 endif()
 
 if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
@@ -106,6 +110,8 @@ if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
   install(TARGETS ${MODULE})
   set(targetName ${MODULE})
 endif()
+
+install(FILES ${HDRS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/GPU)
 
 if(OPENCL_ENABLED_SPIRV)
   target_compile_definitions(${targetName} PRIVATE OPENCL_ENABLED_SPIRV)

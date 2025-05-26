@@ -54,7 +54,7 @@ struct GPUParam_t {
   float bzCLight;
   float qptB5Scaler;
 
-  int8_t dodEdxDownscaled;
+  int8_t dodEdxEnabled;
   int32_t continuousMaxTimeBin;
   int32_t tpcCutTimeBin;
 

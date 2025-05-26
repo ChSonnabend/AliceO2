@@ -286,7 +286,7 @@ int getNumTPCLanes(std::vector<int> const& sectors, ConfigContext const& configc
 
 // ------------------------------------------------------------------
 
-void initTPC()
+void initTPC(long timestamp)
 {
   // We only want to do this for the DPL master
   // I am not aware of an easy way to query if "I am DPL master" so
@@ -308,6 +308,17 @@ void initTPC()
 
   auto& cdb = o2::tpc::CDBInterface::instance();
   cdb.setUseDefaults();
+
+  // IMPORTANT: load ParameterGEM, ParameterGas and CalPadGainFull from CCDB to correctly init GEMAmplification
+  auto& ccdbManager = o2::ccdb::BasicCCDBManager::instance();
+  ccdbManager.getSpecific<o2::tpc::ParameterGEM>(o2::tpc::CDBTypeMap.at(o2::tpc::CDBType::ParGEM), timestamp);
+  LOGP(info, "initTPC: TPC GEM param, Gas param + CalPadGainFull updated for time {}", timestamp);
+  ccdbManager.getSpecific<o2::tpc::CalPad>(o2::tpc::CDBTypeMap.at(o2::tpc::CDBType::CalPadGainFull), timestamp);
+  ccdbManager.getSpecific<o2::tpc::ParameterGas>(o2::tpc::CDBTypeMap.at(o2::tpc::CDBType::ParGas), timestamp);
+
+  o2::tpc::ParameterGEM::Instance().printKeyValues(true, true);
+  o2::tpc::ParameterGas::Instance().printKeyValues(true, true);
+
   // by invoking this constructor we make sure that a common file will be created
   // in future we should take this from OCDB and just forward per message
   const static auto& ampl = o2::tpc::GEMAmplification::instance();
@@ -592,7 +603,7 @@ WorkflowSpec defineDataProcessing(ConfigContext const& configcontext)
 
   if (isEnabled(o2::detectors::DetID::TPC)) {
     if (!helpasked && ismaster) {
-      initTPC();
+      initTPC(hbfu.startTime);
     }
 
     tpcsectors = o2::RangeTokenizer::tokenize<int>(configcontext.options().get<std::string>("tpc-sectors"));

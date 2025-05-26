@@ -29,11 +29,13 @@ class ctpCCDBManager
   int saveRunConfigToCCDB(CTPConfiguration* cfg, long timeStart);
   int saveSoxOrbit(uint32_t runNumber, uint32_t soxOrbit, long timeStart);
   int saveOrbitReset(long timeStamp);
+  int saveCtpCfg(uint32_t runNumber, long timeStamp);
   static CTPConfiguration getConfigFromCCDB(long timestamp, std::string run, bool& ok);
   static CTPConfiguration getConfigFromCCDB(long timestamp, std::string run);
   CTPRunScalers getScalersFromCCDB(long timestamp, std::string, bool& ok);
   static void setCCDBHost(std::string host) { mCCDBHost = host; };
   static void setQCDBHost(std::string host) { mQCDBHost = host; };
+  void setCtpCfgDir(std::string& ctpcfgdir) { mCtpCfgDir = ctpcfgdir; };
 
  protected:
   /// Database constants
@@ -46,7 +48,10 @@ class ctpCCDBManager
   const std::string mQCDBPathCTPScalers = "qc/CTP/Scalers";
   const std::string mCCDBPathSoxOrbit = "CTP/Calib/FirstRunOrbit";
   const std::string mCCDBPathOrbitReset = "CTP/Calib/OrbitReset";
-  ClassDefNV(ctpCCDBManager, 1);
+  const std::string mCCDBPathCtpCfg = "CTP/Config/CtpCfg";
+  std::string mCtpCfgDir;
+
+  ClassDefNV(ctpCCDBManager, 2);
 };
 } // namespace ctp
 } // namespace o2

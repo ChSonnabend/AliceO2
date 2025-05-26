@@ -15,11 +15,13 @@
 #include "Framework/RuntimeError.h"
 #include "Headers/DataHeaderHelpers.h"
 
+#include <fmt/base.h>
 #include <fmt/format.h>
 #include <sstream>
 #include <cstring>
 #include <cinttypes>
 #include <regex>
+#include <stdexcept>
 
 namespace o2::framework
 {
@@ -87,39 +89,29 @@ std::string DataSpecUtils::describe(OutputSpec const& spec)
                     spec.matcher);
 }
 
-void DataSpecUtils::describe(char* buffer, size_t size, InputSpec const& spec)
+template <HasMatcher T>
+size_t DataSpecUtils::describe(char* buffer, size_t size, T const& spec)
 {
-  if (auto concrete = std::get_if<ConcreteDataMatcher>(&spec.matcher)) {
-    char origin[5];
-    origin[4] = 0;
-    char description[17];
-    description[16] = 0;
-    snprintf(buffer, size, "%s/%s/%" PRIu32, (strncpy(origin, concrete->origin.str, 4), origin),
-             (strncpy(description, concrete->description.str, 16), description), concrete->subSpec);
-  } else if (auto matcher = std::get_if<DataDescriptorMatcher>(&spec.matcher)) {
-    std::ostringstream ss;
-    ss << "<matcher query: " << *matcher << ">";
-    strncpy(buffer, ss.str().c_str(), size - 1);
-  } else {
-    throw runtime_error("Unsupported InputSpec");
-  }
+  auto result = std::visit(overloaded{
+                             [buffer, size](ConcreteDataMatcher const& concrete) -> fmt::format_to_n_result<char*> {
+                               return fmt::format_to_n(buffer, size - 1, "{:.4}/{:.16}/{}", concrete.origin.str, concrete.description.str, concrete.subSpec);
+                             },
+                             [buffer, size](ConcreteDataTypeMatcher const& concrete) -> fmt::format_to_n_result<char*> {
+                               return fmt::format_to_n(buffer, size - 1, "<matcher query: {}/{}>", concrete.origin, concrete.description);
+                             },
+                             [buffer, size](DataDescriptorMatcher const& matcher) -> fmt::format_to_n_result<char*> {
+                               std::ostringstream ss;
+                               ss << "<matcher query: " << matcher << ">";
+                               return fmt::format_to_n(buffer, size - 1, "{}", ss.str());
+                             },
+                             [](...) -> fmt::format_to_n_result<char*> { throw std::runtime_error("Unsupported Input / Output Spec"); }},
+                           spec.matcher);
+  *result.out = '\0';
+  return result.out - buffer;
 }
 
-void DataSpecUtils::describe(char* buffer, size_t size, OutputSpec const& spec)
-{
-  if (auto concrete = std::get_if<ConcreteDataMatcher>(&spec.matcher)) {
-    char origin[5];
-    origin[4] = 0;
-    char description[17];
-    description[16] = 0;
-    snprintf(buffer, size, "%s/%s/%" PRIu32, (strncpy(origin, concrete->origin.str, 4), origin),
-             (strncpy(description, concrete->description.str, 16), description), concrete->subSpec);
-  } else if (auto concrete = std::get_if<ConcreteDataTypeMatcher>(&spec.matcher)) {
-    fmt::format_to(buffer, "<matcher query: {}/{}>", concrete->origin, concrete->description);
-  } else {
-    throw runtime_error("Unsupported OutputSpec");
-  }
-}
+template size_t DataSpecUtils::describe(char* buffer, size_t size, InputSpec const& spec);
+template size_t DataSpecUtils::describe(char* buffer, size_t size, OutputSpec const& spec);
 
 std::string DataSpecUtils::label(InputSpec const& spec)
 {

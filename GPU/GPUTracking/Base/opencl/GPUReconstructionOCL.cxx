@@ -18,7 +18,7 @@
 
 #include <map>
 
-static_assert(std::is_convertible<cl_event, void*>::value, "OpenCL event type incompatible to deviceEvent");
+static_assert(std::is_convertible_v<cl_event, void*>, "OpenCL event type incompatible to deviceEvent");
 
 #define GPUErrorReturn(...) \
   {                         \

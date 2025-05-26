@@ -38,6 +38,7 @@ int32_t GPUReconstructionCUDA::genRTC(std::string& filename, uint32_t& nCompile)
 {
   std::string rtcparam = std::string("#define GPUCA_RTC_CODE\n") +
                          std::string(GetProcessingSettings().rtc.optSpecialCode ? "#define GPUCA_RTC_SPECIAL_CODE(...) __VA_ARGS__\n" : "#define GPUCA_RTC_SPECIAL_CODE(...)\n") +
+                         std::string(GetProcessingSettings().rtc.optConstexpr ? "#define GPUCA_RTC_CONSTEXPR constexpr\n" : "#define GPUCA_RTC_CONSTEXPR\n") +
                          GPUParamRTC::generateRTCCode(param(), GetProcessingSettings().rtc.optConstexpr);
   if (filename == "") {
     filename = "/tmp/o2cagpu_rtc_";

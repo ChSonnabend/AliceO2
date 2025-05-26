@@ -277,9 +277,10 @@ class ClusterFactory
   /// \brief Look to cell neighbourhood and reject if it seems exotic
   /// \param towerId: tower ID of cell with largest energy fraction in cluster
   /// \param ecell: energy of the cell with largest energy fraction in cluster
-  /// \param exoticTime time of the cell with largest energy fraction in cluster
+  /// \param exoticTime: time of the cell with largest energy fraction in cluster
+  /// \param fCross: exoticity parameter (1-E_cross/E_cell^max) will be caluclated for this check
   /// \return bool true if cell is found exotic
-  bool isExoticCell(short towerId, float ecell, float const exoticTime) const;
+  bool isExoticCell(short towerId, float ecell, float const exoticTime, float& fCross) const;
 
   /// \brief Calculate the energy in the cross around the energy of a given cell.
   /// \param absID: controlled cell absolute ID number

@@ -94,7 +94,7 @@ void GPUTPCGMMerger::DumpMergeRanges(std::ostream& out, int32_t withinSector, in
 void GPUTPCGMMerger::DumpTrackLinks(std::ostream& out, bool output, const char* type) const
 {
   out << "\nTPC Merger Links " << type << "\n";
-  const int32_t n = output ? mMemory->nOutputTracks : SectorTrackInfoLocalTotal();
+  const int32_t n = output ? mMemory->nMergedTracks : SectorTrackInfoLocalTotal();
   for (int32_t i = 0; i < n; i++) {
     if (mTrackLinks[i] != -1) {
       out << "  " << i << ": " << mTrackLinks[i] << "\n";
@@ -138,8 +138,8 @@ void GPUTPCGMMerger::DumpCollected(std::ostream& out) const
   std::streamsize ss = out.precision();
   out << std::setprecision(2);
   out << "\nTPC Merger Collected Tracks\n";
-  for (uint32_t i = 0; i < mMemory->nOutputTracks; i++) {
-    const auto& trk = mOutputTracks[i];
+  for (uint32_t i = 0; i < mMemory->nMergedTracks; i++) {
+    const auto& trk = mMergedTracks[i];
     const auto& p = trk.GetParam();
     out << "  Track " << i << ": Loop " << trk.Looper() << " Alpha " << trk.GetAlpha() << " X " << p.GetX() << " offset " << p.GetTZOffset() << " Y " << p.GetY() << " Z " << p.GetZ() << " SPhi " << p.GetSinPhi() << " Tgl " << p.GetDzDs() << " QPt " << p.GetQPt() << " NCl " << trk.NClusters() << "\n";
   }
@@ -150,8 +150,8 @@ void GPUTPCGMMerger::DumpMergeCE(std::ostream& out) const
 {
   DumpTrackLinks(out, true, " for CE merging");
   out << "\nTPC Merger Merge CE\n";
-  for (uint32_t i = 0; i < mMemory->nOutputTracks; i++) {
-    const auto& trk = mOutputTracks[i];
+  for (uint32_t i = 0; i < mMemory->nMergedTracks; i++) {
+    const auto& trk = mMergedTracks[i];
     if (trk.CCE()) {
       out << "  Track " << i << ": CCE\n";
     }
@@ -162,12 +162,12 @@ void GPUTPCGMMerger::DumpFitPrepare(std::ostream& out) const
 {
   out << "\nTPC Merger Refit Prepare\n";
   out << "  Sort\n";
-  for (uint32_t i = 0; i < mMemory->nOutputTracks; i++) {
+  for (uint32_t i = 0; i < mMemory->nMergedTracks; i++) {
     out << "    " << i << ": " << mTrackOrderAttach[i] << "\n";
   }
   out << "  Clusters\n";
-  for (uint32_t j = 0; j < mMemory->nOutputTracks; j++) {
-    const auto& trk = mOutputTracks[j];
+  for (uint32_t j = 0; j < mMemory->nMergedTracks; j++) {
+    const auto& trk = mMergedTracks[j];
     out << "  Track " << j << ": ";
     for (uint32_t i = trk.FirstClusterRef(); i < trk.FirstClusterRef() + trk.NClusters(); i++) {
       out << j << "/" << (i - trk.FirstClusterRef()) << ": " << mClusters[i].num << "/" << (int32_t)mClusters[i].state << ", ";
@@ -195,25 +195,38 @@ void GPUTPCGMMerger::DumpRefit(std::ostream& out) const
   std::streamsize ss = out.precision();
   out << std::setprecision(2);
   out << "\nTPC Merger Refit\n";
-  for (uint32_t i = 0; i < mMemory->nOutputTracks; i++) {
-    const auto& trk = mOutputTracks[i];
+  for (uint32_t i = 0; i < mMemory->nMergedTracks; i++) {
+    const auto& trk = mMergedTracks[i];
     if (trk.NClusters() == 0) {
       continue;
     }
     const auto& p = trk.GetParam();
     const auto& po = trk.OuterParam();
     out << "  Track " << i << ": OK " << trk.OK() << " Alpha " << trk.GetAlpha() << " X " << p.GetX() << " offset " << p.GetTZOffset() << " Y " << p.GetY() << " Z " << p.GetZ() << " SPhi " << p.GetSinPhi() << " Tgl " << p.GetDzDs() << " QPt " << p.GetQPt() << " NCl " << trk.NClusters() << " / " << trk.NClustersFitted() << " Cov " << p.GetErr2Y() << "/" << p.GetErr2Z()
-        << " dEdx " << (trk.OK() ? mOutputTracksdEdx[i].dEdxTotTPC : -1.f) << "/" << (trk.OK() ? mOutputTracksdEdx[i].dEdxMaxTPC : -1.f)
-        << " Outer " << po.P[0] << "/" << po.P[1] << "/" << po.P[2] << "/" << po.P[3] << "/" << po.P[4] << "\n";
+        << " dEdx " << (trk.OK() && Param().dodEdxEnabled ? mMergedTracksdEdx[i].dEdxTotTPC : -1.f) << "/" << (trk.OK() && Param().dodEdxEnabled ? mMergedTracksdEdx[i].dEdxMaxTPC : -1.f)
+        << " Outer " << po.P[0] << "/" << po.P[1] << "/" << po.P[2] << "/" << po.P[3] << "/" << po.P[4]
+        << " NFitted " << trk.NClustersFitted() << " legs " << (int)trk.Legs() << " flags " << (int)trk.Flags() << "\n";
   }
   out << std::setprecision(ss);
+}
+
+void GPUTPCGMMerger::DumpLoopers(std::ostream& out) const
+{
+  out << "\n TPC Merger Looper Afterburner\n";
+  for (uint32_t i = 0; i < mMemory->nMergedTracks; i++) {
+    if (i && i % 100 == 0) {
+      out << "\n";
+    }
+    out << (int)mMergedTracks[i].MergedLooper() << " ";
+  }
+  out << "\n";
 }
 
 void GPUTPCGMMerger::DumpFinal(std::ostream& out) const
 {
   out << "\nTPC Merger Finalized\n";
-  for (uint32_t j = 0; j < mMemory->nOutputTracks; j++) {
-    const auto& trk = mOutputTracks[j];
+  for (uint32_t j = 0; j < mMemory->nMergedTracks; j++) {
+    const auto& trk = mMergedTracks[j];
     if (trk.NClusters() == 0) {
       continue;
     }

@@ -14,14 +14,16 @@
 
 #include <string>
 
-#include "CCDB/BasicCCDBManager.h"
 #include "DataFormatsParameters/GRPLHCIFData.h"
 #include "DataFormatsCTP/Configuration.h"
 #include "DataFormatsCTP/Scalers.h"
 
-namespace o2
+namespace o2::ccdb
 {
-namespace ctp
+class BasicCCDBManager;
+}
+
+namespace o2::ctp
 {
 
 class CTPRateFetcher
@@ -54,7 +56,7 @@ class CTPRateFetcher
   o2::parameters::GRPLHCIFData mLHCIFdata{};
   ClassDefNV(CTPRateFetcher, 1);
 };
-} // namespace ctp
-} // namespace o2
+} // namespace o2::ctp
+
 
 #endif // COMMON_CCDB_CTPRATEFETCHER_H_

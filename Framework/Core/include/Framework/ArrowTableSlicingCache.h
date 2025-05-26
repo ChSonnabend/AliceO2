@@ -34,51 +34,64 @@ struct SliceInfoUnsortedPtr {
   gsl::span<int64_t const> getSliceFor(int value) const;
 };
 
-using StringPair = std::pair<std::string, std::string>;
+struct Entry {
+  std::string binding;
+  std::string key;
+  bool enabled;
 
-void updatePairList(std::vector<StringPair>& list, std::string const& binding, std::string const& key);
+  Entry(std::string b, std::string k, bool e = true)
+    : binding{b},
+      key{k},
+      enabled{e}
+  {
+  }
+};
+
+using Cache = std::vector<Entry>;
+
+void updatePairList(Cache& list, std::string const& binding, std::string const& key, bool enabled);
 
 struct ArrowTableSlicingCacheDef {
   constexpr static ServiceKind service_kind = ServiceKind::Global;
-  std::vector<StringPair> bindingsKeys;
-  std::vector<StringPair> bindingsKeysUnsorted;
+  Cache bindingsKeys;
+  Cache bindingsKeysUnsorted;
 
-  void setCaches(std::vector<StringPair>&& bsks);
-  void setCachesUnsorted(std::vector<StringPair>&& bsks);
+  void setCaches(Cache&& bsks);
+  void setCachesUnsorted(Cache&& bsks);
 };
 
 struct ArrowTableSlicingCache {
   constexpr static ServiceKind service_kind = ServiceKind::Stream;
 
-  std::vector<StringPair> bindingsKeys;
+  Cache bindingsKeys;
   std::vector<std::shared_ptr<arrow::NumericArray<arrow::Int32Type>>> values;
   std::vector<std::shared_ptr<arrow::NumericArray<arrow::Int64Type>>> counts;
 
-  std::vector<StringPair> bindingsKeysUnsorted;
+  Cache bindingsKeysUnsorted;
   std::vector<std::vector<int>> valuesUnsorted;
   std::vector<ListVector> groups;
 
-  ArrowTableSlicingCache(std::vector<StringPair>&& bsks, std::vector<StringPair>&& bsksUnsorted = {});
+  ArrowTableSlicingCache(Cache&& bsks, Cache&& bsksUnsorted = {});
 
   // set caching information externally
-  void setCaches(std::vector<StringPair>&& bsks, std::vector<StringPair>&& bsksUnsorted = {});
+  void setCaches(Cache&& bsks, Cache&& bsksUnsorted = {});
 
   // update slicing info cache entry (assumes it is already present)
   arrow::Status updateCacheEntry(int pos, std::shared_ptr<arrow::Table> const& table);
   arrow::Status updateCacheEntryUnsorted(int pos, std::shared_ptr<arrow::Table> const& table);
 
   // helper to locate cache position
-  std::pair<int, bool> getCachePos(StringPair const& bindingKey) const;
-  int getCachePosSortedFor(StringPair const& bindingKey) const;
-  int getCachePosUnsortedFor(StringPair const& bindingKey) const;
+  std::pair<int, bool> getCachePos(Entry const& bindingKey) const;
+  int getCachePosSortedFor(Entry const& bindingKey) const;
+  int getCachePosUnsortedFor(Entry const& bindingKey) const;
 
   // get slice from cache for a given value
-  SliceInfoPtr getCacheFor(StringPair const& bindingKey) const;
-  SliceInfoUnsortedPtr getCacheUnsortedFor(StringPair const& bindingKey) const;
+  SliceInfoPtr getCacheFor(Entry const& bindingKey) const;
+  SliceInfoUnsortedPtr getCacheUnsortedFor(Entry const& bindingKey) const;
   SliceInfoPtr getCacheForPos(int pos) const;
   SliceInfoUnsortedPtr getCacheUnsortedForPos(int pos) const;
 
-  static void validateOrder(StringPair const& bindingKey, std::shared_ptr<arrow::Table> const& input);
+  static void validateOrder(Entry const& bindingKey, std::shared_ptr<arrow::Table> const& input);
 };
 } // namespace o2::framework
 

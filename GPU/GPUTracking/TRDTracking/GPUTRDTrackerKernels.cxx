@@ -15,9 +15,12 @@
 #include "GPUTRDTrackerKernels.h"
 #include "GPUTRDGeometry.h"
 #include "GPUConstantMem.h"
-#include "GPUCommonTypeTraits.h"
 
 #include "GPUReconstructionThreading.h"
+
+#ifndef GPUCA_GPUCODE_DEVICE
+#include <type_traits>
+#endif
 
 using namespace o2::gpu;
 

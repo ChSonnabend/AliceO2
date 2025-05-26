@@ -780,6 +780,15 @@ int CTPConfiguration::getInputIndex(const std::string& name) const
   LOG(info) << "input:" << name << " index:" << index;
   return index;
 }
+std::string CTPConfiguration::getClassNameFromIndex(int index)
+{
+  if (index < (int)mCTPClasses.size()) {
+    return mCTPClasses[index].name;
+  } else {
+    std::string name = "Cls" + std::to_string(index);
+    return name;
+  }
+};
 std::string CTPConfiguration::getClassNameFromHWIndex(int index)
 {
   for (auto& cls : mCTPClasses) {
@@ -902,6 +911,31 @@ uint64_t CTPConfiguration::getTriggerClassMask() const
   uint64_t clsmask = 0;
   for (auto const& cls : mCTPClasses) {
     clsmask |= cls.classMask;
+  }
+  return clsmask;
+}
+uint64_t CTPConfiguration::getTriggerClassMaskWInputs() const
+{
+  uint64_t clsmask = 0;
+  for (auto const& cls : mCTPClasses) {
+    if (cls.name.find("TRUE") != std::string::npos) { // ignoring internal ctp generators
+      continue;
+    }
+    clsmask |= cls.classMask;
+  }
+  return clsmask;
+}
+uint64_t CTPConfiguration::getTriggerClassMaskWInputsNoTrgDets() const
+{
+  uint64_t clsmask = 0;
+  for (auto const& cls : mCTPClasses) {
+    bool exclude = cls.name.find("TRUE") != std::string::npos; // ignoring internal ctp generators
+    exclude += cls.name.find("EMC") != std::string::npos;
+    exclude += cls.name.find("TRD") != std::string::npos;
+    exclude += cls.name.find("HMP") != std::string::npos;
+    if (!exclude) {
+      clsmask |= cls.classMask;
+    }
   }
   return clsmask;
 }
@@ -1151,6 +1185,47 @@ int CTPInputsConfiguration::getInputIndexFromName(std::string& name)
   }
   LOG(warn) << "Input with name:" << name << " not in default input config";
   return 0xff;
+}
+
+int CtpCfg::readAndSave(std::string& path)
+{
+  std::string file = path + filename;
+  std::ifstream ctpcfg(file);
+  if (ctpcfg.is_open()) {
+    std::string line;
+    while (std::getline(ctpcfg, line)) {
+      o2::utils::Str::trim(line);
+      if (line.size() == 0) {
+        continue;
+      }
+      if (line[0] == '#') {
+        continue;
+      }
+      std::vector<std::string> tokens = o2::utils::Str::tokenize(line, ' ');
+      size_t ntokens = tokens.size();
+      if (ntokens < 2) {
+        LOG(warn) << "Not enough tokens";
+        continue;
+      }
+      if (tokens[0].find("TForbits") != std::string::npos) {
+        TFOrbits = std::atol(tokens[1].c_str());
+      } else if (tokens[0].find("ccdb") != std::string::npos) {
+        ccdb = std::atoi(tokens[1].c_str());
+      } else if (tokens[0].find("orbitshift") != std::string::npos) {
+        orbitShift = std::atol(tokens[1].c_str());
+      } else if (tokens[0].find("ir_inputs") != std::string::npos) {
+        irInputs_1_24 = std::stoul(tokens[2].c_str(), nullptr, 16);
+        irInputs_25_48 = std::stoul(tokens[1].c_str(), nullptr, 16);
+      } else {
+        LOG(warn) << " Token not found:" << tokens[0];
+      }
+    }
+    LOG(warn) << "Open file success:" << file;
+  } else {
+    LOG(warn) << "Can not open file:" << file;
+    return 1;
+  }
+  return 0;
 }
 
 std::ostream& o2::ctp::operator<<(std::ostream& in, const o2::ctp::CTPConfiguration& conf)

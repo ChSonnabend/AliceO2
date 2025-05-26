@@ -110,11 +110,11 @@ class DCAFitterN
   using MatSymND = o2::math_utils::SMatrix<double, N, N, o2::math_utils::MatRepSym<double, N>>;
   using MatStdND = o2::math_utils::SMatrix<double, N, N, o2::math_utils::MatRepStd<double, N>>;
   using TrackCoefVtx = MatStd3D;
-  using ArrTrack = o2::gpu::gpustd::array<Track, N>;         // container for prongs (tracks) at single vertex cand.
-  using ArrTrackCovI = o2::gpu::gpustd::array<TrackCovI, N>; // container for inv.cov.matrices at single vertex cand.
-  using ArrTrCoef = o2::gpu::gpustd::array<TrackCoefVtx, N>; // container of TrackCoefVtx coefficients at single vertex cand.
-  using ArrTrDer = o2::gpu::gpustd::array<TrackDeriv, N>;    // container of Track 1st and 2nd derivative over their X param
-  using ArrTrPos = o2::gpu::gpustd::array<Vec3D, N>;         // container of Track positions
+  using ArrTrack = std::array<Track, N>;         // container for prongs (tracks) at single vertex cand.
+  using ArrTrackCovI = std::array<TrackCovI, N>; // container for inv.cov.matrices at single vertex cand.
+  using ArrTrCoef = std::array<TrackCoefVtx, N>; // container of TrackCoefVtx coefficients at single vertex cand.
+  using ArrTrDer = std::array<TrackDeriv, N>;    // container of Track 1st and 2nd derivative over their X param
+  using ArrTrPos = std::array<Vec3D, N>;         // container of Track positions
 
  public:
   enum BadCovPolicy : uint8_t { // if encountering non-positive defined cov. matrix, the choice is:
@@ -158,7 +158,7 @@ class DCAFitterN
   GPUd() const auto getPCACandidatePos(int cand = 0) const
   {
     const auto& vd = mPCA[mOrder[cand]];
-    return o2::gpu::gpustd::array<float, 3>{static_cast<float>(vd[0]), static_cast<float>(vd[1]), static_cast<float>(vd[2])};
+    return std::array<float, 3>{static_cast<float>(vd[0]), static_cast<float>(vd[1]), static_cast<float>(vd[2])};
   }
 
   ///< return position of quality-ordered candidate in the internal structures
@@ -213,7 +213,7 @@ class DCAFitterN
 
   GPUd() MatSym3D calcPCACovMatrix(int cand = 0) const;
 
-  o2::gpu::gpustd::array<float, 6> calcPCACovMatrixFlat(int cand = 0) const
+  std::array<float, 6> calcPCACovMatrixFlat(int cand = 0) const
   {
     auto m = calcPCACovMatrix(cand);
     return {static_cast<float>(m(0, 0)), static_cast<float>(m(1, 0)), static_cast<float>(m(1, 1)), static_cast<float>(m(2, 0)), static_cast<float>(m(2, 1)), static_cast<float>(m(2, 2))};
@@ -364,39 +364,39 @@ class DCAFitterN
 
  private:
   // vectors of 1st derivatives of track local residuals over X parameters
-  o2::gpu::gpustd::array<o2::gpu::gpustd::array<Vec3D, N>, N> mDResidDx;
+  std::array<std::array<Vec3D, N>, N> mDResidDx;
   // vectors of 1nd derivatives of track local residuals over X parameters
   // (cross-derivatives DR/(dx_j*dx_k) = 0 for j!=k, therefore the hessian is diagonal)
-  o2::gpu::gpustd::array<o2::gpu::gpustd::array<Vec3D, N>, N> mD2ResidDx2;
+  std::array<std::array<Vec3D, N>, N> mD2ResidDx2;
   VecND mDChi2Dx;      // 1st derivatives of chi2 over tracks X params
   MatSymND mD2Chi2Dx2; // 2nd derivatives of chi2 over tracks X params (symmetric matrix)
   MatSymND mCosDif;    // matrix with cos(alp_j-alp_i) for j<i
   MatSymND mSinDif;    // matrix with sin(alp_j-alp_i) for j<i
-  o2::gpu::gpustd::array<const Track*, N> mOrigTrPtr;
-  o2::gpu::gpustd::array<TrackAuxPar, N> mTrAux; // Aux track info for each track at each cand. vertex
-  CrossInfo mCrossings;                          // info on track crossing
+  std::array<const Track*, N> mOrigTrPtr;
+  std::array<TrackAuxPar, N> mTrAux; // Aux track info for each track at each cand. vertex
+  CrossInfo mCrossings;              // info on track crossing
 
-  o2::gpu::gpustd::array<ArrTrackCovI, MAXHYP> mTrcEInv; // errors for each track at each cand. vertex
-  o2::gpu::gpustd::array<ArrTrack, MAXHYP> mCandTr;      // tracks at each cond. vertex (Note: Errors are at seed XY point)
-  o2::gpu::gpustd::array<ArrTrCoef, MAXHYP> mTrCFVT;     // TrackCoefVtx for each track at each cand. vertex
-  o2::gpu::gpustd::array<ArrTrDer, MAXHYP> mTrDer;       // Track derivativse
-  o2::gpu::gpustd::array<ArrTrPos, MAXHYP> mTrPos;       // Track positions
-  o2::gpu::gpustd::array<ArrTrPos, MAXHYP> mTrRes;       // Track residuals
-  o2::gpu::gpustd::array<Vec3D, MAXHYP> mPCA;            // PCA for each vertex candidate
-  o2::gpu::gpustd::array<float, MAXHYP> mChi2 = {0};     // Chi2 at PCA candidate
-  o2::gpu::gpustd::array<int, MAXHYP> mNIters;           // number of iterations for each seed
-  o2::gpu::gpustd::array<bool, MAXHYP> mTrPropDone{};    // Flag that the tracks are fully propagated to PCA
-  o2::gpu::gpustd::array<bool, MAXHYP> mPropFailed{};    // Flag that some propagation failed for this PCA candidate
+  std::array<ArrTrackCovI, MAXHYP> mTrcEInv; // errors for each track at each cand. vertex
+  std::array<ArrTrack, MAXHYP> mCandTr;      // tracks at each cond. vertex (Note: Errors are at seed XY point)
+  std::array<ArrTrCoef, MAXHYP> mTrCFVT;     // TrackCoefVtx for each track at each cand. vertex
+  std::array<ArrTrDer, MAXHYP> mTrDer;       // Track derivativse
+  std::array<ArrTrPos, MAXHYP> mTrPos;       // Track positions
+  std::array<ArrTrPos, MAXHYP> mTrRes;       // Track residuals
+  std::array<Vec3D, MAXHYP> mPCA;            // PCA for each vertex candidate
+  std::array<float, MAXHYP> mChi2 = {0};     // Chi2 at PCA candidate
+  std::array<int, MAXHYP> mNIters;           // number of iterations for each seed
+  std::array<bool, MAXHYP> mTrPropDone{};    // Flag that the tracks are fully propagated to PCA
+  std::array<bool, MAXHYP> mPropFailed{};    // Flag that some propagation failed for this PCA candidate
   LogLogThrottler mLoggerBadCov{};
   LogLogThrottler mLoggerBadInv{};
   LogLogThrottler mLoggerBadProp{};
   MatSym3D mWeightInv; // inverse weight of single track, [sum{M^T E M}]^-1 in EQ.T
-  o2::gpu::gpustd::array<int, MAXHYP> mOrder{0};
+  std::array<int, MAXHYP> mOrder{0};
   int mCurHyp = 0;
   int mCrossIDCur = 0;
   int mCrossIDAlt = -1;
   BadCovPolicy mBadCovPolicy{BadCovPolicy::Discard};                                              // what to do in case of non-pos-def. cov. matrix, see BadCovPolicy enum
-  o2::gpu::gpustd::array<FitStatus, MAXHYP> mFitStatus{};                                         // fit status of each hypothesis fit
+  std::array<FitStatus, MAXHYP> mFitStatus{};                                                     // fit status of each hypothesis fit
   bool mAllowAltPreference = true;                                                                // if the fit converges to alternative PCA seed, abandon the current one
   bool mUseAbsDCA = false;                                                                        // use abs. distance minimization rather than chi2
   bool mWeightedFinalPCA = false;                                                                 // recalculate PCA as a cov-matrix weighted mean, even if absDCA method was used
@@ -657,7 +657,7 @@ template <int N, typename... Args>
 GPUd() void DCAFitterN<N, Args...>::calcChi2Derivatives()
 {
   //< calculate 1st and 2nd derivatives of wighted DCA (chi2) over track parameters X, see EQ.Chi2 in the ref
-  o2::gpu::gpustd::array<o2::gpu::gpustd::array<Vec3D, N>, N> covIDrDx; // tempory vectors of covI_j * dres_j/dx_i
+  std::array<std::array<Vec3D, N>, N> covIDrDx; // tempory vectors of covI_j * dres_j/dx_i
 
   // chi2 1st derivative
   for (int i = N; i--;) {
@@ -1175,13 +1175,13 @@ GPUd() o2::track::TrackParCov DCAFitterN<N, Args...>::createParentTrackParCov(in
 {
   const auto& trP = getTrack(0, cand);
   const auto& trN = getTrack(1, cand);
-  o2::gpu::gpustd::array<float, 21> covV = {0.};
-  o2::gpu::gpustd::array<float, 3> pvecV = {0.};
+  std::array<float, 21> covV = {0.};
+  std::array<float, 3> pvecV = {0.};
   int q = 0;
   for (int it = 0; it < N; it++) {
     const auto& trc = getTrack(it, cand);
-    o2::gpu::gpustd::array<float, 3> pvecT = {0.};
-    o2::gpu::gpustd::array<float, 21> covT = {0.};
+    std::array<float, 3> pvecT = {0.};
+    std::array<float, 21> covT = {0.};
     trc.getPxPyPzGlo(pvecT);
     trc.getCovXYZPxPyPzGlo(covT);
     constexpr int MomInd[6] = {9, 13, 14, 18, 19, 20}; // cov matrix elements for momentum component
@@ -1210,18 +1210,18 @@ GPUd() o2::track::TrackPar DCAFitterN<N, Args...>::createParentTrackPar(int cand
   const auto& trP = getTrack(0, cand);
   const auto& trN = getTrack(1, cand);
   const auto& wvtx = getPCACandidate(cand);
-  o2::gpu::gpustd::array<float, 3> pvecV = {0.};
+  std::array<float, 3> pvecV = {0.};
   int q = 0;
   for (int it = 0; it < N; it++) {
     const auto& trc = getTrack(it, cand);
-    o2::gpu::gpustd::array<float, 3> pvecT = {0.};
+    std::array<float, 3> pvecT = {0.};
     trc.getPxPyPzGlo(pvecT);
     for (int i = 0; i < 3; i++) {
       pvecV[i] += pvecT[i];
     }
     q += trc.getCharge();
   }
-  const o2::gpu::gpustd::array<float, 3> vertex = {(float)wvtx[0], (float)wvtx[1], (float)wvtx[2]};
+  const std::array<float, 3> vertex = {(float)wvtx[0], (float)wvtx[1], (float)wvtx[2]};
   return o2::track::TrackPar(vertex, pvecV, q, sectorAlpha);
 }
 

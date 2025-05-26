@@ -16,14 +16,15 @@
 #ifndef MATHUTILS_INCLUDE_MATHUTILS_DETAIL_BASICMATH_H_
 #define MATHUTILS_INCLUDE_MATHUTILS_DETAIL_BASICMATH_H_
 
-#ifndef GPUCA_GPUCODE_DEVICE
-#include <cmath>
-#include <tuple>
-#endif
-#include "GPUCommonArray.h"
 #include "GPUCommonDef.h"
 #include "GPUCommonMath.h"
 #include "CommonConstants/MathConstants.h"
+
+#ifndef GPUCA_GPUCODE_DEVICE
+#include <cmath>
+#include <tuple>
+#include <array>
+#endif
 
 namespace o2
 {

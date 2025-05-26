@@ -38,7 +38,7 @@ class AlpideRespSimMat
   static int constexpr getNPix() { return NPix; }
 
   AlpideRespSimMat() = default;
-  ~AlpideRespSimMat() = default;
+  virtual ~AlpideRespSimMat() = default;
 
   void adopt(const AlpideRespSimMat& src, bool flipRow = false, bool flipCol = false)
   {
@@ -69,7 +69,7 @@ class AlpideRespSimMat
  private:
   std::array<float, MatSize> data;
 
-  ClassDefNV(AlpideRespSimMat, 1);
+  ClassDef(AlpideRespSimMat, 1);
 };
 
 /*
@@ -91,6 +91,7 @@ class AlpideSimResponse
   int getDepthBin(float pos) const;
   std::string composeDataName(int colBin, int rowBin);
 
+ protected:
   int mNBinCol = 0;                                   /// number of bins in X(col direction)
   int mNBinRow = 0;                                   /// number of bins in Y(row direction)
   int mNBinDpt = 0;                                   /// number of bins in Z(sensor dept)

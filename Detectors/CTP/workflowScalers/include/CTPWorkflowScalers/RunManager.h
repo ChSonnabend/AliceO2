@@ -72,7 +72,7 @@ class CTPRunManager : public ctpCCDBManager
   int mEOX = 0; // redundancy check
   int mNew = 1; // 1 - no CCDB: used for QC
   int mQCWritePeriod = 3; // Time in 10secs between two writes to QCCD
-  ClassDefNV(CTPRunManager, 7);
+  ClassDefNV(CTPRunManager, 8);
 };
 } // namespace ctp
 } // namespace o2

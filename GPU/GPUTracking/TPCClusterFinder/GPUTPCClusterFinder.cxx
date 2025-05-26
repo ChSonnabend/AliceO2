@@ -17,6 +17,7 @@
 #include "GPUMemorySizeScalers.h"
 #include "GPUHostDataTypes.h"
 #include "GPUSettings.h"
+#include "GPUDefParametersRuntime.h"
 
 #include "DataFormatsTPC/ClusterNative.h"
 #include "DataFormatsTPC/ZeroSuppression.h"
@@ -90,9 +91,10 @@ void* GPUTPCClusterFinder::SetPointersScratch(void* mem)
   computePointerWithAlignment(mem, mPisPeak, mNMaxDigitsFragment);
   computePointerWithAlignment(mem, mPchargeMap, TPCMapMemoryLayout<decltype(*mPchargeMap)>::items(mRec->GetProcessingSettings().overrideClusterizerFragmentLen));
   computePointerWithAlignment(mem, mPpeakMap, TPCMapMemoryLayout<decltype(*mPpeakMap)>::items(mRec->GetProcessingSettings().overrideClusterizerFragmentLen));
-  computePointerWithAlignment(mem, mPbuf, mBufSize * mNBufs);
   computePointerWithAlignment(mem, mPclusterByRow, GPUCA_ROW_COUNT * mNMaxClusterPerRow);
-
+  if ((mRec->GetRecoStepsGPU() & GPUDataTypes::RecoStep::TPCClusterFinding)) {
+    computePointerWithAlignment(mem, mPscanBuf, mBufSize * mNBufs);
+  }
   return mem;
 }
 
@@ -129,14 +131,15 @@ void GPUTPCClusterFinder::SetMaxData(const GPUTrackingInOutPointers& io)
   if (mRec->GetProcessingSettings().tpcIncreasedMinClustersPerRow) {
     mNMaxClusterPerRow = std::max<uint32_t>(mNMaxClusterPerRow, mRec->GetProcessingSettings().tpcIncreasedMinClustersPerRow);
   }
-
-  mBufSize = nextMultipleOf<std::max<int32_t>(GPUCA_MEMALIGN, mScanWorkGroupSize)>(mNMaxDigitsFragment);
-  mNBufs = getNSteps(mBufSize);
+  if ((mRec->GetRecoStepsGPU() & GPUDataTypes::RecoStep::TPCClusterFinding)) {
+    mBufSize = nextMultipleOf(mNMaxDigitsFragment, std::max<int32_t>(GPUCA_MEMALIGN, mRec->getGPUParameters(mRec->GetRecoStepsGPU() & GPUDataTypes::RecoStep::TPCClusterFinding).par_CF_SCAN_WORKGROUP_SIZE));
+    mNBufs = getNSteps(mBufSize);
+  }
 }
 
 void GPUTPCClusterFinder::SetNMaxDigits(size_t nDigits, size_t nPages, size_t nDigitsFragment, size_t nDigitsEndpointMax)
 {
-  mNMaxDigits = nextMultipleOf<std::max<int32_t>(GPUCA_MEMALIGN, mScanWorkGroupSize)>(nDigits);
+  mNMaxDigits = nextMultipleOf(nDigits, std::max<int32_t>(GPUCA_MEMALIGN, mRec->getGPUParameters(mRec->GetRecoStepsGPU() & GPUDataTypes::RecoStep::TPCClusterFinding).par_CF_SCAN_WORKGROUP_SIZE));
   mNMaxPages = nPages;
   mNMaxDigitsFragment = nDigitsFragment;
   mNMaxDigitsEndpoint = nDigitsEndpointMax;
@@ -148,9 +151,10 @@ uint32_t GPUTPCClusterFinder::getNSteps(size_t items) const
     return 0;
   }
   uint32_t c = 1;
-  size_t capacity = mScanWorkGroupSize;
+  const size_t scanWorkgroupSize = mRec->getGPUParameters(mRec->GetRecoStepsGPU() & GPUDataTypes::RecoStep::TPCClusterFinding).par_CF_SCAN_WORKGROUP_SIZE;
+  size_t capacity = scanWorkgroupSize;
   while (items > capacity) {
-    capacity *= mScanWorkGroupSize;
+    capacity *= scanWorkgroupSize;
     c++;
   }
   return c;

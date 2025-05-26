@@ -125,8 +125,66 @@ void GPUTPCCompression::SetMaxData(const GPUTrackingInOutPointers& io)
   mMaxClusterFactorBase1024 = mMaxClusters > 100000000 ? mRec->MemoryScalers()->NTPCUnattachedHitsBase1024(mRec->GetParam().rec.tpc.rejectionStrategy) : 1024;
   mMaxClustersInCache = mMaxClusters * mMaxClusterFactorBase1024 / 1024;
   mMaxTrackClusters = mRec->GetConstantMem().tpcMerger.NOutputTrackClusters(); // TODO: Why is this not using ioPtrs? Could remove GPUConstantMem.h include
-  mMaxTracks = mRec->GetConstantMem().tpcMerger.NOutputTracks();
+  mMaxTracks = mRec->GetConstantMem().tpcMerger.NMergedTracks();
   if (mMaxClusters % 16) {
     mMaxClusters += 16 - (mMaxClusters % 16);
+  }
+}
+
+void GPUTPCCompression::DumpCompressedClusters(std::ostream& out)
+{
+  const o2::tpc::CompressedClusters O = *mOutputFlat;
+  out << "\n\nCompressed Clusters:\n";
+  out << O.nTracks << " Tracks\n";
+  out << "Slice Row Clusters:\n";
+  for (uint32_t i = 0; i < NSECTORS; i++) {
+    out << "Sector " << i << ": ";
+    for (uint32_t j = 0; j < GPUCA_ROW_COUNT; j++) {
+      out << (O.nSliceRowClusters ? O.nSliceRowClusters[i * GPUCA_ROW_COUNT + j] : 0) << ", ";
+    }
+    out << "\n";
+  }
+  out << "\nTrack Clusters:\n";
+  for (uint32_t i = 0; i < O.nTracks; i++) {
+    if (i && i % 100 == 0) {
+      out << "\n";
+    }
+    out << O.nTrackClusters[i] << ", ";
+  }
+  out << "\n\nUnattached Clusters\n";
+  uint32_t offset = 0;
+  if (O.nSliceRowClusters) {
+    for (uint32_t i = 0; i < NSECTORS; i++) {
+      for (uint32_t j = 0; j < GPUCA_ROW_COUNT; j++) {
+        out << "Sector " << i << " Row " << j << ": ";
+        for (uint32_t k = 0; k < O.nSliceRowClusters[i * GPUCA_ROW_COUNT + j]; k++) {
+          if (k && k % 10 == 0) {
+            out << "\n    ";
+          }
+          const uint32_t l = k + offset;
+          out << "[" << (uint32_t)O.qTotU[l] << ", " << (uint32_t)O.qMaxU[l] << ", " << (uint32_t)O.flagsU[l] << ", " << (int32_t)O.padDiffU[l] << ", " << (int32_t)O.timeDiffU[l] << ", " << (uint32_t)O.sigmaPadU[l] << ", " << (uint32_t)O.sigmaTimeU[l] << "] ";
+        }
+        offset += O.nSliceRowClusters[i * GPUCA_ROW_COUNT + j];
+        out << "\n";
+      }
+    }
+  }
+  out << "\n\nAttached Clusters\n";
+  offset = 0;
+  for (uint32_t i = 0; i < O.nTracks; i++) {
+    out << "Track " << i << ": {" << (uint32_t)O.qPtA[i] << ", " << (uint32_t)O.rowA[i] << ", " << (uint32_t)O.sliceA[i] << ", " << (uint32_t)O.timeA[i] << ", " << (uint32_t)O.padA[i] << "} - ";
+    for (uint32_t k = 0; k < O.nTrackClusters[i]; k++) {
+      if (k && k % 10 == 0) {
+        out << "\n    ";
+      }
+      const uint32_t l1 = offset + k, l2 = offset - i + k - 1;
+      out << "[";
+      if (k) {
+        out << (int32_t)O.rowDiffA[l2] << ", " << (int32_t)O.sliceLegDiffA[l2] << ", " << (uint32_t)O.padResA[l2] << ", " << (uint32_t)O.timeResA[l2] << ", ";
+      }
+      out << (uint32_t)O.qTotA[l1] << ", " << (uint32_t)O.qMaxA[l1] << ", " << (uint32_t)O.flagsA[l1] << ", " << (uint32_t)O.sigmaPadA[l1] << ", " << (uint32_t)O.sigmaTimeA[l1] << "] ";
+    }
+    offset += O.nTrackClusters[i];
+    out << "\n";
   }
 }

@@ -593,7 +593,7 @@ int EfficiencyStudy::getDCAClusterTrackMC(int countDuplicated = 0)
   LOGP(info, "--------------- getDCAClusterTrackMC");
 
   o2::base::Propagator::MatCorrType matCorr = o2::base::Propagator::MatCorrType::USEMatCorrLUT;
-  o2::gpu::gpustd::array<float, 2> clusOriginalDCA, clusDuplicatedDCA;
+  std::array<float, 2> clusOriginalDCA, clusDuplicatedDCA;
   auto propagator = o2::base::Propagator::Instance();
 
   auto bz = o2::base::Propagator::Instance()->getNominalBz();
@@ -833,7 +833,7 @@ void EfficiencyStudy::countDuplicatedAfterCuts()
   LOGP(info, "--------------- countDuplicatedAfterCuts");
 
   o2::base::Propagator::MatCorrType matCorr = o2::base::Propagator::MatCorrType::USEMatCorrLUT;
-  o2::gpu::gpustd::array<float, 2> clusOriginalDCA, clusDuplicatedDCA;
+  std::array<float, 2> clusOriginalDCA, clusDuplicatedDCA;
   auto propagator = o2::base::Propagator::Instance();
 
   unsigned int rofIndexTrack = 0;
@@ -1019,7 +1019,7 @@ void EfficiencyStudy::studyDCAcutsMC()
   //  if not, keep it as a fake match -> increase the fake match counter
   //  the efficiency of each one will be match counter / total of the duplicated clusters
   o2::base::Propagator::MatCorrType matCorr = o2::base::Propagator::MatCorrType::USEMatCorrLUT;
-  o2::gpu::gpustd::array<float, 2> clusOriginalDCA, clusDuplicatedDCA;
+  std::array<float, 2> clusOriginalDCA, clusDuplicatedDCA;
   auto propagator = o2::base::Propagator::Instance();
 
   unsigned int rofIndexTrack = 0;
@@ -1346,7 +1346,7 @@ void EfficiencyStudy::studyClusterSelectionMC()
   }
 
   o2::base::Propagator::MatCorrType matCorr = o2::base::Propagator::MatCorrType::USEMatCorrLUT;
-  o2::gpu::gpustd::array<float, 2> clusOriginalDCA, clusDuplicatedDCA;
+  std::array<float, 2> clusOriginalDCA, clusDuplicatedDCA;
   auto propagator = o2::base::Propagator::Instance();
 
   unsigned int rofIndexTrack = 0;
@@ -2176,7 +2176,7 @@ void EfficiencyStudy::getEfficiency(bool isMC)
   LOGP(info, "getEfficiency()");
 
   o2::base::Propagator::MatCorrType matCorr = o2::base::Propagator::MatCorrType::USEMatCorrLUT;
-  o2::gpu::gpustd::array<float, 2> clusOriginalDCA, clusDuplicatedDCA;
+  std::array<float, 2> clusOriginalDCA, clusDuplicatedDCA;
   auto propagator = o2::base::Propagator::Instance();
 
   unsigned int rofIndexTrack = 0;

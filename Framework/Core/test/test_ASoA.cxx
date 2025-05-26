@@ -31,6 +31,7 @@ namespace test
 DECLARE_SOA_COLUMN(X, x, int);
 DECLARE_SOA_COLUMN(Y, y, int);
 DECLARE_SOA_COLUMN(Z, z, int);
+DECLARE_SOA_COLUMN(W, w, int);
 DECLARE_SOA_DYNAMIC_COLUMN(Sum, sum, [](int x, int y) { return x + y; });
 DECLARE_SOA_EXPRESSION_COLUMN(ESum, esum, int, test::x + test::y);
 } // namespace test
@@ -268,9 +269,17 @@ TEST_CASE("TestJoinedTables")
   rowWriterZ(0, 8);
   auto tableZ = builderZ.finalize();
 
+  TableBuilder builderW;
+  auto rowWriterW = builderW.persist<int32_t>({"fW"});
+  rowWriterW(0, 8);
+  rowWriterW(0, 8);
+  rowWriterW(0, 8);
+  auto tableW = builderW.finalize();
+
   using TestX = InPlaceTable<"A0"_h, o2::aod::test::X>;
   using TestY = InPlaceTable<"A1"_h, o2::aod::test::Y>;
   using TestZ = InPlaceTable<"A2"_h, o2::aod::test::Z>;
+  using TestW = InPlaceTable<"A3"_h, o2::aod::test::W>;
   using Test = Join<TestX, TestY>;
 
   REQUIRE(Test::contains<TestX>());
@@ -302,6 +311,12 @@ TEST_CASE("TestJoinedTables")
   TestMoreThanTwo tests4{{tableX, tableY, tableZ}, 0};
   for (auto& test : tests4) {
     REQUIRE(15 == test.x() + test.y() + test.z());
+  }
+
+  try {
+    auto testF = join(TestZ{tableZ}, TestW{tableW});
+  } catch (RuntimeErrorRef ref) {
+    REQUIRE(std::string{error_from_ref(ref).what} == "Tables TEST and TEST have different sizes (8 vs 3) and cannot be joined!");
   }
 }
 

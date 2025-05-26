@@ -10,7 +10,7 @@ The full system test consists of 2 parts (detailed below):
 
 The relevant scripts are `/prodtests/full_system_test.sh` and all scripts in `/prodtests/full-system-test`.
 Note that by default the `full_system_test.sh` script will do both, run the generation and then the sysc and the async workflow.
-This is only a quickstart guide, for more information see https://alice.its.cern.ch/jira/browse/O2-1492.
+This is only a quickstart guide, for more information see https://github.com/AliceO2Group/AliceO2/blob/dev/prodtests/full-system-test/documentation/full-system-test-setup.md.
 
 In order to run the full system test, you need to run in the O2sim environment (`alienv enter O2sim/latest`):
 ```
@@ -50,7 +50,7 @@ The generation part (in `prodtests/full_system_test.sh` runs the following steps
 The `prodtests/full_system_test.sh` uses `Utilities/Tools/jobutils.sh` for running the jobs, which creates a log file for each step, and which will automatically skip steps that have already succeeded if the test is rerun in the current folder. I.e. if you break the FST or it failed at some point, you can rerun the same command line and it will continue after the last successful step. See `Utilities/Tools/jobutils.sh` for details.
 
 Note that by default, the generation produces raw files, which can be consumed by the `raw-file-reader-workflow` and by `o2-readout-exe`.
-The files can be converted into timeframes files readable by the StfBuilder as described in https://alice.its.cern.ch/jira/browse/O2-1492.
+The files can be converted into timeframes files readable by the StfBuilder as described in https://github.com/AliceO2Group/AliceO2/blob/dev/prodtests/full-system-test/documentation/full-system-test-setup.md.
 
 ## Full system test DPL-workflow configuration and scripts
 
@@ -80,7 +80,7 @@ The `dpl-workflow.sh` can run both the synchronous and the asynchronous workflow
 All settings are configured via environment variables.
 The default settings (if no env variable is exported) are defined in `setenv.sh` which is sourced by all other scripts.
 (Please note that `start_tmux.sh` overrides a couple of options with EPN defaults).
-The environment variables are documented here: https://github.com/AliceO2Group/O2DPG/blob/master/DATA/common/README.md
+The environment variables are documented here: https://github.com/AliceO2Group/AliceO2/blob/dev/prodtests/full-system-test/documentation/full-system-test-env-variables.md
 
 ## Files produced / required by the full system test
 

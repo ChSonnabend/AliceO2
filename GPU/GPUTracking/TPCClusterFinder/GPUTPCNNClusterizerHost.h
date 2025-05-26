@@ -53,7 +53,7 @@ class GPUTPCNNClusterizerHost
   void initClusterizer(const GPUSettingsProcessingNNclusterizer&, GPUTPCNNClusterizer&);
 
   // ONNX
-  void volatileOrtAllocator(Ort::Env*, Ort::MemoryInfo*, GPUReconstruction*, bool = false);
+  void directOrtAllocator(Ort::Env*, Ort::MemoryInfo*, GPUReconstruction*, bool = false);
   MockedOrtAllocator* getMockedAllocator();
   const OrtMemoryInfo* getMockedMemoryInfo();
 

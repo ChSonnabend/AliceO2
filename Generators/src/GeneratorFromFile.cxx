@@ -385,6 +385,11 @@ GeneratorFromEventPool::GeneratorFromEventPool(EventPoolGenConfig const& pars) :
 
 bool GeneratorFromEventPool::Init()
 {
+  // this simply passes tracks trough. Leave units intact.
+  setTimeUnit(1.);
+  setPositionUnit(1.);
+  setEnergyUnit(1.);
+
   // initialize the event pool
   if (mConfig.rngseed > 0) {
     mRandomEngine.seed(mConfig.rngseed);

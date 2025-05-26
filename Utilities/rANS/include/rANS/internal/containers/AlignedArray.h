@@ -107,16 +107,16 @@ class AlignedArrayIterator
 
   inline constexpr difference_type operator-(const AlignedArrayIterator& other) const noexcept
   {
-    return this->mIter - other.mIter;
+    return this->mIndex - other.mIndex;
   };
 
   // comparison
   inline constexpr bool operator==(const AlignedArrayIterator& other) const noexcept { return this->mIndex == other.mIndex; };
   inline constexpr bool operator!=(const AlignedArrayIterator& other) const noexcept { return this->mIndex != other.mIndex; };
-  inline constexpr bool operator<(const AlignedArrayIterator& other) const noexcept { return this->mIndex < other->mIndex; };
-  inline constexpr bool operator>(const AlignedArrayIterator& other) const noexcept { return this->mIndex > other->mIndex; };
-  inline constexpr bool operator>=(const AlignedArrayIterator& other) const noexcept { return this->mIndex >= other->mIndex; };
-  inline constexpr bool operator<=(const AlignedArrayIterator& other) const noexcept { return this->mIndex <= other->mIndex; };
+  inline constexpr bool operator<(const AlignedArrayIterator& other) const noexcept { return this->mIndex < other.mIndex; };
+  inline constexpr bool operator>(const AlignedArrayIterator& other) const noexcept { return this->mIndex > other.mIndex; };
+  inline constexpr bool operator>=(const AlignedArrayIterator& other) const noexcept { return this->mIndex >= other.mIndex; };
+  inline constexpr bool operator<=(const AlignedArrayIterator& other) const noexcept { return this->mIndex <= other.mIndex; };
 
   // dereference
   inline constexpr value_type operator*() const noexcept { return (*mContainer)[mIndex]; };

@@ -125,7 +125,7 @@ bool RUDecodeData::checkLinkInSync(int icab, const o2::InteractionRecord ir)
     link->statistics.errorCounts[GBTLinkDecodingStat::ErrOldROF]++;
     linkHBFToDump[(uint64_t(link->subSpec) << 32) + link->hbfEntry] = link->irHBF.orbit;
     if (link->needToPrintError(link->statistics.errorCounts[GBTLinkDecodingStat::ErrOldROF]) && !ROFRampUpStage) {
-      LOGP(error, "{} (cable {}) has IR={} for current majority IR={} -> {}", link->describe(),
+      LOGP(critical, "{} (cable {}) has IR={} for current majority IR={} -> {}", link->describe(),
            cableHWID[icab], link->ir.asString(), ir.asString(), link->statistics.ErrNames[GBTLinkDecodingStat::ErrOldROF]);
     }
 #endif

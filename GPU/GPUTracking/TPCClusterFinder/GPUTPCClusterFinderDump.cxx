@@ -207,7 +207,7 @@ void GPUTPCClusterFinder::DumpClusters(std::ostream& out)
 {
   out << "\nClusterer - Clusters - Sector " << mISector << " - Fragment " << mPmemory->fragment.index << "\n";
 
-  for (int32_t i = 0; i < GPUCA_ROW_COUNT; i++) {
+  for (uint32_t i = 0; i < GPUCA_ROW_COUNT; i++) {
     size_t N = mPclusterInRow[i];
     const tpc::ClusterNative* row = &mPclusterByRow[i * mNMaxClusterPerRow];
 
