@@ -992,7 +992,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           // (nnApplications[lane].mModelClass).initSession();
           // (nnApplications[lane].mModelReg1).initSession();
 
-          int withMC = true; //(doGPU && propagateMCLabels);
+          int withMC = propagateMCLabels;
 
           if (clustererNNShadow.mNnClusterizerUseCfRegression || (int)(nn_settings.nnClusterizerApplyCfDeconvolution)) {
             runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}});

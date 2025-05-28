@@ -210,13 +210,13 @@ void qaCluster::read_digits(int sector, std::vector<customCluster>& digit_map, b
   }
 
   digitFile->Close();
-  
+
 }
 
 // ---------------------------------
 void qaCluster::read_reco_digits(int sector, std::vector<customCluster>& digit_map, bool overwrite_time) {
 
-  if (verbose >= 1) 
+  if (verbose >= 1)
     LOG(info) << "[" << sector << "] Reading the reco digits...";
 
   std::string inputFileDigits = inPathRecoDigits + "/tpcdigits_reco_" + std::to_string(sector) + ".root";
@@ -283,7 +283,7 @@ void qaCluster::read_native(int sector, std::vector<customCluster>& digit_map, s
     if (verbose >= 4) {
       LOG(info) << "Native clusters in sector " << sector << ": " << nClustersSec;
     }
-    
+
     // int count_clusters = 0;
     // for (int irow = 0; irow < o2::tpc::constants::MAXGLOBALPADROW; irow++) {
     //   if (overwrite_max_time) {
@@ -455,14 +455,14 @@ void qaCluster::read_tracking_clusters(bool mc){
   std::vector<customCluster> track_paths, track_clusters;
   std::vector<std::array<float, 3>> clusterMomenta;
   int tabular_data_counter = 0, track_counter = 0;
-  
+
   // GRPGeomHelper::instance().setRequest(grp_geom);
   // o2::base::GRPGeomHelper::instance().finaliseCCDB(matcher, obj);
   float B_field = magneticField; //GPUO2InterfaceUtils::getNominalGPUBz(*GRPGeomHelper::instance().getGRPMagField());
   LOG(info) << "Updating solenoid field " << B_field;
-  
+
   std::vector<std::string> misc_track_data_branch_names = {"NClusters", "Chi2", "hasASideClusters", "hasCSideClusters", "hasBothSideClusters", "P", "dEdxQtot", "dEdxQmax", "AbsCharge", "Eta", "Phi", "Pt"};
-  
+
   // const auto& tpcClusRefs = data.getTPCTracksClusterRefs();
   // const auto& tpcClusAcc = // get from tpc-native-clsuters the flat array
 
@@ -501,7 +501,7 @@ void qaCluster::read_tracking_clusters(bool mc){
     std::sort(index_loc_pos.begin(), index_loc_pos.end(), [&local_positions](int i1, int i2) {
         return local_positions[i1].X() < local_positions[i2].X();
     });
-    
+
     for(int cl = 0; cl < track.getNClusters(); cl++){
       int idx = index_loc_pos[cl];
       const auto cluster = assigned_clusters[idx];
@@ -509,7 +509,7 @@ void qaCluster::read_tracking_clusters(bool mc){
       auto loc_pos = local_positions[idx];
       propagation_status[idx] = track.rotate(Sector(sector).phi()); // Needed for tracks that cross the sector boundaries
       // propagation_status[idx] = track.rotate(constants::math::PI - math::atan(global_positions.Y() / global_positions.X())); // Needed for tracks that cross the sector boundaries
-      
+
       if(propagation_status[idx]){
         propagation_status[idx] = track.propagateTo(loc_pos.X(), B_field);
         if(propagation_status[idx]){
@@ -831,11 +831,11 @@ void qaCluster::find_maxima(int sector, tpc2d& map2d, std::vector<customCluster>
   // --- Changed algorithmically on 30.01.2025 ---
   // Peak finder like in GPU CF
   // Checks inner 3x3 like
-  //     ^ _______________
-  // Pad | | >= | >= | > |
-  //     | | >= |  p | > |
-  //     | | >= |  > | > |
-  //     | ---------------  
+  //     ^ _________________
+  // Pad | | >  |  >  | >  |
+  //     | | >= |  p  | >  |
+  //     | | >= |  >= | >= |
+  //     | -----------------
   //      -----------------> Time
   //
   // And checks for all !=0 (avoid single pad - single time peaks):
@@ -843,7 +843,7 @@ void qaCluster::find_maxima(int sector, tpc2d& map2d, std::vector<customCluster>
   // Pad | |     |  !=0  |     |
   //     | | !=0 |   p   | !=0 |
   //     | |     |  !=0  |     |
-  //     | ---------------------  
+  //     | ---------------------
   //      -----------------------> Time
 
   float current_charge = 0;
@@ -862,7 +862,7 @@ void qaCluster::find_maxima(int sector, tpc2d& map2d, std::vector<customCluster>
           bool is_single_bin = true, is_max = (current_charge >= 3);
 
           if (is_max && map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1] != -1) {
-            is_max = (current_charge >= digit_map[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1]].qMax);
+            is_max = (current_charge > digit_map[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1]].qMax);
             is_single_bin &= (digit_map[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1]].qMax == 0);
           }
 
@@ -872,7 +872,7 @@ void qaCluster::find_maxima(int sector, tpc2d& map2d, std::vector<customCluster>
           }
 
           if (is_max && map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1] != -1) {
-            is_max = (current_charge > digit_map[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]].qMax);
+            is_max = (current_charge >= digit_map[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]].qMax);
             is_single_bin &= (digit_map[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]].qMax == 0);
           }
 
@@ -886,11 +886,11 @@ void qaCluster::find_maxima(int sector, tpc2d& map2d, std::vector<customCluster>
           }
 
           if (is_max && map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1] != -1) {
-            is_max = (current_charge >= digit_map[map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1]].qMax);
+            is_max = (current_charge > digit_map[map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset + 1]].qMax);
           }
 
           if (is_max && map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1] != -1) {
-            is_max = (current_charge > digit_map[map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]].qMax);
+            is_max = (current_charge >= digit_map[map2d[1][time + global_shift[1] + 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]].qMax);
           }
 
           if (is_max && map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1] != -1) {
@@ -1634,7 +1634,7 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
       break;
     }
   }
-  
+
   int out_net_idx = 0, idx_offset = 0;
   std::vector<customCluster> output_network_reg;
   for(int split_counter = 0; split_counter < 2; split_counter++){
@@ -1765,7 +1765,7 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
 
   network_map.clear();
   network_map = output_network_reg;
-  
+
   digit_map.clear();
   digit_map = output_network_reg;
 
@@ -1804,7 +1804,7 @@ int qaCluster::test_neighbour(std::array<int, 3> index, std::array<int, 2> nn, t
 
 // ---------------------------------
 void qaCluster::cluster_overlap(int sector, std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXGLOBALPADROW>& overlap_info, std::array<std::unordered_map<int, int>, o2::tpc::constants::MAXGLOBALPADROW>& overlap_info_trkid_map) {
-  
+
   std::stringstream tmp_file;
   tmp_file << simulationPath << "/mclabels_ideal_full_" << sector << ".root";
   auto inputFile = TFile::Open(tmp_file.str().c_str());
@@ -1933,7 +1933,7 @@ void qaCluster::runQa(int sector)
   std::vector<customCluster> digit_map, ideal_map, network_map, native_map;
   std::vector<std::vector<std::vector<std::vector<int>>>> tagger_maps(looper_tagger_granularity.size());
   std::vector<int> track_cluster_to_ideal_assignment; // First is digit_max index, then 5 possible assignemts of track_clusters
-  
+
   std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXGLOBALPADROW> overlap_info;
   std::array<std::unordered_map<int, int>, o2::tpc::constants::MAXGLOBALPADROW> overlap_info_trkid_map;
 
@@ -2035,14 +2035,14 @@ void qaCluster::runQa(int sector)
         // if (mode.find(std::string("clusterizer")) != std::string::npos) {
         //   native_clusterizer(map2d, digit_map, maxima_digits, digit_q, digit_clusterizer_map, digit_clusterizer_q);
         // }
-      } 
+      }
       if (mode.find(std::string("network_reg")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
         run_network_regression(sector, map2d, maxima_digits, digit_map, network_map, momentum_vector_map); // classification + regression
       }
       maxima_digits.clear();
       maxima_digits.resize(network_map.size());
       std::iota(maxima_digits.begin(), maxima_digits.end(), 0);
-      
+
       num_total_digit_max += maxima_digits.size();
       overwrite_map2d(sector, map2d, digit_map, maxima_digits, 1);
     } else {
@@ -2608,7 +2608,7 @@ void qaCluster::runQa(int sector)
         }
       }
     }
-    
+
     if (verbose >= 3)
       LOG(info) << "Done performing network-ideal assignment. Writing to file...";
 
@@ -2697,7 +2697,7 @@ void qaCluster::runQa(int sector)
         tot_area = overlap_info[id_row][overlap_info_trkid_map[id_row][elem[1].mcTrkId]][4];
         tot_charge = overlap_info[id_row][overlap_info_trkid_map[id_row][elem[1].mcTrkId]][5];
       }
-      
+
       if(momentum_vector_estimate){
         net_momY_X = momentum_vector_map[net_idx][0];
         net_momZ_X = momentum_vector_map[net_idx][1];
@@ -2849,7 +2849,7 @@ void qaCluster::runQa(int sector)
         }
 
         tr_data_Y_class[max_point] = digit_has_non_looper_assignments[max_point];
-        
+
         if(!realData){
           cluster_isTagged[max_point] = (bool)digit_tagged[max_point];
         }

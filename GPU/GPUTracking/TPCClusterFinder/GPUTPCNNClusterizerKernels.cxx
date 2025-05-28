@@ -391,7 +391,9 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
     if (clusterer.mPclusterPosInRow != nullptr) {
       clusterer.mPclusterPosInRow[full_glo_idx] = rowIndex;
     }
-    CPU_ONLY(labelAcc->commit(peak.row(), rowIndex, clusterer.mNMaxClusterPerRow));
+    if (withMC) {
+      CPU_ONLY(labelAcc->commit(peak.row(), rowIndex, clusterer.mNMaxClusterPerRow));
+    }
   } else {
     if (clusterer.mPclusterPosInRow) {
       clusterer.mPclusterPosInRow[full_glo_idx] = clusterer.mNMaxClusterPerRow;
@@ -484,7 +486,9 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
     } else if (clusterer.mPclusterPosInRow) {
       rowIndex = clusterer.mPclusterPosInRow[full_glo_idx];
     }
-    CPU_ONLY(labelAcc->commit(peak.row(), rowIndex, clusterer.mNMaxClusterPerRow));
+    if (withMC) {
+      CPU_ONLY(labelAcc->commit(peak.row(), rowIndex, clusterer.mNMaxClusterPerRow));
+    }
 
     // Cluster 2
     if (dtype == 0) {
