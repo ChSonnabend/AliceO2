@@ -939,7 +939,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         if (clusterer.mPmemory->counters.nPeaks == 0) {
           return;
         }
-        if(!GetProcessingSettings().nn.applyNNclusterizer && GetProcessingSettings().nn.nnClusterizerDumpDigits) {
+        if(!GetProcessingSettings().nn.applyNNclusterizer && (GetProcessingSettings().nn.nnClusterizerDumpDigits) > 0) {
           GPUTPCNNClusterizerHost dummy;
           dummy.digitWriter(clusterer, "digits_stream_raw");
         }
@@ -1011,17 +1011,19 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             auto start1 = std::chrono::high_resolution_clock::now();
 
             // NN evaluations
-            if (clustererNNShadow.mNnInferenceInputDType == 0) {
-              if (clustererNNShadow.mNnInferenceOutputDType == 0) {
-                (nnApplication.mModelClass).inference(clustererNNShadow.mInputData_16, iSize, clustererNNShadow.mModelProbabilities_16);
-              } else if (clustererNNShadow.mNnInferenceOutputDType == 1) {
-                (nnApplication.mModelClass).inference(clustererNNShadow.mInputData_16, iSize, clustererNNShadow.mModelProbabilities_32);
-              }
-            } else if (clustererNNShadow.mNnInferenceInputDType == 1) {
-              if (clustererNNShadow.mNnInferenceOutputDType == 0) {
-                (nnApplication.mModelClass).inference(clustererNNShadow.mInputData_32, iSize, clustererNNShadow.mModelProbabilities_16);
-              } else if (clustererNNShadow.mNnInferenceOutputDType == 1) {
-                (nnApplication.mModelClass).inference(clustererNNShadow.mInputData_32, iSize, clustererNNShadow.mModelProbabilities_32);
+            if(clustererNNShadow.mNnClusterizerUseClassification) {
+              if (clustererNNShadow.mNnInferenceInputDType == 0) {
+                if (clustererNNShadow.mNnInferenceOutputDType == 0) {
+                  (nnApplication.mModelClass).inference(clustererNNShadow.mInputData_16, iSize, clustererNNShadow.mModelProbabilities_16);
+                } else if (clustererNNShadow.mNnInferenceOutputDType == 1) {
+                  (nnApplication.mModelClass).inference(clustererNNShadow.mInputData_16, iSize, clustererNNShadow.mModelProbabilities_32);
+                }
+              } else if (clustererNNShadow.mNnInferenceInputDType == 1) {
+                if (clustererNNShadow.mNnInferenceOutputDType == 0) {
+                  (nnApplication.mModelClass).inference(clustererNNShadow.mInputData_32, iSize, clustererNNShadow.mModelProbabilities_16);
+                } else if (clustererNNShadow.mNnInferenceOutputDType == 1) {
+                  (nnApplication.mModelClass).inference(clustererNNShadow.mInputData_32, iSize, clustererNNShadow.mModelProbabilities_32);
+                }
               }
             }
             if (!clustererNNShadow.mNnClusterizerUseCfRegression) {
@@ -1055,12 +1057,13 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
               }
             }
 
-            if(GetProcessingSettings().nn.removeAllSplitFlags){
+            if(GetProcessingSettings().nn.removeAllSplitFlags > 0){
               for (size_t i = 0; i < 2*iSize; ++i) {
                 clustererNN.mClusterFlags[i] = 0;
               }
             }
-            if(GetProcessingSettings().nn.setDeconvolutionFlags){
+            if(GetProcessingSettings().nn.setDeconvolutionFlags > 0){
+              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::setDeconvolutionFlags>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, batchStart); // Running the NN for regression class 1
               runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishDeconvolutionFlags>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, batchStart); // Running the NN for regression class 1
             }
 
@@ -1118,14 +1121,14 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         } else {
 
           GPUTPCNNClusterizerHost dummy;
-          if(GetProcessingSettings().nn.nnClusterizerDumpDigits) {
+          if(GetProcessingSettings().nn.nnClusterizerDumpDigits > 0) {
             dummy.digitWriter(clusterer,  "digits_stream_noise_supressed");
           }
 
           runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}});
           DoDebugAndDump(RecoStep::TPCClusterFinding, GPUChainTrackingDebugFlags::TPCClustererChargeMap, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
 
-          if(GetProcessingSettings().nn.nnClusterizerDumpDigits) {
+          if(GetProcessingSettings().nn.nnClusterizerDumpDigits > 0) {
             dummy.digitWriter(clusterer, "digits_stream_deconvoluted");
           }
 
