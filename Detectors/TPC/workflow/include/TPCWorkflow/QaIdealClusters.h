@@ -57,6 +57,7 @@
 #include "TPCBase/Painter.h"
 #include "TPCBase/CalDet.h"
 #include "TPCBase/Mapper.h"
+#include "TPCReconstruction/TPCFastTransformHelperO2.h"
 
 #include "TFile.h"
 #include "TTree.h"

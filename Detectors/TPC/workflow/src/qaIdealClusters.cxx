@@ -314,7 +314,7 @@ void qaCluster::read_native(int sector, std::vector<customCluster>& digit_map, s
 
         if(current_pad >= (TPC_GEOM[irow][2] + global_shift[0]) || current_pad <= -global_shift[0]){
           if(verbose > 2) {
-            LOG(warning) << "WARNING: Cluster outside of TPC boundaries: sec: " << sector << "; row: " << irow << "; pad: (" << current_pad << " / " << TPC_GEOM[irow][2] << "), time: " << current_time;
+            LOG(warning) << "WARNING: Cluster " << icl << " / " << nClusters << " outside of TPC boundaries: sec: " << sector << "; row: " << irow << "; pad: (" << current_pad << " / " << TPC_GEOM[irow][2] << "), time: " << current_time;
           }
           count_clusters_outside_range++;
           continue;
@@ -474,6 +474,10 @@ void qaCluster::read_tracking_clusters(bool mc){
 
   // ---| track loop |---
   int cluster_counter = 0;
+  std::unique_ptr<o2::gpu::TPCFastTransform> tpcFastTransform;
+  tpcFastTransform = (o2::tpc::TPCFastTransformHelperO2::instance()->create(0));
+  // tpcFastTransform.setCalibration(0, 0, 250, vdCorrY, ldCorr, tofCorr, primVtxZ);
+  std::vector<float> z_shift_per_row(o2::tpc::constants::MAXGLOBALPADROW, 0.f), z_shift_per_row_counts(o2::tpc::constants::MAXGLOBALPADROW, 0.f); // Own vdrift per row calibration
   for (int k = 0; k < nTracks; k++) {
     auto track = (*tpcTracks)[k];
     if(mc && useTrackMCInformation){
@@ -484,38 +488,35 @@ void qaCluster::read_tracking_clusters(bool mc){
     std::vector<GlobalPosition2D> global_positions(track.getNClusters());
     std::vector<LocalPosition2D> local_positions(track.getNClusters());
     std::vector<std::array<float, 3>> momentum_after_propagation(track.getNClusters()), track_point(track.getNClusters());
-    float z_shift = 0;
+
+    float tsuse =  0.f, z_shift = 0.f;
+    int z_shift_counter = 0;
     for(int cl = 0; cl < track.getNClusters(); cl++){
       uint8_t sector = 0, row = 0;
       const auto cluster = track.getCluster(*mCluRefVecInp, cl, clusterIndex, sector, row); // ClusterNative instance
       assigned_clusters[cl] = cluster;
       sectors[cl] = (int)sector;
       rows[cl] = (int)row;
-      global_positions[cl] = custom::convertSecRowPadToXY((int)sector, (int)row, cluster.getPad(), tpcmap);
+
+      // tpcFastTransform->Transform(sector, row, cluster.getPad(), cluster.getTime(), track_point[cl][0], track_point[cl][1], track_point[cl][2], tsuse, nullptr, nullptr, 0, 0, 0); // see O2/GPU/TPCFastTransformation/TPCFastTransform.h; Transform() and TransformInternal() method
+      tpcFastTransform->TransformIdeal(sector, row, cluster.getPad(), cluster.getTime(), track_point[cl][0], track_point[cl][1], track_point[cl][2], tsuse);
+      o2::math_utils::rotateZ(track_point[cl], o2::math_utils::sector2Angle(sector % 18));
+
+      global_positions[cl] = GlobalPosition2D(track_point[cl][0], track_point[cl][1]);
       local_positions[cl] = mapper.GlobalToLocal(global_positions[cl], Sector((int)sector));
-    }
 
-    // Sorting for local X to improve propagation (?)
-    std::vector<int> index_loc_pos(local_positions.size());
-    std::iota(index_loc_pos.begin(), index_loc_pos.end(), 0); // Fill with 0, 1, ..., local_positions.size()-1
-    std::sort(index_loc_pos.begin(), index_loc_pos.end(), [&local_positions](int i1, int i2) {
-        return local_positions[i1].X() < local_positions[i2].X();
-    });
+      // z_shift_per_row[row] = (zshift_per_row[row]*z_shift_per_row_counts[row] + tpcmap.LinearTime2Z(sector, cluster.getTime()) - track_point[cl][2]) / (z_shift_per_row_counts[row] + 1);
+      // z_shift_per_row_counts[row]++;
 
-    for(int cl = 0; cl < track.getNClusters(); cl++){
-      int idx = index_loc_pos[cl];
-      const auto cluster = assigned_clusters[idx];
-      int sector = sectors[idx], row = rows[idx];
-      auto loc_pos = local_positions[idx];
-      propagation_status[idx] = track.rotate(Sector(sector).phi()); // Needed for tracks that cross the sector boundaries
-      // propagation_status[idx] = track.rotate(constants::math::PI - math::atan(global_positions.Y() / global_positions.X())); // Needed for tracks that cross the sector boundaries
+      auto glo_pos = global_positions[cl];
+      auto trkcopy = track; // Copy of the track to use for propagation
 
-      if(propagation_status[idx]){
-        propagation_status[idx] = track.propagateTo(loc_pos.X(), B_field);
-        if(propagation_status[idx]){
-          track.getXYZGlo(track_point[idx]);
-          z_shift += (tpcmap.LinearTime2Z(sector, cluster.getTime()) - track_point[idx][2]);
-          propagation_status[idx] = propagation_status[idx] && track.getPxPyPzGlo(momentum_after_propagation[idx]);
+      propagation_status[cl] = trkcopy.rotate(Sector(sector).phi()); // Needed for tracks that cross the sector boundaries
+      if(propagation_status[cl]){
+        propagation_status[cl] = trkcopy.propagateTo(local_positions[cl].X(), B_field);
+        trkcopy.getXYZGlo(track_point[cl]);
+        if(propagation_status[cl]){
+          propagation_status[cl] = propagation_status[cl] && trkcopy.getPxPyPzGlo(momentum_after_propagation[cl]);
         } else {
           if(verbose > 2) {
             LOG(warning) << "Track propagation failed! (Track " << k << ", cluster " << cl << ")";
@@ -524,35 +525,101 @@ void qaCluster::read_tracking_clusters(bool mc){
       } else if(verbose > 2) {
         LOG(warning) << "Track rotation failed! (Track " << k << ", cluster " << cl << ")";
       }
+
+      float dzTOF = 0, x = 0, y = 0, z = 0;
+      tpcFastTransform->getTOFcorrection(sector, row, x, y, z, dzTOF);
+      track_point[cl][2] += dzTOF; // Add the TOF correction to the track point
+      z_shift += (tpcmap.LinearTime2Z(sector, cluster.getTime()) - track_point[cl][2]);
+      z_shift_counter++;
+
+      cluster_counter++;
     }
-    z_shift /= track.getNClusters();
+    z_shift /= z_shift_counter;
 
     for(int cl = 0; cl < track.getNClusters(); cl++){
-      int idx = index_loc_pos[cl];
-      int sector = sectors[idx], row = rows[idx];
-      if(propagation_status[idx]){
-        const auto cluster = assigned_clusters[idx];
-        auto glo_pos = global_positions[idx];
-        LocalPosition3D loc_point = mapper.GlobalToLocal(GlobalPosition3D(track_point[idx][0], track_point[idx][1], track_point[idx][2] + z_shift), Sector((int)sector));
-        if(cluster.getPad() < 0){ LOG(info) << "Found cluster with cog_pad < 0: " << cluster.getPad() << " (Track " << k << ", cluster " << cl << ")"; }
+      int sector = sectors[cl], row = rows[cl];
+      if(propagation_status[cl]){
+        const auto cluster = assigned_clusters[cl];
+        auto glo_pos = global_positions[cl];
+        LocalPosition3D loc_point = mapper.GlobalToLocal(GlobalPosition3D(track_point[cl][0], track_point[cl][1], track_point[cl][2] + z_shift), Sector((int)sector));
         customCluster trk_cls{sector, row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), mcTrackIDs[0], mcTrackIDs[1], mcTrackIDs[2], cluster_counter, k, glo_pos.X(), glo_pos.Y(), tpcmap.LinearTime2Z(sector, cluster.getTime())};
-        customCluster trk_path{sector, row, (int)round(tpcmap.LinearY2Pad(sector, row, loc_point.Y())), (int)round(tpcmap.LinearZ2Time(sector, loc_point.Z())), tpcmap.LinearY2Pad(sector, row, loc_point.Y()), tpcmap.LinearZ2Time(sector, loc_point.Z()), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), mcTrackIDs[0], mcTrackIDs[1], mcTrackIDs[2], cluster_counter, k, track_point[idx][0], track_point[idx][1], track_point[idx][2] + z_shift};
-        // LOG(info) << sector << " " << row << " " << tpcmap.LinearY2Pad(sector, row, track_point[idx][1]) << " " << tpcmap.LinearY2Pad(sector, row, loc_point.Y()) << " " << loc_point.Y() << " " << track_point[idx][1];
+        customCluster trk_path{sector, row, (int)round(tpcmap.LinearY2Pad(sector, row, loc_point.Y())), (int)round(tpcmap.LinearZ2Time(sector, loc_point.Z())), tpcmap.LinearY2Pad(sector, row, loc_point.Y()), tpcmap.LinearZ2Time(sector, loc_point.Z()), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), mcTrackIDs[0], mcTrackIDs[1], mcTrackIDs[2], cluster_counter, k, track_point[cl][0], track_point[cl][1], track_point[cl][2] + z_shift};
+
         track_paths.push_back(trk_path);
         track_clusters.push_back(trk_cls);
         tracking_paths[sector].push_back(trk_path);
         tracking_clusters[sector].push_back(trk_cls);
-        clusterMomenta.push_back(momentum_after_propagation[idx]);
-        momentum_vectors[sector].push_back(momentum_after_propagation[idx]);
-        cluster_counter++;
-        if((std::pow(track_point[idx][0], 2) + std::pow(track_point[idx][1], 2)) > std::pow(250,2)){
-          GlobalPosition3D point(track_point[idx][0], track_point[idx][1], track_point[idx][2]);
-          LOG(warning) << "[" << (int)sector << "] Found TPC track cluster extrapolated outside the TPC boundaries! Track path (XYZ): (" << point.X() << ", " << point.Y() << ", " << point.Z() << ") -> (local XY) (" << mapper.GlobalToLocal(point, Sector((int)sector)).X() << ", " << mapper.GlobalToLocal(point, Sector((int)sector)).Y() << "), Cluster position (XYZ): (" << glo_pos.X() << ", " << glo_pos.Y() << ", " << tpcmap.LinearTime2Z(sector, cluster.getTime()) << ") -> (local XY): (" << local_positions[idx].X() << ", " << local_positions[idx].Y() << ").";
+
+        clusterMomenta.push_back(momentum_after_propagation[cl]);
+        momentum_vectors[sector].push_back(momentum_after_propagation[cl]);
+
+        if((std::pow(track_point[cl][0], 2) + std::pow(track_point[cl][1], 2)) > std::pow(250,2)){
+          GlobalPosition3D point(track_point[cl][0], track_point[cl][1], track_point[cl][2]);
+          LOG(warning) << "[" << (int)sector << "] Found TPC track cluster extrapolated outside the TPC boundaries! Track path (XYZ): (" << point.X() << ", " << point.Y() << ", " << point.Z() << ") -> (local XY) (" << mapper.GlobalToLocal(point, Sector((int)sector)).X() << ", " << mapper.GlobalToLocal(point, Sector((int)sector)).Y() << "), Cluster position (XYZ): (" << glo_pos.X() << ", " << glo_pos.Y() << ", " << tpcmap.LinearTime2Z(sector, cluster.getTime()) << ") -> (local XY): (" << local_positions[cl].X() << ", " << local_positions[cl].Y() << ").";
         }
       } else if(verbose > 3) {
         LOG(warning) << "[" << (int)sector << "] Propagation failed for track " << k << ", cluster " << cl << " (sector " << sector << ", row " << row << ")!";
       }
     }
+
+    // // Sorting for local X to improve propagation (?)
+    // std::vector<int> index_loc_pos(local_positions.size());
+    // std::iota(index_loc_pos.begin(), index_loc_pos.end(), 0); // Fill with 0, 1, ..., local_positions.size()-1
+    // std::sort(index_loc_pos.begin(), index_loc_pos.end(), [&local_positions](int i1, int i2) {
+    //     return local_positions[i1].X() < local_positions[i2].X();
+    // });
+//
+    // for(int cl = 0; cl < track.getNClusters(); cl++){
+    //   int idx = index_loc_pos[cl];
+    //   const auto cluster = assigned_clusters[idx];
+    //   int sector = sectors[idx], row = rows[idx];
+    //   auto loc_pos = local_positions[idx];
+    //   propagation_status[idx] = track.rotate(Sector(sector).phi()); // Needed for tracks that cross the sector boundaries
+    //   // propagation_status[idx] = track.rotate(constants::math::PI - math::atan(global_positions.Y() / global_positions.X())); // Needed for tracks that cross the sector boundaries
+//
+    //   if(propagation_status[idx]){
+    //     propagation_status[idx] = track.propagateTo(loc_pos.X(), B_field);
+    //     if(propagation_status[idx]){
+    //       track.getXYZGlo(track_point[idx]);
+    //       z_shift += (tpcmap.LinearTime2Z(sector, cluster.getTime()) - track_point[idx][2]);
+    //       propagation_status[idx] = propagation_status[idx] && track.getPxPyPzGlo(momentum_after_propagation[idx]);
+    //     } else {
+    //       if(verbose > 2) {
+    //         LOG(warning) << "Track propagation failed! (Track " << k << ", cluster " << cl << ")";
+    //       }
+    //     }
+    //   } else if(verbose > 2) {
+    //     LOG(warning) << "Track rotation failed! (Track " << k << ", cluster " << cl << ")";
+    //   }
+    // }
+    // z_shift /= track.getNClusters();
+//
+    // for(int cl = 0; cl < track.getNClusters(); cl++){
+    //   int idx = index_loc_pos[cl];
+    //   int sector = sectors[idx], row = rows[idx];
+    //   if(propagation_status[idx]){
+    //     const auto cluster = assigned_clusters[idx];
+    //     auto glo_pos = global_positions[idx];
+    //     LocalPosition3D loc_point = mapper.GlobalToLocal(GlobalPosition3D(track_point[idx][0], track_point[idx][1], track_point[idx][2] + z_shift), Sector((int)sector));
+    //     if(cluster.getPad() < 0){ LOG(info) << "Found cluster with cog_pad < 0: " << cluster.getPad() << " (Track " << k << ", cluster " << cl << ")"; }
+    //     customCluster trk_cls{sector, row, (int)round(cluster.getPad()), (int)round(cluster.getTime()), cluster.getPad(), cluster.getTime(), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), mcTrackIDs[0], mcTrackIDs[1], mcTrackIDs[2], cluster_counter, k, glo_pos.X(), glo_pos.Y(), tpcmap.LinearTime2Z(sector, cluster.getTime())};
+    //     customCluster trk_path{sector, row, (int)round(tpcmap.LinearY2Pad(sector, row, loc_point.Y())), (int)round(tpcmap.LinearZ2Time(sector, loc_point.Z())), tpcmap.LinearY2Pad(sector, row, loc_point.Y()), tpcmap.LinearZ2Time(sector, loc_point.Z()), cluster.getSigmaPad(), cluster.getSigmaTime(), (float)cluster.getQmax(), (float)cluster.getQtot(), cluster.getFlags(), mcTrackIDs[0], mcTrackIDs[1], mcTrackIDs[2], cluster_counter, k, track_point[idx][0], track_point[idx][1], track_point[idx][2] + z_shift};
+    //     // LOG(info) << sector << " " << row << " " << tpcmap.LinearY2Pad(sector, row, track_point[idx][1]) << " " << tpcmap.LinearY2Pad(sector, row, loc_point.Y()) << " " << loc_point.Y() << " " << track_point[idx][1];
+    //     track_paths.push_back(trk_path);
+    //     track_clusters.push_back(trk_cls);
+    //     tracking_paths[sector].push_back(trk_path);
+    //     tracking_clusters[sector].push_back(trk_cls);
+    //     clusterMomenta.push_back(momentum_after_propagation[idx]);
+    //     momentum_vectors[sector].push_back(momentum_after_propagation[idx]);
+    //     cluster_counter++;
+    //     if((std::pow(track_point[idx][0], 2) + std::pow(track_point[idx][1], 2)) > std::pow(250,2)){
+    //       GlobalPosition3D point(track_point[idx][0], track_point[idx][1], track_point[idx][2]);
+    //       LOG(warning) << "[" << (int)sector << "] Found TPC track cluster extrapolated outside the TPC boundaries! Track path (XYZ): (" << point.X() << ", " << point.Y() << ", " << point.Z() << ") -> (local XY) (" << mapper.GlobalToLocal(point, Sector((int)sector)).X() << ", " << mapper.GlobalToLocal(point, Sector((int)sector)).Y() << "), Cluster position (XYZ): (" << glo_pos.X() << ", " << glo_pos.Y() << ", " << tpcmap.LinearTime2Z(sector, cluster.getTime()) << ") -> (local XY): (" << local_positions[idx].X() << ", " << local_positions[idx].Y() << ").";
+    //     }
+    //   } else if(verbose > 3) {
+    //     LOG(warning) << "[" << (int)sector << "] Propagation failed for track " << k << ", cluster " << cl << " (sector " << sector << ", row " << row << ")!";
+    //   }
+    // }
 
     misc_track_data[k][0] = track.getNClusters();
     misc_track_data[k][1] = track.getChi2();

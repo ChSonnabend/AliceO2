@@ -999,6 +999,10 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             DoDebugAndDump(RecoStep::TPCClusterFinding, GPUChainTrackingDebugFlags::TPCClustererChargeMap, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
           }
 
+          if(GetProcessingSettings().nn.setDeconvolutionFlags > 0 && !clustererNNShadow.mNnClusterizerUseCfRegression){
+            runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::setDeconvolutionFlags>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, 0); // Setting the deconvolution flags but leaving digit charge untouched
+          }
+
           float time_clusterizer = 0, time_fill = 0, time_networks = 0;
           for (int batch = 0; batch < std::ceil((float)clusterer.mPmemory->counters.nClusters / clustererNNShadow.mNnClusterizerBatchedMode); batch++) {
             uint batchStart = batch * clustererNNShadow.mNnClusterizerBatchedMode;
@@ -1009,6 +1013,10 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             auto stop0 = std::chrono::high_resolution_clock::now();
 
             auto start1 = std::chrono::high_resolution_clock::now();
+
+            if(GetProcessingSettings().nn.setDeconvolutionFlags > 0 && !clustererNNShadow.mNnClusterizerUseCfRegression) {
+              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishDeconvolutionFlags>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, batchStart); // Publishing the deconvolution flags to the mClusterFlags
+            }
 
             // NN evaluations
             if(clustererNNShadow.mNnClusterizerUseClassification) {
@@ -1061,10 +1069,6 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
               for (size_t i = 0; i < 2*iSize; ++i) {
                 clustererNN.mClusterFlags[i] = 0;
               }
-            }
-            if(GetProcessingSettings().nn.setDeconvolutionFlags > 0){
-              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::setDeconvolutionFlags>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, batchStart); // Running the NN for regression class 1
-              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishDeconvolutionFlags>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, batchStart); // Running the NN for regression class 1
             }
 
             auto stopNNs = std::chrono::high_resolution_clock::now();
