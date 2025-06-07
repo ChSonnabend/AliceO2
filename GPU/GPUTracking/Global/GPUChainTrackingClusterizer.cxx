@@ -646,7 +646,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
     int32_t numLanes = GetProcessingSettings().nTPCClustererLanes;
     int32_t maxThreads = mRec->getNKernelHostThreads(true);
     // bool recreateMemoryAllocator = false;
-    mRec->runParallelOuterLoop(doGPU, numLanes, [&](uint32_t lane) {
+    for(int32_t lane = 0; lane < numLanes; lane++) {
       nnApplications[lane].init(nn_settings);
       if (nnApplications[lane].mModelsUsed[0]) {
         SetONNXGPUStream(*(nnApplications[lane].mModelClass).getSessionOptions(), lane, &deviceId);
@@ -690,8 +690,8 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
       if (nn_settings.nnClusterizerVerbosity < 3) {
         LOG(info) << "(ORT) Allocated ONNX stream for lane " << lane << " and device " << deviceId;
       }
-    });
-    mRec->runParallelOuterLoop(doGPU, NSECTORS, [&](uint32_t sector) {
+    }
+    for(int sector = 0; sector < NSECTORS; sector++) {
       GPUTPCNNClusterizer& clustererNN = processors()->tpcNNClusterer[sector];
       GPUTPCNNClusterizer& clustererNNShadow = doGPU ? processorsShadow()->tpcNNClusterer[sector] : clustererNN;
       int32_t lane = sector % numLanes;
@@ -706,7 +706,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         nnApplications[lane].initClusterizer(nn_settings, clustererNNShadow);
       }
       AllocateRegisteredMemory(clustererNN.mMemoryId);
-    });
+    }
     if (doGPU) {
       WriteToConstantMemory(RecoStep::TPCClusterFinding, (char*)&processors()->tpcNNClusterer - (char*)processors(), &processorsShadow()->tpcNNClusterer, sizeof(GPUTPCNNClusterizer) * NSECTORS, mRec->NStreams() - 1, &mEvents->init);
     }
@@ -1018,6 +1018,13 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
               runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishDeconvolutionFlags>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, batchStart); // Publishing the deconvolution flags to the mClusterFlags
             }
 
+            // // Test
+            // for(int i = 0; i < iSize; ++i) {
+            //   if (clustererNNShadow.mInputData_32[i*clustererNNShadow.mNnClusterizerElementSize + 423] != 1.f) {
+            //     LOG(info) << "WARNING (GPUChainTrackingClusterizer): Input data for NN inference is not properly filled, element 423 is " << clustererNNShadow.mInputData_32[i*clustererNNShadow.mNnClusterizerElementSize + 423];
+            //   }
+            // }
+
             // NN evaluations
             if(clustererNNShadow.mNnClusterizerUseClassification) {
               if (clustererNNShadow.mNnInferenceInputDType == 0) {
@@ -1064,6 +1071,13 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
                 }
               }
             }
+
+            // // Test
+            // for(int i = 0; i < iSize; ++i) {
+            //   if (clustererNNShadow.mInputData_32[i*clustererNNShadow.mNnClusterizerElementSize + 423] != 1.f) {
+            //     LOG(info) << "WARNING (GPUChainTrackingClusterizer): Input data for NN inference is not properly filled, element 423 is " << clustererNNShadow.mInputData_32[i*clustererNNShadow.mNnClusterizerElementSize + 423];
+            //   }
+            // }
 
             if(GetProcessingSettings().nn.removeAllSplitFlags > 0){
               for (size_t i = 0; i < 2*iSize; ++i) {
