@@ -261,9 +261,9 @@ int32_t GPUChainTracking::RunTPCTrackingMerger(bool synchronizeOutput)
       if (param().dodEdxEnabled) {
         GPUMemCpy(RecoStep::TPCMerging, Merger.MergedTracksdEdx(), MergerShadowAll.MergedTracksdEdx(), Merger.NMergedTracks() * sizeof(*Merger.MergedTracksdEdx()), outputStream, 0);
       }
-      GPUMemCpy(RecoStep::TPCMerging, Merger.Clusters(), MergerShadowAll.Clusters(), Merger.NOutputTrackClusters() * sizeof(*Merger.Clusters()), outputStream, 0);
+      GPUMemCpy(RecoStep::TPCMerging, Merger.Clusters(), MergerShadowAll.Clusters(), Merger.NMergedTrackClusters() * sizeof(*Merger.Clusters()), outputStream, 0);
       if (param().par.earlyTpcTransform) {
-        GPUMemCpy(RecoStep::TPCMerging, Merger.ClustersXYZ(), MergerShadowAll.ClustersXYZ(), Merger.NOutputTrackClusters() * sizeof(*Merger.ClustersXYZ()), outputStream, 0);
+        GPUMemCpy(RecoStep::TPCMerging, Merger.ClustersXYZ(), MergerShadowAll.ClustersXYZ(), Merger.NMergedTrackClusters() * sizeof(*Merger.ClustersXYZ()), outputStream, 0);
       }
       GPUMemCpy(RecoStep::TPCMerging, Merger.ClusterAttachment(), MergerShadowAll.ClusterAttachment(), Merger.NMaxClusters() * sizeof(*Merger.ClusterAttachment()), outputStream, 0);
     }
@@ -330,7 +330,7 @@ int32_t GPUChainTracking::RunTPCTrackingMerger(bool synchronizeOutput)
   mIOPtrs.nMergedTracks = Merger.NMergedTracks();
   mIOPtrs.mergedTrackHits = Merger.Clusters();
   mIOPtrs.mergedTrackHitsXYZ = Merger.ClustersXYZ();
-  mIOPtrs.nMergedTrackHits = Merger.NOutputTrackClusters();
+  mIOPtrs.nMergedTrackHits = Merger.NMergedTrackClusters();
   mIOPtrs.mergedTrackHitAttachment = Merger.ClusterAttachment();
   mIOPtrs.mergedTrackHitStates = Merger.ClusterStateExt();
   mIOPtrs.outputTracksTPCO2 = Merger.OutputTracksTPCO2();
@@ -344,7 +344,7 @@ int32_t GPUChainTracking::RunTPCTrackingMerger(bool synchronizeOutput)
     processorsShadow()->ioPtrs.nMergedTracks = Merger.NMergedTracks();
     processorsShadow()->ioPtrs.mergedTrackHits = MergerShadow.Clusters();
     processorsShadow()->ioPtrs.mergedTrackHitsXYZ = MergerShadow.ClustersXYZ();
-    processorsShadow()->ioPtrs.nMergedTrackHits = Merger.NOutputTrackClusters();
+    processorsShadow()->ioPtrs.nMergedTrackHits = Merger.NMergedTrackClusters();
     processorsShadow()->ioPtrs.mergedTrackHitAttachment = MergerShadow.ClusterAttachment();
     processorsShadow()->ioPtrs.mergedTrackHitStates = MergerShadow.ClusterStateExt();
     processorsShadow()->ioPtrs.outputTracksTPCO2 = MergerShadow.OutputTracksTPCO2();
@@ -355,7 +355,7 @@ int32_t GPUChainTracking::RunTPCTrackingMerger(bool synchronizeOutput)
   }
 
   if (GetProcessingSettings().debugLevel >= 2) {
-    GPUInfo("TPC Merger Finished (output clusters %d / input clusters %d)", Merger.NOutputTrackClusters(), Merger.NClusters());
+    GPUInfo("TPC Merger Finished (output clusters %d / input clusters %d)", Merger.NMergedTrackClusters(), Merger.NClusters());
   }
   return 0;
 }

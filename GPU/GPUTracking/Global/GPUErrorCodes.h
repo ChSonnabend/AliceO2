@@ -47,5 +47,6 @@ GPUCA_ERROR_CODE(26, ERROR_TPCZS_INVALID_ROW, SectorRow)                        
 GPUCA_ERROR_CODE(27, ERROR_TPCZS_INVALID_NADC, SectorCRU, SamplesInPage, SamplesWritten)  // Invalid number of ADC samples in header, existing samples were decoded
 GPUCA_ERROR_CODE(28, ERROR_TPCZS_INCOMPLETE_HBF, SectorCRU, PacketCount, NextPacketCount) // Part of HBF is missing, decoding incomplete
 GPUCA_ERROR_CODE(29, ERROR_TPCZS_INVALID_OFFSET, SectorEndpoint, Value, Expected)         // Raw page is skipped since it contains invalid payload offset
+GPUCA_ERROR_CODE(29, MAX_GPUCA_ERROR_NUMBER)
 
 // #define GPUCA_CHECK_TPCZS_CORRUPTION

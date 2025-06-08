@@ -14,19 +14,17 @@
 ///
 
 #include "ITStracking/TimeFrame.h"
+#include "ITStracking/MathUtils.h"
 #include "DataFormatsITSMFT/Cluster.h"
 #include "DataFormatsITSMFT/CompCluster.h"
 #include "DataFormatsITSMFT/ROFRecord.h"
 #include "DataFormatsITSMFT/TopologyDictionary.h"
 #include "ITSBase/GeometryTGeo.h"
 #include "ITSMFTBase/SegmentationAlpide.h"
+#include "ITStracking/BoundedAllocator.h"
 #include "ITStracking/TrackingConfigParam.h"
 
 #include <iostream>
-
-#ifdef WITH_OPENMP
-#include <omp.h>
-#endif
 
 namespace
 {
@@ -37,22 +35,20 @@ struct ClusterHelper {
   int ind;
 };
 
-float MSangle(float mass, float p, float xX0)
+inline float MSangle(float mass, float p, float xX0)
 {
   float beta = p / o2::gpu::CAMath::Hypot(mass, p);
   return 0.0136f * o2::gpu::CAMath::Sqrt(xX0) * (1.f + 0.038f * o2::gpu::CAMath::Log(xX0)) / (beta * p);
 }
 
-float Sq(float v)
+inline float Sq(float v)
 {
   return v * v;
 }
 
 } // namespace
 
-namespace o2
-{
-namespace its
+namespace o2::its
 {
 
 constexpr float DefClusErrorRow = o2::itsmft::SegmentationAlpide::PitchRow * 0.5;
@@ -60,21 +56,20 @@ constexpr float DefClusErrorCol = o2::itsmft::SegmentationAlpide::PitchCol * 0.5
 constexpr float DefClusError2Row = DefClusErrorRow * DefClusErrorRow;
 constexpr float DefClusError2Col = DefClusErrorCol * DefClusErrorCol;
 
-TimeFrame::TimeFrame(int nLayers)
+template <int nLayers>
+TimeFrame<nLayers>::TimeFrame()
 {
-  mMinR.resize(nLayers, 10000.);
-  mMaxR.resize(nLayers, -1.);
-  mClusters.resize(nLayers);
-  mUnsortedClusters.resize(nLayers);
-  mTrackingFrameInfo.resize(nLayers);
-  mClusterExternalIndices.resize(nLayers);
-  mUsedClusters.resize(nLayers);
-  mROFramesClusters.resize(nLayers, {0}); /// TBC: if resetting the timeframe is required, then this has to be done
-  mNClustersPerROF.resize(nLayers);
-  mTrackletsIndexROF.resize(2, {0});
+  resetVectors();
 }
 
-void TimeFrame::addPrimaryVertices(const std::vector<Vertex>& vertices)
+template <int nLayers>
+TimeFrame<nLayers>::~TimeFrame()
+{
+  resetVectors();
+}
+
+template <int nLayers>
+void TimeFrame<nLayers>::addPrimaryVertices(const bounded_vector<Vertex>& vertices)
 {
   for (const auto& vertex : vertices) {
     mPrimaryVertices.emplace_back(vertex);
@@ -88,17 +83,20 @@ void TimeFrame::addPrimaryVertices(const std::vector<Vertex>& vertices)
   mROFramesPV.push_back(mPrimaryVertices.size());
 }
 
-void TimeFrame::addPrimaryVertices(const std::vector<Vertex>& vertices, const int rofId, const int iteration)
+template <int nLayers>
+void TimeFrame<nLayers>::addPrimaryVertices(const bounded_vector<Vertex>& vertices, const int rofId, const int iteration)
 {
   addPrimaryVertices(gsl::span<const Vertex>(vertices), rofId, iteration);
 }
 
-void TimeFrame::addPrimaryVerticesLabels(std::vector<std::pair<MCCompLabel, float>>& labels)
+template <int nLayers>
+void TimeFrame<nLayers>::addPrimaryVerticesLabels(bounded_vector<std::pair<MCCompLabel, float>>& labels)
 {
   mVerticesMCRecInfo.insert(mVerticesMCRecInfo.end(), labels.begin(), labels.end());
 }
 
-void TimeFrame::addPrimaryVerticesInROF(const std::vector<Vertex>& vertices, const int rofId, const int iteration)
+template <int nLayers>
+void TimeFrame<nLayers>::addPrimaryVerticesInROF(const bounded_vector<Vertex>& vertices, const int rofId, const int iteration)
 {
   mPrimaryVertices.insert(mPrimaryVertices.begin() + mROFramesPV[rofId], vertices.begin(), vertices.end());
   for (int i = rofId + 1; i < mROFramesPV.size(); ++i) {
@@ -107,14 +105,16 @@ void TimeFrame::addPrimaryVerticesInROF(const std::vector<Vertex>& vertices, con
   mTotVertPerIteration[iteration] += vertices.size();
 }
 
-void TimeFrame::addPrimaryVerticesLabelsInROF(const std::vector<std::pair<MCCompLabel, float>>& labels, const int rofId)
+template <int nLayers>
+void TimeFrame<nLayers>::addPrimaryVerticesLabelsInROF(const bounded_vector<std::pair<MCCompLabel, float>>& labels, const int rofId)
 {
   mVerticesMCRecInfo.insert(mVerticesMCRecInfo.begin() + mROFramesPV[rofId], labels.begin(), labels.end());
 }
 
-void TimeFrame::addPrimaryVertices(const gsl::span<const Vertex>& vertices, const int rofId, const int iteration)
+template <int nLayers>
+void TimeFrame<nLayers>::addPrimaryVertices(const gsl::span<const Vertex>& vertices, const int rofId, const int iteration)
 {
-  std::vector<Vertex> futureVertices;
+  bounded_vector<Vertex> futureVertices(mMemoryPool.get());
   for (const auto& vertex : vertices) {
     if (vertex.getTimeStamp().getTimeStamp() < rofId) { // put a copy in the past
       insertPastVertex(vertex, iteration);
@@ -133,68 +133,29 @@ void TimeFrame::addPrimaryVertices(const gsl::span<const Vertex>& vertices, cons
     }
   }
   mROFramesPV.push_back(mPrimaryVertices.size()); // current rof must have number of vertices up to present
-  if (futureVertices.size()) {                    // append future vertices. In the last rofId we cannot have ones from the next, so we are never here.
-    for (auto& vertex : futureVertices) {
-      mPrimaryVertices.emplace_back(vertex);
-      mTotVertPerIteration[iteration]++;
-    }
+  for (auto& vertex : futureVertices) {
+    mPrimaryVertices.emplace_back(vertex);
+    mTotVertPerIteration[iteration]++;
   }
 }
 
-int TimeFrame::loadROFrameData(const o2::itsmft::ROFRecord& rof, gsl::span<const itsmft::Cluster> clusters,
-                               const dataformats::MCTruthContainer<MCCompLabel>* mcLabels)
+template <int nLayers>
+int TimeFrame<nLayers>::loadROFrameData(gsl::span<o2::itsmft::ROFRecord> rofs,
+                                        gsl::span<const itsmft::CompClusterExt> clusters,
+                                        gsl::span<const unsigned char>::iterator& pattIt,
+                                        const itsmft::TopologyDictionary* dict,
+                                        const dataformats::MCTruthContainer<MCCompLabel>* mcLabels)
 {
-  GeometryTGeo* geom = GeometryTGeo::Instance();
-  geom->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::L2G));
-  int clusterId{0};
-
-  auto first = rof.getFirstEntry();
-  auto clusters_in_frame = rof.getROFData(clusters);
-  for (auto& c : clusters_in_frame) {
-    int layer = geom->getLayer(c.getSensorID());
-
-    /// Clusters are stored in the tracking frame
-    auto xyz = c.getXYZGloRot(*geom);
-    addTrackingFrameInfoToLayer(layer, xyz.x(), xyz.y(), xyz.z(), c.getX(), geom->getSensorRefAlpha(c.getSensorID()),
-                                std::array<float, 2>{c.getY(), c.getZ()},
-                                std::array<float, 3>{c.getSigmaY2(), c.getSigmaYZ(), c.getSigmaZ2()});
-
-    /// Rotate to the global frame
-    addClusterToLayer(layer, xyz.x(), xyz.y(), xyz.z(), mUnsortedClusters[layer].size());
-    addClusterExternalIndexToLayer(layer, first + clusterId);
-    clusterId++;
-  }
-
-  for (unsigned int iL{0}; iL < mUnsortedClusters.size(); ++iL) {
-    mNClustersPerROF[iL].push_back(mUnsortedClusters[iL].size() - mROFramesClusters[iL].back());
-    mROFramesClusters[iL].push_back(mUnsortedClusters[iL].size());
-    if (iL < 2) {
-      mTrackletsIndexROF[iL].push_back(mUnsortedClusters[1].size()); // Tracklets used in vertexer are always computed starting from L1
-    }
-  }
-  if (mcLabels) {
-    mClusterLabels = mcLabels;
-  }
-  mNrof++;
-  return clusters_in_frame.size();
-}
-
-int TimeFrame::loadROFrameData(gsl::span<o2::itsmft::ROFRecord> rofs,
-                               gsl::span<const itsmft::CompClusterExt> clusters,
-                               gsl::span<const unsigned char>::iterator& pattIt,
-                               const itsmft::TopologyDictionary* dict,
-                               const dataformats::MCTruthContainer<MCCompLabel>* mcLabels)
-{
-  for (int iLayer{0}; iLayer < mUnsortedClusters.size(); ++iLayer) {
-    deepVectorClear(mUnsortedClusters[iLayer]);
-    deepVectorClear(mTrackingFrameInfo[iLayer]);
-    deepVectorClear(mClusterExternalIndices[iLayer]);
-    mROFramesClusters[iLayer].resize(1, 0);
+  for (int iLayer{0}; iLayer < nLayers; ++iLayer) {
+    deepVectorClear(mUnsortedClusters[iLayer], mMemoryPool.get());
+    deepVectorClear(mTrackingFrameInfo[iLayer], mMemoryPool.get());
+    deepVectorClear(mClusterExternalIndices[iLayer], mMemoryPool.get());
+    clearResizeBoundedVector(mROFramesClusters[iLayer], 1, mMemoryPool.get(), 0);
 
     if (iLayer < 2) {
-      deepVectorClear(mTrackletsIndexROF[iLayer]);
-      deepVectorClear(mNTrackletsPerCluster[iLayer]);
-      deepVectorClear(mNTrackletsPerClusterSum[iLayer]);
+      deepVectorClear(mTrackletsIndexROF[iLayer], mMemoryPool.get());
+      deepVectorClear(mNTrackletsPerCluster[iLayer], mMemoryPool.get());
+      deepVectorClear(mNTrackletsPerClusterSum[iLayer], mMemoryPool.get());
     }
   }
 
@@ -202,8 +163,7 @@ int TimeFrame::loadROFrameData(gsl::span<o2::itsmft::ROFRecord> rofs,
   geom->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::L2G));
 
   mNrof = 0;
-  deepVectorClear(mClusterSize);
-  mClusterSize.reserve(clusters.size());
+  clearResizeBoundedVector(mClusterSize, clusters.size(), mMemoryPool.get());
   for (auto& rof : rofs) {
     for (int clusterId{rof.getFirstEntry()}; clusterId < rof.getFirstEntry() + rof.getNEntries(); ++clusterId) {
       auto& c = clusters[clusterId];
@@ -230,11 +190,7 @@ int TimeFrame::loadROFrameData(gsl::span<o2::itsmft::ROFRecord> rofs,
         locXYZ = dict->getClusterCoordinates(c, patt, false);
         clusterSize = patt.getNPixels();
       }
-      if (clusterSize < 255) {
-        mClusterSize.push_back(clusterSize);
-      } else {
-        mClusterSize.push_back(255);
-      }
+      mClusterSize.push_back(std::clamp(clusterSize, 0u, 255u));
       auto sensorID = c.getSensorID();
       // Inverse transformation to the local --> tracking
       auto trkXYZ = geom->getMatrixT2L(sensorID) ^ locXYZ;
@@ -260,25 +216,18 @@ int TimeFrame::loadROFrameData(gsl::span<o2::itsmft::ROFRecord> rofs,
     mNTrackletsPerClusterSum[i].resize(mUnsortedClusters[1].size() + 1); // Exc sum "prepends" a 0
   }
 
-  if (mcLabels) {
+  if (mcLabels != nullptr) {
     mClusterLabels = mcLabels;
   }
+
   return mNrof;
 }
 
-int TimeFrame::getTotalClusters() const
+template <int nLayers>
+void TimeFrame<nLayers>::prepareClusters(const TrackingParameters& trkParam, const int maxLayers)
 {
-  size_t totalClusters{0};
-  for (auto& clusters : mUnsortedClusters) {
-    totalClusters += clusters.size();
-  }
-  return int(totalClusters);
-}
-
-void TimeFrame::prepareClusters(const TrackingParameters& trkParam, const int maxLayers)
-{
-  std::vector<ClusterHelper> cHelper;
-  std::vector<int> clsPerBin(trkParam.PhiBins * trkParam.ZBins, 0);
+  bounded_vector<ClusterHelper> cHelper(mMemoryPool.get());
+  bounded_vector<int> clsPerBin(trkParam.PhiBins * trkParam.ZBins, 0, mMemoryPool.get());
   for (int rof{0}; rof < mNrof; ++rof) {
     if ((int)mMultiplicityCutMask.size() == mNrof && !mMultiplicityCutMask[rof]) {
       continue;
@@ -315,7 +264,7 @@ void TimeFrame::prepareClusters(const TrackingParameters& trkParam, const int ma
         h.bin = bin;
         h.ind = clsPerBin[bin]++;
       }
-      std::vector<int> lutPerBin(clsPerBin.size());
+      bounded_vector<int> lutPerBin(clsPerBin.size(), 0, mMemoryPool.get());
       lutPerBin[0] = 0;
       for (unsigned int iB{1}; iB < lutPerBin.size(); ++iB) {
         lutPerBin[iB] = lutPerBin[iB - 1] + clsPerBin[iB - 1];
@@ -331,7 +280,6 @@ void TimeFrame::prepareClusters(const TrackingParameters& trkParam, const int ma
         c.radius = h.r;
         c.indexTableBinIndex = h.bin;
       }
-
       for (unsigned int iB{0}; iB < clsPerBin.size(); ++iB) {
         mIndexTables[iLayer][rof * (trkParam.ZBins * trkParam.PhiBins + 1) + iB] = lutPerBin[iB];
       }
@@ -342,7 +290,8 @@ void TimeFrame::prepareClusters(const TrackingParameters& trkParam, const int ma
   }
 }
 
-void TimeFrame::initialise(const int iteration, const TrackingParameters& trkParam, const int maxLayers, bool resetVertices)
+template <int nLayers>
+void TimeFrame<nLayers>::initialise(const int iteration, const TrackingParameters& trkParam, const int maxLayers, bool resetVertices)
 {
   if (iteration == 0) {
     if (maxLayers < trkParam.NLayers && resetVertices) {
@@ -351,37 +300,34 @@ void TimeFrame::initialise(const int iteration, const TrackingParameters& trkPar
     }
     deepVectorClear(mTracks);
     deepVectorClear(mTracksLabel);
+    deepVectorClear(mLines);
     deepVectorClear(mLinesLabels);
     if (resetVertices) {
       deepVectorClear(mVerticesMCRecInfo);
     }
-    mTracks.resize(mNrof);
-    mTracksLabel.resize(mNrof);
-    mLinesLabels.resize(mNrof);
-    mCells.resize(trkParam.CellsPerRoad());
-    mCellsLookupTable.resize(trkParam.CellsPerRoad() - 1);
-    mCellsNeighbours.resize(trkParam.CellsPerRoad() - 1);
-    mCellsNeighboursLUT.resize(trkParam.CellsPerRoad() - 1);
-    mCellLabels.resize(trkParam.CellsPerRoad());
-    mTracklets.resize(std::min(trkParam.TrackletsPerRoad(), maxLayers - 1));
-    mTrackletLabels.resize(trkParam.TrackletsPerRoad());
-    mTrackletsLookupTable.resize(trkParam.CellsPerRoad());
+    clearResizeBoundedVector(mTracks, mNrof, mMemoryPool.get());
+    clearResizeBoundedVector(mTracksLabel, mNrof, mMemoryPool.get());
+    clearResizeBoundedVector(mLinesLabels, mNrof, mMemoryPool.get());
+    clearResizeBoundedVector(mCells, trkParam.CellsPerRoad(), mMemoryPool.get());
+    clearResizeBoundedVector(mCellsLookupTable, trkParam.CellsPerRoad() - 1, mMemoryPool.get());
+    clearResizeBoundedVector(mCellsNeighbours, trkParam.CellsPerRoad() - 1, mMemoryPool.get());
+    clearResizeBoundedVector(mCellsNeighboursLUT, trkParam.CellsPerRoad() - 1, mMemoryPool.get());
+    clearResizeBoundedVector(mCellLabels, trkParam.CellsPerRoad(), mMemoryPool.get());
+    clearResizeBoundedVector(mTracklets, std::min(trkParam.TrackletsPerRoad(), maxLayers - 1), mMemoryPool.get());
+    clearResizeBoundedVector(mTrackletLabels, trkParam.TrackletsPerRoad(), mMemoryPool.get());
+    clearResizeBoundedVector(mTrackletsLookupTable, trkParam.TrackletsPerRoad(), mMemoryPool.get());
     mIndexTableUtils.setTrackingParameters(trkParam);
-    mPositionResolution.resize(trkParam.NLayers);
-    mBogusClusters.resize(trkParam.NLayers, 0);
-    deepVectorClear(mLines);
+    clearResizeBoundedVector(mPositionResolution, trkParam.NLayers, mMemoryPool.get());
+    clearResizeBoundedVector(mBogusClusters, trkParam.NLayers, mMemoryPool.get());
     deepVectorClear(mTrackletClusters);
     for (unsigned int iLayer{0}; iLayer < std::min((int)mClusters.size(), maxLayers); ++iLayer) {
-      deepVectorClear(mClusters[iLayer]);
-      mClusters[iLayer].resize(mUnsortedClusters[iLayer].size());
-      deepVectorClear(mUsedClusters[iLayer]);
-      mUsedClusters[iLayer].resize(mUnsortedClusters[iLayer].size(), false);
+      clearResizeBoundedVector(mClusters[iLayer], mUnsortedClusters[iLayer].size(), mMemoryPool.get());
+      clearResizeBoundedVector(mUsedClusters[iLayer], mUnsortedClusters[iLayer].size(), mMemoryPool.get());
       mPositionResolution[iLayer] = o2::gpu::CAMath::Sqrt(0.5 * (trkParam.SystErrorZ2[iLayer] + trkParam.SystErrorY2[iLayer]) + trkParam.LayerResolution[iLayer] * trkParam.LayerResolution[iLayer]);
     }
-    deepVectorClear(mIndexTables);
-    mIndexTables.resize(mClusters.size(), std::vector<int>(mNrof * (trkParam.ZBins * trkParam.PhiBins + 1), 0));
-    mLines.resize(mNrof);
-    mTrackletClusters.resize(mNrof);
+    clearResizeBoundedArray(mIndexTables, mNrof * (trkParam.ZBins * trkParam.PhiBins + 1), mMemoryPool.get());
+    clearResizeBoundedVector(mLines, mNrof, mMemoryPool.get());
+    clearResizeBoundedVector(mTrackletClusters, mNrof, mMemoryPool.get());
 
     for (int iLayer{0}; iLayer < trkParam.NLayers; ++iLayer) {
       if (trkParam.SystErrorY2[iLayer] > 0.f || trkParam.SystErrorZ2[iLayer] > 0.f) {
@@ -395,7 +341,7 @@ void TimeFrame::initialise(const int iteration, const TrackingParameters& trkPar
   }
   mNTrackletsPerROF.resize(2);
   for (auto& v : mNTrackletsPerROF) {
-    v = std::vector<int>(mNrof + 1, 0);
+    v = bounded_vector<int>(mNrof + 1, 0, mMemoryPool.get());
   }
   if (iteration == 0 || iteration == 3) {
     prepareClusters(trkParam, maxLayers);
@@ -404,7 +350,7 @@ void TimeFrame::initialise(const int iteration, const TrackingParameters& trkPar
   if (maxLayers < trkParam.NLayers) { // Vertexer only, but in both iterations
     for (size_t iLayer{0}; iLayer < maxLayers; ++iLayer) {
       deepVectorClear(mUsedClusters[iLayer]);
-      mUsedClusters[iLayer].resize(mUnsortedClusters[iLayer].size(), false);
+      clearResizeBoundedVector(mUsedClusters[iLayer], mUnsortedClusters[iLayer].size(), mMemoryPool.get());
     }
   }
 
@@ -451,7 +397,8 @@ void TimeFrame::initialise(const int iteration, const TrackingParameters& trkPar
   }
 }
 
-unsigned long TimeFrame::getArtefactsMemory()
+template <int nLayers>
+unsigned long TimeFrame<nLayers>::getArtefactsMemory() const
 {
   unsigned long size{0};
   for (auto& trkl : mTracklets) {
@@ -463,10 +410,17 @@ unsigned long TimeFrame::getArtefactsMemory()
   for (auto& cellsN : mCellsNeighbours) {
     size += sizeof(int) * cellsN.size();
   }
-  return size + sizeof(Road<5>) * mRoads.size();
+  return size + sizeof(Road<nLayers - 2>) * mRoads.size();
 }
 
-void TimeFrame::fillPrimaryVerticesXandAlpha()
+template <int nLayers>
+void TimeFrame<nLayers>::printArtefactsMemory() const
+{
+  LOGP(info, "TimeFrame: Artefacts occupy {:.2f} MB", getArtefactsMemory() / constants::MB);
+}
+
+template <int nLayers>
+void TimeFrame<nLayers>::fillPrimaryVerticesXandAlpha()
 {
   if (mPValphaX.size()) {
     mPValphaX.clear();
@@ -477,7 +431,8 @@ void TimeFrame::fillPrimaryVerticesXandAlpha()
   }
 }
 
-void TimeFrame::computeTrackletsPerROFScans()
+template <int nLayers>
+void TimeFrame<nLayers>::computeTrackletsPerROFScans()
 {
   for (ushort iLayer = 0; iLayer < 2; ++iLayer) {
     for (unsigned int iRof{0}; iRof < mNrof; ++iRof) {
@@ -490,7 +445,8 @@ void TimeFrame::computeTrackletsPerROFScans()
   }
 }
 
-void TimeFrame::checkTrackletLUTs()
+template <int nLayers>
+void TimeFrame<nLayers>::checkTrackletLUTs()
 {
   for (uint32_t iLayer{0}; iLayer < getTracklets().size(); ++iLayer) {
     int prev{-1};
@@ -522,21 +478,36 @@ void TimeFrame::checkTrackletLUTs()
   }
 }
 
-void TimeFrame::resizeVectors(int nLayers)
+template <int nLayers>
+void TimeFrame<nLayers>::resetVectors()
 {
-  mMinR.resize(nLayers, 10000.);
-  mMaxR.resize(nLayers, -1.);
-  mClusters.resize(nLayers);
-  mUnsortedClusters.resize(nLayers);
-  mTrackingFrameInfo.resize(nLayers);
-  mClusterExternalIndices.resize(nLayers);
-  mUsedClusters.resize(nLayers);
-  mROFramesClusters.resize(nLayers, {0});
-  mNClustersPerROF.resize(nLayers);
-  mTrackletsIndexROF.resize(2, {0});
+  mMinR.fill(10000.);
+  mMaxR.fill(-1.);
+  for (int iLayers{nLayers}; iLayers--;) {
+    mClusters[iLayers].clear();
+    mUnsortedClusters[iLayers].clear();
+    mTrackingFrameInfo[iLayers].clear();
+    mClusterExternalIndices[iLayers].clear();
+    mUsedClusters[iLayers].clear();
+    mROFramesClusters[iLayers].clear();
+    mNClustersPerROF[iLayers].clear();
+  }
+  for (int i{2}; i--;) {
+    mTrackletsIndexROF[i].clear();
+  }
 }
 
-void TimeFrame::printTrackletLUTonLayer(int i)
+template <int nLayers>
+void TimeFrame<nLayers>::resetTracklets()
+{
+  for (auto& trkl : mTracklets) {
+    deepVectorClear(trkl);
+  }
+  deepVectorClear(mTrackletsLookupTable);
+}
+
+template <int nLayers>
+void TimeFrame<nLayers>::printTrackletLUTonLayer(int i)
 {
   std::cout << "--------" << std::endl
             << "Tracklet LUT " << i << std::endl;
@@ -547,7 +518,8 @@ void TimeFrame::printTrackletLUTonLayer(int i)
             << std::endl;
 }
 
-void TimeFrame::printCellLUTonLayer(int i)
+template <int nLayers>
+void TimeFrame<nLayers>::printCellLUTonLayer(int i)
 {
   std::cout << "--------" << std::endl
             << "Cell LUT " << i << std::endl;
@@ -558,21 +530,24 @@ void TimeFrame::printCellLUTonLayer(int i)
             << std::endl;
 }
 
-void TimeFrame::printTrackletLUTs()
+template <int nLayers>
+void TimeFrame<nLayers>::printTrackletLUTs()
 {
   for (unsigned int i{0}; i < mTrackletsLookupTable.size(); ++i) {
     printTrackletLUTonLayer(i);
   }
 }
 
-void TimeFrame::printCellLUTs()
+template <int nLayers>
+void TimeFrame<nLayers>::printCellLUTs()
 {
   for (unsigned int i{0}; i < mCellsLookupTable.size(); ++i) {
     printCellLUTonLayer(i);
   }
 }
 
-void TimeFrame::printVertices()
+template <int nLayers>
+void TimeFrame<nLayers>::printVertices()
 {
   std::cout << "Vertices in ROF (nROF = " << mNrof << ", lut size = " << mROFramesPV.size() << ")" << std::endl;
   for (unsigned int iR{0}; iR < mROFramesPV.size(); ++iR) {
@@ -585,7 +560,8 @@ void TimeFrame::printVertices()
   std::cout << "--------" << std::endl;
 }
 
-void TimeFrame::printROFoffsets()
+template <int nLayers>
+void TimeFrame<nLayers>::printROFoffsets()
 {
   std::cout << "--------" << std::endl;
   for (unsigned int iLayer{0}; iLayer < mROFramesClusters.size(); ++iLayer) {
@@ -597,7 +573,8 @@ void TimeFrame::printROFoffsets()
   }
 }
 
-void TimeFrame::printNClsPerROF()
+template <int nLayers>
+void TimeFrame<nLayers>::printNClsPerROF()
 {
   std::cout << "--------" << std::endl;
   for (unsigned int iLayer{0}; iLayer < mNClustersPerROF.size(); ++iLayer) {
@@ -609,7 +586,8 @@ void TimeFrame::printNClsPerROF()
   }
 }
 
-void TimeFrame::printSliceInfo(const int startROF, const int sliceSize)
+template <int nLayers>
+void TimeFrame<nLayers>::printSliceInfo(const int startROF, const int sliceSize)
 {
   std::cout << "Dumping slice of " << sliceSize << " rofs:" << std::endl;
   for (int iROF{startROF}; iROF < startROF + sliceSize; ++iROF) {
@@ -625,5 +603,106 @@ void TimeFrame::printSliceInfo(const int startROF, const int sliceSize)
   }
 }
 
-} // namespace its
-} // namespace o2
+template <int nLayers>
+void TimeFrame<nLayers>::setMemoryPool(std::shared_ptr<BoundedMemoryResource>& pool)
+{
+  wipe();
+  mMemoryPool = pool;
+
+  auto initVector = [&]<typename T>(bounded_vector<T>& vec) {
+    auto alloc = vec.get_allocator().resource();
+    if (alloc != mMemoryPool.get()) {
+      vec = bounded_vector<T>(mMemoryPool.get());
+    }
+  };
+  auto initArrays = [&]<typename T, size_t S>(std::array<bounded_vector<T>, S>& arr) {
+    for (size_t i{0}; i < S; ++i) {
+      auto alloc = arr[i].get_allocator().resource();
+      if (alloc != mMemoryPool.get()) {
+        arr[i] = bounded_vector<T>(mMemoryPool.get());
+      }
+    }
+  };
+  auto initVectors = [&]<typename T>(std::vector<bounded_vector<T>>& vec) {
+    for (size_t i{0}; i < vec.size(); ++i) {
+      auto alloc = vec[i].get_allocator().resource();
+      if (alloc != mMemoryPool.get()) {
+        vec[i] = bounded_vector<T>(mMemoryPool.get());
+      }
+    }
+  };
+
+  initVector(mTotVertPerIteration);
+  initVector(mPrimaryVertices);
+  initVector(mROFramesPV);
+  initArrays(mClusters);
+  initArrays(mTrackingFrameInfo);
+  initArrays(mClusterExternalIndices);
+  initArrays(mROFramesClusters);
+  initArrays(mNTrackletsPerCluster);
+  initArrays(mNTrackletsPerClusterSum);
+  initArrays(mNClustersPerROF);
+  initArrays(mIndexTables);
+  initArrays(mUsedClusters);
+  initArrays(mUnsortedClusters);
+  initVector(mROFramesPV);
+  initVector(mPrimaryVertices);
+  initVector(mRoads);
+  initVector(mRoadLabels);
+  initVector(mMSangles);
+  initVector(mPhiCuts);
+  initVector(mPositionResolution);
+  initVector(mClusterSize);
+  initVector(mPValphaX);
+  initVector(mBogusClusters);
+  initArrays(mTrackletsIndexROF);
+  initVectors(mTracks);
+  initVectors(mTracklets);
+  initVectors(mCells);
+  initVectors(mCellSeeds);
+  initVectors(mCellSeedsChi2);
+  initVectors(mCellsNeighbours);
+  initVectors(mCellsLookupTable);
+}
+
+template <int nLayers>
+void TimeFrame<nLayers>::wipe()
+{
+  deepVectorClear(mUnsortedClusters);
+  deepVectorClear(mTracks);
+  deepVectorClear(mTracklets);
+  deepVectorClear(mCells);
+  deepVectorClear(mCellSeeds);
+  deepVectorClear(mCellSeedsChi2);
+  deepVectorClear(mRoads);
+  deepVectorClear(mCellsNeighbours);
+  deepVectorClear(mCellsLookupTable);
+  deepVectorClear(mTotVertPerIteration);
+  deepVectorClear(mPrimaryVertices);
+  deepVectorClear(mROFramesPV);
+  deepVectorClear(mClusters);
+  deepVectorClear(mTrackingFrameInfo);
+  deepVectorClear(mClusterExternalIndices);
+  deepVectorClear(mROFramesClusters);
+  deepVectorClear(mNTrackletsPerCluster);
+  deepVectorClear(mNTrackletsPerClusterSum);
+  deepVectorClear(mNClustersPerROF);
+  deepVectorClear(mIndexTables);
+  deepVectorClear(mUsedClusters);
+  deepVectorClear(mUnsortedClusters);
+  deepVectorClear(mROFramesPV);
+  deepVectorClear(mPrimaryVertices);
+  deepVectorClear(mRoads);
+  deepVectorClear(mRoadLabels);
+  deepVectorClear(mMSangles);
+  deepVectorClear(mPhiCuts);
+  deepVectorClear(mPositionResolution);
+  deepVectorClear(mClusterSize);
+  deepVectorClear(mPValphaX);
+  deepVectorClear(mBogusClusters);
+  deepVectorClear(mTrackletsIndexROF);
+}
+
+template class TimeFrame<7>;
+
+} // namespace o2::its

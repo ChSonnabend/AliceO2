@@ -22,6 +22,7 @@
 #include <memory>
 #include <iosfwd>
 #include <vector>
+#include <functional>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -35,8 +36,10 @@
 
 namespace o2::its
 {
+template <int>
 class TrackerTraits;
 class VertexerTraits;
+template <int>
 class TimeFrame;
 } // namespace o2::its
 
@@ -188,7 +191,7 @@ class GPUReconstruction
   GPUMemorySizeScalers* MemoryScalers() { return mMemoryScalers.get(); }
 
   // Helpers to fetch processors from other shared libraries
-  virtual void GetITSTraits(std::unique_ptr<o2::its::TrackerTraits>* trackerTraits, std::unique_ptr<o2::its::VertexerTraits>* vertexerTraits, std::unique_ptr<o2::its::TimeFrame>* timeFrame);
+  virtual void GetITSTraits(std::unique_ptr<o2::its::TrackerTraits<7>>* trackerTraits, std::unique_ptr<o2::its::VertexerTraits>* vertexerTraits, std::unique_ptr<o2::its::TimeFrame<7>>* timeFrame);
   bool slavesExist() { return mSlaves.size() || mMaster; }
   int slaveId() { return mSlaveId; }
 
@@ -239,6 +242,9 @@ class GPUReconstruction
   virtual void PrintKernelOccupancies() {}
   double GetStatKernelTime() { return mStatKernelTime; }
   double GetStatWallTime() { return mStatWallTime; }
+  void setDebugDumpCallback(std::function<void()>&& callback = std::function<void()>(nullptr));
+  bool triggerDebugDump();
+  std::string getDebugFolder(const std::string& prefix = ""); // empty string = no debug
 
   // Threading
   std::shared_ptr<GPUReconstructionThreading> mThreading;
@@ -269,6 +275,7 @@ class GPUReconstruction
 
   // Private helpers for library loading
   static std::shared_ptr<LibraryLoader>* GetLibraryInstance(DeviceType type, bool verbose);
+  static std::string getBackendVersions();
 
   // Private helper functions for memory management
   size_t AllocateRegisteredMemoryHelper(GPUMemoryResource* res, void*& ptr, void*& memorypool, void* memorybase, size_t memorysize, void* (GPUMemoryResource::*SetPointers)(void*), void*& memorypoolend, const char* device);
@@ -374,7 +381,7 @@ class GPUReconstruction
     std::vector<uint16_t> res;
   };
   struct alignedDeleter {
-    void operator()(void* ptr) { ::operator delete(ptr, std::align_val_t(GPUCA_BUFFER_ALIGNMENT)); };
+    void operator()(void* ptr) { ::operator delete[](ptr, std::align_val_t(GPUCA_BUFFER_ALIGNMENT)); };
   };
   std::unordered_map<GPUMemoryReuse::ID, MemoryReuseMeta> mMemoryReuse1to1;
   std::vector<std::tuple<void*, void*, size_t, size_t, uint64_t>> mNonPersistentMemoryStack; // hostPoolAddress, devicePoolAddress, individualAllocationCount, directIndividualAllocationCound, tag
@@ -406,6 +413,13 @@ class GPUReconstruction
     void* mGPUEntry;
   };
   static std::shared_ptr<LibraryLoader> sLibCUDA, sLibHIP, sLibOCL;
+
+  // Debugging
+  struct debugInternal;
+  static std::unique_ptr<debugInternal> mDebugData;
+  bool mDebugEnabled = false;
+  void debugInit();
+  void debugExit();
 
   static GPUReconstruction* GPUReconstruction_Create_CPU(const GPUSettingsDeviceBackend& cfg);
 };

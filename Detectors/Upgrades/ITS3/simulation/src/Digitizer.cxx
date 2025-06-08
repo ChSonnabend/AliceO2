@@ -12,6 +12,7 @@
 /// \file Digitizer.cxx
 /// \brief Implementation of the ITS3 digitizer
 
+#include "ITS3Simulation/ChipSimResponse.h"
 #include "ITSMFTBase/SegmentationAlpide.h"
 #include "ITS3Simulation/Digitizer.h"
 #include "ITS3Base/ITS3Params.h"
@@ -33,6 +34,11 @@ using o2::itsmft::AlpideRespSimMat;
 using o2::itsmft::PreDigit;
 
 using namespace o2::its3;
+
+Digitizer::~Digitizer()
+{
+  delete mSimRespIB;
+}
 
 void Digitizer::init()
 {
@@ -57,8 +63,14 @@ void Digitizer::init()
       if (!fOB || fOB->IsZombie() || !fOB->IsOpen()) {
         LOGP(fatal, "Cannot open file {}", fileOB);
       }
-      mParams.setIBSimResponse(mSimRespIB = fIB->Get<o2::its3::ChipSimResponse>(nameIB));
-      mParams.setOBSimResponse(mSimRespOB = fOB->Get<o2::itsmft::AlpideSimResponse>(nameOB));
+      if ((mSimRespIB = new o2::its3::ChipSimResponse(fIB->Get<o2::itsmft::AlpideSimResponse>(nameIB))) == nullptr) {
+        LOGP(fatal, "Cannot create response function for IB");
+      }
+      if ((mSimRespOB = fOB->Get<o2::itsmft::AlpideSimResponse>(nameOB)) == nullptr) {
+        LOGP(fatal, "Cannot create response function for OB");
+      }
+      mParams.setIBSimResponse(mSimRespIB);
+      mParams.setOBSimResponse(mSimRespOB);
       fIB->Close();
       fOB->Close();
     };

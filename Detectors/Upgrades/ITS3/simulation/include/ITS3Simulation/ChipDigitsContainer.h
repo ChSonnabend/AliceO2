@@ -12,11 +12,11 @@
 #ifndef ALICEO2_ITS3_CHIPDIGITSCONTAINER_
 #define ALICEO2_ITS3_CHIPDIGITSCONTAINER_
 
-#include "ITSMFTBase/SegmentationAlpide.h"        // Base class in o2::itsmft namespace
-#include "ITSMFTSimulation/ChipDigitsContainer.h" // Base class in o2::itsmft namespace
-#include "ITS3Base/SegmentationMosaix.h"          // OB segmentation implementation
-#include "ITS3Base/SpecsV2.h"                     // Provides SpecsV2::isDetITS3() interface
-#include "ITS3Simulation/DigiParams.h"            // ITS3-specific DigiParams interface
+#include "ITSMFTBase/SegmentationAlpide.h"
+#include "ITSMFTSimulation/ChipDigitsContainer.h"
+#include "ITS3Base/SegmentationMosaix.h"
+#include "ITS3Base/SpecsV2.h"
+#include "ITS3Simulation/DigiParams.h"
 #include <TRandom.h>
 
 namespace o2::its3
@@ -24,11 +24,6 @@ namespace o2::its3
 
 class ChipDigitsContainer : public o2::itsmft::ChipDigitsContainer
 {
- private:
-  bool innerBarrel; ///< true if the chip belongs to the inner barrel (IB), false if outer barrel (OB)
-  int maxRows;      ///< maximum number of rows
-  int maxCols;      ///< maximum number of columns
-
  public:
   explicit ChipDigitsContainer(UShort_t idx = 0);
 
@@ -50,6 +45,11 @@ class ChipDigitsContainer : public o2::itsmft::ChipDigitsContainer
   /// Adds noise digits, deleted the one using the itsmft::DigiParams interface
   void addNoise(UInt_t rofMin, UInt_t rofMax, const o2::itsmft::DigiParams* params, int maxRows = o2::itsmft::SegmentationAlpide::NRows, int maxCols = o2::itsmft::SegmentationAlpide::NCols) = delete;
   void addNoise(UInt_t rofMin, UInt_t rofMax, const o2::its3::DigiParams* params);
+
+ private:
+  bool innerBarrel{false}; ///< true if the chip belongs to the inner barrel (IB), false if outer barrel (OB)
+  int maxRows{-1};         ///< maximum number of rows
+  int maxCols{-1};         ///< maximum number of columns
 
   ClassDefNV(ChipDigitsContainer, 1);
 };

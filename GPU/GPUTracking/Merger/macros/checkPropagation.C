@@ -91,7 +91,6 @@ int32_t checkPropagation()
 
   GPUTPCGMPropagator prop;
   prop.SetPolynomialField(&field);
-  prop.SetToyMCEventsFlag(kTRUE);
 
   const int32_t nTracks = 1000;
 

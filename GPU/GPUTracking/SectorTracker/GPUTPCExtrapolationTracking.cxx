@@ -129,11 +129,11 @@ GPUd() void GPUTPCExtrapolationTracking::PerformExtrapolationTracking(int32_t nB
         float Y = (float)tracker.Data().HitDataY(row, tracker.TrackHits()[tmpHit].HitIndex()) * row.HstepY() + row.Grid().YMin();
         if (!right && Y < -row.MaxY() * tracker.Param().rec.tpc.extrapolationTrackingYRangeLower) {
           // GPUInfo("Track %d, lower row %d, left border (%f of %f)", i, mTrackHits[tmpHit].RowIndex(), Y, -row.MaxY());
-          PerformExtrapolationTrackingRun(sectorTarget, smem, tracker, i, rowIndex, -tracker.Param().par.dAlpha, -1);
+          PerformExtrapolationTrackingRun(sectorTarget, smem, tracker, i, rowIndex, -tracker.Param().dAlpha, -1);
         }
         if (right && Y > row.MaxY() * tracker.Param().rec.tpc.extrapolationTrackingYRangeLower) {
           // GPUInfo("Track %d, lower row %d, right border (%f of %f)", i, mTrackHits[tmpHit].RowIndex(), Y, row.MaxY());
-          PerformExtrapolationTrackingRun(sectorTarget, smem, tracker, i, rowIndex, tracker.Param().par.dAlpha, -1);
+          PerformExtrapolationTrackingRun(sectorTarget, smem, tracker, i, rowIndex, tracker.Param().dAlpha, -1);
         }
       }
     }
@@ -146,11 +146,11 @@ GPUd() void GPUTPCExtrapolationTracking::PerformExtrapolationTracking(int32_t nB
         float Y = (float)tracker.Data().HitDataY(row, tracker.TrackHits()[tmpHit].HitIndex()) * row.HstepY() + row.Grid().YMin();
         if (!right && Y < -row.MaxY() * tracker.Param().rec.tpc.extrapolationTrackingYRangeUpper) {
           // GPUInfo("Track %d, upper row %d, left border (%f of %f)", i, mTrackHits[tmpHit].RowIndex(), Y, -row.MaxY());
-          PerformExtrapolationTrackingRun(sectorTarget, smem, tracker, i, rowIndex, -tracker.Param().par.dAlpha, 1);
+          PerformExtrapolationTrackingRun(sectorTarget, smem, tracker, i, rowIndex, -tracker.Param().dAlpha, 1);
         }
         if (right && Y > row.MaxY() * tracker.Param().rec.tpc.extrapolationTrackingYRangeUpper) {
           // GPUInfo("Track %d, upper row %d, right border (%f of %f)", i, mTrackHits[tmpHit].RowIndex(), Y, row.MaxY());
-          PerformExtrapolationTrackingRun(sectorTarget, smem, tracker, i, rowIndex, tracker.Param().par.dAlpha, 1);
+          PerformExtrapolationTrackingRun(sectorTarget, smem, tracker, i, rowIndex, tracker.Param().dAlpha, 1);
         }
       }
     }

@@ -12,6 +12,9 @@
 /// \file GPUReconstructionAvailableBackends.h
 /// \author David Rohr
 
+// clang-format off
 #cmakedefine CUDA_ENABLED
 #cmakedefine HIP_ENABLED
 #cmakedefine OPENCL_ENABLED
+#cmakedefine GPUCA_COMPILER_VERSIONS @GPUCA_COMPILER_VERSIONS@
+// clang-format on

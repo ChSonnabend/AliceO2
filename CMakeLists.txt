@@ -86,7 +86,6 @@ include(O2AddTestRootMacro)
 include(O2ReportNonTestedMacros)
 include(O2TargetRootDictionary)
 include(O2DataFile)
-include(O2TargetManPage)
 include(O2AddWorkflow)
 include(O2SetROOTPCMDependencies)
 include(O2AddHipifiedExecutable)
@@ -116,10 +115,6 @@ if(BUILD_SIMULATION)
 endif()
 
 add_subdirectory(config)
-
-add_custom_target(man ALL)
-o2_target_man_page(man NAME o2)
-o2_target_man_page(man NAME FairMQDevice)
 
 # Testing and packaging only needed if we are the top level directory
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)

@@ -38,5 +38,6 @@
 #pragma link C++ class std::vector < o2::trackstudy::ClResTPCCont> + ;
 #pragma link C++ class o2::trackstudy::TrackPairInfo + ;
 #pragma link C++ class std::vector < o2::trackstudy::TrackPairInfo> + ;
+#pragma ling C++ class o2::tpc::TPCClusSelector + ;
 
 #endif

@@ -70,7 +70,7 @@ class GPUTPCGMMerger : public GPUProcessor
     GPUAtomic(uint32_t) nLoopData;
     GPUAtomic(uint32_t) nUnpackedTracks;
     GPUAtomic(uint32_t) nMergedTracks;
-    GPUAtomic(uint32_t) nOutputTrackClusters;
+    GPUAtomic(uint32_t) nMergedTrackClusters;
     GPUAtomic(uint32_t) nO2Tracks;
     GPUAtomic(uint32_t) nO2ClusRefs;
     const GPUTPCTrack* firstExtrapolatedTracks[NSECTORS];
@@ -113,8 +113,8 @@ class GPUTPCGMMerger : public GPUProcessor
   GPUhdi() uint32_t NClusters() const { return mNClusters; }
   GPUhdi() uint32_t NMaxClusters() const { return mNMaxClusters; }
   GPUhdi() uint32_t NMaxTracks() const { return mNMaxTracks; }
-  GPUhdi() uint32_t NMaxOutputTrackClusters() const { return mNMaxOutputTrackClusters; }
-  GPUhdi() uint32_t NOutputTrackClusters() const { return mMemory->nOutputTrackClusters; }
+  GPUhdi() uint32_t NMaxMergedTrackClusters() const { return mNMaxMergedTrackClusters; }
+  GPUhdi() uint32_t NMergedTrackClusters() const { return mMemory->nMergedTrackClusters; }
   GPUhdi() const GPUTPCGMMergedTrackHit* Clusters() const { return mClusters; }
   GPUhdi() GPUTPCGMMergedTrackHit* Clusters() { return (mClusters); }
   GPUhdi() const GPUTPCGMMergedTrackHitXYZ* ClustersXYZ() const { return mClustersXYZ; }
@@ -249,7 +249,7 @@ class GPUTPCGMMerger : public GPUProcessor
   uint32_t mNTotalSectorTracks = 0;      // maximum number of incoming sector tracks
   uint32_t mNMaxTracks = 0;              // maximum number of output tracks
   uint32_t mNMaxSingleSectorTracks = 0;  // max N tracks in one sector
-  uint32_t mNMaxOutputTrackClusters = 0; // max number of clusters in output tracks (double-counting shared clusters)
+  uint32_t mNMaxMergedTrackClusters = 0; // max number of clusters in output tracks (double-counting shared clusters)
   uint32_t mNMaxClusters = 0;            // max total unique clusters (in event)
   uint32_t mNMaxLooperMatches = 0;       // Maximum number of candidate pairs for looper matching
 

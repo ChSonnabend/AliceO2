@@ -265,7 +265,7 @@ void BarrelAlignmentSpec::updateTimeDependentParams(ProcessingContext& pc)
       prevField = newField;
       if (mDetMask[DetID::TPC]) {
         mTPCParam.reset(new o2::gpu::GPUParam);
-        mTPCParam->SetDefaults(o2::base::Propagator::Instance()->getNominalBz());
+        mTPCParam->SetDefaults(o2::base::Propagator::Instance()->getNominalBz(), false);
         mController->setTPCParam(mTPCParam.get());
       }
     }

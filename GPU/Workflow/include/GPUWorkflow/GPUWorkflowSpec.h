@@ -58,6 +58,7 @@ class GeometryFlat;
 
 namespace its
 {
+template <int>
 class TimeFrame;
 class ITSTrackingInterface;
 } // namespace its
@@ -214,7 +215,7 @@ class GPURecoWorkflowSpec : public o2::framework::Task
   std::vector<int32_t> mTPCSectors;
   std::unique_ptr<o2::its::ITSTrackingInterface> mITSTrackingInterface;
   std::unique_ptr<gpurecoworkflow_internals::GPURecoWorkflowSpec_PipelineInternals> mPipeline;
-  o2::its::TimeFrame* mITSTimeFrame = nullptr;
+  o2::its::TimeFrame<7>* mITSTimeFrame = nullptr;
   std::vector<fair::mq::RegionInfo> mRegionInfos;
   const o2::itsmft::TopologyDictionary* mITSDict = nullptr;
   const o2::dataformats::MeanVertexObject* mMeanVertex;

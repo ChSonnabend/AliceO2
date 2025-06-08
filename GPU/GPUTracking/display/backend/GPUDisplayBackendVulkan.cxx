@@ -414,7 +414,7 @@ void GPUDisplayBackendVulkan::createDevice()
     mDebugMessenger = mInstance.createDebugUtilsMessengerEXT(debugCreateInfo, nullptr);
   }
   std::vector<vk::ExtensionProperties> extensions = vk::enumerateInstanceExtensionProperties(nullptr);
-  if (mDisplay->param()->par.debugLevel >= 3) {
+  if (mDisplay->GetProcessingSettings().debugLevel >= 3) {
     std::cout << "available instance extensions: " << extensions.size() << "\n";
     for (const auto& extension : extensions) {
       std::cout << '\t' << extension.extensionName << '\n';
@@ -436,7 +436,7 @@ void GPUDisplayBackendVulkan::createDevice()
   double bestScore = -1.;
   for (uint32_t i = 0; i < devices.size(); i++) {
     double score = checkDevice(devices[i], reqDeviceExtensions);
-    if (mDisplay->param()->par.debugLevel >= 2) {
+    if (mDisplay->GetProcessingSettings().debugLevel >= 2) {
       vk::PhysicalDeviceProperties deviceProperties = devices[i].getProperties();
       GPUInfo("Available Vulkan device %d: %s - Score %f", i, &deviceProperties.deviceName[0], score);
     }
@@ -467,7 +467,7 @@ void GPUDisplayBackendVulkan::createDevice()
   mStencilSupported = (bool)(depth64FormatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment);
   mCubicFilterSupported = (bool)(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterCubicEXT);
   bool mailboxSupported = std::find(mSwapChainDetails.presentModes.begin(), mSwapChainDetails.presentModes.end(), vk::PresentModeKHR::eMailbox) != mSwapChainDetails.presentModes.end();
-  if (mDisplay->param()->par.debugLevel >= 2) {
+  if (mDisplay->GetProcessingSettings().debugLevel >= 2) {
     GPUInfo("Max MSAA: %d, 32 bit Z buffer %d, 32 bit Z buffer + stencil buffer %d, Cubic Filtering %d, Mailbox present mode %d\n", (int32_t)mMaxMSAAsupported, (int32_t)mZSupported, (int32_t)mStencilSupported, (int32_t)mCubicFilterSupported, (int32_t)mailboxSupported);
   }
 
@@ -1406,7 +1406,7 @@ void GPUDisplayBackendVulkan::clearImage(VulkanImage& image)
 
 int32_t GPUDisplayBackendVulkan::InitBackendA()
 {
-  mEnableValidationLayers = mDisplay->param() && mDisplay->param()->par.debugLevel >= 2;
+  mEnableValidationLayers = mDisplay->param() && mDisplay->GetProcessingSettings().debugLevel >= 2;
   mFramesInFlight = 2;
 
   createDevice();

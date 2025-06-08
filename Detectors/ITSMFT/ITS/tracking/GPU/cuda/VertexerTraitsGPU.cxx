@@ -28,10 +28,6 @@
 
 namespace o2::its
 {
-VertexerTraitsGPU::VertexerTraitsGPU()
-{
-  setIsGPU(true);
-}
 
 void VertexerTraitsGPU::initialise(const TrackingParameters& trackingParams, const int iteration)
 {

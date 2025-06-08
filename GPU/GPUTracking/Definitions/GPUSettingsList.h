@@ -233,6 +233,7 @@ AddOption(cacheFolder, std::string, "./rtccache/", "", 0, "Folder in which the c
 AddOption(prependCommand, std::string, "", "", 0, "Prepend RTC compilation commands by this string")
 AddOption(overrideArchitecture, std::string, "", "", 0, "Override arhcitecture part of RTC compilation command line") // Part of cmdLine, so checked against the cache
 AddOption(loadLaunchBoundsFromFile, std::string, "", "", 0, "Load a parameter object containing the launch bounds from a file")
+AddOption(keepTempFiles, bool, false, "", 0, "Keep temporary source and object files")
 AddHelp("help", 'h')
 EndConfig()
 
@@ -316,6 +317,7 @@ AddOption(memoryAllocationStrategy, int8_t, 0, "", 0, "Memory Allocation Strageg
 AddOption(forceMemoryPoolSize, uint64_t, 1, "memSize", 0, "Force size of allocated GPU / page locked host memory", min(0ul))
 AddOption(forceHostMemoryPoolSize, uint64_t, 0, "hostMemSize", 0, "Force size of allocated host page locked host memory (overriding memSize)", min(0ul))
 AddOption(memoryScalingFactor, float, 1.f, "", 0, "Factor to apply to all memory scalers")
+AddOption(memoryScalingFuzz, uint64_t, 0, "", 0, "Fuzz the memoryScalingFactor (0 disable, 1 enable, >1 set seed", def(1))
 AddOption(conservativeMemoryEstimate, bool, false, "", 0, "Use some more conservative defaults for larger buffers during TPC processing")
 AddOption(tpcInputWithClusterRejection, uint8_t, 0, "", 0, "Indicate whether the TPC input is CTF data with cluster rejection, to tune buffer estimations")
 AddOption(forceMaxMemScalers, uint64_t, 0, "", 0, "Force using the maximum values for all buffers, Set a value n > 1 to rescale all maximums to a memory size of n")
@@ -364,6 +366,15 @@ AddOption(oclCompileFromSources, bool, false, "", 0, "Compile OpenCL binary from
 AddOption(oclOverrideSourceBuildFlags, std::string, "", "", 0, "Override OCL build flags for compilation from source, put a space for empty options")
 AddOption(printSettings, bool, false, "", 0, "Print all settings when initializing")
 AddOption(tpcFreeAllocatedMemoryAfterProcessing, bool, false, "", 0, "Clean all memory allocated by TPC when TPC processing done, only data written to external output resources will remain")
+AddOption(debugOnFailure, int32_t, 0, "", 0, "Dump raw data in case an error occured, bit 1 enables all dumps, otherwise bitmask for: 2 = signal, 3 = GPUErrorCode", def(1))
+AddOption(debugOnFailureSignalMask, uint32_t, (uint32_t)-1, "", 0, "Mask of signals that trigger debug / dump")
+AddOption(debugOnFailureErrorMask, uint64_t, (uint64_t)-1, "", 0, "Mask of GPUCA_ERRORS that trigger debug / dump")
+AddOption(debugOnFailureNoForwardSignal, bool, false, "", 0, "Do not forward signal to original signal handler")
+AddOption(debugOnFailureMaxN, uint32_t, 1, "", 0, "Max number of times to run the debug / dump")
+AddOption(debugOnFailureMaxFiles, uint32_t, 0, "", 0, "Max number of files to have in the target folder")
+AddOption(debugOnFailureMaxSize, uint32_t, 0, "", 0, "Max size of existing dumps in the target folder in GB")
+AddOption(debugOnFailureDirectory, std::string, ".", "", 0, "Target folder for debug / dump")
+AddOption(amdMI100SerializationWorkaround, bool, false, "", 0, "Enable workaround that mitigates MI100 serialization bug")
 AddVariable(eventDisplay, o2::gpu::GPUDisplayFrontendInterface*, nullptr)
 AddSubConfig(GPUSettingsProcessingRTC, rtc)
 AddSubConfig(GPUSettingsProcessingRTCtechnical, rtctech)
@@ -550,7 +561,8 @@ AddOption(nEvents, int32_t, -1, "", 'n', "Number of events to process (-1; all)"
 AddOption(runs, int32_t, 1, "runs", 'r', "Number of iterations to perform (repeat each event)", min(0))
 AddOption(runs2, int32_t, 1, "runsExternal", 0, "Number of iterations to perform (repeat full processing)", min(1))
 AddOption(runsInit, int32_t, 1, "", 0, "Number of initial iterations excluded from average", min(0))
-AddOption(eventsDir, const char*, "pp", "events", 'e', "Directory with events to process", message("Reading events from Directory events/%s"))
+AddOption(eventsDir, const char*, "pp", "events", 'e', "Directory with events to process", message("Reading events from Directory %s"))
+AddOption(absoluteEventsDir, bool, false, "", 0, "Events directory is absolute, and not inside './events/'")
 AddOption(noEvents, bool, false, "", 0, "Run without data (e.g. for field visualization)")
 AddOption(eventDisplay, int32_t, 0, "display", 'd', "Show standalone event display", def(1))
 AddOption(eventGenerator, bool, false, "", 0, "Run event generator")
@@ -645,13 +657,9 @@ EndConfig()
 
 // Derrived parameters used in GPUParam
 BeginHiddenConfig(GPUSettingsParam, param)
-AddVariableRTC(dAlpha, float, 0.f)            // angular size
-AddVariableRTC(assumeConstantBz, int8_t, 0)   // Assume a constant magnetic field
-AddVariableRTC(toyMCEventsFlag, int8_t, 0)    // events were build with home-made event generator
 AddVariableRTC(continuousTracking, int8_t, 0) // Continuous tracking, estimate bz and errors for abs(z) = 125cm during seeding
 AddVariableRTC(dodEdx, int8_t, 0)             // Do dEdx computation
 AddVariableRTC(earlyTpcTransform, int8_t, 0)  // do Early TPC transformation
-AddVariableRTC(debugLevel, int8_t, 0)         // Debug level
 EndConfig()
 
 EndNamespace() // gpu

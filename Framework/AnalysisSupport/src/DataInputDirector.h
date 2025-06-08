@@ -82,6 +82,7 @@ class DataInputDescriptor
 
   bool readTree(DataAllocator& outputs, header::DataHeader dh, int counter, int numTF, std::string treename, size_t& totalSizeCompressed, size_t& totalSizeUncompressed);
 
+  void printFileOpening();
   void printFileStatistics();
   void closeInputFile();
   bool isAlienSupportOn() { return mAlienSupport; }

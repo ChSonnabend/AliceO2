@@ -80,13 +80,16 @@ int32_t GPUReconstructionCUDA::genRTC(std::string& filename, uint32_t& nCompile)
     GPUInfo("RTC Launch Bounds:\n%s", launchBounds.c_str());
   }
 
-  char shasource[21], shaparam[21], shacmd[21], shakernels[21], shabounds[21];
+  const std::string compilerVersions = getBackendVersions();
+
+  char shasource[21], shaparam[21], shacmd[21], shakernels[21], shabounds[21], shaversion[21];
   if (GetProcessingSettings().rtc.cacheOutput) {
     o2::framework::internal::SHA1(shasource, _binary_GPUReconstructionCUDArtc_src_start, _binary_GPUReconstructionCUDArtc_src_len);
     o2::framework::internal::SHA1(shaparam, rtcparam.c_str(), rtcparam.size());
     o2::framework::internal::SHA1(shacmd, baseCommand.c_str(), baseCommand.size());
     o2::framework::internal::SHA1(shakernels, kernelsall.c_str(), kernelsall.size());
     o2::framework::internal::SHA1(shabounds, launchBounds.c_str(), launchBounds.size());
+    o2::framework::internal::SHA1(shaversion, compilerVersions.c_str(), compilerVersions.size());
   }
 
   nCompile = GetProcessingSettings().rtc.compilePerKernel ? kernels.size() : 1;
@@ -135,7 +138,8 @@ int32_t GPUReconstructionCUDA::genRTC(std::string& filename, uint32_t& nCompile)
             checkSHA(shaparam, "param") ||
             checkSHA(shacmd, "command line") ||
             checkSHA(shakernels, "kernel definitions") ||
-            checkSHA(shabounds, "launch bounds")) {
+            checkSHA(shabounds, "launch bounds") ||
+            checkSHA(shaversion, "compiler versions")) {
           break;
         }
         GPUSettingsProcessingRTC cachedSettings;
@@ -237,6 +241,7 @@ int32_t GPUReconstructionCUDA::genRTC(std::string& filename, uint32_t& nCompile)
           fwrite(shacmd, 1, 20, fp) != 20 ||
           fwrite(shakernels, 1, 20, fp) != 20 ||
           fwrite(shabounds, 1, 20, fp) != 20 ||
+          fwrite(shaversion, 1, 20, fp) != 20 ||
           fwrite(&GetProcessingSettings().rtc, sizeof(GetProcessingSettings().rtc), 1, fp) != 1) {
         throw std::runtime_error("Error writing cache file");
       }

@@ -9,6 +9,9 @@
 # granted to it by virtue of its status as an Intergovernmental Organization
 # or submit itself to any jurisdiction.
 
+# NOTE!!!! - Whenever this file is changed, move it over to alidist/resources
+# FindO2GPU.cmake Version 1
+
 if(NOT DEFINED ENABLE_CUDA)
   set(ENABLE_CUDA "AUTO")
 endif()
@@ -67,7 +70,7 @@ endfunction()
 # Need to strip c++17 imposed by alidist defaults
 STRING(REGEX REPLACE "\-std=[^ ]*" "" O2_GPU_CMAKE_CXX_FLAGS_NOSTD "${CMAKE_CXX_FLAGS}")
 
-# ---------------------------------- Fast Math / Deterministic Mode ----------------------------------
+# ================================== Fast Math / Deterministic Mode ==================================
 # set(GPUCA_DETERMINISTIC_MODE WHOLEO2)          # Override
 set(GPUCA_DETERMINISTIC_MODE_MAP_OFF 0)
 set(GPUCA_DETERMINISTIC_MODE_MAP_NO_FAST_MATH 1) # No -ffast-math and similar compile flags for GPU folder
@@ -101,7 +104,7 @@ if(GPUCA_DETERMINISTIC_MODE GREATER_EQUAL ${GPUCA_DETERMINISTIC_MODE_MAP_WHOLEO2
 endif()
 
 
-# ---------------------------------- CUDA ----------------------------------
+# ================================== CUDA ==================================
 if(ENABLE_CUDA)
   if(CUDA_COMPUTETARGET)
     set(CMAKE_CUDA_ARCHITECTURES ${CUDA_COMPUTETARGET})
@@ -139,8 +142,8 @@ if(ENABLE_CUDA)
       message(${FAILURE_SEVERITY} "CUDA found but thrust not available")
       set(CMAKE_CUDA_COMPILER OFF)
     endif()
-    if (NOT CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "12.6")
-      message(${FAILURE_SEVERITY} "CUDA Version too old: ${CMAKE_CUDA_COMPILER_VERSION}, 12.6 required")
+    if (NOT CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "12.8")
+      message(${FAILURE_SEVERITY} "CUDA Version too old: ${CMAKE_CUDA_COMPILER_VERSION}, 12.8 required")
       set(CMAKE_CUDA_COMPILER OFF)
     endif()
   endif()
@@ -180,7 +183,7 @@ if(ENABLE_CUDA)
   endif()
 endif()
 
-# ---------------------------------- OpenCL ----------------------------------
+# ================================== OpenCL ==================================
 if(ENABLE_OPENCL)
   find_package(OpenCL)
   if(ENABLE_OPENCL AND NOT ENABLE_OPENCL STREQUAL "AUTO")
@@ -188,9 +191,11 @@ if(ENABLE_OPENCL)
   else()
     set_package_properties(OpenCL PROPERTIES TYPE OPTIONAL)
   endif()
-  find_package(LLVM)
-  if(LLVM_FOUND)
-    find_package(Clang)
+  if(NOT OPENCL_COMPATIBLE_CLANG_FOUND)
+    find_package(LLVM)
+    if(LLVM_FOUND)
+      find_package(Clang)
+    endif()
   endif()
   if (GPUCA_OPENCL_CLANGBIN)
     set(LLVM_CLANG ${GPUCA_OPENCL_CLANGBIN})
@@ -225,7 +230,7 @@ if(ENABLE_OPENCL)
   endif()
 endif()
 
-# ---------------------------------- HIP ----------------------------------
+# ================================== HIP ==================================
 if(ENABLE_HIP)
   if(HIP_AMDGPUTARGET)
     set(CMAKE_HIP_ARCHITECTURES "${HIP_AMDGPUTARGET}")
@@ -279,7 +284,7 @@ if(ENABLE_HIP)
   elseif(NOT ENABLE_HIP STREQUAL "AUTO")
     message(FATAL_ERROR "HIP requested, but CMAKE_PREFIX_PATH env variable does not contain rocm folder!")
   endif()
-  if(hip_FOUND AND NOT hip_VERSION VERSION_GREATER_EQUAL "5.5")
+  if(hip_FOUND AND NOT hip_VERSION VERSION_GREATER_EQUAL "6.3")
     set(hip_FOUND 0)
   endif()
   if(hip_FOUND AND hipcub_FOUND AND rocthrust_FOUND AND rocprim_FOUND AND hip_HIPCC_EXECUTABLE AND hip_HIPIFY_PERL_EXECUTABLE)
@@ -329,4 +334,6 @@ endif()
 
 # if we end up here without a FATAL, it means we have found the "O2GPU" package
 set(O2GPU_FOUND TRUE)
-include("${CMAKE_CURRENT_LIST_DIR}/../GPU/GPUTracking/cmake/kernel_helpers.cmake")
+if (NOT GPUCA_FINDO2GPU_CHECK_ONLY)
+  include("${CMAKE_CURRENT_LIST_DIR}/../GPU/GPUTracking/cmake/kernel_helpers.cmake")
+endif()

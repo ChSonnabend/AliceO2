@@ -9,7 +9,7 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file GPUReconstruction.cxx
+/// \file GPUReconstructionLibrary.cxx
 /// \author David Rohr
 
 #ifdef _WIN32
@@ -183,4 +183,9 @@ int32_t GPUReconstruction::LibraryLoader::CloseLibrary()
   mGPULib = nullptr;
   mGPUEntry = nullptr;
   return 0;
+}
+
+std::string GPUReconstruction::getBackendVersions()
+{
+  return GPUCA_M_STR(GPUCA_COMPILER_VERSIONS);
 }

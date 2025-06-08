@@ -43,8 +43,10 @@ struct ClusterNative;
 
 namespace o2::its
 {
+template <int>
 class TrackerTraits;
 class VertexerTraits;
+template <int>
 class TimeFrame;
 } // namespace o2::its
 
@@ -77,7 +79,7 @@ class GPUO2Interface
   void DumpEvent(int32_t nEvent, GPUTrackingInOutPointers* data);
   void DumpSettings();
 
-  void GetITSTraits(o2::its::TrackerTraits*& trackerTraits, o2::its::VertexerTraits*& vertexerTraits, o2::its::TimeFrame*& timeFrame);
+  void GetITSTraits(o2::its::TrackerTraits<7>*& trackerTraits, o2::its::VertexerTraits*& vertexerTraits, o2::its::TimeFrame<7>*& timeFrame);
   const o2::base::Propagator* GetDeviceO2Propagator(int32_t iThread = 0) const;
   void UseGPUPolynomialFieldInPropagator(o2::base::Propagator* prop) const;
 

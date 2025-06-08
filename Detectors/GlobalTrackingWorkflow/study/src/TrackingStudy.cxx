@@ -486,6 +486,12 @@ void TrackingStudySpec::process(o2::globaltracking::RecoContainer& recoData)
 
           if (tpcTr) {
             float tsuse = trcExt.ttime / (8 * o2::constants::lhc::LHCBunchSpacingMUS);
+            if (tpcTr->hasASideClusters()) {
+              trcExt.setTPCA();
+            }
+            if (tpcTr->hasCSideClusters()) {
+              trcExt.setTPCC();
+            }
             if (is == GTrackID::TPC) {
               trcExt.dcaTPC = dca;
               tsuse = -1e9;

@@ -11,10 +11,7 @@
 
 #include "ITS3Simulation/ChipDigitsContainer.h"
 
-namespace o2
-{
-namespace its3
-{
+using namespace o2::its3;
 
 ChipDigitsContainer::ChipDigitsContainer(UShort_t idx)
   : o2::itsmft::ChipDigitsContainer(idx) {}
@@ -48,16 +45,17 @@ void ChipDigitsContainer::addNoise(UInt_t rofMin, UInt_t rofMax, const o2::its3:
     for (Int_t i = 0; i < nhits; ++i) {
       row = gRandom->Integer(maxRows);
       col = gRandom->Integer(maxCols);
-      if (mNoiseMap && mNoiseMap->isNoisy(mChipIndex, row, col))
+      if (mNoiseMap && mNoiseMap->isNoisy(mChipIndex, row, col)) {
         continue;
-      if (mDeadChanMap && mDeadChanMap->isNoisy(mChipIndex, row, col))
+      }
+      if (mDeadChanMap && mDeadChanMap->isNoisy(mChipIndex, row, col)) {
         continue;
+      }
       auto key = getOrderingKey(rof, row, col);
-      if (!findDigit(key))
+      if (!findDigit(key)) {
         addDigit(key, rof, row, col, nel, o2::MCCompLabel(true));
+      }
     }
   }
 }
-
-} // namespace its3
-} // namespace o2
+// namespace its3

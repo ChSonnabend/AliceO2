@@ -76,6 +76,24 @@ struct RunSummary : o2::framework::ServicePlugin {
               LOGP(info, "{}", files[fi % files.size()].data);
             }
           }
+          for (size_t li = 0; li < metrics.metricLabels.size(); ++li) {
+            MetricLabel const&label = metrics.metricLabels[li];
+            if (strcmp(label.label, "aod-file-open-info") != 0) {
+              continue;
+            }
+            MetricInfo const&metric = metrics.metrics[li];
+            auto &files = metrics.stringMetrics[metric.storeIdx];
+            if (metric.filledMetrics) {
+              LOGP(info, "### Files opened stats ###");
+            }
+            std::string lastFileRead;
+            for (size_t fi = 0; fi < metric.filledMetrics; ++fi) {
+              lastFileRead = files[fi % files.size()].data;
+            }
+            if (lastFileRead.empty() == false) {
+              LOGP(info, "Last file opened: {}", lastFileRead);
+            }
+          }
         } },
       .kind = ServiceKind::Serial};
   }
@@ -103,7 +121,11 @@ std::vector<std::string> getListOfTables(std::unique_ptr<TFile>& f)
       break;
     }
 
+#if __has_include(<ROOT/RFieldBase.hxx>)
+    void* v = f->GetObjectChecked(key->GetName(), TClass::GetClass("ROOT::RNTuple"));
+#else
     void* v = f->GetObjectChecked(key->GetName(), TClass::GetClass("ROOT::Experimental::RNTuple"));
+#endif
     if (v) {
       std::string s = key->GetName();
       size_t pos = s.find('-');
@@ -174,7 +196,7 @@ struct DiscoverMetadataInAOD : o2::framework::ConfigDiscoveryPlugin {
           std::getline(file, filename);
           file.close();
         }
-        if (filename.rfind("alien://", 0) == 0) {
+        if (filename.rfind("alien://", 0) == 0 && !gGrid) {
           TGrid::Connect("alien://");
         }
         LOGP(info, "Loading metadata from file {} in PID {}", filename, getpid());
@@ -227,7 +249,7 @@ struct DiscoverMetadataInAOD : o2::framework::ConfigDiscoveryPlugin {
             }
           }
 
-          if (parentFilename.starts_with("alien://")) {
+          if (parentFilename.starts_with("alien://") && !gGrid) {
             TGrid::Connect("alien://");
           }
 

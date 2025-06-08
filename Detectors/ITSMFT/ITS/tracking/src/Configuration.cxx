@@ -9,10 +9,14 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+#include <format>
+#include "ITStracking/Constants.h"
+
 #include "ITStracking/Configuration.h"
 
 namespace o2::its
 {
+
 std::string asString(TrackingMode mode)
 {
   switch (mode) {
@@ -28,9 +32,15 @@ std::string asString(TrackingMode mode)
   return "unknown";
 }
 
+std::ostream& operator<<(std::ostream& os, TrackingMode v)
+{
+  os << asString(v);
+  return os;
+}
+
 std::string TrackingParameters::asString() const
 {
-  std::string str = fmt::format("NZb:{} NPhB:{} NROFIt:{} PerVtx:{} DropFail:{} ClSh:{} TtklMinPt:{:.2f} MinCl:{}",
+  std::string str = std::format("NZb:{} NPhB:{} NROFIt:{} PerVtx:{} DropFail:{} ClSh:{} TtklMinPt:{:.2f} MinCl:{}",
                                 ZBins, PhiBins, nROFsPerIterations, PerPrimaryVertexProcessing, DropTFUponFailure, ClusterSharing, TrackletMinPt, MinTrackLength);
   bool first = true;
   for (int il = NLayers; il >= MinTrackLength; il--) {
@@ -40,19 +50,22 @@ std::string TrackingParameters::asString() const
         first = false;
         str += " MinPt: ";
       }
-      str += fmt::format("L{}:{:.2f} ", il, MinPt[slot]);
+      str += std::format("L{}:{:.2f} ", il, MinPt[slot]);
     }
   }
   str += " SystErrY/Z:";
   for (size_t i = 0; i < SystErrorY2.size(); i++) {
-    str += fmt::format("{:.2e}/{:.2e} ", SystErrorY2[i], SystErrorZ2[i]);
+    str += std::format("{:.2e}/{:.2e} ", SystErrorY2[i], SystErrorZ2[i]);
   }
+  str += std::format(" MemLimit {:.2f} GB", double(MaxMemory) / constants::GB);
   return str;
 }
 
-std::ostream& operator<<(std::ostream& os, TrackingMode v)
+std::string VertexingParameters::asString() const
 {
-  os << asString(v);
-  return os;
+  std::string str = std::format("NZb:{} NPhB:{} DRof:{} ClsCont:{} MaxTrkltCls:{} ZCut:{} PhCut:{}", ZBins, PhiBins, deltaRof, clusterContributorsCut, maxTrackletsPerCluster, zCut, phiCut);
+  str += std::format(" MemLimit {:.2f} GB", double(MaxMemory) / constants::GB);
+  return str;
 }
+
 } // namespace o2::its

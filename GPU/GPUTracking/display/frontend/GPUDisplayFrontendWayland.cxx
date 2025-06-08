@@ -290,7 +290,7 @@ int32_t GPUDisplayFrontendWayland::FrontendMain()
   auto seat_capabilities_c = internal::CCallWrapper<void, wl_seat*, uint32_t>{[seat_capabilities](wl_seat* seat, uint32_t capabilities) { seat_capabilities(seat, capabilities); }};
 
   auto seat_name = [](void* data, struct wl_seat* seat, const char* name) {
-    if (((GPUDisplayFrontendWayland*)data)->mDisplay->param()->par.debugLevel >= 2) {
+    if (((GPUDisplayFrontendWayland*)data)->mDisplay->GetProcessingSettings().debugLevel >= 2) {
       GPUInfo("Wayland seat: %s", name);
     }
   };
@@ -300,7 +300,7 @@ int32_t GPUDisplayFrontendWayland::FrontendMain()
   };
 
   auto registry_global = [&](wl_registry* registry, uint32_t name, const char* interface, uint32_t version) {
-    if (mDisplay->param()->par.debugLevel >= 3) {
+    if (mDisplay->GetProcessingSettings().debugLevel >= 3) {
       GPUInfo("Available interface %s", interface);
     }
     if (strcmp(interface, wl_output_interface.name) == 0) {
@@ -344,7 +344,7 @@ int32_t GPUDisplayFrontendWayland::FrontendMain()
 
   auto xdg_toplevel_handle_configure = [](void* data, xdg_toplevel* toplevel, int32_t width, int32_t height, wl_array* states) {
     GPUDisplayFrontendWayland* me = (GPUDisplayFrontendWayland*)data;
-    if (me->mDisplay->param()->par.debugLevel >= 3) {
+    if (me->mDisplay->GetProcessingSettings().debugLevel >= 3) {
       GPUInfo("Wayland surface resized to %d %d", width, height);
     }
     me->mWidthRequested = width;

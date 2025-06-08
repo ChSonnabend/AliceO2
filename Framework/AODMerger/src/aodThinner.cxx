@@ -102,7 +102,7 @@ int main(int argc, char* argv[])
   }
   TDirectory* outputDir = nullptr;
 
-  if (inputFileName.find("alien:") == 0) {
+  if (inputFileName.find("alien:") == 0 && !gGrid) {
     printf("Connecting to AliEn...");
     TGrid::Connect("alien:");
   }

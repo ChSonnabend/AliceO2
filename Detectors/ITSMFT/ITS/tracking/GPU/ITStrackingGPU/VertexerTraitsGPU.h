@@ -37,26 +37,19 @@ class ROframe;
 
 using constants::its2::InversePhiBinSize;
 
-class VertexerTraitsGPU : public VertexerTraits
+class VertexerTraitsGPU final : public VertexerTraits
 {
  public:
-  VertexerTraitsGPU();
-  ~VertexerTraitsGPU() = default;
-  void initialise(const TrackingParameters&, const int iteration = 0) override;
-  void adoptTimeFrame(TimeFrame*) override;
-  void computeTracklets(const int iteration = 0) override;
-  void computeTrackletMatching(const int iteration = 0) override;
-  void computeVertices(const int iteration = 0) override;
-  void updateVertexingParameters(const std::vector<VertexingParameters>&, const TimeFrameGPUParameters&) override;
-
-  // Hybrid
-  void initialiseHybrid(const TrackingParameters& pars, const int iteration = 0) override { VertexerTraits::initialise(pars, iteration); }
-  void computeTrackletsHybrid(const int iteration = 0) override { VertexerTraits::computeTracklets(iteration); }
-  void computeTrackletMatchingHybrid(const int iteration = 0) override { VertexerTraits::computeTrackletMatching(iteration); }
-  void computeVerticesHybrid(const int iteration = 0) override { VertexerTraits::computeVertices(iteration); }
-  void adoptTimeFrameHybrid(TimeFrame* tf) override { VertexerTraits::adoptTimeFrame(tf); }
-
+  void initialise(const TrackingParameters&, const int iteration = 0) final;
+  void adoptTimeFrame(TimeFrame<7>*) noexcept final;
+  void computeTracklets(const int iteration = 0) final;
+  void computeTrackletMatching(const int iteration = 0) final;
+  void computeVertices(const int iteration = 0) final;
+  void updateVertexingParameters(const std::vector<VertexingParameters>&, const TimeFrameGPUParameters&) final;
   void computeVerticesHist();
+
+  bool isGPU() const noexcept final { return true; }
+  const char* getName() const noexcept final { return "GPU"; }
 
  protected:
   IndexTableUtils* mDeviceIndexTableUtils;
@@ -64,10 +57,10 @@ class VertexerTraitsGPU : public VertexerTraits
   TimeFrameGPUParameters mTfGPUParams;
 };
 
-inline void VertexerTraitsGPU::adoptTimeFrame(TimeFrame* tf)
+inline void VertexerTraitsGPU::adoptTimeFrame(TimeFrame<7>* tf) noexcept
 {
   mTimeFrameGPU = static_cast<gpu::TimeFrameGPU<7>*>(tf);
-  mTimeFrame = static_cast<TimeFrame*>(tf);
+  mTimeFrame = static_cast<TimeFrame<7>*>(tf);
 }
 
 } // namespace its

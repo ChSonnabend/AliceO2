@@ -135,7 +135,7 @@ class GPUChainTracking : public GPUChain
   void ClearIOPointers();
   void AllocateIOMemory();
   using GPUChain::DumpData;
-  void DumpData(const char* filename);
+  void DumpData(const char* filename, const GPUTrackingInOutPointers* ioPtrs = nullptr);
   using GPUChain::ReadData;
   int32_t ReadData(const char* filename);
   void DumpSettings(const char* dir = "") override;
@@ -232,11 +232,12 @@ class GPUChainTracking : public GPUChain
   int32_t DoProfile();
   void PrintMemoryRelations();
   void PrintMemoryStatistics() override;
-  void PrepareDebugOutput();
-  void PrintDebugOutput();
+  void PrepareKernelDebugOutput();
+  void PrintKernelDebugOutput();
   void PrintOutputStat();
   static void DumpClusters(std::ostream& out, const o2::tpc::ClusterNativeAccess* clusters);
   static void DebugSortCompressedClusters(o2::tpc::CompressedClustersFlat* cls);
+  void DoDebugRawDump();
 
   bool ValidateSteps();
   bool ValidateSettings();

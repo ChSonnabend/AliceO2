@@ -40,8 +40,6 @@ void BuildTopologyDictionary::accountTopologyImpl(const itsmft::ClusterTopology&
   ++tot;
   bool useDf = dX < IgnoreVal / 2; // we may need to account the frequency but to not update the centroid
 
-  // std::pair<unordered_map<unsigned long, itsmft::TopoStat>::iterator,bool> ret;
-  // auto ret = mTopologyMap.insert(std::make_pair(cluster.getHash(), std::make_pair(cluster, 1)));
   auto& topoStat = tstat[cluster.getHash()];
   topoStat.countsTotal++;
   if (topoStat.countsTotal == 1) { // a new topology is inserted
@@ -59,7 +57,7 @@ void BuildTopologyDictionary::accountTopologyImpl(const itsmft::ClusterTopology&
       topoStat.countsWithBias = 1;
     } else { // assign expected sigmas from the pixel X, Z sizes
       topInf.mXsigma2 = sigmaX * sigmaX / 12.f / (float)std::min(10, topInf.mSizeX);
-      topInf.mZsigma2 = sigmaZ * sigmaZ / (float)std::min(10, topInf.mSizeZ);
+      topInf.mZsigma2 = sigmaZ * sigmaZ / 12.f / (float)std::min(10, topInf.mSizeZ);
     }
     tinfo.emplace(cluster.getHash(), topInf);
   } else {
@@ -128,7 +126,7 @@ void BuildTopologyDictionary::setThresholdImpl(double thr, TopoFreq& tfreq, Topo
 {
   setNCommonImpl(0, tfreq, tstat, ncommon, ntot);
   freqthres = thr;
-  for (auto& q : tfreq) {
+  for (const auto& q : tfreq) {
     if (((double)q.first) / ntot > thr) {
       ++ncommon;
     } else {
@@ -205,7 +203,7 @@ void BuildTopologyDictionary::groupRareTopologiesImpl(TopoFreq& tfreq, TopoInfo&
     gr.mHash = tfreq[j].second;
     gr.mFrequency = ((double)(tfreq[j].first)) / ntot;
     totFreq += gr.mFrequency;
-    // rough estimation for the error considering a8 uniform distribution
+    // rough estimation for the error considering a uniform distribution
     const auto& topo = tinfo.find(gr.mHash)->second;
     gr.mErrX = std::sqrt(topo.mXsigma2);
     gr.mErrZ = std::sqrt(topo.mZsigma2);

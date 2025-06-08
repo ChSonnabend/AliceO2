@@ -74,23 +74,10 @@ GPUd() void GPUTPCGMPropagator::GetBxByBzBase(float cosAlpha, float sinAlpha, fl
   B[0] = bb[0] * cosAlpha + bb[1] * sinAlpha;
   B[1] = -bb[0] * sinAlpha + bb[1] * cosAlpha;
   B[2] = bb[2];
-  /*if( mToyMCEvents ){ // special treatment for toy monte carlo
-    B[0] = 0;
-    B[1] = 0;
-    B[2] = mField->GetNominalBz();
-  }*/
 }
 
 GPUd() float GPUTPCGMPropagator::GetBzBase(float cosAlpha, float sinAlpha, float X, float Y, float Z) const
 {
-  if (mToyMCEvents) { // special treatment for toy monte carlo
-    float B[3];
-    GetBxByBzBase(cosAlpha, sinAlpha, X, Y, Z, B);
-    return B[2];
-  }
-
-  // get global coordinates
-
   float gx = getGlobalX(cosAlpha, sinAlpha, X, Y);
   float gy = getGlobalY(cosAlpha, sinAlpha, X, Y);
 
@@ -529,8 +516,7 @@ GPUd() int32_t GPUTPCGMPropagator::FollowLinearization(const GPUTPCGMPhysicalTra
   float dLabs = CAMath::Abs(dLmask);
 
   // Energy Loss
-
-  if (1 || !mToyMCEvents) {
+  if (true) {
     // std::cout<<"APPLY ENERGY LOSS!!!"<<std::endl;
     float corr = 1.f - mMaterial.EP2 * dLmask;
     float corrInv = 1.f / corr;
@@ -553,8 +539,7 @@ GPUd() int32_t GPUTPCGMPropagator::FollowLinearization(const GPUTPCGMPhysicalTra
   }
 
   //  Multiple Scattering
-
-  if (!mToyMCEvents) {
+  if (true) {
     mC22 += dLabs * mMaterial.k22 * mT0.CosPhi() * mT0.CosPhi();
     mC33 += dLabs * mMaterial.k33;
     mC43 += dLabs * mMaterial.k43;
@@ -1038,7 +1023,7 @@ GPUd() void GPUTPCGMPropagator::Mirror(bool inFlyDirection)
   ChangeDirection();
 
   // Energy Loss
-  if (1 || !mToyMCEvents) {
+  if (true) {
     // std::cout<<"MIRROR: APPLY ENERGY LOSS!!!"<<std::endl;
 
     float dL = CAMath::Abs(dS * mT0.GetDlDs());

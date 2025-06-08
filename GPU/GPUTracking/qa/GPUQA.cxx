@@ -55,6 +55,7 @@
 #include "GPUROOTDump.h"
 #include "SimulationDataFormat/ConstMCTruthContainer.h"
 #include "SimulationDataFormat/MCCompLabel.h"
+#include "GPUSettings.h"
 #ifdef GPUCA_O2_LIB
 #include "DetectorsRaw/HBFUtils.h"
 #include "DataFormatsTPC/TrackTPC.h"
@@ -74,7 +75,6 @@
 #include <cstdio>
 #include <cinttypes>
 
-#include "utils/qconfig.h"
 #include "utils/timer.h"
 
 #include <oneapi/tbb.h>

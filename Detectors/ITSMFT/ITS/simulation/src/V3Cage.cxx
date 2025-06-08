@@ -167,7 +167,9 @@ const Double_t V3Cage::sCageCrossZLength = 8 * sMm;
 const Double_t V3Cage::sCageCrossBarThick = 20 * sMm;
 const Double_t V3Cage::sCageCrossBarPhi = 25; // Deg
 
-const Double_t V3Cage::sCageMFTRailZLen = 1807 * sMm;
+// MFT rails inside Cage
+const Double_t V3Cage::sCageMFTRailZLen = 1874 * sMm;
+const Double_t V3Cage::sCageMFTRailZPos = 6.3 * sMm;
 const Double_t V3Cage::sCageMFTRailTotWidth = 27 * sMm;
 const Double_t V3Cage::sCageMFTRailExtWidth = 24 * sMm;
 const Double_t V3Cage::sCageMFTRailIntWidth = 17.5 * sMm;
@@ -176,6 +178,16 @@ const Double_t V3Cage::sCageMFTRailTotHeight = 8.9 * sMm;
 const Double_t V3Cage::sCageMFTRailExtHeight = 5.9 * sMm;
 const Double_t V3Cage::sCageMFTRailIntHeight = 3.5 * sMm;
 const Double_t V3Cage::sCageMFTRailsXDist = 44 * sMm;
+
+const Double_t V3Cage::sCageMFTHingeTotWid = 164 * sMm;
+const Double_t V3Cage::sCageMFTHingeIntWid = 141.3 * sMm;
+const Double_t V3Cage::sCageMFTHingeHeight = 8 * sMm;
+const Double_t V3Cage::sCageMFTHingeIntHei = 6 * sMm;
+const Double_t V3Cage::sCageMFTHingeTotLen = 41 * sMm;
+const Double_t V3Cage::sCageMFTHingeIntLen = 28 * sMm;
+const Double_t V3Cage::sCageMFTHingeBulgeWid = 10 * sMm;
+const Double_t V3Cage::sCageMFTHingeBulgeHei = 10 * sMm;
+const Double_t V3Cage::sCageMFTHingeBulgePos = 7 * sMm;
 
 ClassImp(V3Cage);
 
@@ -1676,14 +1688,18 @@ void V3Cage::createAndPlaceMFTRailsInsideCage(TGeoVolume* mother, const TGeoMana
   // Return:
   //
   // Created:      10 May 2025  Mario Sitta
+  // Updated:      20 May 2025  Mario Sitta   Hinges added
   //
 
   // Local variables
-  Double_t rdist, rpos, xpos, ypos, alpha;
+  Double_t rdist, rpos, xpos, yposup, yposdw, zpos, alpha;
   Double_t xbox, ybox;
 
   // Create a pair of rails (a BBox container is returned)
   TGeoVolume* cageMFTRails = createMFTRailsPair(mother->GetMedium(), mgr);
+
+  // Create hinge holding a pair of rails
+  TGeoVolume* cageMFTRailsHinge = createMFTRailsHinge(mgr);
 
   // Now compute the radial distance and the XY position of the box
   xbox = (static_cast<TGeoBBox*>(cageMFTRails->GetShape()))->GetDX();
@@ -1694,19 +1710,39 @@ void V3Cage::createAndPlaceMFTRailsInsideCage(TGeoVolume* mother, const TGeoMana
 
   // Finally place the four pairs of rails inside the mother volume
   xpos = rpos * TMath::Sin(sCageEndCapCableCutPhi * TMath::DegToRad());
-  ypos = rpos * TMath::Cos(sCageEndCapCableCutPhi * TMath::DegToRad()) + sCageYInBarrel;
+  yposup = rpos * TMath::Cos(sCageEndCapCableCutPhi * TMath::DegToRad()) + sCageYInBarrel;
+  yposdw = rpos * TMath::Cos(sCageEndCapCableCutPhi * TMath::DegToRad()) - sCageYInBarrel;
+  zpos = sCageMFTRailZPos;
 
   alpha = -sCageEndCapCableCutPhi + 180;
-  mother->AddNode(cageMFTRails, 1, new TGeoCombiTrans(xpos, ypos, 0, new TGeoRotation("", alpha, 0, 0)));
+  mother->AddNode(cageMFTRails, 1, new TGeoCombiTrans(xpos, yposup, zpos, new TGeoRotation("", alpha, 0, 0)));
   alpha = sCageEndCapCableCutPhi + 180;
-  mother->AddNode(cageMFTRails, 2, new TGeoCombiTrans(-xpos, ypos, 0, new TGeoRotation("", alpha, 0, 0)));
-
-  ypos = rpos * TMath::Cos(sCageEndCapCableCutPhi * TMath::DegToRad()) - sCageYInBarrel;
+  mother->AddNode(cageMFTRails, 2, new TGeoCombiTrans(-xpos, yposup, zpos, new TGeoRotation("", alpha, 0, 0)));
 
   alpha = sCageEndCapCableCutPhi;
-  mother->AddNode(cageMFTRails, 3, new TGeoCombiTrans(xpos, -ypos, 0, new TGeoRotation("", alpha, 0, 0)));
+  mother->AddNode(cageMFTRails, 3, new TGeoCombiTrans(xpos, -yposdw, zpos, new TGeoRotation("", alpha, 0, 0)));
   alpha = -sCageEndCapCableCutPhi;
-  mother->AddNode(cageMFTRails, 4, new TGeoCombiTrans(-xpos, -ypos, 0, new TGeoRotation("", alpha, 0, 0)));
+  mother->AddNode(cageMFTRails, 4, new TGeoCombiTrans(-xpos, -yposdw, zpos, new TGeoRotation("", alpha, 0, 0)));
+
+  // And the hinges too
+  xpos = rdist * TMath::Sin(sCageEndCapCableCutPhi * TMath::DegToRad());
+  yposup = rdist * TMath::Cos(sCageEndCapCableCutPhi * TMath::DegToRad()) + sCageYInBarrel;
+  yposdw = rdist * TMath::Cos(sCageEndCapCableCutPhi * TMath::DegToRad()) - sCageYInBarrel;
+  zpos = (static_cast<TGeoBBox*>(cageMFTRails->GetShape()))->GetDZ() + sCageMFTRailZPos;
+
+  alpha = sCageEndCapCableCutPhi;
+  mother->AddNode(cageMFTRailsHinge, 1, new TGeoCombiTrans(xpos, yposup, zpos, new TGeoRotation("", -alpha, 0, 0)));
+  mother->AddNode(cageMFTRailsHinge, 2, new TGeoCombiTrans(-xpos, yposup, zpos, new TGeoRotation("", alpha, 0, 0)));
+
+  mother->AddNode(cageMFTRailsHinge, 3, new TGeoCombiTrans(xpos, -yposdw, zpos, new TGeoRotation("", 180 + alpha, 0, 0)));
+  mother->AddNode(cageMFTRailsHinge, 4, new TGeoCombiTrans(-xpos, -yposdw, zpos, new TGeoRotation("", 180 - alpha, 0, 0)));
+
+  zpos = (static_cast<TGeoBBox*>(cageMFTRails->GetShape()))->GetDZ() - sCageMFTRailZPos;
+  mother->AddNode(cageMFTRailsHinge, 5, new TGeoCombiTrans(xpos, yposup, -zpos, new TGeoRotation("", 90, 180, -90 + alpha))); // On Z<0 apply 180deg rotation on Y axis
+  mother->AddNode(cageMFTRailsHinge, 6, new TGeoCombiTrans(-xpos, yposup, -zpos, new TGeoRotation("", 90, 180, -90 - alpha)));
+
+  mother->AddNode(cageMFTRailsHinge, 7, new TGeoCombiTrans(xpos, -yposdw, -zpos, new TGeoRotation("", 90, 180, 90 - alpha)));
+  mother->AddNode(cageMFTRailsHinge, 8, new TGeoCombiTrans(-xpos, -yposdw, -zpos, new TGeoRotation("", 90, 180, 90 + alpha)));
 
   return;
 }
@@ -1720,7 +1756,7 @@ TGeoVolume* V3Cage::createMFTRailsPair(const TGeoMedium* motmed, const TGeoManag
   // is preferred over an Assembly for better performance)
   //
   // Input:
-  //         motmat : the material of the mother volume (for the container box)
+  //         motmed : the medium of the mother volume (for the container box)
   //         mgr : the GeoManager (used only to get the proper material)
   //
   // Output:
@@ -1793,4 +1829,84 @@ TGeoVolume* V3Cage::createMFTRailsPair(const TGeoMedium* motmed, const TGeoManag
 
   // Finally return the rails volume
   return mftRailBoxVol;
+}
+
+TGeoVolume* V3Cage::createMFTRailsHinge(const TGeoManager* mgr)
+{
+  //
+  // Creates a hinge holding a pair of MFT Rails to the Cage (from drawing
+  // ALIMFT-0042 and elements inside CAD files)
+  //
+  // Input:
+  //         mgr : the GeoManager (used only to get the proper material)
+  //
+  // Output:
+  //
+  // Return:
+  //         A rail hinge as a TGeoVolume
+  //
+  // Created:      19 May 2025  Mario Sitta
+  //
+
+  // Local variables
+  const Int_t nv = 6;
+  Double_t xv[nv], yv[nv];
+  Double_t xlen, ylen, zlen;
+  Double_t xpos, ypos, zpos;
+
+  TString compoShape;
+
+  // The main body: a Xtru
+  xv[0] = sCageMFTHingeTotWid / 2;
+  yv[0] = 0;
+  xv[1] = xv[0];
+  yv[1] = sCageMFTHingeIntHei;
+  xv[2] = sCageMFTHingeIntWid / 2;
+  yv[2] = sCageMFTHingeHeight;
+
+  for (Int_t i = 3; i < nv; i++) {
+    xv[i] = -xv[5 - i];
+    yv[i] = yv[5 - i];
+  }
+
+  zlen = sCageMFTHingeIntLen / 2;
+
+  TGeoXtru* mftHingeBodySh = new TGeoXtru(2);
+  mftHingeBodySh->SetName("mfthingebodyshape");
+  mftHingeBodySh->DefinePolygon(nv, xv, yv);
+  mftHingeBodySh->DefineSection(0, -zlen);
+  mftHingeBodySh->DefineSection(1, zlen);
+
+  // The bulge: a BBox
+  xlen = sCageMFTHingeBulgeWid / 2;
+  ylen = sCageMFTHingeBulgeHei / 2;
+  zlen = (sCageMFTHingeTotLen - sCageMFTHingeIntLen) / 2;
+  TGeoBBox* mftHingeBulgeSh = new TGeoBBox("mfthingebulgeshape", xlen, ylen, zlen);
+
+  // The actual hinge: a CompositeShape
+  xpos = mftHingeBodySh->GetX(0) - (sCageMFTHingeBulgePos + mftHingeBulgeSh->GetDX());
+  ypos = mftHingeBodySh->GetY(2) - mftHingeBulgeSh->GetDY();
+  zpos = mftHingeBodySh->GetZ(1) + mftHingeBulgeSh->GetDZ();
+
+  TGeoTranslation* bulgpos1 = new TGeoTranslation(xpos, ypos, zpos);
+  bulgpos1->SetName("bulge1pos");
+  bulgpos1->RegisterYourself();
+
+  TGeoTranslation* bulgpos2 = new TGeoTranslation(-xpos, ypos, zpos);
+  bulgpos2->SetName("bulge2pos");
+  bulgpos2->RegisterYourself();
+
+  compoShape = Form("mfthingebodyshape+mfthingebulgeshape:bulge1pos+mfthingebulgeshape:bulge2pos");
+
+  TGeoCompositeShape* mftRailHingeSh = new TGeoCompositeShape(compoShape);
+
+  // We have the shape: now create the real volume
+  TGeoMedium* medAl = mgr->GetMedium(Form("%s_ALUMINUM$", GetDetName()));
+
+  TGeoVolume* mftRailHingeVol = new TGeoVolume("MFTRailHingeInsideCage", mftRailHingeSh, medAl);
+  mftRailHingeVol->SetFillColor(kGreen);
+  mftRailHingeVol->SetLineColor(kGreen);
+
+  // Finally return the hinge volume
+  return mftRailHingeVol;
 }

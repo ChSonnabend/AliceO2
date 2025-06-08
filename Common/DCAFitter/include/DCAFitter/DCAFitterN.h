@@ -142,6 +142,8 @@ class DCAFitterN
     FailInv2ndDeriv, // inversion of 2nd derivatives failed
     FailCorrTracks,  // correction of tracks to updated x failed
     FailCloserAlt,   // alternative PCA is closer
+    //
+    NStatusesDefined
   };
 
   static constexpr int getNProngs() { return N; }
@@ -989,7 +991,7 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2()
   }
 
   if (mMaxDZIni > 0 && !roughDZCut()) { // apply rough cut on tracks Z difference
-    mFitStatus[mCurHyp] = FitStatus::RejTrackX;
+    mFitStatus[mCurHyp] = FitStatus::RejTrackRoughZ;
     return false;
   }
 
@@ -1063,7 +1065,7 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2NoErr()
     setTrackPos(mTrPos[mCurHyp][i], mCandTr[mCurHyp][i]); // prepare positions
   }
   if (mMaxDZIni > 0 && !roughDZCut()) { // apply rough cut on tracks Z difference
-    mFitStatus[mCurHyp] = FitStatus::RejTrackX;
+    mFitStatus[mCurHyp] = FitStatus::RejTrackRoughZ;
     return false;
   }
 

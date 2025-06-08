@@ -42,7 +42,7 @@
 #include "GPUGetConstexpr.h"
 
 #ifdef GPUCA_CADEBUG_ENABLED
-#include "../utils/qconfig.h"
+#include "GPUSettings.h"
 #include "AliHLTTPCClusterMCData.h"
 #endif
 
@@ -67,7 +67,6 @@ GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_
   prop.SetMaterialTPC();
   prop.SetPolynomialField(&param.polynomialField);
   prop.SetMaxSinPhi(maxSinPhi);
-  prop.SetToyMCEventsFlag(param.par.toyMCEventsFlag);
   if ((clusters[0].sector < 18) == (clusters[N - 1].sector < 18)) {
     ShiftZ2(clusters, clustersXYZ, merger, N);
   }
@@ -744,7 +743,6 @@ GPUdii() void GPUTPCGMTrackParam::RefitLoop(const GPUTPCGMMerger* GPUrestrict() 
   prop.SetMaterialTPC();
   prop.SetPolynomialField(&Merger->Param().polynomialField);
   prop.SetMaxSinPhi(GPUCA_MAX_SIN_PHI);
-  prop.SetToyMCEventsFlag(Merger->Param().par.toyMCEventsFlag);
   prop.SetMatLUT(Merger->Param().rec.useMatLUT ? Merger->GetConstantMem()->calibObjects.matLUT : nullptr);
   prop.SetSeedingErrors(false);
   prop.SetFitInProjections(true);

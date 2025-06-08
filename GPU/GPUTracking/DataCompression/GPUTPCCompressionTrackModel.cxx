@@ -27,7 +27,6 @@ GPUd() void GPUTPCCompressionTrackModel::Init(float x, float y, float z, float a
 {
   mProp.SetMaterialTPC();
   mProp.SetMaxSinPhi(GPUCA_MAX_SIN_PHI);
-  mProp.SetToyMCEventsFlag(false);
   mProp.SetSeedingErrors(true); // Larger errors for seeds, better since we don't start with good hypothesis
   mProp.SetFitInProjections(true);
   mProp.SetPropagateBzOnly(true);

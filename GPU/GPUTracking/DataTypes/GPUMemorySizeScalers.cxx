@@ -15,6 +15,8 @@
 #include "GPUMemorySizeScalers.h"
 #include "GPULogging.h"
 
+#include <random>
+
 using namespace o2::gpu;
 
 void GPUMemorySizeScalers::rescaleMaxMem(size_t newAvailableMemory)
@@ -35,4 +37,28 @@ void GPUMemorySizeScalers::rescaleMaxMem(size_t newAvailableMemory)
   tpcMaxMergedTracks = (double)tmp.tpcMaxMergedTracks * scaleFactor;
   tpcMaxMergedTrackHits = (double)tmp.tpcMaxMergedTrackHits * scaleFactor;
   availableMemory = newAvailableMemory;
+}
+
+double GPUMemorySizeScalers::getScalingFactor()
+{
+  if (!doFuzzing) {
+    return scalingFactor;
+  }
+  static std::uniform_int_distribution<uint32_t> dist(0, 1000000);
+  static std::mt19937 rng;
+  if (fuzzSeed) {
+    rng = std::mt19937(fuzzSeed);
+    fuzzLimit = dist(rng) / 10;
+    fuzzSeed = 0;
+  }
+  if (dist(rng) > fuzzLimit) {
+    return scalingFactor;
+  }
+  return scalingFactor * 0.000001 * dist(rng);
+}
+
+void GPUMemorySizeScalers::fuzzScalingFactor(uint64_t seed)
+{
+  fuzzSeed = seed;
+  doFuzzing = true;
 }

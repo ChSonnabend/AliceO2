@@ -1776,7 +1776,7 @@ DECLARE_SOA_COLUMN(Chi2NDF, chi2NDF, float);                            //! chi^
 DECLARE_SOA_COLUMN(PsiPair, psiPair, float);                            //! Psi pair
 DECLARE_SOA_COLUMN(DCAr, dcaR, float);                                  //! DCA in radial direction
 DECLARE_SOA_COLUMN(DCAz, dcaZ, float);                                  //! DCA in z direction
-DECLARE_SOA_COLUMN(Mass, mass, float);                                  //! mass of the conversion. Do NOT use for cut!
+DECLARE_SOA_COLUMN(MassInMeV, mass, float);                             //! mass of the conversion in MeV. Do NOT use for cut!
 } // namespace oftv0
 namespace pmd
 {
@@ -1824,7 +1824,7 @@ DECLARE_SOA_TABLE(Run2OTFV0s, "AOD", "Run2OTFV0", //! Run 2 V0 on the fly table
                   run2::oftv0::X, run2::oftv0::Y, run2::oftv0::Z,
                   run2::oftv0::Chi2NDF, run2::oftv0::PsiPair,
                   run2::oftv0::DCAr, run2::oftv0::DCAz,
-                  run2::oftv0::Mass);
+                  run2::oftv0::MassInMeV);
 
 using Run2OTFV0 = Run2OTFV0s::iterator;
 

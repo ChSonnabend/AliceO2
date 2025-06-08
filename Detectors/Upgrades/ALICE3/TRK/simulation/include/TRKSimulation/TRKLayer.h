@@ -45,6 +45,9 @@ class TRKLayer
   void createLayer(TGeoVolume* motherVolume);
 
  private:
+  // TGeo objects outside logical volumes can cause errors. Only used in case of kStaggered and kTurboStaves layouts
+  static constexpr float mLogicalVolumeThickness = 1;
+
   int mLayerNumber;
   std::string mLayerName;
   float mInnerRadius;

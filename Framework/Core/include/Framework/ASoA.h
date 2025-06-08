@@ -12,27 +12,27 @@
 #ifndef O2_FRAMEWORK_ASOA_H_
 #define O2_FRAMEWORK_ASOA_H_
 
-#include "Framework/Pack.h"
-#include "Framework/FunctionalHelpers.h"
-#include "Headers/DataHeader.h"
-#include "Headers/DataHeaderHelpers.h"
-#include "Framework/CompilerBuiltins.h"
-#include "Framework/Traits.h"
-#include "Framework/Expressions.h"
-#include "Framework/ArrowTypes.h"
-#include "Framework/ArrowTableSlicingCache.h"
-#include "Framework/SliceCache.h"
-#include "Framework/VariantHelpers.h"
-#include <arrow/table.h>
-#include <arrow/array.h>
-#include <arrow/util/config.h>
-#include <gandiva/selection_vector.h>
-#include <array>
+#include "Framework/Pack.h"                   // IWYU pragma: export
+#include "Framework/FunctionalHelpers.h"      // IWYU pragma: export
+#include "Headers/DataHeader.h"               // IWYU pragma: export
+#include "Headers/DataHeaderHelpers.h"        // IWYU pragma: export
+#include "Framework/CompilerBuiltins.h"       // IWYU pragma: export
+#include "Framework/Traits.h"                 // IWYU pragma: export
+#include "Framework/Expressions.h"            // IWYU pragma: export
+#include "Framework/ArrowTypes.h"             // IWYU pragma: export
+#include "Framework/ArrowTableSlicingCache.h" // IWYU pragma: export
+#include "Framework/SliceCache.h"             // IWYU pragma: export
+#include "Framework/VariantHelpers.h"         // IWYU pragma: export
+#include <arrow/table.h>                      // IWYU pragma: export
+#include <arrow/array.h>                      // IWYU pragma: export
+#include <arrow/util/config.h>                // IWYU pragma: export
+#include <gandiva/selection_vector.h>         // IWYU pragma: export
+#include <array>                              // IWYU pragma: export
 #include <cassert>
 #include <fmt/format.h>
 #include <concepts>
 #include <cstring>
-#include <gsl/span>
+#include <gsl/span> // IWYU pragma: export
 #include <limits>
 
 namespace o2::framework

@@ -52,7 +52,7 @@ struct GPUSettingsGRP {
   // All new members must be sizeof(int32_t) resp. sizeof(float) for alignment reasons!, default value for newly added members for old data will be 0.
   float solenoidBzNominalGPU = -5.00668f; // solenoid field strength
   int32_t constBz = 0;                    // for test-MC events with constant Bz
-  int32_t homemadeEvents = 0;             // Toy-MC events
+  int32_t removed0 = 0;                   // Obsolete parameter, dummy value needed to support reading old dumps
   int32_t grpContinuousMaxTimeBin = -2;   // 0 for triggered events, -1 for automatic setting, -2 invalid default
   int32_t needsClusterer = 0;             // Set to true if the data requires the clusterizer
   int32_t doCompClusterDecode = 0;        // Set to true if the data contains compressed TPC clusters

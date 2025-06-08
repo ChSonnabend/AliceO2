@@ -74,6 +74,7 @@ extern GPUSettingsStandalone configStandalone;
 GPUReconstruction *rec, *recAsync, *recPipeline;
 GPUChainTracking *chainTracking, *chainTrackingAsync, *chainTrackingPipeline;
 GPUChainITS *chainITS, *chainITSAsync, *chainITSPipeline;
+std::string eventsDir;
 void unique_ptr_aligned_delete(char* v)
 {
   operator delete(v, std::align_val_t(GPUCA_BUFFER_ALIGNMENT));
@@ -277,21 +278,19 @@ int32_t ReadConfiguration(int argc, char** argv)
 int32_t SetupReconstruction()
 {
   if (!configStandalone.eventGenerator) {
-    char filename[256];
-    snprintf(filename, 256, "events/%s/", configStandalone.eventsDir);
     if (configStandalone.noEvents) {
-      configStandalone.eventsDir = "NON_EXISTING";
+      eventsDir = "NON_EXISTING";
       configStandalone.rundEdx = false;
-    } else if (rec->ReadSettings(filename)) {
+    } else if (rec->ReadSettings(eventsDir.c_str())) {
       printf("Error reading event config file\n");
       return 1;
     }
-    printf("Read event settings from dir %s (solenoidBz: %f, home-made events %d, constBz %d, maxTimeBin %d)\n", filename, rec->GetGRPSettings().solenoidBzNominalGPU, (int32_t)rec->GetGRPSettings().homemadeEvents, (int32_t)rec->GetGRPSettings().constBz, rec->GetGRPSettings().grpContinuousMaxTimeBin);
+    printf("Read event settings from dir %s (solenoidBz: %f, constBz %d, maxTimeBin %d)\n", eventsDir.c_str(), rec->GetGRPSettings().solenoidBzNominalGPU, (int32_t)rec->GetGRPSettings().constBz, rec->GetGRPSettings().grpContinuousMaxTimeBin);
     if (configStandalone.testSyncAsync) {
-      recAsync->ReadSettings(filename);
+      recAsync->ReadSettings(eventsDir.c_str());
     }
     if (configStandalone.proc.doublePipeline) {
-      recPipeline->ReadSettings(filename);
+      recPipeline->ReadSettings(eventsDir.c_str());
     }
   }
 
@@ -305,9 +304,6 @@ int32_t SetupReconstruction()
   procSet = configStandalone.proc;
   GPURecoStepConfiguration steps;
 
-  if (configStandalone.eventGenerator) {
-    grp.homemadeEvents = true;
-  }
   if (configStandalone.solenoidBzNominalGPU != -1e6f) {
     grp.solenoidBzNominalGPU = configStandalone.solenoidBzNominalGPU;
   }
@@ -507,23 +503,19 @@ int32_t SetupReconstruction()
 
 int32_t ReadEvent(int32_t n)
 {
-  char filename[256];
-  snprintf(filename, 256, "events/%s/" GPUCA_EVDUMP_FILE ".%d.dump", configStandalone.eventsDir, n);
   if (configStandalone.inputcontrolmem && !configStandalone.preloadEvents) {
     rec->SetInputControl(inputmemory.get(), configStandalone.inputcontrolmem);
   }
-  int32_t r = chainTracking->ReadData(filename);
+  int32_t r = chainTracking->ReadData((eventsDir + GPUCA_EVDUMP_FILE "." + std::to_string(n) + ".dump").c_str());
   if (r) {
     return r;
   }
 #if defined(GPUCA_TPC_GEOMETRY_O2) && defined(GPUCA_BUILD_QA) && !defined(GPUCA_O2_LIB)
   if ((configStandalone.proc.runQA || configStandalone.eventDisplay) && !configStandalone.QA.noMC) {
     chainTracking->ForceInitQA();
-    snprintf(filename, 256, "events/%s/mc.%d.dump", configStandalone.eventsDir, n);
     chainTracking->GetQA()->UpdateChain(chainTracking);
-    if (chainTracking->GetQA()->ReadO2MCData(filename)) {
-      snprintf(filename, 256, "events/%s/mc.%d.dump", configStandalone.eventsDir, 0);
-      if (chainTracking->GetQA()->ReadO2MCData(filename) && configStandalone.proc.runQA) {
+    if (chainTracking->GetQA()->ReadO2MCData((eventsDir + "mc." + std::to_string(n) + ".dump").c_str())) {
+      if (chainTracking->GetQA()->ReadO2MCData((eventsDir + "mc.0.dump").c_str()) && configStandalone.proc.runQA) {
         throw std::runtime_error("Error reading O2 MC dump");
       }
     }
@@ -728,6 +720,7 @@ int32_t main(int argc, char** argv)
   if (ReadConfiguration(argc, argv)) {
     return 1;
   }
+  eventsDir = std::string(configStandalone.absoluteEventsDir ? "" : "events/") + configStandalone.eventsDir + "/";
 
   GPUSettingsDeviceBackend deviceSet;
   deviceSet.deviceType = configStandalone.runGPU ? GPUDataTypes::GetDeviceType(configStandalone.gpuType.c_str()) : GPUDataTypes::DeviceType::CPU;
@@ -790,9 +783,7 @@ int32_t main(int argc, char** argv)
 
   for (nEventsInDirectory = 0; true; nEventsInDirectory++) {
     std::ifstream in;
-    char filename[256];
-    snprintf(filename, 256, "events/%s/" GPUCA_EVDUMP_FILE ".%d.dump", configStandalone.eventsDir, nEventsInDirectory);
-    in.open(filename, std::ifstream::binary);
+    in.open((eventsDir + GPUCA_EVDUMP_FILE "." + std::to_string(nEventsInDirectory) + ".dump").c_str(), std::ifstream::binary);
     if (in.fail()) {
       break;
     }
@@ -804,7 +795,7 @@ int32_t main(int argc, char** argv)
   }
 
   if (configStandalone.eventGenerator) {
-    genEvents::RunEventGenerator(chainTracking);
+    genEvents::RunEventGenerator(chainTracking, eventsDir);
     return 0;
   }
 
@@ -814,7 +805,7 @@ int32_t main(int argc, char** argv)
   } else {
     if (nEvents == -1 || nEvents > nEventsInDirectory) {
       if (nEvents >= 0) {
-        printf("Only %d events available in directors %s (%d events requested)\n", nEventsInDirectory, configStandalone.eventsDir, nEvents);
+        printf("Only %d events available in directory %s (%d events requested)\n", nEventsInDirectory, eventsDir.c_str(), nEvents);
       }
       nEvents = nEventsInDirectory;
     }

@@ -17,6 +17,7 @@
 #include "Framework/Variant.h"
 #include "Framework/InitContext.h"
 #include "Framework/ConfigParamRegistry.h"
+#include "CommonConstants/MathConstants.h"
 #include <arrow/type_fwd.h>
 #include <gandiva/gandiva_aliases.h>
 #include <arrow/type.h>
@@ -544,6 +545,21 @@ inline Node updateParameters(Node const& pexp, int bins, std::vector<T> const& p
     }
   });
   return result;
+}
+
+/// clamping functional
+template <typename T>
+inline Node clamp(Node&& expr, T low, T hi)
+{
+  auto copy = expr;
+  return ifnode(Node{copy} < LiteralNode{low}, LiteralNode{low}, ifnode(Node{copy} > LiteralNode{hi}, LiteralNode{hi}, Node{copy}));
+}
+
+/// division by 0 protector
+inline Node protect0(Node&& expr)
+{
+  auto copy = expr;
+  return ifnode(nabs(Node{copy}) < o2::constants::math::Almost0, o2::constants::math::Almost0, Node{copy});
 }
 
 /// A struct, containing the root of the expression tree

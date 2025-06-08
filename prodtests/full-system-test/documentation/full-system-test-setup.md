@@ -63,6 +63,9 @@ This will use 4 GPU with the HIP backend and allocate 22 GB of scratch memory on
     SHM_MANAGER_SHMID=1 TFDELAY=2.8457 NTIMEFRAMES=8 $O2_ROOT/prodtests/full-system-test/start-tmux.sh dd
     ```
 
+Note that as of 2024, we are running with a TF length of 32 orbits.
+To simulate time frames accordingly, please set `NEVENTS=200 NHBPERTF=32` for full-system-test.sh.
+
 ---
 
 # Remarks for running with distortions:

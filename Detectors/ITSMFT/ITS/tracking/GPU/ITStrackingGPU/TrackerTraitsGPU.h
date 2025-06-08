@@ -16,19 +16,17 @@
 #include "ITStracking/TrackerTraits.h"
 #include "ITStrackingGPU/TimeFrameGPU.h"
 
-namespace o2
-{
-namespace its
+namespace o2::its
 {
 
 template <int nLayers = 7>
-class TrackerTraitsGPU final : public TrackerTraits
+class TrackerTraitsGPU final : public TrackerTraits<nLayers>
 {
  public:
   TrackerTraitsGPU() = default;
   ~TrackerTraitsGPU() override = default;
 
-  void adoptTimeFrame(TimeFrame* tf) final;
+  void adoptTimeFrame(TimeFrame<nLayers>* tf) final;
   void initialiseTimeFrame(const int iteration) final;
 
   void computeLayerTracklets(const int iteration, int, int) final;
@@ -54,13 +52,6 @@ class TrackerTraitsGPU final : public TrackerTraits
   gpu::TimeFrameGPU<7>* mTimeFrameGPU;
 };
 
-template <int nLayers>
-inline void TrackerTraitsGPU<nLayers>::adoptTimeFrame(TimeFrame* tf)
-{
-  mTimeFrameGPU = static_cast<gpu::TimeFrameGPU<nLayers>*>(tf);
-  mTimeFrame = static_cast<TimeFrame*>(tf);
-}
-} // namespace its
-} // namespace o2
+} // namespace o2::its
 
 #endif

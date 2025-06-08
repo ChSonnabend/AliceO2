@@ -13,11 +13,11 @@
 /// \brief
 ///
 
-#ifndef TRACKINGITSU_INCLUDE_TRACKLET_H_
-#define TRACKINGITSU_INCLUDE_TRACKLET_H_
+#ifndef TRACKINGITS_INCLUDE_TRACKLET_H_
+#define TRACKINGITS_INCLUDE_TRACKLET_H_
 
 #include "ITStracking/Cluster.h"
-#include <iostream>
+#include "GPUCommonRtypes.h"
 #include "GPUCommonMath.h"
 #include "GPUCommonDef.h"
 
@@ -25,9 +25,7 @@
 #include <string>
 #endif
 
-namespace o2
-{
-namespace its
+namespace o2::its
 {
 
 struct Tracklet final {
@@ -59,6 +57,8 @@ struct Tracklet final {
   float tanLambda;
   float phi;
   short rof[2];
+
+  ClassDefNV(Tracklet, 1);
 };
 
 GPUhdi() Tracklet::Tracklet() : firstClusterIndex{-1}, secondClusterIndex{-1}, tanLambda{0.0f}, phi{0.0f}
@@ -136,7 +136,6 @@ GPUhdi() void Tracklet::dump() const
   printf("fClIdx: %d sClIdx: %d  rof1: %hu rof2: %hu\n", firstClusterIndex, secondClusterIndex, rof[0], rof[1]);
 }
 
-} // namespace its
-} // namespace o2
+} // namespace o2::its
 
-#endif /* TRACKINGITSU_INCLUDE_TRACKLET_H_ */
+#endif /* TRACKINGITS_INCLUDE_TRACKLET_H_ */

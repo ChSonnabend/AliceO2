@@ -395,7 +395,7 @@ void GPUDisplay::DrawFinal(int32_t iSector, int32_t /*iCol*/, const GPUTPCGMProp
         }
       };
       if (std::is_same_v<T, GPUTPCGMMergedTrack> || (!mIOPtrs->tpcLinkTRD && mIOPtrs->trdTracksO2)) {
-        if (mChain && ((int32_t)mConfig.showTPCTracksFromO2Format == (int32_t)mChain->GetProcessingSettings().trdTrackModelO2) && mTRDTrackIds[i] != -1 && mIOPtrs->nTRDTracklets) {
+        if (mChain && ((int32_t)mConfig.showTPCTracksFromO2Format == (int32_t)GetProcessingSettings().trdTrackModelO2) && mTRDTrackIds[i] != -1 && mIOPtrs->nTRDTracklets) {
           if (mIOPtrs->trdTracksO2) {
             tmpDoTRDTracklets(mIOPtrs->trdTracksO2[mTRDTrackIds[i]]);
           } else {

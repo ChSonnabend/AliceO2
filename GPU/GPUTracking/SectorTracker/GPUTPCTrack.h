@@ -53,9 +53,6 @@ class GPUTPCTrack
   GPUhd() static int32_t GetSize(int32_t nClust) { return sizeof(GPUTPCTrack) + nClust * sizeof(GPUTPCSectorOutCluster); }
   GPUhd() const GPUTPCTrack* GetNextTrack() const { return (const GPUTPCTrack*)(((char*)this) + GetSize(mNHits)); }
   GPUhd() GPUTPCTrack* NextTrack() { return (GPUTPCTrack*)(((char*)this) + GetSize(mNHits)); }
-  GPUhd() void SetOutTrackCluster(int32_t i, const GPUTPCSectorOutCluster& v) { ((GPUTPCSectorOutCluster*)((char*)this + sizeof(*this)))[i] = v; }
-  GPUhd() const GPUTPCSectorOutCluster* OutTrackClusters() const { return (const GPUTPCSectorOutCluster*)((char*)this + sizeof(*this)); }
-  GPUhd() const GPUTPCSectorOutCluster& OutTrackCluster(int32_t i) const { return OutTrackClusters()[i]; }
 
  private:
   int32_t mFirstHitID;         // index of the first track cell in the track->cell pointer array

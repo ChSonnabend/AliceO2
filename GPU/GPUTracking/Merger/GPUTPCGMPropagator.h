@@ -89,7 +89,6 @@ class GPUTPCGMPropagator
 
   GPUd() void SetFitInProjections(bool Flag) { mFitInProjections = Flag; }
   GPUd() void SetPropagateBzOnly(bool Flag) { mPropagateBzOnly = Flag; }
-  GPUd() void SetToyMCEventsFlag(bool Flag) { mToyMCEvents = Flag; }
   GPUd() void SetSeedingErrors(bool Flag) { mSeedingErrors = Flag; }
   GPUd() void SetMatLUT(const o2::base::MatLayerCylSet* lut) { mMatLUT = lut; }
 
@@ -191,7 +190,6 @@ class GPUTPCGMPropagator
   bool mSeedingErrors = 0;    // TODO: Hide variable in Run3 mode
   bool mFitInProjections = 1; // fit (Y,SinPhi,QPt) and (Z,DzDs) paramteres separatelly
   bool mPropagateBzOnly = 0;  // Use Bz only in propagation
-  bool mToyMCEvents = 0;      // events are simulated with simple home-made simulation
 };
 
 GPUdi() void GPUTPCGMPropagator::GetBxByBz(float Alpha, float X, float Y, float Z, float B[3]) const

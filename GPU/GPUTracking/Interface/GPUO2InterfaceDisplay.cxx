@@ -35,7 +35,7 @@ GPUO2InterfaceDisplay::GPUO2InterfaceDisplay(const GPUO2InterfaceConfiguration* 
     mQA.reset(new GPUQA(nullptr, &config->configQA, mParam.get()));
     mQA->InitO2MCData();
   }
-  mDisplay.reset(GPUDisplayInterface::getDisplay(mFrontend.get(), nullptr, mQA.get(), mParam.get(), &mConfig->configCalib, &mConfig->configDisplay));
+  mDisplay.reset(GPUDisplayInterface::getDisplay(mFrontend.get(), nullptr, mQA.get(), mParam.get(), &mConfig->configCalib, &mConfig->configDisplay, &mConfig->configProcessing));
 }
 
 GPUO2InterfaceDisplay::~GPUO2InterfaceDisplay() = default;

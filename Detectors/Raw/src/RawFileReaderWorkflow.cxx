@@ -96,7 +96,7 @@ class RawReaderSpecs : public o2f::Task
 
 //___________________________________________________________
 RawReaderSpecs::RawReaderSpecs(const ReaderInp& rinp)
-  : mLoop(rinp.loop < 0 ? INT_MAX : (rinp.loop < 1 ? 1 : rinp.loop)), mDelayUSec(rinp.delay_us), mMinTFID(rinp.minTF), mMaxTFID(rinp.maxTF), mRunNumber(rinp.runNumber), mPartPerSP(rinp.partPerSP), mSup0xccdb(rinp.sup0xccdb), mReader(std::make_unique<o2::raw::RawFileReader>(rinp.inifile, 0, rinp.bufferSize, rinp.onlyDet)), mRawChannelName(rinp.rawChannelConfig), mPreferCalcTF(rinp.preferCalcTF), mMinSHM(rinp.minSHM)
+  : mLoop(rinp.loop < 0 ? INT_MAX : (rinp.loop < 1 ? 1 : rinp.loop)), mDelayUSec(rinp.delay_us), mMinTFID(rinp.minTF), mMaxTFID(rinp.maxTF), mPartPerSP(rinp.partPerSP), mSup0xccdb(rinp.sup0xccdb), mReader(std::make_unique<o2::raw::RawFileReader>(rinp.inifile, 0, rinp.bufferSize, rinp.onlyDet)), mRawChannelName(rinp.rawChannelConfig), mPreferCalcTF(rinp.preferCalcTF), mMinSHM(rinp.minSHM)
 {
   mReader->setCheckErrors(rinp.errMap);
   mReader->setMaxTFToRead(rinp.maxTF);
@@ -149,6 +149,7 @@ void RawReaderSpecs::init(o2f::InitContext& ic)
   mTimer.Start();
   mTimer.Stop();
   mVerbosity = ic.options().get<int>("verbosity-level");
+  mRunNumber = ic.options().get<int>("run-number");
   mReader->setVerbosity(mVerbosity);
   mReader->init();
   if (mMaxTFID >= mReader->getNTimeFrames()) {
@@ -418,6 +419,8 @@ o2f::DataProcessorSpec getReaderSpec(ReaderInp rinp)
 
   spec.algorithm = o2f::adaptFromTask<RawReaderSpecs>(rinp);
   spec.options.emplace_back(o2f::ConfigParamSpec{"verbosity-level", o2f::VariantType::Int, 0, {"verbosity level"}});
+  spec.options.emplace_back(o2f::ConfigParamSpec{"run-number", o2f::VariantType::Int, 0, {"impose run number"}});
+
   return spec;
 }
 

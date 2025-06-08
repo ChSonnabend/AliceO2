@@ -9,10 +9,20 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-#include "ITStracking/Road.h"
+#ifndef O2_TPC_TPCPRESSURETEMPERATURE_SPEC
+#define O2_TPC_TPCPRESSURETEMPERATURE_SPEC
+
+#include "Framework/DataProcessorSpec.h"
+#include "DetectorsBase/Propagator.h"
+
 namespace o2
 {
-namespace its
+namespace tpc
 {
-} // namespace its
-} // namespace o2
+
+o2::framework::DataProcessorSpec getTPCPressureTemperatureSpec();
+
+} // end namespace tpc
+} // end namespace o2
+
+#endif

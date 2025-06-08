@@ -12,6 +12,10 @@
 /// \file CellLabel.cxx
 
 #include "DataFormatsEMCAL/CellLabel.h"
+#include "fairlogger/Logger.h"
+#include <cstddef>
+#include <cstdint>
+#include <gsl/span>
 
 using namespace o2::emcal;
 
@@ -20,4 +24,18 @@ CellLabel::CellLabel(const gsl::span<const int> labels, const gsl::span<const fl
   if (labels.size() != amplitudeFractions.size()) {
     LOG(error) << "Size of labels " << labels.size() << " does not match size of amplitude fraction " << amplitudeFractions.size() << " !";
   }
+}
+
+int32_t CellLabel::GetLeadingMCLabel() const
+{
+  size_t maxIndex = 0;
+  float maxFraction = mAmplitudeFraction[0];
+
+  for (size_t i = 1; i < mAmplitudeFraction.size(); ++i) {
+    if (mAmplitudeFraction[i] > maxFraction) {
+      maxFraction = mAmplitudeFraction[i];
+      maxIndex = i;
+    }
+  }
+  return mLabels[maxIndex];
 }

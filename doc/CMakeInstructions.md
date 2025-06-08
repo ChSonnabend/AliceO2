@@ -349,24 +349,6 @@ Note as well that some (very few) tests are ran only for some configurations
 ctest -C RelWithDebInfo
 ```
 
-#### [Ex5](../Examples/Ex5) Adding a man page
-
-If a module provides one or more executables, it might be of interest for the users of those executables to have access to a man page for them. Ex5 illustates that use case.
-
-    .
-    ├── CMakeLists.txt
-    ├── README.md
-    ├── doc
-    │   └── ex5.7.in
-    └── src
-        └── run.cxx
-
-The [man page](ManPages.md) is created using :
-
-    o2_target_man_page([targetName] NAME ex5 SECTION 7)
-
-where `NAME xx` refers to a file `doc/xx.[SECTION].in`, and the actual `targetName` can be found from the base target name (ex5 in that case) using the [o2_name_target](../cmake/O2NameTarget.cmake) function.
-
 ## CTest
 
 In the build directory of O2, if you launch the `ctest` command, all the O2 tests will be ran, which is not always what you want/need, in particular during development.
