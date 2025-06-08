@@ -222,21 +222,36 @@ struct RNTupleObjectReadingCapability : o2::framework::RootObjectReadingCapabili
   {
     auto context = new ImplementationContext;
 
-    return new RootObjectReadingCapability{
+    return new RootObjectReadingCapability
+    {
       .name = "rntuple",
-      .lfn2objectPath = [](std::string s) {
+      .lfn2objectPath = [](std::string s) -> std::string {
          std::replace(s.begin()+1, s.end(), '/', '-');
+#if __has_include(<ROOT/RFieldBase.hxx>)
+         if (s.starts_with("/")) {
+          return std::string(s.begin() + 1, s.end());
+        } else {
+          return s;
+        } },
+#else
          if (s.starts_with("/")) {
           return s;
         } else {
           return "/" + s;
         } },
+#endif
+#if __has_include(<ROOT/RFieldBase.hxx>)
+      .getHandle = getHandleByClass("ROOT::RNTuple"),
+      .checkSupport = matchClassByName("ROOT::RNTuple"),
+#else
       .getHandle = getHandleByClass("ROOT::Experimental::RNTuple"),
       .checkSupport = matchClassByName("ROOT::Experimental::RNTuple"),
+#endif
       .factory = [context]() -> RootArrowFactory& {
         lazyLoadFactory(context->implementations, "O2FrameworkAnalysisRNTupleSupport:RNTupleObjectReadingImplementation");
         return context->implementations.back();
-      }};
+      }
+    };
   }
 };
 

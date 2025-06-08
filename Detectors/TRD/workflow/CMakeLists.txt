@@ -49,7 +49,8 @@ o2_add_library(TRDWorkflow
                                      O2::TPCWorkflow
                                      O2::TRDWorkflowIO
                                      O2::TRDPID
-                                     O2::DataFormatsFT0)
+                                     O2::DataFormatsFT0
+               PRIVATE_LINK_LIBRARIES nlohmann_json::nlohmann_json)
 
 o2_add_executable(trap-sim
                   COMPONENT_NAME trd
@@ -74,7 +75,7 @@ o2_add_executable(tracklet-transformer
 o2_add_executable(event-display-feed
                   COMPONENT_NAME trd
                   SOURCES src/TRDEventDisplayFeedWorkflow.cxx
-                  PUBLIC_LINK_LIBRARIES O2::TRDWorkflow)
+                  PUBLIC_LINK_LIBRARIES O2::TRDWorkflow nlohmann_json::nlohmann_json)
 
 o2_add_executable(trd-workflow
                   COMPONENT_NAME calibration

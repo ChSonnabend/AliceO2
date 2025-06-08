@@ -102,6 +102,8 @@
 #ifdef WITH_OPENMP
 #include <omp.h>
 #endif
+#include <filesystem>
+#include <nlohmann/json.hpp>
 
 using namespace o2::framework;
 using namespace o2::math_utils::detail;
@@ -1675,6 +1677,7 @@ void AODProducerWorkflowDPL::init(InitContext& ic)
   mLPMProdTag = ic.options().get<string>("lpmp-prod-tag");
   mAnchorPass = ic.options().get<string>("anchor-pass");
   mAnchorProd = ic.options().get<string>("anchor-prod");
+  mUser = ic.options().get<string>("created-by");
   mRecoPass = ic.options().get<string>("reco-pass");
   mTFNumber = ic.options().get<int64_t>("aod-timeframe-id");
   mRecoOnly = ic.options().get<int>("reco-mctracks-only");
@@ -1791,6 +1794,38 @@ void AODProducerWorkflowDPL::init(InitContext& ic)
     mStreamer = std::make_unique<o2::utils::TreeStreamRedirector>("AO2DStreamer.root", "RECREATE");
   }
 }
+
+namespace
+{
+void add_additional_meta_info(std::vector<TString>& keys, std::vector<TString>& values)
+{
+  // see if we should put additional meta info (e.g. from MC)
+  auto aod_external_meta_info_file = getenv("AOD_ADDITIONAL_METADATA_FILE");
+  if (aod_external_meta_info_file != nullptr) {
+    LOG(info) << "Trying to inject additional AOD meta-data from " << aod_external_meta_info_file;
+    if (std::filesystem::exists(aod_external_meta_info_file)) {
+      std::ifstream input_file(aod_external_meta_info_file);
+      if (input_file) {
+        nlohmann::json json_data;
+        try {
+          input_file >> json_data;
+        } catch (nlohmann::json::parse_error& e) {
+          std::cerr << "JSON Parse Error: " << e.what() << "\n";
+          std::cerr << "Exception ID: " << e.id << "\n";
+          std::cerr << "Byte position: " << e.byte << "\n";
+          return;
+        }
+        // If parsing succeeds, iterate over key-value pairs
+        for (const auto& [key, value] : json_data.items()) {
+          LOG(info) << "Adding AOD MetaData" << key << " : " << value;
+          keys.push_back(key.c_str());
+          values.push_back(value.get<std::string>());
+        }
+      }
+    }
+  }
+}
+} // namespace
 
 void AODProducerWorkflowDPL::run(ProcessingContext& pc)
 {
@@ -2398,8 +2433,10 @@ void AODProducerWorkflowDPL::run(ProcessingContext& pc)
   TString dataType = mUseMC ? "MC" : "RAW";
   TString O2Version = o2::fullVersion();
   TString ROOTVersion = ROOT_RELEASE;
-  mMetaDataKeys = {"DataType", "Run", "O2Version", "ROOTVersion", "RecoPassName", "AnchorProduction", "AnchorPassName", "LPMProductionTag"};
-  mMetaDataVals = {dataType, "3", O2Version, ROOTVersion, mRecoPass, mAnchorProd, mAnchorPass, mLPMProdTag};
+  mMetaDataKeys = {"DataType", "Run", "O2Version", "ROOTVersion", "RecoPassName", "AnchorProduction", "AnchorPassName", "LPMProductionTag", "CreatedBy"};
+  mMetaDataVals = {dataType, "3", O2Version, ROOTVersion, mRecoPass, mAnchorProd, mAnchorPass, mLPMProdTag, mUser};
+  add_additional_meta_info(mMetaDataKeys, mMetaDataVals);
+
   pc.outputs().snapshot(Output{"AMD", "AODMetadataKeys", 0}, mMetaDataKeys);
   pc.outputs().snapshot(Output{"AMD", "AODMetadataVals", 0}, mMetaDataVals);
 
@@ -3256,6 +3293,7 @@ DataProcessorSpec getAODProducerWorkflowSpec(GID::mask_t src, bool enableSV, boo
       ConfigParamSpec{"anchor-pass", VariantType::String, "", {"AnchorPassName"}},
       ConfigParamSpec{"anchor-prod", VariantType::String, "", {"AnchorProduction"}},
       ConfigParamSpec{"reco-pass", VariantType::String, "", {"RecoPassName"}},
+      ConfigParamSpec{"created-by", VariantType::String, "", {"Who created this AO2D"}},
       ConfigParamSpec{"nthreads", VariantType::Int, std::max(1, int(std::thread::hardware_concurrency() / 2)), {"Number of threads"}},
       ConfigParamSpec{"reco-mctracks-only", VariantType::Int, 0, {"Store only reconstructed MC tracks and their mothers/daughters. 0 -- off, != 0 -- on"}},
       ConfigParamSpec{"ctpreadout-create", VariantType::Int, 0, {"Create CTP digits from detector readout and CTP inputs. !=1 -- off, 1 -- on"}},

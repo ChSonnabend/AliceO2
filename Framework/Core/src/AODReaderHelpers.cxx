@@ -158,7 +158,13 @@ auto make_spawn(InputSpec const& input, ProcessingContext& pc)
   using metadata_t = o2::aod::MetadataTrait<D>::metadata;
   constexpr auto sources = metadata_t::sources;
   static std::shared_ptr<gandiva::Projector> projector = nullptr;
-  return o2::framework::spawner<D>(extractOriginals<sources.size(), sources>(pc), input.binding.c_str(), projector);
+  static std::shared_ptr<arrow::Schema> schema = std::make_shared<arrow::Schema>(o2::soa::createFieldsFromColumns(typename metadata_t::expression_pack_t{}));
+  static auto projectors = []<typename... C>(framework::pack<C...>) -> std::array<expressions::Projector, sizeof...(C)>
+  {
+    return {{std::move(C::Projector())...}};
+  }
+  (typename metadata_t::expression_pack_t{});
+  return o2::framework::spawner<D>(extractOriginals<sources.size(), sources>(pc), input.binding.c_str(), projectors.data(), projector, schema);
 }
 } // namespace
 

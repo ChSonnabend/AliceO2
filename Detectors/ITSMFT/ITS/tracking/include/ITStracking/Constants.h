@@ -84,8 +84,8 @@ GPUhdi() constexpr std::array<float, LayersNumber> InverseZBinSize()
 {
   constexpr auto zSize = LayersZCoordinate();
   return std::array<float, LayersNumber>{0.5f * ZBins / (zSize[0]), 0.5f * ZBins / (zSize[1]), 0.5f * ZBins / (zSize[2]),
-                                                     0.5f * ZBins / (zSize[3]), 0.5f * ZBins / (zSize[4]), 0.5f * ZBins / (zSize[5]),
-                                                     0.5f * ZBins / (zSize[6])};
+                                         0.5f * ZBins / (zSize[3]), 0.5f * ZBins / (zSize[4]), 0.5f * ZBins / (zSize[5]),
+                                         0.5f * ZBins / (zSize[6])};
 }
 
 GPUhdi() constexpr float getInverseZCoordinate(const int layerIndex)

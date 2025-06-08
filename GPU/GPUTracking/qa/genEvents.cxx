@@ -38,8 +38,7 @@
 #include "GPUTPCGMMerger.h"
 #include "GPUChainTracking.h"
 #include "GPUConstantMem.h"
-
-#include "../utils/qconfig.h"
+#include "GPUSettings.h"
 
 using namespace o2::gpu;
 using namespace std;
@@ -150,7 +149,7 @@ void genEvents::FinishEventGenerator()
   }
 }
 
-int32_t genEvents::GenerateEvent(const GPUParam& param, char* filename)
+int32_t genEvents::GenerateEvent(const GPUParam& param, const char* filename)
 {
   mRec->ClearIOPointers();
   static int32_t iEvent = -1;
@@ -169,7 +168,6 @@ int32_t genEvents::GenerateEvent(const GPUParam& param, char* filename)
 
   GPUTPCGMPropagator prop;
   {
-    prop.SetToyMCEventsFlag(kTRUE);
     const GPUTPCGMMerger& merger = mRec->GetProcessors()->tpcMerger;
     prop.SetPolynomialField(&merger.Param().polynomialField);
   }
@@ -356,20 +354,17 @@ int32_t genEvents::GenerateEvent(const GPUParam& param, char* filename)
   return (0);
 }
 
-void genEvents::RunEventGenerator(GPUChainTracking* rec)
+void genEvents::RunEventGenerator(GPUChainTracking* rec, const std::string& dir)
 {
   std::unique_ptr<genEvents> gen(new genEvents(rec));
-  char dirname[256];
-  snprintf(dirname, 256, "events/%s/", configStandalone.eventsDir);
-  mkdir(dirname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-  rec->DumpSettings(dirname);
+  mkdir(dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+  rec->DumpSettings(dir.c_str());
 
   gen->InitEventGenerator();
 
   for (int32_t i = 0; i < (configStandalone.nEvents == -1 ? 10 : configStandalone.nEvents); i++) {
     GPUInfo("Generating event %d/%d", i, configStandalone.nEvents == -1 ? 10 : configStandalone.nEvents);
-    snprintf(dirname, 256, "events/%s/" GPUCA_EVDUMP_FILE ".%d.dump", configStandalone.eventsDir, i);
-    gen->GenerateEvent(rec->GetParam(), dirname);
+    gen->GenerateEvent(rec->GetParam(), (dir + GPUCA_EVDUMP_FILE "." + std::to_string(i) + ".dump").c_str());
   }
   gen->FinishEventGenerator();
 }

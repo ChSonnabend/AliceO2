@@ -107,7 +107,6 @@ int main(int argc, char* argv[])
   std::ifstream in;
   in.open(inputCollection);
   TString line;
-  bool connectedToAliEn = false;
   TMap* metaData = nullptr;
   TMap* parentFiles = nullptr;
   int totalMergedDFs = 0;
@@ -119,10 +118,9 @@ int main(int argc, char* argv[])
       continue;
     }
 
-    if (line.BeginsWith("alien:") && !connectedToAliEn) {
+    if (line.BeginsWith("alien:") && !gGrid) {
       printf("Connecting to AliEn...");
       TGrid::Connect("alien:");
-      connectedToAliEn = true; // Only try once
     }
 
     printf("Processing input file: %s\n", line.Data());

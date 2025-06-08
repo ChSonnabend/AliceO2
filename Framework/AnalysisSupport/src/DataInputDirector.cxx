@@ -114,7 +114,7 @@ void DataInputDescriptor::addFileNameHolder(FileNameHolder* fn)
   // remove leading file:// from file name
   if (fn->fileName.rfind("file://", 0) == 0) {
     fn->fileName.erase(0, 7);
-  } else if (!mAlienSupport && fn->fileName.rfind("alien://", 0) == 0) {
+  } else if (!mAlienSupport && fn->fileName.rfind("alien://", 0) == 0 && !gGrid) {
     LOGP(debug, "AliEn file requested. Enabling support.");
     TGrid::Connect("alien://");
     mAlienSupport = true;
@@ -146,6 +146,7 @@ bool DataInputDescriptor::setFile(int counter)
     throw std::runtime_error(fmt::format("Couldn't open file \"{}\"!", filename));
   }
   rootFS = std::dynamic_pointer_cast<TFileFileSystem>(mCurrentFilesystem);
+  printFileOpening();
 
   // get the parent file map if exists
   mParentFileMap = (TMap*)rootFS->GetFile()->Get("parentFiles"); // folder name (DF_XXX) --> parent file (absolute path)
@@ -295,6 +296,21 @@ int DataInputDescriptor::getReadTimeFramesInFile(int counter)
 {
   auto& list = mfilenames.at(counter)->alreadyRead;
   return std::count(list.begin(), list.end(), true);
+}
+
+void DataInputDescriptor::printFileOpening()
+{
+  auto rootFS = std::dynamic_pointer_cast<TFileFileSystem>(mCurrentFilesystem);
+  auto f = dynamic_cast<TFile*>(rootFS->GetFile());
+  std::string monitoringInfo(fmt::format("lfn={},size={}", f->GetName(), f->GetSize()));
+#if __has_include(<TJAlienFile.h>)
+  auto alienFile = dynamic_cast<TJAlienFile*>(f);
+  if (alienFile) {
+    monitoringInfo += fmt::format(",se={},open_time={:.1f}", alienFile->GetSE(), alienFile->GetElapsed());
+  }
+#endif
+  mMonitoring->send(o2::monitoring::Metric{monitoringInfo, "aod-file-open-info"}.addTag(o2::monitoring::tags::Key::Subsystem, o2::monitoring::tags::Value::DPL));
+  LOGP(info, "Opening file: {}", monitoringInfo);
 }
 
 void DataInputDescriptor::printFileStatistics()

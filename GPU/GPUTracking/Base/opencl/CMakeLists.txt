@@ -61,9 +61,10 @@ if(OPENCL_ENABLED_SPIRV) # BUILD OpenCL intermediate code for SPIR-V target
               -ferror-limit=1000 -Wno-invalid-constexpr -Wno-unused-command-line-argument
               ${OCL_FLAGS}
               ${OCL_DEFINECL}
+              -MD -MT ${CL_BIN}.spirv -MF ${CL_BIN}.spirv.d
               -o ${CL_BIN}.spirv -c ${CL_SRC}
-      MAIN_DEPENDENCY ${CL_SRC}
-      IMPLICIT_DEPENDS CXX ${CL_SRC}
+      DEPENDS ${CL_SRC}
+      DEPFILE ${CL_BIN}.spirv.d
       COMMAND_EXPAND_LISTS
       COMMENT "Compiling OpenCL CL source file ${CL_SRC} to SPIRV ${CL_BIN}.spirv")
 
@@ -82,9 +83,10 @@ if(OPENCL_ENABLED) # BUILD OpenCL source code for runtime compilation target
               ${OCL_DEFINECL}
               -cl-no-stdinc
               -nostdinc
+              -MD -MT ${CL_BIN}.src -MF ${CL_BIN}.src.d
               -E -P ${CL_SRC} > ${CL_BIN}.src
-      MAIN_DEPENDENCY ${CL_SRC}
-      IMPLICIT_DEPENDS CXX ${CL_SRC}
+      DEPENDS ${CL_SRC}
+      DEPFILE ${CL_BIN}.src.d
       COMMAND_EXPAND_LISTS
       COMMENT "Preparing OpenCL CL source file for run time compilation ${CL_BIN}.src")
 

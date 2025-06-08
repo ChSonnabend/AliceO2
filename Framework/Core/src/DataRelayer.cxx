@@ -418,8 +418,8 @@ void DataRelayer::pruneCache(TimesliceSlot slot, OnDropCallback onDrop)
 
 bool isCalibrationData(std::unique_ptr<fair::mq::Message>& first)
 {
-  auto* dh = o2::header::get<DataHeader*>(first->GetData());
-  return dh->flagsDerivedHeader & DataProcessingHeader::KEEP_AT_EOS_FLAG;
+  auto* dph = o2::header::get<DataProcessingHeader*>(first->GetData());
+  return static_cast<o2::header::BaseHeader const&>(*dph).flagsDerivedHeader & DataProcessingHeader::KEEP_AT_EOS_FLAG;
 }
 
 DataRelayer::RelayChoice

@@ -705,9 +705,13 @@ int32_t GPUChainTracking::RunChain()
   }
   mRec->getGeneralStepTimer(GeneralStep::Prepare).Stop();
 
-  PrepareDebugOutput();
+  PrepareKernelDebugOutput();
 
   SynchronizeStream(0); // Synchronize all init copies that might be ongoing
+
+  if (GetProcessingSettings().debugOnFailure) {
+    mRec->setDebugDumpCallback([this]() { DoDebugRawDump(); });
+  }
 
   if (mIOPtrs.tpcCompressedClusters) {
     if (runRecoStep(RecoStep::TPCDecompression, &GPUChainTracking::RunTPCDecompression)) {
@@ -775,7 +779,7 @@ int32_t GPUChainTracking::RunChain()
   }
 
   int32_t retVal = 0;
-  if (CheckErrorCodes(false, false, mRec->getErrorCodeOutput())) {
+  if (CheckErrorCodes(false, false, mRec->getErrorCodeOutput())) { // TODO: Eventually, we should use GPUReconstruction::CheckErrorCodes
     retVal = 3;
     if (!GetProcessingSettings().ignoreNonFatalGPUErrors) {
       return retVal;
@@ -815,7 +819,7 @@ int32_t GPUChainTracking::RunChainFinalize()
     PrintOutputStat();
   }
 
-  PrintDebugOutput();
+  PrintKernelDebugOutput();
 
   // PrintMemoryRelations();
 
@@ -884,6 +888,7 @@ int32_t GPUChainTracking::FinalizePipelinedProcessing()
 int32_t GPUChainTracking::CheckErrorCodes(bool cpuOnly, bool forceShowErrors, std::vector<std::array<uint32_t, 4>>* fillErrors)
 {
   int32_t retVal = 0;
+  bool hasDebugError = false;
   for (int32_t i = 0; i < 1 + (!cpuOnly && mRec->IsGPU()); i++) {
     if (i) {
       const auto& threadContext = GetThreadContext();
@@ -925,9 +930,26 @@ int32_t GPUChainTracking::CheckErrorCodes(bool cpuOnly, bool forceShowErrors, st
           fillErrors->emplace_back(std::array<uint32_t, 4>{pErrors[4 * j], pErrors[4 * j + 1], pErrors[4 * j + 2], pErrors[4 * j + 3]});
         }
       }
+      if ((GetProcessingSettings().debugOnFailure & 1) || (GetProcessingSettings().debugOnFailure & 4)) {
+        if (GetProcessingSettings().debugOnFailureErrorMask == (uint64_t)-1) {
+          hasDebugError = true;
+        } else {
+          uint32_t nErrors = processors()->errorCodes.getNErrors();
+          const uint32_t* pErrors = processors()->errorCodes.getErrorPtr();
+          for (uint32_t j = 0; j < nErrors; j++) {
+            if (GetProcessingSettings().debugOnFailureErrorMask & (1 << pErrors[4 * j])) {
+              hasDebugError = true;
+              break;
+            }
+          }
+        }
+      }
     }
   }
   ClearErrorCodes(cpuOnly);
+  if (hasDebugError) {
+    mRec->triggerDebugDump();
+  }
   return retVal;
 }
 

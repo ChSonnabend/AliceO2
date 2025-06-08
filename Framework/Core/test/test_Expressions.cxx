@@ -290,6 +290,13 @@ TEST_CASE("TestConditionalExpressions")
   auto gandiva_condition2 = makeCondition(gandiva_tree2);
   auto gandiva_filter2 = createFilter(schema2, gandiva_condition2);
   REQUIRE(gandiva_tree2->ToString() == "bool greater_than((float) fSigned1Pt, (const float) 0 raw(0)) && if (bool less_than(float absf((float) fEta), (const float) 1 raw(3f800000)) && if (bool less_than((float) fPt, (const float) 1 raw(3f800000))) { bool greater_than((float) fPhi, (const float) 1.5708 raw(3fc90fdb)) } else { bool less_than((float) fPhi, (const float) 1.5708 raw(3fc90fdb)) }) { bool greater_than(float absf((float) fX), (const float) 1 raw(3f800000)) } else { bool greater_than(float absf((float) fY), (const float) 1 raw(3f800000)) }");
+
+  // clamp
+  Projector clp = clamp(o2::aod::track::pt, 1.0f, 10.f);
+  auto clpspecs = createOperations(clp);
+  auto schemaclp = std::make_shared<arrow::Schema>(std::vector{o2::aod::track::Pt::asArrowField()});
+  auto gandiva_tree_clp = createExpressionTree(clpspecs, schemaclp);
+  REQUIRE(gandiva_tree_clp->ToString() == "if (bool less_than((float) fPt, (const float) 1 raw(3f800000))) { (const float) 1 raw(3f800000) } else { if (bool greater_than((float) fPt, (const float) 10 raw(41200000))) { (const float) 10 raw(41200000) } else { (float) fPt } }");
 }
 
 TEST_CASE("TestBinnedExpressions")

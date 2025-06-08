@@ -18,6 +18,7 @@
 #include "frontend/GPUDisplayFrontend.h"
 #include "backend/GPUDisplayBackend.h"
 #include "GPUDisplayInterface.h"
+#include "GPUSettings.h"
 
 #include "../utils/vecpod.h"
 #include "../utils/qsem.h"
@@ -37,7 +38,7 @@ class GPUTRDGeometry;
 class GPUDisplay : public GPUDisplayInterface
 {
  public:
-  GPUDisplay(GPUDisplayFrontend* frontend, GPUChainTracking* chain, GPUQA* qa, const GPUParam* param = nullptr, const GPUCalibObjectsConst* calib = nullptr, const GPUSettingsDisplay* config = nullptr);
+  GPUDisplay(GPUDisplayFrontend* frontend, GPUChainTracking* chain, GPUQA* qa, const GPUParam* param = nullptr, const GPUCalibObjectsConst* calib = nullptr, const GPUSettingsDisplay* config = nullptr, const GPUSettingsProcessing* proc = nullptr);
   GPUDisplay(const GPUDisplay&) = delete;
   ~GPUDisplay() override = default;
 
@@ -71,6 +72,7 @@ class GPUDisplay : public GPUDisplayInterface
   };
   vecpod<vtx>* vertexBuffer() { return mVertexBuffer; }
   const GPUParam* param() { return mParam; }
+  const GPUSettingsProcessing& GetProcessingSettings() const { return mProcessingSettings; }
   GPUDisplayFrontend* frontend() { return mFrontend; }
   bool drawTextInCompatMode() const { return mDrawTextInCompatMode; }
   int32_t& drawTextFontSize() { return mDrawTextFontSize; }
@@ -139,6 +141,9 @@ class GPUDisplay : public GPUDisplayInterface
     vecpod<float> ma, mb, mc, md, mx;
     bool mVerbose = false;
   };
+
+  static const GPUSettingsDisplay& GetConfig(GPUChainTracking* chain);
+  static const GPUSettingsProcessing& GetProcessingConfig(GPUChainTracking* chain);
 
   void DrawGLScene_internal(float animateTime = -1.f, bool renderToMixBuffer = false);
   void DrawGLScene_updateEventData();
@@ -214,6 +219,7 @@ class GPUDisplay : public GPUDisplayInterface
   GPUSettingsDisplayLight mCfgL;
   GPUSettingsDisplayHeavy mCfgH;
   GPUSettingsDisplayRenderer mCfgR;
+  const GPUSettingsProcessing& mProcessingSettings;
   GPUQA* mQA;
   qSem mSemLockDisplay;
 

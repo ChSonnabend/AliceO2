@@ -12,7 +12,6 @@
 #define ALICEO2_EMCAL_CLUSTERFACTORY_H_
 #include <array>
 #include <vector>
-#include <optional>
 #include <utility>
 #include <gsl/span>
 #include "Rtypes.h"
@@ -336,7 +335,7 @@ class ClusterFactory
   bool getUseWeightExotic() const { return mUseWeightExotic; }
   void setUseWeightExotic(float useWeightExotic) { mUseWeightExotic = useWeightExotic; }
 
-  void setContainer(gsl::span<const o2::emcal::Cluster> clusterContainer, gsl::span<const InputType> cellContainer, gsl::span<const int> indicesContainer, std::optional<gsl::span<const o2::emcal::CellLabel>> cellLabelContainer = std::nullopt)
+  void setContainer(gsl::span<const o2::emcal::Cluster> clusterContainer, gsl::span<const InputType> cellContainer, gsl::span<const int> indicesContainer, gsl::span<const o2::emcal::CellLabel> cellLabelContainer = {})
   {
     mClustersContainer = clusterContainer;
     mInputsContainer = cellContainer;
@@ -344,8 +343,8 @@ class ClusterFactory
     if (!getLookUpInit()) {
       setLookUpTable();
     }
-    if (cellLabelContainer) {
-      mCellLabelContainer = cellLabelContainer.value();
+    if (!cellLabelContainer.empty()) {
+      mCellLabelContainer = cellLabelContainer;
     }
   }
 

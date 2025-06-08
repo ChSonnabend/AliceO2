@@ -42,6 +42,8 @@ class Digitizer : public TObject
   using ExtraDig = std::vector<itsmft::PreDigitLabelRef>; ///< container for extra contributions to PreDigits
 
  public:
+  ~Digitizer();
+
   void setDigits(std::vector<o2::itsmft::Digit>* dig) { mDigits = dig; }
   void setMCLabels(o2::dataformats::MCTruthContainer<o2::MCCompLabel>* mclb) { mMCLabels = mclb; }
   void setROFRecords(std::vector<o2::itsmft::ROFRecord>* rec) { mROFRecords = rec; }

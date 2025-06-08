@@ -31,14 +31,14 @@ int32_t GPURecoWorkflowSpec::runITSTracking(o2::framework::ProcessingContext& pc
 {
   mITSTimeFrame->setDevicePropagator(mGPUReco->GetDeviceO2Propagator());
   LOGP(debug, "GPUChainITS is giving me device propagator: {}", (void*)mGPUReco->GetDeviceO2Propagator());
-  mITSTrackingInterface->run<true>(pc);
+  mITSTrackingInterface->run(pc);
   return 0;
 }
 
 void GPURecoWorkflowSpec::initFunctionITS(o2::framework::InitContext& ic)
 {
   o2::its::VertexerTraits* vtxTraits = nullptr;
-  o2::its::TrackerTraits* trkTraits = nullptr;
+  o2::its::TrackerTraits<7>* trkTraits = nullptr;
 #ifdef ENABLE_UPGRADES
   if (mSpecConfig.isITS3) {
     mITSTrackingInterface = std::make_unique<o2::its3::ITS3TrackingInterface>(mSpecConfig.processMC,

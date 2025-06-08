@@ -12,10 +12,9 @@
 #ifndef ALICEO2_EMCAL_CELLLABEL_H_
 #define ALICEO2_EMCAL_CELLLABEL_H_
 
-#include <fairlogger/Logger.h>
+#include <cstddef>
+#include <cstdint>
 #include <gsl/span>
-#include <vector>
-#include "Rtypes.h"
 
 namespace o2
 {
@@ -52,9 +51,18 @@ class CellLabel
   /// \param index index which label to get
   int32_t GetLabel(size_t index) const { return mLabels[index]; }
 
+  /// \brief Getter for labels
+  gsl::span<const int32_t> GetLabels() const { return mLabels; }
+
   /// \brief Getter for amplitude fraction
   /// \param index index which amplitude fraction to get
   float GetAmplitudeFraction(size_t index) const { return mAmplitudeFraction[index]; }
+
+  /// \brief Getter for amplitude fractions
+  gsl::span<const float> GetAmplitudeFractions() const { return mAmplitudeFraction; }
+
+  /// \brief Getter for label with leading amplitude fraction
+  int32_t GetLeadingMCLabel() const;
 
  protected:
   gsl::span<const int32_t> mLabels;          ///< List of MC particles that generated the cluster, ordered in deposited energy.

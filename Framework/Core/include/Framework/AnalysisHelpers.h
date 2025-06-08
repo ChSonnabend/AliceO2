@@ -297,6 +297,7 @@ struct Spawns : decltype(transformBase<T>()) {
   using extension_t = typename metadata::extension_table_t;
   using base_table_t = typename metadata::base_table_t;
   using expression_pack_t = typename metadata::expression_pack_t;
+  static constexpr size_t N = framework::pack_size(expression_pack_t{});
 
   constexpr auto pack()
   {
@@ -318,7 +319,13 @@ struct Spawns : decltype(transformBase<T>()) {
   }
   std::shared_ptr<typename T::table_t> table = nullptr;
   std::shared_ptr<extension_t> extension = nullptr;
+  std::array<o2::framework::expressions::Projector, N> projectors = []<typename... C>(framework::pack<C...>) -> std::array<expressions::Projector, sizeof...(C)>
+  {
+    return {{std::move(C::Projector())...}};
+  }
+  (expression_pack_t{});
   std::shared_ptr<gandiva::Projector> projector = nullptr;
+  std::shared_ptr<arrow::Schema> schema = std::make_shared<arrow::Schema>(o2::soa::createFieldsFromColumns(expression_pack_t{}));
 };
 
 template <typename T>
@@ -365,6 +372,7 @@ struct Defines : decltype(transformBase<T>()) {
 
   std::array<o2::framework::expressions::Projector, N> projectors;
   std::shared_ptr<gandiva::Projector> projector = nullptr;
+  std::shared_ptr<arrow::Schema> schema = std::make_shared<arrow::Schema>(o2::soa::createFieldsFromColumns(placeholders_pack_t{}));
 };
 
 template <typename T>
@@ -828,8 +836,10 @@ template <soa::is_table T, soa::is_spawnable_column... Cs>
 auto Extend(T const& table)
 {
   using output_t = Join<T, soa::Table<o2::aod::Hash<"JOIN"_h>, o2::aod::Hash<"JOIN/0"_h>, o2::aod::Hash<"JOIN"_h>, Cs...>>;
+  static std::array<framework::expressions::Projector, sizeof...(Cs)> projectors{{std::move(Cs::Projector())...}};
   static std::shared_ptr<gandiva::Projector> projector = nullptr;
-  return output_t{{o2::framework::spawner(framework::pack<Cs...>{}, {table.asArrowTable()}, "dynamicExtension", projector), table.asArrowTable()}, 0};
+  static auto schema = std::make_shared<arrow::Schema>(o2::soa::createFieldsFromColumns(framework::pack<Cs...>{}));
+  return output_t{{o2::framework::spawner(framework::pack<Cs...>{}, {table.asArrowTable()}, "dynamicExtension", projectors.data(), projector, schema), table.asArrowTable()}, 0};
 }
 
 /// Template function to attach dynamic columns on-the-fly (e.g. inside

@@ -63,7 +63,7 @@ void GPUChainITS::MemorySize(size_t& gpuMem, size_t& pageLockedHostMem)
 
 int32_t GPUChainITS::Init() { return 0; }
 
-o2::its::TrackerTraits* GPUChainITS::GetITSTrackerTraits()
+o2::its::TrackerTraits<7>* GPUChainITS::GetITSTrackerTraits()
 {
   if (mITSTrackerTraits == nullptr) {
     mRec->GetITSTraits(&mITSTrackerTraits, nullptr, nullptr);
@@ -79,7 +79,7 @@ o2::its::VertexerTraits* GPUChainITS::GetITSVertexerTraits()
   return mITSVertexerTraits.get();
 }
 
-o2::its::TimeFrame* GPUChainITS::GetITSTimeframe()
+o2::its::TimeFrame<7>* GPUChainITS::GetITSTimeframe()
 {
   if (mITSTimeFrame == nullptr) {
     mRec->GetITSTraits(nullptr, nullptr, &mITSTimeFrame);

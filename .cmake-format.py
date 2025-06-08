@@ -66,12 +66,6 @@ additional_commands = {
             "HEADERS": '*',
         }
     },
-    "o2_target_man_page": {
-        "kwargs": {
-            "NAME": '+',
-            "SECTION": '*',
-        }
-    },
     "add_root_dictionary": {
         "kwargs": {
             "LINKDEF": '+',

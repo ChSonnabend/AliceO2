@@ -123,6 +123,10 @@ class V3Cage : public V11Geometry
   /// \param mgr  The GeoManager (used only to get the proper material)
   TGeoVolume* createMFTRailsPair(const TGeoMedium* motmed, const TGeoManager* mgr = gGeoManager);
 
+  /// Creates a hinge holding a pair of MFT rails inside the Cage
+  /// \param mgr  The GeoManager (used only to get the proper material)
+  TGeoVolume* createMFTRailsHinge(const TGeoManager* mgr = gGeoManager);
+
   // Parameters
   static const Double_t sCageYInBarrel; ///< Global Y translation
 
@@ -256,6 +260,7 @@ class V3Cage : public V11Geometry
 
   // MFT Rails inside the Cage
   static const Double_t sCageMFTRailZLen;      ///< Total length of the rail
+  static const Double_t sCageMFTRailZPos;      ///< Rail global Z position
   static const Double_t sCageMFTRailTotWidth;  ///< Total width of the rail
   static const Double_t sCageMFTRailExtWidth;  ///< Width of the external part
   static const Double_t sCageMFTRailIntWidth;  ///< Width of the internal part
@@ -264,6 +269,17 @@ class V3Cage : public V11Geometry
   static const Double_t sCageMFTRailExtHeight; ///< Height of the external part
   static const Double_t sCageMFTRailIntHeight; ///< Height of the internal part
   static const Double_t sCageMFTRailsXDist;    ///< X distance between rails
+
+  // MFT Rail hinges
+  static const Double_t sCageMFTHingeTotWid;   ///< Total width of a hinge
+  static const Double_t sCageMFTHingeIntWid;   ///< Width of hinge inner part
+  static const Double_t sCageMFTHingeHeight;   ///< Total height of the rail
+  static const Double_t sCageMFTHingeIntHei;   ///< Height of hinge inner part
+  static const Double_t sCageMFTHingeTotLen;   ///< Total length of a hinge
+  static const Double_t sCageMFTHingeIntLen;   ///< Length of hinge inner part
+  static const Double_t sCageMFTHingeBulgeWid; ///< Width of a hinge bulge
+  static const Double_t sCageMFTHingeBulgeHei; ///< Height of a hinge bulge
+  static const Double_t sCageMFTHingeBulgePos; ///< X position of a hinge bulge
 
   ClassDefOverride(V3Cage, 0); // ITS v3 support geometry
 };

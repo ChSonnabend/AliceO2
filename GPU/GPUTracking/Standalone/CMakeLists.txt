@@ -151,8 +151,7 @@ add_library(standalone_support SHARED
             ${O2_DIR}/Detectors/Base/src/MatLayerCylSet.cxx
             ${O2_DIR}/Detectors/Base/src/MatLayerCyl.cxx
             ${O2_DIR}/Detectors/Base/src/Ray.cxx
-            ${O2_DIR}/Detectors/Base/src/Propagator.cxx
-            ${O2_DIR}/Detectors/ITSMFT/ITS/tracking/src/Road.cxx)
+            ${O2_DIR}/Detectors/Base/src/Propagator.cxx)
 
 target_compile_definitions(standalone_support PUBLIC $<TARGET_PROPERTY:O2::GPUTracking,COMPILE_DEFINITIONS>)
 target_include_directories(standalone_support PUBLIC $<TARGET_PROPERTY:O2::GPUTracking,INCLUDE_DIRECTORIES>)

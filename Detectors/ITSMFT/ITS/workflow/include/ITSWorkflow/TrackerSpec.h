@@ -28,9 +28,7 @@
 
 #include "TStopwatch.h"
 
-namespace o2
-{
-namespace its
+namespace o2::its
 {
 
 class TrackerDPL : public framework::Task
@@ -41,7 +39,7 @@ class TrackerDPL : public framework::Task
              int trgType,
              const TrackingMode& trMode = TrackingMode::Unset,
              const bool overrBeamEst = false,
-             gpu::GPUDataTypes::DeviceType dType = gpu::GPUDataTypes::DeviceType::CPU);
+             o2::gpu::GPUDataTypes::DeviceType dType = o2::gpu::GPUDataTypes::DeviceType::CPU);
   ~TrackerDPL() override = default;
   void init(framework::InitContext& ic) final;
   void run(framework::ProcessingContext& pc) final;
@@ -59,9 +57,8 @@ class TrackerDPL : public framework::Task
 };
 
 using o2::its::TrackingMode;
-framework::DataProcessorSpec getTrackerSpec(bool useMC, bool useGeom, int useTrig, const std::string& trMode, const bool overrBeamEst = false, gpu::GPUDataTypes::DeviceType dType = gpu::GPUDataTypes::DeviceType::CPU);
+framework::DataProcessorSpec getTrackerSpec(bool useMC, bool useGeom, int useTrig, const std::string& trMode, const bool overrBeamEst = false, o2::gpu::GPUDataTypes::DeviceType dType = o2::gpu::GPUDataTypes::DeviceType::CPU);
 
-} // namespace its
-} // namespace o2
+} // namespace o2::its
 
 #endif /* O2_ITS_TRACKERDPL */

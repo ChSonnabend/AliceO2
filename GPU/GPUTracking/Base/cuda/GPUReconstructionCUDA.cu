@@ -34,7 +34,11 @@
 #else // HIP
 #define PER_KERNEL_OBJECT_EXT _hip_o
 #endif
+#ifdef GPUCA_RTC_NO_COMPILED_KERNELS
+#define GPUCA_KRNL(x_class, ...) static void* GPUCA_M_CAT3(_binary_cuda_kernel_module_fatbin_krnl_, GPUCA_M_KRNL_NAME(x_class), GPUCA_M_CAT(PER_KERNEL_OBJECT_EXT, _start)) = nullptr;
+#else
 #define GPUCA_KRNL(x_class, ...) QGET_LD_BINARY_SYMBOLS(GPUCA_M_CAT3(cuda_kernel_module_fatbin_krnl_, GPUCA_M_KRNL_NAME(x_class), PER_KERNEL_OBJECT_EXT))
+#endif
 #include "GPUReconstructionKernelList.h"
 #undef GPUCA_KRNL
 #endif
@@ -87,13 +91,13 @@ int32_t GPUReconstructionCUDA::GPUChkErrInternal(const int64_t error, const char
 
 GPUReconstruction* GPUReconstruction_Create_CUDA(const GPUSettingsDeviceBackend& cfg) { return new GPUReconstructionCUDA(cfg); }
 
-void GPUReconstructionCUDA::GetITSTraits(std::unique_ptr<o2::its::TrackerTraits>* trackerTraits, std::unique_ptr<o2::its::VertexerTraits>* vertexerTraits, std::unique_ptr<o2::its::TimeFrame>* timeFrame)
+void GPUReconstructionCUDA::GetITSTraits(std::unique_ptr<o2::its::TrackerTraits<7>>* trackerTraits, std::unique_ptr<o2::its::VertexerTraits>* vertexerTraits, std::unique_ptr<o2::its::TimeFrame<7>>* timeFrame)
 {
   if (trackerTraits) {
     trackerTraits->reset(new o2::its::TrackerTraitsGPU);
   }
   if (vertexerTraits) {
-    vertexerTraits->reset(new o2::its::VertexerTraitsGPU);
+    vertexerTraits->reset(new o2::its::VertexerTraits); // TODO gpu-code to be implemented
   }
   if (timeFrame) {
     timeFrame->reset(new o2::its::gpu::TimeFrameGPU);
@@ -125,33 +129,24 @@ int32_t GPUReconstructionCUDA::InitDevice_Runtime()
     }
     std::vector<bool> devicesOK(count, false);
     std::vector<size_t> devMemory(count, 0);
-    bool contextCreated = false;
+    std::vector<bool> contextCreated(count, false);
     for (int32_t i = 0; i < count; i++) {
       if (GetProcessingSettings().debugLevel >= 4) {
         GPUInfo("Examining device %d", i);
       }
       size_t free, total;
-#ifndef __HIPCC__ // CUDA
-      if (GPUChkErrI(cudaInitDevice(i, 0, 0))) {
-#else // HIP
-      if (GPUChkErrI(hipSetDevice(i))) {
-#endif
+      if (GPUChkErrI(cudaSetDevice(i))) {
         if (GetProcessingSettings().debugLevel >= 4) {
           GPUWarning("Couldn't create context for device %d. Skipping it.", i);
         }
         continue;
       }
-      contextCreated = true;
+      contextCreated[i] = true;
       if (GPUChkErrI(cudaMemGetInfo(&free, &total))) {
         if (GetProcessingSettings().debugLevel >= 4) {
           GPUWarning("Error obtaining CUDA memory info about device %d! Skipping it.", i);
         }
-        GPUChkErr(cudaDeviceReset());
         continue;
-      }
-      if (count > 1) {
-        GPUChkErr(cudaDeviceReset());
-        contextCreated = false;
       }
       if (GetProcessingSettings().debugLevel >= 4) {
         GPUInfo("Obtained current memory usage for device %d", i);
@@ -212,13 +207,20 @@ int32_t GPUReconstructionCUDA::InitDevice_Runtime()
         bestDevice = GetProcessingSettings().deviceNum;
       }
     }
-    if (noDevice) {
-      if (contextCreated) {
+    for (int32_t i = 0; i < count; i++) {
+      if (contextCreated[i] && (noDevice || i != bestDevice)) {
+        GPUChkErrI(cudaSetDevice(i));
         GPUChkErrI(cudaDeviceReset());
       }
+    }
+    if (noDevice) {
       return (1);
     }
     mDeviceId = bestDevice;
+    if (GPUChkErrI(cudaSetDevice(mDeviceId))) {
+      GPUError("Could not set CUDA Device!");
+      return (1);
+    }
 
     GPUChkErrI(cudaGetDeviceProperties(&deviceProp, mDeviceId));
 
@@ -261,15 +263,6 @@ int32_t GPUReconstructionCUDA::InitDevice_Runtime()
       return (1);
     }
 #endif
-
-#ifndef __HIPCC__ // CUDA
-    if (contextCreated == 0 && GPUChkErrI(cudaInitDevice(mDeviceId, 0, 0))) {
-#else // HIP
-    if (contextCreated == 0 && GPUChkErrI(hipSetDevice(mDeviceId))) {
-#endif
-      GPUError("Could not set CUDA Device!");
-      return (1);
-    }
 
 #ifndef __HIPCC__ // CUDA
     if (GPUChkErrI(cudaDeviceSetLimit(cudaLimitStackSize, GPUCA_GPU_STACK_SIZE))) {
@@ -346,6 +339,9 @@ int32_t GPUReconstructionCUDA::InitDevice_Runtime()
     }
 #if defined(GPUCA_KERNEL_COMPILE_MODE) && GPUCA_KERNEL_COMPILE_MODE == 1
     else {
+#ifdef GPUCA_RTC_NO_COMPILED_KERNELS
+      GPUFatal("Compiled with GPUCA_RTC_NO_COMPILED_KERNELS, must run RTC mode!");
+#endif
 #define GPUCA_KRNL(x_class, ...)                                        \
   mInternals->kernelModules.emplace_back(std::make_unique<CUmodule>()); \
   GPUChkErr(cuModuleLoadData(mInternals->kernelModules.back().get(), GPUCA_M_CAT3(_binary_cuda_kernel_module_fatbin_krnl_, GPUCA_M_KRNL_NAME(x_class), GPUCA_M_CAT(PER_KERNEL_OBJECT_EXT, _start))));
@@ -420,8 +416,10 @@ void GPUReconstructionCUDA::genAndLoadRTC()
       mInternals->kernelModules.emplace_back(std::make_unique<CUmodule>());
       GPUChkErr(cuModuleLoad(mInternals->kernelModules.back().get(), (filename + "_" + std::to_string(i) + mRtcBinExtension).c_str()));
     }
-    remove((filename + "_" + std::to_string(i) + mRtcSrcExtension).c_str());
-    remove((filename + "_" + std::to_string(i) + mRtcBinExtension).c_str());
+    if (!GetProcessingSettings().rtctech.keepTempFiles) {
+      remove((filename + "_" + std::to_string(i) + mRtcSrcExtension).c_str());
+      remove((filename + "_" + std::to_string(i) + mRtcBinExtension).c_str());
+    }
   }
   if (GetProcessingSettings().rtctech.runTest == 2) {
     return;

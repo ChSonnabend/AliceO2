@@ -69,6 +69,8 @@
 #pragma link C++ class o2::tpc::dcs::DataPoint < o2::tpc::dcs::HV::StackState> + ;
 #pragma link C++ class o2::tpc::dcs::DataPointVector < o2::tpc::dcs::HV::StackState> + ;
 #pragma link C++ class o2::tpc::dcs::Gas + ;
+#pragma link C++ class o2::tpc::dcs::Pressure + ;
+#pragma link C++ class o2::tpc::dcs::RobustPressure + ;
 #pragma link C++ class o2::tpc::PIDResponse + ;
 #pragma link C++ class o2::tpc::TriggerWordDLBZS + ;
 #pragma link C++ class o2::tpc::TriggerInfoDLBZS + ;

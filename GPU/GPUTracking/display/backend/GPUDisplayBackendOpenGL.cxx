@@ -305,7 +305,7 @@ int32_t GPUDisplayBackendOpenGL::checkProgramStatus(uint32_t program)
 
 int32_t GPUDisplayBackendOpenGL::InitBackendA()
 {
-  if (mDisplay->param()->par.debugLevel >= 2) {
+  if (mDisplay->GetProcessingSettings().debugLevel >= 2) {
     auto renderer = glGetString(GL_RENDERER);
     GPUInfo("Renderer: %s", (const char*)renderer);
   }

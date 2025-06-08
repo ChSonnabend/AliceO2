@@ -2107,7 +2107,7 @@ void DataProcessingDevice::handleData(ServiceRegistryRef ref, InputChannelInfo& 
           LOGP(debug, "Got DomainInfoHeader, new oldestPossibleTimeslice {} on channel {}", oldestPossibleTimeslice, info.id.value);
           parts.At(headerIndex).reset(nullptr);
           parts.At(payloadIndex).reset(nullptr);
-        }
+        } break;
         case InputType::Invalid: {
           reportError("Invalid part found.");
         } break;

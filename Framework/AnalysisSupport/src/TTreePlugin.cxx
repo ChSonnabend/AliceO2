@@ -27,6 +27,8 @@
 #include <arrow/array/array_primitive.h>
 #include <arrow/array/builder_nested.h>
 #include <arrow/array/builder_primitive.h>
+#include <arrow/array/util.h>
+#include <arrow/record_batch.h>
 #include <TTree.h>
 #include <TBranch.h>
 #include <TFile.h>
@@ -35,7 +37,6 @@
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
-#include <iostream>
 
 O2_DECLARE_DYNAMIC_LOG(root_arrow_fs);
 
@@ -729,8 +730,9 @@ arrow::Result<arrow::RecordBatchGenerator> TTreeFileFormat::ScanBatchesAsync(
       std::shared_ptr<arrow::Array> array;
 
       if (listType) {
-        auto varray = std::make_shared<arrow::PrimitiveArray>(datasetField->type()->field(0)->type(), valueOp.rootBranchEntries * valueOp.listSize, valueOp.targetBuffer);
-        array = std::make_shared<arrow::FixedSizeListArray>(datasetField->type(), valueOp.rootBranchEntries, varray);
+        auto vdata = std::make_shared<arrow::ArrayData>(datasetField->type()->field(0)->type(), valueOp.rootBranchEntries * valueOp.listSize,
+                                                        std::vector<std::shared_ptr<arrow::Buffer>>{nullptr, valueOp.targetBuffer});
+        array = std::make_shared<arrow::FixedSizeListArray>(datasetField->type(), valueOp.rootBranchEntries, arrow::MakeArray(vdata));
         // This is a vla, there is also an offset op
         O2_SIGNPOST_EVENT_EMIT(root_arrow_fs, tid, "Op", "Created op for branch %{public}s with %lli entries, size of the buffer %lli.",
                                valueOp.branch->GetName(),
@@ -738,9 +740,10 @@ arrow::Result<arrow::RecordBatchGenerator> TTreeFileFormat::ScanBatchesAsync(
                                valueOp.targetBuffer->size());
       } else if (mapping.vlaIdx != -1) {
         auto& offsetOp = ops[ops.size() - 2];
-        auto varray = std::make_shared<arrow::PrimitiveArray>(datasetField->type()->field(0)->type(), offsetOp.offsetCount, valueOp.targetBuffer);
+        auto vdata = std::make_shared<arrow::ArrayData>(datasetField->type()->field(0)->type(), offsetOp.offsetCount,
+                                                        std::vector<std::shared_ptr<arrow::Buffer>>{nullptr, valueOp.targetBuffer});
         // We have pushed an offset op if this was the case.
-        array = std::make_shared<arrow::ListArray>(datasetField->type(), offsetOp.rootBranchEntries, offsetOp.targetBuffer, varray);
+        array = std::make_shared<arrow::ListArray>(datasetField->type(), offsetOp.rootBranchEntries, offsetOp.targetBuffer, arrow::MakeArray(vdata));
         O2_SIGNPOST_EVENT_EMIT(root_arrow_fs, tid, "Op", "Created op for branch %{public}s with %lli entries, size of the buffer %lli.",
                                offsetOp.branch->GetName(), offsetOp.rootBranchEntries, offsetOp.targetBuffer->size());
         O2_SIGNPOST_EVENT_EMIT(root_arrow_fs, tid, "Op", "Created op for branch %{public}s with %lli entries, size of the buffer %lli.",
@@ -748,7 +751,9 @@ arrow::Result<arrow::RecordBatchGenerator> TTreeFileFormat::ScanBatchesAsync(
                                offsetOp.offsetCount,
                                valueOp.targetBuffer->size());
       } else {
-        array = std::make_shared<arrow::PrimitiveArray>(datasetField->type(), valueOp.rootBranchEntries, valueOp.targetBuffer);
+        auto data = std::make_shared<arrow::ArrayData>(datasetField->type(), valueOp.rootBranchEntries,
+                                                       std::vector<std::shared_ptr<arrow::Buffer>>{nullptr, valueOp.targetBuffer});
+        array = arrow::MakeArray(data);
         O2_SIGNPOST_EVENT_EMIT(root_arrow_fs, tid, "Op", "Created op for branch %{public}s with %lli entries, size of the buffer %lli.",
                                valueOp.branch->GetName(),
                                valueOp.rootBranchEntries,

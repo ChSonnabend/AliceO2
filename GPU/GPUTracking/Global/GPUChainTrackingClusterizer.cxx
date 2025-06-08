@@ -1250,6 +1250,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
     }
   }
   for (int32_t i = 0; i < GetProcessingSettings().nTPCClustererLanes; i++) {
+#ifdef GPUCA_HAS_ONNX
     if (GetProcessingSettings().nn.applyNNclusterizer) {
       LOG(info) << "(ORT) Environment releasing...";
       GPUTPCNNClusterizerHost& nnApplication = nnApplications[i];
@@ -1257,6 +1258,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
       nnApplication.mModelReg1.release(true);
       nnApplication.mModelReg2.release(true);
     }
+#endif
     if (transferRunning[i]) {
       ReleaseEvent(mEvents->stream[i], doGPU);
     }

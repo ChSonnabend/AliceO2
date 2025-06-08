@@ -34,7 +34,7 @@
 #include "GPUTPCTracker.h"
 #include "GPUTPCGMMergedTrack.h"
 #include "GPUO2DataTypes.h"
-#include "utils/qconfig.h"
+#include "GPUSettings.h"
 
 #include "frontend/GPUDisplayFrontend.h"
 #include "backend/GPUDisplayBackend.h"
@@ -44,17 +44,19 @@ constexpr hmm_mat4 MY_HMM_IDENTITY = {{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0},
 
 using namespace o2::gpu;
 
-static const GPUSettingsDisplay& GPUDisplay_GetConfig(GPUChainTracking* chain)
+const GPUSettingsDisplay& GPUDisplay::GetConfig(GPUChainTracking* chain)
 {
   static GPUSettingsDisplay defaultConfig;
-  if (chain && chain->mConfigDisplay) {
-    return *chain->mConfigDisplay;
-  } else {
-    return defaultConfig;
-  }
+  return (chain && chain->mConfigDisplay) ? *chain->mConfigDisplay : defaultConfig;
 }
 
-GPUDisplay::GPUDisplay(GPUDisplayFrontend* frontend, GPUChainTracking* chain, GPUQA* qa, const GPUParam* param, const GPUCalibObjectsConst* calib, const GPUSettingsDisplay* config) : GPUDisplayInterface(), mFrontend(frontend), mChain(chain), mConfig(config ? *config : GPUDisplay_GetConfig(chain)), mQA(qa)
+const GPUSettingsProcessing& GPUDisplay::GetProcessingConfig(GPUChainTracking* chain)
+{
+  static GPUSettingsProcessing defaultConfig;
+  return chain ? chain->GetProcessingSettings() : defaultConfig;
+}
+
+GPUDisplay::GPUDisplay(GPUDisplayFrontend* frontend, GPUChainTracking* chain, GPUQA* qa, const GPUParam* param, const GPUCalibObjectsConst* calib, const GPUSettingsDisplay* config, const GPUSettingsProcessing* proc) : GPUDisplayInterface(), mFrontend(frontend), mChain(chain), mConfig(config ? *config : GetConfig(chain)), mProcessingSettings(proc ? *proc : GetProcessingConfig(chain)), mQA(qa)
 {
   mParam = param ? param : &mChain->GetParam();
   mCalib = calib;

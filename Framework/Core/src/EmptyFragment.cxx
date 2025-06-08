@@ -9,9 +9,13 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 #include "Framework/EmptyFragment.h"
+#include <arrow/array/data.h>
 #include <arrow/type_fwd.h>
 #include <arrow/array/array_primitive.h>
 #include <arrow/array/array_nested.h>
+#include <arrow/record_batch.h>
+#include <arrow/type.h>
+#include <arrow/array/util.h>
 #include <memory>
 
 static constexpr int64_t kBufferMinimumSize = 256;
@@ -35,8 +39,8 @@ arrow::Result<arrow::RecordBatchGenerator> EmptyFragment::ScanBatchesAsync(
         } else {
           size *= field->type()->field(0)->type()->byte_width();
         }
-        auto varray = std::make_shared<arrow::PrimitiveArray>(field->type()->field(0)->type(), mRows * listType->list_size(), GetPlaceholderForOp(size));
-        columns.push_back(std::make_shared<arrow::FixedSizeListArray>(field->type(), (int32_t)mRows, varray));
+        auto vdata = std::make_shared<arrow::ArrayData>(field->type()->field(0)->type(), mRows * listType->list_size(), std::vector<std::shared_ptr<arrow::Buffer>>{nullptr, GetPlaceholderForOp(size)});
+        columns.push_back(std::make_shared<arrow::FixedSizeListArray>(field->type(), (int32_t)mRows, arrow::MakeArray(vdata)));
       } else {
         size_t size = mRows;
         if (field->type()->byte_width() == 0) {
@@ -44,7 +48,8 @@ arrow::Result<arrow::RecordBatchGenerator> EmptyFragment::ScanBatchesAsync(
         } else {
           size *= field->type()->byte_width();
         }
-        columns.push_back(std::make_shared<arrow::PrimitiveArray>(field->type(), mRows, GetPlaceholderForOp(size)));
+        auto data = std::make_shared<arrow::ArrayData>(field->type(), mRows, std::vector<std::shared_ptr<arrow::Buffer>>{nullptr, GetPlaceholderForOp(size)});
+        columns.push_back(arrow::MakeArray(data));
       }
     }
     return arrow::RecordBatch::Make(physical_schema_, mRows, columns);

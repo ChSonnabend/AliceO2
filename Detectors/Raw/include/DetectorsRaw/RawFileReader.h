@@ -47,7 +47,6 @@ struct ReaderInp {
   size_t bufferSize = 1024L * 1024L;
   size_t minSHM = 0;
   int loop = 1;
-  int runNumber = 0;
   uint32_t delay_us = 0;
   uint32_t errMap = 0xffffffff;
   uint32_t minTF = 0;

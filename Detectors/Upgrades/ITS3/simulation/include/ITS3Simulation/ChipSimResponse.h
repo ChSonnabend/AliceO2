@@ -24,6 +24,7 @@ class ChipSimResponse : public o2::itsmft::AlpideSimResponse
  public:
   ChipSimResponse() = default;
   ChipSimResponse(const ChipSimResponse& other) = default;
+  ChipSimResponse(const o2::itsmft::AlpideSimResponse* base) : o2::itsmft::AlpideSimResponse(*base) {}
 
   float getRespCentreDep() const { return mRespCentreDep; }
   void computeCentreFromData();

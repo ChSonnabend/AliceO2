@@ -41,7 +41,7 @@ void GPUTPCTrackingData::InitializeRows(const GPUParam& p)
   }
   for (int32_t i = 0; i < GPUCA_ROW_COUNT; i++) {
     mRows[i].mX = GPUTPCGeometry::Row2X(i);
-    mRows[i].mMaxY = CAMath::Tan(p.par.dAlpha / 2.f) * mRows[i].mX;
+    mRows[i].mMaxY = CAMath::Tan(p.dAlpha / 2.f) * mRows[i].mX;
   }
 }
 

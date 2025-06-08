@@ -35,6 +35,7 @@ set(HIP_AMDGPUTARGET "default")             # "gfx906;gfx908;gfx90a"
 set(CUDA_COMPUTETARGET "default")           # 86 89
 #set(GPUCA_CUDA_COMPILE_MODE perkernel)     # onefile / perkernel / rtc
 #set(GPUCA_HIP_COMPILE_MODE perkernel)
+#set(GPUCA_RTC_NO_COMPILED_KERNELS 1)
 #set(GPUCA_KERNEL_RESOURCE_USAGE_VERBOSE 1)
 #set(GPUCA_CONFIG_COMPILER gcc)             # gcc / clang
 #add_definitions(-DGPUCA_GPU_DEBUG_PRINT)

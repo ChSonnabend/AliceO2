@@ -96,6 +96,7 @@ class GPUCommonMath
   GPUd() constexpr static uint32_t Float2UIntRn(float x) { return (uint32_t)(int32_t)(x + 0.5f); }
   GPUd() constexpr static int32_t Float2IntRn(float x);
   GPUd() constexpr static float Modf(float x, float y);
+  GPUhdi() static float Remainderf(float x, float y);
   GPUd() constexpr static bool Finite(float x);
   GPUd() constexpr static bool IsNaN(float x);
   GPUd() constexpr static float QuietNaN() { return GPUCA_CHOICE(std::numeric_limits<float>::quiet_NaN(), __builtin_nanf(""), nan(0u)); }
@@ -236,6 +237,7 @@ GPUdi() float2 GPUCommonMath::MakeFloat2(float x, float y)
 }
 
 GPUdi() constexpr float GPUCommonMath::Modf(float x, float y) { return GPUCA_CHOICE(fmodf(x, y), fmodf(x, y), fmod(x, y)); }
+GPUhdi() float GPUCommonMath::Remainderf(float x, float y) { return GPUCA_CHOICE(std::remainderf(x, y), remainderf(x, y), remainder(x, y)); }
 
 GPUdi() uint32_t GPUCommonMath::Float2UIntReint(const float& x)
 {

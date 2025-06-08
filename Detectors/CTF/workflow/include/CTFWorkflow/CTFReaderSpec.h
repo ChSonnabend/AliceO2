@@ -33,6 +33,7 @@ struct CTFReaderInp {
   std::string fileIRFrames{};
   std::string fileRunTimeSpans{};
   std::vector<int> ctfIDs{};
+  bool reverseCTFIDs{false};
   bool skipSkimmedOutTF = false;
   bool invertIRFramesSelection = false;
   bool allowMissingDetectors = false;
@@ -47,6 +48,7 @@ struct CTFReaderInp {
   unsigned int decSSpecEMC = 0;
   int tfRateLimit = -999;
   size_t minSHM = 0;
+  bool shuffle{false};
 };
 
 /// create a processor spec

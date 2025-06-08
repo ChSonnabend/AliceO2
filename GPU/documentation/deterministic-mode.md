@@ -12,6 +12,7 @@ This is steered by 3 options:
 - The `--PROCdeterministicGPUReconstruction` command line option / `GPU_proc.deterministicGPUReconstruction` `--configKeyValue` setting : Run time setting.
 - The `--RTCdeterministic` command line option / `GPU_proc_rtc.deterministic` `--configKeyValue` setting. (Auto-enabled by the `deterministicGPUReconstruction` setting.) : Compile-time setting for RTC code.
 
+Note that enabling a single setting will not result in fully deterministic behavior! Each setting enables different deterministic aspects!
 In order to be fully deterministic, all settings must be enabled, where the RTC setting is automatically enabled if not explicitly disabled.
 
 `GPUCA_DETERMINISTIC_MODE` has multiple levels, which are described here: [FindO2GPU.cmake](https://github.com/AliceO2Group/AliceO2/blob/80a80a17f5a1d9cb77743e2a39b15b653fe1a4f9/dependencies/FindO2GPU.cmake#L72).

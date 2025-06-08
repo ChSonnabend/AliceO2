@@ -106,7 +106,10 @@ class Pdg(Enum):
     kDSBar = -431
     kDSStar = 433
     kDS1 = 10433
+    kDS1Star2700 = 30433
+    kDS1Star2860 = 40433
     kDS2Star = 435
+    kDS3Star2860 = 437
     kDStar = 413
     kDStar0 = 423
     kChiC1 = 20443
@@ -127,10 +130,15 @@ class Pdg(Enum):
     kXiCCPlusPlus = 4422
     kXiCPlus = 4232
     kXiC0 = 4132
+    kXiC3055Plus = 4325
+    kXiC3080Plus = 4326
+    kXiC3055_0 = 4315
+    kXiC3080_0 = 4316
     kDeuteron = 1000010020
     kTriton = 1000010030
     kHelium3 = 1000020030
     kAlpha = 1000020040
+    kLithium4 = 1000030040
     kHyperTriton = 1010010030
     kHyperHydrogen4 = 1010010040
     kHyperHelium4 = 1010020040

@@ -280,15 +280,16 @@ void CreateDictionariesITS3(bool saveDeltas = true,
                   mMosaixSegmentations[layer].curvedToFlat(locC.X(), locC.Y(), xFlat, yFlat);
                   locC.SetCoordinates(xFlat, yFlat, locC.Z());
                 }
+
+                auto pitchX = (ib) ? o2::its3::SegmentationMosaix::PitchRow : o2::itsmft::SegmentationAlpide::PitchRow;
+                auto pitchZ = (ib) ? o2::its3::SegmentationMosaix::PitchCol : o2::itsmft::SegmentationAlpide::PitchCol;
                 dX = xyzLocM.X() - locC.X();
                 dZ = xyzLocM.Z() - locC.Z();
-                dX /= (ib) ? o2::its3::SegmentationMosaix::PitchRow : o2::itsmft::SegmentationAlpide::PitchRow;
-                dZ /= (ib) ? o2::its3::SegmentationMosaix::PitchCol : o2::itsmft::SegmentationAlpide::PitchCol;
 
                 float outLimitDx{-1}, outLimitDz{-1};
                 if (checkOutliers > 0.) {
-                  outLimitDx = topology.getRowSpan() * checkOutliers;
-                  outLimitDz = topology.getColumnSpan() * checkOutliers;
+                  outLimitDx = topology.getRowSpan() * checkOutliers * pitchX;
+                  outLimitDz = topology.getColumnSpan() * checkOutliers * pitchZ;
                   bool isOutDx = std::abs(dX) > outLimitDx;
                   bool isOutDz = std::abs(dZ) > outLimitDz;
                   if (isOutDx || isOutDz) { // ignore outlier

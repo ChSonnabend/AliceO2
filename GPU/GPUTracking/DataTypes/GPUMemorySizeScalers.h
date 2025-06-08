@@ -28,7 +28,9 @@ struct GPUMemorySizeScalers {
   size_t nITSTracks = 0;
 
   // General scaling factor
-  double factor = 1;
+  double scalingFactor = 1;
+  uint64_t fuzzSeed = 0;
+  uint64_t fuzzLimit = 0;
   double temporaryFactor = 1;
   bool conservative = 0;
 
@@ -64,11 +66,14 @@ struct GPUMemorySizeScalers {
   size_t tpcMaxMergedTrackHits = 200000000;
   size_t availableMemory = 20500000000;
   bool returnMaxVal = false;
+  bool doFuzzing = false;
 
   void rescaleMaxMem(size_t newAvailableMemory);
+  double getScalingFactor();
+  void fuzzScalingFactor(uint64_t seed);
   inline size_t getValue(size_t maxVal, size_t val)
   {
-    return returnMaxVal ? maxVal : (std::min<size_t>(maxVal, offset + val) * factor * temporaryFactor);
+    return returnMaxVal ? maxVal : (std::min<size_t>(maxVal, offset + val) * (doFuzzing == 0 ? scalingFactor : getScalingFactor()) * temporaryFactor);
   }
 
   inline size_t NTPCPeaks(size_t tpcDigits, bool perSector = false) { return getValue(perSector ? tpcMaxPeaks : (GPUCA_NSECTORS * tpcMaxPeaks), hitOffset + tpcDigits * tpcPeaksPerDigit); }
@@ -81,7 +86,7 @@ struct GPUMemorySizeScalers {
   inline size_t NTPCSectorTrackHits(size_t tpcHits, uint8_t withRejection = 0) { return getValue(tpcMaxSectorTrackHits, tpcHits * (withRejection ? tpcSectorTrackHitsPerHitWithRejection : tpcSectorTrackHitsPerHit)); }
   inline size_t NTPCMergedTracks(size_t tpcSectorTracks) { return getValue(tpcMaxMergedTracks, tpcSectorTracks * (conservative ? 1.0 : tpcMergedTrackPerSectorTrack)); }
   inline size_t NTPCMergedTrackHits(size_t tpcSectorTrackHitss) { return getValue(tpcMaxMergedTrackHits, tpcSectorTrackHitss * tpcMergedTrackHitPerSectorHit); }
-  inline size_t NTPCUnattachedHitsBase1024(int32_t type) { return (returnMaxVal || conservative) ? 1024 : std::min<size_t>(1024, tpcCompressedUnattachedHitsBase1024[type] * factor * temporaryFactor); }
+  inline size_t NTPCUnattachedHitsBase1024(int32_t type) { return (returnMaxVal || conservative) ? 1024 : std::min<size_t>(1024, tpcCompressedUnattachedHitsBase1024[type] * (doFuzzing == 0 ? scalingFactor : getScalingFactor()) * temporaryFactor); }
 };
 
 } // namespace o2::gpu

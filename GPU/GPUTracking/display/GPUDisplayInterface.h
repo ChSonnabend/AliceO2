@@ -15,7 +15,7 @@
 #ifndef GPUDISPLAYINTERFACE_H
 #define GPUDISPLAYINTERFACE_H
 
-#include "GPUSettings.h"
+#include <cstdint>
 
 namespace o2::gpu
 {
@@ -23,6 +23,16 @@ namespace o2::gpu
 class GPUChainTracking;
 class GPUQA;
 struct GPUParam;
+struct GPUTrackingInOutPointers;
+template <class T>
+struct ConstPtr;
+template <template <typename T> class S>
+struct GPUCalibObjectsTemplate;
+typedef GPUCalibObjectsTemplate<ConstPtr> GPUCalibObjectsConst;
+struct GPUDisplayFrontendInterface;
+struct GPUSettingsDisplay;
+struct GPUSettingsProcessing;
+
 class GPUDisplayInterface
 {
  public:
@@ -34,7 +44,7 @@ class GPUDisplayInterface
   virtual void SetCollisionFirstCluster(uint32_t collision, int32_t sector, int32_t cluster) = 0;
   virtual void UpdateCalib(const GPUCalibObjectsConst* calib) = 0;
   virtual void UpdateParam(const GPUParam* param) = 0;
-  static GPUDisplayInterface* getDisplay(GPUDisplayFrontendInterface* frontend, GPUChainTracking* chain, GPUQA* qa, const GPUParam* param = nullptr, const GPUCalibObjectsConst* calib = nullptr, const GPUSettingsDisplay* config = nullptr);
+  static GPUDisplayInterface* getDisplay(GPUDisplayFrontendInterface* frontend, GPUChainTracking* chain, GPUQA* qa, const GPUParam* param = nullptr, const GPUCalibObjectsConst* calib = nullptr, const GPUSettingsDisplay* config = nullptr, const GPUSettingsProcessing* proc = nullptr);
 
  protected:
   GPUDisplayInterface();

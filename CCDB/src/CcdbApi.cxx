@@ -232,7 +232,7 @@ void CcdbApi::init(std::string const& host)
                deploymentMode == o2::framework::DeploymentMode::FST) {
       mCurlTimeoutDownload = 15;
     } else if (deploymentMode == o2::framework::DeploymentMode::Local) {
-      mCurlTimeoutDownload = 1;
+      mCurlTimeoutDownload = 5;
     }
   }
 
@@ -958,14 +958,14 @@ void* CcdbApi::extractFromLocalFile(std::string const& filename, std::type_info 
 
 bool CcdbApi::initTGrid() const
 {
-  if (mNeedAlienToken && !mAlienInstance) {
+  if (mNeedAlienToken && !gGrid) {
     static bool allowNoToken = getenv("ALICEO2_CCDB_NOTOKENCHECK") && atoi(getenv("ALICEO2_CCDB_NOTOKENCHECK"));
     if (!allowNoToken && !checkAlienToken()) {
       LOG(fatal) << "Alien Token Check failed - Please get an alien token before running with https CCDB endpoint, or alice-ccdb.cern.ch!";
     }
-    mAlienInstance = TGrid::Connect("alien");
+    TGrid::Connect("alien");
     static bool errorShown = false;
-    if (!mAlienInstance && errorShown == false) {
+    if (!gGrid && errorShown == false) {
       if (allowNoToken) {
         LOG(error) << "TGrid::Connect returned nullptr. May be due to missing alien token";
       } else {
@@ -974,7 +974,7 @@ bool CcdbApi::initTGrid() const
       errorShown = true;
     }
   }
-  return mAlienInstance != nullptr;
+  return gGrid != nullptr;
 }
 
 void* CcdbApi::downloadFilesystemContent(std::string const& url, std::type_info const& tinfo, std::map<string, string>* headers) const

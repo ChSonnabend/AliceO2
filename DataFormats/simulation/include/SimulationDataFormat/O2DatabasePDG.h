@@ -640,10 +640,47 @@ inline void O2DatabasePDG::addALICEParticles(TDatabasePDG* db)
     db->AddParticle("Anti-Theta_c_3100", "Anti-Theta_c_3100", 3.099, kFALSE,
                     83.e-6, 0, "Resonance", ionCode); // same width as D*+ (83 keV)
   }
-  if (!db->GetParticle(-ionCode)) {
-    db->AddParticle("Theta_c_3100", "Theta_c_3100", 3.099, kFALSE,
-                    83.e-6, 0, "Resonance", -ionCode); // same width as D*+ (83 keV)
+  db->AddAntiParticle("Theta_c_3100", -ionCode);
+
+  // Charm resonances not present in PYTHIA (consistent with https://github.com/AliceO2Group/O2DPG/blob/master/MC/config/PWGHF/pythia8/generator/pythia8_charmhadronic_with_decays_DResoTrigger.cfg)
+  // Mesons
+  ionCode = 30433;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("D*_s1_Plus_2700", "D*_s1_Plus_2700", 2.714, false, 0.122, 3, "Resonance", ionCode);
   }
+  db->AddAntiParticle("D*_s1_Minus_2700", -ionCode);
+  ionCode = 40433;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("D*_s1_Plus_2860", "D*_s1_Plus_2860", 2.859, false, 0.160, 3, "Resonance", ionCode);
+  }
+  db->AddAntiParticle("D*_s1_Minus_2860", -ionCode);
+  ionCode = 437;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("D*_s3_Plus_2860", "D*_s3_Plus_2860", 2.860, false, 0.053, 3, "Resonance", ionCode);
+  }
+  db->AddAntiParticle("D*_s3_Minus_2860", -ionCode);
+
+  // Baryons
+  ionCode = 4325;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("Xi_c_Plus_3055", "Xi_c_Plus_3055", 3.0559, false, 0.0078, 3, "Resonance", ionCode);
+  }
+  db->AddAntiParticle("Xi_c_Minus_3055", -ionCode);
+  ionCode = 4326;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("Xi_c_Plus_3080", "Xi_c_Plus_3080", 3.0772, false, 0.0036, 3, "Resonance", ionCode);
+  }
+  db->AddAntiParticle("Xi_c_Minus_3080", -ionCode);
+  ionCode = 4315;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("Xi_c_0_3055", "Xi_c_0_3055", 3.0590, false, 0.0064, 0, "Resonance", ionCode);
+  }
+  db->AddAntiParticle("Anti-Xi_c_0_3055", -ionCode);
+  ionCode = 4316;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("Xi_c_0_3080", "Xi_c_0_3080", 3.0799, false, 0.0056, 0, "Resonance", ionCode);
+  }
+  db->AddAntiParticle("Anti-Xi_c_0_3080", -ionCode);
 
   // d*(2380) - dibaryon resonance
 

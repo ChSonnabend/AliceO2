@@ -11,9 +11,6 @@
 
 o2_add_header_only_library(Algorithm INTERFACE_LINK_LIBRARIES O2::Headers)
 
-o2_target_man_page(Algorithm NAME Algorithm SECTION 3)
-o2_target_man_page(Algorithm NAME algorithm_parser SECTION 3)
-
 o2_add_test(o2formatparser
             SOURCES test/o2formatparser.cxx
             COMPONENT_NAME Algorithm

@@ -63,33 +63,36 @@ GPUChainTracking::InOutMemory::~InOutMemory() = default;
 GPUChainTracking::InOutMemory::InOutMemory(GPUChainTracking::InOutMemory&&) = default;
 GPUChainTracking::InOutMemory& GPUChainTracking::InOutMemory::operator=(GPUChainTracking::InOutMemory&&) = default; // NOLINT: False positive in clang-tidy
 
-void GPUChainTracking::DumpData(const char* filename)
+void GPUChainTracking::DumpData(const char* filename, const GPUTrackingInOutPointers* ioPtrs)
 {
   FILE* fp = fopen(filename, "w+b");
   if (fp == nullptr) {
     return;
   }
+  if (ioPtrs == nullptr) {
+    ioPtrs = &mIOPtrs;
+  }
   fwrite(DUMP_HEADER, 1, DUMP_HEADER_SIZE, fp);
   fwrite(&GPUReconstruction::geometryType, sizeof(GPUReconstruction::geometryType), 1, fp);
-  DumpData(fp, mIOPtrs.clusterData, mIOPtrs.nClusterData, InOutPointerType::CLUSTER_DATA);
-  DumpData(fp, mIOPtrs.rawClusters, mIOPtrs.nRawClusters, InOutPointerType::RAW_CLUSTERS);
-  if (mIOPtrs.clustersNative) {
-    if (DumpData(fp, &mIOPtrs.clustersNative->clustersLinear, &mIOPtrs.clustersNative->nClustersTotal, InOutPointerType::CLUSTERS_NATIVE)) {
-      fwrite(&mIOPtrs.clustersNative->nClusters[0][0], sizeof(mIOPtrs.clustersNative->nClusters[0][0]), NSECTORS * GPUCA_ROW_COUNT, fp);
-      if (mIOPtrs.clustersNative->clustersMCTruth) {
-        const auto& buffer = mIOPtrs.clustersNative->clustersMCTruth->getBuffer();
+  DumpData(fp, ioPtrs->clusterData, ioPtrs->nClusterData, InOutPointerType::CLUSTER_DATA);
+  DumpData(fp, ioPtrs->rawClusters, ioPtrs->nRawClusters, InOutPointerType::RAW_CLUSTERS);
+  if (ioPtrs->clustersNative) {
+    if (DumpData(fp, &ioPtrs->clustersNative->clustersLinear, &ioPtrs->clustersNative->nClustersTotal, InOutPointerType::CLUSTERS_NATIVE)) {
+      fwrite(&ioPtrs->clustersNative->nClusters[0][0], sizeof(ioPtrs->clustersNative->nClusters[0][0]), NSECTORS * GPUCA_ROW_COUNT, fp);
+      if (ioPtrs->clustersNative->clustersMCTruth) {
+        const auto& buffer = ioPtrs->clustersNative->clustersMCTruth->getBuffer();
         std::pair<const char*, size_t> tmp = {buffer.data(), buffer.size()};
         DumpData(fp, &tmp.first, &tmp.second, InOutPointerType::CLUSTER_NATIVE_MC);
       }
     }
   }
-  if (mIOPtrs.tpcPackedDigits) {
-    if (DumpData(fp, mIOPtrs.tpcPackedDigits->tpcDigits, mIOPtrs.tpcPackedDigits->nTPCDigits, InOutPointerType::TPC_DIGIT) && mIOPtrs.tpcPackedDigits->tpcDigitsMC) {
+  if (ioPtrs->tpcPackedDigits) {
+    if (DumpData(fp, ioPtrs->tpcPackedDigits->tpcDigits, ioPtrs->tpcPackedDigits->nTPCDigits, InOutPointerType::TPC_DIGIT) && ioPtrs->tpcPackedDigits->tpcDigitsMC) {
       const char* ptrs[NSECTORS];
       size_t sizes[NSECTORS];
       for (uint32_t i = 0; i < NSECTORS; i++) {
-        if (mIOPtrs.tpcPackedDigits->tpcDigitsMC->v[i]) {
-          const auto& buffer = mIOPtrs.tpcPackedDigits->tpcDigitsMC->v[i]->getBuffer();
+        if (ioPtrs->tpcPackedDigits->tpcDigitsMC->v[i]) {
+          const auto& buffer = ioPtrs->tpcPackedDigits->tpcDigitsMC->v[i]->getBuffer();
           ptrs[i] = buffer.data();
           sizes[i] = buffer.size();
         } else {
@@ -100,12 +103,12 @@ void GPUChainTracking::DumpData(const char* filename)
       DumpData(fp, ptrs, sizes, InOutPointerType::TPC_DIGIT_MC);
     }
   }
-  if (mIOPtrs.tpcZS) {
+  if (ioPtrs->tpcZS) {
     size_t total = 0;
     for (int32_t i = 0; i < NSECTORS; i++) {
       for (uint32_t j = 0; j < GPUTrackingInOutZS::NENDPOINTS; j++) {
-        for (uint32_t k = 0; k < mIOPtrs.tpcZS->sector[i].count[j]; k++) {
-          total += mIOPtrs.tpcZS->sector[i].nZSPtr[j][k];
+        for (uint32_t k = 0; k < ioPtrs->tpcZS->sector[i].count[j]; k++) {
+          total += ioPtrs->tpcZS->sector[i].nZSPtr[j][k];
         }
       }
     }
@@ -115,10 +118,10 @@ void GPUChainTracking::DumpData(const char* filename)
     total = 0;
     for (int32_t i = 0; i < NSECTORS; i++) {
       for (uint32_t j = 0; j < GPUTrackingInOutZS::NENDPOINTS; j++) {
-        for (uint32_t k = 0; k < mIOPtrs.tpcZS->sector[i].count[j]; k++) {
-          memcpy(&ptr[total * TPCZSHDR::TPC_ZS_PAGE_SIZE], mIOPtrs.tpcZS->sector[i].zsPtr[j][k], mIOPtrs.tpcZS->sector[i].nZSPtr[j][k] * TPCZSHDR::TPC_ZS_PAGE_SIZE);
-          counts.count[i][j] += mIOPtrs.tpcZS->sector[i].nZSPtr[j][k];
-          total += mIOPtrs.tpcZS->sector[i].nZSPtr[j][k];
+        for (uint32_t k = 0; k < ioPtrs->tpcZS->sector[i].count[j]; k++) {
+          memcpy(&ptr[total * TPCZSHDR::TPC_ZS_PAGE_SIZE], ioPtrs->tpcZS->sector[i].zsPtr[j][k], ioPtrs->tpcZS->sector[i].nZSPtr[j][k] * TPCZSHDR::TPC_ZS_PAGE_SIZE);
+          counts.count[i][j] += ioPtrs->tpcZS->sector[i].nZSPtr[j][k];
+          total += ioPtrs->tpcZS->sector[i].nZSPtr[j][k];
         }
       }
     }
@@ -127,33 +130,33 @@ void GPUChainTracking::DumpData(const char* filename)
       fwrite(&counts, sizeof(counts), 1, fp);
     }
   }
-  if (mIOPtrs.tpcCompressedClusters) {
-    if (mIOPtrs.tpcCompressedClusters->ptrForward) {
+  if (ioPtrs->tpcCompressedClusters) {
+    if (ioPtrs->tpcCompressedClusters->ptrForward) {
       throw std::runtime_error("Cannot dump non-flat compressed clusters");
     }
-    char* ptr = (char*)mIOPtrs.tpcCompressedClusters;
-    size_t size = mIOPtrs.tpcCompressedClusters->totalDataSize;
+    char* ptr = (char*)ioPtrs->tpcCompressedClusters;
+    size_t size = ioPtrs->tpcCompressedClusters->totalDataSize;
     DumpData(fp, &ptr, &size, InOutPointerType::TPC_COMPRESSED_CL);
   }
-  if (mIOPtrs.settingsTF) {
+  if (ioPtrs->settingsTF) {
     uint32_t n = 1;
-    DumpData(fp, &mIOPtrs.settingsTF, &n, InOutPointerType::TF_SETTINGS);
+    DumpData(fp, &ioPtrs->settingsTF, &n, InOutPointerType::TF_SETTINGS);
   }
-  DumpData(fp, mIOPtrs.sectorTracks, mIOPtrs.nSectorTracks, InOutPointerType::SECTOR_OUT_TRACK);
-  DumpData(fp, mIOPtrs.sectorClusters, mIOPtrs.nSectorClusters, InOutPointerType::SECTOR_OUT_CLUSTER);
-  DumpData(fp, &mIOPtrs.mcLabelsTPC, &mIOPtrs.nMCLabelsTPC, InOutPointerType::MC_LABEL_TPC);
-  DumpData(fp, &mIOPtrs.mcInfosTPC, &mIOPtrs.nMCInfosTPC, InOutPointerType::MC_INFO_TPC);
-  DumpData(fp, &mIOPtrs.mcInfosTPCCol, &mIOPtrs.nMCInfosTPCCol, InOutPointerType::MC_INFO_TPC);
-  DumpData(fp, &mIOPtrs.mergedTracks, &mIOPtrs.nMergedTracks, InOutPointerType::MERGED_TRACK);
-  DumpData(fp, &mIOPtrs.mergedTrackHits, &mIOPtrs.nMergedTrackHits, InOutPointerType::MERGED_TRACK_HIT);
-  DumpData(fp, &mIOPtrs.trdTracks, &mIOPtrs.nTRDTracks, InOutPointerType::TRD_TRACK);
-  DumpData(fp, &mIOPtrs.trdTracklets, &mIOPtrs.nTRDTracklets, InOutPointerType::TRD_TRACKLET);
-  if (mIOPtrs.trdSpacePoints) {
-    DumpData(fp, &mIOPtrs.trdSpacePoints, &mIOPtrs.nTRDTracklets, InOutPointerType::TRD_SPACEPOINT);
+  DumpData(fp, ioPtrs->sectorTracks, ioPtrs->nSectorTracks, InOutPointerType::SECTOR_OUT_TRACK);
+  DumpData(fp, ioPtrs->sectorClusters, ioPtrs->nSectorClusters, InOutPointerType::SECTOR_OUT_CLUSTER);
+  DumpData(fp, &ioPtrs->mcLabelsTPC, &ioPtrs->nMCLabelsTPC, InOutPointerType::MC_LABEL_TPC);
+  DumpData(fp, &ioPtrs->mcInfosTPC, &ioPtrs->nMCInfosTPC, InOutPointerType::MC_INFO_TPC);
+  DumpData(fp, &ioPtrs->mcInfosTPCCol, &ioPtrs->nMCInfosTPCCol, InOutPointerType::MC_INFO_TPC);
+  DumpData(fp, &ioPtrs->mergedTracks, &ioPtrs->nMergedTracks, InOutPointerType::MERGED_TRACK);
+  DumpData(fp, &ioPtrs->mergedTrackHits, &ioPtrs->nMergedTrackHits, InOutPointerType::MERGED_TRACK_HIT);
+  DumpData(fp, &ioPtrs->trdTracks, &ioPtrs->nTRDTracks, InOutPointerType::TRD_TRACK);
+  DumpData(fp, &ioPtrs->trdTracklets, &ioPtrs->nTRDTracklets, InOutPointerType::TRD_TRACKLET);
+  if (ioPtrs->trdSpacePoints) {
+    DumpData(fp, &ioPtrs->trdSpacePoints, &ioPtrs->nTRDTracklets, InOutPointerType::TRD_SPACEPOINT);
   }
-  DumpData(fp, &mIOPtrs.trdTriggerTimes, &mIOPtrs.nTRDTriggerRecords, InOutPointerType::TRD_TRIGGERRECORDS);
-  DumpData(fp, &mIOPtrs.trdTrackletIdxFirst, &mIOPtrs.nTRDTriggerRecords, InOutPointerType::TRD_TRIGGERRECORDS);
-  DumpData(fp, &mIOPtrs.trdTrigRecMask, &mIOPtrs.nTRDTriggerRecords, InOutPointerType::TRD_TRIGGERRECORDS);
+  DumpData(fp, &ioPtrs->trdTriggerTimes, &ioPtrs->nTRDTriggerRecords, InOutPointerType::TRD_TRIGGERRECORDS);
+  DumpData(fp, &ioPtrs->trdTrackletIdxFirst, &ioPtrs->nTRDTriggerRecords, InOutPointerType::TRD_TRIGGERRECORDS);
+  DumpData(fp, &ioPtrs->trdTrigRecMask, &ioPtrs->nTRDTriggerRecords, InOutPointerType::TRD_TRIGGERRECORDS);
   fclose(fp);
 }
 

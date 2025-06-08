@@ -352,7 +352,9 @@ void launchShutdownThread()
     }
     LOG(info) << "Shutdown timer expired ... force killing remaining children";
     for (auto p : gChildProcesses) {
-      killpg(p, SIGKILL);
+      if (p != 0 && killpg(p, 0) == 0) { // see if process still exists
+        killpg(p, SIGKILL);
+      }
     }
   };
   threads.push_back(std::thread(lambda));
@@ -439,6 +441,12 @@ int main(int argc, char* argv[])
   signal(SIGTERM, sighandler);
   // we enable the forked version of the code by default
   setenv("ALICE_SIMFORKINTERNAL", "ON", 1);
+
+  // force execution as own process group
+  if (setpgid(0, 0) == -1) {
+    perror("setpgid");
+    exit(1);
+  }
 
   TStopwatch timer;
   timer.Start();
@@ -703,7 +711,9 @@ int main(int argc, char* argv[])
           if (!shutdown_initiated) {
             shutdown_initiated = true;
             for (auto p : gChildProcesses) {
-              killpg(p, SIGTERM);
+              if (killpg(p, 0) == 0) {
+                killpg(p, SIGTERM);
+              }
             }
           }
         } else {
@@ -733,7 +743,9 @@ int main(int argc, char* argv[])
         LOG(info) << "Problem detected (or child received termination signal) ... shutting down whole system ";
         for (auto p : gChildProcesses) {
           LOG(info) << "TERMINATING " << p;
-          killpg(p, SIGTERM); // <--- makes sure to shutdown "unknown" child pids via the group property
+          if (killpg(p, 0) == 0) {
+            killpg(p, SIGTERM); // <--- makes sure to shutdown "unknown" child pids via the group property
+          }
         }
         LOG(error) << "SHUTTING DOWN DUE TO SIGNALED EXIT IN COMPONENT " << cpid;
         o2::simpubsub::publishMessage(externalpublishchannel, o2::simpubsub::simStatusString("O2SIM", "STATE", "FAILURE"));
@@ -751,7 +763,9 @@ int main(int argc, char* argv[])
     for (auto p : gChildProcesses) {
       if (p != mergerpid) {
         LOG(info) << "SHUTTING DOWN CHILD PROCESS (normal thread)" << p;
-        killpg(p, SIGTERM);
+        if (killpg(p, 0) == 0) {
+          killpg(p, SIGTERM);
+        }
       }
     }
   }

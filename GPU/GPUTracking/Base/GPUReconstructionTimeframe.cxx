@@ -25,13 +25,12 @@
 #include "TPCFastTransform.h"
 #include "CorrectionMapsHelper.h"
 #include "GPUO2DataTypes.h"
+#include "GPUSettings.h"
 
 #include <cstdio>
 #include <exception>
 #include <memory>
 #include <cstring>
-
-#include "utils/qconfig.h"
 
 using namespace o2::gpu;
 

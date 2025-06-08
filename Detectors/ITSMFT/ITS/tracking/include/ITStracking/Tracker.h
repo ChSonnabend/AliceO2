@@ -23,6 +23,7 @@
 #include <iomanip>
 #include <iosfwd>
 #include <memory>
+#include <string_view>
 #include <utility>
 #include <sstream>
 
@@ -32,7 +33,9 @@
 #include "ITStracking/ROframe.h"
 #include "ITStracking/MathUtils.h"
 #include "ITStracking/TimeFrame.h"
+#include "ITStracking/TrackerTraits.h"
 #include "ITStracking/Road.h"
+#include "ITStracking/BoundedAllocator.h"
 
 #include "DataFormatsITS/TrackITS.h"
 #include "SimulationDataFormat/MCCompLabel.h"
@@ -46,48 +49,53 @@ class GPUChainITS;
 }
 namespace its
 {
-class TrackerTraits;
 
 class Tracker
 {
+  static constexpr int NLayers{7};
+  using TrackerTraits7 = TrackerTraits<NLayers>;
+  using TimeFrame7 = TimeFrame<NLayers>;
   using LogFunc = std::function<void(const std::string& s)>;
 
  public:
-  Tracker(TrackerTraits* traits);
+  Tracker(TrackerTraits<NLayers>* traits);
 
-  void adoptTimeFrame(TimeFrame& tf);
+  void adoptTimeFrame(TimeFrame<NLayers>& tf);
 
-  void clustersToTracks(LogFunc = [](std::string s) { std::cout << s << std::endl; }, LogFunc = [](std::string s) { std::cerr << s << std::endl; });
+  void clustersToTracks(
+    LogFunc = [](const std::string& s) { std::cout << s << '\n'; },
+    LogFunc = [](const std::string& s) { std::cerr << s << '\n'; });
 
-  void setParameters(const std::vector<TrackingParameters>&);
+  void setParameters(const std::vector<TrackingParameters>& p) { mTrkParams = p; }
+  void setMemoryPool(std::shared_ptr<BoundedMemoryResource>& pool) { mMemoryPool = pool; }
   std::vector<TrackingParameters>& getParameters() { return mTrkParams; }
   void getGlobalConfiguration();
-  void setBz(float);
-  void setCorrType(const o2::base::PropagatorImpl<float>::MatCorrType type);
-  bool isMatLUT() const;
-  void setNThreads(int n);
-  int getNThreads() const;
+  void setBz(float bz) { mTraits->setBz(bz); }
+  void setCorrType(const o2::base::PropagatorImpl<float>::MatCorrType type) { mTraits->setCorrType(type); }
+  bool isMatLUT() const { return mTraits->isMatLUT(); }
+  void setNThreads(int n) { mTraits->setNThreads(n); }
+  int getNThreads() const { return mTraits->getNThreads(); }
   void printSummary() const;
 
  private:
-  void initialiseTimeFrame(int& iteration);
-  void computeTracklets(int& iteration, int& iROFslice, int& iVertex);
-  void computeCells(int& iteration);
-  void findCellsNeighbours(int& iteration);
-  void findRoads(int& iteration);
-  void findShortPrimaries();
-  void extendTracks(int& iteration);
+  void initialiseTimeFrame(int iteration) { mTraits->initialiseTimeFrame(iteration); }
+  void computeTracklets(int iteration, int iROFslice, int iVertex) { mTraits->computeLayerTracklets(iteration, iROFslice, iVertex); }
+  void computeCells(int iteration) { mTraits->computeLayerCells(iteration); }
+  void findCellsNeighbours(int iteration) { mTraits->findCellsNeighbours(iteration); }
+  void findRoads(int iteration) { mTraits->findRoads(iteration); }
+  void findShortPrimaries() { mTraits->findShortPrimaries(); }
+  void extendTracks(int iteration) { mTraits->extendTracks(iteration); }
 
   // MC interaction
   void computeRoadsMClabels();
   void computeTracksMClabels();
   void rectifyClusterIndices();
 
-  template <typename... T>
-  float evaluateTask(void (Tracker::*)(T...), const char*, LogFunc logger, T&&... args);
+  template <typename... T, typename... F>
+  float evaluateTask(void (Tracker::*task)(T...), std::string_view taskName, int iteration, LogFunc logger, F&&... args);
 
-  TrackerTraits* mTraits = nullptr; /// Observer pointer, not owned by this class
-  TimeFrame* mTimeFrame = nullptr;  /// Observer pointer, not owned by this class
+  TrackerTraits7* mTraits = nullptr; /// Observer pointer, not owned by this class
+  TimeFrame7* mTimeFrame = nullptr;  /// Observer pointer, not owned by this class
 
   std::vector<TrackingParameters> mTrkParams;
   o2::gpu::GPUChainITS* mRecoChain = nullptr;
@@ -95,28 +103,35 @@ class Tracker
   unsigned int mNumberOfDroppedTFs{0};
   unsigned int mTimeFrameCounter{0};
   double mTotalTime{0};
+  std::shared_ptr<BoundedMemoryResource> mMemoryPool;
+
+  enum State {
+    TFInit = 0,
+    Trackleting,
+    Celling,
+    Neighbouring,
+    Roading,
+    NStates,
+  };
+  State mCurState;
+  static constexpr std::array<const char*, NStates> StateNames{"TimeFrame initialisation", "Tracklet finding", "Cell finding", "Neighbour finding", "Road finding"};
 };
 
-inline void Tracker::setParameters(const std::vector<TrackingParameters>& trkPars)
-{
-  mTrkParams = trkPars;
-}
-
-template <typename... T>
-float Tracker::evaluateTask(void (Tracker::*task)(T...), const char* taskName, LogFunc logger, T&&... args)
+template <typename... T, typename... F>
+float Tracker::evaluateTask(void (Tracker::*task)(T...), std::string_view taskName, int iteration, LogFunc logger, F&&... args)
 {
   float diff{0.f};
 
   if constexpr (constants::DoTimeBenchmarks) {
     auto start = std::chrono::high_resolution_clock::now();
-    (this->*task)(std::forward<T>(args)...);
+    (this->*task)(std::forward<F>(args)...);
     auto end = std::chrono::high_resolution_clock::now();
 
     std::chrono::duration<double, std::milli> diff_t{end - start};
     diff = diff_t.count();
 
     std::stringstream sstream;
-    if (taskName == nullptr) {
+    if (taskName.empty()) {
       sstream << diff << "\t";
     } else {
       sstream << std::setw(2) << " - " << taskName << " completed in: " << diff << " ms";
@@ -124,20 +139,17 @@ float Tracker::evaluateTask(void (Tracker::*task)(T...), const char* taskName, L
     logger(sstream.str());
 
     if (mTrkParams[0].SaveTimeBenchmarks) {
-      std::stringstream str2file;
       std::string taskNameStr(taskName);
       std::transform(taskNameStr.begin(), taskNameStr.end(), taskNameStr.begin(),
                      [](unsigned char c) { return std::tolower(c); });
       std::replace(taskNameStr.begin(), taskNameStr.end(), ' ', '_');
-      str2file << taskNameStr << "\t" << diff;
-      std::ofstream file;
-      file.open("its_time_benchmarks.txt", std::ios::app);
-      file << str2file.str() << std::endl;
-      file.close();
+      if (std::ofstream file{"its_time_benchmarks.txt", std::ios::app}) {
+        file << "trk:" << iteration << '\t' << taskNameStr << '\t' << diff << '\n';
+      }
     }
 
   } else {
-    (this->*task)(std::forward<T>(args)...);
+    (this->*task)(std::forward<F>(args)...);
   }
 
   return diff;

@@ -73,7 +73,7 @@ TEST_CASE("RootTree2Fragment")
   /// A directory holding a tree
 
   /// Create a simple TTree
-  TBufferFile* file = new TBufferFile(TBuffer::kWrite);
+  auto* file = new TBufferFile(TBuffer::kWrite);
 
   TTree t1("t1", "a simple Tree with simple variables");
   Float_t xyz[3];
@@ -519,7 +519,11 @@ TEST_CASE("RootTree2Dataset")
     validateContents(batch);
   }
 
+#if __has_include(<ROOT/RFieldBase.hxx>)
+  arrow::fs::FileLocator rnTupleLocator{outFs, "rntuple"};
+#else
   arrow::fs::FileLocator rnTupleLocator{outFs, "/rntuple"};
+#endif
   // We write an RNTuple in the same TMemFile, using /rntuple as a location
   auto rntupleDestination = std::dynamic_pointer_cast<TDirectoryFileOutputStream>(*destination);
 
@@ -530,7 +534,11 @@ TEST_CASE("RootTree2Dataset")
   }
 
   // And now we can read back the RNTuple into a RecordBatch
+#if __has_include(<ROOT/RFieldBase.hxx>)
+  arrow::dataset::FileSource writtenRntupleSource("rntuple", outFs);
+#else
   arrow::dataset::FileSource writtenRntupleSource("/rntuple", outFs);
+#endif
 
   REQUIRE(rNtupleFormat->IsSupported(writtenRntupleSource) == true);
 

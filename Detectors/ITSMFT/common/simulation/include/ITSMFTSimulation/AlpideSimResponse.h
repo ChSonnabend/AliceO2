@@ -114,7 +114,7 @@ class AlpideSimResponse
 
  public:
   AlpideSimResponse() = default;
-  ~AlpideSimResponse() = default;
+  virtual ~AlpideSimResponse() = default;
 
   void initData(int tableNumber, std::string dataPath, const bool quiet = true);
 
@@ -145,7 +145,7 @@ class AlpideSimResponse
   const std::string& getColRowDataFmt() const { return mColRowDataFmt; }
   void print() const;
 
-  ClassDefNV(AlpideSimResponse, 2);
+  ClassDef(AlpideSimResponse, 2);
 };
 
 //-----------------------------------------------------

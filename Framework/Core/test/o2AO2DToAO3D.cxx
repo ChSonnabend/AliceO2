@@ -18,6 +18,7 @@
 #include <TMap.h>
 #include <TTree.h>
 #include <fmt/format.h>
+#include <arrow/record_batch.h>
 
 int main(int argc, char** argv)
 {

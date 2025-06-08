@@ -25,11 +25,9 @@
 
 #include "ITSBase/GeometryTGeo.h"
 #include "ITStracking/Constants.h"
-#include "ITStracking/json.h"
 #include "MathUtils/Utils.h"
 #include "SimulationDataFormat/MCCompLabel.h"
 #include "SimulationDataFormat/MCTruthContainer.h"
-#include "GPUCommonLogger.h"
 
 namespace
 {
@@ -41,9 +39,6 @@ namespace o2
 {
 namespace its
 {
-
-void to_json(nlohmann::json& j, const TrackingParameters& par);
-void from_json(const nlohmann::json& j, TrackingParameters& par);
 
 /// convert compact clusters to 3D spacepoints
 void ioutils::convertCompactClusters(gsl::span<const itsmft::CompClusterExt> clusters,

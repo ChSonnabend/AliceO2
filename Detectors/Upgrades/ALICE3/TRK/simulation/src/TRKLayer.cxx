@@ -120,7 +120,7 @@ TGeoVolume* TRKLayer::createStave(std::string type, double width)
     staveVol->AddNode(chipVol, 1, nullptr);
   } else if (type == "staggered") {
     double width = mModuleWidth * 2; // Each stave has two modules (based on the LOI design)
-    stave = new TGeoBBox(width / 2, mChipThickness / 2, mZ / 2);
+    stave = new TGeoBBox(width / 2, mLogicalVolumeThickness / 2, mZ / 2);
     TGeoVolume* chipVolLeft = createChip("flat", mModuleWidth);
     TGeoVolume* chipVolRight = createChip("flat", mModuleWidth);
     staveVol = new TGeoVolume(staveName.c_str(), stave, medAir);
@@ -152,7 +152,11 @@ void TRKLayer::createLayer(TGeoVolume* motherVolume)
               chipName = o2::trk::GeometryTGeo::getTRKChipPattern() + std::to_string(mLayerNumber),
               sensName = Form("%s%d", GeometryTGeo::getTRKSensorPattern(), mLayerNumber);
 
-  TGeoTube* layer = new TGeoTube(mInnerRadius, mInnerRadius + mChipThickness, mZ / 2);
+  double layerThickness = mChipThickness;
+  if (mLayout != eLayout::kCylinder) {
+    layerThickness = mLogicalVolumeThickness;
+  }
+  TGeoTube* layer = new TGeoTube(mInnerRadius - 0.333 * layerThickness, mInnerRadius + 0.667 * layerThickness, mZ / 2);
 
   TGeoVolume* layerVol = new TGeoVolume(mLayerName.c_str(), layer, medAir);
   layerVol->SetLineColor(kYellow);

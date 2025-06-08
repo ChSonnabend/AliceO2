@@ -207,6 +207,7 @@ class TRKDPLDigitizerTask : BaseDPLDigitizer
       // configure digitizer
       o2::trk::GeometryTGeo* geom = o2::trk::GeometryTGeo::Instance();
       geom->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::L2G)); // make sure L2G matrices are loaded
+      geom->Print();
       mDigitizer.setGeometry(geom);
 
       const auto& dopt = o2::trk::DPLDigitizerParam<o2::detectors::DetID::TRK>::Instance();

@@ -271,6 +271,7 @@ class AODProducerWorkflowDPL : public Task
   TString mAnchorPass{""};
   TString mAnchorProd{""};
   TString mRecoPass{""};
+  TString mUser{"aliprod"}; // who created this AOD (aliprod, alidaq, individual users)
   TStopwatch mTimer;
   bool mEMCselectLeading{false};
   uint64_t mEMCALTrgClassMask = 0;

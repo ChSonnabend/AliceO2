@@ -10,6 +10,7 @@
 // or submit itself to any jurisdiction.
 
 #include <gsl/span>
+#include <nlohmann/json.hpp>
 
 #include "TRDBase/Geometry.h"
 #include "TRDBase/TrackletTransformer.h"
@@ -21,8 +22,6 @@
 #include "DataFormatsTRD/TrackTRD.h"
 #include "DataFormatsTRD/TriggerRecord.h"
 #include "DataFormatsTRD/Digit.h"
-
-#include "ITStracking/json.h"
 
 using json = nlohmann::json;
 
