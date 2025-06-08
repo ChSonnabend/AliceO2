@@ -212,12 +212,14 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
 
   if (clustererNN.mNnClusterizerAddIndexData && (int32_t)transient_index == (clustererNN.mNnClusterizerElementSize - 1)) {
     uint32_t top_idx = ((base_idx + 1) * clustererNN.mNnClusterizerElementSize) - (clustererNN.mNnClusterizerAddMeanSigma ? 4 : 0);
-    for (uint16_t i = 0; i < 8; i++) {
-      Delta2 d = cfconsts::InnerNeighbors[i];
-      CfChargePos tmp_pos = peak.delta(d);
-      clustererNN.mClusterFlags[2 * base_idx] += CfUtils::isPeak(isPeakMap[tmp_pos]);
+    if(!clustererNN.mNnClusterFlagsAreSet) {
+      for (uint16_t i = 0; i < 8; i++) {
+        Delta2 d = cfconsts::InnerNeighbors[i];
+        CfChargePos tmp_pos = peak.delta(d);
+        clustererNN.mClusterFlags[2 * base_idx] += CfUtils::isPeak(isPeakMap[tmp_pos]);
+      }
+      clustererNN.mClusterFlags[2 * base_idx + 1] = clustererNN.mClusterFlags[2 * base_idx];
     }
-    clustererNN.mClusterFlags[2 * base_idx + 1] = clustererNN.mClusterFlags[2 * base_idx];
     if (dtype == 0) {
       clustererNN.mInputData_16[top_idx - 3] = (OrtDataType::Float16_t)(static_cast<float>(sector) / o2::tpc::constants::MAXSECTOR);
       clustererNN.mInputData_16[top_idx - 2] = (OrtDataType::Float16_t)(static_cast<float>(row) / o2::tpc::constants::MAXGLOBALPADROW);
@@ -407,20 +409,20 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
       return;
     }
 
-    // if(clustererNN.mInputData_32[423 + glo_idx*clustererNN.mNnClusterizerElementSize] != 1) {
-    //   // If the input data is not normalized, we need to normalize it here
-    //   // This is done by dividing the output by the central charge
-    //   // This is needed for the regression model to work correctly
-    //   LOG(info) << "Warning: Input data is not normalized, central charge: " << (float)clustererNN.mInputData_32[423 + glo_idx*clustererNN.mNnClusterizerElementSize]
-    //             << ", row: " << (int)peak.row()
-    //             << ", pad: " << (int)peak.pad()
-    //             << ", time: " << (int)peak.time()
-    //             << ", glo_idx: " << glo_idx
-    //             << ", full_glo_idx: " << full_glo_idx;
-    //   if(glo_idx < 5) {
-    //     printInput(glo_idx, clustererNN.mInputData_32, processors, sector);
-    //   }
-    // }
+    if (clustererNN.mInputData_32[(int)((clustererNN.mNnClusterizerElementSize - (clustererNN.mNnClusterizerAddIndexData ? 3 : 0) - (clustererNN.mNnClusterizerAddMeanSigma ? 4 : 0) - 1)/2) + (glo_idx * clustererNN.mNnClusterizerElementSize)] != 1) {
+      // If the input data is not normalized, we need to normalize it here
+      // This is done by dividing the output by the central charge
+      // This is needed for the regression model to work correctly
+      LOG(info) << "Warning: Input data is not normalized, central charge: " << (float)clustererNN.mInputData_32[423 + glo_idx*clustererNN.mNnClusterizerElementSize]
+                << ", row: " << (int)peak.row()
+                << ", pad: " << (int)peak.pad()
+                << ", time: " << (int)peak.time()
+                << ", glo_idx: " << glo_idx
+                << ", full_glo_idx: " << full_glo_idx;
+      if(glo_idx < 5) {
+        printInput(glo_idx, clustererNN.mInputData_32, processors, sector);
+      }
+    }
 
     if (dtype == 0) {
       if (clustererNN.mOutputDataReg1_16[model_output_index].ToFloat() > 10 || clustererNN.mOutputDataReg1_16[model_output_index + 1].ToFloat() > 10 ||

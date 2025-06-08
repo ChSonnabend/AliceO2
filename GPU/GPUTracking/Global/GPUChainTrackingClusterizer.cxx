@@ -1001,6 +1001,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
           if(GetProcessingSettings().nn.setDeconvolutionFlags > 0 && !clustererNNShadow.mNnClusterizerUseCfRegression){
             runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::setDeconvolutionFlags>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, 0); // Setting the deconvolution flags but leaving digit charge untouched
+            clustererNNShadow.mNnClusterFlagsAreSet = true;
           }
 
           float time_clusterizer = 0, time_fill = 0, time_networks = 0;

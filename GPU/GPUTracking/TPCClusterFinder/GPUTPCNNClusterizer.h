@@ -56,6 +56,7 @@ class GPUTPCNNClusterizer : public GPUProcessor
   int mNnClusterizerModelReg2NumOutputNodes = -1;
   int mNnInferenceInputDType = 0;  // 0: float16, 1: float32
   int mNnInferenceOutputDType = 0; // 0: float16, 1: float32
+  bool mNnClusterFlagsAreSet = false;
   int mISector = -1;
   int mDeviceId = -1;
 
