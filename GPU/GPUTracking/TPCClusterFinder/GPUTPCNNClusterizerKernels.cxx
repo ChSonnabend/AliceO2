@@ -276,10 +276,10 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
       int32_t row_offset = GPUTPCNNClusterizerKernels::rowOffset(row, clustererNN.mNnClusterizerSizeInputRow);
       int32_t pad_offset = ((row + r) >= 0) && ((row + r) < o2::tpc::constants::MAXGLOBALPADROW) ? GPUTPCNNClusterizerKernels::padOffset(row, row + r) : 0;
       int32_t rest_1 = transient_index % ((2 * clustererNN.mNnClusterizerSizeInputPad + 1) * (2 * clustererNN.mNnClusterizerSizeInputTime + 1));
-      int32_t p = CAMath::Floor(rest_1 / (2 * clustererNN.mNnClusterizerSizeInputTime + 1)) - clustererNN.mNnClusterizerSizeInputPad + pad_offset;
-      int32_t t = (rest_1 % (2 * clustererNN.mNnClusterizerSizeInputTime + 1)) - clustererNN.mNnClusterizerSizeInputTime;
+      int32_t p = CAMath::Floor(rest_1 / (2 * clustererNN.mNnClusterizerSizeInputPad + 1)) - clustererNN.mNnClusterizerSizeInputPad + pad_offset;
+      int32_t time_pos = (rest_1 % (2 * clustererNN.mNnClusterizerSizeInputTime + 1)) - clustererNN.mNnClusterizerSizeInputTime + time;
 
-      bool is_boundary = GPUTPCNNClusterizerKernels::isBoundary(row + r + row_offset, pad + p, clustererNN.mNnClusterizerSizeInputRow) || t < 0 || t >= TPC_MAX_FRAGMENT_LEN_GPU;
+      bool is_boundary = GPUTPCNNClusterizerKernels::isBoundary(row + r + row_offset, pad + p, clustererNN.mNnClusterizerSizeInputRow) || (time_pos < 0) || (time_pos >= TPC_MAX_FRAGMENT_LEN_GPU);
 
       // if(base_idx == 1){
       //   LOG(info) << base_idx << " -> " << glo_idx << ", " << transient_index << " / " << clustererNN.mNnClusterizerElementSize << " -> (" << r << ", " << p << ", " << t << ") " << row_offset << ", " << pad_offset << " (normal data)";
@@ -287,7 +287,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
 
       if (!is_boundary) {
         float central_charge = static_cast<float>(chargeMap[peak].unpack());
-        CfChargePos tmp_pos(row + r, pad + p, time + t);
+        CfChargePos tmp_pos(row + r, pad + p, time_pos);
         if (dtype == 0) {
           clustererNN.mInputData_16[glo_idx] = (OrtDataType::Float16_t)(static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge);
         } else if (dtype == 1) {
