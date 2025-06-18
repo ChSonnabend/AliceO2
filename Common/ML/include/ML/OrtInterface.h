@@ -34,10 +34,7 @@ struct MemoryInfo;
 struct Env;
 } // namespace Ort
 
-namespace o2
-{
-
-namespace ml
+namespace o2::ml
 {
 
 class OrtModel
@@ -127,8 +124,6 @@ class OrtModel
   std::string printShape(const std::vector<std::vector<int64_t>>&, std::vector<std::string>&);
 };
 
-} // namespace ml
-
-} // namespace o2
+} // namespace o2::ml
 
 #endif // O2_ML_ORTINTERFACE_H

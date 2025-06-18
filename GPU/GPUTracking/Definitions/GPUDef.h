@@ -34,11 +34,7 @@
   #define GPUPtr2(a, b) b
 #endif
 
-#ifdef GPUCA_FULL_CLUSTERDATA
-  #define GPUCA_EVDUMP_FILE "event_full"
-#else
-  #define GPUCA_EVDUMP_FILE "event"
-#endif
+#define GPUCA_EVDUMP_FILE "event_full"
 
 #ifdef GPUCA_GPUCODE
   #define CA_MAKE_SHARED_REF(vartype, varname, varglobal, varshared) const GPUsharedref() vartype& __restrict__ varname = varshared;

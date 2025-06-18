@@ -557,13 +557,13 @@ struct RobustPressure {
   Stats cavernAtmosPressure2S;       ///< rolling statistics of cavernAtmosPressure2/surfaceAtmosPressure
   std::vector<uint8_t> isOk;         ///< bit mask of valid sensors: cavernBit 0, cavern2Bit = 1, surfaceBit = 2
   std::vector<float> robustPressure; ///< combined robust pressure value that should be used
-  std::vector<TimeStampType> time;   ///< time stamps of all pressure values
+  std::vector<ULong64_t> time;       ///< time stamps of all pressure values
   TimeStampType timeInterval;        ///< time interval used for rolling statistics
   TimeStampType timeIntervalRef;     ///< reference time interval used for normalization of pressure sensors
   float maxDist{};                   ///< maximum allowed time distance between sensors to be accepted for robust pressure calculation
   float maxDiff{0.2f};               ///< maximum allowed pressure difference between sensors to be accepted for robust pressure calculation
 
-  ClassDefNV(RobustPressure, 1);
+  ClassDefNV(RobustPressure, 2);
 };
 
 struct Pressure {

@@ -61,28 +61,23 @@ GPUDisplayBackendOpenGL::GPUDisplayBackendOpenGL()
   mBackendName = "OpenGL";
 }
 
+int32_t GPUDisplayBackendOpenGL::ExtInit()
+{
 #ifdef GPUCA_DISPLAY_GL3W
-int32_t GPUDisplayBackendOpenGL::ExtInit()
-{
   return gl3wInit();
-}
 #else
-int32_t GPUDisplayBackendOpenGL::ExtInit()
-{
   return glewInit();
-}
 #endif
+}
+
+bool GPUDisplayBackendOpenGL::CoreProfile()
+{
 #ifdef GPUCA_DISPLAY_OPENGL_CORE
-bool GPUDisplayBackendOpenGL::CoreProfile()
-{
   return true;
-}
 #else
-bool GPUDisplayBackendOpenGL::CoreProfile()
-{
   return false;
-}
 #endif
+}
 
 // #define CHKERR(cmd) {cmd;}
 #define CHKERR(cmd)                                                                                                 \

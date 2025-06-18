@@ -50,7 +50,7 @@ Smoother<D>::Smoother(TrackITSExt& track, size_t smoothingLayer, const ROframe& 
   //////////////////////
   // Outward propagation
   for (size_t iLayer{0}; iLayer < mLayerToSmooth; ++iLayer) {
-    if (mOutwardsTrack.getClusterIndex(iLayer) == constants::its::UnusedIndex) { // Shorter tracks
+    if (mOutwardsTrack.getClusterIndex(iLayer) == constants::UnusedIndex) { // Shorter tracks
       continue;
     }
     const TrackingFrameInfo& tF = event.getTrackingFrameInfoOnLayer(iLayer).at(mOutwardsTrack.getClusterIndex(iLayer));
@@ -78,7 +78,7 @@ Smoother<D>::Smoother(TrackITSExt& track, size_t smoothingLayer, const ROframe& 
   /////////////////////
   // Inward propagation
   for (size_t iLayer{D - 1}; iLayer > mLayerToSmooth; --iLayer) {
-    if (mInwardsTrack.getClusterIndex(iLayer) == constants::its::UnusedIndex) { // Shorter tracks
+    if (mInwardsTrack.getClusterIndex(iLayer) == constants::UnusedIndex) { // Shorter tracks
       continue;
     }
     const TrackingFrameInfo& tF = event.getTrackingFrameInfoOnLayer(iLayer).at(mInwardsTrack.getClusterIndex(iLayer));

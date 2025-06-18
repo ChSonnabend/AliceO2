@@ -44,9 +44,5 @@ GPUdii() void GPUTPCConvertKernel::Thread<0>(int32_t nBlocks, int32_t nThreads, 
     clout.amp = clin.qTot;
     clout.flags = clin.getFlags();
     clout.id = idOffset + k;
-#ifdef GPUCA_TPC_RAW_PROPAGATE_PAD_ROW_TIME
-    clout.pad = clin.getPad();
-    clout.time = clin.getTime();
-#endif
   }
 }

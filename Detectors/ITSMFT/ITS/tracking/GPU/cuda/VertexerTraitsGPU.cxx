@@ -40,7 +40,7 @@ void VertexerTraitsGPU::updateVertexingParameters(const std::vector<VertexingPar
   mTfGPUParams = tfPar;
   mIndexTableUtils.setTrackingParameters(vrtPar[0]);
   for (auto& par : mVrtParams) {
-    par.phiSpan = static_cast<int>(std::ceil(mIndexTableUtils.getNphiBins() * par.phiCut / constants::math::TwoPi));
+    par.phiSpan = static_cast<int>(std::ceil(mIndexTableUtils.getNphiBins() * par.phiCut / o2::constants::math::TwoPI));
     par.zSpan = static_cast<int>(std::ceil(par.zCut * mIndexTableUtils.getInverseZCoordinate(0)));
   }
 }

@@ -67,7 +67,7 @@ class CellSeed final : public o2::track::TrackParCovF
 {
  public:
   GPUhdDefault() CellSeed() = default;
-  GPUhd() CellSeed(int innerL, int cl0, int cl1, int cl2, int trkl0, int trkl1, o2::track::TrackParCovF& tpc, float chi2) : o2::track::TrackParCovF{tpc}, mLevel{1}, mChi2{chi2}
+  GPUhd() CellSeed(int innerL, int cl0, int cl1, int cl2, int trkl0, int trkl1, o2::track::TrackParCovF& tpc, float chi2) : o2::track::TrackParCovF(tpc), mChi2(chi2), mLevel(1)
   {
     setUserField(innerL);
     mClusters[innerL + 0] = cl0;

@@ -148,7 +148,7 @@ void TrackInterpolation::prepareInputTrackSample(const o2::globaltracking::RecoC
   auto trackIndex = mRecoCont->getPrimaryVertexMatchedTracks(); // Global ID's for associated tracks
   auto vtxRefs = mRecoCont->getPrimaryVertexMatchedTrackRefs(); // references from vertex to these track IDs
   int nv = vtxRefs.size() - 1;
-  GTrackID::mask_t allowedSources = GTrackID::getSourcesMask("ITS-TPC,ITS-TPC-TRD,ITS-TPC-TOF,ITS-TPC-TRD-TOF");
+  GTrackID::mask_t allowedSources = GTrackID::getSourcesMask("ITS-TPC,ITS-TPC-TRD,ITS-TPC-TOF,ITS-TPC-TRD-TOF") & mSourcesConfigured;
   constexpr std::array<int, 3> SrcFast = {int(GTrackID::ITSTPCTRD), int(GTrackID::ITSTPCTOF), int(GTrackID::ITSTPCTRDTOF)};
 
   for (int iv = 0; iv < nv; iv++) {

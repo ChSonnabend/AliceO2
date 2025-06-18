@@ -22,11 +22,6 @@
 #include "GPUDebugStreamer.h"
 #include "GPUTPCGMMerger.h"
 
-#if defined(GPUCA_GM_USE_FULL_FIELD)
-#include "AliTracker.h"
-#include "AliMagF.h"
-#endif
-
 using namespace o2::gpu;
 
 GPUd() void GPUTPCGMPropagator::GetBxByBzBase(float cosAlpha, float sinAlpha, float X, float Y, float Z, float B[3]) const
@@ -36,24 +31,6 @@ GPUd() void GPUTPCGMPropagator::GetBxByBzBase(float cosAlpha, float sinAlpha, fl
   float gx = getGlobalX(cosAlpha, sinAlpha, X, Y);
   float gy = getGlobalY(cosAlpha, sinAlpha, X, Y);
 
-#if defined(GPUCA_GM_USE_FULL_FIELD)
-  const float kCLight = gpu_common_constants::kCLight;
-  double r[3] = {gx, gy, Z};
-  double bb[3];
-  AliTracker::GetBxByBz(r, bb);
-  bb[0] *= kCLight;
-  bb[1] *= kCLight;
-  bb[2] *= kCLight;
-/*
-  cout<<"AliTracker::GetBz()= "<<AliTracker::GetBz()<<endl;
-  cout<<"AliTracker::UniformField() "<<AliTracker::UniformField()<<endl;
-  AliMagF* fld = (AliMagF*)TGeoGlobalMagField::Instance()->GetField();
-  cout<<"Fast field = "<<(void*) fld->GetFastField()<<endl;
-  AliMagF::BMap_t  type = fld->GetMapType() ;
-  cout<<"Field type: "<<type<<endl;
-  //  fMapType==k2BMap_t
-*/
-#else
   float bb[3];
   switch (mFieldRegion) {
     case ITS:
@@ -67,8 +44,6 @@ GPUd() void GPUTPCGMPropagator::GetBxByBzBase(float cosAlpha, float sinAlpha, fl
       mField->GetField(gx, gy, Z, bb);
   }
 
-#endif
-
   // rotate field to local coordinates
 
   B[0] = bb[0] * cosAlpha + bb[1] * sinAlpha;
@@ -81,13 +56,6 @@ GPUd() float GPUTPCGMPropagator::GetBzBase(float cosAlpha, float sinAlpha, float
   float gx = getGlobalX(cosAlpha, sinAlpha, X, Y);
   float gy = getGlobalY(cosAlpha, sinAlpha, X, Y);
 
-#if defined(GPUCA_GM_USE_FULL_FIELD)
-  const float kCLight = gpu_common_constants::kCLight;
-  double r[3] = {gx, gy, Z};
-  double bb[3];
-  AliTracker::GetBxByBz(r, bb);
-  return bb[2] * kCLight;
-#else
   switch (mFieldRegion) {
     case ITS:
       return mField->GetFieldItsBz(gx, gy, Z);
@@ -97,7 +65,6 @@ GPUd() float GPUTPCGMPropagator::GetBzBase(float cosAlpha, float sinAlpha, float
     default:
       return mField->GetFieldBz(gx, gy, Z);
   }
-#endif
 }
 
 GPUd() int32_t GPUTPCGMPropagator::RotateToAlpha(float newAlpha)

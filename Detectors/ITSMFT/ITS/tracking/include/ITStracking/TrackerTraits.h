@@ -113,9 +113,9 @@ template <int nLayers>
 inline const int4 TrackerTraits<nLayers>::getBinsRect(const int layerIndex, float phi, float maxdeltaphi, float z1, float z2, float maxdeltaz) const noexcept
 {
   const float zRangeMin = o2::gpu::GPUCommonMath::Min(z1, z2) - maxdeltaz;
-  const float phiRangeMin = (maxdeltaphi > constants::math::Pi) ? 0.f : phi - maxdeltaphi;
+  const float phiRangeMin = (maxdeltaphi > o2::constants::math::PI) ? 0.f : phi - maxdeltaphi;
   const float zRangeMax = o2::gpu::GPUCommonMath::Max(z1, z2) + maxdeltaz;
-  const float phiRangeMax = (maxdeltaphi > constants::math::Pi) ? constants::math::TwoPi : phi + maxdeltaphi;
+  const float phiRangeMax = (maxdeltaphi > o2::constants::math::PI) ? o2::constants::math::TwoPI : phi + maxdeltaphi;
 
   if (zRangeMax < -mTrkParams[0].LayerZ[layerIndex] ||
       zRangeMin > mTrkParams[0].LayerZ[layerIndex] || zRangeMin > zRangeMax) {

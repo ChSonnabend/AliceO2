@@ -48,6 +48,7 @@ class TrackerDPL : public framework::Task
   void stop() final;
 
  private:
+  void end();
   void updateTimeDependentParams(framework::ProcessingContext& pc);
   std::unique_ptr<o2::gpu::GPUReconstruction> mRecChain = nullptr;
   std::unique_ptr<o2::gpu::GPUChainITS> mChainITS = nullptr;

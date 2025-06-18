@@ -41,8 +41,6 @@ class MCCompLabel;
 
 namespace its
 {
-class ROframe;
-using constants::its::LayersNumberVertexer;
 
 enum class TrackletMode {
   Layer0Layer1 = 0,
@@ -86,9 +84,9 @@ class VertexerTraits
                             bounded_vector<o2::MCCompLabel>*,
                             const int iteration = 0);
 
-  const bounded_vector<std::pair<int, int>> selectClusters(const int* indexTable,
-                                                           const std::array<int, 4>& selectedBinsRect,
-                                                           const IndexTableUtils& utils);
+  bounded_vector<std::pair<int, int>> selectClusters(const int* indexTable,
+                                                     const std::array<int, 4>& selectedBinsRect,
+                                                     const IndexTableUtils& utils);
 
   // utils
   auto& getVertexingParameters() { return mVrtParams; }

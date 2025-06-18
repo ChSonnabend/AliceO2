@@ -12,6 +12,7 @@
 #ifndef ALICEO2_ITSDPLTRACKINGPARAM_H_
 #define ALICEO2_ITSDPLTRACKINGPARAM_H_
 
+#include <limits>
 #include "CommonUtils/ConfigurableParam.h"
 #include "CommonUtils/ConfigurableParamHelper.h"
 
@@ -49,7 +50,7 @@ struct VertexerParamConfig : public o2::conf::ConfigurableParamHelper<VertexerPa
 
   int nThreads = 1;
   bool printMemory = false;
-  size_t maxMemory = 12000000000UL;
+  size_t maxMemory = std::numeric_limits<size_t>::max();
   bool dropTFUponFailure = false;
 
   O2ParamDef(VertexerParamConfig, "ITSVertexerParam");
@@ -94,7 +95,7 @@ struct TrackerParamConfig : public o2::conf::ConfigurableParamHelper<TrackerPara
 
   int nThreads = 1;
   bool printMemory = false;
-  size_t maxMemory = 12000000000UL;
+  size_t maxMemory = std::numeric_limits<size_t>::max();
   bool dropTFUponFailure = false;
   bool fataliseUponFailure = true; // granular management of the fatalisation in async mode
 

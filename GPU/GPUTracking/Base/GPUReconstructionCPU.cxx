@@ -18,7 +18,6 @@
 #include "GPUChain.h"
 #include "GPUDefParametersRuntime.h"
 #include "GPUTPCClusterData.h"
-#include "GPUTPCSectorOutCluster.h"
 #include "GPUTPCGMMergedTrack.h"
 #include "GPUTPCGMMergedTrackHit.h"
 #include "GPUTRDTrackletWord.h"

@@ -16,9 +16,9 @@
 #ifndef TRACKINGITSU_INCLUDE_INDEXTABLEUTILS_H_
 #define TRACKINGITSU_INCLUDE_INDEXTABLEUTILS_H_
 
-#include "ITStracking/Constants.h"
 #include "ITStracking/Configuration.h"
 #include "ITStracking/Definitions.h"
+#include "CommonConstants/MathConstants.h"
 #include "GPUCommonMath.h"
 #include "GPUCommonDef.h"
 
@@ -55,7 +55,7 @@ class IndexTableUtils
 template <class T>
 inline void IndexTableUtils::setTrackingParameters(const T& params)
 {
-  mInversePhiBinSize = params.PhiBins / constants::math::TwoPi;
+  mInversePhiBinSize = params.PhiBins / o2::constants::math::TwoPI;
   mNzBins = params.ZBins;
   mNphiBins = params.PhiBins;
   for (int iLayer{0}; iLayer < params.LayerZ.size(); ++iLayer) {

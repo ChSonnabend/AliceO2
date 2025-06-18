@@ -106,7 +106,7 @@ class Vertexer
     Finding,
     NStates,
   };
-  State mCurState;
+  State mCurState{Init};
   static constexpr std::array<const char*, NStates> StateNames{"Initialisation", "Tracklet finding", "Tracklet validation", "Vertex finding"};
 };
 

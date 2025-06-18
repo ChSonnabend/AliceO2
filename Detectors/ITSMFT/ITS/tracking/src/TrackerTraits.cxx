@@ -22,7 +22,7 @@
 #include <format>
 #endif
 
-#include <oneapi/tbb/combinable.h>
+#include <oneapi/tbb/blocked_range.h>
 #include <oneapi/tbb/parallel_sort.h>
 
 #include "CommonConstants/MathConstants.h"
@@ -38,18 +38,10 @@
 
 using o2::base::PropagatorF;
 
-namespace
-{
-inline float Sq(float q)
-{
-  return q * q;
-}
-} // namespace
-
 namespace o2::its
 {
 
-constexpr int debugLevel{0};
+static constexpr int debugLevel{0};
 
 template <int nLayers>
 void TrackerTraits<nLayers>::computeLayerTracklets(const int iteration, int iROFslice, int iVertex)
@@ -101,19 +93,19 @@ void TrackerTraits<nLayers>::computeLayerTracklets(const int iteration, int iROF
               const float inverseR0{1.f / currentCluster.radius};
 
               for (int iV{startVtx}; iV < endVtx; ++iV) {
-                auto& primaryVertex{primaryVertices[iV]};
+                const auto& primaryVertex{primaryVertices[iV]};
                 if (primaryVertex.isFlagSet(2) && iteration != 3) {
                   continue;
                 }
-                const float resolution = o2::gpu::CAMath::Sqrt(Sq(mTrkParams[iteration].PVres) / primaryVertex.getNContributors() + Sq(mTimeFrame->getPositionResolution(iLayer)));
+                const float resolution = o2::gpu::CAMath::Sqrt(math_utils::Sq(mTrkParams[iteration].PVres) / primaryVertex.getNContributors() + math_utils::Sq(mTimeFrame->getPositionResolution(iLayer)));
 
                 const float tanLambda{(currentCluster.zCoordinate - primaryVertex.getZ()) * inverseR0};
 
                 const float zAtRmin{tanLambda * (mTimeFrame->getMinR(iLayer + 1) - currentCluster.radius) + currentCluster.zCoordinate};
                 const float zAtRmax{tanLambda * (mTimeFrame->getMaxR(iLayer + 1) - currentCluster.radius) + currentCluster.zCoordinate};
 
-                const float sqInverseDeltaZ0{1.f / (Sq(currentCluster.zCoordinate - primaryVertex.getZ()) + 2.e-8f)}; /// protecting from overflows adding the detector resolution
-                const float sigmaZ{o2::gpu::CAMath::Sqrt(Sq(resolution) * Sq(tanLambda) * ((Sq(inverseR0) + sqInverseDeltaZ0) * Sq(meanDeltaR) + 1.f) + Sq(meanDeltaR * mTimeFrame->getMSangle(iLayer)))};
+                const float sqInverseDeltaZ0{1.f / (math_utils::Sq(currentCluster.zCoordinate - primaryVertex.getZ()) + 2.e-8f)}; /// protecting from overflows adding the detector resolution
+                const float sigmaZ{o2::gpu::CAMath::Sqrt(math_utils::Sq(resolution) * math_utils::Sq(tanLambda) * ((math_utils::Sq(inverseR0) + sqInverseDeltaZ0) * math_utils::Sq(meanDeltaR) + 1.f) + math_utils::Sq(meanDeltaR * mTimeFrame->getMSangle(iLayer)))};
 
                 const int4 selectedBinsRect{getBinsRect(currentCluster, iLayer + 1, zAtRmin, zAtRmax, sigmaZ * mTrkParams[iteration].NSigmaCut, mTimeFrame->getPhiCut(iLayer))};
                 if (selectedBinsRect.x == 0 && selectedBinsRect.y == 0 && selectedBinsRect.z == 0 && selectedBinsRect.w == 0) {
@@ -181,7 +173,7 @@ void TrackerTraits<nLayers>::computeLayerTracklets(const int iteration, int iROF
 
                       if (deltaZ / sigmaZ < mTrkParams[iteration].NSigmaCut &&
                           (deltaPhi < mTimeFrame->getPhiCut(iLayer) ||
-                           o2::gpu::GPUCommonMath::Abs(deltaPhi - constants::math::TwoPi) < mTimeFrame->getPhiCut(iLayer))) {
+                           o2::gpu::GPUCommonMath::Abs(deltaPhi - o2::constants::math::TwoPI) < mTimeFrame->getPhiCut(iLayer))) {
                         if (iLayer > 0) {
                           mTimeFrame->getTrackletsLookupTable()[iLayer - 1][currentSortedIndex]++;
                         }
@@ -273,9 +265,6 @@ void TrackerTraits<nLayers>::computeLayerCells(const int iteration)
   std::ofstream off(std::format("cells{}.txt", iter++));
 #endif
 
-  constexpr float radl = 9.36f; // Radiation length of Si [cm]
-  constexpr float rho = 2.33f;  // Density of Si [g/cm^3]
-
   for (int iLayer = 0; iLayer < mTrkParams[iteration].CellsPerRoad(); ++iLayer) {
     deepVectorClear(mTimeFrame->getCells()[iLayer]);
     if (iLayer > 0) {
@@ -359,7 +348,7 @@ void TrackerTraits<nLayers>::computeLayerCells(const int iteration)
                         break;
                       }
 
-                      if (!track.correctForMaterial(mTrkParams[0].LayerxX0[iLayer + iC], mTrkParams[0].LayerxX0[iLayer] * radl * rho, true)) {
+                      if (!track.correctForMaterial(mTrkParams[0].LayerxX0[iLayer + iC], mTrkParams[0].LayerxX0[iLayer] * constants::Radl * constants::Rho, true)) {
                         break;
                       }
 
@@ -441,7 +430,7 @@ void TrackerTraits<nLayers>::computeLayerCells(const int iteration)
                         break;
                       }
 
-                      if (!track.correctForMaterial(mTrkParams[0].LayerxX0[iLayer + iC], mTrkParams[0].LayerxX0[iLayer] * radl * rho, true)) {
+                      if (!track.correctForMaterial(mTrkParams[0].LayerxX0[iLayer + iC], mTrkParams[0].LayerxX0[iLayer] * constants::Radl * constants::Rho, true)) {
                         break;
                       }
 
@@ -682,9 +671,7 @@ void TrackerTraits<nLayers>::processNeighbours(int iLayer, int iLevel, const bou
             }
 
             if (mCorrType == o2::base::PropagatorF::MatCorrType::USEMatCorrNONE) {
-              float radl = 9.36f; // Radiation length of Si [cm]
-              float rho = 2.33f;  // Density of Si [g/cm^3]
-              if (!seed.correctForMaterial(mTrkParams[0].LayerxX0[iLayer - 1], mTrkParams[0].LayerxX0[iLayer - 1] * radl * rho, true)) {
+              if (!seed.correctForMaterial(mTrkParams[0].LayerxX0[iLayer - 1], mTrkParams[0].LayerxX0[iLayer - 1] * constants::Radl * constants::Rho, true)) {
                 continue;
               }
             }
@@ -745,9 +732,7 @@ void TrackerTraits<nLayers>::processNeighbours(int iLayer, int iLevel, const bou
             }
 
             if (mCorrType == o2::base::PropagatorF::MatCorrType::USEMatCorrNONE) {
-              float radl = 9.36f; // Radiation length of Si [cm]
-              float rho = 2.33f;  // Density of Si [g/cm^3]
-              if (!seed.correctForMaterial(mTrkParams[0].LayerxX0[iLayer - 1], mTrkParams[0].LayerxX0[iLayer - 1] * radl * rho, true)) {
+              if (!seed.correctForMaterial(mTrkParams[0].LayerxX0[iLayer - 1], mTrkParams[0].LayerxX0[iLayer - 1] * constants::Radl * constants::Rho, true)) {
                 continue;
               }
             }
@@ -830,15 +815,15 @@ void TrackerTraits<nLayers>::findRoads(const int iteration)
     mTaskArena.execute([&] {
       bounded_vector<int> perSeedCount(trackSeeds.size() + 1, 0, mMemoryPool.get());
       tbb::parallel_for(
-        tbb::blocked_range<size_t>(size_t(0), trackSeeds.size()),
-        [&](const tbb::blocked_range<size_t>& Seeds) {
+        tbb::blocked_range<int>(0, (int)trackSeeds.size()),
+        [&](const tbb::blocked_range<int>& Seeds) {
           for (int iSeed = Seeds.begin(); iSeed < Seeds.end(); ++iSeed) {
             const CellSeed& seed{trackSeeds[iSeed]};
             TrackITSExt temporaryTrack{seed};
             temporaryTrack.resetCovariance();
             temporaryTrack.setChi2(0);
             for (int iL{0}; iL < 7; ++iL) {
-              temporaryTrack.setExternalClusterIndex(iL, seed.getCluster(iL), seed.getCluster(iL) != constants::its::UnusedIndex);
+              temporaryTrack.setExternalClusterIndex(iL, seed.getCluster(iL), seed.getCluster(iL) != constants::UnusedIndex);
             }
 
             bool fitSuccess = fitTrack(temporaryTrack, 0, mTrkParams[0].NLayers, 1, mTrkParams[0].MaxChi2ClusterAttachment, mTrkParams[0].MaxChi2NDF);
@@ -874,7 +859,7 @@ void TrackerTraits<nLayers>::findRoads(const int iteration)
             trk.resetCovariance();
             trk.setChi2(0);
             for (int iL{0}; iL < 7; ++iL) {
-              trk.setExternalClusterIndex(iL, seed.getCluster(iL), seed.getCluster(iL) != constants::its::UnusedIndex);
+              trk.setExternalClusterIndex(iL, seed.getCluster(iL), seed.getCluster(iL) != constants::UnusedIndex);
             }
 
             bool fitSuccess = fitTrack(trk, 0, mTrkParams[0].NLayers, 1, mTrkParams[0].MaxChi2ClusterAttachment, mTrkParams[0].MaxChi2NDF);
@@ -898,7 +883,7 @@ void TrackerTraits<nLayers>::findRoads(const int iteration)
       int nShared = 0;
       bool isFirstShared{false};
       for (int iLayer{0}; iLayer < mTrkParams[0].NLayers; ++iLayer) {
-        if (track.getClusterIndex(iLayer) == constants::its::UnusedIndex) {
+        if (track.getClusterIndex(iLayer) == constants::UnusedIndex) {
           continue;
         }
         nShared += int(mTimeFrame->isClusterUsed(iLayer, track.getClusterIndex(iLayer)));
@@ -911,7 +896,7 @@ void TrackerTraits<nLayers>::findRoads(const int iteration)
 
       std::array<int, 3> rofs{INT_MAX, INT_MAX, INT_MAX};
       for (int iLayer{0}; iLayer < mTrkParams[0].NLayers; ++iLayer) {
-        if (track.getClusterIndex(iLayer) == constants::its::UnusedIndex) {
+        if (track.getClusterIndex(iLayer) == constants::UnusedIndex) {
           continue;
         }
         mTimeFrame->markUsedCluster(iLayer, track.getClusterIndex(iLayer));
@@ -977,7 +962,7 @@ void TrackerTraits<nLayers>::extendTracks(const int iteration)
         track.setPattern(pattern);
         /// Make sure that the newly attached clusters get marked as used
         for (int iLayer{0}; iLayer < mTrkParams[iteration].NLayers; ++iLayer) {
-          if (track.getClusterIndex(iLayer) == constants::its::UnusedIndex) {
+          if (track.getClusterIndex(iLayer) == constants::UnusedIndex) {
             continue;
           }
           mTimeFrame->markUsedCluster(iLayer, track.getClusterIndex(iLayer));
@@ -1082,7 +1067,7 @@ bool TrackerTraits<nLayers>::fitTrack(TrackITSExt& track, int start, int end, in
   auto propInstance = o2::base::Propagator::Instance();
 
   for (int iLayer{start}; iLayer != end; iLayer += step) {
-    if (track.getClusterIndex(iLayer) == constants::its::UnusedIndex) {
+    if (track.getClusterIndex(iLayer) == constants::UnusedIndex) {
       continue;
     }
     const TrackingFrameInfo& trackingHit = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer)[track.getClusterIndex(iLayer)];
@@ -1096,9 +1081,7 @@ bool TrackerTraits<nLayers>::fitTrack(TrackITSExt& track, int start, int end, in
     }
 
     if (mCorrType == o2::base::PropagatorF::MatCorrType::USEMatCorrNONE) {
-      constexpr float radl = 9.36f; // Radiation length of Si [cm]
-      constexpr float rho = 2.33f;  // Density of Si [g/cm^3]
-      if (!track.correctForMaterial(mTrkParams[0].LayerxX0[iLayer], mTrkParams[0].LayerxX0[iLayer] * radl * rho, true)) {
+      if (!track.correctForMaterial(mTrkParams[0].LayerxX0[iLayer], mTrkParams[0].LayerxX0[iLayer] * constants::Radl * constants::Rho, true)) {
         continue;
       }
     }
@@ -1143,9 +1126,7 @@ bool TrackerTraits<nLayers>::trackFollowing(TrackITSExt* track, int rof, bool ou
       }
 
       if (mTrkParams[iteration].CorrType == PropagatorF::MatCorrType::USEMatCorrNONE) { // account for material affects if propagator does not
-        constexpr float radl = 9.36f;                                                   // Radiation length of Si [cm]
-        constexpr float rho = 2.33f;                                                    // Density of Si [g/cm^3]
-        if (!hypoParam.correctForMaterial(mTrkParams[iteration].LayerxX0[iLayer], mTrkParams[iteration].LayerxX0[iLayer] * radl * rho, true)) {
+        if (!hypoParam.correctForMaterial(mTrkParams[iteration].LayerxX0[iLayer], mTrkParams[iteration].LayerxX0[iLayer] * constants::Radl * constants::Rho, true)) {
           continue;
         }
       }

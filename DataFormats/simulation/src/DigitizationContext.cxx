@@ -151,6 +151,19 @@ bool DigitizationContext::initSimKinematicsChains(std::vector<TChain*>& simkinem
     // add signal files
     simkinematicschains.back()->AddFile(o2::base::NameConf::getMCKinematicsFileName(mSimPrefixes[source].data()).c_str());
   }
+
+  // we add QED, if used in the digitization context
+  if (mEventRecordsWithQED.size() > 0) {
+    if (mSimPrefixes.size() >= QEDSOURCEID) {
+      LOG(fatal) << "Too many signal chains; crashes with QED source ID";
+    }
+
+    // it might be better to use an unordered_map for the simchains but this requires interface changes
+    simkinematicschains.resize(QEDSOURCEID + 1, nullptr);
+    simkinematicschains[QEDSOURCEID] = new TChain("o2sim");
+    simkinematicschains[QEDSOURCEID]->AddFile(o2::base::DetectorNameConf::getMCKinematicsFileName(mQEDSimPrefix).c_str());
+  }
+
   return true;
 }
 

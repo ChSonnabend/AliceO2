@@ -15,12 +15,15 @@
 
 #include "ITStracking/IOUtils.h"
 
+#include <gsl/span>
+#include <vector>
+#include <array>
+#include <string>
 #include <iostream>
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
 #include <tuple>
-#include <unordered_set>
 #include <utility>
 
 #include "ITSBase/GeometryTGeo.h"
@@ -35,10 +38,7 @@ constexpr int PrimaryVertexLayerId{-1};
 constexpr int EventLabelsSeparator{-1};
 } // namespace
 
-namespace o2
-{
-namespace its
-{
+using namespace o2::its;
 
 /// convert compact clusters to 3D spacepoints
 void ioutils::convertCompactClusters(gsl::span<const itsmft::CompClusterExt> clusters,
@@ -57,8 +57,8 @@ void ioutils::convertCompactClusters(gsl::span<const itsmft::CompClusterExt> clu
     }
   }
 
-  for (auto& c : clusters) {
-    float sigmaY2, sigmaZ2, sigmaYZ = 0;
+  for (const auto& c : clusters) {
+    float sigmaY2{0}, sigmaZ2{0}, sigmaYZ{0};
     auto locXYZ = extractClusterData(c, pattIt, dict, sigmaY2, sigmaZ2);
     auto& cl3d = output.emplace_back(c.getSensorID(), geom->getMatrixT2L(c.getSensorID()) ^ locXYZ); // local --> tracking
     if (applyMisalignment) {
@@ -83,9 +83,9 @@ void ioutils::loadEventData(ROframe& event, gsl::span<const itsmft::CompClusterE
   geom->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::L2G));
   int clusterId{0};
 
-  for (auto& c : clusters) {
-    int layer = geom->getLayer(c.getSensorID());
-    float sigmaY2, sigmaZ2, sigmaYZ = 0;
+  for (const auto& c : clusters) {
+    const int layer = geom->getLayer(c.getSensorID());
+    float sigmaY2{0}, sigmaZ2{0}, sigmaYZ{0};
     auto locXYZ = extractClusterData(c, pattIt, dict, sigmaY2, sigmaZ2);
     auto sensorID = c.getSensorID();
     // Inverse transformation to the local --> tracking
@@ -118,9 +118,9 @@ int ioutils::loadROFrameData(const o2::itsmft::ROFRecord& rof, ROframe& event, g
 
   auto first = rof.getFirstEntry();
   auto clusters_in_frame = rof.getROFData(clusters);
-  for (auto& c : clusters_in_frame) {
-    int layer = geom->getLayer(c.getSensorID());
-    float sigmaY2, sigmaZ2, sigmaYZ = 0;
+  for (const auto& c : clusters_in_frame) {
+    const int layer = geom->getLayer(c.getSensorID());
+    float sigmaY2{0}, sigmaZ2{0}, sigmaYZ{0};
     auto locXYZ = extractClusterData(c, pattIt, dict, sigmaY2, sigmaZ2);
     auto sensorID = c.getSensorID();
     // Inverse transformation to the local --> tracking
@@ -141,100 +141,5 @@ int ioutils::loadROFrameData(const o2::itsmft::ROFRecord& rof, ROframe& event, g
     event.addClusterExternalIndexToLayer(layer, first + clusterId);
     clusterId++;
   }
-  return clusters_in_frame.size();
+  return (int)clusters_in_frame.size();
 }
-
-std::vector<std::unordered_map<int, Label>> ioutils::loadLabels(const int eventsNum, const std::string& fileName)
-{
-  std::vector<std::unordered_map<int, Label>> labelsMap{};
-  std::unordered_map<int, Label> currentEventLabelsMap{};
-  std::ifstream inputStream{};
-  std::string line{};
-  int monteCarloId{}, pdgCode{}, numberOfClusters{};
-  float transverseMomentum{}, phi{}, pseudorapidity{};
-
-  labelsMap.reserve(eventsNum);
-
-  inputStream.open(fileName);
-  std::getline(inputStream, line);
-
-  while (std::getline(inputStream, line)) {
-
-    std::istringstream inputStringStream(line);
-
-    if (inputStringStream >> monteCarloId) {
-
-      if (monteCarloId == EventLabelsSeparator) {
-
-        labelsMap.emplace_back(currentEventLabelsMap);
-        currentEventLabelsMap.clear();
-
-      } else {
-
-        if (inputStringStream >> transverseMomentum >> phi >> pseudorapidity >> pdgCode >> numberOfClusters) {
-
-          if (std::abs(pdgCode) == constants::pdgcodes::PionCode && numberOfClusters == 7) {
-
-            currentEventLabelsMap.emplace(std::piecewise_construct, std::forward_as_tuple(monteCarloId),
-                                          std::forward_as_tuple(monteCarloId, transverseMomentum, phi,
-                                                                pseudorapidity, pdgCode, numberOfClusters));
-          }
-        }
-      }
-    }
-  }
-
-  labelsMap.emplace_back(currentEventLabelsMap);
-
-  return labelsMap;
-}
-
-// void ioutils::writeRoadsReport(std::ofstream& correctRoadsOutputStream, std::ofstream& duplicateRoadsOutputStream,
-//                                std::ofstream& fakeRoadsOutputStream, const std::vector<std::vector<Road<5>>>& roads,
-//                                const std::unordered_map<int, Label>& labelsMap)
-// {
-//   const int numVertices{static_cast<int>(roads.size())};
-//   std::unordered_set<int> foundMonteCarloIds{};
-
-//   correctRoadsOutputStream << EventLabelsSeparator << std::endl;
-//   fakeRoadsOutputStream << EventLabelsSeparator << std::endl;
-
-//   for (int iVertex{0}; iVertex < numVertices; ++iVertex) {
-
-//     const std::vector<Road<5>>& currentVertexRoads{roads[iVertex]};
-//     const int numRoads{static_cast<int>(currentVertexRoads.size())};
-
-//     for (int iRoad{0}; iRoad < numRoads; ++iRoad) {
-
-//       const Road<5>& currentRoad{currentVertexRoads[iRoad]};
-//       const int currentRoadLabel{currentRoad.getLabel()};
-
-//       if (!labelsMap.count(currentRoadLabel)) {
-
-//         continue;
-//       }
-
-//       const Label& currentLabel{labelsMap.at(currentRoadLabel)};
-
-//       if (currentRoad.isFakeRoad()) {
-
-//         fakeRoadsOutputStream << currentLabel << std::endl;
-
-//       } else {
-
-//         if (foundMonteCarloIds.count(currentLabel.monteCarloId)) {
-
-//           duplicateRoadsOutputStream << currentLabel << std::endl;
-
-//         } else {
-
-//           correctRoadsOutputStream << currentLabel << std::endl;
-//           foundMonteCarloIds.emplace(currentLabel.monteCarloId);
-//         }
-//       }
-//     }
-//   }
-// }
-
-} // namespace its
-} // namespace o2

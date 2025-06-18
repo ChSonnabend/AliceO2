@@ -1727,10 +1727,6 @@ GPUd() void GPUTPCGMMerger::CollectMergedTracks(int32_t nBlocks, int32_t nThread
         clXYZ[i].y = c.y;
         clXYZ[i].z = c.z;
         clXYZ[i].amp = c.amp;
-#ifdef GPUCA_TPC_RAW_PROPAGATE_PAD_ROW_TIME
-        clXYZ[i].pad = c.mPad;
-        clXYZ[i].time = c.mTime;
-#endif
         state = c.flags;
       } else {
         const ClusterNative& c = GetConstantMem()->ioPtrs.clustersNative->clustersLinear[trackClusters[i].id];

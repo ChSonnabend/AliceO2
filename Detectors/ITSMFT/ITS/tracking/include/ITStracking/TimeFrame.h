@@ -230,7 +230,23 @@ struct TimeFrame {
   void setBz(float bz) { mBz = bz; }
   float getBz() const { return mBz; }
 
-  virtual void setDevicePropagator(const o2::base::PropagatorImpl<float>*) { return; }
+  void setExternalAllocator(ExternalAllocator* allocator)
+  {
+    if (mIsGPU) {
+      LOGP(debug, "Setting timeFrame allocator to external");
+      mAllocator = allocator;
+      mExtAllocator = true; // to be removed
+    } else {
+      LOGP(fatal, "External allocator is currently only supported for GPU");
+    }
+  }
+
+  ExternalAllocator* getExternalAllocator() { return mAllocator; }
+
+  virtual void setDevicePropagator(const o2::base::PropagatorImpl<float>*)
+  {
+    return;
+  };
   const o2::base::PropagatorImpl<float>* getDevicePropagator() const { return mPropagatorDevice; }
 
   template <typename... T>
@@ -277,24 +293,11 @@ struct TimeFrame {
   // State if memory will be externally managed.
   bool mExtAllocator = false;
   ExternalAllocator* mAllocator = nullptr;
-  void setExternalAllocator(ExternalAllocator* allocator)
-  {
-    if (mIsGPU) {
-      LOGP(debug, "Setting timeFrame allocator to external");
-      mAllocator = allocator;
-      mExtAllocator = true; // to be removed
-    } else {
-      LOGP(fatal, "External allocator is currently only supported for GPU");
-    }
-  }
-  void setExtAllocator(bool ext) { mExtAllocator = ext; }
   bool getExtAllocator() const { return mExtAllocator; }
 
   std::array<bounded_vector<Cluster>, nLayers> mUnsortedClusters;
   std::vector<bounded_vector<Tracklet>> mTracklets;
   std::vector<bounded_vector<CellSeed>> mCells;
-  std::vector<bounded_vector<o2::track::TrackParCovF>> mCellSeeds;
-  std::vector<bounded_vector<float>> mCellSeedsChi2;
   bounded_vector<Road<nLayers - 2>> mRoads;
   std::vector<bounded_vector<TrackITSExt>> mTracks;
   std::vector<bounded_vector<int>> mCellsNeighbours;
@@ -306,7 +309,7 @@ struct TimeFrame {
   void wipe();
 
  private:
-  void prepareClusters(const TrackingParameters& trkParam, const int maxLayers);
+  void prepareClusters(const TrackingParameters& trkParam, const int maxLayers = nLayers);
   float mBz = 5.;
   unsigned int mNTotalLowPtVertices = 0;
   int mBeamPosWeight = 0;
@@ -328,8 +331,8 @@ struct TimeFrame {
   bounded_vector<int> mBogusClusters; /// keep track of clusters with wild coordinates
 
   bounded_vector<std::pair<unsigned long long, bool>> mRoadLabels;
-  int mCutClusterMult;
-  int mCutVertexMult;
+  int mCutClusterMult{-999};
+  int mCutVertexMult{-999};
 
   // Vertexer
   std::vector<bounded_vector<int>> mNTrackletsPerROF;

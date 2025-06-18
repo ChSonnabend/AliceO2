@@ -63,8 +63,8 @@ class Tracker
   void adoptTimeFrame(TimeFrame<NLayers>& tf);
 
   void clustersToTracks(
-    LogFunc = [](const std::string& s) { std::cout << s << '\n'; },
-    LogFunc = [](const std::string& s) { std::cerr << s << '\n'; });
+    const LogFunc& = [](const std::string& s) { std::cout << s << '\n'; },
+    const LogFunc& = [](const std::string& s) { std::cerr << s << '\n'; });
 
   void setParameters(const std::vector<TrackingParameters>& p) { mTrkParams = p; }
   void setMemoryPool(std::shared_ptr<BoundedMemoryResource>& pool) { mMemoryPool = pool; }
@@ -113,7 +113,7 @@ class Tracker
     Roading,
     NStates,
   };
-  State mCurState;
+  State mCurState{TFInit};
   static constexpr std::array<const char*, NStates> StateNames{"TimeFrame initialisation", "Tracklet finding", "Cell finding", "Neighbour finding", "Road finding"};
 };
 

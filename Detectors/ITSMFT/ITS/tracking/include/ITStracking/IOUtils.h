@@ -72,10 +72,6 @@ inline static const o2::itsmft::ChipMappingITS& getChipMappingITS()
   return MP;
 }
 
-std::vector<std::unordered_map<int, Label>> loadLabels(const int, const std::string&);
-void writeRoadsReport(std::ofstream&, std::ofstream&, std::ofstream&, const std::vector<std::vector<Road<5>>>&,
-                      const std::unordered_map<int, Label>&);
-
 template <class iterator, typename T>
 o2::math_utils::Point3D<T> extractClusterData(const itsmft::CompClusterExt& c, iterator& iter, const itsmft::TopologyDictionary* dict, T& sig2y, T& sig2z)
 {

@@ -995,12 +995,10 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           int withMC = propagateMCLabels;
 
           if (clustererNNShadow.mNnClusterizerUseCfRegression || (int)(nn_settings.nnClusterizerApplyCfDeconvolution)) {
-            runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}});
+            runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}}, true);
             DoDebugAndDump(RecoStep::TPCClusterFinding, GPUChainTrackingDebugFlags::TPCClustererChargeMap, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
-          }
-
-          if(GetProcessingSettings().nn.setDeconvolutionFlags > 0 && !clustererNNShadow.mNnClusterizerUseCfRegression){
-            runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::setDeconvolutionFlags>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, 0); // Setting the deconvolution flags but leaving digit charge untouched
+          } else if (clustererNNShadow.mNnClusterizerSetDeconvolutionFlags) {
+            runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}}, false);
             clustererNNShadow.mNnClusterFlagsAreSet = true;
           }
 
@@ -1018,13 +1016,6 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             if(GetProcessingSettings().nn.setDeconvolutionFlags > 0 && !clustererNNShadow.mNnClusterizerUseCfRegression) {
               runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishDeconvolutionFlags>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, batchStart); // Publishing the deconvolution flags to the mClusterFlags
             }
-
-            // // Test
-            // for(int i = 0; i < iSize; ++i) {
-            //   if (clustererNNShadow.mInputData_32[i*clustererNNShadow.mNnClusterizerElementSize + 423] != 1.f) {
-            //     LOG(info) << "WARNING (GPUChainTrackingClusterizer): Input data for NN inference is not properly filled, element 423 is " << clustererNNShadow.mInputData_32[i*clustererNNShadow.mNnClusterizerElementSize + 423];
-            //   }
-            // }
 
             // NN evaluations
             if(clustererNNShadow.mNnClusterizerUseClassification) {
@@ -1138,13 +1129,12 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           GPUFatal("Project not compiled with neural network clusterization. Aborting.");
 #endif
         } else {
-
           GPUTPCNNClusterizerHost dummy;
           if(GetProcessingSettings().nn.nnClusterizerDumpDigits > 0) {
             dummy.digitWriter(clusterer,  "digits_stream_noise_supressed");
           }
 
-          runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}});
+          runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}}, true);
           DoDebugAndDump(RecoStep::TPCClusterFinding, GPUChainTrackingDebugFlags::TPCClustererChargeMap, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
 
           if(GetProcessingSettings().nn.nnClusterizerDumpDigits > 0) {

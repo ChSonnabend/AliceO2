@@ -99,7 +99,12 @@ class GPUCommonMath
   GPUhdi() static float Remainderf(float x, float y);
   GPUd() constexpr static bool Finite(float x);
   GPUd() constexpr static bool IsNaN(float x);
+#pragma GCC diagnostic push
+#if defined(__FAST_MATH__) && defined(__clang__)
+#pragma GCC diagnostic ignored "-Wnan-infinity-disabled"
+#endif
   GPUd() constexpr static float QuietNaN() { return GPUCA_CHOICE(std::numeric_limits<float>::quiet_NaN(), __builtin_nanf(""), nan(0u)); }
+#pragma GCC diagnostic pop
   GPUd() constexpr static uint32_t Clz(uint32_t val);
   GPUd() constexpr static uint32_t Popcount(uint32_t val);
 
@@ -516,7 +521,7 @@ GPUdi() void GPUCommonMath::AtomicMinInternal(S* addr, T val)
 #endif // GPUCA_GPUCODE
 }
 
-#if (defined(__CUDACC__) || defined(__HIPCC__)) && !defined(G__ROOT)
+#if (defined(__CUDACC__) || defined(__HIPCC__)) && !defined(G__ROOT) && !defined(__CLING__)
 #define GPUCA_HAVE_ATOMIC_MINMAX_FLOAT
 template <>
 GPUdii() void GPUCommonMath::AtomicMaxInternal(GPUglobalref() GPUgeneric() GPUAtomic(float) * addr, float val)
