@@ -3383,11 +3383,11 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
 
   WorkflowSpec specs;
 
-  static o2::framework::Output gDispatchTrigger{"", ""};
+  static o2::framework::ConcreteDataTypeMatcher gDispatchTrigger{"", ""};
   static std::vector<InputSpec> inputs;
   static std::vector<OutputSpec> outputs;
 
-  gDispatchTrigger = o2::framework::Output{"TPC", "CLUSTERNATIVE"};
+  gDispatchTrigger = o2::framework::ConcreteDataTypeMatcher{"TPC", "CLUSTERNATIVE"};
 
   // --- Functions writing to the WorkflowSpec ---
 

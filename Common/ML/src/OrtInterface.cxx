@@ -148,6 +148,21 @@ void OrtModel::initSession()
   }
 }
 
+void OrtModel::initSessionFromBuffer(std::string buffer)
+{
+  if (mAllocateDeviceMemory) {
+    memoryOnDevice(mDeviceId);
+  }
+  mPImplOrt->session = std::make_unique<Ort::Session>(*mPImplOrt->env, buffer.data(), buffer.size(), mPImplOrt->sessionOptions);
+  mPImplOrt->ioBinding = std::make_unique<Ort::IoBinding>(*mPImplOrt->session);
+
+  setIO();
+
+  if (mLoggingLevel < 2) {
+    LOG(info) << "(ORT) Model loaded successfully! (inputs: " << printShape(mInputShapes, mInputNames) << ", outputs: " << printShape(mOutputShapes, mInputNames) << ")";
+  }
+}
+
 void OrtModel::memoryOnDevice(int32_t deviceIndex)
 {
   if (deviceIndex >= 0) {

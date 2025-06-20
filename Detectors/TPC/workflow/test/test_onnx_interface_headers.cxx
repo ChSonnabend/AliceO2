@@ -109,7 +109,7 @@ class onnxInference : public Task
     }
   };
 
-  void add_concat_to_input(onnx::ModelProto& model, std::vector<ONNXAdaptorSpec> originals)
+  void add_concat_to_input(onnx::ModelProto& model, std::unordered_map<std::string, float> originals)
   {
     auto* graph = model.mutable_graph();
 
@@ -119,8 +119,9 @@ class onnxInference : public Task
 
     // 2. Create N new input tensors: input_0, ..., input_N-1
     std::vector<std::string> input_names;
-    for (int i = 0; i < originals.size(); ++i) {
-      std::string name = fmt::format("input_{}", originals[i].name);
+    int i = 0;
+    for (const auto& kv : originals) {
+      std::string name = "input_" + kv.first;
       input_names.push_back(name);
 
       auto* input = graph->add_input();
@@ -129,7 +130,8 @@ class onnxInference : public Task
       tensor_type->set_elem_type(onnx::TensorProto_DataType_FLOAT);
       auto* shape = tensor_type->mutable_shape();
       shape->add_dim()->set_dim_param("N");
-      shape->add_dim()->set_dim_value(originals[i].numColumns);
+      shape->add_dim()->set_dim_value(static_cast<int64_t>(kv.second));
+      ++i;
     }
 
     // 3. Add Concat node
@@ -148,6 +150,7 @@ class onnxInference : public Task
       return attr;
     }());
   }
+
   void print_shape(const onnx::TensorShapeProto& shape)
   {
     std::cout << "[";
@@ -166,14 +169,15 @@ class onnxInference : public Task
     std::cout << "]";
   }
 
-  void testModelSurgery(){
-    onnx::ModelProto modelProto;
+  void testModelSurgery(std::ostringstream& buffer)
+  {
+    onnx::ModelProto model;
     std::ifstream input(options_map["model-path"].c_str(), std::ios::in | std::ios::binary);
 
     if (!input) {
       throw std::runtime_error("Failed to open model file: " + options_map["model-path"]);
     }
-    if (!modelProto.ParseFromIstream(&input)) {
+    if (!model.ParseFromIstream(&input)) {
       throw std::runtime_error("Failed to parse ONNX model from stream.");
     }
 
@@ -249,7 +253,7 @@ class onnxInference : public Task
     //   return 1;
     // }
 
-    std::vector<ONNXAdaptorSpec> specs = {
+    std::unordered_map<std::string, float> specs = {
       {"1", 1},
       {"2", 1},
       {"3", 1},
@@ -315,6 +319,28 @@ class onnxInference : public Task
       return;
     }
     std::cout << "Modified ONNX model exported to ./model.onnx\n";
+
+    if (!model.SerializeToOstream(&buffer)) {
+      throw std::runtime_error("Failed to serialize modified model.");
+    }
+  }
+
+  void loadToOrtSession(std::string buffer) {
+    OrtModel model;
+    model.initSessionFromBuffer(buffer);
+    std::vector<std::vector<float>> test_data = std::vector<std::vector<float>>(7, std::vector<float>(1000, 1.0f)); // Example input data
+    // Get float** to the first element
+    std::vector<float*> ptrs;
+    for (auto& v : test_data) {
+      ptrs.push_back(v.data());
+    }
+    float** data_ptr = ptrs.data();
+    std::vector<float> output_data(1000 * 2, 0.0f); // Example output data
+    model.inference<float, float>(data_ptr, 1000, output_data.data()); // Run inference with the model
+  }
+
+  void runModels2() {
+
   }
 
   void init(InitContext& ic) final {};
@@ -361,7 +387,14 @@ class onnxInference : public Task
   void run(ProcessingContext& pc) final
   {
     if(options_map["mode"] == "surgery"){
-      testModelSurgery();
+      std::ostringstream buffer;
+      testModelSurgery(buffer);
+      options_map["model-path"] = "./model.onnx";
+      OrtModel model;
+      model.init(options_map);
+      model.initSession();
+      LOG(info) << "Model initialized with path: " << options_map["model-path"];
+      // loadToOrtSession(buffer.str());
     } else if (options_map["mode"] == "run") {
       if (options_map["dtype"] == "FP16") {
         run_models<OrtDataType::Float16_t, OrtDataType::Float16_t>();
@@ -413,6 +446,7 @@ DataProcessorSpec testProcess(ConfigContext const& cfgc, std::vector<InputSpec>&
 
   // A copy of the global workflow options from customize() to pass to the task
   std::unordered_map<std::string, std::string> options_map{
+    {"mode", cfgc.options().get<std::string>("mode")},
     {"model-path", cfgc.options().get<std::string>("path")},
     {"device", cfgc.options().get<std::string>("device")},
     {"device-id", std::to_string(cfgc.options().get<int>("device-id"))},
