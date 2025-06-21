@@ -11,6 +11,7 @@
 ///
 
 #include <iostream>
+#include <memory>
 #include <string>
 #include <chrono>
 
@@ -30,12 +31,6 @@
 #endif
 
 using namespace o2::its;
-
-float smallestAngleDifference(float a, float b)
-{
-  float diff = fmod(b - a + constants::math::Pi, constants::math::TwoPi) - constants::math::Pi;
-  return (diff < -constants::math::Pi) ? diff + constants::math::TwoPi : ((diff > constants::math::Pi) ? diff - constants::math::TwoPi : diff);
-}
 
 template <TrackletMode Mode, bool EvalRun>
 void trackleterKernelHost(
@@ -75,7 +70,7 @@ void trackleterKernelHost(
             continue;
           }
           const Cluster& nextCluster{clustersNextLayer[iNextLayerClusterIndex]};
-          if (o2::gpu::GPUCommonMath::Abs(smallestAngleDifference(currentCluster.phi, nextCluster.phi)) < phiCut) {
+          if (o2::gpu::GPUCommonMath::Abs(math_utils::smallestAngleDifference(currentCluster.phi, nextCluster.phi)) < phiCut) {
             if (storedTracklets < maxTrackletsPerCluster) {
               if constexpr (!EvalRun) {
                 if constexpr (Mode == TrackletMode::Layer0Layer1) {
@@ -128,7 +123,7 @@ void trackletSelectionKernelHost(
           continue;
         }
         const float deltaTanLambda{o2::gpu::GPUCommonMath::Abs(tracklet01.tanLambda - tracklet12.tanLambda)};
-        const float deltaPhi{o2::gpu::GPUCommonMath::Abs(smallestAngleDifference(tracklet01.phi, tracklet12.phi))};
+        const float deltaPhi{o2::gpu::GPUCommonMath::Abs(math_utils::smallestAngleDifference(tracklet01.phi, tracklet12.phi))};
         if (!usedTracklets[iTracklet01] && deltaTanLambda < tanLambdaCut && deltaPhi < phiCut && validTracklets != maxTracklets) {
           usedClusters0[tracklet01.firstClusterIndex] = true;
           usedClusters2[tracklet12.secondClusterIndex] = true;
@@ -146,9 +141,9 @@ void trackletSelectionKernelHost(
   }
 }
 
-const bounded_vector<std::pair<int, int>> VertexerTraits::selectClusters(const int* indexTable,
-                                                                         const std::array<int, 4>& selectedBinsRect,
-                                                                         const IndexTableUtils& utils)
+bounded_vector<std::pair<int, int>> VertexerTraits::selectClusters(const int* indexTable,
+                                                                   const std::array<int, 4>& selectedBinsRect,
+                                                                   const IndexTableUtils& utils)
 {
   bounded_vector<std::pair<int, int>> filteredBins{mMemoryPool.get()};
   int phiBinsNum{selectedBinsRect[3] - selectedBinsRect[1] + 1};
@@ -171,16 +166,15 @@ void VertexerTraits::updateVertexingParameters(const std::vector<VertexingParame
   mVrtParams = vrtPar;
   mIndexTableUtils.setTrackingParameters(vrtPar[0]);
   for (auto& par : mVrtParams) {
-    par.phiSpan = static_cast<int>(std::ceil(mIndexTableUtils.getNphiBins() * par.phiCut / constants::math::TwoPi));
+    par.phiSpan = static_cast<int>(std::ceil(mIndexTableUtils.getNphiBins() * par.phiCut / o2::constants::math::TwoPI));
     par.zSpan = static_cast<int>(std::ceil(par.zCut * mIndexTableUtils.getInverseZCoordinate(0)));
   }
-  setNThreads(vrtPar[0].nThreads);
 }
 
 // Main functions
 void VertexerTraits::computeTracklets(const int iteration)
 {
-  mTaskArena.execute([&] {
+  mTaskArena->execute([&] {
     tbb::parallel_for(
       tbb::blocked_range<short>(0, (short)mTimeFrame->getNrof()),
       [&](const tbb::blocked_range<short>& Rofs) {
@@ -226,7 +220,7 @@ void VertexerTraits::computeTracklets(const int iteration)
   mTimeFrame->getTracklets()[0].resize(mTimeFrame->getTotalTrackletsTF(0));
   mTimeFrame->getTracklets()[1].resize(mTimeFrame->getTotalTrackletsTF(1));
 
-  mTaskArena.execute([&] {
+  mTaskArena->execute([&] {
     tbb::parallel_for(
       tbb::blocked_range<short>(0, (short)mTimeFrame->getNrof()),
       [&](const tbb::blocked_range<short>& Rofs) {
@@ -270,12 +264,12 @@ void VertexerTraits::computeTracklets(const int iteration)
 
   /// Create tracklets labels for L0-L1, information is as flat as in tracklets vector (no rofId)
   if (mTimeFrame->hasMCinformation()) {
-    for (auto& trk : mTimeFrame->getTracklets()[0]) {
+    for (const auto& trk : mTimeFrame->getTracklets()[0]) {
       o2::MCCompLabel label;
       int sortedId0{mTimeFrame->getSortedIndex(trk.rof[0], 0, trk.firstClusterIndex)};
       int sortedId1{mTimeFrame->getSortedIndex(trk.rof[1], 1, trk.secondClusterIndex)};
-      for (auto& lab0 : mTimeFrame->getClusterLabels(0, mTimeFrame->getClusters()[0][sortedId0].clusterId)) {
-        for (auto& lab1 : mTimeFrame->getClusterLabels(1, mTimeFrame->getClusters()[1][sortedId1].clusterId)) {
+      for (const auto& lab0 : mTimeFrame->getClusterLabels(0, mTimeFrame->getClusters()[0][sortedId0].clusterId)) {
+        for (const auto& lab1 : mTimeFrame->getClusterLabels(1, mTimeFrame->getClusters()[1][sortedId1].clusterId)) {
           if (lab0 == lab1 && lab0.isValid()) {
             label = lab0;
             break;
@@ -335,7 +329,7 @@ void VertexerTraits::computeTracklets(const int iteration)
 
 void VertexerTraits::computeTrackletMatching(const int iteration)
 {
-  mTaskArena.execute([&] {
+  mTaskArena->execute([&] {
     tbb::parallel_for(
       tbb::blocked_range<short>(0, (short)mTimeFrame->getNrof()),
       [&](const tbb::blocked_range<short>& Rofs) {
@@ -544,7 +538,7 @@ void VertexerTraits::computeVertices(const int iteration)
         mTimeFrame->addPrimaryVerticesLabelsInROF(polls, rofId);
       }
     }
-    if (!vertices.size() && !(iteration && (int)mTimeFrame->getPrimaryVertices(rofId).size() > mVrtParams[iteration].vertPerRofThreshold)) {
+    if (vertices.empty() && !(iteration && (int)mTimeFrame->getPrimaryVertices(rofId).size() > mVrtParams[iteration].vertPerRofThreshold)) {
       mTimeFrame->getNoVertexROF()++;
     }
   }
@@ -693,15 +687,17 @@ void VertexerTraits::computeVerticesInRof(int rofId,
   verticesInRof.push_back(foundVertices);
 }
 
-void VertexerTraits::setNThreads(int n)
+void VertexerTraits::setNThreads(int n, std::shared_ptr<tbb::task_arena>& arena)
 {
-  if (mNThreads == n && mTaskArena.is_active()) {
-    return;
-  }
-  mNThreads = n > 0 ? n : 1;
 #if defined(VTX_DEBUG)
-  mNThreads = 1;
+  mTaskArena = std::make_shared<tbb::task_arena>(1);
+#else
+  if (arena == nullptr) {
+    mTaskArena = std::make_shared<tbb::task_arena>(std::abs(n));
+    LOGP(info, "Setting seeding vertexer with {} threads.", n);
+  } else {
+    mTaskArena = arena;
+    LOGP(info, "Attaching vertexer to calling thread's arena");
+  }
 #endif
-  mTaskArena.initialize(mNThreads);
-  LOGP(info, "Setting seeding vertexer with {} threads.", mNThreads);
 }

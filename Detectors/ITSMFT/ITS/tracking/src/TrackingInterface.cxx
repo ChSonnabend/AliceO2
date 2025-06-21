@@ -16,6 +16,7 @@
 #include "ITSReconstruction/FastMultEst.h"
 
 #include "ITStracking/TrackingInterface.h"
+#include <oneapi/tbb/task_arena.h>
 #include <memory>
 
 #include "DataFormatsITSMFT/ROFRecord.h"
@@ -148,6 +149,20 @@ void ITSTrackingInterface::initialise()
   }
   mTracker->setParameters(trackParams);
   mVertexer->setParameters(vertParams);
+  if (trackConf.nThreads == vertConf.nThreads) {
+    bool clamped{false};
+    int nThreads = trackConf.nThreads;
+    if (nThreads > 0) {
+      const int hw = std::thread::hardware_concurrency();
+      const int maxThreads = (hw == 0 ? 1 : hw);
+      nThreads = std::clamp(nThreads, 1, maxThreads);
+      clamped = trackConf.nThreads > maxThreads;
+    }
+    LOGP(info, "Tracker and Vertexer will share the task arena with {} thread(s){}", nThreads, (clamped) ? " (clamped)" : "");
+    mTaskArena = std::make_shared<tbb::task_arena>(std::abs(nThreads));
+  }
+  mVertexer->setNThreads(vertConf.nThreads, mTaskArena);
+  mTracker->setNThreads(trackConf.nThreads, mTaskArena);
 }
 
 void ITSTrackingInterface::run(framework::ProcessingContext& pc)
@@ -322,43 +337,45 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
       mTracker->clustersToTracks(logger, errorLogger);
     }
     size_t totTracks{mTimeFrame->getNumberOfTracks()}, totClusIDs{mTimeFrame->getNumberOfUsedClusters()};
-    allTracks.reserve(totTracks);
-    allClusIdx.reserve(totClusIDs);
+    if (totTracks) {
+      allTracks.reserve(totTracks);
+      allClusIdx.reserve(totClusIDs);
 
-    if (mTimeFrame->hasBogusClusters()) {
-      LOG(warning) << fmt::format(" - The processed timeframe had {} clusters with wild z coordinates, check the dictionaries", mTimeFrame->hasBogusClusters());
-    }
-
-    for (unsigned int iROF{0}; iROF < trackROFvec.size(); ++iROF) {
-      auto& tracksROF{trackROFvec[iROF]};
-      auto& vtxROF = vertROFvec[iROF];
-      auto& tracks = mTimeFrame->getTracks(iROF);
-      auto number{tracks.size()};
-      auto first{allTracks.size()};
-      int offset = -tracksROF.getFirstEntry(); // cluster entry!!!
-      tracksROF.setFirstEntry(first);
-      tracksROF.setNEntries(number);
-      tracksROF.setFlags(vtxROF.getFlags()); // copies 0xffffffff if cosmics
-      if (processingMask[iROF]) {
-        irFrames.emplace_back(tracksROF.getBCData(), tracksROF.getBCData() + nBCPerTF - 1).info = tracks.size();
+      if (mTimeFrame->hasBogusClusters()) {
+        LOG(warning) << fmt::format(" - The processed timeframe had {} clusters with wild z coordinates, check the dictionaries", mTimeFrame->hasBogusClusters());
       }
-      allTrackLabels.reserve(mTimeFrame->getTracksLabel(iROF).size()); // should be 0 if not MC
-      std::copy(mTimeFrame->getTracksLabel(iROF).begin(), mTimeFrame->getTracksLabel(iROF).end(), std::back_inserter(allTrackLabels));
-      // Some conversions that needs to be moved in the tracker internals
-      for (unsigned int iTrk{0}; iTrk < tracks.size(); ++iTrk) {
-        auto& trc{tracks[iTrk]};
-        trc.setFirstClusterEntry(allClusIdx.size()); // before adding tracks, create final cluster indices
-        int ncl = trc.getNumberOfClusters(), nclf = 0;
-        for (int ic = TrackITSExt::MaxClusters; ic--;) { // track internally keeps in->out cluster indices, but we want to store the references as out->in!!!
-          auto clid = trc.getClusterIndex(ic);
-          if (clid >= 0) {
-            trc.setClusterSize(ic, mTimeFrame->getClusterSize(clid));
-            allClusIdx.push_back(clid);
-            nclf++;
-          }
+
+      for (unsigned int iROF{0}; iROF < trackROFvec.size(); ++iROF) {
+        auto& tracksROF{trackROFvec[iROF]};
+        auto& vtxROF = vertROFvec[iROF];
+        auto& tracks = mTimeFrame->getTracks(iROF);
+        auto number{tracks.size()};
+        auto first{allTracks.size()};
+        int offset = -tracksROF.getFirstEntry(); // cluster entry!!!
+        tracksROF.setFirstEntry(first);
+        tracksROF.setNEntries(number);
+        tracksROF.setFlags(vtxROF.getFlags()); // copies 0xffffffff if cosmics
+        if (processingMask[iROF]) {
+          irFrames.emplace_back(tracksROF.getBCData(), tracksROF.getBCData() + nBCPerTF - 1).info = tracks.size();
         }
-        assert(ncl == nclf);
-        allTracks.emplace_back(trc);
+        allTrackLabels.reserve(mTimeFrame->getTracksLabel(iROF).size()); // should be 0 if not MC
+        std::copy(mTimeFrame->getTracksLabel(iROF).begin(), mTimeFrame->getTracksLabel(iROF).end(), std::back_inserter(allTrackLabels));
+        // Some conversions that needs to be moved in the tracker internals
+        for (unsigned int iTrk{0}; iTrk < tracks.size(); ++iTrk) {
+          auto& trc{tracks[iTrk]};
+          trc.setFirstClusterEntry(allClusIdx.size()); // before adding tracks, create final cluster indices
+          int ncl = trc.getNumberOfClusters(), nclf = 0;
+          for (int ic = TrackITSExt::MaxClusters; ic--;) { // track internally keeps in->out cluster indices, but we want to store the references as out->in!!!
+            auto clid = trc.getClusterIndex(ic);
+            if (clid >= 0) {
+              trc.setClusterSize(ic, mTimeFrame->getClusterSize(clid));
+              allClusIdx.push_back(clid);
+              nclf++;
+            }
+          }
+          assert(ncl == nclf);
+          allTracks.emplace_back(trc);
+        }
       }
     }
     LOGP(info, "ITSTracker pushed {} tracks and {} vertices", allTracks.size(), vertices.size());
@@ -445,6 +462,11 @@ void ITSTrackingInterface::printSummary() const
 {
   mMemoryPool->print();
   mTracker->printSummary();
+}
+
+void ITSTrackingInterface::end()
+{
+  mTimeFrame->wipe();
 }
 
 void ITSTrackingInterface::setTraitsFromProvider(VertexerTraits* vertexerTraits,

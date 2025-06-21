@@ -87,15 +87,6 @@ namespace o2
 namespace devices
 {
 
-// signal handler
-void sighandler(int signal)
-{
-  if (signal == SIGSEGV) {
-    LOG(warn) << "segmentation violation ... just exit without coredump in order not to hang";
-    raise(SIGKILL);
-  }
-}
-
 class O2HitMerger : public fair::mq::Device
 {
 
@@ -130,7 +121,6 @@ class O2HitMerger : public fair::mq::Device
   void InitTask() final
   {
     LOG(info) << "INIT HIT MERGER";
-    // signal(SIGSEGV, sighandler);
     ROOT::EnableThreadSafety();
 
     std::string outfilename("o2sim_merged_hits.root"); // default name
@@ -764,7 +754,6 @@ class O2HitMerger : public fair::mq::Device
         eventheader->putInfo("prims_eta_0.8_pi", eta0Point8CounterPi);
         eventheader->putInfo("prims_total", prims);
       };
-
       reorderAndMergeMCTracks(flusheventID, mOutTree, nprimaries, subevOrdered, mcheaderhook, eventheader);
 
       if (mOutTree) {

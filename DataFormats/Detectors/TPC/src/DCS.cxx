@@ -357,7 +357,7 @@ void Pressure::makeRobustPressure(TimeStampType timeInterval, TimeStampType time
   if (nIntervals == 0) {
     nIntervals = 1; // at least one interval
   }
-  std::vector<TimeStampType> times;
+  std::vector<ULong64_t> times;
   times.reserve(nIntervals);
   for (int i = 0; i < nIntervals; ++i) {
     times.emplace_back(tStart + (i + 0.5) * timeInterval);

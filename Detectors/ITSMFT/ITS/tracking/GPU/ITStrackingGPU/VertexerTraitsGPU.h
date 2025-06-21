@@ -18,7 +18,6 @@
 #define ITSTRACKINGGPU_VERTEXERTRAITSGPU_H_
 
 #include <vector>
-#include <array>
 
 #include "ITStracking/VertexerTraits.h"
 #include "ITStracking/Configuration.h"
@@ -29,13 +28,8 @@
 
 #include "ITStrackingGPU/TimeFrameGPU.h"
 
-namespace o2
+namespace o2::its
 {
-namespace its
-{
-class ROframe;
-
-using constants::its2::InversePhiBinSize;
 
 class VertexerTraitsGPU final : public VertexerTraits
 {
@@ -63,6 +57,6 @@ inline void VertexerTraitsGPU::adoptTimeFrame(TimeFrame<7>* tf) noexcept
   mTimeFrame = static_cast<TimeFrame<7>*>(tf);
 }
 
-} // namespace its
-} // namespace o2
+} // namespace o2::its
+
 #endif

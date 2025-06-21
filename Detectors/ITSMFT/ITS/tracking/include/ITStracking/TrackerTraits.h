@@ -80,8 +80,8 @@ class TrackerTraits
   void SetRecoChain(o2::gpu::GPUChainITS* chain) { mChain = chain; }
   void setSmoothing(bool v) { mApplySmoothing = v; }
   bool getSmoothing() const { return mApplySmoothing; }
-  void setNThreads(int n);
-  int getNThreads() const { return mNThreads; }
+  void setNThreads(int n, std::shared_ptr<tbb::task_arena>& arena);
+  int getNThreads() { return mTaskArena->max_concurrency(); }
 
   o2::gpu::GPUChainITS* getChain() const { return mChain; }
 
@@ -94,10 +94,9 @@ class TrackerTraits
   track::TrackParCov buildTrackSeed(const Cluster& cluster1, const Cluster& cluster2, const TrackingFrameInfo& tf3);
   bool fitTrack(TrackITSExt& track, int start, int end, int step, float chi2clcut = o2::constants::math::VeryBig, float chi2ndfcut = o2::constants::math::VeryBig, float maxQoverPt = o2::constants::math::VeryBig, int nCl = 0);
 
-  int mNThreads = 1;
   bool mApplySmoothing = false;
   std::shared_ptr<BoundedMemoryResource> mMemoryPool;
-  tbb::task_arena mTaskArena;
+  std::shared_ptr<tbb::task_arena> mTaskArena;
 
  protected:
   o2::base::PropagatorImpl<float>::MatCorrType mCorrType = o2::base::PropagatorImpl<float>::MatCorrType::USEMatCorrNONE;
@@ -113,9 +112,9 @@ template <int nLayers>
 inline const int4 TrackerTraits<nLayers>::getBinsRect(const int layerIndex, float phi, float maxdeltaphi, float z1, float z2, float maxdeltaz) const noexcept
 {
   const float zRangeMin = o2::gpu::GPUCommonMath::Min(z1, z2) - maxdeltaz;
-  const float phiRangeMin = (maxdeltaphi > constants::math::Pi) ? 0.f : phi - maxdeltaphi;
+  const float phiRangeMin = (maxdeltaphi > o2::constants::math::PI) ? 0.f : phi - maxdeltaphi;
   const float zRangeMax = o2::gpu::GPUCommonMath::Max(z1, z2) + maxdeltaz;
-  const float phiRangeMax = (maxdeltaphi > constants::math::Pi) ? constants::math::TwoPi : phi + maxdeltaphi;
+  const float phiRangeMax = (maxdeltaphi > o2::constants::math::PI) ? o2::constants::math::TwoPI : phi + maxdeltaphi;
 
   if (zRangeMax < -mTrkParams[0].LayerZ[layerIndex] ||
       zRangeMin > mTrkParams[0].LayerZ[layerIndex] || zRangeMin > zRangeMax) {

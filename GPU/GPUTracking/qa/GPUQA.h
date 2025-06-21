@@ -258,7 +258,7 @@ class GPUQA
   std::vector<additionalClusterParameters> mClusterParam;
   int32_t mNTotalFakes = 0;
 
-  TH1F* mEff[4][2][2][5]; // eff,clone,fake,all - findable - secondaries - y,z,phi,eta,pt - work,result
+  TH1F* mEff[5][2][2][5]; // eff,clone,fake,all,all-fake - findable - secondaries - y,z,phi,eta,pt - work,result
   TGraphAsymmErrors* mEffResult[4][2][2][5];
   TCanvas* mCEff[6];
   TPad* mPEff[6][4];

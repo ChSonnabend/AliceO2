@@ -165,7 +165,7 @@ static constexpr bool CLUST_HIST_INT_SUM = false;
 
 static constexpr const int32_t COLORCOUNT = 12;
 
-static const constexpr char* EFF_TYPES[4] = {"Rec", "Clone", "Fake", "All"};
+static const constexpr char* EFF_TYPES[5] = {"Rec", "Clone", "Fake", "All", "RecAndClone"};
 static const constexpr char* FINDABLE_NAMES[2] = {"", "Findable"};
 static const constexpr char* PRIM_NAMES[2] = {"Prim", "Sec"};
 static const constexpr char* PARAMETER_NAMES[5] = {"Y", "Z", "#Phi", "#lambda", "Relative #it{p}_{T}"};
@@ -439,7 +439,7 @@ int32_t GPUQA::InitQACreateHistograms()
   char name[2048], fname[1024];
   if (mQATasks & taskTrackingEff) {
     // Create Efficiency Histograms
-    for (int32_t i = 0; i < 4; i++) {
+    for (int32_t i = 0; i < 5; i++) {
       for (int32_t j = 0; j < 2; j++) {
         for (int32_t k = 0; k < 2; k++) {
           for (int32_t l = 0; l < 5; l++) {
@@ -454,7 +454,9 @@ int32_t GPUQA::InitQACreateHistograms()
               mEff[i][j][k][l]->Sumw2();
             }
             strcat(name, "_eff");
-            createHist(mEffResult[i][j][k][l], name);
+            if (i < 4) {
+              createHist(mEffResult[i][j][k][l], name);
+            }
           }
         }
       }
@@ -2122,15 +2124,18 @@ int32_t GPUQA::DrawQAHistograms(TObjArray* qcout)
                 gErrorIgnoreLevel = kError;
                 mEffResult[0][j / 2][j % 2][i]->Divide(mEff[l][j / 2][j % 2][i], mEff[3][j / 2][j % 2][i], "cl=0.683 b(1,1) mode");
                 gErrorIgnoreLevel = oldLevel;
-                mEff[3][j / 2][j % 2][i]->Reset(); // Sum up rec + clone + fake for clone/fake rate
+                mEff[3][j / 2][j % 2][i]->Reset(); // Sum up rec + clone + fake for fake rate
                 mEff[3][j / 2][j % 2][i]->Add(mEff[0][j / 2][j % 2][i]);
                 mEff[3][j / 2][j % 2][i]->Add(mEff[1][j / 2][j % 2][i]);
                 mEff[3][j / 2][j % 2][i]->Add(mEff[2][j / 2][j % 2][i]);
+                mEff[4][j / 2][j % 2][i]->Reset(); // Sum up rec + clone for clone rate
+                mEff[4][j / 2][j % 2][i]->Add(mEff[0][j / 2][j % 2][i]);
+                mEff[4][j / 2][j % 2][i]->Add(mEff[1][j / 2][j % 2][i]);
               } else {
                 // Divide fake/clone
                 auto oldLevel = gErrorIgnoreLevel;
                 gErrorIgnoreLevel = kError;
-                mEffResult[l][j / 2][j % 2][i]->Divide(mEff[l][j / 2][j % 2][i], mEff[3][j / 2][j % 2][i], "cl=0.683 b(1,1) mode");
+                mEffResult[l][j / 2][j % 2][i]->Divide(mEff[l][j / 2][j % 2][i], mEff[l == 1 ? 4 : 3][j / 2][j % 2][i], "cl=0.683 b(1,1) mode");
                 gErrorIgnoreLevel = oldLevel;
               }
             }
@@ -2143,6 +2148,7 @@ int32_t GPUQA::DrawQAHistograms(TObjArray* qcout)
                 e->Write();
                 if (l == 2) {
                   mEff[3][j / 2][j % 2][i]->Write(); // Store also all histogram!
+                  mEff[4][j / 2][j % 2][i]->Write(); // Store also all histogram!
                 }
               }
             } else if (GetHist(e, tin, k, nNewInput) == nullptr) {

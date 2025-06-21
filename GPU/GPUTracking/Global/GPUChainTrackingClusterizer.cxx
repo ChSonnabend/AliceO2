@@ -995,8 +995,10 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           int withMC = propagateMCLabels;
 
           if (clustererNNShadow.mNnClusterizerUseCfRegression || (int)(nn_settings.nnClusterizerApplyCfDeconvolution)) {
-            runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}});
+            runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}}, true);
             DoDebugAndDump(RecoStep::TPCClusterFinding, GPUChainTrackingDebugFlags::TPCClustererChargeMap, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
+          } else if (clustererNNShadow.mNnClusterizerSetDeconvolutionFlags) {
+            runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}}, false);
           }
 
           if(GetProcessingSettings().nn.setDeconvolutionFlags > 0 && !clustererNNShadow.mNnClusterizerUseCfRegression){
@@ -1144,7 +1146,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             dummy.digitWriter(clusterer,  "digits_stream_noise_supressed");
           }
 
-          runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}});
+          runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}}, true);
           DoDebugAndDump(RecoStep::TPCClusterFinding, GPUChainTrackingDebugFlags::TPCClustererChargeMap, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
 
           if(GetProcessingSettings().nn.nnClusterizerDumpDigits > 0) {

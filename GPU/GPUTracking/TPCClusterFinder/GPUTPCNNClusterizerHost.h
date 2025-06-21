@@ -20,8 +20,6 @@
 #include <vector>
 #include "ML/OrtInterface.h"
 
-using namespace o2::ml;
-
 class OrtMemoryInfo;
 class OrtAllocator;
 struct MockedOrtAllocator;

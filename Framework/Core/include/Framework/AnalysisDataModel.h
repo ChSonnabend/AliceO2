@@ -11,7 +11,7 @@
 #ifndef O2_FRAMEWORK_ANALYSISDATAMODEL_H_
 #define O2_FRAMEWORK_ANALYSISDATAMODEL_H_
 
-#include "Framework/ASoA.h"
+#include "Framework/ASoA.h" // IWYU pragma: export
 
 #include <cmath>
 #include <bitset>

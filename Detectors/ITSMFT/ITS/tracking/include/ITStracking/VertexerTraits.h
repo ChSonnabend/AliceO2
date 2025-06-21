@@ -17,6 +17,7 @@
 #define O2_ITS_TRACKING_VERTEXER_TRAITS_H_
 
 #include <array>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -41,8 +42,6 @@ class MCCompLabel;
 
 namespace its
 {
-class ROframe;
-using constants::its::LayersNumberVertexer;
 
 enum class TrackletMode {
   Layer0Layer1 = 0,
@@ -86,17 +85,17 @@ class VertexerTraits
                             bounded_vector<o2::MCCompLabel>*,
                             const int iteration = 0);
 
-  const bounded_vector<std::pair<int, int>> selectClusters(const int* indexTable,
-                                                           const std::array<int, 4>& selectedBinsRect,
-                                                           const IndexTableUtils& utils);
+  bounded_vector<std::pair<int, int>> selectClusters(const int* indexTable,
+                                                     const std::array<int, 4>& selectedBinsRect,
+                                                     const IndexTableUtils& utils);
 
   // utils
   auto& getVertexingParameters() { return mVrtParams; }
   auto getVertexingParameters() const { return mVrtParams; }
   void setVertexingParameters(std::vector<VertexingParameters>& vertParams) { mVrtParams = vertParams; }
   void dumpVertexerTraits();
-  void setNThreads(int n);
-  int getNThreads() const { return mNThreads; }
+  void setNThreads(int n, std::shared_ptr<tbb::task_arena>& arena);
+  int getNThreads() { return mTaskArena->max_concurrency(); }
   virtual bool isGPU() const noexcept { return false; }
   virtual const char* getName() const noexcept { return "CPU"; }
   virtual bool usesMemoryPool() const noexcept { return true; }
@@ -118,8 +117,6 @@ class VertexerTraits
   }
 
  protected:
-  int mNThreads = 1;
-
   std::vector<VertexingParameters> mVrtParams;
   IndexTableUtils mIndexTableUtils;
 
@@ -127,7 +124,7 @@ class VertexerTraits
   TimeFrame7* mTimeFrame = nullptr; // observer ptr
  private:
   std::shared_ptr<BoundedMemoryResource> mMemoryPool;
-  tbb::task_arena mTaskArena;
+  std::shared_ptr<tbb::task_arena> mTaskArena;
 };
 
 inline void VertexerTraits::initialise(const TrackingParameters& trackingParams, const int iteration)

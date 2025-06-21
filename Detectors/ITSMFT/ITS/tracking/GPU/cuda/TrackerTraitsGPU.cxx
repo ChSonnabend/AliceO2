@@ -18,6 +18,7 @@
 #include "ITStrackingGPU/TrackerTraitsGPU.h"
 #include "ITStrackingGPU/TrackingKernels.h"
 #include "ITStracking/TrackingConfigParam.h"
+
 namespace o2::its
 {
 constexpr int UnusedIndex{-1};
@@ -209,7 +210,8 @@ void TrackerTraitsGPU<nLayers>::findCellsNeighbours(const int iteration)
 
     filterCellNeighboursHandler(mTimeFrameGPU->getDeviceNeighbourPairs(iLayer),
                                 mTimeFrameGPU->getDeviceNeighbours(iLayer),
-                                nNeigh);
+                                nNeigh,
+                                mTimeFrameGPU->getExternalAllocator());
   }
   mTimeFrameGPU->createNeighboursDeviceArray();
   mTimeFrameGPU->unregisterRest();
@@ -236,6 +238,7 @@ void TrackerTraitsGPU<nLayers>::findRoads(const int iteration)
                                         mTimeFrameGPU->getDeviceNeighboursLUTs(),
                                         mTimeFrameGPU->getDeviceArrayTrackingFrameInfo(),
                                         trackSeeds,
+                                        mTimeFrameGPU->getExternalAllocator(),
                                         this->mBz,
                                         this->mTrkParams[0].MaxChi2ClusterAttachment,
                                         this->mTrkParams[0].MaxChi2NDF,

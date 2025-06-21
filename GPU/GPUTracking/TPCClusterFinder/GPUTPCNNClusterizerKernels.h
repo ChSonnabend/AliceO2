@@ -46,7 +46,6 @@ class GPUTPCNNClusterizerKernels : public GPUKernelTemplate
   static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_publishClass2Regression) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
   static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_publishClass2Regression) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
   static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_removeAllSplitFlags) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
-  static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_setDeconvolutionFlags) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
   static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_publishDeconvolutionFlags) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer));
   static constexpr size_t SCRATCH_PAD_WORK_GROUP_SIZE = GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer);
   struct GPUSharedMemory {
@@ -70,8 +69,7 @@ class GPUTPCNNClusterizerKernels : public GPUKernelTemplate
     publishClass1Regression = 5,
     publishClass2Regression = 6,
     removeAllSplitFlags = 7,
-    setDeconvolutionFlags = 8,
-    publishDeconvolutionFlags = 9
+    publishDeconvolutionFlags = 8
   };
 
   template <int32_t iKernel = defaultKernel, typename... Args>

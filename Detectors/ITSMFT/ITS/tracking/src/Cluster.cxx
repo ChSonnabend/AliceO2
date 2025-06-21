@@ -24,7 +24,6 @@ using namespace o2::its;
 
 using math_utils::computePhi;
 using math_utils::getNormalizedPhi;
-using math_utils::hypot;
 
 Cluster::Cluster(const float x, const float y, const float z, const int index)
   : xCoordinate{x},

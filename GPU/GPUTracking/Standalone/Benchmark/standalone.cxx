@@ -223,6 +223,14 @@ int32_t ReadConfiguration(int argc, char** argv)
     configStandalone.rec.tpc.nWaysOuter = 1;
     configStandalone.rec.tpc.trackReferenceX = 83;
     configStandalone.proc.outputSharedClusterMap = 1;
+    configStandalone.proc.clearO2OutputFromGPU = 1;
+    configStandalone.QA.clusterRejectionHistograms = 1;
+    configStandalone.proc.tpcIncreasedMinClustersPerRow = 500000;
+    configStandalone.proc.ignoreNonFatalGPUErrors = 1;
+    // TODO: rundEdx=1
+    // GPU_proc.qcRunFraction=$TPC_TRACKING_QC_RUN_FRACTION;"
+    // [[ $CTFINPUT == 1 ]] && GPU_CONFIG_KEY+="GPU_proc.tpcInputWithClusterRejection=1;"
+    // double pipeline / rtc
   }
 
   if (configStandalone.outputcontrolmem) {
@@ -893,7 +901,7 @@ int32_t main(int argc, char** argv)
       double pipelineWalltime = 1.;
       if (configStandalone.proc.doublePipeline) {
         HighResTimer timerPipeline;
-        if (RunBenchmark(rec, chainTracking, 1, iEvent, &nTracksTotal, &nClustersTotal) || RunBenchmark(recPipeline, chainTrackingPipeline, 2, iEvent, &nTracksTotal, &nClustersTotal)) {
+        if (configStandalone.proc.debugLevel < 2 && (RunBenchmark(rec, chainTracking, 1, iEvent, &nTracksTotal, &nClustersTotal) || RunBenchmark(recPipeline, chainTrackingPipeline, 2, iEvent, &nTracksTotal, &nClustersTotal))) {
           goto breakrun;
         }
         auto pipeline1 = std::async(std::launch::async, RunBenchmark, rec, chainTracking, configStandalone.runs, iEvent, &nTracksTotal, &nClustersTotal, 0, &timerPipeline);

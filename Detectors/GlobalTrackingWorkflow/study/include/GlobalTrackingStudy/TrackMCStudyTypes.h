@@ -32,7 +32,7 @@ struct MCTrackInfo {
   int getNITSClusForAB() const;
   int getLowestITSLayer() const;
   int getHighestITSLayer() const;
-
+  std::vector<float> occTPCV{};
   o2::track::TrackPar track{};
   o2::MCCompLabel label{};
   float occTPC = -1.f;
@@ -52,7 +52,24 @@ struct MCTrackInfo {
   uint8_t maxTPCRowSect = -1;
   int8_t nITSCl = 0;
   int8_t pattITSCl = 0;
-  ClassDefNV(MCTrackInfo, 4);
+  uint8_t flags = 0;
+
+  enum Flags : uint32_t { Primary = 0,
+                          AddedAtRecStage = 2,
+                          BitMask = 0xff };
+
+  bool isPrimary() const { return isBitSet(Primary); }
+  bool isAddedAtRecStage() const { return isBitSet(AddedAtRecStage); }
+  void setPrimary() { setBit(Primary); }
+  void setAddedAtRecStage() { setBit(AddedAtRecStage); }
+
+  uint8_t getBits() const { return flags; }
+  bool isBitSet(int bit) const { return flags & (0xff & (0x1 << bit)); }
+  void setBits(std::uint8_t b) { flags = b; }
+  void setBit(int bit) { flags |= BitMask & (0x1 << bit); }
+  void resetBit(int bit) { flags &= ~(BitMask & (0x1 << bit)); }
+
+  ClassDefNV(MCTrackInfo, 7);
 };
 
 struct RecTrack {
@@ -75,6 +92,7 @@ struct RecTrack {
   uint8_t nClTPC = 0;
   uint8_t pattITS = 0;
   int8_t lowestPadRow = -1;
+  int8_t padFromEdge = -1;
 
   bool isFakeGLO() const { return flags & FakeGLO; }
   bool isFakeITS() const { return flags & FakeITS; }
@@ -83,7 +101,7 @@ struct RecTrack {
   bool isFakeTOF() const { return flags & FakeTOF; }
   bool isFakeITSTPC() const { return flags & FakeITSTPC; }
 
-  ClassDefNV(RecTrack, 1);
+  ClassDefNV(RecTrack, 2);
 };
 
 struct TrackPairInfo {
@@ -270,7 +288,8 @@ struct MCVertex {
   int nTrackSel = 0; // number of selected MC charged tracks
   int ID = -1;
   std::vector<RecPV> recVtx{};
-  ClassDefNV(MCVertex, 1);
+  std::vector<float> occTPCV{};
+  ClassDefNV(MCVertex, 2);
 };
 
 } // namespace o2::trackstudy

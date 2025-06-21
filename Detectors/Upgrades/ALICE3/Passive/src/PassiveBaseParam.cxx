@@ -8,23 +8,6 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
-///
-/// \file ExternalAllocator.h
-/// \brief
-///
 
-#ifndef TRACKINGITSU_INCLUDE_EXTERNALALLOCATOR_H_
-#define TRACKINGITSU_INCLUDE_EXTERNALALLOCATOR_H_
-
-namespace o2::its
-{
-
-class ExternalAllocator
-{
- public:
-  virtual void* allocate(size_t) = 0;
-  virtual void deallocate(char*, size_t) = 0;
-};
-} // namespace o2::its
-
-#endif
+#include "Alice3DetectorsPassive/PassiveBaseParam.h"
+O2ParamImpl(o2::passive::Alice3PassiveBaseParam);

@@ -166,8 +166,8 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
   cfg.lumiScaleMode = sclOpt.lumiMode;
   cfg.enableMShape = sclOpt.enableMShapeCorrection;
   cfg.enableCTPLumi = sclOpt.requestCTPLumi;
-  cfg.decompressTPC = isEnabled(inputTypes, ioType::CompClustCTF);
   cfg.decompressTPCFromROOT = isEnabled(inputTypes, ioType::CompClustROOT);
+  cfg.decompressTPC = isEnabled(inputTypes, ioType::CompClustCTF) || cfg.decompressTPCFromROOT;
   cfg.zsDecoder = isEnabled(inputTypes, ioType::ZSRaw);
   cfg.zsOnTheFly = isEnabled(inputTypes, ioType::ZSRawOTF);
   cfg.caClusterer = cfg.zsDecoder || cfg.zsOnTheFly || isEnabled(inputTypes, ioType::Digits);
@@ -218,12 +218,6 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
       taskPrepare->outputs(),
       AlgorithmSpec{adoptTask<GPURecoWorkflowSpec>(taskPrepare)},
       taskPrepare->options()});
-  }
-
-  if (!cfgc.options().get<bool>("ignore-dist-stf")) {
-    GlobalTrackID::mask_t srcTrk = GlobalTrackID::getSourcesMask("none");
-    GlobalTrackID::mask_t srcCl = GlobalTrackID::getSourcesMask("TPC");
-    o2::globaltracking::InputHelper::addInputSpecs(cfgc, specs, srcCl, srcTrk, srcTrk, doMC);
   }
 
   // configure dpl timer to inject correct firstTForbit: start from the 1st orbit of TF containing 1st sampled orbit

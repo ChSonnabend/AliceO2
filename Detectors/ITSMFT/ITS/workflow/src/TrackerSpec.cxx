@@ -48,8 +48,7 @@ void TrackerDPL::init(InitContext& ic)
 
 void TrackerDPL::stop()
 {
-  mITSTrackingInterface.printSummary();
-  LOGF(info, "CPU Reconstruction total timing: Cpu: %.3e Real: %.3e s in %d slots", mTimer.CpuTime(), mTimer.RealTime(), mTimer.Counter() - 1);
+  end();
 }
 
 void TrackerDPL::run(ProcessingContext& pc)
@@ -70,6 +69,12 @@ void TrackerDPL::finaliseCCDB(ConcreteDataMatcher& matcher, void* obj)
 
 void TrackerDPL::endOfStream(EndOfStreamContext& ec)
 {
+  end();
+}
+
+void TrackerDPL::end()
+{
+  mITSTrackingInterface.end();
   mITSTrackingInterface.printSummary();
   LOGF(info, "ITS CA-Tracker total timing: Cpu: %.3e Real: %.3e s in %d slots", mTimer.CpuTime(), mTimer.RealTime(), mTimer.Counter() - 1);
 }

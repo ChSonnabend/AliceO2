@@ -91,13 +91,13 @@ void PressureTemperatureHelper::addOutput(std::vector<OutputSpec>& outputs, Outp
   }
 }
 
-float PressureTemperatureHelper::interpolate(const std::vector<uint64_t>& timestamps, const std::vector<float>& values, uint64_t timestamp) const
+float PressureTemperatureHelper::interpolate(const std::vector<ULong64_t>& timestamps, const std::vector<float>& values, ULong64_t timestamp) const
 {
   if (auto idxClosest = o2::math_utils::findClosestIndices(timestamps, timestamp)) {
     auto [idxLeft, idxRight] = *idxClosest;
     if (idxRight > idxLeft) {
-      const uint64_t x0 = timestamps[idxLeft];
-      const uint64_t x1 = timestamps[idxRight];
+      const auto x0 = timestamps[idxLeft];
+      const auto x1 = timestamps[idxRight];
       const float y0 = values[idxLeft];
       const float y1 = values[idxRight];
       const float y = (y0 * (x1 - timestamp) + y1 * (timestamp - x0)) / (x1 - x0);
@@ -109,7 +109,7 @@ float PressureTemperatureHelper::interpolate(const std::vector<uint64_t>& timest
   return 0; // this should never happen
 }
 
-void PressureTemperatureHelper::sendPTForTS(o2::framework::ProcessingContext& pc, const uint64_t timestamp) const
+void PressureTemperatureHelper::sendPTForTS(o2::framework::ProcessingContext& pc, const ULong64_t timestamp) const
 {
   const float pressure = getPressure(timestamp);
   const auto temp = getTemperature(timestamp);

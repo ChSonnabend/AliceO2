@@ -287,9 +287,9 @@ std::vector<O> OrtModel::inference(std::vector<I>& input)
   return outputValuesVec;
 }
 
-template std::vector<float> OrtModel::inference<float, float>(std::vector<float>&);
-template std::vector<float> OrtModel::inference<OrtDataType::Float16_t, float>(std::vector<OrtDataType::Float16_t>&);
-template std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(std::vector<OrtDataType::Float16_t>&);
+template std::vector<float> o2::ml::OrtModel::inference<float, float>(std::vector<float>&);
+template std::vector<float> o2::ml::OrtModel::inference<OrtDataType::Float16_t, float>(std::vector<OrtDataType::Float16_t>&);
+template std::vector<OrtDataType::Float16_t> o2::ml::OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(std::vector<OrtDataType::Float16_t>&);
 
 template std::vector<int8_t> OrtModel::inference<int8_t, int8_t>(std::vector<int8_t>&);
 

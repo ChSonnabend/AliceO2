@@ -49,7 +49,7 @@ class PressureTemperatureHelper
   static void setOutputs(std::vector<o2::framework::OutputSpec>& outputs);
 
   /// send temperature and pressure for given time stamp
-  void sendPTForTS(o2::framework::ProcessingContext& pc, const uint64_t timestamp) const;
+  void sendPTForTS(o2::framework::ProcessingContext& pc, const ULong64_t timestamp) const;
 
   /// set fit interval range for temperature in ms
   void setFitIntervalTemp(const int fitIntervalMS) { mFitIntervalMS = fitIntervalMS; }
@@ -58,13 +58,13 @@ class PressureTemperatureHelper
   /// \param timestamps time stamps of the data
   /// \param values data points
   /// \param timestamp time where to interpolate the values
-  float interpolate(const std::vector<uint64_t>& timestamps, const std::vector<float>& values, uint64_t timestamp) const;
+  float interpolate(const std::vector<ULong64_t>& timestamps, const std::vector<float>& values, ULong64_t timestamp) const;
 
   /// get pressure for given time stamp in ms
-  float getPressure(const uint64_t timestamp) const { return interpolate(mPressure.second, mPressure.first, timestamp); }
+  float getPressure(const ULong64_t timestamp) const { return interpolate(mPressure.second, mPressure.first, timestamp); }
 
   /// get temperature for given time stamp in ms
-  dataformats::Pair<float, float> getTemperature(const uint64_t timestamp) const { return dataformats::Pair<float, float>{interpolate(mTemperatureA.second, mTemperatureA.first, timestamp), interpolate(mTemperatureC.second, mTemperatureC.first, timestamp)}; }
+  dataformats::Pair<float, float> getTemperature(const ULong64_t timestamp) const { return dataformats::Pair<float, float>{interpolate(mTemperatureA.second, mTemperatureA.first, timestamp), interpolate(mTemperatureC.second, mTemperatureC.first, timestamp)}; }
 
   static constexpr o2::header::DataDescription getDataDescriptionPressure() { return o2::header::DataDescription{"pressure"}; }
   static constexpr o2::header::DataDescription getDataDescriptionTemperature() { return o2::header::DataDescription{"temperature"}; }
@@ -73,10 +73,10 @@ class PressureTemperatureHelper
   static void addInput(std::vector<o2::framework::InputSpec>& inputs, o2::framework::InputSpec&& isp);
   static void addOutput(std::vector<o2::framework::OutputSpec>& outputs, o2::framework::OutputSpec&& osp);
 
-  std::pair<std::vector<float>, std::vector<uint64_t>> mPressure;     ///< pressure values for both measurements
-  std::pair<std::vector<float>, std::vector<uint64_t>> mTemperatureA; ///< temperature values A-side
-  std::pair<std::vector<float>, std::vector<uint64_t>> mTemperatureC; ///< temperature values C-side
-  int mFitIntervalMS{5 * 60 * 1000};                                  ///< fit interval for the temperature
+  std::pair<std::vector<float>, std::vector<ULong64_t>> mPressure;     ///< pressure values for both measurements
+  std::pair<std::vector<float>, std::vector<ULong64_t>> mTemperatureA; ///< temperature values A-side
+  std::pair<std::vector<float>, std::vector<ULong64_t>> mTemperatureC; ///< temperature values C-side
+  int mFitIntervalMS{5 * 60 * 1000};                                   ///< fit interval for the temperature
 
   ClassDefNV(PressureTemperatureHelper, 1);
 };

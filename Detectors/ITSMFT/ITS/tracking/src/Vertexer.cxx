@@ -125,7 +125,6 @@ void Vertexer::printEpilog(LogFunc& logger,
                            const unsigned selectedN, const unsigned int vertexN, const float initT,
                            const float trackletT, const float selecT, const float vertexT)
 {
-  float total = initT + trackletT + selecT + vertexT;
   logger(fmt::format(" - {} Vertexer: found {} | {} tracklets in: {} ms", mTraits->getName(), trackletN01, trackletN12, trackletT));
   logger(fmt::format(" - {} Vertexer: selected {} tracklets in: {} ms", mTraits->getName(), selectedN, selecT));
   logger(fmt::format(" - {} Vertexer: found {} vertices in: {} ms", mTraits->getName(), vertexN, vertexT));

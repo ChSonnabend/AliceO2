@@ -57,14 +57,18 @@ std::string TrackingParameters::asString() const
   for (size_t i = 0; i < SystErrorY2.size(); i++) {
     str += std::format("{:.2e}/{:.2e} ", SystErrorY2[i], SystErrorZ2[i]);
   }
-  str += std::format(" MemLimit {:.2f} GB", double(MaxMemory) / constants::GB);
+  if (std::numeric_limits<size_t>::max() != MaxMemory) {
+    str += std::format(" MemLimit {:.2f} GB", double(MaxMemory) / constants::GB);
+  }
   return str;
 }
 
 std::string VertexingParameters::asString() const
 {
   std::string str = std::format("NZb:{} NPhB:{} DRof:{} ClsCont:{} MaxTrkltCls:{} ZCut:{} PhCut:{}", ZBins, PhiBins, deltaRof, clusterContributorsCut, maxTrackletsPerCluster, zCut, phiCut);
-  str += std::format(" MemLimit {:.2f} GB", double(MaxMemory) / constants::GB);
+  if (std::numeric_limits<size_t>::max() != MaxMemory) {
+    str += std::format(" MemLimit {:.2f} GB", double(MaxMemory) / constants::GB);
+  }
   return str;
 }
 

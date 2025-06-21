@@ -21,6 +21,9 @@
 #include <iomanip>
 #include <array>
 #include <iosfwd>
+#include <memory>
+
+#include <oneapi/tbb/task_arena.h>
 
 #include "ITStracking/ROframe.h"
 #include "ITStracking/Constants.h"
@@ -90,6 +93,8 @@ class Vertexer
                    const unsigned selectedN, const unsigned int vertexN, const float initT,
                    const float trackletT, const float selecT, const float vertexT);
 
+  void setNThreads(int n, std::shared_ptr<tbb::task_arena>& arena) { mTraits->setNThreads(n, arena); }
+
  private:
   std::uint32_t mTimeFrameCounter = 0;
 
@@ -106,7 +111,7 @@ class Vertexer
     Finding,
     NStates,
   };
-  State mCurState;
+  State mCurState{Init};
   static constexpr std::array<const char*, NStates> StateNames{"Initialisation", "Tracklet finding", "Tracklet validation", "Vertex finding"};
 };
 

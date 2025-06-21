@@ -63,6 +63,7 @@ framework::WorkflowSpec getWorkflow(bool useMC,
         cfg.runITSTracking = true;
         cfg.itsTriggerType = useTrig;
         cfg.itsOverrBeamEst = overrideBeamPosition;
+        cfg.processMC = useMC;
 
         Inputs ggInputs;
         auto ggRequest = std::make_shared<o2::base::GRPGeomRequest>(false, true, false, true, true,

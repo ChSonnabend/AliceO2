@@ -30,7 +30,7 @@ class GPUFrameworkExternalAllocator final : public o2::its::ExternalAllocator
   {
     return mFWReco->AllocateDirectMemory(size, GPUMemoryResource::MEMORY_GPU);
   }
-
+  void deallocate(char* ptr, size_t) override {}
   void setReconstructionFramework(o2::gpu::GPUReconstruction* fwr) { mFWReco = fwr; }
 
  private:

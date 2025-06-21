@@ -20,10 +20,7 @@ namespace o2
 {
 namespace its
 {
-using constants::its::VertexerHistogramVolume;
-using constants::math::TwoPi;
 using math_utils::getNormalizedPhi;
-using namespace constants::its2;
 
 namespace gpu
 {
@@ -58,11 +55,6 @@ void trackletFinderHandler(const Cluster* clustersNextLayer,    // 0 2
     maxTrackletsPerCluster); // const unsigned int maxTrackletsPerCluster = 1e2
 }
 /*
-GPUd() float smallestAngleDifference(float a, float b)
-{
-  float diff = fmod(b - a + constants::math::Pi, constants::math::TwoPi) - constants::math::Pi;
-  return (diff < -constants::math::Pi) ? diff + constants::math::TwoPi : ((diff > constants::math::Pi) ? diff - constants::math::TwoPi : diff);
-}
 
 GPUd() const int4 getBinsRect(const Cluster& currentCluster, const int layerIndex,
                               const float z1, float maxdeltaz, float maxdeltaphi)

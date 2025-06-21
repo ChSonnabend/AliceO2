@@ -41,10 +41,6 @@ struct GPUTPCGMMergedTrackHit {
 struct GPUTPCGMMergedTrackHitXYZ {
   float x, y, z;
   uint16_t amp;
-#ifdef GPUCA_TPC_RAW_PROPAGATE_PAD_ROW_TIME
-  float pad;
-  float time;
-#endif
 };
 
 } // namespace o2::gpu

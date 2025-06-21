@@ -28,14 +28,13 @@
 #include "ITStracking/Constants.h"
 #include "ITStracking/IndexTableUtils.h"
 #include "ITStracking/MathUtils.h"
+#include "ITStracking/ExternalAllocator.h"
 #include "DataFormatsITS/TrackITS.h"
 #include "ReconstructionDataFormats/Vertex.h"
 
 #include "ITStrackingGPU/TrackerTraitsGPU.h"
 #include "ITStrackingGPU/TrackingKernels.h"
 #include "ITStrackingGPU/Utils.h"
-
-#include "GPUCommonHelpers.h"
 
 #ifndef __HIPCC__
 #define THRUST_NAMESPACE thrust::cuda
@@ -53,25 +52,50 @@ using namespace o2::track;
 
 namespace o2::its
 {
-using namespace constants::its2;
 using Vertex = o2::dataformats::Vertex<o2::dataformats::TimeStamp<int>>;
-
-GPUdii() float Sq(float v)
-{
-  return v * v;
-}
 
 namespace gpu
 {
+
+template <typename T>
+class TypedAllocator : public thrust::device_allocator<T>
+{
+ public:
+  using value_type = T;
+  using pointer = T*;
+
+  template <typename U>
+  struct rebind {
+    using other = TypedAllocator<U>;
+  };
+
+  explicit TypedAllocator(ExternalAllocator* allocPtr)
+    : mInternalAllocator(allocPtr) {}
+
+  T* allocate(size_t n)
+  {
+    return reinterpret_cast<T*>(mInternalAllocator->allocate(n * sizeof(T)));
+  }
+
+  void deallocate(T* p, size_t n)
+  {
+    char* raw_ptr = reinterpret_cast<char*>(p);
+    size_t bytes = n * sizeof(T);
+    mInternalAllocator->deallocate(raw_ptr, bytes); // redundant as internal dealloc is no-op.
+  }
+
+ private:
+  ExternalAllocator* mInternalAllocator;
+};
 
 GPUd() const int4 getBinsRect(const Cluster& currentCluster, const int layerIndex,
                               const o2::its::IndexTableUtils& utils,
                               const float z1, const float z2, float maxdeltaz, float maxdeltaphi)
 {
   const float zRangeMin = o2::gpu::CAMath::Min(z1, z2) - maxdeltaz;
-  const float phiRangeMin = (maxdeltaphi > constants::math::Pi) ? 0.f : currentCluster.phi - maxdeltaphi;
+  const float phiRangeMin = (maxdeltaphi > o2::constants::math::PI) ? 0.f : currentCluster.phi - maxdeltaphi;
   const float zRangeMax = o2::gpu::CAMath::Max(z1, z2) + maxdeltaz;
-  const float phiRangeMax = (maxdeltaphi > constants::math::Pi) ? constants::math::TwoPi : currentCluster.phi + maxdeltaphi;
+  const float phiRangeMax = (maxdeltaphi > o2::constants::math::PI) ? o2::constants::math::TwoPI : currentCluster.phi + maxdeltaphi;
 
   if (zRangeMax < -utils.getLayerZ(layerIndex) ||
       zRangeMin > utils.getLayerZ(layerIndex) || zRangeMin > zRangeMax) {
@@ -99,7 +123,7 @@ GPUd() bool fitTrack(TrackITSExt& track,
                      o2::base::PropagatorF::MatCorrType matCorrType)
 {
   for (int iLayer{start}; iLayer != end; iLayer += step) {
-    if (track.getClusterIndex(iLayer) == constants::its::UnusedIndex) {
+    if (track.getClusterIndex(iLayer) == constants::UnusedIndex) {
       continue;
     }
     const TrackingFrameInfo& trackingHit = tfInfos[iLayer][track.getClusterIndex(iLayer)];
@@ -286,7 +310,7 @@ GPUg() void fitTrackSeedsKernel(
     temporaryTrack.setChi2(0);
     int* clusters = seed.getClusters();
     for (int iL{0}; iL < 7; ++iL) {
-      temporaryTrack.setExternalClusterIndex(iL, clusters[iL], clusters[iL] != constants::its::UnusedIndex);
+      temporaryTrack.setExternalClusterIndex(iL, clusters[iL], clusters[iL] != constants::UnusedIndex);
     }
     bool fitSuccess = fitTrack(temporaryTrack,               // TrackITSExt& track,
                                0,                            // int lastLayer,
@@ -392,8 +416,6 @@ GPUg() void computeLayerCellsKernel(
   const float cellDeltaTanLambdaSigma,
   const float nSigmaCut)
 {
-  constexpr float radl = 9.36f;                                                           // Radiation length of Si [cm].
-  constexpr float rho = 2.33f;                                                            // Density of Si [g/cm^3].
   constexpr float layerxX0[7] = {5.e-3f, 5.e-3f, 5.e-3f, 1.e-2f, 1.e-2f, 1.e-2f, 1.e-2f}; // Hardcoded here for the moment.
   for (int iCurrentTrackletIndex = blockIdx.x * blockDim.x + threadIdx.x; iCurrentTrackletIndex < nTrackletsCurrent; iCurrentTrackletIndex += blockDim.x * gridDim.x) {
     const Tracklet& currentTracklet = tracklets[layer][iCurrentTrackletIndex];
@@ -432,7 +454,7 @@ GPUg() void computeLayerCellsKernel(
             break;
           }
 
-          if (!track.correctForMaterial(layerxX0[layer + iC], layerxX0[layer] * radl * rho, true)) {
+          if (!track.correctForMaterial(layerxX0[layer + iC], layerxX0[layer] * constants::Radl * constants::Rho, true)) {
             break;
           }
 
@@ -518,12 +540,12 @@ GPUg() void computeLayerTrackletsMultiROFKernel(
         if (primaryVertex.isFlagSet(2) && iteration != 3) {
           continue;
         }
-        const float resolution = o2::gpu::CAMath::Sqrt(Sq(resolutionPV) / primaryVertex.getNContributors() + Sq(positionResolution));
+        const float resolution = o2::gpu::CAMath::Sqrt(math_utils::Sq(resolutionPV) / primaryVertex.getNContributors() + math_utils::Sq(positionResolution));
         const float tanLambda{(currentCluster.zCoordinate - primaryVertex.getZ()) * inverseR0};
         const float zAtRmin{tanLambda * (minR - currentCluster.radius) + currentCluster.zCoordinate};
         const float zAtRmax{tanLambda * (maxR - currentCluster.radius) + currentCluster.zCoordinate};
-        const float sqInverseDeltaZ0{1.f / (Sq(currentCluster.zCoordinate - primaryVertex.getZ()) + 2.e-8f)}; /// protecting from overflows adding the detector resolution
-        const float sigmaZ{o2::gpu::CAMath::Sqrt(Sq(resolution) * Sq(tanLambda) * ((Sq(inverseR0) + sqInverseDeltaZ0) * Sq(meanDeltaR) + 1.f) + Sq(meanDeltaR * MSAngle))};
+        const float sqInverseDeltaZ0{1.f / (math_utils::Sq(currentCluster.zCoordinate - primaryVertex.getZ()) + 2.e-8f)}; /// protecting from overflows adding the detector resolution
+        const float sigmaZ{o2::gpu::CAMath::Sqrt(math_utils::Sq(resolution) * math_utils::Sq(tanLambda) * ((math_utils::Sq(inverseR0) + sqInverseDeltaZ0) * math_utils::Sq(meanDeltaR) + 1.f) + math_utils::Sq(meanDeltaR * MSAngle))};
         const int4 selectedBinsRect{getBinsRect(currentCluster, layerIndex + 1, *utils, zAtRmin, zAtRmax, sigmaZ * NSigmaCut, phiCut)};
         if (selectedBinsRect.x == 0 && selectedBinsRect.y == 0 && selectedBinsRect.z == 0 && selectedBinsRect.w == 0) {
           continue;
@@ -557,7 +579,7 @@ GPUg() void computeLayerTrackletsMultiROFKernel(
               const float deltaPhi{o2::gpu::CAMath::Abs(currentCluster.phi - nextCluster.phi)};
               const float deltaZ{o2::gpu::CAMath::Abs(tanLambda * (nextCluster.radius - currentCluster.radius) + currentCluster.zCoordinate - nextCluster.zCoordinate)};
               const int nextSortedIndex{ROFClusters[layerIndex + 1][rof1] + nextClusterIndex};
-              if (deltaZ / sigmaZ < NSigmaCut && (deltaPhi < phiCut || o2::gpu::CAMath::Abs(deltaPhi - constants::math::TwoPi) < phiCut)) {
+              if (deltaZ / sigmaZ < NSigmaCut && (deltaPhi < phiCut || o2::gpu::CAMath::Abs(deltaPhi - o2::constants::math::TwoPI) < phiCut)) {
                 if constexpr (initRun) {
                   trackletsLUT[layerIndex][currentSortedIndex]++; // we need l0 as well for usual exclusive sums.
                 } else {
@@ -604,8 +626,6 @@ GPUg() void processNeighboursKernel(const int layer,
                                     const o2::base::Propagator* propagator,
                                     const o2::base::PropagatorF::MatCorrType matCorrType)
 {
-  constexpr float radl = 9.36f;                                                           // Radiation length of Si [cm].
-  constexpr float rho = 2.33f;                                                            // Density of Si [g/cm^3].
   constexpr float layerxX0[7] = {5.e-3f, 5.e-3f, 5.e-3f, 1.e-2f, 1.e-2f, 1.e-2f, 1.e-2f}; // Hardcoded here for the moment.
   for (unsigned int iCurrentCell = blockIdx.x * blockDim.x + threadIdx.x; iCurrentCell < nCurrentCells; iCurrentCell += blockDim.x * gridDim.x) {
     int foundSeeds{0};
@@ -648,7 +668,7 @@ GPUg() void processNeighboursKernel(const int layer,
       }
 
       if (matCorrType == o2::base::PropagatorF::MatCorrType::USEMatCorrNONE) {
-        if (!seed.correctForMaterial(layerxX0[layer - 1], layerxX0[layer - 1] * radl * rho, true)) {
+        if (!seed.correctForMaterial(layerxX0[layer - 1], layerxX0[layer - 1] * constants::Radl * constants::Rho, true)) {
           continue;
         }
       }
@@ -1117,7 +1137,8 @@ void computeCellNeighboursHandler(CellSeed** cellsLayersDevice,
 
 int filterCellNeighboursHandler(gpuPair<int, int>* cellNeighbourPairs,
                                 int* cellNeighbours,
-                                unsigned int nNeigh)
+                                unsigned int nNeigh,
+                                o2::its::ExternalAllocator* allocator)
 {
   thrust::device_ptr<gpuPair<int, int>> neighVectorPairs(cellNeighbourPairs);
   thrust::device_ptr<int> validNeighs(cellNeighbours);
@@ -1140,6 +1161,7 @@ void processNeighboursHandler(const int startLayer,
                               gsl::span<int*> neighboursDeviceLUTs,
                               const TrackingFrameInfo** foundTrackingFrameInfo,
                               bounded_vector<CellSeed>& seedsHost,
+                              o2::its::ExternalAllocator* allocator,
                               const float bz,
                               const float maxChi2ClusterAttachment,
                               const float maxChi2NDF,
@@ -1148,8 +1170,10 @@ void processNeighboursHandler(const int startLayer,
                               const int nBlocks,
                               const int nThreads)
 {
-  thrust::device_vector<int> foundSeedsTable(nCells[startLayer] + 1); // Shortcut: device_vector skips central memory management, we are relying on the contingency.
-                                                                      // TODO: fix this.
+  auto allocInt = gpu::TypedAllocator<int>(allocator);
+  auto allocCellSeed = gpu::TypedAllocator<CellSeed>(allocator);
+  thrust::device_vector<int, gpu::TypedAllocator<int>> foundSeedsTable(nCells[startLayer] + 1, 0, allocInt); // Shortcut: device_vector skips central memory management, we are relying on the contingency.
+                                                                                                             // TODO: fix this.
 
   gpu::processNeighboursKernel<true><<<o2::gpu::CAMath::Min(nBlocks, GPU_BLOCKS),
                                        o2::gpu::CAMath::Min(nThreads, GPU_THREADS)>>>(
@@ -1172,8 +1196,8 @@ void processNeighboursHandler(const int startLayer,
     matCorrType);
   gpu::cubExclusiveScanInPlace(foundSeedsTable, nCells[startLayer] + 1);
 
-  thrust::device_vector<int> updatedCellId(foundSeedsTable.back());
-  thrust::device_vector<CellSeed> updatedCellSeed(foundSeedsTable.back());
+  thrust::device_vector<int, gpu::TypedAllocator<int>> updatedCellId(foundSeedsTable.back(), 0, allocInt);
+  thrust::device_vector<CellSeed, gpu::TypedAllocator<CellSeed>> updatedCellSeed(foundSeedsTable.back(), allocCellSeed);
   gpu::processNeighboursKernel<false><<<o2::gpu::CAMath::Min(nBlocks, GPU_BLOCKS),
                                         o2::gpu::CAMath::Min(nThreads, GPU_THREADS)>>>(
     startLayer,
@@ -1195,13 +1219,13 @@ void processNeighboursHandler(const int startLayer,
     matCorrType);
 
   int level = startLevel;
-  thrust::device_vector<int> lastCellId;
-  thrust::device_vector<CellSeed> lastCellSeed;
+  thrust::device_vector<int, gpu::TypedAllocator<int>> lastCellId(allocInt);
+  thrust::device_vector<CellSeed, gpu::TypedAllocator<CellSeed>> lastCellSeed(allocCellSeed);
   for (int iLayer{startLayer - 1}; iLayer > 0 && level > 2; --iLayer) {
     lastCellSeed.swap(updatedCellSeed);
     lastCellId.swap(updatedCellId);
-    thrust::device_vector<CellSeed>().swap(updatedCellSeed);
-    thrust::device_vector<int>().swap(updatedCellId);
+    thrust::device_vector<CellSeed, gpu::TypedAllocator<CellSeed>>(allocCellSeed).swap(updatedCellSeed);
+    thrust::device_vector<int, gpu::TypedAllocator<int>>(allocInt).swap(updatedCellId);
     auto lastCellSeedSize{lastCellSeed.size()};
     foundSeedsTable.resize(lastCellSeedSize + 1);
     thrust::fill(foundSeedsTable.begin(), foundSeedsTable.end(), 0);
@@ -1253,8 +1277,7 @@ void processNeighboursHandler(const int startLayer,
       propagator,
       matCorrType);
   }
-
-  thrust::device_vector<CellSeed> outSeeds(updatedCellSeed.size());
+  thrust::device_vector<CellSeed, gpu::TypedAllocator<CellSeed>> outSeeds(updatedCellSeed.size(), allocCellSeed);
   auto end = thrust::copy_if(updatedCellSeed.begin(), updatedCellSeed.end(), outSeeds.begin(), gpu::seed_selector(1.e3, maxChi2NDF * ((startLevel + 2) * 2 - 5)));
   auto s{end - outSeeds.begin()};
   seedsHost.reserve(seedsHost.size() + s);
@@ -1367,6 +1390,7 @@ template void processNeighboursHandler<7>(const int startLayer,
                                           gsl::span<int*> neighboursDeviceLUTs,
                                           const TrackingFrameInfo** foundTrackingFrameInfo,
                                           bounded_vector<CellSeed>& seedsHost,
+                                          o2::its::ExternalAllocator*,
                                           const float bz,
                                           const float maxChi2ClusterAttachment,
                                           const float maxChi2NDF,

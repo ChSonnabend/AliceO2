@@ -39,7 +39,7 @@
 
 // we need a global variable to propagate the type the message dispatching of the
 // publisher will trigger on. This is dependent on the input type
-static o2::framework::Output gDispatchTrigger{"", ""};
+static o2::framework::ConcreteDataTypeMatcher gDispatchTrigger{"", ""};
 
 // Global variable used to transport data to the completion policy
 static o2::tpc::reco_workflow::CompletionPolicyData gPolicyData;
@@ -152,13 +152,13 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
     // nothing to do we leave the matcher empty which will suppress the dispatch
     // trigger and all messages will be sent out together at end of computation
   } else if (inputType == "digits") {
-    gDispatchTrigger = o2::framework::Output{"TPC", "DIGITS"};
+    gDispatchTrigger = o2::framework::ConcreteDataTypeMatcher{"TPC", "DIGITS"};
   } else if (inputType == "clustershw") {
-    gDispatchTrigger = o2::framework::Output{"TPC", "CLUSTERHW"};
+    gDispatchTrigger = o2::framework::ConcreteDataTypeMatcher{"TPC", "CLUSTERHW"};
   } else if (inputType == "clustersnative") {
-    gDispatchTrigger = o2::framework::Output{"TPC", "CLUSTERNATIVE"};
+    gDispatchTrigger = o2::framework::ConcreteDataTypeMatcher{"TPC", "CLUSTERNATIVE"};
   } else if (inputType == "zsraw") {
-    gDispatchTrigger = o2::framework::Output{"TPC", "RAWDATA"};
+    gDispatchTrigger = o2::framework::ConcreteDataTypeMatcher{"TPC", "RAWDATA"};
   }
   // set up configuration
   o2::conf::ConfigurableParam::updateFromFile(cfgc.options().get<std::string>("configFile"));

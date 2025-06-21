@@ -57,7 +57,7 @@ class PressureTemperatureDevice : public o2::framework::Task
     mPTHelper.extractCCDBInputs(pc);
     const auto orbitResetTimeMS = o2::base::GRPGeomHelper::instance().getOrbitResetTimeMS();
     const auto firstTFOrbit = pc.services().get<o2::framework::TimingInfo>().firstTForbit;
-    const uint64_t timestamp = orbitResetTimeMS + firstTFOrbit * o2::constants::lhc::LHCOrbitMUS * 0.001;
+    const ULong64_t timestamp = orbitResetTimeMS + firstTFOrbit * o2::constants::lhc::LHCOrbitMUS * 0.001;
     mPTHelper.sendPTForTS(pc, timestamp);
 
     if (mStreamer) {

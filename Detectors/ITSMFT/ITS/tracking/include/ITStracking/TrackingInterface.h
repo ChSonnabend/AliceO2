@@ -28,6 +28,8 @@
 #include "GPUO2Interface.h"
 #include "GPUChainITS.h"
 
+#include <oneapi/tbb/task_arena.h>
+
 namespace o2::its
 {
 class ITSTrackingInterface
@@ -59,6 +61,7 @@ class ITSTrackingInterface
   void initialise();
   void run(framework::ProcessingContext& pc);
   void printSummary() const;
+  void end();
 
   virtual void updateTimeDependentParams(framework::ProcessingContext& pc);
   virtual void finaliseCCDB(framework::ConcreteDataMatcher& matcher, void* obj);
@@ -97,6 +100,7 @@ class ITSTrackingInterface
   std::unique_ptr<Vertexer> mVertexer = nullptr;
   const o2::dataformats::MeanVertexObject* mMeanVertex;
   std::shared_ptr<BoundedMemoryResource> mMemoryPool;
+  std::shared_ptr<tbb::task_arena> mTaskArena;
 };
 
 } // namespace o2::its
