@@ -999,10 +999,6 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             DoDebugAndDump(RecoStep::TPCClusterFinding, GPUChainTrackingDebugFlags::TPCClustererChargeMap, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
           } else if (clustererNNShadow.mNnClusterizerSetDeconvolutionFlags) {
             runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}}, false);
-          }
-
-          if(GetProcessingSettings().nn.setDeconvolutionFlags > 0 && !clustererNNShadow.mNnClusterizerUseCfRegression){
-            runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::setDeconvolutionFlags>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, 0); // Setting the deconvolution flags but leaving digit charge untouched
             clustererNNShadow.mNnClusterFlagsAreSet = true;
           }
 

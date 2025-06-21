@@ -248,12 +248,6 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
       mean += static_cast<float>(chargeMap[tmp_pos].unpack()) * dd;
       sigma += static_cast<float>(chargeMap[tmp_pos].unpack()) * dd * dd;
       acc_charge += static_cast<float>(chargeMap[tmp_pos].unpack());
-      if (!clustererNN.mNnClusterizerSetDeconvolutionFlags) { // Only if deconvolution flags are not set
-        clustererNN.mClusterFlags[2 * base_idx] += CfUtils::isPeak(isPeakMap[tmp_pos]);
-      }
-    }
-    if (!clustererNN.mNnClusterizerSetDeconvolutionFlags) { // Only if deconvolution flags are not set
-      clustererNN.mClusterFlags[2 * base_idx + 1] = clustererNN.mClusterFlags[2 * base_idx];
     }
     mean /= acc_charge;
     sigma = CAMath::Sqrt(sigma / acc_charge - mean * mean);
