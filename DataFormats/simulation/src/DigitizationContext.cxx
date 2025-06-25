@@ -452,18 +452,18 @@ std::vector<std::tuple<int, int, int>> getTimeFrameBoundaries(std::vector<o2::In
       // in this range search the smallest index which precedes
       // timeframe ti by not more than "orbitsEarly" orbits
       // (could probably use binary search, in case optimization becomes necessary)
-      int earlyOrbitIndex = prev_tf_range.second;
+      int earlyOrbitIndex = -1; // init to start of this timeframe ... there may not be early orbits
 
       // this is the orbit of the ti-th timeframe start
       auto orbit_timeframe_start = startOrbit + ti * orbitsPerTF;
 
-      auto orbit_timeframe_early_fractional = orbit_timeframe_start - orbitsEarly;
-      auto orbit_timeframe_early_integral = (uint32_t)(orbit_timeframe_early_fractional);
+      auto orbit_timeframe_early_fractional = 1. * orbit_timeframe_start - orbitsEarly;
+      auto orbit_timeframe_early_integral = static_cast<long>(std::floor(orbit_timeframe_early_fractional));
 
       auto bc_early = (uint32_t)((orbit_timeframe_early_fractional - orbit_timeframe_early_integral) * o2::constants::lhc::LHCMaxBunches);
 
       // this is the interaction record of the ti-th timeframe start
-      o2::InteractionRecord timeframe_start_record(0, orbit_timeframe_early_integral);
+      o2::InteractionRecord timeframe_start_record(0, orbit_timeframe_start);
       // this is the interaction record in some previous timeframe after which interactions could still
       // influence the ti-th timeframe according to orbitsEarly
       o2::InteractionRecord timeframe_early_record(bc_early, orbit_timeframe_early_integral);

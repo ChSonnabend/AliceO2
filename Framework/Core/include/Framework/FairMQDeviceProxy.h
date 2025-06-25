@@ -41,6 +41,8 @@ class FairMQDeviceProxy
             std::vector<ForwardRoute> const& forwards, fair::mq::Device& device);
 
   /// Retrieve the transport associated to a given route.
+  [[nodiscard]] OutputRoute const& getOutputRoute(RouteIndex routeIndex) const { return mOutputs.at(routeIndex.value); }
+  /// Retrieve the transport associated to a given route.
   [[nodiscard]] fair::mq::TransportFactory* getOutputTransport(RouteIndex routeIndex) const;
   /// Retrieve the transport associated to a given route.
   [[nodiscard]] fair::mq::TransportFactory* getInputTransport(RouteIndex routeIndex) const;

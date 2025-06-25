@@ -9,6 +9,7 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 #include "Framework/CompilerBuiltins.h"
+#include "Framework/Lifetime.h"
 #include "Framework/TableBuilder.h"
 #include "Framework/TableTreeHelpers.h"
 #include "Framework/DataAllocator.h"
@@ -121,8 +122,12 @@ fair::mq::MessagePtr DataAllocator::headerMessageFromOutput(Output const& spec, 
   dh.runNumber = timingInfo.runNumber;
 
   DataProcessingHeader dph{timingInfo.timeslice, 1, timingInfo.creation};
-  static_cast<o2::header::BaseHeader&>(dph).flagsDerivedHeader |= timingInfo.keepAtEndOfStream ? DataProcessingHeader::KEEP_AT_EOS_FLAG : 0;
   auto& proxy = mRegistry.get<FairMQDeviceProxy>();
+  auto lifetime = proxy.getOutputRoute(routeIndex).matcher.lifetime;
+  static_cast<o2::header::BaseHeader&>(dph).flagsDerivedHeader |= timingInfo.keepAtEndOfStream ? DataProcessingHeader::KEEP_AT_EOS_FLAG : 0;
+  // Messages associated to sporatic output we always keep, since they are most likely histograms / condition
+  // objects which need to be kept at the end of stream.
+  static_cast<o2::header::BaseHeader&>(dph).flagsDerivedHeader |= (lifetime == Lifetime::Sporadic) ? DataProcessingHeader::KEEP_AT_EOS_FLAG : 0;
   auto* transport = proxy.getOutputTransport(routeIndex);
 
   auto channelAlloc = o2::pmr::getTransportAllocator(transport);

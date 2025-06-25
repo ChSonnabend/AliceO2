@@ -136,18 +136,7 @@ int TimeFrame<nLayers>::loadROFrameData(gsl::span<o2::itsmft::ROFRecord> rofs,
                                         const itsmft::TopologyDictionary* dict,
                                         const dataformats::MCTruthContainer<MCCompLabel>* mcLabels)
 {
-  for (int iLayer{0}; iLayer < nLayers; ++iLayer) {
-    deepVectorClear(mUnsortedClusters[iLayer], mMemoryPool.get());
-    deepVectorClear(mTrackingFrameInfo[iLayer], mMemoryPool.get());
-    deepVectorClear(mClusterExternalIndices[iLayer], mMemoryPool.get());
-    clearResizeBoundedVector(mROFramesClusters[iLayer], 1, mMemoryPool.get(), 0);
-
-    if (iLayer < 2) {
-      deepVectorClear(mTrackletsIndexROF[iLayer], mMemoryPool.get());
-      deepVectorClear(mNTrackletsPerCluster[iLayer], mMemoryPool.get());
-      deepVectorClear(mNTrackletsPerClusterSum[iLayer], mMemoryPool.get());
-    }
-  }
+  resetROFrameData();
 
   GeometryTGeo* geom = GeometryTGeo::Instance();
   geom->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::L2G));
@@ -211,6 +200,23 @@ int TimeFrame<nLayers>::loadROFrameData(gsl::span<o2::itsmft::ROFRecord> rofs,
   }
 
   return mNrof;
+}
+
+template <int nLayers>
+void TimeFrame<nLayers>::resetROFrameData()
+{
+  for (int iLayer{0}; iLayer < nLayers; ++iLayer) {
+    deepVectorClear(mUnsortedClusters[iLayer], mMemoryPool.get());
+    deepVectorClear(mTrackingFrameInfo[iLayer], mMemoryPool.get());
+    deepVectorClear(mClusterExternalIndices[iLayer], mMemoryPool.get());
+    clearResizeBoundedVector(mROFramesClusters[iLayer], 1, mMemoryPool.get(), 0);
+
+    if (iLayer < 2) {
+      deepVectorClear(mTrackletsIndexROF[iLayer], mMemoryPool.get());
+      deepVectorClear(mNTrackletsPerCluster[iLayer], mMemoryPool.get());
+      deepVectorClear(mNTrackletsPerClusterSum[iLayer], mMemoryPool.get());
+    }
+  }
 }
 
 template <int nLayers>

@@ -1217,6 +1217,8 @@ void processNeighboursHandler(const int startLayer,
     maxChi2ClusterAttachment,
     propagator,
     matCorrType);
+  GPUChkErrS(cudaPeekAtLastError());
+  GPUChkErrS(cudaDeviceSynchronize());
 
   int level = startLevel;
   thrust::device_vector<int, gpu::TypedAllocator<int>> lastCellId(allocInt);
@@ -1276,6 +1278,8 @@ void processNeighboursHandler(const int startLayer,
       maxChi2ClusterAttachment,
       propagator,
       matCorrType);
+    GPUChkErrS(cudaPeekAtLastError());
+    GPUChkErrS(cudaDeviceSynchronize());
   }
   thrust::device_vector<CellSeed, gpu::TypedAllocator<CellSeed>> outSeeds(updatedCellSeed.size(), allocCellSeed);
   auto end = thrust::copy_if(updatedCellSeed.begin(), updatedCellSeed.end(), outSeeds.begin(), gpu::seed_selector(1.e3, maxChi2NDF * ((startLevel + 2) * 2 - 5)));

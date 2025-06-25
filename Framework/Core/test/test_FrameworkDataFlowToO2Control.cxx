@@ -138,8 +138,8 @@ const std::vector expectedTasks{
 defaults:
   log_task_stdout: none
   log_task_stderr: none
-  exit_transition_timeout: 15
-  data_processing_timeout: 10
+  exit_transition_timeout: 25
+  data_processing_timeout: 20
   _module_cmdline: >-
     source /etc/profile.d/modules.sh && MODULEPATH={{ modulepath }} module load O2 QualityControl Control-OCCPlugin &&
     {{ dpl_command }} | bcsadc/foo
@@ -236,8 +236,8 @@ command:
 defaults:
   log_task_stdout: none
   log_task_stderr: none
-  exit_transition_timeout: 15
-  data_processing_timeout: 10
+  exit_transition_timeout: 25
+  data_processing_timeout: 20
   _module_cmdline: >-
     source /etc/profile.d/modules.sh && MODULEPATH={{ modulepath }} module load O2 QualityControl Control-OCCPlugin &&
     {{ dpl_command }} | foo
@@ -336,8 +336,8 @@ command:
 defaults:
   log_task_stdout: none
   log_task_stderr: none
-  exit_transition_timeout: 15
-  data_processing_timeout: 10
+  exit_transition_timeout: 25
+  data_processing_timeout: 20
   _module_cmdline: >-
     source /etc/profile.d/modules.sh && MODULEPATH={{ modulepath }} module load O2 QualityControl Control-OCCPlugin &&
     {{ dpl_command }} | foo
@@ -436,8 +436,8 @@ command:
 defaults:
   log_task_stdout: none
   log_task_stderr: none
-  exit_transition_timeout: 15
-  data_processing_timeout: 10
+  exit_transition_timeout: 25
+  data_processing_timeout: 20
   _module_cmdline: >-
     source /etc/profile.d/modules.sh && MODULEPATH={{ modulepath }} module load O2 QualityControl Control-OCCPlugin &&
     {{ dpl_command }} | foo

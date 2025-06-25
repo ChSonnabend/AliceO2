@@ -169,7 +169,7 @@ template <int nLayers>
 void TrackerTraitsGPU<nLayers>::findCellsNeighbours(const int iteration)
 {
   mTimeFrameGPU->createNeighboursIndexTablesDevice();
-  auto& conf = o2::its::ITSGpuTrackingParamConfig::Instance();
+  const auto& conf = o2::its::ITSGpuTrackingParamConfig::Instance();
   for (int iLayer{0}; iLayer < this->mTrkParams[iteration].CellsPerRoad() - 1; ++iLayer) {
     const int nextLayerCellsNum{static_cast<int>(mTimeFrameGPU->getNCells()[iLayer + 1])};
 
@@ -208,10 +208,11 @@ void TrackerTraitsGPU<nLayers>::findCellsNeighbours(const int iteration)
                                  conf.nBlocks,
                                  conf.nThreads);
 
-    filterCellNeighboursHandler(mTimeFrameGPU->getDeviceNeighbourPairs(iLayer),
-                                mTimeFrameGPU->getDeviceNeighbours(iLayer),
-                                nNeigh,
-                                mTimeFrameGPU->getExternalAllocator());
+    nNeigh = filterCellNeighboursHandler(mTimeFrameGPU->getDeviceNeighbourPairs(iLayer),
+                                         mTimeFrameGPU->getDeviceNeighbours(iLayer),
+                                         nNeigh,
+                                         mTimeFrameGPU->getExternalAllocator());
+    mTimeFrameGPU->getArrayNNeighbours()[iLayer] = nNeigh;
   }
   mTimeFrameGPU->createNeighboursDeviceArray();
   mTimeFrameGPU->unregisterRest();

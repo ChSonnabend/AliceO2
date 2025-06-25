@@ -130,7 +130,9 @@ class TimeFrameGPU : public TimeFrame<nLayers>
   // Host-specific getters
   gsl::span<int, nLayers - 1> getNTracklets() { return mNTracklets; }
   gsl::span<int, nLayers - 2> getNCells() { return mNCells; }
-  std::array<int, nLayers - 2>& getArrayNCells() { return mNCells; }
+  auto& getArrayNCells() { return mNCells; }
+  gsl::span<int, nLayers - 3> getNNeighbours() { return mNNeighbours; }
+  auto& getArrayNNeighbours() { return mNNeighbours; }
 
   // Host-available device getters
   gsl::span<int*> getDeviceTrackletsLUTs() { return mTrackletsLUTDevice; }
@@ -139,7 +141,9 @@ class TimeFrameGPU : public TimeFrame<nLayers>
   gsl::span<CellSeed*> getDeviceCells() { return mCellsDevice; }
 
   // Overridden getters
-  int getNumberOfCells() const;
+  int getNumberOfTracklets() const final;
+  int getNumberOfCells() const final;
+  int getNumberOfNeighbours() const final;
 
  private:
   void allocMemAsync(void**, size_t, Stream*, bool); // Abstract owned and unowned memory allocations
@@ -149,6 +153,7 @@ class TimeFrameGPU : public TimeFrame<nLayers>
   // Host-available device buffer sizes
   std::array<int, nLayers - 1> mNTracklets;
   std::array<int, nLayers - 2> mNCells;
+  std::array<int, nLayers - 3> mNNeighbours;
 
   // Device pointers
   IndexTableUtils* mIndexTableUtilsDevice;
@@ -219,9 +224,21 @@ inline std::vector<unsigned int> TimeFrameGPU<nLayers>::getClusterSizes()
 }
 
 template <int nLayers>
+inline int TimeFrameGPU<nLayers>::getNumberOfTracklets() const
+{
+  return std::accumulate(mNTracklets.begin(), mNTracklets.end(), 0);
+}
+
+template <int nLayers>
 inline int TimeFrameGPU<nLayers>::getNumberOfCells() const
 {
   return std::accumulate(mNCells.begin(), mNCells.end(), 0);
+}
+
+template <int nLayers>
+inline int TimeFrameGPU<nLayers>::getNumberOfNeighbours() const
+{
+  return std::accumulate(mNNeighbours.begin(), mNNeighbours.end(), 0);
 }
 
 } // namespace o2::its::gpu

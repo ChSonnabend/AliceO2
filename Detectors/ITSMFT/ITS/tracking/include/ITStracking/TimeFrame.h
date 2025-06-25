@@ -91,6 +91,7 @@ struct TimeFrame {
                       gsl::span<const unsigned char>::iterator& pattIt,
                       const itsmft::TopologyDictionary* dict,
                       const dataformats::MCTruthContainer<MCCompLabel>* mcLabels = nullptr);
+  void resetROFrameData();
 
   int getTotalClusters() const;
   auto& getTotVertIteration() { return mTotVertPerIteration; }
@@ -138,7 +139,7 @@ struct TimeFrame {
   gsl::span<const MCCompLabel> getClusterLabels(int layerId, const int clId) const { return mClusterLabels->getLabels(mClusterExternalIndices[layerId][clId]); }
   int getClusterExternalIndex(int layerId, const int clId) const { return mClusterExternalIndices[layerId][clId]; }
   int getClusterSize(int clusterId) const { return mClusterSize[clusterId]; }
-  void setClusterSize(const bounded_vector<uint8_t>& v) { mClusterSize = v; }
+  void setClusterSize(bounded_vector<uint8_t>& v) { mClusterSize = std::move(v); }
 
   auto& getTrackletsLabel(int layer) { return mTrackletLabels[layer]; }
   auto& getCellsLabel(int layer) { return mCellLabels[layer]; }
@@ -174,9 +175,9 @@ struct TimeFrame {
   auto& getVerticesMCRecInfo() { return mVerticesMCRecInfo; }
 
   int getNumberOfClusters() const;
-  int getNumberOfCells() const;
-  int getNumberOfTracklets() const;
-  int getNumberOfNeighbours() const;
+  virtual int getNumberOfCells() const;
+  virtual int getNumberOfTracklets() const;
+  virtual int getNumberOfNeighbours() const;
   size_t getNumberOfTracks() const;
   size_t getNumberOfUsedClusters() const;
   auto getNumberOfExtendedTracks() const { return mNExtendedTracks; }

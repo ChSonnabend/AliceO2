@@ -522,10 +522,9 @@ int32_t ReadEvent(int32_t n)
   if ((configStandalone.proc.runQA || configStandalone.eventDisplay) && !configStandalone.QA.noMC) {
     chainTracking->ForceInitQA();
     chainTracking->GetQA()->UpdateChain(chainTracking);
-    if (chainTracking->GetQA()->ReadO2MCData((eventsDir + "mc." + std::to_string(n) + ".dump").c_str())) {
-      if (chainTracking->GetQA()->ReadO2MCData((eventsDir + "mc.0.dump").c_str()) && configStandalone.proc.runQA) {
-        throw std::runtime_error("Error reading O2 MC dump");
-      }
+    if (chainTracking->GetQA()->ReadO2MCData((eventsDir + "mc." + std::to_string(n) + ".dump").c_str()) &&
+        chainTracking->GetQA()->ReadO2MCData((eventsDir + "mc.0.dump").c_str()) && configStandalone.proc.runQA) {
+      throw std::runtime_error("Error reading O2 MC dump");
     }
   }
 #endif
@@ -816,6 +815,9 @@ int32_t main(int argc, char** argv)
         printf("Only %d events available in directory %s (%d events requested)\n", nEventsInDirectory, eventsDir.c_str(), nEvents);
       }
       nEvents = nEventsInDirectory;
+    }
+    if (nEvents == 0 && !configStandalone.noEvents) {
+      printf("No event data found in event folder\n");
     }
     if (configStandalone.TF.nMerge > 1) {
       nEvents /= configStandalone.TF.nMerge;

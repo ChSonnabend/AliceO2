@@ -506,18 +506,18 @@ void VertexerTraits::computeVertices(const int iteration)
 
       if (beamDistance2 < nsigmaCut && o2::gpu::GPUCommonMath::Abs(mTimeFrame->getTrackletClusters(rofId)[iCluster].getVertex()[2]) < mVrtParams[iteration].maxZPositionAllowed) {
         atLeastOneFound = true;
-        vertices.emplace_back(o2::math_utils::Point3D<float>(mTimeFrame->getTrackletClusters(rofId)[iCluster].getVertex()[0],
-                                                             mTimeFrame->getTrackletClusters(rofId)[iCluster].getVertex()[1],
-                                                             mTimeFrame->getTrackletClusters(rofId)[iCluster].getVertex()[2]),
-                              mTimeFrame->getTrackletClusters(rofId)[iCluster].getRMS2(),          // Symm matrix. Diagonal: RMS2 components,
-                                                                                                   // off-diagonal: square mean of projections on planes.
-                              mTimeFrame->getTrackletClusters(rofId)[iCluster].getSize(),          // Contributors
-                              mTimeFrame->getTrackletClusters(rofId)[iCluster].getAvgDistance2()); // In place of chi2
+        auto& vertex = vertices.emplace_back(o2::math_utils::Point3D<float>(mTimeFrame->getTrackletClusters(rofId)[iCluster].getVertex()[0],
+                                                                            mTimeFrame->getTrackletClusters(rofId)[iCluster].getVertex()[1],
+                                                                            mTimeFrame->getTrackletClusters(rofId)[iCluster].getVertex()[2]),
+                                             mTimeFrame->getTrackletClusters(rofId)[iCluster].getRMS2(),          // Symm matrix. Diagonal: RMS2 components,
+                                                                                                                  // off-diagonal: square mean of projections on planes.
+                                             mTimeFrame->getTrackletClusters(rofId)[iCluster].getSize(),          // Contributors
+                                             mTimeFrame->getTrackletClusters(rofId)[iCluster].getAvgDistance2()); // In place of chi2
 
         if (iteration) {
-          vertices.back().setFlags(Vertex::UPCMode);
+          vertex.setFlags(Vertex::UPCMode);
         }
-        vertices.back().setTimeStamp(mTimeFrame->getTrackletClusters(rofId)[iCluster].getROF());
+        vertex.setTimeStamp(mTimeFrame->getTrackletClusters(rofId)[iCluster].getROF());
         if (mTimeFrame->hasMCinformation()) {
           bounded_vector<o2::MCCompLabel> labels(mMemoryPool.get());
           for (auto& index : mTimeFrame->getTrackletClusters(rofId)[iCluster].getLabels()) {

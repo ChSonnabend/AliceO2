@@ -1033,10 +1033,12 @@ int doChild(int argc, char** argv, ServiceRegistry& serviceRegistry,
     std::string defaultInfologgerMode = "";
     o2::framework::DeploymentMode deploymentMode = o2::framework::DefaultsHelpers::deploymentMode();
     if (deploymentMode == o2::framework::DeploymentMode::OnlineDDS) {
-      defaultExitTransitionTimeout = "20";
+      defaultExitTransitionTimeout = "40";
+      defaultDataProcessingTimeout = "20";
       defaultInfologgerMode = "infoLoggerD";
     } else if (deploymentMode == o2::framework::DeploymentMode::OnlineECS) {
-      defaultExitTransitionTimeout = "20";
+      defaultExitTransitionTimeout = "25";
+      defaultDataProcessingTimeout = "20";
     }
     boost::program_options::options_description optsDesc;
     ConfigParamsHelper::populateBoostProgramOptions(optsDesc, spec.options, gHiddenDeviceOptions);

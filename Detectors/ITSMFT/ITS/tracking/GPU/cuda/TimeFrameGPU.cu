@@ -342,6 +342,9 @@ void TimeFrameGPU<nLayers>::createNeighboursIndexTablesDevice()
     LOGP(debug, "gpu-transfer: loading neighbours LUT for {} elements on layer {}, for {} MB.", mNCells[iLayer], iLayer, mNCells[iLayer] * sizeof(CellSeed) / MB);
     allocMemAsync(reinterpret_cast<void**>(&mNeighboursIndexTablesDevice[iLayer]), (mNCells[iLayer] + 1) * sizeof(int), nullptr, this->getExtAllocator());
     GPUChkErrS(cudaMemsetAsync(mNeighboursIndexTablesDevice[iLayer], 0, (mNCells[iLayer] + 1) * sizeof(int), mGpuStreams[0]->get()));
+    if (iLayer < nLayers - 3) {
+      mNNeighbours[iLayer] = 0;
+    }
   }
   STOP_GPU_STREAM_TIMER(mGpuStreams[0]->get());
 }
