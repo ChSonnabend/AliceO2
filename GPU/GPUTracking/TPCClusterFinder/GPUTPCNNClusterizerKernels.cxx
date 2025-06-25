@@ -663,6 +663,8 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
   CfArray2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   CfChargePos peak = clusterer.mPfilteredPeakPositions[idx + batchStart];
 
+  clustererNN.mClusterFlags[2 * idx] = 0;
+  clustererNN.mClusterFlags[2 * idx + 1] = 0;
   for (int i = 0; i < 8; i++) {
     Delta2 d = cfconsts::InnerNeighbors[i];
     CfChargePos tmp_pos = peak.delta(d);
