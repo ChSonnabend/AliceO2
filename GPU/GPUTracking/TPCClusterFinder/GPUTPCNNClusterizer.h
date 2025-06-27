@@ -41,6 +41,7 @@ class GPUTPCNNClusterizer : public GPUProcessor
   int mNnClusterizerSizeInputPad = 3;
   int mNnClusterizerSizeInputTime = 3;
   int mNnClusterizerElementSize = -1;
+  int mNnChargeArraySize = -1;
   bool mNnClusterizerAddIndexData = true;
   bool mNnClusterizerAddMeanSigma = false;
   float mNnClassThreshold = 0.01;

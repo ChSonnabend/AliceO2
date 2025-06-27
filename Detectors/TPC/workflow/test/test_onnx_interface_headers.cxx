@@ -142,13 +142,10 @@ class onnxInference : public Task
       concat->add_input(name);
     }
     concat->add_output(old_input_name); // Output replaces the original input
-    concat->add_attribute()->CopyFrom([] {
-      onnx::AttributeProto attr;
-      attr.set_name("merged_output");
-      attr.set_type(onnx::AttributeProto_AttributeType_FLOAT);
-      attr.set_i(1); // Concatenate on feature dimension
-      return attr;
-    }());
+    auto* attr = concat->add_attribute();
+    attr->set_name("axis");
+    attr->set_type(onnx::AttributeProto_AttributeType_INT);
+    attr->set_i(1);
   }
 
   void print_shape(const onnx::TensorShapeProto& shape)
