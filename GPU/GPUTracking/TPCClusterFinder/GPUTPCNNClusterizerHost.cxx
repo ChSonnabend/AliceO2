@@ -217,6 +217,7 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
   clustererNN.mNnClusterizerAddIndexData = settings.nnClusterizerAddIndexData;
   clustererNN.mNnClusterizerAddMeanSigma = settings.nnClusterizerAddMeanSigma;
   clustererNN.mNnClusterizerElementSize = ((2 * settings.nnClusterizerSizeInputRow + 1) * (2 * settings.nnClusterizerSizeInputPad + 1) * (2 * settings.nnClusterizerSizeInputTime + 1)) + (settings.nnClusterizerAddIndexData ? 3 : 0) + (settings.nnClusterizerAddMeanSigma ? 4 : 0);
+  clustererNN.mNnChargeArraySize = ((2 * settings.nnClusterizerSizeInputRow + 1) * (2 * settings.nnClusterizerSizeInputPad + 1) * (2 * settings.nnClusterizerSizeInputTime + 1));
   clustererNN.mNnClusterizerBatchedMode = settings.nnClusterizerBatchedMode;
   clustererNN.mNnClusterizerBoundaryFillValue = settings.nnClusterizerBoundaryFillValue;
   clustererNN.mNnSigmoidTrafoClassThreshold = settings.nnSigmoidTrafoClassThreshold;

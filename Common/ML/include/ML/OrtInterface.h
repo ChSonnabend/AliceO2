@@ -43,14 +43,15 @@ class OrtModel
  public:
   // Constructors & destructors
   OrtModel();
-  OrtModel(std::unordered_map<std::string, std::string> optionsMap);
-  void init(std::unordered_map<std::string, std::string> optionsMap);
+  OrtModel(std::unordered_map<std::string, std::string>);
+  void init(std::unordered_map<std::string, std::string>);
   virtual ~OrtModel();
 
   // General purpose
-  void initOptions(std::unordered_map<std::string, std::string> optionsMap);
+  void initOptions(std::unordered_map<std::string, std::string>);
   void initEnvironment();
   void initSession();
+  void initSessionFromBuffer(std::string);
   void memoryOnDevice(int32_t = 0);
   bool isInitialized() { return mInitialized; }
   void resetSession();

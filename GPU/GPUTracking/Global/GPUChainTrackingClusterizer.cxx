@@ -1138,7 +1138,6 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           GPUFatal("Project not compiled with neural network clusterization. Aborting.");
 #endif
         } else {
-
           GPUTPCNNClusterizerHost dummy;
           if(GetProcessingSettings().nn.nnClusterizerDumpDigits > 0) {
             dummy.digitWriter(clusterer,  "digits_stream_noise_supressed");

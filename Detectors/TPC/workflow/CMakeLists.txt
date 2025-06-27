@@ -97,9 +97,9 @@ o2_add_executable(mc-labels
                   SOURCES src/readMCtoTree.cxx
                   PUBLIC_LINK_LIBRARIES O2::TPCWorkflow O2::SimulationDataFormat O2::TPCQC O2::DataFormatsTPC O2::TPCBase)
 o2_add_executable(onnx-interface
-                  COMPONENT_NAME test
-                  SOURCES test/test_onnx_interface_headers.cxx
-                  PUBLIC_LINK_LIBRARIES O2::TPCWorkflow O2::SimulationDataFormat O2::TPCQC O2::DataFormatsTPC O2::TPCBase O2::ML Boost::thread O2::GPUTracking)
+                COMPONENT_NAME test
+                SOURCES test/test_onnx_interface_headers.cxx
+                PUBLIC_LINK_LIBRARIES O2::TPCWorkflow O2::SimulationDataFormat O2::TPCQC O2::DataFormatsTPC O2::TPCBase O2::ML Boost::thread O2::GPUTracking ONNX::onnx_proto)
 
 
 o2_add_executable(reco-workflow

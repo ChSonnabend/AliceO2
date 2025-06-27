@@ -240,13 +240,13 @@ void qaCluster::read_reco_digits(int sector, std::vector<customCluster>& digit_m
   for (int i = 0; i < numEntries; i++) {
     digitTree->GetEntry(i);
     if (overwrite_time) {
-      digit_map.push_back(customCluster{sec, row, pad, time, pad, time, 0.f, 0.f, charge, charge, has3x3Peak + 2*isSplit, -1, -1, -1, i, 0.f, -1.f, -1.f, -1.f});
+      digit_map.push_back(customCluster{sec, row, pad, time, pad, time, 0.f, 0.f, charge, charge, (has3x3Peak>0) + 2*(isSplit>0), -1, -1, -1, i, 0.f, -1.f, -1.f, -1.f});
       if (time > max_time[sector]){
         max_time[sector] = time + 1;
       }
     } else {
       if (time < max_time[sector]) {
-        digit_map.push_back(customCluster{sec, row, pad, time, pad, time, 0.f, 0.f, charge, charge, has3x3Peak + 2*isSplit, -1, -1, -1, counter, 0.f, -1.f, -1.f, -1.f});
+        digit_map.push_back(customCluster{sec, row, pad, time, pad, time, 0.f, 0.f, charge, charge, (has3x3Peak>0) + 2*(isSplit>0), -1, -1, -1, counter, 0.f, -1.f, -1.f, -1.f});
         counter++;
       }
     }
@@ -975,6 +975,72 @@ void qaCluster::find_maxima(int sector, tpc2d& map2d, std::vector<customCluster>
 
   if (verbose >= 1)
     LOG(info) << "[" << sector << "] Found " << maxima_digits.size() << " maxima. Done!";
+}
+
+{
+  // Implements identical publishing logic as the heuristic clusterizer and deconvolution kernel
+  uint32_t idx = get_global_id(0);
+  auto& clusterer = processors.tpcClusterer[sector];
+  auto& clustererNN = processors.tpcNNClusterer[sector];
+  CfArray2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
+  CfChargePos peak = clusterer.mPfilteredPeakPositions[idx + batchStart];
+
+  for (int i = 0; i < 8; i++) {
+    Delta2 d = cfconsts::InnerNeighbors[i];
+    CfChargePos tmp_pos = peak.delta(d);
+    PackedCharge charge = chargeMap[tmp_pos];
+    clustererNN.mClusterFlags[2 * idx] += (d.y != 0 && charge.isSplit());
+    clustererNN.mClusterFlags[2 * idx + 1] += (d.x != 0 && charge.isSplit());
+  }
+  for (int i = 0; i < 16; i++) {
+    Delta2 d = cfconsts::OuterNeighbors[i];
+    CfChargePos tmp_pos = peak.delta(d);
+    PackedCharge charge = chargeMap[tmp_pos];
+    clustererNN.mClusterFlags[2 * idx] += (d.y != 0 && charge.isSplit() && !charge.has3x3Peak());
+    clustererNN.mClusterFlags[2 * idx + 1] += (d.x != 0 && charge.isSplit() && !charge.has3x3Peak());
+  }
+}
+
+// ---------------------------------
+void publishDeconvolutionFlags(int sector, tpc2d& map2d, std::vector<customCluster>& digit_map, std::vector<int>& maxima_digits)
+{
+  for (auto& max_idx : maxima_digits) {
+    int row = digit_map[max_idx].row;
+    int mpad = digit_map[max_idx].max_pad;
+    int mtime = digit_map[max_idx].max_time;
+    int row_offset = rowOffset(row);
+    int pad_offset = padOffset(row);
+    int flagPad = 0, flagTime = 0, isSplit = 0, has3x3 = 0;
+    for (int pad = mpad-2; pad <= mpad+2; pad++) {
+      for (int time = mtime-2; time <= mtime+2; time++) {
+        int dPad = std::abs(pad - mpad), dTime = std::abs(time - mtime);
+        if (dPad == 0 && dTime == 0) {
+          continue; // Skip the center pad
+        } else {
+          int flag = digit_map[map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]].flag;
+          if (flag > 3) {
+            LOG(error) << "[" << sector << "] Flag value " << flag << " is too high for digit " << max_idx << "! Please check the digit map!";
+          }
+          if (flag >= 2) {
+            isSplit = 1;
+            has3x3 = flag - 2;
+          } else {
+            isSplit = 0;
+            has3x3 = flag;
+          }
+          if (dPad <= 1 && dTime<= 1) {
+            flagPad += (dPad>0) * isSplit;
+            flagTime += (dTime>0) * isSplit;
+          } else if (dPad <= 2 && dTime <= 2) {
+            flagPad += (dPad>0) * isSplit * has3x3;
+            flagTime += (dTime>0) * isSplit * has3x3;
+          }
+        }
+      }
+    }
+    digit_map[map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]].flag = 1000*isSplit + has3x3; // 1000 for split, 1-3 for 3x3
+  }
+  LOG(info) << "[" << sector << "] Published deconvolution flags for " << digit_map.size() << " digits.";
 }
 
 // ---------------------------------
@@ -3015,7 +3081,7 @@ void qaCluster::runQa(int sector)
     }
 
     std::vector<int> tmp_track_assignment(5, -1);
-    int class_val = 0, idx_sector = 0, idx_row = 0, idx_pad = 0, idx_time = 0;
+    int class_val = 0, idx_sector = 0, idx_row = 0, idx_pad = 0, idx_time = 0, isSplit = 0, has3x3Peak = 0;
     float pT = 0, eta = 0, mass = 0, p = 0, isPrimary = 0, isTagged = 0, overlap_num_other_mc = 0, overlap_area_fraction = 0, overlap_charge_fraction = 0, overlap_external_charge_fraction = 0, occ = 0;
     tr_data->Branch("out_class", &class_val);
     tr_data->Branch("out_idx_sector", &idx_sector);
@@ -3023,6 +3089,7 @@ void qaCluster::runQa(int sector)
     tr_data->Branch("out_idx_pad", &idx_pad);
     tr_data->Branch("out_idx_time", &idx_time);
     tr_data->Branch("occupancy", &occ);
+    // tr_data->Branch("isSplit", &map_dig_idx);
 
     if(!realData){
       tr_data->Branch("cluster_pT", &pT);
