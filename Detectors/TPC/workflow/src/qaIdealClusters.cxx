@@ -994,8 +994,11 @@ void qaCluster::publishDeconvolutionFlags(int sector, tpc2d& map2d, std::vector<
         if (dPad == 0 && dTime == 0) {
           continue; // Skip the center pad
         } else {
-          LOG(info) << "Accessing index: " << time + global_shift[1] << ", " << row + row_offset + global_shift[2] << ", " << pad + global_shift[0] + pad_offset;
-          int flag = digit_map[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset]].flag;
+          int current_idx = map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset];
+          if (current_idx > digit_map.size() || current_idx < 0) {
+            continue;
+          }
+          int flag = digit_map[current_idx].flag;
           if (flag > 10000) {
             LOG(error) << "[" << sector << "] Flag value " << flag << " is too high for digit " << max_idx << "with row: " << row << ", max_pad: " << mpad << ", max_time: " << mtime << " and dPad: " << dPad << ", dTime: " << dTime << "! Please check the digit map!";
           }
@@ -2144,9 +2147,6 @@ void qaCluster::runQa(int sector)
       //     remove_loopers_digits(sector, counter, tagger_maps[counter], digit_map, maxima_digits);
       //   }
       // }
-      if (setDeconvolutionFlags) {
-        publishDeconvolutionFlags(sector, map2d, digit_map, maxima_digits);
-      }
       if (mode.find(std::string("network_class")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
         run_network_classification(sector, map2d, maxima_digits, digit_map, network_map); // classification
         // if (mode.find(std::string("clusterizer")) != std::string::npos) {
