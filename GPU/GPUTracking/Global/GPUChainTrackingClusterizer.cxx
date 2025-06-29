@@ -1007,9 +1007,20 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             uint batchStart = batch * clustererNNShadow.mNnClusterizerBatchedMode;
             size_t iSize = CAMath::Min((uint)clustererNNShadow.mNnClusterizerBatchedMode, (uint)(clusterer.mPmemory->counters.nClusters - batchStart));
 
+            for(int i = 0; i < clustererNNShadow.mNnClusterizerBatchedMode; i++){
+              clustererNNShadow.testAddIndex[i] = 0;
+            }
+
             auto start0 = std::chrono::high_resolution_clock::now();
             runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::fillInputNNSingleElement>({GetGrid(iSize * clustererNNShadow.mNnClusterizerElementSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, batchStart); // Filling the data
             auto stop0 = std::chrono::high_resolution_clock::now();
+
+            for(int i = 0; i < iSize; i++){
+              // It is completely unclear why, but the batch sizes of 19736 or higher lead to cluster flags not being filled correctly
+              if (clustererNNShadow.testAddIndex[i] == 0){
+                LOG(info) << "ERROR: Index data filled incorrectly, index " << i << " is 0, iSize: " << iSize;
+              }
+            }
 
             auto start1 = std::chrono::high_resolution_clock::now();
 

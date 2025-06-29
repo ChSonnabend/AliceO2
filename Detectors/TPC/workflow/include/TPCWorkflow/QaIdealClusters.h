@@ -310,6 +310,7 @@ class qaCluster : public Task
 
   void fill_map2d(int, tpc2d&, std::vector<customCluster>&, std::vector<customCluster>&, int = 0);
   void find_maxima(int, tpc2d&, std::vector<customCluster>&, std::vector<int>&);
+  void publishDeconvolutionFlags(int, tpc2d&, std::vector<customCluster>&, std::vector<int>&);
 
   bool is_local_minimum(tpc2d&, std::array<int, 3>&, std::vector<float>&);
   int local_saddlepoint(tpc2d&, std::array<int, 3>&, std::vector<float>&);
@@ -360,6 +361,7 @@ class qaCluster : public Task
   bool overlap_study = false;                // Whether or not to perform the cluster overlap study
   bool useTrackMCInformation = true;         // When reading the tpctracks.root file, whether to read also branch "TPCTracksMCTruth" -> has caused some problems...
   float magneticField = -5.f;                // Magnetic field strength in kG
+  bool setDeconvolutionFlags = true;         // Whether or not to set the deconvolution flags in the native clusters
 
   std::vector<int> looper_tagger_granularity = {5};      // Granularity of looper tagger (time bins in which loopers are excluded in rectangular areas)
   std::vector<int> looper_tagger_timewindow = {20};      // Total time-window size of the looper tagger for evaluating if a region is looper or not

@@ -62,6 +62,7 @@ void* GPUTPCNNClusterizer::setIOPointers(void* mem)
   if (mNnClusterizerTotalClusters > 0) {
     computePointerWithAlignment(mem, mOutputDataClass, mNnClusterizerTotalClusters);
   }
+  computePointerWithAlignment(mem, testAddIndex, mNnClusterizerBatchedMode);
   return mem;
 }
 

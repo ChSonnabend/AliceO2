@@ -72,6 +72,7 @@ class GPUTPCNNClusterizer : public GPUProcessor
   float* mModelProbabilities_32 = nullptr;
   float* mOutputDataReg1_32 = nullptr;
   float* mOutputDataReg2_32 = nullptr;
+  int* testAddIndex = nullptr; // Used to check if the index data is added in the input data
 
   // FP16
   OrtDataType::Float16_t* mInputData_16 = nullptr;

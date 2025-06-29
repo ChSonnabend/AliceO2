@@ -40,6 +40,7 @@ void qaCluster::init(InitContext& ic)
   networkUseFloatLabel = ic.options().get<int>("network-use-float-label");
   networkSigmoidTrafo = ic.options().get<int>("network-threshold-sigmoid-trafo");
   normalization_mode = ic.options().get<int>("normalization-mode");
+  setDeconvolutionFlags = ic.options().get<int>("set-deconvolution-flags");
   looper_tagger_granularity = ic.options().get<std::vector<int>>("looper-tagger-granularity");
   looper_tagger_timewindow = ic.options().get<std::vector<int>>("looper-tagger-timewindow");
   looper_tagger_padwindow = ic.options().get<std::vector<int>>("looper-tagger-padwindow");
@@ -704,7 +705,7 @@ void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customClu
     int sec = cls.sector;
     int row = cls.row;
     // cont[sec*o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].setTime(cls[3]);
-    cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].setTimeFlags(cls.cog_time, cls.flag);
+    cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].setTimeFlags(cls.cog_time, (int)(cls.flag / 1000.f));
     cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].setPad(cls.cog_pad);
     cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].setSigmaTime(cls.sigmaTime);
     cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].setSigmaPad(cls.sigmaPad);
@@ -977,32 +978,8 @@ void qaCluster::find_maxima(int sector, tpc2d& map2d, std::vector<customCluster>
     LOG(info) << "[" << sector << "] Found " << maxima_digits.size() << " maxima. Done!";
 }
 
-{
-  // Implements identical publishing logic as the heuristic clusterizer and deconvolution kernel
-  uint32_t idx = get_global_id(0);
-  auto& clusterer = processors.tpcClusterer[sector];
-  auto& clustererNN = processors.tpcNNClusterer[sector];
-  CfArray2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
-  CfChargePos peak = clusterer.mPfilteredPeakPositions[idx + batchStart];
-
-  for (int i = 0; i < 8; i++) {
-    Delta2 d = cfconsts::InnerNeighbors[i];
-    CfChargePos tmp_pos = peak.delta(d);
-    PackedCharge charge = chargeMap[tmp_pos];
-    clustererNN.mClusterFlags[2 * idx] += (d.y != 0 && charge.isSplit());
-    clustererNN.mClusterFlags[2 * idx + 1] += (d.x != 0 && charge.isSplit());
-  }
-  for (int i = 0; i < 16; i++) {
-    Delta2 d = cfconsts::OuterNeighbors[i];
-    CfChargePos tmp_pos = peak.delta(d);
-    PackedCharge charge = chargeMap[tmp_pos];
-    clustererNN.mClusterFlags[2 * idx] += (d.y != 0 && charge.isSplit() && !charge.has3x3Peak());
-    clustererNN.mClusterFlags[2 * idx + 1] += (d.x != 0 && charge.isSplit() && !charge.has3x3Peak());
-  }
-}
-
 // ---------------------------------
-void publishDeconvolutionFlags(int sector, tpc2d& map2d, std::vector<customCluster>& digit_map, std::vector<int>& maxima_digits)
+void qaCluster::publishDeconvolutionFlags(int sector, tpc2d& map2d, std::vector<customCluster>& digit_map, std::vector<int>& maxima_digits)
 {
   for (auto& max_idx : maxima_digits) {
     int row = digit_map[max_idx].row;
@@ -1017,11 +994,12 @@ void publishDeconvolutionFlags(int sector, tpc2d& map2d, std::vector<customClust
         if (dPad == 0 && dTime == 0) {
           continue; // Skip the center pad
         } else {
-          int flag = digit_map[map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]].flag;
-          if (flag > 3) {
-            LOG(error) << "[" << sector << "] Flag value " << flag << " is too high for digit " << max_idx << "! Please check the digit map!";
+          LOG(info) << "Accessing index: " << time + global_shift[1] << ", " << row + row_offset + global_shift[2] << ", " << pad + global_shift[0] + pad_offset;
+          int flag = digit_map[map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset]].flag;
+          if (flag > 10000) {
+            LOG(error) << "[" << sector << "] Flag value " << flag << " is too high for digit " << max_idx << "with row: " << row << ", max_pad: " << mpad << ", max_time: " << mtime << " and dPad: " << dPad << ", dTime: " << dTime << "! Please check the digit map!";
           }
-          if (flag >= 2) {
+          if (flag >= 1000) {
             isSplit = 1;
             has3x3 = flag - 2;
           } else {
@@ -1038,7 +1016,7 @@ void publishDeconvolutionFlags(int sector, tpc2d& map2d, std::vector<customClust
         }
       }
     }
-    digit_map[map2d[1][time + global_shift[1] - 1][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset - 1]].flag = 1000*isSplit + has3x3; // 1000 for split, 1-3 for 3x3
+    digit_map[map2d[1][mtime + global_shift[1]][row + row_offset + global_shift[2]][mpad + global_shift[0] + pad_offset]].flag = 1000*flagPad + flagTime; // 1000 for split, 1-3 for 3x3
   }
   LOG(info) << "[" << sector << "] Published deconvolution flags for " << digit_map.size() << " digits.";
 }
@@ -2153,6 +2131,9 @@ void qaCluster::runQa(int sector)
     // if (mode.find(std::string("clusterizer")) != std::string::npos) {
     //   native_clusterizer(map2d, digit_map, maxima_digits, digit_q, digit_clusterizer_map, digit_clusterizer_q);
     // }
+    if (setDeconvolutionFlags) {
+      publishDeconvolutionFlags(sector, map2d, digit_map, maxima_digits);
+    }
     num_total_digit_max += maxima_digits.size();
     overwrite_map2d(sector, map2d, digit_map, maxima_digits, 1);
   } else {
@@ -2163,6 +2144,9 @@ void qaCluster::runQa(int sector)
       //     remove_loopers_digits(sector, counter, tagger_maps[counter], digit_map, maxima_digits);
       //   }
       // }
+      if (setDeconvolutionFlags) {
+        publishDeconvolutionFlags(sector, map2d, digit_map, maxima_digits);
+      }
       if (mode.find(std::string("network_class")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
         run_network_classification(sector, map2d, maxima_digits, digit_map, network_map); // classification
         // if (mode.find(std::string("clusterizer")) != std::string::npos) {
@@ -3081,7 +3065,7 @@ void qaCluster::runQa(int sector)
     }
 
     std::vector<int> tmp_track_assignment(5, -1);
-    int class_val = 0, idx_sector = 0, idx_row = 0, idx_pad = 0, idx_time = 0, isSplit = 0, has3x3Peak = 0;
+    int class_val = 0, idx_sector = 0, idx_row = 0, idx_pad = 0, idx_time = 0, flagPad = 0, flagTime = 0;
     float pT = 0, eta = 0, mass = 0, p = 0, isPrimary = 0, isTagged = 0, overlap_num_other_mc = 0, overlap_area_fraction = 0, overlap_charge_fraction = 0, overlap_external_charge_fraction = 0, occ = 0;
     tr_data->Branch("out_class", &class_val);
     tr_data->Branch("out_idx_sector", &idx_sector);
@@ -3089,7 +3073,8 @@ void qaCluster::runQa(int sector)
     tr_data->Branch("out_idx_pad", &idx_pad);
     tr_data->Branch("out_idx_time", &idx_time);
     tr_data->Branch("occupancy", &occ);
-    // tr_data->Branch("isSplit", &map_dig_idx);
+    tr_data->Branch("flagPad", &flagPad);
+    tr_data->Branch("flagTime", &flagTime);
 
     if(!realData){
       tr_data->Branch("cluster_pT", &pT);
@@ -3121,6 +3106,12 @@ void qaCluster::runQa(int sector)
       idx_pad = digit_map[maxima_digits[element]].max_pad;
       idx_time = digit_map[maxima_digits[element]].max_time;
       occ = occupancy[sector][tpcmap.GetROC(idx_row)][round(idx_time)];
+      if((int)digit_map[maxima_digits[element]].flag > 1000){
+        flagPad = (int)(digit_map[maxima_digits[element]].flag/1000.f);
+      } else {
+        flagPad = 0;
+      }
+      flagTime = (int)(digit_map[maxima_digits[element]].flag - flagPad*1000.f);
       if(!realData){
         pT = cluster_pT[element];
         eta = cluster_eta[element];
@@ -3416,6 +3407,7 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
       {"size-time", VariantType::Int, 11, {"Training data selection size: Images are (size-pad, size-time, size-row)."}},
       {"size-row", VariantType::Int, 1, {"Training data selection size: Images are (size-pad, size-time, size-row)."}},
       {"threads", VariantType::Int, 1, {"Number of CPU threads to be used."}},
+      {"set-deconvolution-flags", VariantType::Int, 1, {"Setting the deconvolution flags like the deconvolution kernel."}},
       {"looper-tagger-opmode", VariantType::String, "ideal", {"Mode in which the looper tagger is run: ideal or digit."}},
       {"looper-tagger-granularity", VariantType::ArrayInt, std::vector<int>{5}, {"Granularity of looper tagger (time bins in which loopers are excluded in rectangular areas)."}}, // Needs to be called with e.g. --looper-tagger-granularity [2,3]
       {"looper-tagger-padwindow", VariantType::ArrayInt, std::vector<int>{3}, {"Total pad-window size of the looper tagger for evaluating if a region is looper or not."}},

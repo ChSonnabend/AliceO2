@@ -235,6 +235,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
       // if(base_idx == 1){
       //   LOG(info) << base_idx << " -> " << glo_idx << ", " << transient_index << " / " << clustererNN.mNnClusterizerElementSize << " -> " << top_idx << " (index data)";
       // }
+      clustererNN.testAddIndex[base_idx] = true; // This is used to check if the index data was added correctly
     }
   } else if (clustererNN.mNnClusterizerAddMeanSigma && ((int32_t)transient_index > (clustererNN.mNnClusterizerElementSize - 4))) {
     uint32_t top_idx = (base_idx + 1) * clustererNN.mNnClusterizerElementSize;
