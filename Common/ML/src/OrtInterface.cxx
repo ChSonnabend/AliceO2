@@ -280,6 +280,17 @@ void OrtModel::setEnv(Ort::Env* env)
 }
 
 // Inference
+template <class O>
+std::vector<O> OrtModel::inference(std::vector<Ort::Value>& inputTensor, size_t size)
+{
+  auto outputTensors = (mPImplOrt->session)->Run(mPImplOrt->runOptions, mInputNamesChar.data(), inputTensor.data(), inputTensor.size(), mOutputNamesChar.data(), mOutputNamesChar.size());
+  O* outputValues = outputTensors[0].template GetTensorMutableData<O>();
+  std::vector<O> outputValuesVec{outputValues, outputValues + size};
+  outputTensors.clear();
+  return outputValuesVec;
+}
+template std::vector<float> o2::ml::OrtModel::inference<float>(std::vector<Ort::Value>&, size_t);
+
 template <class I, class O>
 std::vector<O> OrtModel::inference(std::vector<I>& input)
 {

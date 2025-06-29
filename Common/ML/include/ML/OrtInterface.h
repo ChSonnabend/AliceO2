@@ -32,6 +32,7 @@ namespace Ort
 struct SessionOptions;
 struct MemoryInfo;
 struct Env;
+struct Value;
 } // namespace Ort
 
 namespace o2::ml
@@ -90,6 +91,9 @@ class OrtModel
   std::vector<O> v2v(std::vector<I>&, bool = true);
 
   // Inferencing
+  template <class O>
+  std::vector<O> inference(std::vector<Ort::Value>&, size_t);
+
   template <class I, class O> // class I is the input data type, e.g. float, class O is the output data type, e.g. OrtDataType::Float16_t from O2/Common/ML/include/ML/GPUORTFloat16.h
   std::vector<O> inference(std::vector<I>&);
 

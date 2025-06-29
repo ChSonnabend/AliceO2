@@ -26,6 +26,7 @@
 
 #include "ML/OrtInterface.h"
 #include "ML/3rdparty/GPUORTFloat16.h"
+#include <onnxruntime_cxx_api.h>
 
 #include "Steer/MCKinematicsReader.h"
 
@@ -336,10 +337,6 @@ class onnxInference : public Task
     model.inference<float, float>(data_ptr, 1000, output_data.data()); // Run inference with the model
   }
 
-  void runModels2() {
-
-  }
-
   void init(InitContext& ic) final {};
 
   template <typename I, typename O>
@@ -381,6 +378,32 @@ class onnxInference : public Task
       }
     }
   }
+
+  // For 2D inputs
+  // Inference
+  template <typename T>
+  std::vector<T> evalModel(std::vector<std::vector<T>>& input, OrtModel* model)
+  {
+    std::vector<Ort::Value> inputTensors;
+
+    Ort::MemoryInfo memInfo = Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtArenaAllocator, OrtMemType::OrtMemTypeDefault);
+
+    for (size_t iinput = 0; iinput < input.size(); iinput++) {
+      int64_t size = input[iinput].size();
+      std::vector<int64_t> inputShape{static_cast<int64_t>(size), 1}; // Ensure shape matches (-1x1)
+
+      inputTensors.emplace_back(Ort::Value::CreateTensor<T>(memInfo, input[iinput].data(), size, inputShape.data(), inputShape.size()));
+    }
+
+    return model->inference<T>(inputTensors, (size_t)(input[0].size() * 2)); // Adjust size to match output shape (-1x2)
+  }
+
+  void run2Dmodel(OrtModel* model) {
+    std::vector<std::vector<float>> values(7, std::vector<float>(1000, 1.0f)); // Example input data
+    evalModel<float>(values, model); // Run inference with the model
+    LOG(info) << "Inference completed for 2D model";
+  }
+
   void run(ProcessingContext& pc) final
   {
     if(options_map["mode"] == "surgery"){
@@ -391,7 +414,8 @@ class onnxInference : public Task
       model.init(options_map);
       model.initSession();
       LOG(info) << "Model initialized with path: " << options_map["model-path"];
-      // loadToOrtSession(buffer.str());
+      run2Dmodel(&model);
+      LOG(info) << "Done";
     } else if (options_map["mode"] == "run") {
       if (options_map["dtype"] == "FP16") {
         run_models<OrtDataType::Float16_t, OrtDataType::Float16_t>();
