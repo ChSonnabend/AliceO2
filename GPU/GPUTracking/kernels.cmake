@@ -91,7 +91,6 @@ o2_gpu_add_kernel("GPUTPCGMO2Output, output"                              "= TPC
 o2_gpu_add_kernel("GPUTPCGMO2Output, mc"                                  "= TPCMERGER")
 o2_gpu_add_kernel("GPUTRDTrackerKernels, gpuVersion"                      "= TRDTRACKER MATLUT TPCMERGER"                         LB GPUTRDTrackerGPU* externalInstance)
 o2_gpu_add_kernel("GPUTRDTrackerKernels, o2Version"                       "= TRDTRACKER MATLUT O2PROPAGATOR"                      LB GPUTRDTracker* externalInstance)
-o2_gpu_add_kernel("GPUITSFitterKernels"                                   "= TPCMERGER MATLUT"                                    LB)
 o2_gpu_add_kernel("GPUTPCConvertKernel"                                   "="                                                     LB)
 o2_gpu_add_kernel("GPUTPCCompressionKernels, step0attached"               "= TPCCOMPRESSION"                                      LB)
 o2_gpu_add_kernel("GPUTPCCompressionKernels, step1unattached"             "= ERRORS"                                              LB)

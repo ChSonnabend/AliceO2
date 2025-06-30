@@ -29,22 +29,6 @@ namespace o2::its
 class Cell final
 {
  public:
-  GPUhdDefault() Cell() = default;
-  GPUhd() Cell(const int firstClusterIndex, const int secondClusterIndex, const int thirdClusterIndex,
-               const int firstTrackletIndex, const int secondTrackletIndex)
-    : mFirstClusterIndex(firstClusterIndex),
-      mSecondClusterIndex(secondClusterIndex),
-      mThirdClusterIndex(thirdClusterIndex),
-      mFirstTrackletIndex(firstTrackletIndex),
-      mSecondTrackletIndex(secondTrackletIndex),
-      mLevel(1) {}
-  GPUhdDefault() Cell(const Cell&) = default;
-  GPUhdDefault() Cell(Cell&&) = default;
-  GPUhdDefault() ~Cell() = default;
-
-  GPUhdDefault() Cell& operator=(const Cell&) = default;
-  GPUhdDefault() Cell& operator=(Cell&&) noexcept = default;
-
   GPUhd() int getFirstClusterIndex() const { return mFirstClusterIndex; };
   GPUhd() int getSecondClusterIndex() const { return mSecondClusterIndex; };
   GPUhd() int getThirdClusterIndex() const { return mThirdClusterIndex; };

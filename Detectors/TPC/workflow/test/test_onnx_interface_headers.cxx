@@ -324,7 +324,7 @@ class onnxInference : public Task
   }
 
   void loadToOrtSession(std::string buffer) {
-    OrtModel model;
+    o2::ml::OrtModel model;
     model.initSessionFromBuffer(buffer);
     std::vector<std::vector<float>> test_data = std::vector<std::vector<float>>(7, std::vector<float>(1000, 1.0f)); // Example input data
     // Get float** to the first element
@@ -382,7 +382,7 @@ class onnxInference : public Task
   // For 2D inputs
   // Inference
   template <typename T>
-  std::vector<T> evalModel(std::vector<std::vector<T>>& input, OrtModel* model)
+  std::vector<T> evalModel(std::vector<std::vector<T>>& input, o2::ml::OrtModel* model)
   {
     std::vector<Ort::Value> inputTensors;
 
@@ -399,7 +399,7 @@ class onnxInference : public Task
   }
 
   template <typename T>
-  std::vector<T> evalModel(std::vector<std::span<T>>& input, OrtModel* model)
+  std::vector<T> evalModel(std::vector<std::span<T>>& input, o2::ml::OrtModel* model)
   {
     std::vector<Ort::Value> inputTensors;
 
@@ -431,7 +431,7 @@ class onnxInference : public Task
       std::ostringstream buffer;
       testModelSurgery(buffer);
       options_map["model-path"] = "./model.onnx";
-      OrtModel model;
+      o2::ml::OrtModel model;
       model.init(options_map);
       model.initSession();
       LOG(info) << "Model initialized with path: " << options_map["model-path"];

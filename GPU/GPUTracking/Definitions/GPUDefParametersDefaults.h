@@ -438,9 +438,6 @@
   #ifndef GPUCA_LB_GPUTPCGMO2Output_output
     #define GPUCA_LB_GPUTPCGMO2Output_output 256
   #endif
-  #ifndef GPUCA_LB_GPUITSFitterKernels
-    #define GPUCA_LB_GPUITSFitterKernels 256
-  #endif
   #ifndef GPUCA_LB_GPUTPCStartHitsFinder
     #define GPUCA_LB_GPUTPCStartHitsFinder 256
   #endif
