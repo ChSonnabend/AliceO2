@@ -76,7 +76,7 @@ class onnxInference : public Task
   onnxInference(std::unordered_map<std::string, std::string> optionsMap)
   {
     options_map = optionsMap;
-    models = std::vector<OrtModel>(std::stoi(options_map["execution-threads"]));
+    models = std::vector<o2::ml::OrtModel>(std::stoi(options_map["execution-threads"]));
     for (int thrd = 0; thrd < std::stoi(options_map["execution-threads"]); thrd++) {
       models[thrd].init(options_map);
     }
@@ -415,7 +415,7 @@ class onnxInference : public Task
     return model->inference<T>(inputTensors, (size_t)(input[0].size() * 2)); // Adjust size to match output shape (-1x2)
   }
 
-  void run2Dmodel(OrtModel* model) {
+  void run2Dmodel(o2::ml::OrtModel* model) {
     std::vector<std::vector<float>> values(7, std::vector<float>(1000, 1.0f)); // Example input data
     std::vector<std::span<float>> inputSpans;
     for (auto& v : values) {
@@ -452,7 +452,7 @@ class onnxInference : public Task
   };
 
  private:
-  std::vector<OrtModel> models;
+  std::vector<o2::ml::OrtModel> models;
   std::unordered_map<std::string, std::string> options_map;
 };
 } // namespace tpc

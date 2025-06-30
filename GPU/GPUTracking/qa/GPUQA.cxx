@@ -1708,8 +1708,8 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
           //   pt = PT_MIN_CLUST;
           // }
           // float weight = 1.f / (mClusterParam[hitId].attached + mClusterParam[hitId].fakeAttached);
-          for (int32_t j = 0; j < GetMCLabelNID(hitId); j++) {
-            if (label == GetMCLabel(hitId, j)) {
+          for (int32_t k = 0; k < GetMCLabelNID(hitId); k++) {
+            if (label == GetMCLabel(hitId, k)) {
               nCorrectlyAttachedRows++;
               break;
             }
@@ -1717,11 +1717,12 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
         }
         mNCl[1]->Fill(nClCorrected);
         if (mcAvail) {
-          int32_t numMChits = mTracking->mIOPtrs.mergedTrackHits[track.FirstClusterRef()].num;
-          mNCl[2]->Fill(nCorrectlyAttachedRows / numMChits);// / (mClusterParam[hitId].attached + mClusterParam[hitId].fakeAttached));
+          mNCl[2]->Fill(nCorrectlyAttachedRows / (float)nClCorrected);// / (mClusterParam[hitId].attached + mClusterParam[hitId].fakeAttached));
+          clusterAttachmentEfficiency += nCorrectlyAttachedRows / (float)nClCorrected;
         }
       }
     }
+    clusterAttachmentEfficiency /= nReconstructedTracks;
     if (mClNative && mTracking && mTracking->GetTPCTransformHelper()) {
       for (uint32_t i = 0; i < GPUChainTracking::NSECTORS; i++) {
         for (uint32_t j = 0; j < GPUCA_ROW_COUNT; j++) {
@@ -2888,6 +2889,7 @@ int32_t GPUQA::DoClusterCounts(uint64_t* attachClusterCounts, int32_t mode)
     PrintClusterCount(mode, num, "Removed (Strategy A)", mClusterCounts.nTotal - mClusterCounts.nUnattached - mClusterCounts.nProt, mClusterCounts.nTotal);
     PrintClusterCount(mode, num, "Removed (Strategy B)", mClusterCounts.nTotal - mClusterCounts.nProt, mClusterCounts.nTotal);
   }
+  printf("\t%35s: %12.6f (%6.2f%%)\n", "Cluster attachment efficiency", clusterAttachmentEfficiency, 100.f * clusterAttachmentEfficiency);
 
   PrintClusterCount(mode, num, "Merged Loopers (Afterburner)", mClusterCounts.nMergedLooper, mClusterCounts.nTotal);
   PrintClusterCount(mode, num, "High Inclination Angle", mClusterCounts.nHighIncl, mClusterCounts.nTotal);

@@ -114,7 +114,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::run
 }
 
 template <>
-GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fillInputNN>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t withMC, uint32_t batchStart)
+GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fillInputNNCPU>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t withMC, uint32_t batchStart)
 {
   uint32_t glo_idx = get_global_id(0);
   auto& clusterer = processors.tpcClusterer[sector];
@@ -128,31 +128,15 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
   float central_charge = static_cast<float>(chargeMap[peak].unpack());
   int32_t row_offset = GPUTPCNNClusterizerKernels::rowOffset(row, clustererNN.mNnClusterizerSizeInputRow);
 
-#ifndef GPUCA_GPUCODE
-  GPUCA_UNROLL(U(), U());
-#endif
-  float tmp_meant = 0.f, tmp_sigmat = 0.f, tmp_meanp = 0.f, tmp_sigmap = 0.f, tmp_charge = 0.f;
   for (int32_t r = -clustererNN.mNnClusterizerSizeInputRow; r <= clustererNN.mNnClusterizerSizeInputRow; r++) {
     bool is_row_boundary = ((row + r) > (o2::tpc::constants::MAXGLOBALPADROW - 1)) || ((row + r) < 0);
     int32_t pad_offset = is_row_boundary ? 0 : GPUTPCNNClusterizerKernels::padOffset(row, row + r);
     for (int32_t p = -clustererNN.mNnClusterizerSizeInputPad + pad_offset; p <= clustererNN.mNnClusterizerSizeInputPad + pad_offset; p++) {
       bool is_boundary = is_row_boundary || GPUTPCNNClusterizerKernels::isBoundary(row + r + row_offset, pad + p, clustererNN.mNnClusterizerSizeInputRow);
       for (int32_t t = -clustererNN.mNnClusterizerSizeInputTime; t <= clustererNN.mNnClusterizerSizeInputTime; t++) {
-        if (!is_boundary) {
-          CfChargePos tmp_pos(row + r, pad + p, time + t);
-          if (r == 0 && !clustererNN.mClusterFlags[2 * glo_idx] && CAMath::Abs(p) < 3 && CAMath::Abs(t) < 3 && p != 0 && t != 0) { // ordering is done for short circuit optimization
-            clustererNN.mClusterFlags[2 * glo_idx] += CfUtils::isPeak(isPeakMap[tmp_pos]);
-            clustererNN.mClusterFlags[2 * glo_idx + 1] = clustererNN.mClusterFlags[2 * glo_idx];
-            if (CAMath::Abs(p) < 2 && CAMath::Abs(t) < 2 && p != 0 && t != 0) {
-              tmp_charge += static_cast<float>(chargeMap[tmp_pos].unpack());
-              if (p != 0 || t != 0) {
-                tmp_meant += tmp_charge * t;
-                tmp_sigmat += tmp_charge * t * t;
-                tmp_meanp += tmp_charge * p;
-                tmp_sigmap += tmp_charge * p * p;
-              }
-            }
-          }
+        int32_t time_pos = time + t;
+        if (!is_boundary && (time_pos >= 0) || (time_pos < TPC_MAX_FRAGMENT_LEN_GPU)) {
+          CfChargePos tmp_pos(row + r, pad + p, time_pos);
           if (dtype == 0) {
             clustererNN.mInputData_16[write_idx] = (OrtDataType::Float16_t)(static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge);
           } else if (dtype == 1) {
@@ -193,6 +177,16 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
       clustererNN.mInputData_32[write_idx + 5] = static_cast<float>(CAMath::Sqrt(tmp_sigmap / tmp_charge - (tmp_meanp / tmp_charge) * (tmp_meanp / tmp_charge)));
       clustererNN.mInputData_32[write_idx + 6] = static_cast<float>(CAMath::Sqrt(tmp_sigmat / tmp_charge - (tmp_meant / tmp_charge) * (tmp_meant / tmp_charge)));
     }
+  }
+  if(!clustererNN.mNnClusterFlagsAreSet) {
+    clustererNN.mClusterFlags[2 * glo_idx] = 0;
+    clustererNN.mClusterFlags[2 * glo_idx + 1] = 0;
+    for (uint16_t i = 0; i < 8; i++) {
+      Delta2 d = cfconsts::InnerNeighbors[i];
+      CfChargePos tmp_pos = peak.delta(d);
+      clustererNN.mClusterFlags[2 * glo_idx] += CfUtils::isPeak(isPeakMap[tmp_pos]);
+    }
+    clustererNN.mClusterFlags[2 * glo_idx + 1] = clustererNN.mClusterFlags[2 * glo_idx];
   }
 }
 

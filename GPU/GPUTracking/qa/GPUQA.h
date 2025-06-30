@@ -304,6 +304,7 @@ class GPUQA
   TCanvas* mCNCl[N_NCL_TRACK_HISTS];
   TPad* mPNCl[N_NCL_TRACK_HISTS];
   TLegend* mLNCl[N_NCL_TRACK_HISTS];
+  float clusterAttachmentEfficiency = 0;
 
   TH2F* mClXY;
   TCanvas* mCClXY;
