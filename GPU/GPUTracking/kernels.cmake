@@ -128,7 +128,7 @@ o2_gpu_add_kernel("GPUTrackingRefitKernel, mode0asGPU"                    "= GLO
 o2_gpu_add_kernel("GPUTrackingRefitKernel, mode1asTrackParCov"            "= GLOBALREFIT "                                        LB)
 if(onnxruntime_FOUND)
 o2_gpu_add_kernel("GPUTPCNNClusterizerKernels, runCfClusterizer"          "= TPCNNCLUSTERFINDER"                                  LB uint8_t sector int8_t dtype int8_t withMC uint32_t batchStart)
-o2_gpu_add_kernel("GPUTPCNNClusterizerKernels, fillInputNN"               "= TPCNNCLUSTERFINDER"                                  LB uint8_t sector int8_t dtype int8_t withMC uint32_t batchStart)
+o2_gpu_add_kernel("GPUTPCNNClusterizerKernels, fillInputNNCPU"            "= TPCNNCLUSTERFINDER"                                  LB uint8_t sector int8_t dtype int8_t withMC uint32_t batchStart)
 o2_gpu_add_kernel("GPUTPCNNClusterizerKernels, fillInputNNSingleElement"  "= TPCNNCLUSTERFINDER"                                  LB uint8_t sector int8_t dtype int8_t withMC uint32_t batchStart)
 o2_gpu_add_kernel("GPUTPCNNClusterizerKernels, determineClass1Labels"     "= TPCNNCLUSTERFINDER"                                  LB uint8_t sector int8_t dtype int8_t withMC uint32_t batchStart)
 o2_gpu_add_kernel("GPUTPCNNClusterizerKernels, determineClass2Labels"     "= TPCNNCLUSTERFINDER"                                  LB uint8_t sector int8_t dtype int8_t withMC uint32_t batchStart)
