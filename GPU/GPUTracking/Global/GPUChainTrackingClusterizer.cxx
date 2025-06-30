@@ -1151,6 +1151,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         } else {
           GPUTPCNNClusterizerHost dummy;
           if(GetProcessingSettings().nn.nnClusterizerDumpDigits > 0) {
+            runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}}, false); // to write the has3x3 and isSplit flags
             dummy.digitWriter(clusterer,  "digits_stream_noise_supressed");
           }
 

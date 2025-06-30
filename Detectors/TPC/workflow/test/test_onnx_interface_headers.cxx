@@ -398,9 +398,30 @@ class onnxInference : public Task
     return model->inference<T>(inputTensors, (size_t)(input[0].size() * 2)); // Adjust size to match output shape (-1x2)
   }
 
+  template <typename T>
+  std::vector<T> evalModel(std::vector<std::span<T>>& input, OrtModel* model)
+  {
+    std::vector<Ort::Value> inputTensors;
+
+    Ort::MemoryInfo memInfo = Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtArenaAllocator, OrtMemType::OrtMemTypeDefault);
+
+    for (size_t iinput = 0; iinput < input.size(); iinput++) {
+      int64_t size = input[iinput].size();
+      std::vector<int64_t> inputShape{static_cast<int64_t>(size), 1}; // Ensure shape matches (-1x1)
+
+      inputTensors.emplace_back(Ort::Value::CreateTensor<T>(memInfo, input[iinput].data(), size, inputShape.data(), inputShape.size()));
+    }
+
+    return model->inference<T>(inputTensors, (size_t)(input[0].size() * 2)); // Adjust size to match output shape (-1x2)
+  }
+
   void run2Dmodel(OrtModel* model) {
     std::vector<std::vector<float>> values(7, std::vector<float>(1000, 1.0f)); // Example input data
-    evalModel<float>(values, model); // Run inference with the model
+    std::vector<std::span<float>> inputSpans;
+    for (auto& v : values) {
+      inputSpans.emplace_back(v);
+    }
+    evalModel<float>(inputSpans, model); // Run inference with the model
     LOG(info) << "Inference completed for 2D model";
   }
 

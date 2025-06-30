@@ -141,6 +141,7 @@ class GPUQA
 
   static constexpr int32_t N_CLS_HIST = 8;
   static constexpr int32_t N_CLS_TYPE = 3;
+  static constexpr int32_t N_NCL_TRACK_HISTS = 3;
 
   static constexpr int32_t MC_LABEL_INVALID = -1e9;
 
@@ -299,10 +300,10 @@ class GPUQA
   TPad* mPTracks;
   TLegend* mLTracks;
 
-  TH1F* mNCl[2];
-  TCanvas* mCNCl[2];
-  TPad* mPNCl[2];
-  TLegend* mLNCl[2];
+  TH1F* mNCl[N_NCL_TRACK_HISTS];
+  TCanvas* mCNCl[N_NCL_TRACK_HISTS];
+  TPad* mPNCl[N_NCL_TRACK_HISTS];
+  TLegend* mLNCl[N_NCL_TRACK_HISTS];
 
   TH2F* mClXY;
   TCanvas* mCClXY;

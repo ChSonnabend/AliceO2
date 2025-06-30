@@ -993,29 +993,28 @@ void qaCluster::publishDeconvolutionFlags(int sector, tpc2d& map2d, std::vector<
         int dPad = std::abs(pad - mpad), dTime = std::abs(time - mtime);
         if (dPad == 0 && dTime == 0) {
           continue; // Skip the center pad
+        }
+        int current_idx = map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset];
+        if (current_idx > digit_map.size() || current_idx < 0) {
+          continue;
+        }
+        int flag = digit_map[current_idx].flag;
+        if (flag > 10000) {
+          LOG(error) << "[" << sector << "] Flag value " << flag << " is too high for digit " << max_idx << "with row: " << row << ", max_pad: " << mpad << ", max_time: " << mtime << " and dPad: " << dPad << ", dTime: " << dTime << "! Please check the digit map!";
+        }
+        if (flag >= 1000) {
+          isSplit = 1;
+          has3x3 = (int)((flag % 1000) > 0);
         } else {
-          int current_idx = map2d[1][time + global_shift[1]][row + row_offset + global_shift[2]][pad + global_shift[0] + pad_offset];
-          if (current_idx > digit_map.size() || current_idx < 0) {
-            continue;
-          }
-          int flag = digit_map[current_idx].flag;
-          if (flag > 10000) {
-            LOG(error) << "[" << sector << "] Flag value " << flag << " is too high for digit " << max_idx << "with row: " << row << ", max_pad: " << mpad << ", max_time: " << mtime << " and dPad: " << dPad << ", dTime: " << dTime << "! Please check the digit map!";
-          }
-          if (flag >= 1000) {
-            isSplit = 1;
-            has3x3 = flag - 2;
-          } else {
-            isSplit = 0;
-            has3x3 = flag;
-          }
-          if (dPad <= 1 && dTime<= 1) {
-            flagPad += (dPad>0) * isSplit;
-            flagTime += (dTime>0) * isSplit;
-          } else if (dPad <= 2 && dTime <= 2) {
-            flagPad += (dPad>0) * isSplit * has3x3;
-            flagTime += (dTime>0) * isSplit * has3x3;
-          }
+          isSplit = 0;
+          has3x3 = (int)(flag > 0);
+        }
+        if (dPad <= 1 && dTime<= 1) {
+          flagPad += (dPad>0) * isSplit;
+          flagTime += (dTime>0) * isSplit;
+        } else if (dPad <= 2 && dTime <= 2) {
+          flagPad += (dPad>0) * isSplit * has3x3;
+          flagTime += (dTime>0) * isSplit * has3x3;
         }
       }
     }
