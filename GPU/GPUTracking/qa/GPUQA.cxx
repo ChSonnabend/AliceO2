@@ -1729,7 +1729,6 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
         }
       }
     }
-    LOG(info) << "clusterAttachmentEfficiency: " << clusterAttachmentEfficiency << " for " << tracksUsed << " tracks";
     clusterAttachmentEfficiency /= (float)tracksUsed;
     if (mClNative && mTracking && mTracking->GetTPCTransformHelper()) {
       for (uint32_t i = 0; i < GPUChainTracking::NSECTORS; i++) {

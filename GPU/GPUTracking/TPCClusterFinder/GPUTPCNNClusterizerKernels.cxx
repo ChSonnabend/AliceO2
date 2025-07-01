@@ -222,7 +222,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
   int32_t row = static_cast<int>(peak.row()), pad = static_cast<int>(peak.pad());
 
   if ((int32_t)transient_index == (clustererNN.mNnClusterizerElementSize - 1)) {
-    if(!clustererNN.mNnClusterFlagsAreSet) {
+    if(!clustererNN.mNnClusterizerSetDeconvolutionFlags) {
       clustererNN.mClusterFlags[2 * base_idx] = 0;
       clustererNN.mClusterFlags[2 * base_idx + 1] = 0;
       for (uint16_t i = 0; i < 8; i++) {

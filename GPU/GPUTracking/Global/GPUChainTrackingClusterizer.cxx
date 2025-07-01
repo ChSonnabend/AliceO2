@@ -987,12 +987,10 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
           int withMC = propagateMCLabels;
 
-          if (GetProcessingSettings().nn.setDeconvolutionFlags) {
+          if (clustererNNShadow.mNnClusterizerSetDeconvolutionFlags) {
             runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}}, false);
-            clustererNNShadow.mNnClusterFlagsAreSet = true;
           } else if (nn_settings.nnClusterizerApplyCfDeconvolution) {
             runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}}, true);
-            clustererNNShadow.mNnClusterFlagsAreSet = true;
           }
 
           float time_clusterizer = 0, time_fill = 0, time_networks = 0;
@@ -1083,7 +1081,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             //   }
             // }
 
-            if(!clustererNNShadow.mNnClusterizerUseCfRegression && GetProcessingSettings().nn.setDeconvolutionFlags) {
+            if(!clustererNNShadow.mNnClusterizerUseCfRegression && clustererNNShadow.mNnClusterizerSetDeconvolutionFlags) {
               runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishDeconvolutionFlags>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, batchStart); // Publishing the deconvolution flags to the mClusterFlags
             }
 
@@ -1126,6 +1124,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           }
 
           if (clustererNNShadow.mNnClusterizerUseCfRegression) {
+            auto start1 = std::chrono::high_resolution_clock::now();
             if(!nn_settings.nnClusterizerApplyCfDeconvolution) { // If it is already applied don't do it twice, otherwise apply now
               runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}}, true);
             }
