@@ -194,7 +194,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
       clustererNN.mInputData_32[write_idx + 6] = static_cast<float>(CAMath::Sqrt(tmp_sigmat / tmp_charge - (tmp_meant / tmp_charge) * (tmp_meant / tmp_charge)));
     }
   }
-  if(!clustererNN.mNnClusterFlagsAreSet) {
+  if (!clustererNN.mNnClusterizerSetDeconvolutionFlags) {
     clustererNN.mClusterFlags[2 * glo_idx] = 0;
     clustererNN.mClusterFlags[2 * glo_idx + 1] = 0;
     for (uint16_t i = 0; i < 8; i++) {

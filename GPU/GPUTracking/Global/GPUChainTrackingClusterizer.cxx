@@ -1095,7 +1095,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
             auto stopNNs = std::chrono::high_resolution_clock::now();
 
-            // Publishing kernels
+            // Publishing kernels for class labels and regression results
             if (nnApplication.mModelClass.getNumOutputNodes()[0][1] == 1) {
               runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass1Labels>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceOutputDType, propagateMCLabels, batchStart); // Assigning class labels
             } else {
@@ -1126,8 +1126,9 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           }
 
           if (clustererNNShadow.mNnClusterizerUseCfRegression) {
-            auto start1 = std::chrono::high_resolution_clock::now();
-            runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}}, true);
+            if(!nn_settings.nnClusterizerApplyCfDeconvolution) { // If it is already applied don't do it twice, otherwise apply now
+              runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}}, true);
+            }
             DoDebugAndDump(RecoStep::TPCClusterFinding, GPUChainTrackingDebugFlags::TPCClustererChargeMap, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
             runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::runCfClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, 0); // Running the CF regression kernel - no batching needed: batchStart = 0
             auto stop1 = std::chrono::high_resolution_clock::now();
