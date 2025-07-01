@@ -987,7 +987,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
           int withMC = propagateMCLabels;
 
-          if (clustererNNShadow.mNnClusterizerSetDeconvolutionFlags) {
+          if (GetProcessingSettings().nn.setDeconvolutionFlags) {
             runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}}, false);
             clustererNNShadow.mNnClusterFlagsAreSet = true;
           } else if (nn_settings.nnClusterizerApplyCfDeconvolution) {
@@ -1005,7 +1005,12 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             }
 
             auto start0 = std::chrono::high_resolution_clock::now();
-            runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::fillInputNNSingleElement>({GetGrid(iSize * clustererNNShadow.mNnClusterizerElementSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, batchStart); // Filling the data
+            if (mRec->IsGPU() || GetProcessingSettings().nn.nnClusterizerForceGpuInputFill) {
+              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::fillInputNNGPU>({GetGrid(iSize * clustererNNShadow.mNnClusterizerElementSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, batchStart); // Filling the data
+            } else {
+              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::fillInputNNCPU>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, batchStart); // Filling the data
+            }
+            // runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::fillInputNNGPU>({GetGrid(iSize * clustererNNShadow.mNnClusterizerElementSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, batchStart); // Filling the data
             auto stop0 = std::chrono::high_resolution_clock::now();
 
             for(int i = 0; i < iSize; i++){

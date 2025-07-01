@@ -46,7 +46,6 @@ class GPUTPCNNClusterizer : public GPUProcessor
   bool mNnClusterizerAddMeanSigma = false;
   float mNnClassThreshold = 0.01;
   bool mNnSigmoidTrafoClassThreshold = 1;
-  bool mNnClusterizerSetDeconvolutionFlags = true;
   int mNnClusterizerUseCfRegression = 0;
   int mNnClusterizerUseClassification = 1;
   int mNnClusterizerBatchedMode = 1;

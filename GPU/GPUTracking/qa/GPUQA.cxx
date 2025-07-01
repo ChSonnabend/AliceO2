@@ -1666,7 +1666,7 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
 
   if (mQATasks & taskTrackStatistics) {
     // Fill track statistic histograms
-    int32_t nCorrectlyAttachedRows = -1; // Only used if MC is available
+    int32_t nCorrectlyAttachedRows = 0, tracksUsed = 0; // Only used if MC is available
     for (uint32_t i = 0; i < nReconstructedTracks; i++) {
       const GPUTPCGMMergedTrack& track = mTracking->mIOPtrs.mergedTracks[i];
       if (!track.OK()) {
@@ -1677,6 +1677,7 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
       uint32_t nClCorrected = 0;
       int32_t lastSector = -1, lastRow = -1;
       const auto& trackClusters = mTracking->mIOPtrs.mergedTrackHits;
+      nCorrectlyAttachedRows = 0;
       for (uint32_t j = 0; j < track.NClusters(); j++) {
         if (trackClusters[track.FirstClusterRef() + j].state & GPUTPCGMMergedTrackHit::flagReject) {
           continue;
@@ -1691,7 +1692,6 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
         lastSector = trackClusters[track.FirstClusterRef() + j].sector;
         lastRow = trackClusters[track.FirstClusterRef() + j].sector;
         if (mcAvail) {
-          nCorrectlyAttachedRows = 0;
           if (!mTrackMCLabels[i].isValid()) {
             continue;
           }
@@ -1715,14 +1715,22 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
             }
           }
         }
-        mNCl[1]->Fill(nClCorrected);
-        if (mcAvail) {
-          mNCl[2]->Fill(nCorrectlyAttachedRows / (float)nClCorrected);// / (mClusterParam[hitId].attached + mClusterParam[hitId].fakeAttached));
-          clusterAttachmentEfficiency += nCorrectlyAttachedRows / (float)nClCorrected;
+      }
+      tracksUsed++;
+      mNCl[1]->Fill(nClCorrected);
+      if (mcAvail) {
+        if (nClCorrected > 0) {
+          float attachmentEfficiency = (nCorrectlyAttachedRows / (float)nClCorrected);
+          mNCl[2]->Fill(attachmentEfficiency);// / (mClusterParam[hitId].attached + mClusterParam[hitId].fakeAttached));
+          clusterAttachmentEfficiency += attachmentEfficiency;
+          if (attachmentEfficiency > 1.f) {
+            GPUWarning("Track %d has more than 100%% cluster attachment efficiency (%f), this should not happen!", i, attachmentEfficiency);
+          }
         }
       }
     }
-    clusterAttachmentEfficiency /= nReconstructedTracks;
+    LOG(info) << "clusterAttachmentEfficiency: " << clusterAttachmentEfficiency << " for " << tracksUsed << " tracks";
+    clusterAttachmentEfficiency /= (float)tracksUsed;
     if (mClNative && mTracking && mTracking->GetTPCTransformHelper()) {
       for (uint32_t i = 0; i < GPUChainTracking::NSECTORS; i++) {
         for (uint32_t j = 0; j < GPUCA_ROW_COUNT; j++) {
