@@ -172,8 +172,8 @@ static const constexpr char* PARAMETER_NAMES[5] = {"Y", "Z", "#Phi", "#lambda", 
 static const constexpr char* PARAMETER_NAMES_NATIVE[5] = {"Y", "Z", "sin(#Phi)", "tan(#lambda)", "q/#it{p}_{T} (curvature)"};
 static const constexpr char* VSPARAMETER_NAMES[6] = {"Y", "Z", "Phi", "Eta", "Pt", "Pt_log"};
 static const constexpr char* EFF_NAMES[3] = {"Efficiency", "Clone Rate", "Fake Rate"};
-static const constexpr char* N_NCL_TRACK_HIST_NAMES[GPUQA::N_NCL_TRACK_HISTS] = {"nclusters", "nrows_with_cluster", "correctly_attached_rows"};
-static const constexpr char* N_NCL_TRACK_HIST_LEGENDS[GPUQA::N_NCL_TRACK_HISTS] = {"Number of clusters per track", "Number of clusters (corrected for multiple per row)", "Attachment efficiency (correctly attached rows / total number of rows with clusters)"};
+static const constexpr char* N_NCL_TRACK_HIST_NAMES[GPUQA::N_NCL_TRACK_HISTS] = {"nclusters", "nrows_with_cluster", "correctly_attached_rows", "fake_attached_rows"};
+static const constexpr char* N_NCL_TRACK_HIST_LEGENDS[GPUQA::N_NCL_TRACK_HISTS] = {"Number of clusters per track", "Number of clusters (corrected for multiple per row)", "Attachment efficiency (correctly attached rows / total number of rows with clusters)", "Fake attachment efficiency (fake attached rows / total number of rows with clusters)"};
 static const constexpr char* EFFICIENCY_TITLES[4] = {"Efficiency (Primary Tracks, Findable)", "Efficiency (Secondary Tracks, Findable)", "Efficiency (Primary Tracks)", "Efficiency (Secondary Tracks)"};
 static const constexpr double SCALE[5] = {10., 10., 1000., 1000., 100.};
 static const constexpr double SCALE_NATIVE[5] = {10., 10., 1000., 1000., 1.};
@@ -534,7 +534,7 @@ int32_t GPUQA::InitQACreateHistograms()
       snprintf(name, 2048, N_NCL_TRACK_HIST_NAMES[i]);
       if (i < 2) {
         createHist(mNCl[i], name, name, 160, 0, 159);
-      } else if (i == 2) {
+      } else if (i < 4) { // Attachment efficiencies
         createHist(mNCl[i], name, name, 100, 0, 1);
       }
     }
@@ -1666,7 +1666,6 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
 
   if (mQATasks & taskTrackStatistics) {
     // Fill track statistic histograms
-    int32_t nCorrectlyAttachedRows = 0, tracksUsed = 0; // Only used if MC is available
     for (uint32_t i = 0; i < nReconstructedTracks; i++) {
       const GPUTPCGMMergedTrack& track = mTracking->mIOPtrs.mergedTracks[i];
       if (!track.OK()) {
@@ -1674,10 +1673,8 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
       }
       mTracks->Fill(1.f / fabsf(track.GetParam().GetQPt()));
       mNCl[0]->Fill(track.NClustersFitted());
-      uint32_t nClCorrected = 0;
       int32_t lastSector = -1, lastRow = -1;
       const auto& trackClusters = mTracking->mIOPtrs.mergedTrackHits;
-      nCorrectlyAttachedRows = 0;
       for (uint32_t j = 0; j < track.NClusters(); j++) {
         if (trackClusters[track.FirstClusterRef() + j].state & GPUTPCGMMergedTrackHit::flagReject) {
           continue;
@@ -1688,10 +1685,13 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
         if (trackClusters[track.FirstClusterRef() + j].leg != trackClusters[track.FirstClusterRef() + track.NClusters() - 1].leg) {
           continue;
         }
-        nClCorrected++;
+        mClusterEfficiencies.nRowsWithClusters++;
         lastSector = trackClusters[track.FirstClusterRef() + j].sector;
         lastRow = trackClusters[track.FirstClusterRef() + j].sector;
         if (mcAvail) {
+          if (mTrackMCLabels[i].isFake()) {
+            mClusterEfficiencies.nFakeAttachedRows++;
+          }
           if (!mTrackMCLabels[i].isValid()) {
             continue;
           }
@@ -1710,26 +1710,30 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
           // float weight = 1.f / (mClusterParam[hitId].attached + mClusterParam[hitId].fakeAttached);
           for (int32_t k = 0; k < GetMCLabelNID(hitId); k++) {
             if (label == GetMCLabel(hitId, k)) {
-              nCorrectlyAttachedRows++;
+              mClusterEfficiencies.nCorrectlyAttachedRows++;
               break;
             }
           }
         }
       }
-      tracksUsed++;
-      mNCl[1]->Fill(nClCorrected);
+      mClusterEfficiencies.nTracksUsed++;
+      mNCl[1]->Fill(mClusterEfficiencies.nRowsWithClusters);
       if (mcAvail) {
-        if (nClCorrected > 0) {
-          float attachmentEfficiency = (nCorrectlyAttachedRows / (float)nClCorrected);
-          mNCl[2]->Fill(attachmentEfficiency);// / (mClusterParam[hitId].attached + mClusterParam[hitId].fakeAttached));
-          clusterAttachmentEfficiency += attachmentEfficiency;
+        if (mClusterEfficiencies.nRowsWithClusters > 0) {
+          float attachmentEfficiency = (mClusterEfficiencies.nCorrectlyAttachedRows / (float)mClusterEfficiencies.nRowsWithClusters),
+              fakeAttachmentEfficiency = (mClusterEfficiencies.nFakeAttachedRows / (float)mClusterEfficiencies.nRowsWithClusters); // / (mClusterParam[hitId].attached + mClusterParam[hitId].fakeAttached));
+          mNCl[2]->Fill(attachmentEfficiency);
+          mNCl[3]->Fill(fakeAttachmentEfficiency);
+          mClusterEfficiencies.clusterAttachmentEfficiency += attachmentEfficiency;
+          mClusterEfficiencies.clusterFakeAttachmentEfficiency += fakeAttachmentEfficiency;
           if (attachmentEfficiency > 1.f) {
             GPUWarning("Track %d has more than 100%% cluster attachment efficiency (%f), this should not happen!", i, attachmentEfficiency);
           }
         }
       }
     }
-    clusterAttachmentEfficiency /= (float)tracksUsed;
+    mClusterEfficiencies.clusterAttachmentEfficiency /= mClusterEfficiencies.nTracksUsed;
+    mClusterEfficiencies.clusterFakeAttachmentEfficiency /= mClusterEfficiencies.nTracksUsed;
     if (mClNative && mTracking && mTracking->GetTPCTransformHelper()) {
       for (uint32_t i = 0; i < GPUChainTracking::NSECTORS; i++) {
         for (uint32_t j = 0; j < GPUCA_ROW_COUNT; j++) {
@@ -2888,6 +2892,10 @@ int32_t GPUQA::DoClusterCounts(uint64_t* attachClusterCounts, int32_t mode)
     PrintClusterCount(mode, num, "Unattached", attachClusterCounts[N_CLS_HIST - 1] - attachClusterCounts[CL_att_adj], mClusterCounts.nTotal);
     PrintClusterCount(mode, num, "Removed (Strategy A)", attachClusterCounts[CL_att_adj] - attachClusterCounts[CL_prot], mClusterCounts.nTotal); // Attached + Adjacent (also fake) - protected
     PrintClusterCount(mode, num, "Unaccessible", mClusterCounts.nUnaccessible, mClusterCounts.nTotal);                                           // No contribution from track >= 10 MeV, unattached or fake-attached/adjacent
+    PrintClusterCount(mode, num, "Number of crossed rows", mClusterEfficiencies.nRowsWithClusters, mClusterCounts.nTotal);
+    PrintClusterCount(mode, num, "Crossed rows with corr. attached", mClusterEfficiencies.nCorrectlyAttachedRows, mClusterCounts.nTotal);
+    printf("\t%35s: %12.6f (%6.2f%%)\n", "Cluster attachment efficiency", mClusterEfficiencies.clusterAttachmentEfficiency, 100.f * mClusterEfficiencies.clusterAttachmentEfficiency);
+    printf("\t%35s: %12.6f (%6.2f%%)\n", "Cluster fake attachment efficiency", mClusterEfficiencies.clusterFakeAttachmentEfficiency, 100.f * mClusterEfficiencies.clusterFakeAttachmentEfficiency);
   } else {
     PrintClusterCount(mode, num, "All Clusters", mClusterCounts.nTotal, mClusterCounts.nTotal);
     PrintClusterCount(mode, num, "Used in Physics", mClusterCounts.nPhysics, mClusterCounts.nTotal);
@@ -2896,7 +2904,6 @@ int32_t GPUQA::DoClusterCounts(uint64_t* attachClusterCounts, int32_t mode)
     PrintClusterCount(mode, num, "Removed (Strategy A)", mClusterCounts.nTotal - mClusterCounts.nUnattached - mClusterCounts.nProt, mClusterCounts.nTotal);
     PrintClusterCount(mode, num, "Removed (Strategy B)", mClusterCounts.nTotal - mClusterCounts.nProt, mClusterCounts.nTotal);
   }
-  printf("\t%35s: %12.6f (%6.2f%%)\n", "Cluster attachment efficiency", clusterAttachmentEfficiency, 100.f * clusterAttachmentEfficiency);
 
   PrintClusterCount(mode, num, "Merged Loopers (Afterburner)", mClusterCounts.nMergedLooper, mClusterCounts.nTotal);
   PrintClusterCount(mode, num, "High Inclination Angle", mClusterCounts.nHighIncl, mClusterCounts.nTotal);

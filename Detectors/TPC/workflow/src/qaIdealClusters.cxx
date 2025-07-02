@@ -2276,8 +2276,8 @@ void qaCluster::runQa(int sector)
       }
       tm_counter += 1;
     }
-    num_total_ideal_max -= remove_ideal;
-    num_total_digit_max -= remove_digit;
+    // num_total_ideal_max -= remove_ideal;
+    // num_total_digit_max -= remove_digit;
   }
 
   // Checks the number of assignments that have been made with the above loops
@@ -3229,10 +3229,10 @@ void qaCluster::run(ProcessingContext& pc)
     custom::sum_nested_container(fractional_clones, fractional_clones_sum);
 
     LOG(info) << "------- RESULTS -------\n";
-    LOG(info) << "Number of digit maxima (after exclusions): " << num_total_digit_max;
-    LOG(info) << "Number of ideal maxima (after exclusions): " << num_total_ideal_max << "\n";
-    LOG(info) << "Number of digit maxima: (before exclusion): " << number_of_digit_max_sum;
-    LOG(info) << "Number of ideal maxima: (before exclusion): " << number_of_ideal_max_sum;
+    LOG(info) << "Number of digit maxima (before exclusions): " << num_total_digit_max;
+    LOG(info) << "Number of ideal maxima (before exclusions): " << num_total_ideal_max;
+    LOG(info) << "Number of digit maxima (after exclusion): " << number_of_digit_max_sum;
+    LOG(info) << "Number of ideal maxima (after exclusion): " << number_of_ideal_max_sum << "\n";
 
     unsigned int efficiency_normal = 0;
     unsigned int efficiency_findable = 0;
@@ -3276,12 +3276,21 @@ void qaCluster::run(ProcessingContext& pc)
       fakes_id += assignments_ideal[s][0];
     }
 
+    LOG(info) << "------- Rates with looper exclusion -------";
+    LOG(info) << "Efficiency - Number of assigned (ideal -> digit) clusters: " << efficiency_normal << " (" << (float)efficiency_normal * 100 / (float)number_of_ideal_max_sum << "% of ideal maxima)";
+    LOG(info) << "Efficiency (findable) - Number of assigned (ideal -> digit) clusters: " << efficiency_findable << " (" << (float)efficiency_findable * 100 / (float)number_of_ideal_max_findable_sum << "% of ideal maxima)";
+    LOG(info) << "Clones (Int, clone-order >= 2 for ideal cluster): " << clones_sum << " (" << (float)clones_sum * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
+    LOG(info) << "Clones (Float, fractional clone-order): " << fractional_clones_sum << " (" << (float)fractional_clones_sum * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
+    LOG(info) << "Fakes for digits (number of digit hits that can't be assigned to any ideal hit): " << fakes_dig << " (" << (float)fakes_dig * 100 / (float)number_of_digit_max_sum << "% of digit maxima)";
+    LOG(info) << "Fakes for ideal (number of ideal hits that can't be assigned to any digit hit): " << fakes_id << " (" << (float)fakes_id * 100 / (float)number_of_ideal_max_sum << "% of ideal maxima)" << "\n";
+
+    LOG(info) << "------- Rates without looper exclusion -------"; // E.g. for NN imported native clusters -> Check how much efficiency increases when loopers are not excluded
     LOG(info) << "Efficiency - Number of assigned (ideal -> digit) clusters: " << efficiency_normal << " (" << (float)efficiency_normal * 100 / (float)num_total_ideal_max << "% of ideal maxima)";
     LOG(info) << "Efficiency (findable) - Number of assigned (ideal -> digit) clusters: " << efficiency_findable << " (" << (float)efficiency_findable * 100 / (float)number_of_ideal_max_findable_sum << "% of ideal maxima)";
     LOG(info) << "Clones (Int, clone-order >= 2 for ideal cluster): " << clones_sum << " (" << (float)clones_sum * 100 / (float)num_total_digit_max << "% of digit maxima)";
     LOG(info) << "Clones (Float, fractional clone-order): " << fractional_clones_sum << " (" << (float)fractional_clones_sum * 100 / (float)num_total_digit_max << "% of digit maxima)";
     LOG(info) << "Fakes for digits (number of digit hits that can't be assigned to any ideal hit): " << fakes_dig << " (" << (float)fakes_dig * 100 / (float)num_total_digit_max << "% of digit maxima)";
-    LOG(info) << "Fakes for ideal (number of ideal hits that can't be assigned to any digit hit): " << fakes_id << " (" << (float)fakes_id * 100 / (float)num_total_ideal_max << "% of ideal maxima)";
+    LOG(info) << "Fakes for ideal (number of ideal hits that can't be assigned to any digit hit): " << fakes_id << " (" << (float)fakes_id * 100 / (float)num_total_ideal_max << "% of ideal maxima)" << "\n";
 
     if (mode.find(std::string("looper_tagger")) != std::string::npos && create_output == 1) {
       LOG(info) << "------- Merging looper tagger regions -------";

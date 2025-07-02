@@ -141,7 +141,7 @@ class GPUQA
 
   static constexpr int32_t N_CLS_HIST = 8;
   static constexpr int32_t N_CLS_TYPE = 3;
-  static constexpr int32_t N_NCL_TRACK_HISTS = 3;
+  static constexpr int32_t N_NCL_TRACK_HISTS = 4;
 
   static constexpr int32_t MC_LABEL_INVALID = -1e9;
 
@@ -304,7 +304,10 @@ class GPUQA
   TCanvas* mCNCl[N_NCL_TRACK_HISTS];
   TPad* mPNCl[N_NCL_TRACK_HISTS];
   TLegend* mLNCl[N_NCL_TRACK_HISTS];
-  float clusterAttachmentEfficiency = 0;
+  struct clusterEfficiencies_t {
+    int64_t nCorrectlyAttachedRows = 0, nFakeAttachedRows = 0, nTracksUsed = 0, nRowsWithClusters = 0;
+    float clusterAttachmentEfficiency = 0, clusterFakeAttachmentEfficiency = 0;
+  } mClusterEfficiencies;
 
   TH2F* mClXY;
   TCanvas* mCClXY;

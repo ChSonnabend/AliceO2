@@ -427,16 +427,18 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
       return;
     }
 
-    if (clustererNN.mInputData_32[(int)((clustererNN.mNnClusterizerElementSize - (clustererNN.mNnClusterizerAddIndexData ? 3 : 0) - (clustererNN.mNnClusterizerAddMeanSigma ? 4 : 0) - 1)/2) + (glo_idx * clustererNN.mNnClusterizerElementSize)] != 1) {
+    if (std::abs(clustererNN.mInputData_32[(int)((clustererNN.mNnClusterizerElementSize - (clustererNN.mNnClusterizerAddIndexData ? 3 : 0) - (clustererNN.mNnClusterizerAddMeanSigma ? 4 : 0) - 1)/2) + (glo_idx * clustererNN.mNnClusterizerElementSize)] - 1.f) > 1e-5) {
       // If the input data is not normalized, we need to normalize it here
       // This is done by dividing the output by the central charge
       // This is needed for the regression model to work correctly
-      LOG(info) << "Warning: Input data is not normalized, central charge: " << (float)clustererNN.mInputData_32[423 + glo_idx*clustererNN.mNnClusterizerElementSize]
+      int idx_access = (int)((clustererNN.mNnClusterizerElementSize - (clustererNN.mNnClusterizerAddIndexData ? 3 : 0) - (clustererNN.mNnClusterizerAddMeanSigma ? 4 : 0) - 1)/2);
+      LOG(info) << "Warning: Input data is not normalized, central charge: " << (float)clustererNN.mInputData_32[idx_access + glo_idx*clustererNN.mNnClusterizerElementSize]
                 << ", row: " << (int)peak.row()
                 << ", pad: " << (int)peak.pad()
                 << ", time: " << (int)peak.time()
                 << ", glo_idx: " << glo_idx
-                << ", full_glo_idx: " << full_glo_idx;
+                << ", full_glo_idx: " << full_glo_idx
+                << ", access index: " << idx_access;
       if(glo_idx < 5) {
         printInput(glo_idx, clustererNN.mInputData_32, processors, sector);
       }
