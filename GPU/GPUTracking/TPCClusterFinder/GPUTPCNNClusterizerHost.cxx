@@ -12,14 +12,14 @@
 /// \file GPUTPCNNClusterizerHost.cxx
 /// \author Christian Sonnabend
 
-#include <CommonUtils/StringUtils.h>
-
 #include "Rtypes.h"
 #include "TTree.h"
 #include "TFile.h"
 #include "TString.h"
 #include "TSystem.h"
 #include "TROOT.h"
+
+#include <CommonUtils/StringUtils.h>
 
 #include "GPUTPCCFClusterizer.h"
 #include "GPUTPCNNClusterizerHost.h"
