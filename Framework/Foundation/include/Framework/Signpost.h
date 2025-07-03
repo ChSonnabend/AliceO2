@@ -562,6 +562,26 @@ void o2_debug_log_set_stacktrace(_o2_log_t* log, int stacktrace)
   O2_LOG_MACRO_RAW(critical, remove_engineering_type(format).data(), ##__VA_ARGS__);                                \
 })
 
+// Similar to the above, however it will also print a normal alarm message regardless of the signpost being enabled or not.
+#define O2_SIGNPOST_EVENT_EMIT_ALARM(log, id, name, format, ...) __extension__({                                    \
+  if (O2_BUILTIN_UNLIKELY(O2_SIGNPOST_ENABLED_MAC(log))) {                                                          \
+    O2_SIGNPOST_EVENT_EMIT_MAC(log, id, name, format, ##__VA_ARGS__);                                               \
+  } else if (O2_BUILTIN_UNLIKELY(private_o2_log_##log->stacktrace)) {                                               \
+    _o2_signpost_event_emit(private_o2_log_##log, id, name, remove_engineering_type(format).data(), ##__VA_ARGS__); \
+  }                                                                                                                 \
+  O2_LOG_MACRO_RAW(alarm, remove_engineering_type(format).data(), ##__VA_ARGS__);                                   \
+})
+
+// Similar to the above, however it will also print a normal alarm message regardless of the signpost being enabled or not.
+#define O2_SIGNPOST_EVENT_EMIT_IMPORTANT(log, id, name, format, ...) __extension__({                                \
+  if (O2_BUILTIN_UNLIKELY(O2_SIGNPOST_ENABLED_MAC(log))) {                                                          \
+    O2_SIGNPOST_EVENT_EMIT_MAC(log, id, name, format, ##__VA_ARGS__);                                               \
+  } else if (O2_BUILTIN_UNLIKELY(private_o2_log_##log->stacktrace)) {                                               \
+    _o2_signpost_event_emit(private_o2_log_##log, id, name, remove_engineering_type(format).data(), ##__VA_ARGS__); \
+  }                                                                                                                 \
+  O2_LOG_MACRO_RAW(important, remove_engineering_type(format).data(), ##__VA_ARGS__);                               \
+})
+
 #define O2_SIGNPOST_START(log, id, name, format, ...)                                                                   \
   if (O2_BUILTIN_UNLIKELY(O2_SIGNPOST_ENABLED_MAC(log))) {                                                              \
     O2_SIGNPOST_START_MAC(log, id, name, format, ##__VA_ARGS__);                                                        \

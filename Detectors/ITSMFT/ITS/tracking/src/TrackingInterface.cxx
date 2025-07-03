@@ -377,6 +377,11 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
           allTracks.emplace_back(trc);
         }
       }
+    } else {
+      for (auto& r : trackROFvec) { // reset data copied from the clusters
+        r.setFirstEntry(0);
+        r.setNEntries(0);
+      }
     }
     LOGP(info, "ITSTracker pushed {} tracks and {} vertices", allTracks.size(), vertices.size());
     if (mIsMC) {

@@ -1677,7 +1677,7 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
       }
       mTracks->Fill(1.f / fabsf(track.GetParam().GetQPt()));
       mNCl[0]->Fill(track.NClustersFitted());
-      int32_t lastSector = -1, lastRow = -1, nClCorrected = 0, correctlyAttachedRows = 0, fakeAttachedRows = 0;
+      int32_t nClCorrected = 0, correctlyAttachedRows = 0, fakeAttachedRows = 0;
       const auto& trackClusters = mTracking->mIOPtrs.mergedTrackHits;
       uint32_t jNext = 0;
       for (uint32_t j = 0; j < track.NClusters(); j = jNext) {
@@ -1742,8 +1742,6 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
             }
           }
         }
-        lastSector = trackClusters[track.FirstClusterRef() + j].sector;
-        lastRow = trackClusters[track.FirstClusterRef() + j].sector;
       }
       mClusterEfficiencies.nTracksUsed++;
       mNCl[1]->Fill(nClCorrected);
