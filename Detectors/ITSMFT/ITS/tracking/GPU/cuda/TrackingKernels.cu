@@ -890,11 +890,14 @@ void countTrackletsInROFsHandler(const IndexTableUtils* utils,
                                  std::vector<float>& radii,
                                  bounded_vector<float>& mulScatAng,
                                  const int nBlocks,
-                                 const int nThreads)
+                                 const int nThreads,
+                                 gpu::Streams& streams)
 {
   for (int iLayer = 0; iLayer < nLayers - 1; ++iLayer) {
     gpu::computeLayerTrackletsMultiROFKernel<true><<<o2::gpu::CAMath::Min(nBlocks, GPU_BLOCKS),
-                                                     o2::gpu::CAMath::Min(nThreads, GPU_THREADS)>>>(
+                                                     o2::gpu::CAMath::Min(nThreads, GPU_THREADS),
+                                                     0,
+                                                     streams[iLayer].get()>>>(
       utils,
       multMask,
       iLayer,
@@ -921,7 +924,7 @@ void countTrackletsInROFsHandler(const IndexTableUtils* utils,
       resolutions[iLayer],
       radii[iLayer + 1] - radii[iLayer],
       mulScatAng[iLayer]);
-    gpu::cubExclusiveScanInPlace(trackletsLUTsHost[iLayer], nClusters[iLayer] + 1);
+    gpu::cubExclusiveScanInPlace(trackletsLUTsHost[iLayer], nClusters[iLayer] + 1, streams[iLayer].get());
   }
 }
 
@@ -956,45 +959,52 @@ void computeTrackletsInROFsHandler(const IndexTableUtils* utils,
                                    std::vector<float>& radii,
                                    bounded_vector<float>& mulScatAng,
                                    const int nBlocks,
-                                   const int nThreads)
+                                   const int nThreads,
+                                   gpu::Streams& streams)
 {
   for (int iLayer = 0; iLayer < nLayers - 1; ++iLayer) {
-    gpu::computeLayerTrackletsMultiROFKernel<false><<<o2::gpu::CAMath::Min(nBlocks, GPU_BLOCKS), o2::gpu::CAMath::Min(nThreads, GPU_THREADS)>>>(utils,
-                                                                                                                                                multMask,
-                                                                                                                                                iLayer,
-                                                                                                                                                startROF,
-                                                                                                                                                endROF,
-                                                                                                                                                maxROF,
-                                                                                                                                                deltaROF,
-                                                                                                                                                vertices,
-                                                                                                                                                rofPV,
-                                                                                                                                                nVertices,
-                                                                                                                                                vertexId,
-                                                                                                                                                clusters,
-                                                                                                                                                ROFClusters,
-                                                                                                                                                usedClusters,
-                                                                                                                                                clustersIndexTables,
-                                                                                                                                                tracklets,
-                                                                                                                                                trackletsLUTs,
-                                                                                                                                                iteration,
-                                                                                                                                                NSigmaCut,
-                                                                                                                                                phiCuts[iLayer],
-                                                                                                                                                resolutionPV,
-                                                                                                                                                minRs[iLayer + 1],
-                                                                                                                                                maxRs[iLayer + 1],
-                                                                                                                                                resolutions[iLayer],
-                                                                                                                                                radii[iLayer + 1] - radii[iLayer],
-                                                                                                                                                mulScatAng[iLayer]);
+    gpu::computeLayerTrackletsMultiROFKernel<false><<<o2::gpu::CAMath::Min(nBlocks, GPU_BLOCKS),
+                                                      o2::gpu::CAMath::Min(nThreads, GPU_THREADS),
+                                                      0,
+                                                      streams[iLayer].get()>>>(
+      utils,
+      multMask,
+      iLayer,
+      startROF,
+      endROF,
+      maxROF,
+      deltaROF,
+      vertices,
+      rofPV,
+      nVertices,
+      vertexId,
+      clusters,
+      ROFClusters,
+      usedClusters,
+      clustersIndexTables,
+      tracklets,
+      trackletsLUTs,
+      iteration,
+      NSigmaCut,
+      phiCuts[iLayer],
+      resolutionPV,
+      minRs[iLayer + 1],
+      maxRs[iLayer + 1],
+      resolutions[iLayer],
+      radii[iLayer + 1] - radii[iLayer],
+      mulScatAng[iLayer]);
     thrust::device_ptr<Tracklet> tracklets_ptr(spanTracklets[iLayer]);
-    thrust::sort(thrust::device, tracklets_ptr, tracklets_ptr + nTracklets[iLayer], gpu::sort_tracklets());
-    auto unique_end = thrust::unique(thrust::device, tracklets_ptr, tracklets_ptr + nTracklets[iLayer], gpu::equal_tracklets());
+    auto nosync_policy = THRUST_NAMESPACE::par_nosync.on(streams[iLayer].get());
+    thrust::sort(nosync_policy, tracklets_ptr, tracklets_ptr + nTracklets[iLayer], gpu::sort_tracklets());
+    auto unique_end = thrust::unique(nosync_policy, tracklets_ptr, tracklets_ptr + nTracklets[iLayer], gpu::equal_tracklets());
     nTracklets[iLayer] = unique_end - tracklets_ptr;
     if (iLayer > 0) {
-      GPUChkErrS(cudaMemset(trackletsLUTsHost[iLayer], 0, nClusters[iLayer] * sizeof(int)));
+      GPUChkErrS(cudaMemsetAsync(trackletsLUTsHost[iLayer], 0, nClusters[iLayer] * sizeof(int), streams[iLayer].get()));
       gpu::compileTrackletsLookupTableKernel<<<o2::gpu::CAMath::Min(nBlocks, GPU_BLOCKS),
-                                               o2::gpu::CAMath::Min(nThreads, GPU_THREADS)>>>(
-        spanTracklets[iLayer], trackletsLUTsHost[iLayer], nTracklets[iLayer]);
-      gpu::cubExclusiveScanInPlace(trackletsLUTsHost[iLayer], nClusters[iLayer] + 1);
+                                               o2::gpu::CAMath::Min(nThreads, GPU_THREADS),
+                                               0,
+                                               streams[iLayer].get()>>>(spanTracklets[iLayer], trackletsLUTsHost[iLayer], nTracklets[iLayer]);
+      gpu::cubExclusiveScanInPlace(trackletsLUTsHost[iLayer], nClusters[iLayer] + 1, streams[iLayer].get());
     }
   }
 }
@@ -1350,7 +1360,8 @@ template void countTrackletsInROFsHandler<7>(const IndexTableUtils* utils,
                                              std::vector<float>& radii,
                                              bounded_vector<float>& mulScatAng,
                                              const int nBlocks,
-                                             const int nThreads);
+                                             const int nThreads,
+                                             gpu::Streams& streams);
 
 template void computeTrackletsInROFsHandler<7>(const IndexTableUtils* utils,
                                                const uint8_t* multMask,
@@ -1382,7 +1393,8 @@ template void computeTrackletsInROFsHandler<7>(const IndexTableUtils* utils,
                                                std::vector<float>& radii,
                                                bounded_vector<float>& mulScatAng,
                                                const int nBlocks,
-                                               const int nThreads);
+                                               const int nThreads,
+                                               gpu::Streams& streams);
 
 template void processNeighboursHandler<7>(const int startLayer,
                                           const int startLevel,

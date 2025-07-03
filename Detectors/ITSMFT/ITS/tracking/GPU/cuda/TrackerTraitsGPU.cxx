@@ -49,13 +49,13 @@ template <int nLayers>
 void TrackerTraitsGPU<nLayers>::computeLayerTracklets(const int iteration, int iROFslice, int iVertex)
 {
   auto& conf = o2::its::ITSGpuTrackingParamConfig::Instance();
-  mTimeFrameGPU->createTrackletsLUTDevice(iteration);
 
   const Vertex diamondVert({this->mTrkParams[iteration].Diamond[0], this->mTrkParams[iteration].Diamond[1], this->mTrkParams[iteration].Diamond[2]}, {25.e-6f, 0.f, 0.f, 25.e-6f, 0.f, 36.f}, 1, 1.f);
   gsl::span<const Vertex> diamondSpan(&diamondVert, 1);
   int startROF{this->mTrkParams[iteration].nROFsPerIterations > 0 ? iROFslice * this->mTrkParams[iteration].nROFsPerIterations : 0};
   int endROF{o2::gpu::CAMath::Min(this->mTrkParams[iteration].nROFsPerIterations > 0 ? (iROFslice + 1) * this->mTrkParams[iteration].nROFsPerIterations + this->mTrkParams[iteration].DeltaROF : mTimeFrameGPU->getNrof(), mTimeFrameGPU->getNrof())};
 
+  mTimeFrameGPU->createTrackletsLUTDevice(iteration);
   countTrackletsInROFsHandler<nLayers>(mTimeFrameGPU->getDeviceIndexTableUtils(),
                                        mTimeFrameGPU->getDeviceMultCutMask(),
                                        startROF,
@@ -83,7 +83,8 @@ void TrackerTraitsGPU<nLayers>::computeLayerTracklets(const int iteration, int i
                                        this->mTrkParams[iteration].LayerRadii,
                                        mTimeFrameGPU->getMSangles(),
                                        conf.nBlocks,
-                                       conf.nThreads);
+                                       conf.nThreads,
+                                       mTimeFrameGPU->getStreams());
   mTimeFrameGPU->createTrackletsBuffers();
   computeTrackletsInROFsHandler<nLayers>(mTimeFrameGPU->getDeviceIndexTableUtils(),
                                          mTimeFrameGPU->getDeviceMultCutMask(),
@@ -115,7 +116,8 @@ void TrackerTraitsGPU<nLayers>::computeLayerTracklets(const int iteration, int i
                                          this->mTrkParams[iteration].LayerRadii,
                                          mTimeFrameGPU->getMSangles(),
                                          conf.nBlocks,
-                                         conf.nThreads);
+                                         conf.nThreads,
+                                         mTimeFrameGPU->getStreams());
 }
 
 template <int nLayers>
