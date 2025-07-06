@@ -81,6 +81,8 @@ void CalibdEdxCorrection::dumpToTree(const char* outFileName) const
       std::vector<float> qTotCorrOut;
       std::vector<float> tglOut;
       std::vector<float> snpOut;
+      std::vector<int> rocOut;
+      std::vector<float> sectorOut;
 
       for (float tgl = 0; tgl < 2; tgl += 0.01) {
         for (float snp = 0; snp < 1; snp += 0.1) {
@@ -88,6 +90,8 @@ void CalibdEdxCorrection::dumpToTree(const char* outFileName) const
           qTotCorrOut.emplace_back(getCorrection(stack, ChargeType::Tot, tgl, snp));
           tglOut.emplace_back(tgl);
           snpOut.emplace_back(snp);
+          rocOut.emplace_back(roc);
+          sectorOut.emplace_back(sector);
         }
       }
 
@@ -96,8 +100,8 @@ void CalibdEdxCorrection::dumpToTree(const char* outFileName) const
                << "qTotCorr=" << qTotCorrOut
                << "tgl=" << tglOut
                << "snp=" << snpOut
-               << "roc=" << roc
-               << "sector=" << sector
+               << "roc=" << rocOut
+               << "sector=" << sectorOut
                << "\n";
     }
   }

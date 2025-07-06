@@ -241,13 +241,13 @@ void qaCluster::read_reco_digits(int sector, std::vector<customCluster>& digit_m
   for (int i = 0; i < numEntries; i++) {
     digitTree->GetEntry(i);
     if (overwrite_time) {
-      digit_map.push_back(customCluster{sec, row, pad, time, pad, time, 0.f, 0.f, charge, charge, (has3x3Peak>0) + 2*(isSplit>0), -1, -1, -1, i, 0.f, -1.f, -1.f, -1.f});
+      digit_map.push_back(customCluster{sec, row, pad, time, pad, time, 0.f, 0.f, charge, charge, (has3x3Peak > 0) + valueSplitPeak * (isSplit > 0), -1, -1, -1, i, 0.f, -1.f, -1.f, -1.f});
       if (time > max_time[sector]){
         max_time[sector] = time + 1;
       }
     } else {
       if (time < max_time[sector]) {
-        digit_map.push_back(customCluster{sec, row, pad, time, pad, time, 0.f, 0.f, charge, charge, (has3x3Peak>0) + 2*(isSplit>0), -1, -1, -1, counter, 0.f, -1.f, -1.f, -1.f});
+        digit_map.push_back(customCluster{sec, row, pad, time, pad, time, 0.f, 0.f, charge, charge, (has3x3Peak>0) + valueSplitPeak * (isSplit>0), -1, -1, -1, counter, 0.f, -1.f, -1.f, -1.f});
         counter++;
       }
     }
@@ -705,7 +705,7 @@ void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customClu
     int sec = cls.sector;
     int row = cls.row;
     // cont[sec*o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].setTime(cls[3]);
-    cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].setTimeFlags(cls.cog_time, (int)(cls.flag / 1000.f));
+    cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].setTimeFlags(cls.cog_time, (int)(cls.flag / valueSplitPeak));
     cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].setPad(cls.cog_pad);
     cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].setSigmaTime(cls.sigmaTime);
     cont[sec * o2::tpc::constants::MAXGLOBALPADROW + row].clusters[cluster_sector_counter[sec][row]].setSigmaPad(cls.sigmaPad);
@@ -999,12 +999,12 @@ void qaCluster::publishDeconvolutionFlags(int sector, tpc2d& map2d, std::vector<
           continue;
         }
         int flag = digit_map[current_idx].flag;
-        if (flag > 10000) {
+        if (flag > 10*valueSplitPeak) {
           LOG(error) << "[" << sector << "] Flag value " << flag << " is too high for digit " << max_idx << "with row: " << row << ", max_pad: " << mpad << ", max_time: " << mtime << " and dPad: " << dPad << ", dTime: " << dTime << "! Please check the digit map!";
         }
-        if (flag >= 1000) {
+        if (flag >= valueSplitPeak) {
           isSplit = 1;
-          has3x3 = (int)((flag % 1000) > 0);
+          has3x3 = (int)((flag % (int)valueSplitPeak) > 0);
         } else {
           isSplit = 0;
           has3x3 = (int)(flag > 0);
@@ -1018,7 +1018,7 @@ void qaCluster::publishDeconvolutionFlags(int sector, tpc2d& map2d, std::vector<
         }
       }
     }
-    digit_map[map2d[1][mtime + global_shift[1]][row + row_offset + global_shift[2]][mpad + global_shift[0] + pad_offset]].flag = 1000*flagPad + flagTime; // 1000 for split, 1-3 for 3x3
+    digit_map[map2d[1][mtime + global_shift[1]][row + row_offset + global_shift[2]][mpad + global_shift[0] + pad_offset]].flag = valueSplitPeak * flagPad + flagTime;
   }
   LOG(info) << "[" << sector << "] Published deconvolution flags for " << digit_map.size() << " digits.";
 }
@@ -3105,12 +3105,12 @@ void qaCluster::runQa(int sector)
       idx_pad = digit_map[maxima_digits[element]].max_pad;
       idx_time = digit_map[maxima_digits[element]].max_time;
       occ = occupancy[sector][tpcmap.GetROC(idx_row)][round(idx_time)];
-      if((int)digit_map[maxima_digits[element]].flag > 1000){
-        flagPad = (int)(digit_map[maxima_digits[element]].flag/1000.f);
+      if((int)digit_map[maxima_digits[element]].flag > valueSplitPeak){
+        flagPad = (int)(digit_map[maxima_digits[element]].flag/valueSplitPeak);
       } else {
         flagPad = 0;
       }
-      flagTime = (int)(digit_map[maxima_digits[element]].flag - flagPad*1000.f);
+      flagTime = (int)(digit_map[maxima_digits[element]].flag - flagPad*valueSplitPeak);
       if(!realData){
         pT = cluster_pT[element];
         eta = cluster_eta[element];
