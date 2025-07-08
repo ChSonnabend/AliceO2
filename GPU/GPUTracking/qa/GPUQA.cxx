@@ -236,6 +236,7 @@ inline float GPUQA::GetMCLabelWeight(const mcLabel_t& label) { return 1; }
 inline bool GPUQA::mcPresent() { return !mConfig.noMC && mTracking && mClNative && mClNative->clustersMCTruth && mMCInfos.size(); }
 uint32_t GPUQA::GetMCLabelCol(const mcLabel_t& label) const { return !label.isValid() ? 0 : (mMCEventOffset[label.getSourceID()] + label.getEventID()); }
 GPUQA::mcLabelI_t GPUQA::GetMCTrackLabel(uint32_t trackId) const { return trackId >= mTrackMCLabels.size() ? MCCompLabel() : mTrackMCLabels[trackId]; }
+bool GPUQA::CompareIgnoreFake(const mcLabelI_t& l1, const mcLabelI_t& l2) { return l1.compare(l2) >= 0; }
 #define TRACK_EXPECTED_REFERENCE_X 78
 #else
 inline GPUQA::mcLabelI_t::mcLabelI_t(const GPUQA::mcLabel_t& l) : track(l.fMCID) {}
@@ -265,6 +266,7 @@ inline int32_t GPUQA::AbsLabelID(int32_t id) { return id >= 0 ? id : (-id - 2); 
 inline bool GPUQA::mcPresent() { return !mConfig.noMC && mTracking && GetNMCLabels() && GetNMCTracks(0); }
 uint32_t GPUQA::GetMCLabelCol(const mcLabel_t& label) const { return 0; }
 GPUQA::mcLabelI_t GPUQA::GetMCTrackLabel(uint32_t trackId) const { return trackId >= mTrackMCLabels.size() ? mcLabelI_t() : mTrackMCLabels[trackId]; }
+bool GPUQA::CompareIgnoreFake(const mcLabelI_t& l1, const mcLabelI_t& l2) { return AbsLabelID(l1) == AbsLabelID(l2); }
 #define TRACK_EXPECTED_REFERENCE_X TRACK_EXPECTED_REFERENCE_X_DEFAULT
 #endif
 template <class T>
@@ -1666,7 +1668,7 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
 
   if (mQATasks & taskTrackStatistics) {
     // Fill track statistic histograms
-    std::vector<std::array<float, 2>> clusterAttachCounts;
+    std::vector<std::array<float, 3>> clusterAttachCounts;
     if (mcAvail) {
       clusterAttachCounts.resize(GetNMCLabels(), {0.f, 0.f});
     }
@@ -1698,17 +1700,23 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
             if (cl.state & GPUTPCGMMergedTrackHit::flagReject) {
               continue;
             }
-            bool labelOk = false;
-            if (mTrackMCLabels[i].isValid() && !mTrackMCLabels[i].isFake()) {
+            bool labelOk = false, labelOkNonFake = false;
+            const mcLabelI_t& trkLabel = mTrackMCLabels[i];
+            if (trkLabel.isValid() && !trkLabel.isNoise()) {
               for (int32_t l = 0; l < GetMCLabelNID(cl.num); l++) {
-                if (GetMCLabel(cl.num, l) == mTrackMCLabels[i]) {
+                const mcLabelI_t& clLabel = GetMCLabel(cl.num, l);
+                if (clLabel.isValid() && !clLabel.isNoise() && CompareIgnoreFake(trkLabel, clLabel)) {
                   labelOk = true;
+                  if (!trkLabel.isFake()) {
+                    labelOkNonFake = true;
+                  }
                   break;
                 }
               }
             }
-            clusterAttachCounts[cl.num][0] += (float)labelOk / rowClCount;
-            clusterAttachCounts[cl.num][1] += 1.0f;
+            clusterAttachCounts[cl.num][0] += 1.0f;
+            clusterAttachCounts[cl.num][1] += (float)labelOk / rowClCount;
+            clusterAttachCounts[cl.num][2] += (float)labelOkNonFake / rowClCount;
           }
         }
         if (mcAvail) {
@@ -1775,13 +1783,15 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
       }
     }
     if (mcAvail) {
-      double clusterAttachNormalizedCount = 0;
+      double clusterAttachNormalizedCount = 0, clusterAttachNormalizedCountNonFake = 0;
       for (uint32_t i = 0; i < clusterAttachCounts.size(); i++) {
-        if (clusterAttachCounts[i][1]) {
-          clusterAttachNormalizedCount += clusterAttachCounts[i][0] / clusterAttachCounts[i][1];
+        if (clusterAttachCounts[i][0]) {
+          clusterAttachNormalizedCount += clusterAttachCounts[i][1] / clusterAttachCounts[i][0];
+          clusterAttachNormalizedCountNonFake += clusterAttachCounts[i][2] / clusterAttachCounts[i][0];
         }
       }
       mClusterCounts.nCorrectlyAttachedNormalized = clusterAttachNormalizedCount;
+      mClusterCounts.nCorrectlyAttachedNormalizedNonFake = clusterAttachNormalizedCountNonFake;
       clusterAttachCounts.clear();
     }
 
@@ -2959,7 +2969,8 @@ int32_t GPUQA::DoClusterCounts(uint64_t* attachClusterCounts, int32_t mode)
     PrintClusterCount(mode, num, "Fake Protect (< 40 MeV)", mClusterCounts.nFakeProtect40, mClusterCounts.nBelow40);
   }
   if (mcPresent() && (mQATasks & taskTrackStatistics)) {
-    PrintClusterCount(mode, num, "Correctly Attached non-fake normalized", mClusterCounts.nCorrectlyAttachedNormalized, mClusterCounts.nTotal);
+    PrintClusterCount(mode, num, "Correctly Attached all-trk normalized", mClusterCounts.nCorrectlyAttachedNormalized, mClusterCounts.nTotal);
+    PrintClusterCount(mode, num, "Correctly Attached non-fake normalized", mClusterCounts.nCorrectlyAttachedNormalizedNonFake, mClusterCounts.nTotal);
   }
   return num;
 }
