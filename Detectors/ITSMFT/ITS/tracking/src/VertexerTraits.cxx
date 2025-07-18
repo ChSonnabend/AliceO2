@@ -10,10 +10,10 @@
 // or submit itself to any jurisdiction.
 ///
 
-#include <iostream>
 #include <memory>
-#include <string>
-#include <chrono>
+#include <ranges>
+#include <map>
+#include <algorithm>
 
 #include <oneapi/tbb/blocked_range.h>
 #include <oneapi/tbb/parallel_for.h>
@@ -22,6 +22,9 @@
 #include "ITStracking/BoundedAllocator.h"
 #include "ITStracking/ClusterLines.h"
 #include "ITStracking/Tracklet.h"
+#include "SimulationDataFormat/DigitizationContext.h"
+#include "Steer/MCKinematicsReader.h"
+#include "ITSMFTBase/DPLAlpideParam.h"
 
 #ifdef VTX_DEBUG
 #include "TTree.h"
@@ -141,26 +144,6 @@ void trackletSelectionKernelHost(
   }
 }
 
-bounded_vector<std::pair<int, int>> VertexerTraits::selectClusters(const int* indexTable,
-                                                                   const std::array<int, 4>& selectedBinsRect,
-                                                                   const IndexTableUtils& utils)
-{
-  bounded_vector<std::pair<int, int>> filteredBins{mMemoryPool.get()};
-  int phiBinsNum{selectedBinsRect[3] - selectedBinsRect[1] + 1};
-  if (phiBinsNum < 0) {
-    phiBinsNum += utils.getNphiBins();
-  }
-  filteredBins.reserve(phiBinsNum);
-  for (int iPhiBin{selectedBinsRect[1]}, iPhiCount{0}; iPhiCount < phiBinsNum;
-       iPhiBin = ++iPhiBin == utils.getNphiBins() ? 0 : iPhiBin, iPhiCount++) {
-    const int firstBinIndex{utils.getBinIndex(selectedBinsRect[0], iPhiBin)};
-    filteredBins.emplace_back(
-      indexTable[firstBinIndex],
-      utils.countRowSelectedBins(indexTable, iPhiBin, selectedBinsRect[0], selectedBinsRect[2]));
-  }
-  return filteredBins;
-}
-
 void VertexerTraits::updateVertexingParameters(const std::vector<VertexingParameters>& vrtPar, const TimeFrameGPUParameters& tfPar)
 {
   mVrtParams = vrtPar;
@@ -214,13 +197,16 @@ void VertexerTraits::computeTracklets(const int iteration)
           mTimeFrame->getNTrackletsROF(pivotRofId, 1) = std::accumulate(mTimeFrame->getNTrackletsCluster(pivotRofId, 1).begin(), mTimeFrame->getNTrackletsCluster(pivotRofId, 1).end(), 0);
         }
       });
-  });
 
-  mTimeFrame->computeTrackletsPerROFScans();
-  mTimeFrame->getTracklets()[0].resize(mTimeFrame->getTotalTrackletsTF(0));
-  mTimeFrame->getTracklets()[1].resize(mTimeFrame->getTotalTrackletsTF(1));
+    mTimeFrame->computeTrackletsPerROFScans();
+    if (auto tot0 = mTimeFrame->getTotalTrackletsTF(0), tot1 = mTimeFrame->getTotalTrackletsTF(1);
+        tot0 == 0 || tot1 == 0) {
+      return;
+    } else {
+      mTimeFrame->getTracklets()[0].resize(tot0);
+      mTimeFrame->getTracklets()[1].resize(tot1);
+    }
 
-  mTaskArena->execute([&] {
     tbb::parallel_for(
       tbb::blocked_range<short>(0, (short)mTimeFrame->getNrof()),
       [&](const tbb::blocked_range<short>& Rofs) {
@@ -266,17 +252,19 @@ void VertexerTraits::computeTracklets(const int iteration)
   if (mTimeFrame->hasMCinformation()) {
     for (const auto& trk : mTimeFrame->getTracklets()[0]) {
       o2::MCCompLabel label;
-      int sortedId0{mTimeFrame->getSortedIndex(trk.rof[0], 0, trk.firstClusterIndex)};
-      int sortedId1{mTimeFrame->getSortedIndex(trk.rof[1], 1, trk.secondClusterIndex)};
-      for (const auto& lab0 : mTimeFrame->getClusterLabels(0, mTimeFrame->getClusters()[0][sortedId0].clusterId)) {
-        for (const auto& lab1 : mTimeFrame->getClusterLabels(1, mTimeFrame->getClusters()[1][sortedId1].clusterId)) {
-          if (lab0 == lab1 && lab0.isValid()) {
-            label = lab0;
+      if (!trk.isEmpty()) {
+        int sortedId0{mTimeFrame->getSortedIndex(trk.rof[0], 0, trk.firstClusterIndex)};
+        int sortedId1{mTimeFrame->getSortedIndex(trk.rof[1], 1, trk.secondClusterIndex)};
+        for (const auto& lab0 : mTimeFrame->getClusterLabels(0, mTimeFrame->getClusters()[0][sortedId0].clusterId)) {
+          for (const auto& lab1 : mTimeFrame->getClusterLabels(1, mTimeFrame->getClusters()[1][sortedId1].clusterId)) {
+            if (lab0 == lab1 && lab0.isValid()) {
+              label = lab0;
+              break;
+            }
+          }
+          if (label.isValid()) {
             break;
           }
-        }
-        if (label.isValid()) {
-          break;
         }
       }
       mTimeFrame->getTrackletsLabel(0).emplace_back(label);
@@ -400,6 +388,7 @@ void VertexerTraits::computeVertices(const int iteration)
   auto nsigmaCut{std::min(mVrtParams[iteration].vertNsigmaCut * mVrtParams[iteration].vertNsigmaCut * (mVrtParams[iteration].vertRadiusSigma * mVrtParams[iteration].vertRadiusSigma + mVrtParams[iteration].trackletSigma * mVrtParams[iteration].trackletSigma), 1.98f)};
   bounded_vector<Vertex> vertices(mMemoryPool.get());
   bounded_vector<std::pair<o2::MCCompLabel, float>> polls(mMemoryPool.get());
+  bounded_vector<o2::MCCompLabel> contLabels(mMemoryPool.get());
 #ifdef VTX_DEBUG
   std::vector<std::vector<ClusterLines>> dbg_clusLines(mTimeFrame->getNrof());
 #endif
@@ -482,7 +471,6 @@ void VertexerTraits::computeVertices(const int iteration)
     }
   }
   for (int rofId{0}; rofId < mTimeFrame->getNrof(); ++rofId) {
-    vertices.clear();
     std::sort(mTimeFrame->getTrackletClusters(rofId).begin(), mTimeFrame->getTrackletClusters(rofId).end(),
               [](ClusterLines& cluster1, ClusterLines& cluster2) { return cluster1.getSize() > cluster2.getSize(); }); // ensure clusters are ordered by contributors, so that we can cat after the first.
 #ifdef VTX_DEBUG
@@ -524,6 +512,9 @@ void VertexerTraits::computeVertices(const int iteration)
             labels.push_back(mTimeFrame->getLinesLabel(rofId)[index]); // then we can use nContributors from vertices to get the labels
           }
           polls.push_back(computeMain(labels));
+          if (mVrtParams[iteration].outputContLabels) {
+            contLabels.insert(contLabels.end(), labels.begin(), labels.end());
+          }
         }
       }
     }
@@ -531,16 +522,24 @@ void VertexerTraits::computeVertices(const int iteration)
       mTimeFrame->addPrimaryVertices(vertices, rofId, iteration);
       if (mTimeFrame->hasMCinformation()) {
         mTimeFrame->addPrimaryVerticesLabels(polls);
+        if (mVrtParams[iteration].outputContLabels) {
+          mTimeFrame->addPrimaryVerticesContributorLabels(contLabels);
+        }
       }
     } else {
       mTimeFrame->addPrimaryVerticesInROF(vertices, rofId, iteration);
       if (mTimeFrame->hasMCinformation()) {
         mTimeFrame->addPrimaryVerticesLabelsInROF(polls, rofId);
+        if (mVrtParams[iteration].outputContLabels) {
+          mTimeFrame->addPrimaryVerticesContributorLabelsInROF(contLabels, rofId);
+        }
       }
     }
     if (vertices.empty() && !(iteration && (int)mTimeFrame->getPrimaryVertices(rofId).size() > mVrtParams[iteration].vertPerRofThreshold)) {
       mTimeFrame->getNoVertexROF()++;
     }
+    vertices.clear();
+    polls.clear();
   }
 #ifdef VTX_DEBUG
   TFile* dbg_file = TFile::Open("artefacts_tf.root", "update");
@@ -566,125 +565,57 @@ void VertexerTraits::computeVertices(const int iteration)
 #endif
 }
 
-void VertexerTraits::computeVerticesInRof(int rofId,
-                                          gsl::span<const o2::its::Line>& lines,
-                                          bounded_vector<bool>& usedLines,
-                                          bounded_vector<o2::its::ClusterLines>& clusterLines,
-                                          std::array<float, 2>& beamPosXY,
-                                          bounded_vector<Vertex>& vertices,
-                                          bounded_vector<int>& verticesInRof,
-                                          TimeFrame7* tf,
-                                          bounded_vector<o2::MCCompLabel>* labels,
-                                          const int iteration)
+void VertexerTraits::addTruthSeedingVertices()
 {
-  int foundVertices{0};
-  auto nsigmaCut{std::min(mVrtParams[iteration].vertNsigmaCut * mVrtParams[iteration].vertNsigmaCut * (mVrtParams[iteration].vertRadiusSigma * mVrtParams[iteration].vertRadiusSigma + mVrtParams[iteration].trackletSigma * mVrtParams[iteration].trackletSigma), 1.98f)};
-  const int numTracklets{static_cast<int>(lines.size())};
-  for (int line1{0}; line1 < numTracklets; ++line1) {
-    if (usedLines[line1]) {
-      continue;
-    }
-    for (int line2{line1 + 1}; line2 < numTracklets; ++line2) {
-      if (usedLines[line2]) {
-        continue;
-      }
-      auto dca{Line::getDCA(lines[line1], lines[line2])};
-      if (dca < mVrtParams[iteration].pairCut) {
-        clusterLines.emplace_back(line1, lines[line1], line2, lines[line2]);
-        std::array<float, 3> tmpVertex{clusterLines.back().getVertex()};
-        if (tmpVertex[0] * tmpVertex[0] + tmpVertex[1] * tmpVertex[1] > 4.f) {
-          clusterLines.pop_back();
-          break;
+  LOGP(info, "Using truth seeds as vertices; will skip computations");
+  mTimeFrame->resetRofPV();
+  const auto dc = o2::steer::DigitizationContext::loadFromFile("collisioncontext.root");
+  const auto irs = dc->getEventRecords();
+  int64_t roFrameBiasInBC = o2::itsmft::DPLAlpideParam<o2::detectors::DetID::ITS>::Instance().roFrameBiasInBC;
+  int64_t roFrameLengthInBC = o2::itsmft::DPLAlpideParam<o2::detectors::DetID::ITS>::Instance().roFrameLengthInBC;
+  o2::steer::MCKinematicsReader mcReader(dc);
+  std::map<int, bounded_vector<Vertex>> vertices;
+  for (int iSrc{0}; iSrc < mcReader.getNSources(); ++iSrc) {
+    auto eveId2colId = dc->getCollisionIndicesForSource(iSrc);
+    for (int iEve{0}; iEve < mcReader.getNEvents(iSrc); ++iEve) {
+      const auto& ir = irs[eveId2colId[iEve]];
+      if (!ir.isDummy()) { // do we need this, is this for diffractive events?
+        const auto& eve = mcReader.getMCEventHeader(iSrc, iEve);
+        int rofId = (ir.toLong() - roFrameBiasInBC) / roFrameLengthInBC;
+        if (!vertices.contains(rofId)) {
+          vertices[rofId] = bounded_vector<Vertex>(mMemoryPool.get());
         }
-        usedLines[line1] = true;
-        usedLines[line2] = true;
-        for (int tracklet3{0}; tracklet3 < numTracklets; ++tracklet3) {
-          if (usedLines[tracklet3]) {
-            continue;
-          }
-          if (Line::getDistanceFromPoint(lines[tracklet3], tmpVertex) < mVrtParams[iteration].pairCut) {
-            clusterLines.back().add(tracklet3, lines[tracklet3]);
-            usedLines[tracklet3] = true;
-            tmpVertex = clusterLines.back().getVertex();
-          }
-        }
-        break;
+        Vertex vert;
+        vert.setTimeStamp(rofId);
+        vert.setNContributors(std::ranges::count_if(mcReader.getTracks(iSrc, iEve), [](const auto& trk) {
+          return trk.isPrimary() && trk.GetPt() > 0.2 && std::abs(trk.GetEta()) < 1.3;
+        }));
+        vert.setXYZ((float)eve.GetX(), (float)eve.GetY(), (float)eve.GetZ());
+        vert.setChi2(1);
+        constexpr float cov = 50e-9;
+        vert.setCov(cov, cov, cov, cov, cov, cov);
+        vertices[rofId].push_back(vert);
       }
     }
   }
-
-  if (mVrtParams[iteration].allowSingleContribClusters) {
-    auto beamLine = Line{{tf->getBeamX(), tf->getBeamY(), -50.f}, {tf->getBeamX(), tf->getBeamY(), 50.f}}; // use beam position as contributor
-    for (size_t iLine{0}; iLine < numTracklets; ++iLine) {
-      if (!usedLines[iLine]) {
-        auto dca = Line::getDCA(lines[iLine], beamLine);
-        if (dca < mVrtParams[iteration].pairCut) {
-          clusterLines.emplace_back(iLine, lines[iLine], -1, beamLine); // beamline must be passed as second line argument
-        }
+  size_t nVerts{0};
+  for (int iROF{0}; iROF < mTimeFrame->getNrof(); ++iROF) {
+    bounded_vector<Vertex> verts(mMemoryPool.get());
+    bounded_vector<std::pair<o2::MCCompLabel, float>> polls(mMemoryPool.get());
+    if (vertices.contains(iROF)) {
+      verts = vertices[iROF];
+      nVerts += verts.size();
+      for (size_t i{0}; i < verts.size(); ++i) {
+        o2::MCCompLabel lbl; // unset label for now
+        polls.emplace_back(lbl, 1.f);
       }
+    } else {
+      mTimeFrame->getNoVertexROF()++;
     }
+    mTimeFrame->addPrimaryVertices(verts, iROF, 0);
+    mTimeFrame->addPrimaryVerticesLabels(polls);
   }
-
-  // Cluster merging
-  std::sort(clusterLines.begin(), clusterLines.end(), [](ClusterLines& cluster1, ClusterLines& cluster2) { return cluster1.getSize() > cluster2.getSize(); });
-  size_t nClusters{clusterLines.size()};
-  for (int iCluster1{0}; iCluster1 < nClusters; ++iCluster1) {
-    std::array<float, 3> vertex1{clusterLines[iCluster1].getVertex()};
-    std::array<float, 3> vertex2{};
-    for (int iCluster2{iCluster1 + 1}; iCluster2 < nClusters; ++iCluster2) {
-      vertex2 = clusterLines[iCluster2].getVertex();
-      if (o2::gpu::GPUCommonMath::Abs(vertex1[2] - vertex2[2]) < mVrtParams[iteration].clusterCut) {
-        float distance{(vertex1[0] - vertex2[0]) * (vertex1[0] - vertex2[0]) +
-                       (vertex1[1] - vertex2[1]) * (vertex1[1] - vertex2[1]) +
-                       (vertex1[2] - vertex2[2]) * (vertex1[2] - vertex2[2])};
-        if (distance < mVrtParams[iteration].pairCut * mVrtParams[iteration].pairCut) {
-          for (auto label : clusterLines[iCluster2].getLabels()) {
-            clusterLines[iCluster1].add(label, lines[label]);
-            vertex1 = clusterLines[iCluster1].getVertex();
-          }
-          clusterLines.erase(clusterLines.begin() + iCluster2);
-          --iCluster2;
-          --nClusters;
-        }
-      }
-    }
-  }
-
-  std::sort(clusterLines.begin(), clusterLines.end(),
-            [](ClusterLines& cluster1, ClusterLines& cluster2) { return cluster1.getSize() > cluster2.getSize(); }); // ensure clusters are ordered by contributors, so that we can cut after the first.
-  bool atLeastOneFound{false};
-  for (int iCluster{0}; iCluster < nClusters; ++iCluster) {
-    bool lowMultCandidate{false};
-    double beamDistance2{(tf->getBeamX() - clusterLines[iCluster].getVertex()[0]) * (tf->getBeamX() - clusterLines[iCluster].getVertex()[0]) +
-                         (tf->getBeamY() - clusterLines[iCluster].getVertex()[1]) * (tf->getBeamY() - clusterLines[iCluster].getVertex()[1])};
-
-    if (atLeastOneFound && (lowMultCandidate = clusterLines[iCluster].getSize() < mVrtParams[iteration].clusterContributorsCut)) { // We might have pile up with nContr > cut.
-      lowMultCandidate &= (beamDistance2 < mVrtParams[iteration].lowMultBeamDistCut * mVrtParams[iteration].lowMultBeamDistCut);
-      if (!lowMultCandidate) { // Not the first cluster and not a low multiplicity candidate, we can remove it
-        clusterLines.erase(clusterLines.begin() + iCluster);
-        nClusters--;
-        continue;
-      }
-    }
-    if (beamDistance2 < nsigmaCut && o2::gpu::GPUCommonMath::Abs(clusterLines[iCluster].getVertex()[2]) < mVrtParams[iteration].maxZPositionAllowed) {
-      atLeastOneFound = true;
-      ++foundVertices;
-      vertices.emplace_back(o2::math_utils::Point3D<float>(clusterLines[iCluster].getVertex()[0],
-                                                           clusterLines[iCluster].getVertex()[1],
-                                                           clusterLines[iCluster].getVertex()[2]),
-                            clusterLines[iCluster].getRMS2(),          // Symm matrix. Diagonal: RMS2 components,
-                                                                       // off-diagonal: square mean of projections on planes.
-                            clusterLines[iCluster].getSize(),          // Contributors
-                            clusterLines[iCluster].getAvgDistance2()); // In place of chi2
-      vertices.back().setTimeStamp(clusterLines[iCluster].getROF());
-      if (labels) {
-        for (auto& index : clusterLines[iCluster].getLabels()) {
-          labels->push_back(tf->getLinesLabel(rofId)[index]); // then we can use nContributors from vertices to get the labels
-        }
-      }
-    }
-  }
-  verticesInRof.push_back(foundVertices);
+  LOGP(info, "Found {}/{} ROFs with {} vertices -> <NV>={:.2f}", vertices.size(), mTimeFrame->getNrof(), nVerts, (float)nVerts / (float)vertices.size());
 }
 
 void VertexerTraits::setNThreads(int n, std::shared_ptr<tbb::task_arena>& arena)

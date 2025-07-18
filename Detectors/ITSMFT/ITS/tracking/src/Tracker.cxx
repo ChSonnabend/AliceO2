@@ -19,7 +19,6 @@
 #include "ITStracking/Cell.h"
 #include "ITStracking/Constants.h"
 #include "ITStracking/IndexTableUtils.h"
-#include "ITStracking/Smoother.h"
 #include "ITStracking/Tracklet.h"
 #include "ITStracking/TrackerTraits.h"
 #include "ITStracking/TrackingConfigParam.h"
@@ -129,9 +128,6 @@ void Tracker::clustersToTracks(const LogFunc& logger, const LogFunc& error)
       total += evaluateTask(&Tracker::findShortPrimaries, "Short primaries finding", 0, logger);
       auto nTracksA = mTimeFrame->getNumberOfTracks();
       logger(std::format("  `-> found {} additional tracks", nTracksA - nTracksB));
-    }
-    if (mTrkParams[iteration].PrintMemory) {
-      mMemoryPool->print();
     }
     if constexpr (constants::DoTimeBenchmarks) {
       logger(std::format("=== TimeFrame {} processing completed in: {:.2f} ms using {} thread(s) ===", mTimeFrameCounter, total, mTraits->getNThreads()));
@@ -331,72 +327,6 @@ void Tracker::rectifyClusterIndices()
           track.setExternalClusterIndex(iCluster, mTimeFrame->getClusterExternalIndex(iCluster, index));
         }
       }
-    }
-  }
-}
-
-void Tracker::getGlobalConfiguration()
-{
-  const auto& tc = o2::its::TrackerParamConfig::Instance();
-  if (tc.useMatCorrTGeo) {
-    mTraits->setCorrType(o2::base::PropagatorImpl<float>::MatCorrType::USEMatCorrTGeo);
-  } else if (tc.useFastMaterial) {
-    mTraits->setCorrType(o2::base::PropagatorImpl<float>::MatCorrType::USEMatCorrNONE);
-  } else {
-    mTraits->setCorrType(o2::base::PropagatorImpl<float>::MatCorrType::USEMatCorrLUT);
-  }
-  int nROFsPerIterations = tc.nROFsPerIterations > 0 ? tc.nROFsPerIterations : -1;
-  if (tc.nOrbitsPerIterations > 0) {
-    /// code to be used when the number of ROFs per orbit is known, this gets priority over the number of ROFs per iteration
-  }
-  for (auto& params : mTrkParams) {
-    if (params.NLayers == 7) {
-      for (int i{0}; i < 7; ++i) {
-        params.SystErrorY2[i] = tc.sysErrY2[i] > 0 ? tc.sysErrY2[i] : params.SystErrorY2[i];
-        params.SystErrorZ2[i] = tc.sysErrZ2[i] > 0 ? tc.sysErrZ2[i] : params.SystErrorZ2[i];
-      }
-    }
-    params.DeltaROF = tc.deltaRof;
-    params.DoUPCIteration = tc.doUPCIteration;
-    params.MaxChi2ClusterAttachment = tc.maxChi2ClusterAttachment > 0 ? tc.maxChi2ClusterAttachment : params.MaxChi2ClusterAttachment;
-    params.MaxChi2NDF = tc.maxChi2NDF > 0 ? tc.maxChi2NDF : params.MaxChi2NDF;
-    params.PhiBins = tc.LUTbinsPhi > 0 ? tc.LUTbinsPhi : params.PhiBins;
-    params.ZBins = tc.LUTbinsZ > 0 ? tc.LUTbinsZ : params.ZBins;
-    params.PVres = tc.pvRes > 0 ? tc.pvRes : params.PVres;
-    params.NSigmaCut *= tc.nSigmaCut > 0 ? tc.nSigmaCut : 1.f;
-    params.CellDeltaTanLambdaSigma *= tc.deltaTanLres > 0 ? tc.deltaTanLres : 1.f;
-    params.TrackletMinPt *= tc.minPt > 0 ? tc.minPt : 1.f;
-    params.nROFsPerIterations = nROFsPerIterations;
-    params.PerPrimaryVertexProcessing = tc.perPrimaryVertexProcessing;
-    params.SaveTimeBenchmarks = tc.saveTimeBenchmarks;
-    params.FataliseUponFailure = tc.fataliseUponFailure;
-    params.DropTFUponFailure = tc.dropTFUponFailure;
-    for (int iD{0}; iD < 3; ++iD) {
-      params.Diamond[iD] = tc.diamondPos[iD];
-    }
-    params.UseDiamond = tc.useDiamond;
-    if (tc.maxMemory) {
-      params.MaxMemory = tc.maxMemory;
-    }
-    if (tc.useTrackFollower > 0) {
-      params.UseTrackFollower = true;
-      // Bit 0: Allow for mixing of top&bot extension --> implies Bits 1&2 set
-      // Bit 1: Allow for top extension
-      // Bit 2: Allow for bot extension
-      params.UseTrackFollowerMix = ((tc.useTrackFollower & (1 << 0)) != 0);
-      params.UseTrackFollowerTop = ((tc.useTrackFollower & (1 << 1)) != 0);
-      params.UseTrackFollowerBot = ((tc.useTrackFollower & (1 << 2)) != 0);
-      params.TrackFollowerNSigmaCutZ = tc.trackFollowerNSigmaZ;
-      params.TrackFollowerNSigmaCutPhi = tc.trackFollowerNSigmaPhi;
-    }
-    if (tc.cellsPerClusterLimit >= 0) {
-      params.CellsPerClusterLimit = tc.cellsPerClusterLimit;
-    }
-    if (tc.trackletsPerClusterLimit >= 0) {
-      params.TrackletsPerClusterLimit = tc.trackletsPerClusterLimit;
-    }
-    if (tc.findShortTracks >= 0) {
-      params.FindShortTracks = tc.findShortTracks;
     }
   }
 }

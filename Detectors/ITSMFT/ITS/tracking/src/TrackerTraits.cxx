@@ -616,12 +616,12 @@ void TrackerTraits<nLayers>::processNeighbours(int iLayer, int iLevel, const bou
           continue;
         }
 
-        if (!propagator->propagateToX(seed, trHit.xTrackingFrame, getBz(), o2::base::PropagatorImpl<float>::MAX_SIN_PHI, o2::base::PropagatorImpl<float>::MAX_STEP, mCorrType)) {
+        if (!propagator->propagateToX(seed, trHit.xTrackingFrame, getBz(), o2::base::PropagatorImpl<float>::MAX_SIN_PHI, o2::base::PropagatorImpl<float>::MAX_STEP, mTrkParams[0].CorrType)) {
           CA_DEBUGGER(failed[2]++);
           continue;
         }
 
-        if (mCorrType == o2::base::PropagatorF::MatCorrType::USEMatCorrNONE) {
+        if (mTrkParams[0].CorrType == o2::base::PropagatorF::MatCorrType::USEMatCorrNONE) {
           if (!seed.correctForMaterial(mTrkParams[0].LayerxX0[iLayer - 1], mTrkParams[0].LayerxX0[iLayer - 1] * constants::Radl * constants::Rho, true)) {
             continue;
           }
@@ -1023,11 +1023,11 @@ bool TrackerTraits<nLayers>::fitTrack(TrackITSExt& track, int start, int end, in
       return false;
     }
 
-    if (!propInstance->propagateToX(track, trackingHit.xTrackingFrame, getBz(), o2::base::PropagatorImpl<float>::MAX_SIN_PHI, o2::base::PropagatorImpl<float>::MAX_STEP, mCorrType)) {
+    if (!propInstance->propagateToX(track, trackingHit.xTrackingFrame, getBz(), o2::base::PropagatorImpl<float>::MAX_SIN_PHI, o2::base::PropagatorImpl<float>::MAX_STEP, mTrkParams[0].CorrType)) {
       return false;
     }
 
-    if (mCorrType == o2::base::PropagatorF::MatCorrType::USEMatCorrNONE) {
+    if (mTrkParams[0].CorrType == o2::base::PropagatorF::MatCorrType::USEMatCorrNONE) {
       if (!track.correctForMaterial(mTrkParams[0].LayerxX0[iLayer], mTrkParams[0].LayerxX0[iLayer] * constants::Radl * constants::Rho, true)) {
         continue;
       }
@@ -1201,7 +1201,7 @@ void TrackerTraits<nLayers>::setBz(float bz)
 template <int nLayers>
 bool TrackerTraits<nLayers>::isMatLUT() const
 {
-  return o2::base::Propagator::Instance()->getMatLUT() && (mCorrType == o2::base::PropagatorImpl<float>::MatCorrType::USEMatCorrLUT);
+  return o2::base::Propagator::Instance()->getMatLUT() && (mTrkParams[0].CorrType == o2::base::PropagatorImpl<float>::MatCorrType::USEMatCorrLUT);
 }
 
 template <int nLayers>

@@ -2717,7 +2717,7 @@ AODProducerWorkflowDPL::TrackQA AODProducerWorkflowDPL::processBarrelTrackQA(int
     if (auto itsContGID = data.getITSContributorGID(trackIndex); itsContGID.isIndexSet() && itsContGID.getSource() != GIndex::ITSAB) {
       const auto& itsOrig = data.getITSTrack(itsContGID);
       o2::track::TrackPar gloCopy = trackPar;
-      o2::track::TrackPar itsCopy = itsOrig;
+      o2::track::TrackPar itsCopy = itsOrig.getParamOut();
       o2::track::TrackPar tpcCopy = tpcOrig;
       if (prop->propagateToX(gloCopy, o2::aod::track::trackQARefRadius, prop->getNominalBz(), o2::base::Propagator::MAX_SIN_PHI, o2::base::Propagator::MAX_STEP, mMatCorr) &&
           prop->propagateToAlphaX(tpcCopy, gloCopy.getAlpha(), o2::aod::track::trackQARefRadius, false, o2::base::Propagator::MAX_SIN_PHI, o2::base::Propagator::MAX_STEP, 1, mMatCorr) &&

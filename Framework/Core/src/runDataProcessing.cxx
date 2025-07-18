@@ -2835,6 +2835,20 @@ std::unique_ptr<o2::framework::ServiceRegistry> createRegistry()
   return std::make_unique<o2::framework::ServiceRegistry>();
 }
 
+void describeDataProcessorSpec(std::ostream& stream, DataProcessorSpec const& spec)
+{
+  stream << spec.name;
+  if (!spec.labels.empty()) {
+    stream << "(";
+    bool first = false;
+    for (auto& label : spec.labels) {
+      stream << (first ? "" : ",") << label.value;
+      first = true;
+    }
+    stream << ")";
+  }
+}
+
 // This is a toy executor for the workflow spec
 // What it needs to do is:
 //
@@ -3059,18 +3073,22 @@ int doMain(int argc, char** argv, o2::framework::WorkflowSpec const& workflow,
           edges.emplace_back(i, j);
           if (both) {
             std::ostringstream str;
+            describeDataProcessorSpec(str, physicalWorkflow[i]);
+            str << " has circular dependency with ";
+            describeDataProcessorSpec(str, physicalWorkflow[j]);
+            str << ":\n";
             for (auto x : {i, j}) {
               str << physicalWorkflow[x].name << ":\n";
               str << "inputs:\n";
               for (auto& input : physicalWorkflow[x].inputs) {
-                str << "- " << input << "\n";
+                str << "- " << input << " " << (int)input.lifetime << "\n";
               }
               str << "outputs:\n";
               for (auto& output : physicalWorkflow[x].outputs) {
-                str << "- " << output << "\n";
+                str << "- " << output << " " << (int)output.lifetime << "\n";
               }
             }
-            throw std::runtime_error(physicalWorkflow[i].name + " has circular dependency with " + physicalWorkflow[j].name + ":\n" + str.str());
+            throw std::runtime_error(str.str());
           }
         }
       }

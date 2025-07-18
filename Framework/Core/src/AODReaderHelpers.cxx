@@ -10,37 +10,27 @@
 // or submit itself to any jurisdiction.
 
 #include "Framework/AODReaderHelpers.h"
-#include "Framework/TableTreeHelpers.h"
 #include "Framework/AnalysisHelpers.h"
 #include "Framework/AnalysisDataModelHelpers.h"
 #include "Framework/DataProcessingHelpers.h"
 #include "Framework/ExpressionHelpers.h"
 #include "Framework/AlgorithmSpec.h"
-#include "Framework/ConfigParamRegistry.h"
 #include "Framework/ControlService.h"
 #include "Framework/CallbackService.h"
 #include "Framework/EndOfStreamContext.h"
-#include "Framework/DeviceSpec.h"
-#include "Framework/RawDeviceService.h"
 #include "Framework/DataSpecUtils.h"
-#include "Framework/SourceInfoHeader.h"
-#include "Framework/ChannelInfo.h"
-#include "Framework/Logger.h"
 
 #include <Monitoring/Monitoring.h>
 
 #include <TGrid.h>
 #include <TFile.h>
 #include <TTreeCache.h>
-#include <TTreePerfStats.h>
 
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/io/interfaces.h>
 #include <arrow/table.h>
 #include <arrow/util/key_value_metadata.h>
-
-#include <thread>
 
 namespace o2::framework::readers
 {

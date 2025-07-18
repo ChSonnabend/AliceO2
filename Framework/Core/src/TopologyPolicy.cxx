@@ -87,10 +87,6 @@ bool sporadicDataDeps(DataProcessorSpec const& a, DataProcessorSpec const& b)
   if (isAWithSporadicInput && isBWithSporadicInput) {
     return false;
   }
-  // If a has sporadic inputs
-  if (isAWithSporadicInput && isBWithSporadicInput) {
-    return false;
-  }
 
   // We have a with sporadic inputs. We sort it later, unless there was already some actual
   // dependency between A and B.
@@ -146,12 +142,15 @@ bool expendableDataDeps(DataProcessorSpec const& a, DataProcessorSpec const& b)
   bool isBExpendable = std::find_if(b.labels.begin(), b.labels.end(), checkExpendable) != b.labels.end();
   bool isAExpendable = std::find_if(a.labels.begin(), a.labels.end(), checkExpendable) != a.labels.end();
   bool bResilient = std::find_if(b.labels.begin(), b.labels.end(), checkResilient) != b.labels.end();
+  const std::regex matcher(".*output-proxy.*");
+  std::cmatch m;
+  bool isBOutputProxy = std::regex_match(b.name.data(), m, matcher);
 
   // If none is expendable. We simply return false and sort as usual.
   if (!isAExpendable && !isBExpendable) {
     bool sporadic = sporadicDataDeps(a, b);
-    if (sporadic) {
-      O2_SIGNPOST_END(topology, sid, "expendableDataDeps", "false. Neither %s nor %s are expendable. However the former has sporadic inputs so we sort it after.",
+    if (sporadic && !isBOutputProxy) {
+      O2_SIGNPOST_END(topology, sid, "expendableDataDeps", "true. Neither %s nor %s are expendable. However the former has sporadic inputs so we sort it after.",
                       a.name.c_str(), b.name.c_str());
       return true;
     }
@@ -162,8 +161,8 @@ bool expendableDataDeps(DataProcessorSpec const& a, DataProcessorSpec const& b)
   // If both are expendable. We return false and sort as usual.
   if (isAExpendable && isBExpendable) {
     bool sporadic = sporadicDataDeps(a, b);
-    if (sporadic) {
-      O2_SIGNPOST_END(topology, sid, "expendableDataDeps", "false. Both %s and %s are expendable. However the former has sporadic inputs, so we sort it after.",
+    if (sporadic && !isBOutputProxy) {
+      O2_SIGNPOST_END(topology, sid, "expendableDataDeps", "true. Both %s and %s are expendable. However the former has sporadic inputs, so we sort it after.",
                       a.name.c_str(), b.name.c_str());
       return true;
     }
@@ -175,8 +174,8 @@ bool expendableDataDeps(DataProcessorSpec const& a, DataProcessorSpec const& b)
   // If a is expendable but b is resilient, we can keep the same order.
   if (isAExpendable && bResilient) {
     bool sporadic = sporadicDataDeps(a, b);
-    if (sporadic) {
-      O2_SIGNPOST_END(topology, sid, "expendableDataDeps", "false. %s is expendable but %s is resilient, however the former also has sporadic inputs, so we sort it after.",
+    if (sporadic && !isBOutputProxy) {
+      O2_SIGNPOST_END(topology, sid, "expendableDataDeps", "true. %s is expendable but %s is resilient, however the former also has sporadic inputs, so we sort it after.",
                       a.name.c_str(), b.name.c_str());
       return true;
     }
@@ -192,25 +191,17 @@ bool expendableDataDeps(DataProcessorSpec const& a, DataProcessorSpec const& b)
                     a.name.c_str(), hasDependency ? "There is however an inverse dependency" : "No inverse dependency", b.name.c_str(), a.name.c_str(),
                     !hasDependency ? "true" : "false");
     if (!hasDependency) {
-      O2_SIGNPOST_END(topology, sid, "expendableDataDeps", "%s is expendable. There is however an inverse dependecy from %s to %s => true.",
-                      a.name.c_str(), b.name.c_str(), a.name.c_str());
       return true;
     }
     bool sporadic = sporadicDataDeps(a, b);
-    if (sporadic) {
+    if (sporadic && !isBOutputProxy) {
       O2_SIGNPOST_END(topology, sid, "expendableDataDeps", "%s is expendable. No inverse dependency from %s to %s. However the former has an occasioanl input => true.",
                       a.name.c_str(), b.name.c_str(), a.name.c_str());
+      return true;
     }
     O2_SIGNPOST_END(topology, sid, "expendableDataDeps", "%s is expendable. No inverse dependency from %s to %s => false.",
                     a.name.c_str(), b.name.c_str(), a.name.c_str());
     return false;
-  }
-  // b is expendable and a is not. We are fine with no dependency.
-  bool sporadic = sporadicDataDeps(a, b);
-  if (sporadic) {
-    O2_SIGNPOST_END(topology, sid, "expendableDataDeps", "false. %s is expendable but %s is not. However the former has an sporadic input => true.",
-                    b.name.c_str(), a.name.c_str());
-    return true;
   }
   // b is expendable and a is not. We are fine with no dependency.
   O2_SIGNPOST_END(topology, sid, "expendableDataDeps", "false. %s is expendable but %s is not. No need to add an unneeded dependency.",
@@ -273,6 +264,7 @@ TopologyPolicy::DependencyChecker TopologyPolicyHelpers::alwaysDependent()
                       hasDependency ? "true" : "false", dependent.name.c_str(), hasDependency ? "has" : "has not", ancestor.name.c_str());
       return hasDependency;
     }
+
     O2_SIGNPOST_END(topology, sid, "alwaysDependent", "true by default. Ancestor %s is not an output proxy.", ancestor.name.c_str());
     return true;
   };

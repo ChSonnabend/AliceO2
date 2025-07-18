@@ -68,13 +68,7 @@ class ITSTrackingInterface
 
   // Custom
   void setTraitsFromProvider(VertexerTraits*, TrackerTraits7*, TimeFrame7*);
-  void setTrackingMode(TrackingMode mode = TrackingMode::Unset)
-  {
-    if (mode == TrackingMode::Unset) {
-      LOGP(fatal, "ITS Tracking mode Unset is meant to be a default. Specify the mode");
-    }
-    mMode = mode;
-  }
+  void setTrackingMode(TrackingMode::Type mode = TrackingMode::Unset) { mMode = mode; }
 
   auto getTracker() const { return mTracker.get(); }
   auto getVertexer() const { return mVertexer.get(); }
@@ -86,14 +80,13 @@ class ITSTrackingInterface
                        gsl::span<const itsmft::CompClusterExt> clusters,
                        gsl::span<const unsigned char>::iterator& pattIt,
                        const dataformats::MCTruthContainer<MCCompLabel>* mcLabels);
-  void getConfiguration(framework::ProcessingContext& pc);
 
  private:
   bool mIsMC = false;
   bool mRunVertexer = true;
   bool mCosmicsProcessing = false;
   int mUseTriggers = 0;
-  TrackingMode mMode = TrackingMode::Unset;
+  TrackingMode::Type mMode = TrackingMode::Unset;
   bool mOverrideBeamEstimation = false;
   const o2::itsmft::TopologyDictionary* mDict = nullptr;
   std::unique_ptr<Tracker> mTracker = nullptr;

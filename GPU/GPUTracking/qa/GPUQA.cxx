@@ -158,15 +158,12 @@ static constexpr float PT_MAX = 20;
 static constexpr float ETA_MAX = 1.5;
 static constexpr float ETA_MAX2 = 0.9;
 
-static constexpr float MIN_WEIGHT_CLS = 40;
-static constexpr float FINDABLE_WEIGHT_CLS = 70;
-
 static constexpr bool CLUST_HIST_INT_SUM = false;
 
 static constexpr const int32_t COLORCOUNT = 12;
 
 static const constexpr char* EFF_TYPES[5] = {"Rec", "Clone", "Fake", "All", "RecAndClone"};
-static const constexpr char* FINDABLE_NAMES[2] = {"", "Findable"};
+static const constexpr char* FINDABLE_NAMES[2] = {"All", "Findable"};
 static const constexpr char* PRIM_NAMES[2] = {"Prim", "Sec"};
 static const constexpr char* PARAMETER_NAMES[5] = {"Y", "Z", "#Phi", "#lambda", "Relative #it{p}_{T}"};
 static const constexpr char* PARAMETER_NAMES_NATIVE[5] = {"Y", "Z", "sin(#Phi)", "tan(#lambda)", "q/#it{p}_{T} (curvature)"};
@@ -1191,10 +1188,10 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
           if (info.primDaughters) {
             continue;
           }
-          if (mc2.nWeightCls < MIN_WEIGHT_CLS) {
+          if (mc2.nWeightCls < mConfig.minNClEff) {
             continue;
           }
-          int32_t findable = mc2.nWeightCls >= FINDABLE_WEIGHT_CLS;
+          int32_t findable = mc2.nWeightCls >= mConfig.minNClFindable;
           if (info.pid < 0) {
             continue;
           }
@@ -1223,9 +1220,9 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
           float localY = -info.x * s + info.y * c;
 
           if (mConfig.dumpToROOT) {
-            static auto effdump = GPUROOTDump<TNtuple>::getNew("eff", "alpha:x:y:z:mcphi:mceta:mcpt:rec:fake:findable:prim");
+            static auto effdump = GPUROOTDump<TNtuple>::getNew("eff", "alpha:x:y:z:mcphi:mceta:mcpt:rec:fake:findable:prim:ncls");
             float localX = info.x * c + info.y * s;
-            effdump.Fill(alpha, localX, localY, info.z, mcphi, mceta, mcpt, mRecTracks[iCol][i], mFakeTracks[iCol][i], findable, info.prim);
+            effdump.Fill(alpha, localX, localY, info.z, mcphi, mceta, mcpt, mRecTracks[iCol][i], mFakeTracks[iCol][i], findable, info.prim, mc2.nWeightCls);
           }
 
           for (int32_t j = 0; j < 4; j++) {
@@ -1310,7 +1307,7 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
         if (mConfig.filterPID >= 0 && mc1.pid != mConfig.filterPID) {
           continue;
         }
-        if (mc2.nWeightCls < MIN_WEIGHT_CLS) {
+        if (mc2.nWeightCls < mConfig.minNClRes) {
           continue;
         }
         if (mConfig.resPrimaries == 1 && !mc1.prim) {

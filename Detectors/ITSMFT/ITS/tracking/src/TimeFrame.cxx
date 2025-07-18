@@ -86,6 +86,12 @@ void TimeFrame<nLayers>::addPrimaryVerticesLabels(bounded_vector<std::pair<MCCom
 }
 
 template <int nLayers>
+void TimeFrame<nLayers>::addPrimaryVerticesContributorLabels(bounded_vector<MCCompLabel>& labels)
+{
+  mVerticesContributorLabels.insert(mVerticesContributorLabels.end(), labels.begin(), labels.end());
+}
+
+template <int nLayers>
 void TimeFrame<nLayers>::addPrimaryVerticesInROF(const bounded_vector<Vertex>& vertices, const int rofId, const int iteration)
 {
   mPrimaryVertices.insert(mPrimaryVertices.begin() + mROFramesPV[rofId], vertices.begin(), vertices.end());
@@ -99,6 +105,18 @@ template <int nLayers>
 void TimeFrame<nLayers>::addPrimaryVerticesLabelsInROF(const bounded_vector<std::pair<MCCompLabel, float>>& labels, const int rofId)
 {
   mVerticesMCRecInfo.insert(mVerticesMCRecInfo.begin() + mROFramesPV[rofId], labels.begin(), labels.end());
+}
+
+template <int nLayers>
+void TimeFrame<nLayers>::addPrimaryVerticesContributorLabelsInROF(const bounded_vector<MCCompLabel>& labels, const int rofId)
+{
+  // count the number of cont. in rofs before and including the target rof
+  unsigned int n{0};
+  const auto& pvs = getPrimaryVertices(0, rofId);
+  for (const auto& pv : pvs) {
+    n += pv.getNContributors();
+  }
+  mVerticesContributorLabels.insert(mVerticesContributorLabels.begin() + n, labels.begin(), labels.end());
 }
 
 template <int nLayers>
@@ -295,6 +313,7 @@ void TimeFrame<nLayers>::initialise(const int iteration, const TrackingParameter
     deepVectorClear(mLinesLabels);
     if (resetVertices) {
       deepVectorClear(mVerticesMCRecInfo);
+      deepVectorClear(mVerticesContributorLabels);
     }
     clearResizeBoundedVector(mTracks, mNrof, mMemoryPool.get());
     clearResizeBoundedVector(mTracksLabel, mNrof, mMemoryPool.get());
@@ -646,6 +665,7 @@ void TimeFrame<nLayers>::setMemoryPool(std::shared_ptr<BoundedMemoryResource>& p
   initVector(mClusterSize);
   initVector(mPValphaX);
   initVector(mBogusClusters);
+  initVector(mVerticesContributorLabels);
   initArrays(mTrackletsIndexROF);
   initVectors(mTracks);
   initVectors(mTracklets);
@@ -689,6 +709,8 @@ void TimeFrame<nLayers>::wipe()
   deepVectorClear(mBogusClusters);
   deepVectorClear(mTrackletsIndexROF);
   deepVectorClear(mPrimaryVertices);
+  deepVectorClear(mTrackletClusters);
+  deepVectorClear(mVerticesContributorLabels);
 }
 
 template class TimeFrame<7>;

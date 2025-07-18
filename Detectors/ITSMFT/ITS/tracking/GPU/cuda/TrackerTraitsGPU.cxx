@@ -246,7 +246,7 @@ void TrackerTraitsGPU<nLayers>::findRoads(const int iteration)
                                         this->mTrkParams[0].MaxChi2ClusterAttachment,
                                         this->mTrkParams[0].MaxChi2NDF,
                                         mTimeFrameGPU->getDevicePropagator(),
-                                        this->mCorrType,
+                                        this->mTrkParams[0].CorrType,
                                         conf.nBlocks,
                                         conf.nThreads);
     }
@@ -268,7 +268,7 @@ void TrackerTraitsGPU<nLayers>::findRoads(const int iteration)
                      this->mTrkParams[0].MaxChi2ClusterAttachment,     // float maxChi2ClusterAttachment
                      this->mTrkParams[0].MaxChi2NDF,                   // float maxChi2NDF
                      mTimeFrameGPU->getDevicePropagator(),             // const o2::base::Propagator* propagator
-                     this->mCorrType,                                  // o2::base::PropagatorImpl<float>::MatCorrType
+                     this->mTrkParams[0].CorrType,                     // o2::base::PropagatorImpl<float>::MatCorrType
                      conf.nBlocks,
                      conf.nThreads);
 

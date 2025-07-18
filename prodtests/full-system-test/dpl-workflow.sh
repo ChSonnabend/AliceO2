@@ -29,6 +29,8 @@ fi
 : ${CTF_FREE_DISK_WAIT:="10"}         # if disk on EPNs is close to full, wait X seconds before retrying to write
 : ${CTF_MAX_FREE_DISK_WAIT:="600"}    # if not enough disk space after this time throw error
 
+[[ -z ${LIGHTNUCLEI:-} ]] && export LIGHTNUCLEI="0" # temporarily, in case O2DPG is not synced yet to the version knowing LIGHTNUCLEI
+
 # entropy encoding/decoding mode, '' is equivalent to '--ans-version compat' (compatible with < 09/2023 data),
 # use '--ans-version 1.0 --ctf-dict none' for the new per-TF dictionary mode
 : ${RANS_OPT:="--ans-version 1.0 --ctf-dict none"}
@@ -46,7 +48,7 @@ source $GEN_TOPO_MYDIR/getCommonArgs.sh || { echo "getCommonArgs.sh failed" 1>&2
 workflow_has_parameter CALIB && { source $O2DPG_ROOT/DATA/common/setenv_calib.sh; [[ $? != 0 ]] && echo "setenv_calib.sh failed" 1>&2 && exit 1; }
 
 [[ -z ${SHM_MANAGER_SHMID:-} ]] && ( [[ $EXTINPUT == 1 ]] || [[ $NUMAGPUIDS != 0 ]] ) && ARGS_ALL+=" --no-cleanup"
-[[ $GPUTYPE != "CPU" || ( ! -z ${OPTIMIZED_PARALLEL_ASYNC:-} && -z ${SETENV_NO_ULIMIT:-} ) ]] && ARGS_ALL+=" --shm-mlock-segment-on-creation 1"
+[[ ( $GPUTYPE != "CPU" || -n ${OPTIMIZED_PARALLEL_ASYNC:-} ) && ${SETENV_NO_ULIMIT:-0} == 0 ]] && ARGS_ALL+=" --shm-mlock-segment-on-creation 1"
 if [[ $EPNSYNCMODE == 1 ]] || type numactl >/dev/null 2>&1 && [[ `numactl -H | grep "node . size" | wc -l` -ge 2 ]]; then
   [[ $NUMAGPUIDS != 0 ]] && ARGS_ALL+=" --child-driver 'numactl --membind $NUMAID --cpunodebind $NUMAID'"
 fi
@@ -118,7 +120,7 @@ if [[ $SYNCMODE == 1 ]]; then
     ITS_CONFIG_KEY+="fastMultConfig.cutMultClusLow=${CUT_MULT_MIN_ITS:-100};fastMultConfig.cutMultClusHigh=${CUT_MULT_MAX_ITS:-200};fastMultConfig.cutMultVtxHigh=${CUT_MULT_VTX_ITS:-20};"
     MCH_CONFIG_KEY="MCHTracking.maxCandidates=50000;MCHTracking.maxTrackingDuration=20;"
     MFT_CONFIG_KEY+="MFTTracking.cutMultClusLow=0;MFTTracking.cutMultClusHigh=20000;"
-  elif [[ $BEAMTYPE == "pp" ]]; then
+  elif [[ $BEAMTYPE == "pp" || $LIGHTNUCLEI == "1" ]]; then
     ITS_CONFIG_KEY+="fastMultConfig.cutMultClusLow=${CUT_MULT_MIN_ITS:--1};fastMultConfig.cutMultClusHigh=${CUT_MULT_MAX_ITS:--1};fastMultConfig.cutMultVtxHigh=${CUT_MULT_VTX_ITS:--1};ITSVertexerParam.phiCut=0.5;ITSVertexerParam.clusterContributorsCut=3;ITSVertexerParam.tanLambdaCut=0.2;"
     MCH_CONFIG_KEY="MCHTracking.maxCandidates=20000;MCHTracking.maxTrackingDuration=10;"
     MFT_CONFIG_KEY+="MFTTracking.cutMultClusLow=0;MFTTracking.cutMultClusHigh=3000;"
@@ -147,7 +149,7 @@ if [[ $SYNCMODE == 1 ]]; then
   has_detector ITS && TRD_FILTER_CONFIG+=" --filter-trigrec"
 else
   has_detectors_gpu TPC ITS && ITS_CONFIG_KEY+="ITSCATrackerParam.trackingMode=1;" # sets ITS gpu reco to async
-  if [[ $BEAMTYPE == "pp" ]]; then
+  if [[ $BEAMTYPE == "pp" || $LIGHTNUCLEI == "1" ]]; then
     ITS_CONFIG_KEY+="ITSVertexerParam.phiCut=0.5;ITSVertexerParam.clusterContributorsCut=3;ITSVertexerParam.tanLambdaCut=0.2;"
   elif [[ $BEAMTYPE == "PbPb" ]]; then
     ITS_CONFIG_KEY+="ITSVertexerParam.lowMultBeamDistCut=0;"
@@ -169,6 +171,8 @@ if [[ $BEAMTYPE == "PbPb" ]]; then
   INTERACTION_TAG_CONFIG_KEY="ft0tag.minAmplitudeA=${INT_TAG_FT0A:-5};ft0tag.minAmplitudeC=${INT_TAG_FT0C:-5};ft0tag.minAmplitudeAC=${INT_TAG_FT0AC:-20};"
 elif [[ $BEAMTYPE == "pp" ]]; then
   PVERTEXING_CONFIG_KEY+="pvertexer.maxChi2TZDebris=10;"
+elif [[ $LIGHTNUCLEI == "1" ]]; then
+  PVERTEXING_CONFIG_KEY+="pvertexer.maxChi2TZDebris=100;"
 fi
 
 if [[ $BEAMTYPE == "cosmic" ]]; then
@@ -360,7 +364,7 @@ if has_processing_step MUON_SYNC_RECO; then
   [[ -z ${ARGS_EXTRA_PROCESS_o2_mch_reco_workflow:-} ]] && ARGS_EXTRA_PROCESS_o2_mch_reco_workflow="--digits"
   if [[ $IS_SIMULATED_DATA == 1 ]]; then
     MCH_CONFIG_KEY+="MCHTimeClusterizer.peakSearchSignalOnly=false;MCHDigitFilter.rejectBackground=false;"
-  elif [[ $RUNTYPE == "PHYSICS" && $BEAMTYPE == "pp" ]] || [[ $RUNTYPE == "COSMICS" ]]; then
+  elif [[ $RUNTYPE == "PHYSICS" && $BEAMTYPE == "pp" || $LIGHTNUCLEI == "1" ]] || [[ $RUNTYPE == "COSMICS" ]]; then
     MCH_CONFIG_KEY+="MCHTracking.chamberResolutionX=0.4;MCHTracking.chamberResolutionY=0.4;MCHTracking.sigmaCutForTracking=7.;MCHTracking.sigmaCutForImprovement=6.;"
   fi
   has_detector_reco ITS && [[ $RUNTYPE != "COSMICS" ]] && MCH_CONFIG_KEY+="MCHTimeClusterizer.irFramesOnly=true;"

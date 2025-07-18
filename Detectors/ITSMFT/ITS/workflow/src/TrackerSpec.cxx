@@ -26,7 +26,7 @@ using Vertex = o2::dataformats::Vertex<o2::dataformats::TimeStamp<int>>;
 TrackerDPL::TrackerDPL(std::shared_ptr<o2::base::GRPGeomRequest> gr,
                        bool isMC,
                        int trgType,
-                       const TrackingMode& trMode,
+                       const TrackingMode::Type trMode,
                        const bool overrBeamEst,
                        o2::gpu::GPUDataTypes::DeviceType dType) : mGGCCDBRequest(gr),
                                                                   mRecChain{o2::gpu::GPUReconstruction::CreateInstance(dType, true)},
@@ -79,7 +79,7 @@ void TrackerDPL::end()
   LOGF(info, "ITS CA-Tracker total timing: Cpu: %.3e Real: %.3e s in %d slots", mTimer.CpuTime(), mTimer.RealTime(), mTimer.Counter() - 1);
 }
 
-DataProcessorSpec getTrackerSpec(bool useMC, bool useGeom, int trgType, const std::string& trModeS, const bool overrBeamEst, o2::gpu::GPUDataTypes::DeviceType dType)
+DataProcessorSpec getTrackerSpec(bool useMC, bool useGeom, int trgType, TrackingMode::Type trMode, const bool overrBeamEst, o2::gpu::GPUDataTypes::DeviceType dType)
 {
   std::vector<InputSpec> inputs;
 
@@ -120,6 +120,7 @@ DataProcessorSpec getTrackerSpec(bool useMC, bool useGeom, int trgType, const st
     inputs.emplace_back("itsmclabels", "ITS", "CLUSTERSMCTR", 0, Lifetime::Timeframe);
     inputs.emplace_back("ITSMC2ROframes", "ITS", "CLUSTERSMC2ROF", 0, Lifetime::Timeframe);
     outputs.emplace_back("ITS", "VERTICESMCTR", 0, Lifetime::Timeframe);
+    outputs.emplace_back("ITS", "VERTICESMCTRCONT", 0, Lifetime::Timeframe);
     outputs.emplace_back("ITS", "VERTICESMCPUR", 0, Lifetime::Timeframe);
     outputs.emplace_back("ITS", "TRACKSMCTR", 0, Lifetime::Timeframe);
     outputs.emplace_back("ITS", "ITSTrackMC2ROF", 0, Lifetime::Timeframe);
@@ -132,8 +133,7 @@ DataProcessorSpec getTrackerSpec(bool useMC, bool useGeom, int trgType, const st
     AlgorithmSpec{adaptFromTask<TrackerDPL>(ggRequest,
                                             useMC,
                                             trgType,
-                                            trModeS == "sync" ? o2::its::TrackingMode::Sync : trModeS == "async" ? o2::its::TrackingMode::Async
-                                                                                                                 : o2::its::TrackingMode::Cosmics,
+                                            trMode,
                                             overrBeamEst,
                                             dType)},
     Options{}};

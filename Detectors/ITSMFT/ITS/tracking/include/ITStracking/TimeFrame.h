@@ -73,15 +73,18 @@ struct TimeFrame {
   gsl::span<const Vertex> getPrimaryVertices(int rofId) const;
   gsl::span<const Vertex> getPrimaryVertices(int romin, int romax) const;
   gsl::span<const std::pair<MCCompLabel, float>> getPrimaryVerticesMCRecInfo(const int rofId) const;
+  gsl::span<const MCCompLabel> getPrimaryVerticesContributors(const int rofId) const;
   gsl::span<const std::array<float, 2>> getPrimaryVerticesXAlpha(int rofId) const;
   void fillPrimaryVerticesXandAlpha();
   int getPrimaryVerticesNum(int rofId = -1) const;
   void addPrimaryVertices(const bounded_vector<Vertex>& vertices);
   void addPrimaryVerticesLabels(bounded_vector<std::pair<MCCompLabel, float>>& labels);
+  void addPrimaryVerticesContributorLabels(bounded_vector<MCCompLabel>& labels);
   void addPrimaryVertices(const bounded_vector<Vertex>& vertices, const int rofId, const int iteration);
   void addPrimaryVertices(const gsl::span<const Vertex>& vertices, const int rofId, const int iteration);
   void addPrimaryVerticesInROF(const bounded_vector<Vertex>& vertices, const int rofId, const int iteration);
   void addPrimaryVerticesLabelsInROF(const bounded_vector<std::pair<MCCompLabel, float>>& labels, const int rofId);
+  void addPrimaryVerticesContributorLabelsInROF(const bounded_vector<MCCompLabel>& labels, const int rofId);
   void removePrimaryVerticesInROf(const int rofId);
   int loadROFrameData(const o2::itsmft::ROFRecord& rof, gsl::span<const itsmft::Cluster> clusters,
                       const dataformats::MCTruthContainer<MCCompLabel>* mcLabels = nullptr);
@@ -342,6 +345,7 @@ struct TimeFrame {
   std::array<bounded_vector<int>, 2> mTrackletsIndexROF;
   std::vector<bounded_vector<MCCompLabel>> mLinesLabels;
   std::vector<std::pair<MCCompLabel, float>> mVerticesMCRecInfo;
+  bounded_vector<MCCompLabel> mVerticesContributorLabels;
   std::array<uint32_t, 2> mTotalTracklets = {0, 0};
   unsigned int mNoVertexROF = 0;
   bounded_vector<int> mTotVertPerIteration;
@@ -369,6 +373,22 @@ inline gsl::span<const std::pair<MCCompLabel, float>> TimeFrame<nLayers>::getPri
   const int stop_idx = rofId >= mNrof - 1 ? mNrof : rofId + 1;
   int delta = mMultiplicityCutMask[rofId] ? mROFramesPV[stop_idx] - start : 0; // return empty span if Rof is excluded
   return {&(mVerticesMCRecInfo[start]), static_cast<gsl::span<const std::pair<MCCompLabel, float>>::size_type>(delta)};
+}
+
+template <int nLayers>
+inline gsl::span<const MCCompLabel> TimeFrame<nLayers>::getPrimaryVerticesContributors(const int rofId) const
+{
+  // count the number of cont. in rofs before target rof
+  unsigned int start{0}, delta{0};
+  const auto& pvsBefore = getPrimaryVertices(0, rofId - 1);
+  for (const auto& pv : pvsBefore) {
+    start += pv.getNContributors();
+  }
+  const auto& pvsIn = getPrimaryVertices(rofId);
+  for (const auto& pv : pvsIn) {
+    delta += pv.getNContributors();
+  }
+  return {&(mVerticesContributorLabels[start]), static_cast<gsl::span<const MCCompLabel>::size_type>(delta)};
 }
 
 template <int nLayers>

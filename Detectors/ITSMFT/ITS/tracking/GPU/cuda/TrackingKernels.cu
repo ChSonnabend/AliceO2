@@ -58,30 +58,43 @@ namespace gpu
 {
 
 template <typename T>
-class TypedAllocator : public thrust::device_allocator<T>
-{
- public:
+struct TypedAllocator {
   using value_type = T;
-  using pointer = T*;
+  using pointer = thrust::device_ptr<T>;
+  using const_pointer = thrust::device_ptr<const T>;
+  using size_type = std::size_t;
+  using difference_type = std::ptrdiff_t;
+
+  TypedAllocator() noexcept : mInternalAllocator(nullptr) {}
+  explicit TypedAllocator(ExternalAllocator* a) noexcept : mInternalAllocator(a) {}
 
   template <typename U>
-  struct rebind {
-    using other = TypedAllocator<U>;
-  };
-
-  explicit TypedAllocator(ExternalAllocator* allocPtr)
-    : mInternalAllocator(allocPtr) {}
-
-  T* allocate(size_t n)
+  TypedAllocator(const TypedAllocator<U>& o) noexcept : mInternalAllocator(o.mInternalAllocator)
   {
-    return reinterpret_cast<T*>(mInternalAllocator->allocate(n * sizeof(T)));
   }
 
-  void deallocate(T* p, size_t n)
+  pointer allocate(size_type n)
   {
-    char* raw_ptr = reinterpret_cast<char*>(p);
-    size_t bytes = n * sizeof(T);
-    mInternalAllocator->deallocate(raw_ptr, bytes); // redundant as internal dealloc is no-op.
+    void* raw = mInternalAllocator->allocate(n * sizeof(T));
+    return thrust::device_pointer_cast(static_cast<T*>(raw));
+  }
+
+  void deallocate(pointer p, size_type n) noexcept
+  {
+    if (!p) {
+      return;
+    }
+    void* raw = thrust::raw_pointer_cast(p);
+    mInternalAllocator->deallocate(static_cast<char*>(raw), n * sizeof(T));
+  }
+
+  bool operator==(TypedAllocator const& o) const noexcept
+  {
+    return mInternalAllocator == o.mInternalAllocator;
+  }
+  bool operator!=(TypedAllocator const& o) const noexcept
+  {
+    return !(*this == o);
   }
 
  private:
