@@ -691,7 +691,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         LOG(info) << "(ORT) Allocated ONNX stream for lane " << lane << " and device " << deviceId;
       }
     }
-    for(int sector = 0; sector < NSECTORS; sector++) {
+    mRec->runParallelOuterLoop(doGPU, NSECTORS, [&](uint32_t sector) {
       GPUTPCNNClusterizer& clustererNN = processors()->tpcNNClusterer[sector];
       GPUTPCNNClusterizer& clustererNNShadow = doGPU ? processorsShadow()->tpcNNClusterer[sector] : clustererNN;
       int32_t lane = sector % numLanes;
@@ -708,7 +708,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
       AllocateRegisteredMemory(clustererNN.mMemoryId);
       // nnApplications[lane].createBoundary(clustererNNShadow);
       // nnApplications[lane].createIndexLookup(clustererNNShadow);
-    }
+    });
     if (doGPU) {
       WriteToConstantMemory(RecoStep::TPCClusterFinding, (char*)&processors()->tpcNNClusterer - (char*)processors(), &processorsShadow()->tpcNNClusterer, sizeof(GPUTPCNNClusterizer) * NSECTORS, mRec->NStreams() - 1, &mEvents->init);
     }

@@ -1,4 +1,4 @@
-// Copyright 2019-2020 CERN and copyright holders of ALICE O2.
+// Copyright 2019-2025 CERN and copyright holders of ALICE O2.
 // See https://alice-o2.web.cern.ch/copyright for details of the copyright holders.
 // All rights not expressly granted are reserved.
 //
@@ -9,13 +9,15 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-void readAlpideCCDB(long timestamp = -1, float thresh = 0)
+#ifndef O2_FRAMEWORK_TOPOLOGYPOLICYHELPERS_H_
+#define O2_FRAMEWORK_TOPOLOGYPOLICYHELPERS_H_
+#include "Framework/WorkflowSpec.h"
+#include <vector>
+
+namespace o2::framework
 {
-  o2::ccdb::CcdbApi api;
-  // api.init("alice-ccdb.cern.ch");
-  api.init("ccdb-test.cern.ch");
-  std::map<std::string, std::string> headers;
-  map<std::string, std::string> filter;
-  auto calib = api.retrieveFromTFileAny<o2::itsmft::DPLAlpideParam<o2::detectors::DetID::MFT>>("MFT/Config/AlpideParam/", filter, timestamp, &headers);
-  calib->printKeyValues();
-}
+struct TopologyPolicyHelpers {
+  static auto buildEdges(WorkflowSpec& physicalWorkflow) -> std::vector<std::pair<int, int>>;
+};
+} // namespace o2::framework
+#endif // O2_FRAMEWORK_TOPOLOGYPOLICYHELPERS_H_

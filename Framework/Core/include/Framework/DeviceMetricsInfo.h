@@ -18,7 +18,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <gsl/span>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -217,7 +217,7 @@ struct DeviceMetricsInfoHelpers {
       info.changed.clear();
     }
   }
-  static size_t metricsStorageSize(gsl::span<DeviceMetricsInfo const> infos)
+  static size_t metricsStorageSize(std::span<DeviceMetricsInfo const> infos)
   {
     // Count the size of the metrics storage
     size_t totalSize = 0;

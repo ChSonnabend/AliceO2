@@ -1674,11 +1674,11 @@ void AODProducerWorkflowDPL::init(InitContext& ic)
 {
   mTimer.Stop();
   o2::base::GRPGeomHelper::instance().setRequest(mGGCCDBRequest);
-  mLPMProdTag = ic.options().get<string>("lpmp-prod-tag");
-  mAnchorPass = ic.options().get<string>("anchor-pass");
-  mAnchorProd = ic.options().get<string>("anchor-prod");
-  mUser = ic.options().get<string>("created-by");
-  mRecoPass = ic.options().get<string>("reco-pass");
+  mLPMProdTag = ic.options().get<std::string>("lpmp-prod-tag");
+  mAnchorPass = ic.options().get<std::string>("anchor-pass");
+  mAnchorProd = ic.options().get<std::string>("anchor-prod");
+  mUser = ic.options().get<std::string>("created-by");
+  mRecoPass = ic.options().get<std::string>("reco-pass");
   mTFNumber = ic.options().get<int64_t>("aod-timeframe-id");
   mRecoOnly = ic.options().get<int>("reco-mctracks-only");
   mTruncate = ic.options().get<int>("enable-truncation");
