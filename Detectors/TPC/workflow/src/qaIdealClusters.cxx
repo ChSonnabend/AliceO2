@@ -2026,7 +2026,7 @@ void qaCluster::cluster_overlap(int sector, std::array<std::vector<std::vector<f
           }
           for (auto& pair : charge_overlap_map) {
             int map_trkid = overlap_info_trkid_map[padrow][pair.first];
-            overlap_info[padrow][map_trkid][4] += pair.second / total_charge; // Fraction of charge overlapped with other MC clusters (as a fraction of the total charge of the cluster)
+            overlap_info[padrow][map_trkid][4] += (pair.second * pair.second) / total_charge; // == "Weighted" charge or effective charge
           }
           found_mcids.clear();
         }
@@ -2038,7 +2038,7 @@ void qaCluster::cluster_overlap(int sector, std::array<std::vector<std::vector<f
         overlap_info[padrow][track_id][1] /= misc_track_id_info[padrow][track_id][0];
         overlap_info[padrow][track_id][2] /= misc_track_id_info[padrow][track_id][1];
         overlap_info[padrow][track_id][3] /= misc_track_id_info[padrow][track_id][1];
-        overlap_info[padrow][track_id][4] /= misc_track_id_info[padrow][track_id][0]; // Fraction is counted per digit and afterwards normalized to total area (i.e. number of digits in the padrow)
+        overlap_info[padrow][track_id][4] /= misc_track_id_info[padrow][track_id][1]; // Effective cluster charge normalized to total charge of cluster with same MC ID
         overlap_info[padrow][track_id][5] = misc_track_id_info[padrow][track_id][0];
         overlap_info[padrow][track_id][6] = misc_track_id_info[padrow][track_id][1];
       }
@@ -2571,7 +2571,7 @@ void qaCluster::runQa(int sector)
       native_ideal->Branch("fraction_charge_overlap", &charge_overlap);
       native_ideal->Branch("fraction_area_overlap", &area_overlap);
       native_ideal->Branch("fraction_external_overlap", &ext_charge_overlap);
-      native_ideal->Branch("fraction_digit_overlap", &frac_digit_overlap);
+      native_ideal->Branch("fraction_effective_charge_overlap", &frac_digit_overlap);
       native_ideal->Branch("total_charge", &tot_charge);
       native_ideal->Branch("total_area", &tot_area);
     }
@@ -2783,7 +2783,7 @@ void qaCluster::runQa(int sector)
       network_ideal->Branch("fraction_charge_overlap", &charge_overlap);
       network_ideal->Branch("fraction_area_overlap", &area_overlap);
       network_ideal->Branch("fraction_external_overlap", &ext_charge_overlap);
-      network_ideal->Branch("fraction_digit_overlap", &frac_digit_overlap);
+      network_ideal->Branch("fraction_effective_charge_overlap", &frac_digit_overlap);
       network_ideal->Branch("total_charge", &tot_charge);
       network_ideal->Branch("total_area", &tot_area);
     }
