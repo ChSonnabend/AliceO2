@@ -2923,7 +2923,7 @@ void qaCluster::runQa(int sector)
 
     // For MC info, only if MC data is used
     o2::MCTrack current_track;
-    std::vector<float> cluster_pT, cluster_eta, cluster_mass, cluster_p, cluster_overlap_area_fraction, cluster_overlap_charge_fraction, cluster_overlap_external_charge_fraction, cluster_overlap_digit_charge_fraction;
+    std::vector<float> cluster_pT, cluster_eta, cluster_mass, cluster_p, cluster_overlap_area_fraction, cluster_overlap_charge_fraction, cluster_overlap_external_charge_fraction, cluster_overlap_effective_charge_fraction;
     std::vector<int> cluster_isPrimary, cluster_isTagged;
     std::vector<std::vector<int>> track_assignment;
 
@@ -2939,7 +2939,7 @@ void qaCluster::runQa(int sector)
       cluster_overlap_area_fraction.resize(data_size, -1);
       cluster_overlap_charge_fraction.resize(data_size, -1);
       cluster_overlap_external_charge_fraction.resize(data_size, -1);
-      cluster_overlap_digit_charge_fraction.resize(data_size, -1);
+      cluster_overlap_effective_charge_fraction.resize(data_size, -1);
     }
     if (attach_tracks) {
       track_assignment.resize(data_size, std::vector<int>(5, -1));
@@ -3037,7 +3037,7 @@ void qaCluster::runQa(int sector)
               cluster_overlap_area_fraction[max_point] = overlap_info[idl.row][overlap_info_trkid_map[idl.row][idl.mcTrkId]][1];
               cluster_overlap_charge_fraction[max_point] = overlap_info[idl.row][overlap_info_trkid_map[idl.row][idl.mcTrkId]][2];
               cluster_overlap_external_charge_fraction[max_point] = overlap_info[idl.row][overlap_info_trkid_map[idl.row][idl.mcTrkId]][3];
-              cluster_overlap_digit_charge_fraction[max_point] = overlap_info[idl.row][overlap_info_trkid_map[idl.row][idl.mcTrkId]][4];
+              cluster_overlap_effective_charge_fraction[max_point] = overlap_info[idl.row][overlap_info_trkid_map[idl.row][idl.mcTrkId]][4];
             }
 
             if(addMomentumData){
@@ -3082,7 +3082,7 @@ void qaCluster::runQa(int sector)
 
     std::vector<int> tmp_track_assignment(5, -1);
     int class_val = 0, idx_sector = 0, idx_row = 0, idx_pad = 0, idx_time = 0, flagPad = 0, flagTime = 0;
-    float pT = 0, eta = 0, mass = 0, p = 0, isPrimary = 0, isTagged = 0, overlap_num_other_mc = 0, overlap_area_fraction = 0, overlap_charge_fraction = 0, overlap_external_charge_fraction = 0, occ = 0;
+    float pT = 0, eta = 0, mass = 0, p = 0, isPrimary = 0, isTagged = 0, overlap_num_other_mc = 0, overlap_area_fraction = 0, overlap_charge_fraction = 0, overlap_external_charge_fraction = 0, overlap_effective_charge_fraction = 0, occ = 0;
     tr_data->Branch("out_class", &class_val);
     tr_data->Branch("out_idx_sector", &idx_sector);
     tr_data->Branch("out_idx_row", &idx_row);
@@ -3102,7 +3102,7 @@ void qaCluster::runQa(int sector)
       tr_data->Branch("cluster_overlap_area_fraction", &overlap_area_fraction);
       tr_data->Branch("cluster_overlap_charge_fraction", &overlap_charge_fraction);
       tr_data->Branch("cluster_overlap_external_charge_fraction", &overlap_external_charge_fraction);
-      tr_data->Branch("cluster_overlap_digit_charge_fraction", &cluster_overlap_digit_charge_fraction);
+      tr_data->Branch("cluster_overlap_effective_charge_fraction", &cluster_overlap_effective_charge_fraction);
     }
 
     if(attach_tracks){
@@ -3139,7 +3139,7 @@ void qaCluster::runQa(int sector)
         overlap_area_fraction = cluster_overlap_area_fraction[element];
         overlap_charge_fraction = cluster_overlap_charge_fraction[element];
         overlap_external_charge_fraction = cluster_overlap_external_charge_fraction[element];
-        cluster_overlap_digit_charge_fraction = cluster_overlap_digit_charge_fraction[element];
+        overlap_effective_charge_fraction = cluster_overlap_effective_charge_fraction[element];
       }
       if(attach_tracks){
         tmp_track_assignment = track_assignment[element];
