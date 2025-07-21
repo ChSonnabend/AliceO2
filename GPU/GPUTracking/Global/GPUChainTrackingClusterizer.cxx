@@ -654,20 +654,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
     &getTimer<GPUTPCNNClusterizer, 8>("GPUTPCNNClusterizer_ONNXRegression2_2_", 8),
     &getTimer<GPUTPCNNClusterizer, 9>("GPUTPCNNClusterizer_ONNXClassification_0_", 9),
     &getTimer<GPUTPCNNClusterizer, 10>("GPUTPCNNClusterizer_ONNXRegression_1_", 10),
-    &getTimer<GPUTPCNNClusterizer , 11>("GPUTPCNNClusterizer_ONNXRegression2_2_", 11)
-  };
-  HighResTimer* nnFillInputTimers[4] {
-    &getTimer<GPUTPCNNClusterizer, 0>("GPUTPCNNClusterizer_fillInputNNSingleElement_0_", 0),
-    &getTimer<GPUTPCNNClusterizer, 1>("GPUTPCNNClusterizer_fillInputNNSingleElement_1_", 1),
-    &getTimer<GPUTPCNNClusterizer, 2>("GPUTPCNNClusterizer_fillInputNNSingleElement_2_", 2),
-    &getTimer<GPUTPCNNClusterizer, 3>("GPUTPCNNClusterizer_fillInputNNSingleElement_3_", 3)
-  };
-  HighResTimer* nnPublishingTimers[4] {
-    &getTimer<GPUTPCNNClusterizer, 0>("GPUTPCNNClusterizer_publish_0_", 0),
-    &getTimer<GPUTPCNNClusterizer, 1>("GPUTPCNNClusterizer_publish_1_", 1),
-    &getTimer<GPUTPCNNClusterizer, 2>("GPUTPCNNClusterizer_publish_2_", 2),
-    &getTimer<GPUTPCNNClusterizer, 3>("GPUTPCNNClusterizer_publish_3_", 3)
-  };
+    &getTimer<GPUTPCNNClusterizer, 11>("GPUTPCNNClusterizer_ONNXRegression2_2_", 11)};
 
   if (GetProcessingSettings().nn.applyNNclusterizer) {
     int32_t deviceId = -1;

@@ -266,8 +266,8 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
     uint32_t write_idx = base_idx * clustererNN.mNnClusterizerElementSize + clustererNN.mNnClusterizerChargeArraySize + data_idx;
 
     float index_values[3] = {
-      sector / 36.f,
-      row / 152.f,
+      static_cast<float>(sector) / o2::tpc::constants::MAXSECTOR,
+      static_cast<float>(row) / o2::tpc::constants::MAXGLOBALPADROW,
       static_cast<float>(pad) / GPUTPCGeometry::NPads(row)};
 
     if (dtype == 0) {
