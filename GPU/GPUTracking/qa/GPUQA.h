@@ -140,6 +140,7 @@ class GPUQA
   void* AllocateScratchBuffer(size_t nBytes);
 
   static constexpr int32_t N_CLS_HIST = 8;
+  static constexpr int32_t N_EFF_HIST = 6;
   static constexpr int32_t N_CLS_TYPE = 3;
   static constexpr int32_t N_NCL_TRACK_HISTS = 4;
 

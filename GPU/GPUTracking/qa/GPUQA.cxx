@@ -165,34 +165,34 @@ static constexpr const int32_t COLORCOUNT = 12;
 static const constexpr char* EFF_TYPES[5] = {"Rec", "Clone", "Fake", "All", "RecAndClone"};
 static const constexpr char* FINDABLE_NAMES[2] = {"All", "Findable"};
 static const constexpr char* PRIM_NAMES[2] = {"Prim", "Sec"};
-static const constexpr char* PARAMETER_NAMES[5] = {"Y", "Z", "#Phi", "#lambda", "Relative #it{p}_{T}"};
-static const constexpr char* PARAMETER_NAMES_NATIVE[5] = {"Y", "Z", "sin(#Phi)", "tan(#lambda)", "q/#it{p}_{T} (curvature)"};
+static const constexpr char* PARAMETER_NAMES[GPUQA::N_EFF_HIST] = {"Y", "Z", "#Phi", "#lambda", "Relative #it{p}_{T}", "NCl"};
+static const constexpr char* PARAMETER_NAMES_NATIVE[GPUQA::N_EFF_HIST] = {"Y", "Z", "sin(#Phi)", "tan(#lambda)", "q/#it{p}_{T} (curvature)", "NCl"};
 static const constexpr char* VSPARAMETER_NAMES[6] = {"Y", "Z", "Phi", "Eta", "Pt", "Pt_log"};
 static const constexpr char* EFF_NAMES[3] = {"Efficiency", "Clone Rate", "Fake Rate"};
 static const constexpr char* N_NCL_TRACK_HIST_NAMES[GPUQA::N_NCL_TRACK_HISTS] = {"nclusters", "nrows_with_cluster", "correctly_attached_rows", "fake_attached_rows"};
 static const constexpr char* N_NCL_TRACK_HIST_LEGENDS[GPUQA::N_NCL_TRACK_HISTS] = {"Number of clusters per track", "Number of clusters (corrected for multiple per row)", "Attachment efficiency (correctly attached rows / total number of rows with clusters)", "Fake attachment efficiency (fake attached rows / total number of rows with clusters)"};
 static const constexpr char* EFFICIENCY_TITLES[4] = {"Efficiency (Primary Tracks, Findable)", "Efficiency (Secondary Tracks, Findable)", "Efficiency (Primary Tracks)", "Efficiency (Secondary Tracks)"};
-static const constexpr double SCALE[5] = {10., 10., 1000., 1000., 100.};
-static const constexpr double SCALE_NATIVE[5] = {10., 10., 1000., 1000., 1.};
-static const constexpr char* XAXIS_TITLES[5] = {"#it{y}_{mc} (cm)", "#it{z}_{mc} (cm)", "#Phi_{mc} (rad)", "#eta_{mc}", "#it{p}_{Tmc} (GeV/#it{c})"};
-static const constexpr char* AXIS_TITLES[5] = {"#it{y}-#it{y}_{mc} (mm) (Resolution)", "#it{z}-#it{z}_{mc} (mm) (Resolution)", "#phi-#phi_{mc} (mrad) (Resolution)", "#lambda-#lambda_{mc} (mrad) (Resolution)", "(#it{p}_{T} - #it{p}_{Tmc}) / #it{p}_{Tmc} (%) (Resolution)"};
-static const constexpr char* AXIS_TITLES_NATIVE[5] = {"#it{y}-#it{y}_{mc} (mm) (Resolution)", "#it{z}-#it{z}_{mc} (mm) (Resolution)", "sin(#phi)-sin(#phi_{mc}) (Resolution)", "tan(#lambda)-tan(#lambda_{mc}) (Resolution)", "q*(q/#it{p}_{T} - q/#it{p}_{Tmc}) (Resolution)"};
-static const constexpr char* AXIS_TITLES_PULL[5] = {"#it{y}-#it{y}_{mc}/#sigma_{y} (Pull)", "#it{z}-#it{z}_{mc}/#sigma_{z} (Pull)", "sin(#phi)-sin(#phi_{mc})/#sigma_{sin(#phi)} (Pull)", "tan(#lambda)-tan(#lambda_{mc})/#sigma_{tan(#lambda)} (Pull)",
-                                                    "q*(q/#it{p}_{T} - q/#it{p}_{Tmc})/#sigma_{q/#it{p}_{T}} (Pull)"};
-static const constexpr char* CLUSTER_NAMES[GPUQA::N_CLS_HIST] = {"Correctly attached clusters", "Fake attached clusters", "Attached + adjacent clusters", "Fake adjacent clusters", "Clusters of reconstructed tracks", "Used in Physics", "Protected", "All clusters"};
-static const constexpr char* CLUSTER_TITLES[GPUQA::N_CLS_TYPE] = {"Clusters Pt Distribution / Attachment", "Clusters Pt Distribution / Attachment (relative to all clusters)", "Clusters Pt Distribution / Attachment (integrated)"};
-static const constexpr char* CLUSTER_NAMES_SHORT[GPUQA::N_CLS_HIST] = {"Attached", "Fake", "AttachAdjacent", "FakeAdjacent", "FoundTracks", "Physics", "Protected", "All"};
-static const constexpr char* CLUSTER_TYPES[GPUQA::N_CLS_TYPE] = {"", "Ratio", "Integral"};
+static const constexpr double SCALE[GPUQA::N_EFF_HIST] = {10., 10., 1000., 1000., 100., 100.};
+static const constexpr double SCALE_NATIVE[GPUQA::N_EFF_HIST] = {10., 10., 1000., 1000., 1., 1.};
+static const constexpr char* XAXIS_TITLES[GPUQA::N_EFF_HIST] = {"#it{y}_{mc} (cm)", "#it{z}_{mc} (cm)", "#Phi_{mc} (rad)", "#eta_{mc}", "#it{p}_{Tmc} (GeV/#it{c})", "NCl per Track (#)"};
+static const constexpr char* AXIS_TITLES[GPUQA::N_EFF_HIST] = {"#it{y}-#it{y}_{mc} (mm) (Resolution)", "#it{z}-#it{z}_{mc} (mm) (Resolution)", "#phi-#phi_{mc} (mrad) (Resolution)", "#lambda-#lambda_{mc} (mrad) (Resolution)", "(#it{p}_{T} - #it{p}_{Tmc}) / #it{p}_{Tmc} (%) (Resolution)", "NCl - NCl_{MC} (#) (Resolution)"};
+static const constexpr char* AXIS_TITLES_NATIVE[GPUQA::N_EFF_HIST] = {"#it{y}-#it{y}_{mc} (mm) (Resolution)", "#it{z}-#it{z}_{mc} (mm) (Resolution)", "sin(#phi)-sin(#phi_{mc}) (Resolution)", "tan(#lambda)-tan(#lambda_{mc}) (Resolution)", "q*(q/#it{p}_{T} - q/#it{p}_{Tmc}) (Resolution)"};
+static const constexpr char* AXIS_TITLES_PULL[GPUQA::N_EFF_HIST] = {"#it{y}-#it{y}_{mc}/#sigma_{y} (Pull)", "#it{z}-#it{z}_{mc}/#sigma_{z} (Pull)", "sin(#phi)-sin(#phi_{mc})/#sigma_{sin(#phi)} (Pull)", "tan(#lambda)-tan(#lambda_{mc})/#sigma_{tan(#lambda)} (Pull)",
+                                                    "q*(q/#it{p}_{T} - q/#it{p}_{Tmc})/#sigma_{q/#it{p}_{T}} (Pull)", "NCl - NCl_{MC}/#sigma_{NCl} (Pull)"};
+static const constexpr char* CLUSTER_NAMES[8] = {"Correctly attached clusters", "Fake attached clusters", "Attached + adjacent clusters", "Fake adjacent clusters", "Clusters of reconstructed tracks", "Used in Physics", "Protected", "All clusters"};
+static const constexpr char* CLUSTER_TITLES[3] = {"Clusters Pt Distribution / Attachment", "Clusters Pt Distribution / Attachment (relative to all clusters)", "Clusters Pt Distribution / Attachment (integrated)"};
+static const constexpr char* CLUSTER_NAMES_SHORT[8] = {"Attached", "Fake", "AttachAdjacent", "FakeAdjacent", "FoundTracks", "Physics", "Protected", "All"};
+static const constexpr char* CLUSTER_TYPES[3] = {"", "Ratio", "Integral"};
 static const constexpr int32_t COLORS_HEX[COLORCOUNT] = {0xB03030, 0x00A000, 0x0000C0, 0x9400D3, 0x19BBBF, 0xF25900, 0x7F7F7F, 0xFFD700, 0x07F707, 0x07F7F7, 0xF08080, 0x000000};
 
 static const constexpr int32_t CONFIG_DASHED_MARKERS = 0;
 
-static const constexpr float AXES_MIN[5] = {-Y_MAX, -Z_MAX, 0.f, -ETA_MAX, PT_MIN};
-static const constexpr float AXES_MAX[5] = {Y_MAX, Z_MAX, 2.f * M_PI, ETA_MAX, PT_MAX};
-static const constexpr int32_t AXIS_BINS[5] = {51, 51, 144, 31, 50};
+static const constexpr float AXES_MIN[GPUQA::N_EFF_HIST] = {-Y_MAX, -Z_MAX, 0.f, -ETA_MAX, PT_MIN, 0.f};
+static const constexpr float AXES_MAX[GPUQA::N_EFF_HIST] = {Y_MAX, Z_MAX, 2.f * M_PI, ETA_MAX, PT_MAX, 159.f};
+static const constexpr int32_t AXIS_BINS[GPUQA::N_EFF_HIST] = {51, 51, 144, 31, 50, 159};
 static const constexpr int32_t RES_AXIS_BINS[] = {1017, 113}; // Consecutive bin sizes, histograms are binned down until the maximum entry is 50, each bin size should evenly divide its predecessor.
-static const constexpr float RES_AXES[5] = {1., 1., 0.03, 0.03, 1.0};
-static const constexpr float RES_AXES_NATIVE[5] = {1., 1., 0.1, 0.1, 5.0};
+static const constexpr float RES_AXES[GPUQA::N_EFF_HIST] = {1., 1., 0.03, 0.03, 1.0, 1.0};
+static const constexpr float RES_AXES_NATIVE[GPUQA::N_EFF_HIST] = {1., 1., 0.1, 0.1, 5.0, 1.0};
 static const constexpr float PULL_AXIS = 10.f;
 
 std::vector<TColor*> GPUQA::mColors;
@@ -1236,7 +1236,7 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
                 continue;
               }
 
-              for (int32_t l = 0; l < 5; l++) {
+              for (int32_t l = 0; l < GPUQA::N_EFF_HIST; l++) {
                 if (info.prim && mcpt < PT_MIN_PRIM) {
                   continue;
                 }
@@ -1247,7 +1247,10 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
                   continue;
                 }
 
-                float pos = l == 0 ? localY : l == 1 ? info.z : l == 2 ? mcphi : l == 3 ? mceta : mcpt;
+                float pos = l == 0 ? localY : l == 1 ? info.z
+                                            : l == 2 ? mcphi
+                                            : l == 3 ? mceta
+                                            : l == 4 ? mcpt : mc2.nWeightCls;
 
                 mEff[j][k][!info.prim][l]->Fill(pos, val);
               }
