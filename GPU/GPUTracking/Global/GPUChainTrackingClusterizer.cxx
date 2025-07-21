@@ -1041,10 +1041,12 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             // runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::fillInputNNGPU>({GetGrid(iSize * clustererNNShadow.mNnClusterizerElementSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, batchStart); // Filling the data
             auto stop0 = std::chrono::high_resolution_clock::now();
 
-            for(int i = 0; i < iSize; i++){
-              // It is completely unclear why, but the batch sizes of 19736 or higher lead to cluster flags not being filled correctly
-              if (clustererNNShadow.testAddIndex[i] == 0){
-                LOG(info) << "ERROR: Index data filled incorrectly, index " << i << " is 0, iSize: " << iSize;
+            if(clustererNN.mNnClusterizerVerbosity < 2) {
+              for(int i = 0; i < iSize; i++){
+                // It is completely unclear why, but the batch sizes of 19736 or higher lead to cluster flags not being filled correctly
+                if (clustererNNShadow.testAddIndex[i] == 0){
+                  LOG(info) << "ERROR: Index data filled incorrectly, index " << i << " is 0, iSize: " << iSize;
+                }
               }
             }
 
@@ -1059,7 +1061,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
             // NN evaluations
             if(clustererNNShadow.mNnClusterizerUseClassification) {
-              if(GetProcessingSettings().debugLevel >= 1) { nnTimers[3*lane]->Start(); }
+              if(GetProcessingSettings().debugLevel >= 1 && doGPU) { nnTimers[3*lane]->Start(); }
               if (clustererNNShadow.mNnInferenceInputDType == 0) {
                 if (clustererNNShadow.mNnInferenceOutputDType == 0) {
                   (nnApplication.mModelClass).inference(clustererNNShadow.mInputData_16, iSize, clustererNNShadow.mModelProbabilities_16);
@@ -1073,10 +1075,10 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
                   (nnApplication.mModelClass).inference(clustererNNShadow.mInputData_32, iSize, clustererNNShadow.mModelProbabilities_32);
                 }
               }
-              if(GetProcessingSettings().debugLevel >= 1) { nnTimers[3*lane]->Stop(); }
+              if(GetProcessingSettings().debugLevel >= 1 && doGPU) { nnTimers[3*lane]->Stop(); }
             }
             if (!clustererNNShadow.mNnClusterizerUseCfRegression) {
-              if(GetProcessingSettings().debugLevel >= 1) { nnTimers[3*lane + 1]->Start(); }
+              if(GetProcessingSettings().debugLevel >= 1 && doGPU) { nnTimers[3*lane + 1]->Start(); }
               if (clustererNNShadow.mNnInferenceInputDType == 0) {
                 if (clustererNNShadow.mNnInferenceOutputDType == 0) {
                   (nnApplication.mModelReg1).inference(clustererNNShadow.mInputData_16, iSize, clustererNNShadow.mOutputDataReg1_16);
@@ -1090,9 +1092,9 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
                   (nnApplication.mModelReg1).inference(clustererNNShadow.mInputData_32, iSize, clustererNNShadow.mOutputDataReg1_32);
                 }
               }
-              if(GetProcessingSettings().debugLevel >= 1) { nnTimers[3*lane + 1]->Stop(); }
+              if(GetProcessingSettings().debugLevel >= 1 && doGPU) { nnTimers[3*lane + 1]->Stop(); }
               if (nnApplication.mModelClass.getNumOutputNodes()[0][1] > 1 && nnApplication.mModelReg2.isInitialized()) {
-                if(GetProcessingSettings().debugLevel >= 1) { nnTimers[3*lane + 2]->Start(); }
+                if(GetProcessingSettings().debugLevel >= 1 && doGPU) { nnTimers[3*lane + 2]->Start(); }
                 if (clustererNNShadow.mNnInferenceInputDType == 0) {
                   if (clustererNNShadow.mNnInferenceOutputDType == 0) {
                     (nnApplication.mModelReg2).inference(clustererNNShadow.mInputData_16, iSize, clustererNNShadow.mOutputDataReg2_16);
@@ -1106,7 +1108,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
                     (nnApplication.mModelReg2).inference(clustererNNShadow.mInputData_32, iSize, clustererNNShadow.mOutputDataReg2_32);
                   }
                 }
-                if(GetProcessingSettings().debugLevel >= 1) { nnTimers[3*lane + 2]->Stop(); }
+                if(GetProcessingSettings().debugLevel >= 1 && doGPU) { nnTimers[3*lane + 2]->Stop(); }
               }
             }
 
