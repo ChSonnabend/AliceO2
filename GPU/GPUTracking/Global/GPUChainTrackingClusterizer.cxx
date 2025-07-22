@@ -1110,7 +1110,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
               runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishDeconvolutionFlags>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, batchStart); // Publishing the deconvolution flags to the mClusterFlags
             }
 
-            if(GetProcessingSettings().nn.removeAllSplitFlags > 0){
+            if(GetProcessingSettings().nn.nnClusterizerRemoveAllSplitFlags > 0){
               for (size_t i = 0; i < 2*iSize; ++i) {
                 clustererNN.mClusterFlags[i] = 0;
               }
@@ -1185,7 +1185,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             dummy.digitWriter(clusterer, "digits_stream_deconvoluted");
           }
 
-          if(GetProcessingSettings().nn.removeAllSplitFlags){
+          if(GetProcessingSettings().nn.nnClusterizerRemoveAllSplitFlags){
             int evalDtype = GetProcessingSettings().nn.nnInferenceInputDType.find("32") != std::string::npos;
             runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::removeAllSplitFlags>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), krnlRunRangeNone}, iSector, evalDtype, 0, 0);
           }

@@ -881,8 +881,8 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
           *map_ptr = overwrite_index;
         }
       }
-      if(ideal_map.size() != new_ideal_map.size() && verbose >= 1){
-        LOG(info) << "[" << sector << "] New ideal map size is " << new_ideal_map.size() << ", old size was " << ideal_map.size();
+      if(verbose >= 1){
+        LOG(info) << "[" << sector << "] New ideal map size is " << new_ideal_map.size() << ", old size was " << ideal_map.size() << ". Found " << found_overwrites << " merged ideal clusters.";
       }
       ideal_map = new_ideal_map;
     }
@@ -999,9 +999,9 @@ void qaCluster::publishDeconvolutionFlags(int sector, tpc2d& map2d, std::vector<
           continue;
         }
         int flag = digit_map[current_idx].flag;
-        if (flag > 10*valueSplitPeak) {
-          LOG(error) << "[" << sector << "] Flag value " << flag << " is too high for digit " << max_idx << "with row: " << row << ", max_pad: " << mpad << ", max_time: " << mtime << " and dPad: " << dPad << ", dTime: " << dTime << "! Please check the digit map!";
-        }
+        // if (flag > 10*valueSplitPeak) {
+        //   LOG(error) << "[" << sector << "] Flag value " << flag << " is too high for digit " << max_idx << "with row: " << row << ", max_pad: " << mpad << ", max_time: " << mtime << " and dPad: " << dPad << ", dTime: " << dTime << "! Please check the digit map!";
+        // }
         if (flag >= valueSplitPeak) {
           isSplit = 1;
           has3x3 = (int)((flag % (int)valueSplitPeak) > 0);
