@@ -2381,7 +2381,7 @@ void qaCluster::runQa(int sector)
         if (!ideal_tagged[locideal]) {
           fractional_clones_vector[idx_dig] += 1.f / (float)count_links;
         }
-        fractional_clones_vector_wLoopers[locideal] += 1.f / (float)count_links;
+        fractional_clones_vector_wLoopers[idx_dig] += 1.f / (float)count_links;
       }
     }
   }
@@ -3066,7 +3066,7 @@ void qaCluster::runQa(int sector)
       }
     }
     if (verbose >= 3)
-      LOG(info) << "[" << sector << "] Done creating training data. Writing to file...";
+      LOG(info) << "[" << sector << "] Done creating training data. Writing " << data_size << " elements to file...";
 
     std::stringstream file_in;
     file_in << outputPath << "/training_data_" << sector << ".root";
