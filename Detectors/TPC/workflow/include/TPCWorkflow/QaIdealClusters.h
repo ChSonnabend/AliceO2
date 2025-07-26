@@ -106,29 +106,29 @@ struct customCluster {
 
   ~customCluster(){}
 
-  std::vector<std::pair<std::string, std::string>> getMemberMap() const {
-    return {
-      {"sector", typeid(sector).name()},
-      {"row", typeid(row).name()},
-      {"max_pad", typeid(max_pad).name()},
-      {"max_time", typeid(max_time).name()},
-      {"cog_pad", typeid(cog_pad).name()},
-      {"cog_time", typeid(cog_time).name()},
-      {"sigmaPad", typeid(sigmaPad).name()},
-      {"sigmaTime", typeid(sigmaTime).name()},
-      {"qMax", typeid(qMax).name()},
-      {"qTot", typeid(qTot).name()},
-      {"flag", typeid(flag).name()},
-      {"mcTrkId", typeid(mcTrkId).name()},
-      {"mcEvId", typeid(mcEvId).name()},
-      {"mcSrcId", typeid(mcSrcId).name()},
-      {"index", typeid(index).name()},
-      {"label", typeid(label).name()},
-      {"X", typeid(X).name()},
-      {"Y", typeid(Y).name()},
-      {"Z", typeid(Z).name()}
-    };
-  }
+  // std::vector<std::pair<std::string, std::string>> getMemberMap() const {
+  //   return {
+  //     {"sector", typeid(sector).name()},
+  //     {"row", typeid(row).name()},
+  //     {"max_pad", typeid(max_pad).name()},
+  //     {"max_time", typeid(max_time).name()},
+  //     {"cog_pad", typeid(cog_pad).name()},
+  //     {"cog_time", typeid(cog_time).name()},
+  //     {"sigmaPad", typeid(sigmaPad).name()},
+  //     {"sigmaTime", typeid(sigmaTime).name()},
+  //     {"qMax", typeid(qMax).name()},
+  //     {"qTot", typeid(qTot).name()},
+  //     {"flag", typeid(flag).name()},
+  //     {"mcTrkId", typeid(mcTrkId).name()},
+  //     {"mcEvId", typeid(mcEvId).name()},
+  //     {"mcSrcId", typeid(mcSrcId).name()},
+  //     {"index", typeid(index).name()},
+  //     {"label", typeid(label).name()},
+  //     {"X", typeid(X).name()},
+  //     {"Y", typeid(Y).name()},
+  //     {"Z", typeid(Z).name()}
+  //   };
+  // }
 };
 
 class TPCMap
@@ -364,6 +364,14 @@ class qaCluster : public Task
   bool setDeconvolutionFlags = true;         // Whether or not to set the deconvolution flags in the native clusters
   float valueSplitPeak = 1000;                  // Value of the isSplit and has3x3Peak in the digits from reco
 
+  // MCCompLabel.h
+  struct default_mc_labels {
+    static constexpr uint64_t ul0x1 = 0x1;
+    static constexpr uint64_t NotSet = 0xffffffffffffffff;
+    static constexpr uint64_t Noise = 0xfffffffffffffffe;
+    static constexpr uint64_t Fake = ul0x1 << 63;
+  };
+
   std::vector<int> looper_tagger_granularity = {5};      // Granularity of looper tagger (time bins in which loopers are excluded in rectangular areas)
   std::vector<int> looper_tagger_timewindow = {20};      // Total time-window size of the looper tagger for evaluating if a region is looper or not
   std::vector<int> looper_tagger_padwindow = {3};        // Total pad-window size of the looper tagger for evaluating if a region is looper or not
@@ -400,10 +408,10 @@ class qaCluster : public Task
 
   int num_total_ideal_max = 0, num_total_digit_max = 0;
   std::vector<std::vector<std::vector<o2::MCTrack>>> mctracks; // mc_track = mctracks[sourceId][eventId][trackId]
-  std::array<std::array<unsigned int, 25>, o2::tpc::constants::MAXSECTOR> assignments_ideal, assignments_digit, assignments_ideal_findable, assignments_digit_findable;
+  std::array<std::array<unsigned int, 25>, o2::tpc::constants::MAXSECTOR> assignments_ideal, assignments_ideal_wLoopers, assignments_digit, assignments_digit_wLoopers, assignments_ideal_findable, assignments_digit_findable;
   std::vector<std::vector<float>> all_cluster_overlap;
   std::array<unsigned int, o2::tpc::constants::MAXSECTOR> number_of_ideal_max, number_of_digit_max, number_of_ideal_max_findable;
-  std::array<float, o2::tpc::constants::MAXSECTOR> clones, fractional_clones;
+  std::array<float, o2::tpc::constants::MAXSECTOR> clones, clones_wLoopers, fractional_clones, fractional_clones_wLoopers;
   std::vector<customCluster> native_writer_map;
   std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXSECTOR> occupancy;
   std::vector<std::array<float, 12>> misc_track_data;

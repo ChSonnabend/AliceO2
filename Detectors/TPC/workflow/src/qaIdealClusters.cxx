@@ -175,7 +175,7 @@ void qaCluster::read_digits(int sector, std::vector<customCluster>& digit_map, b
   if (overwrite_max_time) {
     counter = digits->size();
   } else {
-    for (unsigned int i_digit = 0; i_digit < digits->size(); i_digit++) {
+    for (uint i_digit = 0; i_digit < digits->size(); i_digit++) {
       const auto& digit = (*digits)[i_digit];
       if (digit.getTimeStamp() < max_time[sector]) {
         counter++;
@@ -190,7 +190,7 @@ void qaCluster::read_digits(int sector, std::vector<customCluster>& digit_map, b
   }
   counter = 0;
 
-  for (unsigned int i_digit = 0; i_digit < digits->size(); i_digit++) {
+  for (uint i_digit = 0; i_digit < digits->size(); i_digit++) {
     const auto& digit = (*digits)[i_digit];
 
     current_time = digit.getTimeStamp();
@@ -379,7 +379,7 @@ void qaCluster::read_ideal(int sector, std::vector<customCluster>& ideal_map)
   if (overwrite_max_time) {
     count_clusters = digitizerSector->GetEntries();
   } else {
-    for (unsigned int j = 0; j < digitizerSector->GetEntries(); j++) {
+    for (uint j = 0; j < digitizerSector->GetEntries(); j++) {
       digitizerSector->GetEntry(j);
       if (maxt < max_time[sector] && cogt < max_time[sector]) {
         count_clusters++;
@@ -390,9 +390,19 @@ void qaCluster::read_ideal(int sector, std::vector<customCluster>& ideal_map)
   ideal_map.resize(count_clusters);
   count_clusters = 0;
 
-  for (unsigned int j = 0; j < digitizerSector->GetEntries(); j++) {
+  int counter_fakes = 0, counter_noise = 0;
+
+  for (uint j = 0; j < digitizerSector->GetEntries(); j++) {
     try {
       digitizerSector->GetEntry(j);
+      if (trkid == default_mc_labels::Noise) {
+        counter_noise++;
+        continue;
+      }
+      if (trkid == default_mc_labels::Fake) {
+        counter_fakes++;
+        continue;
+      }
       auto const mctrk = mctracks[srcid][evid][trkid];
       if (overwrite_max_time) {
         ideal_map[count_clusters] = customCluster{sector, row, maxp, maxt, cogp, cogt, sigmap, sigmat, maxq, cogq, 0, trkid, evid, srcid, (int)count_clusters, 0.f, -1.f, -1.f};
@@ -414,6 +424,7 @@ void qaCluster::read_ideal(int sector, std::vector<customCluster>& ideal_map)
       LOG(info) << "[" << sector << "] (Digitizer) Problem occured in sector " << sector;
     }
   }
+  LOG(info) << "[" << sector << "] (Digitizer) Read " << count_clusters << " ideal clusters. Avoided fakes: " << counter_fakes << ", noise: " << counter_noise;
   inputFile->Close();
 }
 
@@ -742,8 +753,8 @@ void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customClu
   if(perSector){
     // Clusters are shipped by sector, we are copying into per-sector buffers (anyway only for ROOT output)
     o2::tpc::TPCSectorHeader clusterOutputSectorHeader{0};
-    for (unsigned int i : tpc_sectors) {
-      unsigned int subspec = i;
+    for (uint i : tpc_sectors) {
+      uint subspec = i;
       clusterOutputSectorHeader.sectorBits = (1ul << i);
       char* buffer = pc.outputs().make<char>({o2::header::gDataOriginTPC, "CLUSTERNATIVE", subspec, {clusterOutputSectorHeader}}, clusterIndex.nClustersSector[i] * sizeof(*clusterIndex.clustersLinear) + sizeof(o2::tpc::ClusterCountIndex)).data();
       o2::tpc::ClusterCountIndex* outIndex = reinterpret_cast<o2::tpc::ClusterCountIndex*>(buffer);
@@ -754,7 +765,7 @@ void qaCluster::write_custom_native(ProcessingContext& pc, std::vector<customClu
       memcpy(buffer + sizeof(*outIndex), clusterIndex.clusters[i][0], clusterIndex.nClustersSector[i] * sizeof(*clusterIndex.clustersLinear));
 
       // o2::dataformats::MCLabelContainer cont;
-      // for (unsigned int j = 0; j < clusterIndex.nClustersSector[i]; j++) {
+      // for (uint j = 0; j < clusterIndex.nClustersSector[i]; j++) {
       //   const auto& labels = clusterIndex.clustersMCTruth->getLabels(clusterIndex.clusterOffset[i][0] + j);
       //   for (const auto& label : labels) {
       //     cont.addElement(j, label);
@@ -812,7 +823,6 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
       std::vector<customCluster> new_ideal_map;
       int overwrite_index = 0, found_overwrites = 0;
       for (auto idl : ideal_map) {
-        overwrite_index = idl.index - found_overwrites;
         map_ptr = &map2d[0][idl.max_time + global_shift[1]][idl.row + rowOffset(idl.row) + global_shift[2]][idl.max_pad + global_shift[0] + padOffset(idl.row)];
         if (*map_ptr != -1) {
           for(auto& cls : new_ideal_map){
@@ -827,12 +837,12 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
             }
           }
           if(verbose >= 3) {
-            LOG(warning) << "[" << sector << "] Conflict detected! Current MaxQ : " << ideal_map[*map_ptr].qMax << "; New MaxQ: " << idl.qMax << "; Index " << idl.index << "/" << ideal_map.size();
+            LOG(warning) << "[" << sector << "] Conflict detected! Current MaxQ : " << ideal_map[*map_ptr].qMax << "; New MaxQ: " << new_ideal_map[overwrite_index].qMax << "; Index " << overwrite_index << "/" << ideal_map.size();
           }
         } else {
           idl.index -= found_overwrites;
           new_ideal_map.push_back(idl);
-          *map_ptr = overwrite_index;
+          *map_ptr = idl.index;
         }
       }
       if(ideal_map.size() != new_ideal_map.size() && verbose >= 1){
@@ -858,7 +868,6 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
       std::vector<customCluster> new_ideal_map;
       int overwrite_index = 0, found_overwrites = 0;
       for (auto idl : ideal_map) {
-        overwrite_index = idl.index - found_overwrites;
         map_ptr = &map2d[0][round(idl.cog_time) + global_shift[1]][idl.row + rowOffset(idl.row) + global_shift[2]][round(idl.cog_pad) + global_shift[0] + padOffset(idl.row)];
         if (*map_ptr != -1) {
           for(auto& cls : new_ideal_map){
@@ -873,12 +882,12 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
             }
           }
           if(verbose >= 3) {
-            LOG(warning) << "[" << sector << "] Conflict detected! Current MaxQ : " << ideal_map[*map_ptr].qMax << "; New MaxQ: " << idl.qMax << "; Index " << idl.index << "/" << ideal_map.size();
+            LOG(warning) << "[" << sector << "] Conflict detected! Current MaxQ : " << ideal_map[*map_ptr].qMax << "; New MaxQ: " << new_ideal_map[overwrite_index].qMax << "; Index " << overwrite_index << "/" << ideal_map.size();
           }
         } else {
           idl.index -= found_overwrites;
           new_ideal_map.push_back(idl);
-          *map_ptr = overwrite_index;
+          *map_ptr = idl.index;
         }
       }
       if(verbose >= 1){
@@ -1518,7 +1527,7 @@ std::tuple<std::vector<float>, std::vector<uint8_t>> qaCluster::create_network_i
   std::vector<uint8_t> flags(maxima_digits.size(), 0.f);
 
   int internal_idx = 0;
-  for (unsigned int max = 0; max < maxima_digits.size(); max++) {
+  for (uint max = 0; max < maxima_digits.size(); max++) {
     auto const central_digit = digit_map[maxima_digits[max]];
     int row_offset = rowOffset(central_digit.row);
     int pad_offset = padOffset(central_digit.row);
@@ -1895,7 +1904,7 @@ void qaCluster::run_network_regression(int sector, tpc2d& map2d, std::vector<int
 void qaCluster::overwrite_map2d(int sector, tpc2d& map2d, std::vector<customCluster>& element_map, std::vector<int>& element_idx, int mode)
 {
   custom::fill_nested_container(map2d[mode], -1);
-  for (unsigned int id = 0; id < element_idx.size(); id++) {
+  for (uint id = 0; id < element_idx.size(); id++) {
     // LOG(info) << id << " / " << element_idx.size() << " / " << element_map.size() << "; " << round(element_map[element_idx[id]].cog_time) + global_shift[1] << " / " << max_time[sector] << "; " << element_map[element_idx[id]].row + global_shift[2] + rowOffset(element_map[element_idx[id]].row) << " / " << o2::tpc::constants::MAXGLOBALPADROW + 3*global_shift[2] << "; "<< round(element_map[element_idx[id]].cog_pad) + global_shift[0] + padOffset(element_map[element_idx[id]].row) << " / " << TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2] + 1 + 2 * global_shift[0];
     if(round(element_map[element_idx[id]].cog_time) <= max_time[sector] && element_map[element_idx[id]].row < o2::tpc::constants::MAXGLOBALPADROW && round(element_map[element_idx[id]].cog_pad) <= TPC_GEOM[o2::tpc::constants::MAXGLOBALPADROW - 1][2])
       map2d[mode][round(element_map[element_idx[id]].cog_time) + global_shift[1]][element_map[element_idx[id]].row + global_shift[2] + rowOffset(element_map[element_idx[id]].row)][round(element_map[element_idx[id]].cog_pad) + global_shift[0] + padOffset(element_map[element_idx[id]].row)] = id;
@@ -1938,7 +1947,7 @@ void qaCluster::cluster_overlap(int sector, std::array<std::vector<std::vector<f
   mcFullInfo->SetBranchAddress("cluster_sourceid", &srcid);
 
   std::vector<customCluster> mcFullInfo_vec;
-  for (unsigned int j = 0; j < mcFullInfo->GetEntries(); j++) {
+  for (uint j = 0; j < mcFullInfo->GetEntries(); j++) {
     mcFullInfo->GetEntry(j);
     if(sec == sector && maxp < TPC_GEOM[row][2] + 1 && maxt < (max_time[sector] + 1)){
       mcFullInfo_vec.push_back(customCluster(sector, row, maxp, maxt, maxp, maxt, 0, 0, charge, charge, 0, trkid, evid, srcid, -1, lbl));
@@ -1956,7 +1965,7 @@ void qaCluster::cluster_overlap(int sector, std::array<std::vector<std::vector<f
     }
   }
 
-  for (unsigned int j = 0; j < mcFullInfo_vec.size(); j++) {
+  for (uint j = 0; j < mcFullInfo_vec.size(); j++) {
     int r = mcFullInfo_vec[j].row;
     if(mcFullInfo_vec[j].max_pad < (TPC_GEOM[r][2] + 1) && mcFullInfo_vec[j].max_time < (max_time[sector] + 1)){
       int mcid = overlap_info_trkid_map[r][mcFullInfo_vec[j].mcTrkId];
@@ -2190,7 +2199,7 @@ void qaCluster::runQa(int sector)
   std::vector<std::array<int, 25>> assignments_dig_to_id(ideal_map.size());
   std::vector<int> assigned_digit(maxima_digits.size(), 0);
   std::vector<std::array<int, 25>> assignments_id_to_dig(maxima_digits.size());
-  std::vector<float> clone_order(maxima_digits.size(), 0), fractional_clones_vector(maxima_digits.size(), 0);
+  std::vector<float> clone_order(maxima_digits.size(), 0), fractional_clones_vector(maxima_digits.size(), 0), fractional_clones_vector_wLoopers(ideal_map.size(), 0);
 
   custom::fill_nested_container(assignments_dig_to_id, -1);
   custom::fill_nested_container(assignments_id_to_dig, -1);
@@ -2215,7 +2224,7 @@ void qaCluster::runQa(int sector)
     for (int nn = 0; nn < adj_mat[layer].size(); nn++) {
 
       // Level-3 loop: Goes through all digit maxima and checks neighbourhood for potential ideal maxima
-      for (unsigned int locdigit = 0; locdigit < maxima_digits.size(); locdigit++) {
+      for (uint locdigit = 0; locdigit < maxima_digits.size(); locdigit++) {
         int current_neighbour = test_neighbour({digit_map[maxima_digits[locdigit]].row, (int)round(digit_map[maxima_digits[locdigit]].cog_pad), (int)round(digit_map[maxima_digits[locdigit]].cog_time)}, adj_mat[layer][nn], map2d, 0);
         if (current_neighbour > -1 && current_neighbour < (int)ideal_map.size()) {
           assignments_id_to_dig[locdigit][layer_count + nn] = (assigned_digit[locdigit] == 0 && assigned_ideal[current_neighbour] == 0) ? current_neighbour : -1;
@@ -2227,7 +2236,7 @@ void qaCluster::runQa(int sector)
         LOG(info) << "[" << sector << "] Done with assignment for digit maxima, layer " << layer;
 
       // Level-3 loop: Goes through all ideal maxima and checks neighbourhood for potential digit maxima
-      for (unsigned int locideal = 0; locideal < ideal_map.size(); locideal++) {
+      for (uint locideal = 0; locideal < ideal_map.size(); locideal++) {
         int current_neighbour = test_neighbour({ideal_map[locideal].row, (int)round(ideal_map[locideal].cog_pad), (int)round(ideal_map[locideal].cog_time)}, adj_mat[layer][nn], map2d, 1);
         if (current_neighbour > -1 && current_neighbour < digit_map.size()) {
           assignments_dig_to_id[locideal][layer_count + nn] = (assigned_ideal[locideal] == 0 && assigned_digit[current_neighbour] == 0) ? current_neighbour : -1;
@@ -2241,7 +2250,7 @@ void qaCluster::runQa(int sector)
 
     // Level-2 loop: Checks all digit maxima and how many ideal maxima neighbours have been found in the current layer
     if ((mode.find(std::string("training_data")) != std::string::npos && layer >= 2) || mode.find(std::string("training_data")) == std::string::npos) {
-      for (unsigned int locdigit = 0; locdigit < maxima_digits.size(); locdigit++) {
+      for (uint locdigit = 0; locdigit < maxima_digits.size(); locdigit++) {
         assigned_digit[locdigit] = 0;
         for (int counter_max = 0; counter_max < 25; counter_max++) {
           if (checkIdx(assignments_id_to_dig[locdigit][counter_max])) {
@@ -2252,7 +2261,7 @@ void qaCluster::runQa(int sector)
     }
 
     // Level-2 loop: Checks all ideal maxima and how many digit maxima neighbours have been found in the current layer
-    for (unsigned int locideal = 0; locideal < ideal_map.size(); locideal++) {
+    for (uint locideal = 0; locideal < ideal_map.size(); locideal++) {
       assigned_ideal[locideal] = 0;
       for (int counter_max = 0; counter_max < 25; counter_max++) {
         if (checkIdx(assignments_dig_to_id[locideal][counter_max])) {
@@ -2293,35 +2302,37 @@ void qaCluster::runQa(int sector)
 
   // Checks the number of assignments that have been made with the above loops
   int count_elements_findable = 0, count_elements_dig = 0, count_elements_id = 0;
-  for (unsigned int locideal = 0; locideal < assignments_dig_to_id.size(); locideal++) {
-    if (!ideal_tagged[locideal]) { // if region is tagged, don't use ideal cluster for ECF calculation
-      count_elements_id = 0;
-      count_elements_findable = 0;
-      for (int idx_dig : assignments_dig_to_id[locideal]) {
-        if (checkIdx(idx_dig) && !digit_tagged[idx_dig]) {
-          count_elements_id += 1;
-          if (ideal_map[locideal].qTot >= threshold_cogq && ideal_map[locideal].qMax >= threshold_maxq) { // FIXME: assignemts to an ideal cluster which are findable? -> Digit maxima which satisfy the criteria not ideal clsuters?!
-            count_elements_findable += 1;
-          }
+  for (uint locideal = 0; locideal < assignments_dig_to_id.size(); locideal++) {
+    count_elements_id = 0;
+    count_elements_findable = 0;
+    for (int idx_dig : assignments_dig_to_id[locideal]) {
+      if (checkIdx(idx_dig) && !digit_tagged[idx_dig]) {
+        count_elements_id += 1;
+        if (ideal_map[locideal].qTot >= threshold_cogq && ideal_map[locideal].qMax >= threshold_maxq) { // FIXME: assignemts to an ideal cluster which are findable? -> Digit maxima which satisfy the criteria not ideal clsuters?!
+          count_elements_findable += 1;
         }
       }
+    }
+    assignments_ideal_wLoopers[sector][count_elements_id] += 1;
+    if (!ideal_tagged[locideal]) { // if region is tagged, don't use ideal cluster for ECF calculation
       // if (verbose >= 5 && (locideal%10000)==0) LOG(info) << "Count elements: " << count_elements_id << " locideal: " << locideal << " assignments_ideal: " << assignments_ideal[count_elements_id];
       assignments_ideal[sector][count_elements_id] += 1;
       assignments_ideal_findable[sector][count_elements_findable] += 1;
     }
   }
-  for (unsigned int locdigit = 0; locdigit < assignments_id_to_dig.size(); locdigit++) {
-    if (!digit_tagged[locdigit]) { // if region is tagged, don't use digit maximum for ECF calculation
-      count_elements_dig = 0;
-      count_elements_findable = 0;
-      for (int idx_idl : assignments_id_to_dig[locdigit]) {
-        if (checkIdx(idx_idl) && !ideal_tagged[idx_idl]) {
-          count_elements_dig += 1;
-          if (ideal_map[idx_idl].qTot >= threshold_cogq && ideal_map[idx_idl].qMax >= threshold_maxq) {
-            count_elements_findable += 1;
-          }
+  for (uint locdigit = 0; locdigit < assignments_id_to_dig.size(); locdigit++) {
+    count_elements_dig = 0;
+    count_elements_findable = 0;
+    for (int idx_idl : assignments_id_to_dig[locdigit]) {
+      if (checkIdx(idx_idl) && !ideal_tagged[idx_idl]) {
+        count_elements_dig += 1;
+        if (ideal_map[idx_idl].qTot >= threshold_cogq && ideal_map[idx_idl].qMax >= threshold_maxq) {
+          count_elements_findable += 1;
         }
       }
+    }
+    assignments_digit_wLoopers[sector][count_elements_dig] += 1;
+    if (!digit_tagged[locdigit]) { // if region is tagged, don't use digit maximum for ECF calculation
       assignments_digit[sector][count_elements_dig] += 1;
       assignments_digit_findable[sector][count_elements_findable] += 1;
     }
@@ -2331,52 +2342,55 @@ void qaCluster::runQa(int sector)
     LOG(info) << "[" << sector << "] Done checking the number of assignments";
 
   // Clone-rate (Integer)
-  for (unsigned int locdigit = 0; locdigit < assignments_id_to_dig.size(); locdigit++) {
-    if (!digit_tagged[locdigit]) {
-      int count_links = 0;
-      float count_weighted_links = 0;
-      for (int idx_idl : assignments_id_to_dig[locdigit]) {
-        if (checkIdx(idx_idl)) {
-          count_links++;
-          int count_links_second = 0;
-          for (auto elem_dig : assignments_dig_to_id[idx_idl]) {
-            if (checkIdx(elem_dig)) { //&& (elem_dig != locdigit)){
-              count_links_second++;
-            }
-          }
-          if (count_links_second == 0) {
-            count_weighted_links += 1;
+  for (uint locdigit = 0; locdigit < assignments_id_to_dig.size(); locdigit++) {
+    int count_links = 0;
+    float count_weighted_links = 0;
+    for (int idx_idl : assignments_id_to_dig[locdigit]) {
+      if (checkIdx(idx_idl)) {
+        count_links++;
+        int count_links_second = 0;
+        for (auto elem_dig : assignments_dig_to_id[idx_idl]) {
+          if (checkIdx(elem_dig)) { //&& (elem_dig != locdigit)){
+            count_links_second++;
           }
         }
-      }
-      if (count_weighted_links > 1) {
-        clone_order[locdigit] = count_weighted_links - 1.f;
+        if (count_links_second == 0) {
+          count_weighted_links += 1;
+        }
       }
     }
-  }
-  for (unsigned int locdigit = 0; locdigit < maxima_digits.size(); locdigit++) {
-    clones[sector] += clone_order[locdigit];
+    if (count_weighted_links > 1) {
+      clone_order[locdigit] = count_weighted_links - 1.f;
+      clones_wLoopers[sector] += clone_order[locdigit];
+      if (!digit_tagged[locdigit]) {
+        clones[sector] += clone_order[locdigit];
+      }
+    }
   }
 
   // Clone-rate (fractional)
-  for (unsigned int locideal = 0; locideal < assignments_dig_to_id.size(); locideal++) {
-    if (!ideal_tagged[locideal]) {
-      int count_links = 0;
-      for (int idx_dig : assignments_dig_to_id[locideal]) {
-        if (checkIdx(idx_dig)) {
-          count_links += 1;
-        }
+  for (uint locideal = 0; locideal < assignments_dig_to_id.size(); locideal++) {
+    int count_links = 0;
+    for (int idx_dig : assignments_dig_to_id[locideal]) {
+      if (checkIdx(idx_dig)) {
+        count_links += 1;
       }
-      for (int idx_dig : assignments_dig_to_id[locideal]) {
-        if (checkIdx(idx_dig)) {
+    }
+    for (int idx_dig : assignments_dig_to_id[locideal]) {
+      if (checkIdx(idx_dig)) {
+        if (!ideal_tagged[locideal]) {
           fractional_clones_vector[idx_dig] += 1.f / (float)count_links;
         }
+        fractional_clones_vector_wLoopers[locideal] += 1.f / (float)count_links;
       }
     }
   }
-  for (float elem_frac : fractional_clones_vector) {
-    if (elem_frac > 1) {
-      fractional_clones[sector] += elem_frac - 1;
+  for (uint idx_dig = 0; idx_dig < fractional_clones_vector.size(); idx_dig++) {
+    if (fractional_clones_vector[idx_dig] > 1) {
+      fractional_clones[sector] += fractional_clones_vector[idx_dig] - 1;
+    }
+    if (fractional_clones_vector_wLoopers[idx_dig] > 1) {
+      fractional_clones_wLoopers[sector] += fractional_clones_vector_wLoopers[idx_dig] - 1;
     }
   }
 
@@ -3210,10 +3224,14 @@ void qaCluster::run(ProcessingContext& pc)
     number_of_ideal_max_findable.fill(0);
     clones.fill(0);
     fractional_clones.fill(0.f);
+    clones_wLoopers.fill(0);
+    fractional_clones_wLoopers.fill(0.f);
 
     // init array
     custom::fill_nested_container(assignments_ideal, 0);
+    custom::fill_nested_container(assignments_ideal_wLoopers, 0);
     custom::fill_nested_container(assignments_digit, 0);
+    custom::fill_nested_container(assignments_digit_wLoopers, 0);
     custom::fill_nested_container(assignments_ideal_findable, 0);
     custom::fill_nested_container(assignments_digit_findable, 0);
 
@@ -3239,13 +3257,17 @@ void qaCluster::run(ProcessingContext& pc)
       custom::writeTabularToRootFile({"sector", "row", "track_id", "fraction_overlap_area", "fraction_overlap_charge", "fraction_overlap_external_charge", "abs_area", "abs_charge"}, all_cluster_overlap, outputPath + "/cluster_overlap.root", "clusterOverlap", "Cluster overlap");
     }
 
-    unsigned int number_of_ideal_max_sum = 0, number_of_digit_max_sum = 0, number_of_ideal_max_findable_sum = 0;
-    float clones_sum = 0, fractional_clones_sum = 0;
+    uint number_of_ideal_max_sum = 0, number_of_ideal_max_sum_wLoopers = 0, number_of_digit_max_sum = 0, number_of_digit_max_sum_wLoopers = 0, number_of_ideal_max_findable_sum = 0;
+    float clones_sum = 0, clones_sum_wLoopers = 0, fractional_clones_sum = 0, fractional_clones_sum_wLoopers = 0;
     custom::sum_nested_container(assignments_ideal, number_of_ideal_max_sum);
+    custom::sum_nested_container(assignments_ideal_wLoopers, number_of_ideal_max_sum_wLoopers);
     custom::sum_nested_container(assignments_digit, number_of_digit_max_sum);
+    custom::sum_nested_container(assignments_digit_wLoopers, number_of_digit_max_sum_wLoopers);
     custom::sum_nested_container(assignments_ideal_findable, number_of_ideal_max_findable_sum);
     custom::sum_nested_container(clones, clones_sum);
     custom::sum_nested_container(fractional_clones, fractional_clones_sum);
+    custom::sum_nested_container(clones_wLoopers, clones_sum_wLoopers);
+    custom::sum_nested_container(fractional_clones_wLoopers, fractional_clones_sum_wLoopers);
 
     LOG(info) << "------- RESULTS -------\n";
     LOG(info) << "Number of digit maxima (before exclusions): " << num_total_digit_max;
@@ -3253,8 +3275,9 @@ void qaCluster::run(ProcessingContext& pc)
     LOG(info) << "Number of digit maxima (after exclusion): " << number_of_digit_max_sum;
     LOG(info) << "Number of ideal maxima (after exclusion): " << number_of_ideal_max_sum << "\n";
 
-    unsigned int efficiency_normal = 0;
-    unsigned int efficiency_findable = 0;
+    uint efficiency_normal = 0;
+    uint efficiency_normal_wLoopers = 0;
+    uint efficiency_findable = 0;
     for (int ass = 0; ass < 25; ass++) {
       int ass_dig = 0, ass_id = 0;
       for (int s : tpc_sectors) {
@@ -3262,6 +3285,7 @@ void qaCluster::run(ProcessingContext& pc)
         ass_id += assignments_ideal[s][ass];
         if (ass > 0) {
           efficiency_normal += assignments_ideal[s][ass];
+          efficiency_normal_wLoopers += assignments_ideal_wLoopers[s][ass];
         }
       }
       LOG(info) << "Number of assigned digit maxima (#assignments " << ass << "): " << ass_dig;
@@ -3286,13 +3310,15 @@ void qaCluster::run(ProcessingContext& pc)
       }
     }
 
-    int fakes_dig = 0;
+    int fakes_dig = 0, fakes_dig_wLoopers = 0;
     for (int s : tpc_sectors) {
       fakes_dig += assignments_digit[s][0];
+      fakes_dig_wLoopers += assignments_digit_wLoopers[s][0];
     }
-    int fakes_id = 0;
+    int fakes_id = 0, fakes_id_wLoopers = 0;
     for (int s : tpc_sectors) {
       fakes_id += assignments_ideal[s][0];
+      fakes_id_wLoopers += assignments_ideal_wLoopers[s][0];
     }
 
     LOG(info) << "------- Rates with looper exclusion -------";
@@ -3304,12 +3330,11 @@ void qaCluster::run(ProcessingContext& pc)
     LOG(info) << "Fakes for ideal (number of ideal hits that can't be assigned to any digit hit): " << fakes_id << " (" << (float)fakes_id * 100 / (float)number_of_ideal_max_sum << "% of ideal maxima)" << "\n";
 
     LOG(info) << "------- Rates without looper exclusion -------"; // E.g. for NN imported native clusters -> Check how much efficiency increases when loopers are not excluded
-    LOG(info) << "Efficiency - Number of assigned (ideal -> digit) clusters: " << efficiency_normal << " (" << (float)efficiency_normal * 100 / (float)num_total_ideal_max << "% of ideal maxima)";
-    LOG(info) << "Efficiency (findable) - Number of assigned (ideal -> digit) clusters: " << efficiency_findable << " (" << (float)efficiency_findable * 100 / (float)number_of_ideal_max_findable_sum << "% of ideal maxima)";
-    LOG(info) << "Clones (Int, clone-order >= 2 for ideal cluster): " << clones_sum << " (" << (float)clones_sum * 100 / (float)num_total_digit_max << "% of digit maxima)";
-    LOG(info) << "Clones (Float, fractional clone-order): " << fractional_clones_sum << " (" << (float)fractional_clones_sum * 100 / (float)num_total_digit_max << "% of digit maxima)";
-    LOG(info) << "Fakes for digits (number of digit hits that can't be assigned to any ideal hit): " << fakes_dig << " (" << (float)fakes_dig * 100 / (float)num_total_digit_max << "% of digit maxima)";
-    LOG(info) << "Fakes for ideal (number of ideal hits that can't be assigned to any digit hit): " << fakes_id << " (" << (float)fakes_id * 100 / (float)num_total_ideal_max << "% of ideal maxima)" << "\n";
+    LOG(info) << "Efficiency - Number of assigned (ideal -> digit) clusters: " << efficiency_normal_wLoopers << " (" << (float)efficiency_normal_wLoopers * 100 / (float)number_of_ideal_max_sum_wLoopers << "% of ideal maxima)";
+    LOG(info) << "Clones (Int, clone-order >= 2 for ideal cluster): " << clones_sum_wLoopers << " (" << (float)clones_sum_wLoopers * 100 / (float)number_of_digit_max_sum_wLoopers << "% of digit maxima)";
+    LOG(info) << "Clones (Float, fractional clone-order): " << fractional_clones_sum_wLoopers << " (" << (float)fractional_clones_sum_wLoopers * 100 / (float)number_of_digit_max_sum_wLoopers << "% of digit maxima)";
+    LOG(info) << "Fakes for digits (number of digit hits that can't be assigned to any ideal hit): " << fakes_dig_wLoopers << " (" << (float)fakes_dig_wLoopers * 100 / (float)number_of_digit_max_sum_wLoopers << "% of digit maxima)";
+    LOG(info) << "Fakes for ideal (number of ideal hits that can't be assigned to any digit hit): " << fakes_id_wLoopers << " (" << (float)fakes_id_wLoopers * 100 / (float)number_of_ideal_max_sum_wLoopers << "% of ideal maxima)" << "\n";
 
     if (mode.find(std::string("looper_tagger")) != std::string::npos && create_output == 1) {
       LOG(info) << "------- Merging looper tagger regions -------";
