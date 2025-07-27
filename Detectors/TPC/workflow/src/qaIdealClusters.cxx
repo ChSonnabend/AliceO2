@@ -3116,7 +3116,7 @@ void qaCluster::runQa(int sector)
       tr_data->Branch("cluster_overlap_area_fraction", &overlap_area_fraction);
       tr_data->Branch("cluster_overlap_charge_fraction", &overlap_charge_fraction);
       tr_data->Branch("cluster_overlap_external_charge_fraction", &overlap_external_charge_fraction);
-      tr_data->Branch("cluster_overlap_effective_charge_fraction", &cluster_overlap_effective_charge_fraction);
+      tr_data->Branch("cluster_overlap_effective_charge_fraction", &overlap_effective_charge_fraction);
     }
 
     if(attach_tracks){
