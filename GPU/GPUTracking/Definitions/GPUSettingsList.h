@@ -256,6 +256,7 @@ AddOption(nnInferenceOutputDType, std::string, "FP32", "", 0, "(std::string) Spe
 AddOption(nnInferenceIntraOpNumThreads, int, 1, "", 0, "Number of threads used to evaluate one neural network (ONNX: SetIntraOpNumThreads). 0 = auto-detect, can lead to problems on SLURM systems.")
 AddOption(nnInferenceInterOpNumThreads, int, 1, "", 0, "Number of threads used to evaluate one neural network (ONNX: SetInterOpNumThreads). 0 = auto-detect, can lead to problems on SLURM systems.")
 AddOption(nnInferenceEnableOrtOptimization, unsigned int, 99, "", 0, "Enables graph optimizations in ONNX Runtime. Can be [0, 1, 2, 99] -> see https://github.com/microsoft/onnxruntime/blob/3f71d637a83dc3540753a8bb06740f67e926dc13/include/onnxruntime/core/session/onnxruntime_c_api.h#L347")
+AddOption(nnInferenceUseDeterministicCompute, int, 0, "", 0, "Enables deterministic compute in ONNX Runtime were possible. Can be [0, 1] -> see https://github.com/microsoft/onnxruntime/blob/3b97d79b3c12dbf93aa0d563f345714596dc8ab6/onnxruntime/core/framework/session_options.h#L208")
 AddOption(nnInferenceOrtProfiling, int, 0, "", 0, "Enables profiling of model execution in ONNX Runtime")
 AddOption(nnInferenceOrtProfilingPath, std::string, ".", "", 0, "If nnInferenceOrtProfiling is set, the path to store the profiling data")
 AddOption(nnInferenceVerbosity, int, 1, "", 0, "0: No messages; 1: Warnings; 2: Warnings + major debugs; >3: All debugs")
