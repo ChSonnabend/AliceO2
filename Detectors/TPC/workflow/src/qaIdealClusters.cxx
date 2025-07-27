@@ -832,12 +832,13 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
               cls.qTot += idl.qTot;
               cls.qMax += idl.qMax;
               overwrite_index = cls.index;
+              *map_ptr = cls.index;
               found_overwrites++;
               break;
             }
           }
           if(verbose >= 3) {
-            LOG(warning) << "[" << sector << "] Conflict detected! Current MaxQ : " << ideal_map[*map_ptr].qMax << "; New MaxQ: " << new_ideal_map[overwrite_index].qMax << "; Index " << overwrite_index << "/" << ideal_map.size();
+            LOG(warning) << "[" << sector << "] Conflict detected! Current MaxQ : " << idl.qMax << "; New MaxQ: " << new_ideal_map[overwrite_index].qMax << "; Index " << overwrite_index << "/" << ideal_map.size();
           }
         } else {
           idl.index -= found_overwrites;
@@ -878,11 +879,12 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
               cls.qMax += idl.qMax;
               overwrite_index = cls.index;
               found_overwrites++;
+              *map_ptr = cls.index;
               break;
             }
           }
           if(verbose >= 3) {
-            LOG(warning) << "[" << sector << "] Conflict detected! Current MaxQ : " << ideal_map[*map_ptr].qMax << "; New MaxQ: " << new_ideal_map[overwrite_index].qMax << "; Index " << overwrite_index << "/" << ideal_map.size();
+            LOG(warning) << "[" << sector << "] Conflict detected! Current MaxQ : " << idl.qMax << "; New MaxQ: " << new_ideal_map[overwrite_index].qMax << "; Index " << overwrite_index << "/" << ideal_map.size();
           }
         } else {
           idl.index -= found_overwrites;
@@ -2199,7 +2201,7 @@ void qaCluster::runQa(int sector)
   std::vector<std::array<int, 25>> assignments_dig_to_id(ideal_map.size());
   std::vector<int> assigned_digit(maxima_digits.size(), 0);
   std::vector<std::array<int, 25>> assignments_id_to_dig(maxima_digits.size());
-  std::vector<float> clone_order(maxima_digits.size(), 0), fractional_clones_vector(maxima_digits.size(), 0), fractional_clones_vector_wLoopers(ideal_map.size(), 0);
+  std::vector<float> clone_order(maxima_digits.size(), 0), fractional_clones_vector(maxima_digits.size(), 0), fractional_clones_vector_wLoopers(maxima_digits.size(), 0);
 
   custom::fill_nested_container(assignments_dig_to_id, -1);
   custom::fill_nested_container(assignments_id_to_dig, -1);
@@ -2346,7 +2348,7 @@ void qaCluster::runQa(int sector)
     int count_links = 0;
     float count_weighted_links = 0;
     for (int idx_idl : assignments_id_to_dig[locdigit]) {
-      if (checkIdx(idx_idl)) {
+      if (checkIdx(idx_idl) && idx_idl < assignments_dig_to_id.size()) {
         count_links++;
         int count_links_second = 0;
         for (auto elem_dig : assignments_dig_to_id[idx_idl]) {
@@ -2377,7 +2379,7 @@ void qaCluster::runQa(int sector)
       }
     }
     for (int idx_dig : assignments_dig_to_id[locideal]) {
-      if (checkIdx(idx_dig)) {
+      if (checkIdx(idx_dig) && idx_dig < fractional_clones_vector.size() && idx_dig < fractional_clones_vector_wLoopers.size()) {
         if (!ideal_tagged[locideal]) {
           fractional_clones_vector[idx_dig] += 1.f / (float)count_links;
         }
@@ -3162,7 +3164,6 @@ void qaCluster::runQa(int sector)
     }
     tr_data->Write();
     outputFileTrData->Close();
-
   }
 
   if (mode.find(std::string("write_ideal")) != std::string::npos && create_output == 1) {
