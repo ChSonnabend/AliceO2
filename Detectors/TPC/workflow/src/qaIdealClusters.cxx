@@ -821,7 +821,7 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
     }
     if (fillmode == 0 || fillmode == -1) {
       std::vector<customCluster> new_ideal_map;
-      int overwrite_index = 0, found_overwrites = 0;
+      int overwrite_index = 0, found_overwrites = 0, idx_counter = 0;
       for (auto idl : ideal_map) {
         map_ptr = &map2d[0][idl.max_time + global_shift[1]][idl.row + rowOffset(idl.row) + global_shift[2]][idl.max_pad + global_shift[0] + padOffset(idl.row)];
         if (*map_ptr != -1) {
@@ -841,9 +841,10 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
             LOG(warning) << "[" << sector << "] Conflict detected! Current MaxQ : " << idl.qMax << "; New MaxQ: " << new_ideal_map[overwrite_index].qMax << "; Index " << overwrite_index << "/" << ideal_map.size();
           }
         } else {
-          idl.index -= found_overwrites;
+          idl.index = idx_counter;
           new_ideal_map.push_back(idl);
           *map_ptr = idl.index;
+          idx_counter++;
         }
       }
       if(ideal_map.size() != new_ideal_map.size() && verbose >= 1){
@@ -867,7 +868,7 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
     }
     if (fillmode == 0 || fillmode == -1) {
       std::vector<customCluster> new_ideal_map;
-      int overwrite_index = 0, found_overwrites = 0;
+      int overwrite_index = 0, found_overwrites = 0, idx_counter = 0;
       for (auto idl : ideal_map) {
         map_ptr = &map2d[0][round(idl.cog_time) + global_shift[1]][idl.row + rowOffset(idl.row) + global_shift[2]][round(idl.cog_pad) + global_shift[0] + padOffset(idl.row)];
         if (*map_ptr != -1) {
@@ -887,9 +888,10 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
             LOG(warning) << "[" << sector << "] Conflict detected! Current MaxQ : " << idl.qMax << "; New MaxQ: " << new_ideal_map[overwrite_index].qMax << "; Index " << overwrite_index << "/" << ideal_map.size();
           }
         } else {
-          idl.index -= found_overwrites;
+          idl.index = idx_counter;
           new_ideal_map.push_back(idl);
           *map_ptr = idl.index;
+          idx_counter++;
         }
       }
       if(verbose >= 1){
@@ -2401,8 +2403,8 @@ void qaCluster::runQa(int sector)
 
   if (verbose >= 4) {
     for (int ass = 0; ass < 25; ass++) {
-      LOG(info) << "Number of assignments to one digit maximum (#assignments " << ass << "): " << assignments_digit[sector][ass];
-      LOG(info) << "Number of assignments to one ideal maximum (#assignments " << ass << "): " << assignments_ideal[sector][ass] << "\n";
+      LOG(info) << "[" << sector << "] Number of assignments to one digit maximum (#assignments " << ass << "): " << assignments_digit[sector][ass];
+      LOG(info) << "[" << sector << "] Number of assignments to one ideal maximum (#assignments " << ass << "): " << assignments_ideal[sector][ass] << "\n";
     }
   }
 
