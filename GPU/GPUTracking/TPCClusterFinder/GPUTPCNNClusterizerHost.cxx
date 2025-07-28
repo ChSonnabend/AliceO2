@@ -38,7 +38,7 @@
 
 using namespace o2::gpu;
 
-void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& settings)
+void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& settings, bool useDeterministicMode)
 {
   std::string class_model_path = settings.nnClassificationPath, reg_model_path = settings.nnRegressionPath;
   std::vector<std::string> reg_model_paths_local;
@@ -64,7 +64,7 @@ void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& set
     {"intra-op-num-threads", std::to_string(settings.nnInferenceIntraOpNumThreads)},
     {"inter-op-num-threads", std::to_string(settings.nnInferenceInterOpNumThreads)},
     {"enable-optimizations", std::to_string(settings.nnInferenceEnableOrtOptimization)},
-    {"deterministic-compute", std::to_string(settings.nnInferenceUseDeterministicCompute)}, // TODO: This unfortunately doesn't guarantee determinism (25.07.2025)
+    {"deterministic-compute", std::to_string(useDeterministicMode ? 1 : settings.nnInferenceUseDeterministicCompute)}, // TODO: This unfortunately doesn't guarantee determinism (25.07.2025)
     {"enable-profiling", std::to_string(settings.nnInferenceOrtProfiling)},
     {"profiling-output-path", settings.nnInferenceOrtProfilingPath},
     {"logging-level", std::to_string(settings.nnInferenceVerbosity)},
