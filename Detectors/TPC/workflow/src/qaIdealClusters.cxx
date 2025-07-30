@@ -3141,7 +3141,7 @@ void qaCluster::runQa(int sector)
       idx_pad = digit_map[maxima_digits[element]].max_pad;
       idx_time = digit_map[maxima_digits[element]].max_time;
       occ = occupancy[sector][tpcmap.GetROC(idx_row)][round(idx_time)];
-      if((int)digit_map[maxima_digits[element]].flag > valueSplitPeak){
+      if((int)digit_map[maxima_digits[element]].flag >= valueSplitPeak){
         flagPad = (int)(digit_map[maxima_digits[element]].flag/valueSplitPeak);
       } else {
         flagPad = 0;
