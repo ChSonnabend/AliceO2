@@ -48,6 +48,7 @@ class GPUTPCNNClusterizer : public GPUProcessor
   float mNnClassThreshold = 0.01;
   int8_t mNnSigmoidTrafoClassThreshold = 1;
   int8_t mNnClusterizerSetDeconvolutionFlags = 1;
+  int8_t mNnClusterizerSetNetworkFlags = 0;
   int32_t mNnClusterizerUseCfRegression = 0;
   int32_t mNnClusterizerBatchedMode = 1;
   int32_t mNnClusterizerTotalClusters = 1;
@@ -83,6 +84,8 @@ class GPUTPCNNClusterizer : public GPUProcessor
   // Memory allocation for neural network
 
   int8_t* mClusterFlags = nullptr; // mSplitInTime, mSplitInPad. Techincally both flags are set in the same way -> ClusterAccumulator.cx=nullptr
+  OrtDataType::Float16_t* mClusterFlags_16 = nullptr;
+  float* mClusterFlags_32 = nullptr;
   int32_t* mOutputDataClass = nullptr;
 
   // FP32

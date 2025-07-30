@@ -136,6 +136,7 @@ o2_gpu_add_kernel("GPUTPCNNClusterizerKernels, publishClass1Regression"   "= TPC
 o2_gpu_add_kernel("GPUTPCNNClusterizerKernels, publishClass2Regression"   "= TPCNNCLUSTERFINDER"                                  LB uint8_t sector int8_t dtype int8_t withMC uint32_t batchStart)
 o2_gpu_add_kernel("GPUTPCNNClusterizerKernels, removeAllSplitFlags"       "= TPCNNCLUSTERFINDER"                                  LB uint8_t sector int8_t dtype int8_t withMC uint32_t batchStart)
 o2_gpu_add_kernel("GPUTPCNNClusterizerKernels, publishDeconvolutionFlags" "= TPCNNCLUSTERFINDER"                                  LB uint8_t sector int8_t dtype int8_t withMC uint32_t batchStart)
+o2_gpu_add_kernel("GPUTPCNNClusterizerKernels, publishNetworkFlags"       "= TPCNNCLUSTERFINDER"                                  LB uint8_t sector int8_t dtype int8_t withMC uint32_t batchStart)
 endif()
 
 o2_gpu_kernel_add_parameter(NEIGHBOURS_FINDER_MAX_NNEIGHUP

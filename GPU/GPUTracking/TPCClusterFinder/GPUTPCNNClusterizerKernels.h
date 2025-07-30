@@ -60,7 +60,8 @@ class GPUTPCNNClusterizerKernels : public GPUKernelTemplate
     publishClass1Regression = 5,
     publishClass2Regression = 6,
     removeAllSplitFlags = 7,
-    publishDeconvolutionFlags = 8
+    publishDeconvolutionFlags = 8,
+    publishNetworkFlags = 9,
   };
 
   template <int32_t iKernel = defaultKernel, typename... Args>

@@ -61,8 +61,8 @@ class GPUTPCNNClusterizerHost
   void combineDigitFiles(int);
 
   std::unordered_map<std::string, std::string> mOrtOptions;
-  o2::ml::OrtModel mModelClass, mModelReg1, mModelReg2;  // For splitting clusters
-  std::vector<bool> mModelsUsed = {false, false, false}; // 0: class, 1: reg_1, 2: reg_2
+  o2::ml::OrtModel mModelClass, mModelReg1, mModelReg2, mModelFlag;  // For splitting clusters
+  std::vector<bool> mModelsUsed = {false, false, false, false}; // 0: class, 1: reg_1, 2: reg_2, 3: flag
   int32_t mDeviceId = -1;
   std::shared_ptr<MockedOrtAllocator> mMockedAlloc = nullptr;
 }; // class GPUTPCNNClusterizerHost

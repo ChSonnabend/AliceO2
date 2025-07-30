@@ -707,7 +707,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
       if (nn_settings.nnClusterizerVerbosity < 3) {
         LOG(info) << "(ORT) Allocated ONNX stream for lane " << lane << " and device " << deviceId;
       }
-    }
+    });
     mRec->runParallelOuterLoop(doGPU, NSECTORS, [&](uint32_t sector) {
       GPUTPCNNClusterizer& clustererNN = processors()->tpcNNClusterer[sector];
       GPUTPCNNClusterizer& clustererNNShadow = doGPU ? processorsShadow()->tpcNNClusterer[sector] : clustererNN;
@@ -1100,6 +1100,13 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
                 if(GetProcessingSettings().debugLevel >= 1 && doGPU) { nnTimers[3*lane + 2]->Stop(); }
               }
             }
+            if(clustererNN.mNnClusterizerSetNetworkFlags) {
+              if (clustererNNShadow.mNnInferenceOutputDType == 0) {
+                (nnApplication.mModelFlag).inference(clustererNNShadow.mInputData_16, iSize, clustererNNShadow.mClusterFlags_16);
+              } else if (clustererNNShadow.mNnInferenceOutputDType == 1) {
+                (nnApplication.mModelFlag).inference(clustererNNShadow.mInputData_32, iSize, clustererNNShadow.mClusterFlags_32);
+              }
+            }
 
             // // Test
             // for(int i = 0; i < iSize; ++i) {
@@ -1110,6 +1117,9 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
             if(!clustererNNShadow.mNnClusterizerUseCfRegression && clustererNNShadow.mNnClusterizerSetDeconvolutionFlags) {
               runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishDeconvolutionFlags>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, batchStart); // Publishing the deconvolution flags to the mClusterFlags
+            }
+            if (!clustererNNShadow.mNnClusterizerUseCfRegression && clustererNNShadow.mNnClusterizerSetNetworkFlags) {
+              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishNetworkFlags>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceOutputDType, withMC, batchStart); // Publishing the network flags to the mClusterFlags
             }
 
             if(GetProcessingSettings().nn.nnClusterizerRemoveAllSplitFlags > 0){
@@ -1122,14 +1132,14 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
             // Publishing kernels for class labels and regression results
             if (nnApplication.mModelClass.getNumOutputNodes()[0][1] == 1) {
-              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass1Labels>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceOutputDType, propagateMCLabels, batchStart); // Assigning class labels
+              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass1Labels>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceOutputDType, withMC, batchStart); // Assigning class labels
             } else {
-              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass2Labels>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceOutputDType, propagateMCLabels, batchStart); // Assigning class labels
+              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass2Labels>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceOutputDType, withMC, batchStart); // Assigning class labels
             }
             if (!clustererNNShadow.mNnClusterizerUseCfRegression) {
-              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass1Regression>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceOutputDType, propagateMCLabels, batchStart); // Publishing class 1 regression results
+              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass1Regression>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceOutputDType, withMC, batchStart); // Publishing class 1 regression results
               if (nnApplication.mModelClass.getNumOutputNodes()[0][1] > 1 && nnApplication.mModelReg2.isInitialized()) {
-                runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass2Regression>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceOutputDType, propagateMCLabels, batchStart); // Publishing class 2 regression results
+                runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass2Regression>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceOutputDType, withMC, batchStart); // Publishing class 2 regression results
               }
             }
 

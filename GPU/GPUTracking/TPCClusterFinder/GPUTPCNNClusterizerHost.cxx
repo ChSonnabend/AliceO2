@@ -40,7 +40,7 @@ using namespace o2::gpu;
 
 void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& settings, bool useDeterministicMode)
 {
-  std::string class_model_path = settings.nnClassificationPath, reg_model_path = settings.nnRegressionPath;
+  std::string class_model_path = settings.nnClassificationPath, reg_model_path = settings.nnRegressionPath, flag_model_path = settings.nnFlagPath;
   std::vector<std::string> reg_model_paths_local;
   std::vector<std::string> evalMode = o2::utils::Str::tokenize(settings.nnEvalMode, ':');
 
@@ -91,6 +91,12 @@ void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& set
       mModelReg2.initOptions(mOrtOptions);
       mModelsUsed[2] = true;
     }
+  }
+  if(settings.nnClusterizerSetNetworkFlags) {
+    mOrtOptions["model-path"] = flag_model_path;
+    mOrtOptions["onnx-environment-name"] = "f1";
+    mModelFlag.initOptions(mOrtOptions);
+    mModelsUsed[3] = true;
   }
 }
 
@@ -237,6 +243,7 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
   clustererNN.mNnSigmoidTrafoClassThreshold = settings.nnSigmoidTrafoClassThreshold;
   clustererNN.mNnClusterizerUseClassification = settings.nnClusterizerUseClassification;
   clustererNN.mNnClusterizerSetDeconvolutionFlags = (bool)settings.nnClusterizerSetDeconvolutionFlags;
+  clustererNN.mNnClusterizerSetNetworkFlags = (bool)settings.nnClusterizerSetNetworkFlags;
   if (clustererNN.mNnSigmoidTrafoClassThreshold) {
     clustererNN.mNnClassThreshold = (float)std::log(settings.nnClassThreshold / (1.f - settings.nnClassThreshold));
   } else {

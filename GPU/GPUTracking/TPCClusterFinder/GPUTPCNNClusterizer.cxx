@@ -45,6 +45,9 @@ void* GPUTPCNNClusterizer::setIOPointers(void* mem)
           computePointerWithAlignment(mem, mOutputDataReg2_16, mNnClusterizerBatchedMode * mNnClusterizerModelReg2NumOutputNodes);
         }
       }
+      if (mNnClusterizerSetNetworkFlags) {
+        computePointerWithAlignment(mem, mClusterFlags_16, 2 * mNnClusterizerBatchedMode);
+      }
     } else if (mNnInferenceOutputDType == 1 && mNnClusterizerElementSize > 0) {
       if (mNnClusterizerModelClassNumOutputNodes > 0) {
         computePointerWithAlignment(mem, mModelProbabilities_32, mNnClusterizerBatchedMode * mNnClusterizerModelClassNumOutputNodes);
@@ -56,6 +59,9 @@ void* GPUTPCNNClusterizer::setIOPointers(void* mem)
         if (mNnClusterizerModelReg2NumOutputNodes > 0) {
           computePointerWithAlignment(mem, mOutputDataReg2_32, mNnClusterizerBatchedMode * mNnClusterizerModelReg2NumOutputNodes);
         }
+      }
+      if (mNnClusterizerSetNetworkFlags) {
+        computePointerWithAlignment(mem, mClusterFlags_32, 2 * mNnClusterizerBatchedMode);
       }
     }
   }
