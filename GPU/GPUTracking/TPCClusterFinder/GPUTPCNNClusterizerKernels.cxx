@@ -504,8 +504,8 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
         }
       }
       if (clustererNN.mNnClusterizerSetNetworkFlagsFromRegressionNetwork) {
-        clustererNN.mClusterFlags[glo_idx * 2] = (float)clustererNN.mOutputDataReg1_16[model_output_index + 5] * 16.f;
-        clustererNN.mClusterFlags[glo_idx * 2 + 1] = (float)clustererNN.mOutputDataReg1_16[model_output_index + 6] * 16.f;
+        clustererNN.mClusterFlags[2 * glo_idx] = (float)clustererNN.mOutputDataReg1_16[model_output_index + 5] * 16.f;
+        clustererNN.mClusterFlags[2 * glo_idx + 1] = (float)clustererNN.mOutputDataReg1_16[model_output_index + 6] * 16.f;
       }
       pc.setFull(central_charge * clustererNN.mOutputDataReg1_16[model_output_index + 4].ToFloat(),
             static_cast<float>(peak.pad()) + clustererNN.mOutputDataReg1_16[model_output_index].ToFloat(),
@@ -537,8 +537,8 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
         }
       }
       if (clustererNN.mNnClusterizerSetNetworkFlagsFromRegressionNetwork) {
-        clustererNN.mClusterFlags[glo_idx * 2] = (float)clustererNN.mOutputDataReg1_32[model_output_index + 5] * 16.f;
-        clustererNN.mClusterFlags[glo_idx * 2 + 1] = (float)clustererNN.mOutputDataReg1_32[model_output_index + 6] * 16.f;
+        clustererNN.mClusterFlags[2 * glo_idx] = (float)clustererNN.mOutputDataReg1_32[model_output_index + 5] * 16.f;
+        clustererNN.mClusterFlags[2 * glo_idx + 1] = (float)clustererNN.mOutputDataReg1_32[model_output_index + 6] * 16.f;
       }
       pc.setFull(central_charge * clustererNN.mOutputDataReg1_32[model_output_index + 4],
           static_cast<float>(peak.pad()) + clustererNN.mOutputDataReg1_32[model_output_index],

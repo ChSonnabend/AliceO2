@@ -876,6 +876,8 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
             if((round(idl.cog_time) == round(cls.cog_time)) && (round(idl.cog_pad) == round(cls.cog_pad))) {
               cls.cog_pad = (cls.cog_pad*cls.qTot + idl.cog_pad*idl.qTot)/(cls.qTot + idl.qTot);
               cls.cog_time = (cls.cog_time*cls.qTot + idl.cog_time*idl.qTot)/(cls.qTot + idl.qTot);
+              cls.sigmaPad = std::sqrt((std::pow(cls.sigmaPad, 2)*cls.qTot + std::pow(idl.sigmaPad, 2)*idl.qTot)/(cls.qTot + idl.qTot));
+              cls.sigmaTime = std::sqrt((std::pow(cls.sigmaTime, 2)*cls.qTot + std::pow(idl.sigmaTime, 2)*idl.qTot)/(cls.qTot + idl.qTot));
               cls.qTot += idl.qTot;
               cls.qMax += idl.qMax;
               overwrite_index = cls.index;
