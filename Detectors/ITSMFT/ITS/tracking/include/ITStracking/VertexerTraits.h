@@ -119,6 +119,11 @@ class VertexerTraits
  private:
   std::shared_ptr<BoundedMemoryResource> mMemoryPool;
   std::shared_ptr<tbb::task_arena> mTaskArena;
+
+  // debug output
+  void debugComputeTracklets(int iteration);
+  void debugComputeTrackletMatching(int iteration);
+  void debugComputeVertices(int iteration);
 };
 
 inline void VertexerTraits::initialise(const TrackingParameters& trackingParams, const int iteration)

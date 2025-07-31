@@ -14,9 +14,12 @@
 #ifndef ALICEO2_ITSMFT_TIMEDEADMAP_H
 #define ALICEO2_ITSMFT_TIMEDEADMAP_H
 
-#include "Rtypes.h"
-#include <vector>
+#include <Rtypes.h>
+
+#include <cstdint>
 #include <map>
+#include <string>
+#include <vector>
 
 namespace o2
 {

@@ -21,6 +21,12 @@
 #include "GPUCommonDef.h"
 #include "GPUCommonHelpers.h"
 
+#ifndef __HIPCC__
+#define THRUST_NAMESPACE thrust::cuda
+#else
+#define THRUST_NAMESPACE thrust::hip
+#endif
+
 namespace o2::its
 {
 

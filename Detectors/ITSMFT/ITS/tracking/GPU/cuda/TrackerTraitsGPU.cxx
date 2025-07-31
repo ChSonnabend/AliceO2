@@ -18,10 +18,10 @@
 #include "ITStrackingGPU/TrackerTraitsGPU.h"
 #include "ITStrackingGPU/TrackingKernels.h"
 #include "ITStracking/TrackingConfigParam.h"
+#include "ITStracking/Constants.h"
 
 namespace o2::its
 {
-constexpr int UnusedIndex{-1};
 
 template <int nLayers>
 void TrackerTraitsGPU<nLayers>::initialiseTimeFrame(const int iteration)
@@ -48,10 +48,8 @@ void TrackerTraitsGPU<nLayers>::adoptTimeFrame(TimeFrame<nLayers>* tf)
 template <int nLayers>
 void TrackerTraitsGPU<nLayers>::computeLayerTracklets(const int iteration, int iROFslice, int iVertex)
 {
-  auto& conf = o2::its::ITSGpuTrackingParamConfig::Instance();
+  const auto& conf = o2::its::ITSGpuTrackingParamConfig::Instance();
 
-  const Vertex diamondVert({this->mTrkParams[iteration].Diamond[0], this->mTrkParams[iteration].Diamond[1], this->mTrkParams[iteration].Diamond[2]}, {25.e-6f, 0.f, 0.f, 25.e-6f, 0.f, 36.f}, 1, 1.f);
-  gsl::span<const Vertex> diamondSpan(&diamondVert, 1);
   int startROF{this->mTrkParams[iteration].nROFsPerIterations > 0 ? iROFslice * this->mTrkParams[iteration].nROFsPerIterations : 0};
   int endROF{o2::gpu::CAMath::Min(this->mTrkParams[iteration].nROFsPerIterations > 0 ? (iROFslice + 1) * this->mTrkParams[iteration].nROFsPerIterations + this->mTrkParams[iteration].DeltaROF : mTimeFrameGPU->getNrof(), mTimeFrameGPU->getNrof())};
 
@@ -128,6 +126,7 @@ void TrackerTraitsGPU<nLayers>::computeLayerCells(const int iteration)
 
   for (int iLayer = 0; iLayer < this->mTrkParams[iteration].CellsPerRoad(); ++iLayer) {
     if (!mTimeFrameGPU->getNTracklets()[iLayer + 1] || !mTimeFrameGPU->getNTracklets()[iLayer]) {
+      mTimeFrameGPU->getNCells()[iLayer] = 0;
       continue;
     }
     const int currentLayerTrackletsNum{static_cast<int>(mTimeFrameGPU->getNTracklets()[iLayer])};
@@ -173,9 +172,10 @@ void TrackerTraitsGPU<nLayers>::findCellsNeighbours(const int iteration)
   mTimeFrameGPU->createNeighboursIndexTablesDevice();
   const auto& conf = o2::its::ITSGpuTrackingParamConfig::Instance();
   for (int iLayer{0}; iLayer < this->mTrkParams[iteration].CellsPerRoad() - 1; ++iLayer) {
+    const int currentLayerCellsNum{static_cast<int>(mTimeFrameGPU->getNCells()[iLayer])};
     const int nextLayerCellsNum{static_cast<int>(mTimeFrameGPU->getNCells()[iLayer + 1])};
-
-    if (!nextLayerCellsNum) {
+    if (!nextLayerCellsNum || !currentLayerCellsNum) {
+      mTimeFrameGPU->getNNeighbours()[iLayer] = 0;
       continue;
     }
 
@@ -188,7 +188,7 @@ void TrackerTraitsGPU<nLayers>::findCellsNeighbours(const int iteration)
                                                      this->mTrkParams[0].MaxChi2ClusterAttachment,
                                                      this->mBz,
                                                      iLayer,
-                                                     mTimeFrameGPU->getNCells()[iLayer],
+                                                     currentLayerCellsNum,
                                                      nextLayerCellsNum,
                                                      1e2,
                                                      conf.nBlocks,
@@ -204,7 +204,7 @@ void TrackerTraitsGPU<nLayers>::findCellsNeighbours(const int iteration)
                                  this->mTrkParams[0].MaxChi2ClusterAttachment,
                                  this->mBz,
                                  iLayer,
-                                 mTimeFrameGPU->getNCells()[iLayer],
+                                 currentLayerCellsNum,
                                  nextLayerCellsNum,
                                  1e2,
                                  conf.nBlocks,
@@ -251,8 +251,8 @@ void TrackerTraitsGPU<nLayers>::findRoads(const int iteration)
                                         conf.nThreads);
     }
     // fixme: I don't want to move tracks back and forth, but I need a way to use a thrust::allocator that is aware of our managed memory.
-    if (!trackSeeds.size()) {
-      LOGP(info, "No track seeds found, skipping track finding");
+    if (trackSeeds.empty()) {
+      LOGP(debug, "No track seeds found, skipping track finding");
       continue;
     }
     mTimeFrameGPU->createTrackITSExtDevice(trackSeeds);
@@ -283,7 +283,7 @@ void TrackerTraitsGPU<nLayers>::findRoads(const int iteration)
       int nShared = 0;
       bool isFirstShared{false};
       for (int iLayer{0}; iLayer < this->mTrkParams[0].NLayers; ++iLayer) {
-        if (track.getClusterIndex(iLayer) == UnusedIndex) {
+        if (track.getClusterIndex(iLayer) == constants::UnusedIndex) {
           continue;
         }
         nShared += int(mTimeFrameGPU->isClusterUsed(iLayer, track.getClusterIndex(iLayer)));
@@ -296,7 +296,7 @@ void TrackerTraitsGPU<nLayers>::findRoads(const int iteration)
 
       std::array<int, 3> rofs{INT_MAX, INT_MAX, INT_MAX};
       for (int iLayer{0}; iLayer < this->mTrkParams[0].NLayers; ++iLayer) {
-        if (track.getClusterIndex(iLayer) == UnusedIndex) {
+        if (track.getClusterIndex(iLayer) == constants::UnusedIndex) {
           continue;
         }
         mTimeFrameGPU->markUsedCluster(iLayer, track.getClusterIndex(iLayer));
@@ -319,9 +319,6 @@ void TrackerTraitsGPU<nLayers>::findRoads(const int iteration)
       mTimeFrameGPU->getTracks(std::min(rofs[0], rofs[1])).emplace_back(track);
     }
     mTimeFrameGPU->loadUsedClustersDevice();
-  }
-  if (iteration == this->mTrkParams.size() - 1) {
-    mTimeFrameGPU->unregisterHostMemory(0);
   }
 };
 

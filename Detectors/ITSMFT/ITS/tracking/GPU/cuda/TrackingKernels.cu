@@ -36,15 +36,6 @@
 #include "ITStrackingGPU/TrackingKernels.h"
 #include "ITStrackingGPU/Utils.h"
 
-#ifndef __HIPCC__
-#define THRUST_NAMESPACE thrust::cuda
-#else
-#define THRUST_NAMESPACE thrust::hip
-#endif
-
-#define GPU_BLOCKS GPUCA_DETERMINISTIC_CODE(1, 99999)
-#define GPU_THREADS GPUCA_DETERMINISTIC_CODE(1, 99999)
-
 // O2 track model
 #include "ReconstructionDataFormats/Track.h"
 #include "DetectorsBase/Propagator.h"
@@ -112,7 +103,6 @@ GPUd() const int4 getBinsRect(const Cluster& currentCluster, const int layerInde
 
   if (zRangeMax < -utils.getLayerZ(layerIndex) ||
       zRangeMin > utils.getLayerZ(layerIndex) || zRangeMin > zRangeMax) {
-
     return getEmptyBinsRect();
   }
 
@@ -398,22 +388,20 @@ GPUg() void computeLayerCellNeighboursKernel(
       }
       if constexpr (initRun) {
         atomicAdd(neighboursLUT + iNextCell, 1);
-        foundNeighbours++;
         neighboursIndexTable[iCurrentCellIndex]++;
       } else {
         cellNeighbours[neighboursIndexTable[iCurrentCellIndex] + foundNeighbours] = {iCurrentCellIndex, iNextCell};
         foundNeighbours++;
-        // FIXME: this is prone to race conditions: check on level is not atomic
         const int currentCellLevel{currentCellSeed.getLevel()};
         if (currentCellLevel >= nextCellSeed.getLevel()) {
-          cellSeedArray[layerIndex + 1][iNextCell].setLevel(currentCellLevel + 1);
+          atomicMax(cellSeedArray[layerIndex + 1][iNextCell].getLevelPtr(), currentCellLevel + 1);
         }
       }
     }
   }
 }
 
-template <bool initRun, int nLayers = 7>
+template <bool initRun>
 GPUg() void computeLayerCellsKernel(
   const Cluster** sortedClusters,
   const Cluster** unsortedClusters,
@@ -530,8 +518,14 @@ GPUg() void computeLayerTrackletsMultiROFKernel(
   for (unsigned int iROF{blockIdx.x}; iROF < endROF - startROF; iROF += gridDim.x) {
     const short rof0 = iROF + startROF;
     auto primaryVertices = getPrimaryVertices(rof0, rofPV, totalROFs, multMask, vertices);
+    if (primaryVertices.empty()) {
+      continue;
+    }
     const auto startVtx{vertexId >= 0 ? vertexId : 0};
     const auto endVtx{vertexId >= 0 ? o2::gpu::CAMath::Min(vertexId + 1, static_cast<int>(primaryVertices.size())) : static_cast<int>(primaryVertices.size())};
+    if ((endVtx - startVtx) <= 0) {
+      continue;
+    }
     const short minROF = o2::gpu::CAMath::Max(startROF, static_cast<int>(rof0 - deltaROF));
     const short maxROF = o2::gpu::CAMath::Min(endROF - 1, static_cast<int>(rof0 + deltaROF));
     auto clustersCurrentLayer = getClustersOnLayer(rof0, totalROFs, layerIndex, ROFClusters, clusters);
@@ -541,7 +535,7 @@ GPUg() void computeLayerTrackletsMultiROFKernel(
 
     for (int currentClusterIndex = threadIdx.x; currentClusterIndex < clustersCurrentLayer.size(); currentClusterIndex += blockDim.x) {
       unsigned int storedTracklets{0};
-      auto currentCluster{clustersCurrentLayer[currentClusterIndex]};
+      const auto& currentCluster{clustersCurrentLayer[currentClusterIndex]};
       const int currentSortedIndex{ROFClusters[layerIndex][rof0] + currentClusterIndex};
       if (usedClusters[layerIndex][currentCluster.clusterId]) {
         continue;
@@ -550,14 +544,15 @@ GPUg() void computeLayerTrackletsMultiROFKernel(
       const float inverseR0{1.f / currentCluster.radius};
       for (int iV{startVtx}; iV < endVtx; ++iV) {
         auto& primaryVertex{primaryVertices[iV]};
-        if (primaryVertex.isFlagSet(2) && iteration != 3) {
+        if ((primaryVertex.isFlagSet(Vertex::Flags::UPCMode) && iteration != 3) || (iteration == 3 && !primaryVertex.isFlagSet(Vertex::Flags::UPCMode))) {
           continue;
         }
+
         const float resolution = o2::gpu::CAMath::Sqrt(math_utils::Sq(resolutionPV) / primaryVertex.getNContributors() + math_utils::Sq(positionResolution));
         const float tanLambda{(currentCluster.zCoordinate - primaryVertex.getZ()) * inverseR0};
         const float zAtRmin{tanLambda * (minR - currentCluster.radius) + currentCluster.zCoordinate};
         const float zAtRmax{tanLambda * (maxR - currentCluster.radius) + currentCluster.zCoordinate};
-        const float sqInverseDeltaZ0{1.f / (math_utils::Sq(currentCluster.zCoordinate - primaryVertex.getZ()) + 2.e-8f)}; /// protecting from overflows adding the detector resolution
+        const float sqInverseDeltaZ0{1.f / (math_utils::Sq(currentCluster.zCoordinate - primaryVertex.getZ()) + constants::Tolerance)}; /// protecting from overflows adding the detector resolution
         const float sigmaZ{o2::gpu::CAMath::Sqrt(math_utils::Sq(resolution) * math_utils::Sq(tanLambda) * ((math_utils::Sq(inverseR0) + sqInverseDeltaZ0) * math_utils::Sq(meanDeltaR) + 1.f) + math_utils::Sq(meanDeltaR * MSAngle))};
         const int4 selectedBinsRect{getBinsRect(currentCluster, layerIndex + 1, *utils, zAtRmin, zAtRmax, sigmaZ * NSigmaCut, phiCut)};
         if (selectedBinsRect.x == 0 && selectedBinsRect.y == 0 && selectedBinsRect.z == 0 && selectedBinsRect.w == 0) {
@@ -579,8 +574,8 @@ GPUg() void computeLayerTrackletsMultiROFKernel(
             int iPhiBin = (selectedBinsRect.y + iPhiCount) % phiBins;
             const int firstBinIndex{utils->getBinIndex(selectedBinsRect.x, iPhiBin)};
             const int maxBinIndex{firstBinIndex + selectedBinsRect.z - selectedBinsRect.x + 1};
-            const int firstRowClusterIndex = indexTables[layerIndex + 1][(rof1 - startROF) * tableSize + firstBinIndex];
-            const int maxRowClusterIndex = indexTables[layerIndex + 1][(rof1 - startROF) * tableSize + maxBinIndex];
+            const int firstRowClusterIndex = indexTables[layerIndex + 1][(rof1)*tableSize + firstBinIndex];
+            const int maxRowClusterIndex = indexTables[layerIndex + 1][(rof1)*tableSize + maxBinIndex];
             for (int nextClusterIndex{firstRowClusterIndex}; nextClusterIndex < maxRowClusterIndex; ++nextClusterIndex) {
               if (nextClusterIndex >= clustersNextLayer.size()) {
                 break;
@@ -591,13 +586,13 @@ GPUg() void computeLayerTrackletsMultiROFKernel(
               }
               const float deltaPhi{o2::gpu::CAMath::Abs(currentCluster.phi - nextCluster.phi)};
               const float deltaZ{o2::gpu::CAMath::Abs(tanLambda * (nextCluster.radius - currentCluster.radius) + currentCluster.zCoordinate - nextCluster.zCoordinate)};
-              const int nextSortedIndex{ROFClusters[layerIndex + 1][rof1] + nextClusterIndex};
               if (deltaZ / sigmaZ < NSigmaCut && (deltaPhi < phiCut || o2::gpu::CAMath::Abs(deltaPhi - o2::constants::math::TwoPI) < phiCut)) {
                 if constexpr (initRun) {
                   trackletsLUT[layerIndex][currentSortedIndex]++; // we need l0 as well for usual exclusive sums.
                 } else {
                   const float phi{o2::gpu::CAMath::ATan2(currentCluster.yCoordinate - nextCluster.yCoordinate, currentCluster.xCoordinate - nextCluster.xCoordinate)};
                   const float tanL{(currentCluster.zCoordinate - nextCluster.zCoordinate) / (currentCluster.radius - nextCluster.radius)};
+                  const int nextSortedIndex{ROFClusters[layerIndex + 1][rof1] + nextClusterIndex};
                   new (tracklets[layerIndex] + trackletsLUT[layerIndex][currentSortedIndex] + storedTracklets) Tracklet{currentSortedIndex, nextSortedIndex, tanL, phi, rof0, rof1};
                 }
                 ++storedTracklets;
@@ -841,11 +836,9 @@ GPUhi() void cubExclusiveScanInPlace(T* in_out, int num_items, cudaStream_t stre
 {
   void* d_temp_storage = nullptr;
   size_t temp_storage_bytes = 0;
-  GPUChkErrS(cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes, in_out,
-                                           in_out, num_items, stream));
+  GPUChkErrS(cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes, in_out, in_out, num_items, stream));
   GPUChkErrS(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-  GPUChkErrS(cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes, in_out,
-                                           in_out, num_items, stream));
+  GPUChkErrS(cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes, in_out, in_out, num_items, stream));
   GPUChkErrS(cudaFree(d_temp_storage));
 }
 
@@ -860,11 +853,9 @@ GPUhi() void cubInclusiveScanInPlace(T* in_out, int num_items, cudaStream_t stre
 {
   void* d_temp_storage = nullptr;
   size_t temp_storage_bytes = 0;
-  GPUChkErrS(cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, in_out,
-                                           in_out, num_items, stream));
+  GPUChkErrS(cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, in_out, in_out, num_items, stream));
   GPUChkErrS(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-  GPUChkErrS(cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, in_out,
-                                           in_out, num_items, stream));
+  GPUChkErrS(cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, in_out, in_out, num_items, stream));
   GPUChkErrS(cudaFree(d_temp_storage));
 }
 
@@ -907,10 +898,7 @@ void countTrackletsInROFsHandler(const IndexTableUtils* utils,
                                  gpu::Streams& streams)
 {
   for (int iLayer = 0; iLayer < nLayers - 1; ++iLayer) {
-    gpu::computeLayerTrackletsMultiROFKernel<true><<<o2::gpu::CAMath::Min(nBlocks, GPU_BLOCKS),
-                                                     o2::gpu::CAMath::Min(nThreads, GPU_THREADS),
-                                                     0,
-                                                     streams[iLayer].get()>>>(
+    gpu::computeLayerTrackletsMultiROFKernel<true><<<nBlocks, nThreads, 0, streams[iLayer].get()>>>(
       utils,
       multMask,
       iLayer,
@@ -976,10 +964,7 @@ void computeTrackletsInROFsHandler(const IndexTableUtils* utils,
                                    gpu::Streams& streams)
 {
   for (int iLayer = 0; iLayer < nLayers - 1; ++iLayer) {
-    gpu::computeLayerTrackletsMultiROFKernel<false><<<o2::gpu::CAMath::Min(nBlocks, GPU_BLOCKS),
-                                                      o2::gpu::CAMath::Min(nThreads, GPU_THREADS),
-                                                      0,
-                                                      streams[iLayer].get()>>>(
+    gpu::computeLayerTrackletsMultiROFKernel<false><<<nBlocks, nThreads, 0, streams[iLayer].get()>>>(
       utils,
       multMask,
       iLayer,
@@ -1013,10 +998,10 @@ void computeTrackletsInROFsHandler(const IndexTableUtils* utils,
     nTracklets[iLayer] = unique_end - tracklets_ptr;
     if (iLayer > 0) {
       GPUChkErrS(cudaMemsetAsync(trackletsLUTsHost[iLayer], 0, nClusters[iLayer] * sizeof(int), streams[iLayer].get()));
-      gpu::compileTrackletsLookupTableKernel<<<o2::gpu::CAMath::Min(nBlocks, GPU_BLOCKS),
-                                               o2::gpu::CAMath::Min(nThreads, GPU_THREADS),
-                                               0,
-                                               streams[iLayer].get()>>>(spanTracklets[iLayer], trackletsLUTsHost[iLayer], nTracklets[iLayer]);
+      gpu::compileTrackletsLookupTableKernel<<<nBlocks, nThreads, 0, streams[iLayer].get()>>>(
+        spanTracklets[iLayer],
+        trackletsLUTsHost[iLayer],
+        nTracklets[iLayer]);
       gpu::cubExclusiveScanInPlace(trackletsLUTsHost[iLayer], nClusters[iLayer] + 1, streams[iLayer].get());
     }
   }
@@ -1040,8 +1025,7 @@ void countCellsHandler(
   const int nBlocks,
   const int nThreads)
 {
-  gpu::computeLayerCellsKernel<true><<<o2::gpu::CAMath::Min(nBlocks, GPU_BLOCKS),
-                                       o2::gpu::CAMath::Min(nThreads, GPU_THREADS)>>>(
+  gpu::computeLayerCellsKernel<true><<<nBlocks, nThreads>>>(
     sortedClusters,           // const Cluster**
     unsortedClusters,         // const Cluster**
     tfInfo,                   // const TrackingFrameInfo**
@@ -1076,8 +1060,7 @@ void computeCellsHandler(
   const int nBlocks,
   const int nThreads)
 {
-  gpu::computeLayerCellsKernel<false><<<o2::gpu::CAMath::Min(nBlocks, GPU_BLOCKS),
-                                        o2::gpu::CAMath::Min(nThreads, GPU_THREADS)>>>(
+  gpu::computeLayerCellsKernel<false><<<nBlocks, nThreads>>>(
     sortedClusters,           // const Cluster**
     unsortedClusters,         // const Cluster**
     tfInfo,                   // const TrackingFrameInfo**
@@ -1107,8 +1090,7 @@ unsigned int countCellNeighboursHandler(CellSeed** cellsLayersDevice,
                                         const int nBlocks,
                                         const int nThreads)
 {
-  gpu::computeLayerCellNeighboursKernel<true><<<o2::gpu::CAMath::Min(nBlocks, GPU_BLOCKS),
-                                                o2::gpu::CAMath::Min(nThreads, GPU_THREADS)>>>(
+  gpu::computeLayerCellNeighboursKernel<true><<<nBlocks, nThreads>>>(
     cellsLayersDevice,
     neighboursLUT,
     neighboursIndexTable,
@@ -1142,8 +1124,7 @@ void computeCellNeighboursHandler(CellSeed** cellsLayersDevice,
                                   const int nThreads)
 {
 
-  gpu::computeLayerCellNeighboursKernel<false><<<o2::gpu::CAMath::Min(nBlocks, GPU_BLOCKS),
-                                                 o2::gpu::CAMath::Min(nThreads, GPU_THREADS)>>>(
+  gpu::computeLayerCellNeighboursKernel<false><<<nBlocks, nThreads>>>(
     cellsLayersDevice,
     neighboursLUT,
     neighboursIndexTable,
@@ -1198,8 +1179,7 @@ void processNeighboursHandler(const int startLayer,
   thrust::device_vector<int, gpu::TypedAllocator<int>> foundSeedsTable(nCells[startLayer] + 1, 0, allocInt); // Shortcut: device_vector skips central memory management, we are relying on the contingency.
                                                                                                              // TODO: fix this.
 
-  gpu::processNeighboursKernel<true><<<o2::gpu::CAMath::Min(nBlocks, GPU_BLOCKS),
-                                       o2::gpu::CAMath::Min(nThreads, GPU_THREADS)>>>(
+  gpu::processNeighboursKernel<true><<<nBlocks, nThreads>>>(
     startLayer,
     startLevel,
     allCellSeeds,
@@ -1221,8 +1201,7 @@ void processNeighboursHandler(const int startLayer,
 
   thrust::device_vector<int, gpu::TypedAllocator<int>> updatedCellId(foundSeedsTable.back(), 0, allocInt);
   thrust::device_vector<CellSeed, gpu::TypedAllocator<CellSeed>> updatedCellSeed(foundSeedsTable.back(), allocCellSeed);
-  gpu::processNeighboursKernel<false><<<o2::gpu::CAMath::Min(nBlocks, GPU_BLOCKS),
-                                        o2::gpu::CAMath::Min(nThreads, GPU_THREADS)>>>(
+  gpu::processNeighboursKernel<false><<<nBlocks, nThreads>>>(
     startLayer,
     startLevel,
     allCellSeeds,
@@ -1255,8 +1234,7 @@ void processNeighboursHandler(const int startLayer,
     foundSeedsTable.resize(lastCellSeedSize + 1);
     thrust::fill(foundSeedsTable.begin(), foundSeedsTable.end(), 0);
 
-    gpu::processNeighboursKernel<true><<<o2::gpu::CAMath::Min(nBlocks, GPU_BLOCKS),
-                                         o2::gpu::CAMath::Min(nThreads, GPU_THREADS)>>>(
+    gpu::processNeighboursKernel<true><<<nBlocks, nThreads>>>(
       iLayer,
       --level,
       allCellSeeds,
@@ -1282,8 +1260,7 @@ void processNeighboursHandler(const int startLayer,
     updatedCellSeed.resize(foundSeeds);
     thrust::fill(updatedCellSeed.begin(), updatedCellSeed.end(), CellSeed());
 
-    gpu::processNeighboursKernel<false><<<o2::gpu::CAMath::Min(nBlocks, GPU_BLOCKS),
-                                          o2::gpu::CAMath::Min(nThreads, GPU_THREADS)>>>(
+    gpu::processNeighboursKernel<false><<<nBlocks, nThreads>>>(
       iLayer,
       level,
       allCellSeeds,
@@ -1326,8 +1303,7 @@ void trackSeedHandler(CellSeed* trackSeeds,
                       const int nThreads)
 {
   thrust::device_vector<float> minPts(minPtsHost);
-  gpu::fitTrackSeedsKernel<<<o2::gpu::CAMath::Min(nBlocks, GPU_BLOCKS),
-                             o2::gpu::CAMath::Min(nThreads, GPU_THREADS)>>>(
+  gpu::fitTrackSeedsKernel<<<nBlocks, nThreads>>>(
     trackSeeds,                           // CellSeed*
     foundTrackingFrameInfo,               // TrackingFrameInfo**
     tracks,                               // TrackITSExt*

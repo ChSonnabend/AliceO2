@@ -61,7 +61,6 @@ class ITSTrackingInterface
   void initialise();
   void run(framework::ProcessingContext& pc);
   void printSummary() const;
-  void end();
 
   virtual void updateTimeDependentParams(framework::ProcessingContext& pc);
   virtual void finaliseCCDB(framework::ConcreteDataMatcher& matcher, void* obj);

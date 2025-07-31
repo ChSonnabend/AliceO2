@@ -23,11 +23,6 @@
 namespace o2::its::gpu
 {
 
-class DefaultGPUAllocator : public ExternalAllocator
-{
-  void* allocate(size_t size) override;
-};
-
 template <int nLayers = 7>
 class TimeFrameGPU : public TimeFrame<nLayers>
 {
@@ -84,7 +79,7 @@ class TimeFrameGPU : public TimeFrame<nLayers>
     return mGpuStreams[stream];
   }
   auto& getStreams() { return mGpuStreams; }
-  void wipe(const int);
+  virtual void wipe() final;
 
   /// interface
   int getNClustersInRofSpan(const int, const int, const int) const;

@@ -188,6 +188,8 @@ AlgorithmSpec AODReaderHelpers::aodSpawnerCallback(std::vector<InputSpec>& reque
           } else if (version == 1U) {
             outputs.adopt(Output{origin, description, version}, make_spawn<o2::aod::Hash<"EXMFTTRACK/1"_h>>(input, pc));
           }
+        } else if (description == header::DataDescription{"EXMFTTRACKCOV"}) {
+          outputs.adopt(Output{origin, description, version}, make_spawn<o2::aod::Hash<"EXMFTTRACKCOV/0"_h>>(input, pc));
         } else if (description == header::DataDescription{"EXFWDTRACK"}) {
           outputs.adopt(Output{origin, description, version}, make_spawn<o2::aod::Hash<"EXFWDTRACK/0"_h>>(input, pc));
         } else if (description == header::DataDescription{"EXFWDTRACKCOV"}) {

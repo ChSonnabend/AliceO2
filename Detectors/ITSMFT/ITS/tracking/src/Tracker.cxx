@@ -52,7 +52,9 @@ void Tracker::clustersToTracks(const LogFunc& logger, const LogFunc& error)
   int maxNvertices{-1};
   if (mTrkParams[0].PerPrimaryVertexProcessing) {
     for (int iROF{0}; iROF < mTimeFrame->getNrof(); ++iROF) {
-      maxNvertices = std::max(maxNvertices, (int)mTimeFrame->getPrimaryVertices(iROF).size());
+      int minRof = o2::gpu::CAMath::Max(0, iROF - mTrkParams[0].DeltaROF);
+      int maxRof = o2::gpu::CAMath::Min(mTimeFrame->getNrof(), iROF + mTrkParams[0].DeltaROF);
+      maxNvertices = std::max(maxNvertices, (int)mTimeFrame->getPrimaryVertices(minRof, maxRof).size());
     }
   }
 
@@ -63,8 +65,8 @@ void Tracker::clustersToTracks(const LogFunc& logger, const LogFunc& error)
          (double)mTimeFrame->getArtefactsMemory() / GB, (double)mTrkParams[iteration].MaxMemory / GB);
     LOGP(error, "Exception: {}", err.what());
     if (mTrkParams[iteration].DropTFUponFailure) {
-      mTimeFrame->wipe();
       mMemoryPool->print();
+      mTimeFrame->wipe();
       ++mNumberOfDroppedTFs;
       error("...Dropping Timeframe...");
     } else {
@@ -142,17 +144,17 @@ void Tracker::clustersToTracks(const LogFunc& logger, const LogFunc& error)
     error("Uncaught exception, all bets are off...");
   }
 
-  if (mTrkParams[0].PrintMemory) {
-    mTimeFrame->printArtefactsMemory();
-    mMemoryPool->print();
-  }
-
   if (mTimeFrame->hasMCinformation()) {
     computeTracksMClabels();
   }
   rectifyClusterIndices();
   ++mTimeFrameCounter;
   mTotalTime += total;
+
+  if (mTrkParams[0].PrintMemory) {
+    mTimeFrame->printArtefactsMemory();
+    mMemoryPool->print();
+  }
 }
 
 void Tracker::computeRoadsMClabels()

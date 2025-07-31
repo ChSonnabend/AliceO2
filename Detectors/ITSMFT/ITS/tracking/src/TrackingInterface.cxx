@@ -165,7 +165,7 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
   gsl::span<const std::pair<MCCompLabel, float>> vMCRecInfo;
   gsl::span<const MCCompLabel> vMCContLabels;
   for (auto iRof{0}; iRof < trackROFspan.size(); ++iRof) {
-    std::vector<Vertex> vtxVecLoc;
+    bounded_vector<Vertex> vtxVecLoc;
     auto& vtxROF = vertROFvec.emplace_back(trackROFspan[iRof]);
     vtxROF.setFirstEntry(vertices.size());
     if (mRunVertexer) {
@@ -223,7 +223,7 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
       for (auto& v : vtxVecLoc) {
         vertices.push_back(v);
       }
-      mTimeFrame->addPrimaryVertices(vtxVecLoc, iRof, 0);
+      mTimeFrame->addPrimaryVertices(vtxVecLoc, 0);
     }
   }
   if (mRunVertexer) {
@@ -310,6 +310,7 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
       LOGP(info, "ITSTracker pushed {} vertex purities", allVerticesPurities.size());
     }
   }
+  mTimeFrame->wipe();
 }
 
 void ITSTrackingInterface::updateTimeDependentParams(framework::ProcessingContext& pc)
@@ -379,11 +380,6 @@ void ITSTrackingInterface::finaliseCCDB(ConcreteDataMatcher& matcher, void* obj)
 void ITSTrackingInterface::printSummary() const
 {
   mTracker->printSummary();
-}
-
-void ITSTrackingInterface::end()
-{
-  mTimeFrame->wipe();
 }
 
 void ITSTrackingInterface::setTraitsFromProvider(VertexerTraits* vertexerTraits,
