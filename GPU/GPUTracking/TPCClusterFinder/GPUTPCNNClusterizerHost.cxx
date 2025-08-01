@@ -245,6 +245,7 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
   clustererNN.mNnClusterizerSetDeconvolutionFlags = (bool)settings.nnClusterizerSetDeconvolutionFlags;
   clustererNN.mNnClusterizerSetNetworkFlags = (bool)settings.nnClusterizerSetNetworkFlags;
   clustererNN.mNnClusterizerSetNetworkFlagsFromRegressionNetwork = (bool)settings.nnClusterizerSetNetworkFlagsFromRegressionNetwork;
+  clustererNN.mNnClusterizerRescaleFlags = settings.nnClusterizerRescaleFlags;
   if (clustererNN.mNnSigmoidTrafoClassThreshold) {
     clustererNN.mNnClassThreshold = (float)std::log(settings.nnClassThreshold / (1.f - settings.nnClassThreshold));
   } else {

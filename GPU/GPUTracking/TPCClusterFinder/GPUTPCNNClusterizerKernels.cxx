@@ -504,8 +504,8 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
         }
       }
       if (clustererNN.mNnClusterizerSetNetworkFlagsFromRegressionNetwork) {
-        clustererNN.mClusterFlags[2 * glo_idx] = (float)clustererNN.mOutputDataReg1_16[model_output_index + 5] * 16.f;
-        clustererNN.mClusterFlags[2 * glo_idx + 1] = (float)clustererNN.mOutputDataReg1_16[model_output_index + 6] * 16.f;
+        clustererNN.mClusterFlags[2 * glo_idx] = (float)clustererNN.mOutputDataReg1_16[model_output_index + 5] * clustererNN.mNnClusterizerRescaleFlags;
+        clustererNN.mClusterFlags[2 * glo_idx + 1] = (float)clustererNN.mOutputDataReg1_16[model_output_index + 6] * clustererNN.mNnClusterizerRescaleFlags;
       }
       pc.setFull(central_charge * clustererNN.mOutputDataReg1_16[model_output_index + 4].ToFloat(),
             static_cast<float>(peak.pad()) + clustererNN.mOutputDataReg1_16[model_output_index].ToFloat(),
@@ -537,8 +537,8 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
         }
       }
       if (clustererNN.mNnClusterizerSetNetworkFlagsFromRegressionNetwork) {
-        clustererNN.mClusterFlags[2 * glo_idx] = (float)clustererNN.mOutputDataReg1_32[model_output_index + 5] * 16.f;
-        clustererNN.mClusterFlags[2 * glo_idx + 1] = (float)clustererNN.mOutputDataReg1_32[model_output_index + 6] * 16.f;
+        clustererNN.mClusterFlags[2 * glo_idx] = (float)clustererNN.mOutputDataReg1_32[model_output_index + 5] * clustererNN.mNnClusterizerRescaleFlags;
+        clustererNN.mClusterFlags[2 * glo_idx + 1] = (float)clustererNN.mOutputDataReg1_32[model_output_index + 6] * clustererNN.mNnClusterizerRescaleFlags;
       }
       pc.setFull(central_charge * clustererNN.mOutputDataReg1_32[model_output_index + 4],
           static_cast<float>(peak.pad()) + clustererNN.mOutputDataReg1_32[model_output_index],
@@ -778,11 +778,11 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
 
   // Adjusting for normalisation factor of 16 for network training
   if (dtype == 0) {
-    clustererNN.mClusterFlags[idx * 2] = (float)clustererNN.mClusterFlags_16[idx * 2] * 16.f;
-    clustererNN.mClusterFlags[idx * 2 + 1] = (float)clustererNN.mClusterFlags_16[idx * 2 + 1] * 16.f;
+    clustererNN.mClusterFlags[idx * 2] = (float)clustererNN.mClusterFlags_16[idx * 2] * clustererNN.mNnClusterizerRescaleFlags;
+    clustererNN.mClusterFlags[idx * 2 + 1] = (float)clustererNN.mClusterFlags_16[idx * 2 + 1] * clustererNN.mNnClusterizerRescaleFlags;
   } else if (dtype == 1) {
-    clustererNN.mClusterFlags[idx * 2] = (float)clustererNN.mClusterFlags_32[idx * 2] * 16.f;
-    clustererNN.mClusterFlags[idx * 2 + 1] = (float)clustererNN.mClusterFlags_32[idx * 2 + 1] * 16.f;
+    clustererNN.mClusterFlags[idx * 2] = (float)clustererNN.mClusterFlags_32[idx * 2] * clustererNN.mNnClusterizerRescaleFlags;
+    clustererNN.mClusterFlags[idx * 2 + 1] = (float)clustererNN.mClusterFlags_32[idx * 2 + 1] * clustererNN.mNnClusterizerRescaleFlags;
   }
 }
 
