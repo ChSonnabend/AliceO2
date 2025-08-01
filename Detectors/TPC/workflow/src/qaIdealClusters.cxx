@@ -821,18 +821,28 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
     }
     if (fillmode == 0 || fillmode == -1) {
       std::vector<customCluster> new_ideal_map;
-      int overwrite_index = 0, found_overwrites = 0, idx_counter = 0;
+      int overwrite_index = 0, found_overwrites = 0, overwrites_with_different_mc = 0, idx_counter = 0;
       for (auto idl : ideal_map) {
         map_ptr = &map2d[0][idl.max_time + global_shift[1]][idl.row + rowOffset(idl.row) + global_shift[2]][idl.max_pad + global_shift[0] + padOffset(idl.row)];
         if (*map_ptr != -1) {
           for(auto& cls : new_ideal_map){
-            if((idl.max_time == cls.max_time) && (idl.max_pad == cls.max_pad)) {
-              cls.cog_pad = (cls.cog_pad*cls.qTot + idl.cog_pad*idl.qTot)/(cls.qTot + idl.qTot);
-              cls.cog_time = (cls.cog_time*cls.qTot + idl.cog_time*idl.qTot)/(cls.qTot + idl.qTot);
-              cls.qTot += idl.qTot;
-              cls.qMax += idl.qMax;
-              overwrite_index = cls.index;
-              *map_ptr = cls.index;
+            if ((idl.max_time == cls.max_time) && (idl.max_pad == cls.max_pad)) {
+              // cls.cog_pad = (cls.cog_pad*cls.qTot + idl.cog_pad*idl.qTot)/(cls.qTot + idl.qTot);
+              // cls.cog_time = (cls.cog_time*cls.qTot + idl.cog_time*idl.qTot)/(cls.qTot + idl.qTot);
+              // cls.sigmaPad = std::sqrt((std::pow(cls.sigmaPad, 2)*cls.qTot + std::pow(idl.sigmaPad, 2)*idl.qTot)/(cls.qTot + idl.qTot));
+              // cls.sigmaTime = std::sqrt((std::pow(cls.sigmaTime, 2)*cls.qTot + std::pow(idl.sigmaTime, 2)*idl.qTot)/(cls.qTot + idl.qTot));
+              // cls.qTot += idl.qTot;
+              // cls.qMax += idl.qMax;
+              // overwrite_index = cls.index;
+              if (idl.qMax > cls.qMax) {
+                int idx = cls.index;
+                cls = idl; // Overwrite the cluster with the new one if the new one has a higher qMax
+                cls.index = idx; // Keep the old index
+                *map_ptr = idx;
+              }
+              if (idl.mcTrkId != cls.mcTrkId) {
+                overwrites_with_different_mc++;
+              }
               found_overwrites++;
               break;
             }
@@ -843,7 +853,7 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
         } else {
           idl.index = idx_counter;
           new_ideal_map.push_back(idl);
-          *map_ptr = idl.index;
+          *map_ptr = idx_counter;
           idx_counter++;
         }
       }
