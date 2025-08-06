@@ -125,12 +125,13 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
     const int nthreadsDist = ic.options().get<int>("n-threads-distortions");
     SC::setNThreads(nthreadsDist);
     mUseCalibrationsFromCCDB = ic.options().get<bool>("TPCuseCCDB");
+    mMcClusterizationMode = ic.options().get<int>("mc-clusterization-mode");
     window_size = std::vector<int>{ic.options().get<int>("ideal-clusterizer-timesize"), ic.options().get<int>("ideal-clusterizer-padsize")};
     reject_maxq = ic.options().get<int>("ideal-clusterizer-reject-maxq");
     reject_cogq = ic.options().get<int>("ideal-clusterizer-reject-cogq");
     mMeanLumiDistortions = ic.options().get<float>("meanLumiDistortions");
     mMeanLumiDistortionsDerivative = ic.options().get<float>("meanLumiDistortionsDerivative");
-    
+
     LOG(info) << "Ideal clusterizer settings: pad-size " << window_size[1] << "; time-size " << window_size[0];
     LOG(info) << "Ideal clusterizer settings: MaxQ rejection at (ADC counts): " << reject_maxq << "; CoGQ rejection (ADC counts): " << reject_cogq;
 
@@ -442,6 +443,8 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
       // (background signal merging is basically taking place here)
 
       mDigitizer.setWindowSize(window_size);
+      mDigitizer.setMcClusterizationMode(mMcClusterizationMode);
+
       for (auto& part : eventParts[collID]) {
         const int eventID = part.entryID;
         const int sourceID = part.sourceID;
@@ -454,80 +457,93 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         LOG(debug) << "TPC: Found " << hitsLeft.size() << " hit groups left and " << hitsRight.size() << " hit groups right in collision " << collID << " eventID " << part.entryID;
 
         mDigitizer.process(hitsLeft, eventID, sourceID);
+        if(mMcClusterizationMode > 0) {
+          tmp_sector_vec = mDigitizer.getSector();
+          tmp_row_vec = mDigitizer.getRow();
+          tmp_cog_time = mDigitizer.getCogTime();
+          tmp_cog_pad = mDigitizer.getCogPad();
+          tmp_var_pad = mDigitizer.getVarPad();
+          tmp_var_time = mDigitizer.getVarTime();
+          tmp_cog_q = mDigitizer.getCogQ();
+          tmp_cog_q2 = mDigitizer.getCogQ2();
+          tmp_mc_labelcounter = mDigitizer.getMcLabelCounter();
+          tmp_mc_trackid = mDigitizer.getTrackID();
+          tmp_mc_eventid = mDigitizer.getEventID();
+          tmp_mc_sourceid = mDigitizer.getSourceID();
+          tmp_point_counter = mDigitizer.getPointCounter();
 
-        tmp_sector_vec = mDigitizer.getSector();
-        tmp_row_vec = mDigitizer.getRow();
-        tmp_max_time = mDigitizer.getMaxTime();
-        tmp_max_pad = mDigitizer.getMaxPad();
-        tmp_max_q = mDigitizer.getMaxQ();
-        tmp_cog_time = mDigitizer.getCogTime();
-        tmp_cog_pad = mDigitizer.getCogPad();
-        tmp_var_pad = mDigitizer.getVarPad();
-        tmp_var_time = mDigitizer.getVarTime();
-        tmp_cog_q = mDigitizer.getCogQ();
-        tmp_cog_q2 = mDigitizer.getCogQ2();
-        tmp_mc_labelcounter = mDigitizer.getMcLabelCounter();
-        tmp_mc_trackid = mDigitizer.getTrackID();
-        tmp_mc_eventid = mDigitizer.getEventID();
-        tmp_mc_sourceid = mDigitizer.getSourceID();
-        tmp_point_counter = mDigitizer.getPointCounter();
+          if(mMcClusterizationMode > 1) {
+            tmp_max_time = mDigitizer.getMaxTime();
+            tmp_max_pad = mDigitizer.getMaxPad();
+            tmp_max_q = mDigitizer.getMaxQ();
+          }
 
-        sector_vec.insert(sector_vec.end(), tmp_sector_vec.begin(), tmp_sector_vec.end());
-        row_vec.insert(row_vec.end(), tmp_row_vec.begin(), tmp_row_vec.end());
-        max_time.insert(max_time.end(), tmp_max_time.begin(), tmp_max_time.end());
-        max_pad.insert(max_pad.end(), tmp_max_pad.begin(), tmp_max_pad.end());
-        max_q.insert(max_q.end(), tmp_max_q.begin(), tmp_max_q.end());
-        cog_time.insert(cog_time.end(), tmp_cog_time.begin(), tmp_cog_time.end());
-        cog_pad.insert(cog_pad.end(), tmp_cog_pad.begin(), tmp_cog_pad.end());
-        cog_q.insert(cog_q.end(), tmp_cog_q.begin(), tmp_cog_q.end());
-        cog_q2.insert(cog_q2.end(), tmp_cog_q2.begin(), tmp_cog_q2.end());
-        var_pad.insert(var_pad.end(), tmp_var_pad.begin(), tmp_var_pad.end());
-        var_time.insert(var_time.end(), tmp_var_time.begin(), tmp_var_time.end());
-        mc_labelcounter.insert(mc_labelcounter.end(), tmp_mc_labelcounter.begin(), tmp_mc_labelcounter.end());
-        mc_trackid.insert(mc_trackid.end(), tmp_mc_trackid.begin(), tmp_mc_trackid.end());
-        mc_eventid.insert(mc_eventid.end(), tmp_mc_eventid.begin(), tmp_mc_eventid.end());
-        mc_sourceid.insert(mc_sourceid.end(), tmp_mc_sourceid.begin(), tmp_mc_sourceid.end());
-        point_counter.insert(point_counter.end(), tmp_point_counter.begin(), tmp_point_counter.end());
-        elem_counter += mDigitizer.getElemCounter();
+          sector_vec.insert(sector_vec.end(), tmp_sector_vec.begin(), tmp_sector_vec.end());
+          row_vec.insert(row_vec.end(), tmp_row_vec.begin(), tmp_row_vec.end());
+          cog_time.insert(cog_time.end(), tmp_cog_time.begin(), tmp_cog_time.end());
+          cog_pad.insert(cog_pad.end(), tmp_cog_pad.begin(), tmp_cog_pad.end());
+          cog_q.insert(cog_q.end(), tmp_cog_q.begin(), tmp_cog_q.end());
+          cog_q2.insert(cog_q2.end(), tmp_cog_q2.begin(), tmp_cog_q2.end());
+          var_pad.insert(var_pad.end(), tmp_var_pad.begin(), tmp_var_pad.end());
+          var_time.insert(var_time.end(), tmp_var_time.begin(), tmp_var_time.end());
+          mc_labelcounter.insert(mc_labelcounter.end(), tmp_mc_labelcounter.begin(), tmp_mc_labelcounter.end());
+          mc_trackid.insert(mc_trackid.end(), tmp_mc_trackid.begin(), tmp_mc_trackid.end());
+          mc_eventid.insert(mc_eventid.end(), tmp_mc_eventid.begin(), tmp_mc_eventid.end());
+          mc_sourceid.insert(mc_sourceid.end(), tmp_mc_sourceid.begin(), tmp_mc_sourceid.end());
+          point_counter.insert(point_counter.end(), tmp_point_counter.begin(), tmp_point_counter.end());
+          elem_counter += mDigitizer.getElemCounter();
+
+          if(mMcClusterizationMode > 1) {
+            max_time.insert(max_time.end(), tmp_max_time.begin(), tmp_max_time.end());
+            max_pad.insert(max_pad.end(), tmp_max_pad.begin(), tmp_max_pad.end());
+            max_q.insert(max_q.end(), tmp_max_q.begin(), tmp_max_q.end());
+          }
+        }
         mDigitizer.clearElements();
 
-
         mDigitizer.process(hitsRight, eventID, sourceID);
+        if(mMcClusterizationMode > 0) {
+          tmp_sector_vec = mDigitizer.getSector();
+          tmp_row_vec = mDigitizer.getRow();
+          tmp_cog_time = mDigitizer.getCogTime();
+          tmp_cog_pad = mDigitizer.getCogPad();
+          tmp_var_pad = mDigitizer.getVarPad();
+          tmp_var_time = mDigitizer.getVarTime();
+          tmp_cog_q = mDigitizer.getCogQ();
+          tmp_cog_q2 = mDigitizer.getCogQ2();
+          tmp_mc_labelcounter = mDigitizer.getMcLabelCounter();
+          tmp_mc_trackid = mDigitizer.getTrackID();
+          tmp_mc_eventid = mDigitizer.getEventID();
+          tmp_mc_sourceid = mDigitizer.getSourceID();
+          tmp_point_counter = mDigitizer.getPointCounter();
 
-        tmp_sector_vec = mDigitizer.getSector();
-        tmp_row_vec = mDigitizer.getRow();
-        tmp_max_time = mDigitizer.getMaxTime();
-        tmp_max_pad = mDigitizer.getMaxPad();
-        tmp_max_q = mDigitizer.getMaxQ();
-        tmp_cog_time = mDigitizer.getCogTime();
-        tmp_cog_pad = mDigitizer.getCogPad();
-        tmp_var_pad = mDigitizer.getVarPad();
-        tmp_var_time = mDigitizer.getVarTime();
-        tmp_cog_q = mDigitizer.getCogQ();
-        tmp_cog_q2 = mDigitizer.getCogQ2();
-        tmp_mc_labelcounter = mDigitizer.getMcLabelCounter();
-        tmp_mc_trackid = mDigitizer.getTrackID();
-        tmp_mc_eventid = mDigitizer.getEventID();
-        tmp_mc_sourceid = mDigitizer.getSourceID();
-        tmp_point_counter = mDigitizer.getPointCounter();
+          if(mMcClusterizationMode > 1) {
+            tmp_max_time = mDigitizer.getMaxTime();
+            tmp_max_pad = mDigitizer.getMaxPad();
+            tmp_max_q = mDigitizer.getMaxQ();
+          }
 
-        sector_vec.insert(sector_vec.end(), tmp_sector_vec.begin(), tmp_sector_vec.end());
-        row_vec.insert(row_vec.end(), tmp_row_vec.begin(), tmp_row_vec.end());
-        max_time.insert(max_time.end(), tmp_max_time.begin(), tmp_max_time.end());
-        max_pad.insert(max_pad.end(), tmp_max_pad.begin(), tmp_max_pad.end());
-        max_q.insert(max_q.end(), tmp_max_q.begin(), tmp_max_q.end());
-        cog_time.insert(cog_time.end(), tmp_cog_time.begin(), tmp_cog_time.end());
-        cog_pad.insert(cog_pad.end(), tmp_cog_pad.begin(), tmp_cog_pad.end());
-        cog_q.insert(cog_q.end(), tmp_cog_q.begin(), tmp_cog_q.end());
-        cog_q2.insert(cog_q2.end(), tmp_cog_q2.begin(), tmp_cog_q2.end());
-        var_pad.insert(var_pad.end(), tmp_var_pad.begin(), tmp_var_pad.end());
-        var_time.insert(var_time.end(), tmp_var_time.begin(), tmp_var_time.end());
-        mc_labelcounter.insert(mc_labelcounter.end(), tmp_mc_labelcounter.begin(), tmp_mc_labelcounter.end());
-        mc_trackid.insert(mc_trackid.end(), tmp_mc_trackid.begin(), tmp_mc_trackid.end());
-        mc_eventid.insert(mc_eventid.end(), tmp_mc_eventid.begin(), tmp_mc_eventid.end());
-        mc_sourceid.insert(mc_sourceid.end(), tmp_mc_sourceid.begin(), tmp_mc_sourceid.end());
-        point_counter.insert(point_counter.end(), tmp_point_counter.begin(), tmp_point_counter.end());
-        elem_counter += mDigitizer.getElemCounter();
+          sector_vec.insert(sector_vec.end(), tmp_sector_vec.begin(), tmp_sector_vec.end());
+          row_vec.insert(row_vec.end(), tmp_row_vec.begin(), tmp_row_vec.end());
+          cog_time.insert(cog_time.end(), tmp_cog_time.begin(), tmp_cog_time.end());
+          cog_pad.insert(cog_pad.end(), tmp_cog_pad.begin(), tmp_cog_pad.end());
+          cog_q.insert(cog_q.end(), tmp_cog_q.begin(), tmp_cog_q.end());
+          cog_q2.insert(cog_q2.end(), tmp_cog_q2.begin(), tmp_cog_q2.end());
+          var_pad.insert(var_pad.end(), tmp_var_pad.begin(), tmp_var_pad.end());
+          var_time.insert(var_time.end(), tmp_var_time.begin(), tmp_var_time.end());
+          mc_labelcounter.insert(mc_labelcounter.end(), tmp_mc_labelcounter.begin(), tmp_mc_labelcounter.end());
+          mc_trackid.insert(mc_trackid.end(), tmp_mc_trackid.begin(), tmp_mc_trackid.end());
+          mc_eventid.insert(mc_eventid.end(), tmp_mc_eventid.begin(), tmp_mc_eventid.end());
+          mc_sourceid.insert(mc_sourceid.end(), tmp_mc_sourceid.begin(), tmp_mc_sourceid.end());
+          point_counter.insert(point_counter.end(), tmp_point_counter.begin(), tmp_point_counter.end());
+          elem_counter += mDigitizer.getElemCounter();
+
+          if(mMcClusterizationMode > 1) {
+            max_time.insert(max_time.end(), tmp_max_time.begin(), tmp_max_time.end());
+            max_pad.insert(max_pad.end(), tmp_max_pad.begin(), tmp_max_pad.end());
+            max_q.insert(max_q.end(), tmp_max_q.begin(), tmp_max_q.end());
+          }
+        }
         mDigitizer.clearElements();
 
         LOG(info) << "Processed " << elem_counter << " clusters!";
@@ -556,125 +572,138 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
       snapshotLabels(labelAccum);
     }
 
-    /// OWN IMPLEMENTATION
-    LOG(info) << "Writing mcdigits to tree!";
+    if (mMcClusterizationMode > 0) {
+      /// OWN IMPLEMENTATION
+      LOG(info) << "Writing mcdigits to tree!";
 
-    std::stringstream tmp;
-    tmp << "sector_" << mSector;
-    std::stringstream fileName;
-    fileName << "mclabels_digitizer_" << mSector << ".root";
-    TFile outputFile(fileName.str().c_str(), "RECREATE");
-    TTree* mcTree = new TTree(tmp.str().c_str(), "MC tree");
+      std::stringstream tmp;
+      tmp << "sector_" << mSector;
+      std::stringstream fileName;
+      fileName << "mclabels_digitizer_" << mSector << ".root";
+      TFile outputFile(fileName.str().c_str(), "RECREATE");
+      TTree* mcTree = new TTree(tmp.str().c_str(), "MC tree");
 
-    int sec=0, r=0, mp=0, mt=0, idx=0, p=0, lab=0, trkid=0, evid=0, srcid=0;
-    float sp=0, st=0, sfvp = 0, sfvt = 0, srvp = 0, srvt = 0, cp=0, ct=0, cq=-1, cq2=-1, mq=0;
+      int sec=0, r=0, mp=0, mt=0, idx=0, p=0, lab=0, trkid=0, evid=0, srcid=0;
+      float sp=0, st=0, sfvp = 0, sfvt = 0, srvp = 0, srvt = 0, cp=0, ct=0, cq=-1, cq2=-1, mq=0;
 
-    mcTree->Branch("cluster_sector", &sec);
-    mcTree->Branch("cluster_row", &r);
-    mcTree->Branch("cluster_cog_pad", &cp);
-    mcTree->Branch("cluster_cog_time", &ct);
-    mcTree->Branch("cluster_cog_q", &cq);
-    mcTree->Branch("cluster_cog_q2", &cq2);
-    mcTree->Branch("cluster_sigma_pad", &sp);
-    mcTree->Branch("cluster_sigma_time", &st);
-    mcTree->Branch("cluster_sampleFreqVar_pad", &sfvp); // See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Weighted_incremental_algorithm -> Weighted incremental algorithm
-    mcTree->Branch("cluster_sampleFreqVar_time", &sfvt); // See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Weighted_incremental_algorithm -> Weighted incremental algorithm
-    mcTree->Branch("cluster_sampleRelVar_pad", &srvp); // See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Weighted_incremental_algorithm -> Weighted incremental algorithm
-    mcTree->Branch("cluster_sampleRelVar_time", &srvt); // See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Weighted_incremental_algorithm -> Weighted incremental algorithm
-    mcTree->Branch("cluster_max_pad", &mp);
-    mcTree->Branch("cluster_max_time", &mt);
-    mcTree->Branch("cluster_max_q", &mq);
-    mcTree->Branch("cluster_points", &p);
-    mcTree->Branch("cluster_labelcounter", &lab);
-    mcTree->Branch("cluster_trackid", &trkid);
-    mcTree->Branch("cluster_eventid", &evid);
-    mcTree->Branch("cluster_sourceid", &srcid);
+      mcTree->Branch("cluster_sector", &sec);
+      mcTree->Branch("cluster_row", &r);
+      mcTree->Branch("cluster_cog_pad", &cp);
+      mcTree->Branch("cluster_cog_time", &ct);
+      mcTree->Branch("cluster_cog_q", &cq);
+      mcTree->Branch("cluster_cog_q2", &cq2);
+      mcTree->Branch("cluster_sigma_pad", &sp);
+      mcTree->Branch("cluster_sigma_time", &st);
+      mcTree->Branch("cluster_sampleFreqVar_pad", &sfvp); // See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Weighted_incremental_algorithm -> Weighted incremental algorithm
+      mcTree->Branch("cluster_sampleFreqVar_time", &sfvt); // See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Weighted_incremental_algorithm -> Weighted incremental algorithm
+      mcTree->Branch("cluster_sampleRelVar_pad", &srvp); // See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Weighted_incremental_algorithm -> Weighted incremental algorithm
+      mcTree->Branch("cluster_sampleRelVar_time", &srvt); // See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Weighted_incremental_algorithm -> Weighted incremental algorithm
+      mcTree->Branch("cluster_max_pad", &mp);
+      mcTree->Branch("cluster_max_time", &mt);
+      mcTree->Branch("cluster_max_q", &mq);
+      mcTree->Branch("cluster_points", &p);
+      mcTree->Branch("cluster_labelcounter", &lab);
+      mcTree->Branch("cluster_trackid", &trkid);
+      mcTree->Branch("cluster_eventid", &evid);
+      mcTree->Branch("cluster_sourceid", &srcid);
 
-    for(int i = 0; i<elem_counter; i++){
-      sec = sector_vec[i];
-      r = row_vec[i];
-      cp = cog_pad[i];
-      ct = cog_time[i];
-      cq = cog_q[i];
-      cq2 = cog_q2[i];
-      lab = mc_labelcounter[i];
-      trkid = mc_trackid[i];
-      evid = mc_eventid[i];
-      srcid = mc_sourceid[i];
-      sp = std::sqrt(var_pad[i] / cq);
-      st = std::sqrt(var_time[i] / cq);
-      for(auto elem : max_q[i]){
-        if(elem > mq){
-          mp = max_pad[i][idx];
-          mt = max_time[i][idx];
-          mq = elem;
+      for(int i = 0; i<elem_counter; i++){
+        sec = sector_vec[i];
+        r = row_vec[i];
+        cp = cog_pad[i];
+        ct = cog_time[i];
+        cq = cog_q[i];
+        cq2 = cog_q2[i];
+        lab = mc_labelcounter[i];
+        trkid = mc_trackid[i];
+        evid = mc_eventid[i];
+        srcid = mc_sourceid[i];
+        sp = std::sqrt(var_pad[i] / cq);
+        st = std::sqrt(var_time[i] / cq);
+
+        if(mMcClusterizationMode > 1) {
+          for(auto elem : max_q[i]){
+            if(elem > mq){
+              mp = max_pad[i][idx];
+              mt = max_time[i][idx];
+              mq = elem;
+            }
+            else if(elem==mq){
+              if((std::pow(mp-cp,2) + std::pow(mt-ct,2)) > (std::pow(mp-max_pad[i][idx],2) + std::pow(mt-max_time[i][idx],2))){
+                mp = max_pad[i][idx];
+                mt = max_time[i][idx];
+                mq = elem;
+              }
+            }
+            idx++;
+          }
+        } else {
+          // if the clusterization does not support the full readout, maxima are not determined as the full charge array is not available
+          mp = round(cog_pad[i]);
+          mt = round(cog_time[i]);
+          mq = cog_q[i];
         }
-        else if(elem==mq){
-          if((std::pow(mp-cp,2) + std::pow(mt-ct,2)) > (std::pow(mp-max_pad[i][idx],2) + std::pow(mt-max_time[i][idx],2))){
+
+        if(mq > reject_maxq && cq > reject_cogq){
+          sfvp = var_pad[i] / (cq - 1.f);
+          sfvt = var_time[i] / (cq - 1.f);
+          if(cq2 != cq){
+            srvp = var_pad[i] / (cq - (cq2 / cq));
+            srvt = var_time[i] / (cq - (cq2 / cq));
+          }
+          p = point_counter[i];
+          mcTree->Fill();
+        }
+        sp = 0; st = 0; sfvp = 0; sfvt = 0; srvp = 0; srvt = 0; mp = 0; mt = 0; mq = 0; idx=0; lab=0; trkid=0; evid=0; srcid=0; cq=-1; cq2=-1;
+      }
+
+      mcTree->Write();
+      delete mcTree;
+      outputFile.Close();
+
+      if(mMcClusterizationMode > 1) {
+        std::stringstream tmp2;
+        tmp2 << "sector_" << mSector;
+        std::stringstream fileName2;
+        fileName2 << "mclabels_ideal_full_" << mSector << ".root";
+        TFile outputFile2(fileName2.str().c_str(), "RECREATE");
+        TTree* mcTree2 = new TTree(tmp2.str().c_str(), "MC tree");
+
+        sec=0; r=0; mp=0; mt=0; idx=0; mq=0; trkid=0; evid=0; srcid=0;
+
+        mcTree2->Branch("cluster_sector", &sec);
+        mcTree2->Branch("cluster_row", &r);
+        mcTree2->Branch("cluster_pad", &mp);
+        mcTree2->Branch("cluster_time", &mt);
+        mcTree2->Branch("cluster_q", &mq);
+        mcTree2->Branch("cluster_labelcounter", &lab);
+        mcTree2->Branch("cluster_trackid", &trkid);
+        mcTree2->Branch("cluster_eventid", &evid);
+        mcTree2->Branch("cluster_sourceid", &srcid);
+
+        for(int i = 0; i<elem_counter; i++){
+          sec = sector_vec[i];
+          r = row_vec[i];
+          lab = mc_labelcounter[i];
+          trkid = mc_trackid[i];
+          evid = mc_eventid[i];
+          srcid = mc_sourceid[i];
+          for(auto elem : max_q[i]){
             mp = max_pad[i][idx];
             mt = max_time[i][idx];
             mq = elem;
+            idx++;
+
+            mcTree2->Fill();
           }
+          mp = 0; mt = 0; mq = 0; idx = 0; lab = 0;
         }
-        idx++;
+
+        mcTree2->Write();
+        delete mcTree2;
+        outputFile2.Close();
       }
-      if(mq > reject_maxq && cq > reject_cogq){
-        sfvp = var_pad[i] / (cq - 1.f);
-        sfvt = var_time[i] / (cq - 1.f);
-        if(cq2 != cq){
-          srvp = var_pad[i] / (cq - (cq2 / cq));
-          srvt = var_time[i] / (cq - (cq2 / cq));
-        }
-        p = point_counter[i];
-        mcTree->Fill();
-      }
-      sp = 0; st = 0; sfvp = 0; sfvt = 0; srvp = 0; srvt = 0; mp = 0; mt = 0; mq = 0; idx=0; lab=0; trkid=0; evid=0; srcid=0; cq=-1; cq2=-1;
     }
-
-    mcTree->Write();
-    delete mcTree;
-    outputFile.Close();
-
-    std::stringstream tmp2;
-    tmp2 << "sector_" << mSector;
-    std::stringstream fileName2;
-    fileName2 << "mclabels_ideal_full_" << mSector << ".root";
-    TFile outputFile2(fileName2.str().c_str(), "RECREATE");
-    TTree* mcTree2 = new TTree(tmp2.str().c_str(), "MC tree");
-
-    sec=0; r=0; mp=0; mt=0; idx=0; mq=0; trkid=0; evid=0; srcid=0;
-
-    mcTree2->Branch("cluster_sector", &sec);
-    mcTree2->Branch("cluster_row", &r);
-    mcTree2->Branch("cluster_pad", &mp);
-    mcTree2->Branch("cluster_time", &mt);
-    mcTree2->Branch("cluster_q", &mq);
-    mcTree2->Branch("cluster_labelcounter", &lab);
-    mcTree2->Branch("cluster_trackid", &trkid);
-    mcTree2->Branch("cluster_eventid", &evid);
-    mcTree2->Branch("cluster_sourceid", &srcid);
-
-    for(int i = 0; i<elem_counter; i++){
-      sec = sector_vec[i];
-      r = row_vec[i];
-      lab = mc_labelcounter[i];
-      trkid = mc_trackid[i];
-      evid = mc_eventid[i];
-      srcid = mc_sourceid[i];
-      for(auto elem : max_q[i]){
-        mp = max_pad[i][idx];
-        mt = max_time[i][idx];
-        mq = elem;
-        idx++;
-
-        mcTree2->Fill();
-      }
-      mp = 0; mt = 0; mq = 0; idx = 0; lab = 0;
-    }
-
-    mcTree2->Write();
-    delete mcTree2;
-    outputFile2.Close();
 
     timer.Stop();
     LOG(info) << "TPC: Digitization took " << timer.CpuTime() << "s";
@@ -700,6 +729,7 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
   bool mUseCalibrationsFromCCDB = false;
 
   /// OWN IMPLEMENTATION
+  int8_t mMcClusterizationMode = 2; // enable the custom MC clusterization
   int64_t elem_counter = 0;
   int reject_maxq = 2;
   int reject_cogq = 3;
@@ -755,6 +785,7 @@ o2::framework::DataProcessorSpec getTPCDigitizerSpec(int channel, bool writeGRP,
     Options{
       {"TPCtriggered", VariantType::Bool, false, {"Impose triggered RO mode (default: continuous)"}},
       {"TPCuseCCDB", VariantType::Bool, false, {"true: load calibrations from CCDB; false: use random calibratoins"}},
+      {"mc-clusterization-mode", VariantType::Int, 2, {"0: disabled, 1: cluster properties (mclabels_digitizer files), 2: full readout for all charge bins (mclabels_ideal_full files)"}},
       {"ideal-clusterizer-padsize", VariantType::Int, 4, {"size of the ideal clusterizer in pad direction"}},
       {"ideal-clusterizer-timesize", VariantType::Int, 6, {"size of the ideal clusterizer in time direction"}},
       {"ideal-clusterizer-reject-maxq", VariantType::Int, 2, {"Rejection for ideal clusters: MaxQ"}},

@@ -59,6 +59,7 @@ FIRSTSAMPLEDORBIT=${FIRSTSAMPLEDORBIT:-0}
 OBLIGATORYSOR=${OBLIGATORYSOR:-false}
 FST_TPC_ZSVERSION=${FST_TPC_ZSVERSION:-4}
 TPC_SLOW_REALISITC_FULL_SIM=${TPC_SLOW_REALISITC_FULL_SIM:-0}
+IDEAL_CLUSTERIZER_MODE=${IDEAL_CLUSTERIZER_MODE:-2}
 IDEAL_CLUSTERIZER_PADSIZE=${IDEAL_CLUSTERIZER_PADSIZE:-4}
 IDEAL_CLUSTERIZER_TIMESIZE=${IDEAL_CLUSTERIZER_TIMESIZE:-6}
 INJECT_TRACKS=${INJECT_TRACKS:-""}
@@ -150,7 +151,7 @@ taskwrapper sim.log o2-sim ${FST_BFIELD+--field=}${FST_BFIELD} --seed $O2SIMSEED
 if [[ $DO_EMBEDDING == 1 ]]; then
   taskwrapper embed.log o2-sim ${FST_BFIELD+--field=}${FST_BFIELD} -j $NJOBS --run ${RUNNUMBER} -n $NEvents -g pythia8pp -e ${FST_MC_ENGINE} -o sig --configKeyValues ${FST_EMBEDDING_CONFIG} --embedIntoFile o2sim_Kine.root ${EXTRA_SETTINGS}
 fi
-taskwrapper digi.log o2-sim-digitizer-workflow -n $NEvents ${DIGIQED} ${NOMCLABELS} --sims ${SIM_SOURCES} --tpc-lanes $((NJOBS < 36 ? NJOBS : 36)) --shm-segment-size $SHMSIZE ${GLOBALDPLOPT} ${DIGITOPT} --configKeyValues "\"${DIGITOPTKEY}\"" --interactionRate $FST_COLRATE --early-forward-policy always --ideal-clusterizer-padsize $IDEAL_CLUSTERIZER_PADSIZE --ideal-clusterizer-timesize $IDEAL_CLUSTERIZER_TIMESIZE --tpc-distortion-type $DISTORTIONS_TYPE
+taskwrapper digi.log o2-sim-digitizer-workflow -n $NEvents ${DIGIQED} ${NOMCLABELS} --sims ${SIM_SOURCES} --tpc-lanes $((NJOBS < 36 ? NJOBS : 36)) --shm-segment-size $SHMSIZE ${GLOBALDPLOPT} ${DIGITOPT} --configKeyValues "\"${DIGITOPTKEY}\"" --interactionRate $FST_COLRATE --early-forward-policy always --mc-clusterization-mode $IDEAL_CLUSTERIZER_MODE --ideal-clusterizer-padsize $IDEAL_CLUSTERIZER_PADSIZE --ideal-clusterizer-timesize $IDEAL_CLUSTERIZER_TIMESIZE --tpc-distortion-type $DISTORTIONS_TYPE
 [[ $SPLITTRDDIGI == "1" ]] && taskwrapper digiTRD.log o2-sim-digitizer-workflow -n $NEvents ${NOMCLABELS} --sims ${SIM_SOURCES} --onlyDet TRD --trd-digit-downscaling ${DIGITDOWNSCALINGTRD} --shm-segment-size $SHMSIZE ${GLOBALDPLOPT} --incontext collisioncontext.root --configKeyValues "\"${DIGITOPTKEYTRD}\"" --early-forward-policy always --tpc-distortion-type $DISTORTIONS_TYPE
 touch digiTRD.log_done
 

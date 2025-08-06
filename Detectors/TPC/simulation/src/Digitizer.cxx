@@ -184,17 +184,17 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
           const float time = absoluteTime + i * eleParam.ZbinWidth;
           mDigitContainer.addDigit(label, digiPadPos.getCRU(), sampaProcessing.getTimeBinFromTime(time), globalPad,
                                    signalArray[i]);
-          
+
           /// OWN IMPLEMENTATION
-          if((float)signalArray[i]>0 && !std::isnan((float)signalArray[i])){
+          if(mMcClusterizationMode>0 && (float)signalArray[i]>0 && !std::isnan((float)signalArray[i])) {
 
             currentSignal = (float)(signalArray[i]); currentPadPos = (int)(digiPadPos.getGlobalPadPos().getPad()); currentTimeBin = (int)(sampaProcessing.getTimeBinFromTime(time)); currentRow = (int)(digiPadPos.getGlobalPadPos().getRow()); currentSector = (int)(digiPadPos.getCRU().sector());
             label_counter = 0; track_found = false; max_idx = 0; max_idx_found = false;
 
             for(auto lab : mclabel){
               track_found = ((label.compare(lab)==1) &&
-                             (row[label_counter]==currentRow) && 
-                             (std::abs(currentTimeBin - cog_time[label_counter])<=window_size[0]) && 
+                             (row[label_counter]==currentRow) &&
+                             (std::abs(currentTimeBin - cog_time[label_counter])<=window_size[0]) &&
                              (std::abs(currentPadPos - cog_pad[label_counter])<=window_size[1]));
               if(track_found){
                 break;
@@ -211,22 +211,24 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
               //   max_pad[label_counter] = currentPadPos;
               // }
 
-              for(auto const elem : max_q[label_counter]){
-                if((max_time[label_counter][max_idx] == currentTimeBin) && (max_pad[label_counter][max_idx] == currentPadPos)){
-                  max_q[label_counter][max_idx] += currentSignal;
-                  max_idx_found = true;
-                  max_idx = 0;
-                  break;
+              if(mMcClusterizationMode>1) {
+                for(auto const elem : max_q[label_counter]){
+                  if((max_time[label_counter][max_idx] == currentTimeBin) && (max_pad[label_counter][max_idx] == currentPadPos)){
+                    max_q[label_counter][max_idx] += currentSignal;
+                    max_idx_found = true;
+                    max_idx = 0;
+                    break;
+                  }
+                  else{
+                    max_idx++;
+                  }
                 }
-                else{
-                  max_idx++;
-                }
-              }
 
-              if(!max_idx_found){
-                max_time[label_counter].push_back(currentTimeBin);
-                max_pad[label_counter].push_back(currentPadPos);
-                max_q[label_counter].push_back(currentSignal);
+                if(!max_idx_found){
+                  max_time[label_counter].push_back(currentTimeBin);
+                  max_pad[label_counter].push_back(currentPadPos);
+                  max_q[label_counter].push_back(currentSignal);
+                }
               }
 
               /// On-the-fly center-of-gravity and variance calculation: Weighted welford online algorithm
@@ -254,12 +256,9 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
               //   LOG(info) << "New CoG: (pad) " << cog_pad[label_counter] << ", (time) " << cog_time[label_counter] << ", (charge) " << cog_q[label_counter];
               // }
             }
-            else{
+            else {
               sector.push_back(currentSector);
               row.push_back(currentRow);
-              max_time.push_back(std::vector<int>{currentTimeBin});
-              max_pad.push_back(std::vector<int>{currentPadPos});
-              max_q.push_back(std::vector<float>{currentSignal});
               cog_time.push_back(currentTimeBin);
               cog_pad.push_back(currentPadPos);
               cog_q.push_back(currentSignal);
@@ -273,9 +272,15 @@ void Digitizer::process(const std::vector<o2::tpc::HitGroup>& hits,
               mclabel_sourceID.push_back(label.getSourceID());
               mclabel_assigned.push_back(label_counter);
               elem_counter++;
+
+              if(mMcClusterizationMode>1) {
+                max_time.push_back(std::vector<int>{currentTimeBin});
+                max_pad.push_back(std::vector<int>{currentPadPos});
+                max_q.push_back(std::vector<float>{currentSignal});
+              }
             }
           }
-          
+
         }
         /// TODO: add ion backflow to space-charge density
       }
