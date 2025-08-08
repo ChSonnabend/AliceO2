@@ -159,7 +159,7 @@ CCDBHelpers::ParserResult CCDBHelpers::parseRemappings(char const* str)
   }
 }
 
-auto getOrbitResetTime(o2::pmr::vector<char> const& v) -> Long64_t
+auto getOrbitResetTime(std::pmr::vector<char> const& v) -> Long64_t
 {
   Int_t previousErrorLevel = gErrorIgnoreLevel;
   gErrorIgnoreLevel = kFatal;
