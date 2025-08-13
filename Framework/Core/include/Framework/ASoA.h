@@ -2165,61 +2165,14 @@ void emptyColumnLabel();
 
 namespace row_helpers
 {
-template <soa::is_persistent_column... Cs>
-std::array<arrow::ChunkedArray*, sizeof...(Cs)> getArrowColumns(arrow::Table* table, framework::pack<Cs...>)
-{
-  return std::array<arrow::ChunkedArray*, sizeof...(Cs)>{o2::soa::getIndexFromLabel(table, Cs::columnLabel())...};
-}
-
-template <soa::is_persistent_column... Cs>
-std::array<std::shared_ptr<arrow::Array>, sizeof...(Cs)> getChunks(arrow::Table* table, framework::pack<Cs...>, uint64_t ci)
-{
-  return std::array<std::shared_ptr<arrow::Array>, sizeof...(Cs)>{o2::soa::getIndexFromLabel(table, Cs::columnLabel())->chunk(ci)...};
-}
-
-template <typename T, soa::is_persistent_column C>
-typename C::type getSingleRowData(arrow::Table* table, T& rowIterator, uint64_t ci = std::numeric_limits<uint64_t>::max(), uint64_t ai = std::numeric_limits<uint64_t>::max(), uint64_t globalIndex = std::numeric_limits<uint64_t>::max())
-{
-  if (ci == std::numeric_limits<uint64_t>::max() || ai == std::numeric_limits<uint64_t>::max()) {
-    auto colIterator = static_cast<C>(rowIterator).getIterator();
-    ci = colIterator.mCurrentChunk;
-    ai = *(colIterator.mCurrentPos) - colIterator.mFirstIndex;
-  }
-  return std::static_pointer_cast<o2::soa::arrow_array_for_t<typename C::type>>(o2::soa::getIndexFromLabel(table, C::columnLabel())->chunk(ci))->raw_values()[ai];
-}
-
-template <typename T, soa::is_dynamic_column C>
-typename C::type getSingleRowData(arrow::Table*, T& rowIterator, uint64_t ci = std::numeric_limits<uint64_t>::max(), uint64_t ai = std::numeric_limits<uint64_t>::max(), uint64_t globalIndex = std::numeric_limits<uint64_t>::max())
-{
-  if (globalIndex != std::numeric_limits<uint64_t>::max() && globalIndex != *std::get<0>(rowIterator.getIndices())) {
-    rowIterator.setCursor(globalIndex);
-  }
-  return rowIterator.template getDynamicColumn<C>();
-}
-
-template <typename T, soa::is_index_column C>
-typename C::type getSingleRowData(arrow::Table*, T& rowIterator, uint64_t ci = std::numeric_limits<uint64_t>::max(), uint64_t ai = std::numeric_limits<uint64_t>::max(), uint64_t globalIndex = std::numeric_limits<uint64_t>::max())
-{
-  if (globalIndex != std::numeric_limits<uint64_t>::max() && globalIndex != *std::get<0>(rowIterator.getIndices())) {
-    rowIterator.setCursor(globalIndex);
-  }
-  return rowIterator.template getId<C>();
-}
-
-template <typename T, typename... Cs>
-std::tuple<typename Cs::type...> getRowData(arrow::Table* table, T rowIterator, uint64_t ci = std::numeric_limits<uint64_t>::max(), uint64_t ai = std::numeric_limits<uint64_t>::max(), uint64_t globalIndex = std::numeric_limits<uint64_t>::max())
-{
-  return std::make_tuple(getSingleRowData<T, Cs>(table, rowIterator, ci, ai, globalIndex)...);
-}
-
-namespace
-{
 template <typename R, typename T, typename C>
 R getColumnValue(const T& rowIterator)
 {
   return static_cast<R>(static_cast<C>(rowIterator).get());
 }
 
+namespace
+{
 template <typename R, typename T>
 using ColumnGetterFunction = R (*)(const T&);
 
