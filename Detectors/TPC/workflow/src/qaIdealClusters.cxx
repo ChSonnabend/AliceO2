@@ -1042,12 +1042,12 @@ void qaCluster::publishDeconvolutionFlags(int sector, tpc2d& map2d, std::vector<
           isSplit = 0;
           has3x3 = (int)(flag > 0);
         }
-        if (dPad <= 1 && dTime<= 1) {
+        if (dPad <= 1 && dTime <= 1) {
           flagPad += (dPad>0) * isSplit;
           flagTime += (dTime>0) * isSplit;
         } else if (dPad <= 2 && dTime <= 2) {
-          flagPad += (dPad>0) * isSplit * has3x3;
-          flagTime += (dTime>0) * isSplit * has3x3;
+          flagPad += (dPad>0) * isSplit * (int)(has3x3==0);
+          flagTime += (dTime>0) * isSplit * (int)(has3x3==0);
         }
       }
     }
@@ -2059,7 +2059,7 @@ void qaCluster::cluster_overlap(int sector, std::array<std::vector<std::vector<f
           }
           for (auto& pair : charge_overlap_map) {
             int map_trkid = overlap_info_trkid_map[padrow][pair.first];
-            overlap_info[padrow][map_trkid][4] += (pair.second * pair.second) / total_charge; // == "Weighted" charge or effective charge
+            overlap_info[padrow][map_trkid][4] += pair.second / total_charge; // == "Weighted" charge or effective charge
           }
           found_mcids.clear();
         }
