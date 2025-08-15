@@ -169,6 +169,7 @@ static const constexpr char* PARAMETER_NAMES[5] = {"Y", "Z", "#Phi", "#lambda", 
 static const constexpr char* PARAMETER_NAMES_NATIVE[5] = {"Y", "Z", "sin(#Phi)", "tan(#lambda)", "q/#it{p}_{T} (curvature)"};
 static const constexpr char* VSPARAMETER_NAMES[6] = {"Y", "Z", "Phi", "Eta", "Pt", "Pt_log"};
 static const constexpr char* EFF_NAMES[3] = {"Efficiency", "Clone Rate", "Fake Rate"};
+static const constexpr char* CHI2_TRACK_STATS_NAMES[6] = {"chi2_ncl_allTracks", "chi2_ncl_goodTracks", "chi2_ncl_fakeTracks", "chi2_nrows_allTracks", "chi2_nrows_goodTracks", "chi2_nrows_fakeTracks"};
 static const constexpr char* N_NCL_TRACK_HIST_NAMES[GPUQA::N_NCL_TRACK_HISTS] = {"nclusters", "nrows_with_cluster", "correctly_attached_rows", "fake_attached_rows"};
 static const constexpr char* N_NCL_TRACK_HIST_LEGENDS[GPUQA::N_NCL_TRACK_HISTS] = {"Number of clusters per track", "Number of clusters (corrected for multiple per row)", "Attachment efficiency (correctly attached rows / total number of rows with clusters)", "Fake attachment efficiency (fake attached rows / total number of rows with clusters)"};
 static const constexpr char* EFFICIENCY_TITLES[4] = {"Efficiency (Primary Tracks, Findable)", "Efficiency (Secondary Tracks, Findable)", "Efficiency (Primary Tracks)", "Efficiency (Secondary Tracks)"};
@@ -528,7 +529,7 @@ int32_t GPUQA::InitQACreateHistograms()
   }
 
   if (mQATasks & taskTrackStatistics) {
-    // Create Tracks Histograms
+    // Create Cluster Histograms
     for (int32_t i = 0; i < GPUQA::N_NCL_TRACK_HISTS; i++) {
       snprintf(name, 2048, N_NCL_TRACK_HIST_NAMES[i]);
       if (i < 2) {
@@ -536,6 +537,12 @@ int32_t GPUQA::InitQACreateHistograms()
       } else if (i < 4) { // Attachment efficiencies
         createHist(mNCl[i], name, name, 100, 0, 1);
       }
+    }
+    // Create Chi2 Histograms
+    for (int32_t i = 0; i < 6; i++) {
+      int idx = i / 3.f;
+      snprintf(name, 2048, CHI2_TRACK_STATS_NAMES[i]);
+      createHist(chi2TrackStats[i % 3][idx], name, name, 201, 0, 10);
     }
     snprintf(name, 2048, "tracks");
     std::unique_ptr<double[]> binsPt{CreateLogAxis(AXIS_BINS[4], PT_MIN_CLUST, PT_MAX)};
@@ -1753,7 +1760,26 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
       }
       mClusterEfficiencies.nTracksUsed++;
       mNCl[1]->Fill(nClCorrected);
+      float chi2Trk = track.GetParam().GetChi2();
+      float nclFitted = track.NClustersFitted();
+      chi2TrackStats[0][0]->Fill(chi2Trk/(2.f*nclFitted - 5.f));
+      if (nClCorrected > 0) {
+        chi2TrackStats[0][1]->Fill(chi2Trk/(2.f*nClCorrected - 5.f));
+      }
       if (mcAvail) {
+        const mcLabelI_t& trkLabel = mTrackMCLabels[i];
+        if (trkLabel.isValid() && !trkLabel.isNoise() && !trkLabel.isFake()) {
+          chi2TrackStats[1][0]->Fill(chi2Trk/(2.f*nclFitted - 5.f));
+          if (nClCorrected > 0) {
+            chi2TrackStats[1][1]->Fill(chi2Trk/(2.f*nClCorrected - 5.f));
+          }
+        }
+        if (trkLabel.isFake()) {
+          chi2TrackStats[2][0]->Fill(chi2Trk/(2.f*nclFitted - 5.f));
+          if (nClCorrected > 0) {
+            chi2TrackStats[2][1]->Fill(chi2Trk/(2.f*nClCorrected - 5.f));
+          }
+        }
         if (nClCorrected > 0) {
           float attachmentEfficiency = (correctlyAttachedRows / (float)nClCorrected),
               fakeAttachmentEfficiency = (fakeAttachedRows / (float)nClCorrected); // / (mClusterParam[hitId].attached + mClusterParam[hitId].fakeAttached));
@@ -2187,6 +2213,18 @@ int32_t GPUQA::DrawQAHistograms(TObjArray* qcout)
       mCClXY->cd();
       mPClXY = createGarbageCollected<TPad>("p0", "", 0.0, 0.0, 1.0, 1.0);
       mPClXY->Draw();
+    }
+
+
+    if (tout && !mConfig.inputHistogramsOnly && (mQATasks & taskTrackStatistics)) {
+      for (int i = 0; i < 3; i++) {          // 0: all, 1: good, 2: fake
+        for (int j = 0; j < 2; j++) {        // 0: chi2/(2*Ncl-5), 1: chi2/(2*Nrows-5)
+          if (chi2TrackStats[i][j]) {
+            chi2TrackStats[i][j]->Write();
+          }
+        }
+      }
+      GPUInfo("Wrote chi2TrackStats histograms to output file %s", mConfig.output.c_str());
     }
   }
 

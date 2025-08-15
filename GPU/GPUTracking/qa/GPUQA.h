@@ -262,6 +262,7 @@ class GPUQA
 
   TH1F* mEff[5][2][2][5]; // eff,clone,fake,all,all-fake - findable - secondaries - y,z,phi,eta,pt - work,result
   TGraphAsymmErrors* mEffResult[4][2][2][5];
+  TH1F* chi2TrackStats[3][2]; // [i]: All tracks, good tracks, fake tracks, [:][0]: chi2/(2*NCL - 5), chi2/(2*NRows - 5),
   TCanvas* mCEff[6];
   TPad* mPEff[6][4];
   TLegend* mLEff[6];
