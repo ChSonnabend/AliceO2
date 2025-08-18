@@ -169,7 +169,8 @@ static const constexpr char* PARAMETER_NAMES[5] = {"Y", "Z", "#Phi", "#lambda", 
 static const constexpr char* PARAMETER_NAMES_NATIVE[5] = {"Y", "Z", "sin(#Phi)", "tan(#lambda)", "q/#it{p}_{T} (curvature)"};
 static const constexpr char* VSPARAMETER_NAMES[6] = {"Y", "Z", "Phi", "Eta", "Pt", "Pt_log"};
 static const constexpr char* EFF_NAMES[3] = {"Efficiency", "Clone Rate", "Fake Rate"};
-static const constexpr char* CHI2_TRACK_STATS_NAMES[6] = {"chi2_ncl_allTracks", "chi2_ncl_goodTracks", "chi2_ncl_fakeTracks", "chi2_nrows_allTracks", "chi2_nrows_goodTracks", "chi2_nrows_fakeTracks"};
+static const constexpr char* CHI2_TRACK_STATS_NAMES[12] = {"chi2_ncl_allTracks", "chi2_ncl_goodTracks", "chi2_ncl_fakeTracks", "chi2_nrows_allTracks", "chi2_nrows_goodTracks", "chi2_nrows_fakeTracks",
+                                                          "chi2_ncl_allTracks_geq130", "chi2_ncl_goodTracks_geq130", "chi2_ncl_fakeTracks_geq130", "chi2_nrows_allTracks_geq60", "chi2_nrows_goodTracks_geq60", "chi2_nrows_fakeTracks_geq60"};
 static const constexpr char* N_NCL_TRACK_HIST_NAMES[GPUQA::N_NCL_TRACK_HISTS] = {"nclusters", "nrows_with_cluster", "correctly_attached_rows", "fake_attached_rows"};
 static const constexpr char* N_NCL_TRACK_HIST_LEGENDS[GPUQA::N_NCL_TRACK_HISTS] = {"Number of clusters per track", "Number of clusters (corrected for multiple per row)", "Attachment efficiency (correctly attached rows / total number of rows with clusters)", "Fake attachment efficiency (fake attached rows / total number of rows with clusters)"};
 static const constexpr char* EFFICIENCY_TITLES[4] = {"Efficiency (Primary Tracks, Findable)", "Efficiency (Secondary Tracks, Findable)", "Efficiency (Primary Tracks)", "Efficiency (Secondary Tracks)"};
@@ -539,7 +540,7 @@ int32_t GPUQA::InitQACreateHistograms()
       }
     }
     // Create Chi2 Histograms
-    for (int32_t i = 0; i < 6; i++) {
+    for (int32_t i = 0; i < 12; i++) {
       int idx = i / 3.f;
       snprintf(name, 2048, CHI2_TRACK_STATS_NAMES[i]);
       createHist(chi2TrackStats[i % 3][idx], name, name, 201, 0, 10);
@@ -1763,6 +1764,12 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
       float chi2Trk = track.GetParam().GetChi2();
       float nclFitted = track.NClustersFitted();
       chi2TrackStats[0][0]->Fill(chi2Trk/(2.f*nclFitted - 5.f));
+      if (nclFitted>=130) {
+        chi2TrackStats[0][2]->Fill(chi2Trk/(2.f*nclFitted - 5.f));
+      } else if (nclFitted>=60) {
+        chi2TrackStats[0][2]->Fill(chi2Trk/(2.f*nclFitted - 5.f));
+        chi2TrackStats[0][3]->Fill(chi2Trk/(2.f*nclFitted - 5.f));
+      }
       if (nClCorrected > 0) {
         chi2TrackStats[0][1]->Fill(chi2Trk/(2.f*nClCorrected - 5.f));
       }
@@ -1770,12 +1777,24 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
         const mcLabelI_t& trkLabel = mTrackMCLabels[i];
         if (trkLabel.isValid() && !trkLabel.isNoise() && !trkLabel.isFake()) {
           chi2TrackStats[1][0]->Fill(chi2Trk/(2.f*nclFitted - 5.f));
+          if (nclFitted>=130) {
+            chi2TrackStats[1][2]->Fill(chi2Trk/(2.f*nclFitted - 5.f));
+          } else if (nclFitted>=60) {
+            chi2TrackStats[1][2]->Fill(chi2Trk/(2.f*nclFitted - 5.f));
+            chi2TrackStats[1][3]->Fill(chi2Trk/(2.f*nclFitted - 5.f));
+          }
           if (nClCorrected > 0) {
             chi2TrackStats[1][1]->Fill(chi2Trk/(2.f*nClCorrected - 5.f));
           }
         }
         if (trkLabel.isFake()) {
           chi2TrackStats[2][0]->Fill(chi2Trk/(2.f*nclFitted - 5.f));
+          if (nclFitted>=130) {
+            chi2TrackStats[2][2]->Fill(chi2Trk/(2.f*nclFitted - 5.f));
+          } else if (nclFitted>=60) {
+            chi2TrackStats[2][2]->Fill(chi2Trk/(2.f*nclFitted - 5.f));
+            chi2TrackStats[2][3]->Fill(chi2Trk/(2.f*nclFitted - 5.f));
+          }
           if (nClCorrected > 0) {
             chi2TrackStats[2][1]->Fill(chi2Trk/(2.f*nClCorrected - 5.f));
           }
@@ -2218,7 +2237,7 @@ int32_t GPUQA::DrawQAHistograms(TObjArray* qcout)
 
     if (tout && !mConfig.inputHistogramsOnly && (mQATasks & taskTrackStatistics)) {
       for (int i = 0; i < 3; i++) {          // 0: all, 1: good, 2: fake
-        for (int j = 0; j < 2; j++) {        // 0: chi2/(2*Ncl-5), 1: chi2/(2*Nrows-5)
+        for (int j = 0; j < 4; j++) {        // 0: chi2/(2*Ncl-5), 1: chi2/(2*Nrows-5)
           if (chi2TrackStats[i][j]) {
             chi2TrackStats[i][j]->Write();
           }
