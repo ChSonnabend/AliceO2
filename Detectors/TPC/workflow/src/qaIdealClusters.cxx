@@ -361,7 +361,7 @@ void qaCluster::read_ideal(int sector, std::vector<customCluster>& ideal_map)
   tmp_sec << "sector_" << sector;
   auto digitizerSector = (TTree*)inputFile->Get(tmp_sec.str().c_str());
 
-  // digitizerSector->SetBranchAddress("cluster_sector", &sec);
+  digitizerSector->SetBranchAddress("cluster_sector", &sec);
   digitizerSector->SetBranchAddress("cluster_row", &row);
   digitizerSector->SetBranchAddress("cluster_cog_pad", &cogp);
   digitizerSector->SetBranchAddress("cluster_cog_time", &cogt);
@@ -376,25 +376,15 @@ void qaCluster::read_ideal(int sector, std::vector<customCluster>& ideal_map)
   digitizerSector->SetBranchAddress("cluster_sourceid", &srcid);
   // digitizerSector->SetBranchAddress("cluster_points", &pcount);
 
-  if (overwrite_max_time) {
-    count_clusters = digitizerSector->GetEntries();
-  } else {
-    for (uint j = 0; j < digitizerSector->GetEntries(); j++) {
-      digitizerSector->GetEntry(j);
-      if (maxt < max_time[sector] && cogt < max_time[sector]) {
-        count_clusters++;
-      }
-    }
-  }
-
-  ideal_map.resize(count_clusters);
-  count_clusters = 0;
-
+  ideal_map.clear(); // Clear any existing data
   int counter_fakes = 0, counter_noise = 0;
 
   for (uint j = 0; j < digitizerSector->GetEntries(); j++) {
     try {
       digitizerSector->GetEntry(j);
+      if (sec != sector) {
+        continue;
+      }
       if (trkid == default_mc_labels::Noise) {
         counter_noise++;
         continue;
@@ -405,7 +395,7 @@ void qaCluster::read_ideal(int sector, std::vector<customCluster>& ideal_map)
       }
       auto const mctrk = mctracks[srcid][evid][trkid];
       if (overwrite_max_time) {
-        ideal_map[count_clusters] = customCluster{sector, row, maxp, maxt, cogp, cogt, sigmap, sigmat, maxq, cogq, 0, trkid, evid, srcid, (int)count_clusters, 0.f, -1.f, -1.f};
+        ideal_map.push_back(customCluster{sector, row, maxp, maxt, cogp, cogt, sigmap, sigmat, maxq, cogq, 0, trkid, evid, srcid, (int)count_clusters, 0.f, -1.f, -1.f});
         if (maxt >= max_time[sector]){
           max_time[sector] = maxt + 1;
         }
@@ -415,7 +405,7 @@ void qaCluster::read_ideal(int sector, std::vector<customCluster>& ideal_map)
         count_clusters++;
       } else {
         if (maxt < max_time[sector] && cogt < max_time[sector]) {
-          ideal_map[count_clusters] = customCluster{sector, row, maxp, maxt, cogp, cogt, sigmap, sigmat, maxq, cogq, 0, trkid, evid, srcid, (int)count_clusters, 0.f, -1.f, -1.f};
+          ideal_map.push_back(customCluster{sector, row, maxp, maxt, cogp, cogt, sigmap, sigmat, maxq, cogq, 0, trkid, evid, srcid, (int)count_clusters, 0.f, -1.f, -1.f});
           count_clusters++;
         }
       }
@@ -817,7 +807,7 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
     }
     if (fillmode == 0 || fillmode == -1) {
       std::vector<customCluster> new_ideal_map;
-      int overwrite_index = 0, found_overwrites = 0, overwrites_with_different_mc = 0, idx_counter = 0;
+      int found_overwrites = 0, overwrites_with_different_mc = 0, idx_counter = 0;
       for (auto idl : ideal_map) {
         map_ptr = &map2d[0][idl.max_time + global_shift[1]][idl.row + rowOffset(idl.row) + global_shift[2]][idl.max_pad + global_shift[0] + padOffset(idl.row)];
         if (*map_ptr != -1) {
@@ -831,10 +821,12 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
               // cls.qMax += idl.qMax;
               // overwrite_index = cls.index;
               if (idl.qMax > cls.qMax) {
+                if(verbose >= 4) {
+                  LOG(warning) << "[" << sector << "] Overwrite detected! Current MaxQ : " << cls.qMax << " (mcTrkId=" << cls.mcTrkId << "); New MaxQ: " << idl.qMax << " (mcTrkId=" << idl.mcTrkId << "); Index " << cls.index << "/" << ideal_map.size();
+                }
                 int idx = cls.index;
                 new_ideal_map[idx] = idl; // Overwrite the cluster with the new one if the new one has a higher qMax
                 new_ideal_map[idx].index = idx; // Keep the old index
-                overwrite_index = idx;
                 *map_ptr = idx;
               }
               if (idl.mcTrkId != cls.mcTrkId) {
@@ -843,9 +835,6 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
               found_overwrites++;
               break;
             }
-          }
-          if(verbose >= 4) {
-            LOG(warning) << "[" << sector << "] Conflict detected! Current MaxQ : " << idl.qMax << "; New MaxQ: " << new_ideal_map[overwrite_index].qMax << "; Index " << overwrite_index << "/" << ideal_map.size();
           }
         } else {
           idl.index = idx_counter;
@@ -875,7 +864,7 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
     }
     if (fillmode == 0 || fillmode == -1) {
       std::vector<customCluster> new_ideal_map;
-      int overwrite_index = 0, found_overwrites = 0, overwrites_with_different_mc = 0, idx_counter = 0;
+      int found_overwrites = 0, overwrites_with_different_mc = 0, idx_counter = 0;
       for (auto idl : ideal_map) {
         map_ptr = &map2d[0][round(idl.cog_time) + global_shift[1]][idl.row + rowOffset(idl.row) + global_shift[2]][round(idl.cog_pad) + global_shift[0] + padOffset(idl.row)];
         if (*map_ptr != -1) {
@@ -892,18 +881,17 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
                 overwrites_with_different_mc++;
               }
               if (idl.qMax > cls.qMax) {
+                if(verbose >= 4) {
+                  LOG(warning) << "[" << sector << "] Overwrite detected! Current MaxQ : " << cls.qMax << " (mcTrkId=" << cls.mcTrkId << "); New MaxQ: " << idl.qMax << " (mcTrkId=" << idl.mcTrkId << "); Index " << cls.index << "/" << ideal_map.size();
+                }
                 int idx = cls.index;
                 new_ideal_map[idx] = idl; // Overwrite the cluster with the new one if the new one has a higher qMax
                 new_ideal_map[idx].index = idx; // Keep the old index
-                overwrite_index = idx;
                 *map_ptr = idx;
               }
               found_overwrites++;
               break;
             }
-          }
-          if(verbose >= 4) {
-            LOG(warning) << "[" << sector << "] Conflict detected! Current MaxQ : " << idl.qMax << "; New MaxQ: " << new_ideal_map[overwrite_index].qMax << "; Index " << overwrite_index << "/" << ideal_map.size();
           }
         } else {
           idl.index = idx_counter;
@@ -2402,7 +2390,7 @@ void qaCluster::runQa(int sector)
       }
     }
     for (int idx_dig : assignments_dig_to_id[locideal]) {
-      if (checkIdx(idx_dig) && idx_dig < fractional_clones_vector.size() && idx_dig < fractional_clones_vector_wLoopers.size()) {
+      if (checkIdx(idx_dig) && idx_dig < fractional_clones_vector.size() && idx_dig < fractional_clones_vector_wLoopers.size() && count_links > 1) {
         if (!ideal_tagged[locideal]) {
           fractional_clones_vector[idx_dig] += 1.f / (float)count_links;
         }
@@ -3193,11 +3181,8 @@ void qaCluster::runQa(int sector)
       }
       tr_data->Fill();
     }
-    LOG(info) << "[" << sector << "] Writing to ROOT file";
     tr_data->Write();
-    LOG(info) << "[" << sector << "] Finished writing to ROOT file";
     outputFileTrData->Close();
-    LOG(info) << "[" << sector << "] Done writing file for sector " << sector;
   }
 
   if (mode.find(std::string("write_ideal")) != std::string::npos && create_output == 1) {
