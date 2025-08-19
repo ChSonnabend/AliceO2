@@ -529,12 +529,8 @@ void qaCluster::read_tracking_clusters(bool mc){
         trkcopy.getXYZGlo(track_point[cl]);
         if(propagation_status[cl]){
           propagation_status[cl] = propagation_status[cl] && trkcopy.getPxPyPzGlo(momentum_after_propagation[cl]);
-        } else {
-          if(verbose > 2) {
-            LOG(warning) << "Track propagation failed! (Track " << k << ", cluster " << cl << ")";
-          }
         }
-      } else if(verbose > 2) {
+      } else if(verbose > 3) {
         LOG(warning) << "Track rotation failed! (Track " << k << ", cluster " << cl << ")";
       }
 
@@ -836,8 +832,9 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
               // overwrite_index = cls.index;
               if (idl.qMax > cls.qMax) {
                 int idx = cls.index;
-                cls = idl; // Overwrite the cluster with the new one if the new one has a higher qMax
-                cls.index = idx; // Keep the old index
+                new_ideal_map[idx] = idl; // Overwrite the cluster with the new one if the new one has a higher qMax
+                new_ideal_map[idx].index = idx; // Keep the old index
+                overwrite_index = idx;
                 *map_ptr = idx;
               }
               if (idl.mcTrkId != cls.mcTrkId) {
@@ -847,7 +844,7 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
               break;
             }
           }
-          if(verbose >= 3) {
+          if(verbose >= 4) {
             LOG(warning) << "[" << sector << "] Conflict detected! Current MaxQ : " << idl.qMax << "; New MaxQ: " << new_ideal_map[overwrite_index].qMax << "; Index " << overwrite_index << "/" << ideal_map.size();
           }
         } else {
@@ -891,20 +888,21 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
               // cls.qTot += idl.qTot;
               // cls.qMax += idl.qMax;
               // overwrite_index = cls.index;
-              if (idl.qMax > cls.qMax) {
-                int idx = cls.index;
-                cls = idl; // Overwrite the cluster with the new one if the new one has a higher qMax
-                cls.index = idx; // Keep the old index
-                *map_ptr = idx;
-              }
               if (idl.mcTrkId != cls.mcTrkId) {
                 overwrites_with_different_mc++;
+              }
+              if (idl.qMax > cls.qMax) {
+                int idx = cls.index;
+                new_ideal_map[idx] = idl; // Overwrite the cluster with the new one if the new one has a higher qMax
+                new_ideal_map[idx].index = idx; // Keep the old index
+                overwrite_index = idx;
+                *map_ptr = idx;
               }
               found_overwrites++;
               break;
             }
           }
-          if(verbose >= 3) {
+          if(verbose >= 4) {
             LOG(warning) << "[" << sector << "] Conflict detected! Current MaxQ : " << idl.qMax << "; New MaxQ: " << new_ideal_map[overwrite_index].qMax << "; Index " << overwrite_index << "/" << ideal_map.size();
           }
         } else {
@@ -1051,7 +1049,10 @@ void qaCluster::publishDeconvolutionFlags(int sector, tpc2d& map2d, std::vector<
         }
       }
     }
-    digit_map[map2d[1][mtime + global_shift[1]][row + row_offset + global_shift[2]][mpad + global_shift[0] + pad_offset]].flag = valueSplitPeak * flagPad + flagTime;
+    int access_idx = map2d[1][mtime + global_shift[1]][row + row_offset + global_shift[2]][mpad + global_shift[0] + pad_offset];
+    if (access_idx > 0 && access_idx < digit_map.size()){
+      digit_map[access_idx].flag = valueSplitPeak * flagPad + flagTime;
+    }
   }
   LOG(info) << "[" << sector << "] Published deconvolution flags for " << digit_map.size() << " digits.";
 }
@@ -3053,7 +3054,15 @@ void qaCluster::runQa(int sector)
             //   }
             // }
             if (attach_tracks && track_cluster_to_ideal_assignment[ideal_idx] != -1) {
-              track_assignment[max_point][counter] = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].index;
+              if (counter > 4) {
+                if (verbose > 3) LOG(info) << "[" << sector << "] Too many track attachments found! Skipping further attachment";
+              } else {
+                if (track_cluster_to_ideal_assignment[ideal_idx] > tracking_paths[sector].size()) {
+                  if (verbose > 3) LOG(info) << "[" << sector << "] Track assignment out of bounds. Skipping: ideal_idx=" << ideal_idx << "; (track_cluster_to_ideal_assignment[ideal_idx]) " << track_cluster_to_ideal_assignment[ideal_idx] << " / " << tracking_paths[sector].size();
+                } else {
+                  track_assignment[max_point][counter] = tracking_paths[sector][track_cluster_to_ideal_assignment[ideal_idx]].index;
+                }
+              }
             }
             tr_data_Y_reg[max_point][counter][0] = idl.cog_pad - dig.max_pad;                           // pad
             tr_data_Y_reg[max_point][counter][1] = idl.cog_time - dig.max_time;                         // time
@@ -3184,8 +3193,11 @@ void qaCluster::runQa(int sector)
       }
       tr_data->Fill();
     }
+    LOG(info) << "[" << sector << "] Writing to ROOT file";
     tr_data->Write();
+    LOG(info) << "[" << sector << "] Finished writing to ROOT file";
     outputFileTrData->Close();
+    LOG(info) << "[" << sector << "] Done writing file for sector " << sector;
   }
 
   if (mode.find(std::string("write_ideal")) != std::string::npos && create_output == 1) {
