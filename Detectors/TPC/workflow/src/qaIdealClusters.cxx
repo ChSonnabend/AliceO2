@@ -163,10 +163,10 @@ void qaCluster::read_digits(int sector, std::vector<customCluster>& digit_map, b
       LOG(info) << "[" << sector << "] Reading the drift time digits...";
 
     // Get list of all tpcdrifttime_digits files
-    auto digitfilelist = o2::utils::listFiles(simulationPath + "/tpc_drifttime_digits_lane*.root");
+    auto digitfilelist = o2::utils::listFiles(simulationPath, "tpc_driftime_digits_lane.*.root"); // Bug in O2: Only one t?
 
     if (digitfilelist.empty()) {
-      LOG(error) << "[" << sector << "] No tpc_drifttime_digits files found matching pattern tpc_drifttime_digits_lane*.root";
+      LOG(error) << "[" << sector << "] No tpc_driftime_digits files found matching pattern tpc_driftime_digits_lane*.root";
       return;
     }
 
