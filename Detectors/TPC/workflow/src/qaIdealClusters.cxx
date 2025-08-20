@@ -1,4 +1,5 @@
 #include "TPCWorkflow/QaIdealClusters.h"
+#include "CommonUtils/FileSystemUtils.h"
 
 // ---------------------------------
 qaCluster::qaCluster(std::unordered_map<std::string, std::string> options_map)
@@ -28,6 +29,7 @@ void qaCluster::init(InitContext& ic)
   numThreads = ic.options().get<int>("threads");
   inFileDigits = ic.options().get<std::string>("infile-digits");
   inPathRecoDigits = ic.options().get<std::string>("read-reco-digits");
+  readDrifttimeDigits = ic.options().get<int>("read-drifttime-digits");
   inFileNative = ic.options().get<std::string>("infile-native");
   inFileKinematics = ic.options().get<std::string>("infile-kinematics");
   inFileTracks = ic.options().get<std::string>("infile-tracks");
@@ -156,61 +158,167 @@ bool qaCluster::checkIdx(int idx)
 void qaCluster::read_digits(int sector, std::vector<customCluster>& digit_map, bool overwrite_time)
 {
 
-  if (verbose >= 1)
-    LOG(info) << "[" << sector << "] Reading the digits...";
+  if (readDrifttimeDigits) {
+    if (verbose >= 1)
+      LOG(info) << "[" << sector << "] Reading the drift time digits...";
 
-  // reading in the raw digit information
-  TFile* digitFile = TFile::Open((inFileDigits).c_str());
-  TTree* digitTree = (TTree*)digitFile->Get("o2sim");
+    // Get list of all tpcdrifttime_digits files
+    auto digitfilelist = o2::utils::listFiles(simulationPath + "/tpc_drifttime_digits_lane*.root");
 
-  std::vector<o2::tpc::Digit>* digits = nullptr;
-  int current_time = 0, current_pad = 0, current_row = 0;
+    if (digitfilelist.empty()) {
+      LOG(error) << "[" << sector << "] No tpc_drifttime_digits files found matching pattern tpc_drifttime_digits_lane*.root";
+      return;
+    }
 
-  std::string branch_name = fmt::format("TPCDigit_{:d}", sector).c_str();
-  digitTree->SetBranchAddress(branch_name.c_str(), &digits);
+    std::vector<o2::tpc::Digit>* digits = nullptr;
+    int current_time = 0, current_pad = 0, current_row = 0;
+    bool sector_found = false;
+    TFile* digitFile = nullptr;
+    TTree* digitTree = nullptr;
 
-  int counter = 0;
-  digitTree->GetEntry(0);
+    std::string tree_name = fmt::format("{:d}", sector); // Tree name is just the sector number
 
-  if (overwrite_max_time) {
-    counter = digits->size();
-  } else {
-    for (uint i_digit = 0; i_digit < digits->size(); i_digit++) {
-      const auto& digit = (*digits)[i_digit];
-      if (digit.getTimeStamp() < max_time[sector]) {
-        counter++;
+    // Iterate through all files to find the one containing the sector tree
+    for (const auto& filename : digitfilelist) {
+      if (verbose >= 2)
+        LOG(info) << "[" << sector << "] Checking file: " << filename;
+
+      digitFile = TFile::Open(filename.c_str());
+      if (!digitFile || digitFile->IsZombie()) {
+        LOG(warning) << "[" << sector << "] Could not open file: " << filename;
+        if (digitFile) {
+          digitFile->Close();
+          delete digitFile;
+        }
+        continue;
+      }
+
+      // Check if the tree with sector number exists in this file
+      digitTree = (TTree*)digitFile->Get(tree_name.c_str());
+      if (digitTree) {
+        if (verbose >= 2)
+          LOG(info) << "[" << sector << "] Found sector tree " << tree_name << " in file: " << filename;
+        sector_found = true;
+        break;
+      } else {
+        if (verbose >= 3)
+          LOG(debug) << "[" << sector << "] Sector tree " << tree_name << " not found in file: " << filename;
+        digitFile->Close();
+        digitFile = nullptr;
       }
     }
-  }
 
-  if (overwrite_time) {
-    digit_map.resize(counter);
-  } else {
-    digit_map.clear();
-  }
-  counter = 0;
+    if (!sector_found) {
+      LOG(error) << "[" << sector << "] Could not find tree for sector " << sector << " in any tpcdrifttime_digits file";
+      return;
+    }
 
-  for (uint i_digit = 0; i_digit < digits->size(); i_digit++) {
-    const auto& digit = (*digits)[i_digit];
+    // Now read digits from the found tree (similar to original read_digits logic)
+    std::string branch_name = fmt::format("TPCDigit_{:d}", sector).c_str();
+    digitTree->SetBranchAddress(branch_name.c_str(), &digits);
 
-    current_time = digit.getTimeStamp();
-    current_pad = digit.getPad();
+    int counter = 0;
+    digitTree->GetEntry(0);
+
+    if (overwrite_max_time) {
+      counter = digits->size();
+    } else {
+      for (uint i_digit = 0; i_digit < digits->size(); i_digit++) {
+        const auto& digit = (*digits)[i_digit];
+        if (digit.getTimeStamp() < max_time[sector]) {
+          counter++;
+        }
+      }
+    }
 
     if (overwrite_time) {
-      digit_map[counter] = customCluster{sector, digit.getRow(), current_pad, current_time, (float)current_pad, (float)current_time, 0.f, 0.f, digit.getChargeFloat(), digit.getChargeFloat(), (uint8_t)0, -1, -1, -1, (int)counter, 0.f};
-      if (current_time > max_time[sector]){
-        max_time[sector] = current_time + 1;
-      }
-      counter++;
+      digit_map.resize(counter);
     } else {
-      if (current_time < max_time[sector]) {
-        digit_map.push_back(customCluster{sector, digit.getRow(), current_pad, current_time, (float)current_pad, (float)current_time, 0.f, 0.f, digit.getChargeFloat(), digit.getChargeFloat(), (uint8_t)0, -1, -1, -1, (int)counter, 0.f});
+      digit_map.clear();
+    }
+    counter = 0;
+
+    for (uint i_digit = 0; i_digit < digits->size(); i_digit++) {
+      const auto& digit = (*digits)[i_digit];
+
+      current_time = digit.getTimeStamp();
+      current_pad = digit.getPad();
+
+      if (overwrite_time) {
+        digit_map[counter] = customCluster{sector, digit.getRow(), current_pad, current_time, (float)current_pad, (float)current_time, 0.f, 0.f, digit.getChargeFloat(), digit.getChargeFloat(), (uint8_t)0, -1, -1, -1, (int)counter, 0.f};
+        if (current_time > max_time[sector]){
+          max_time[sector] = current_time + 1;
+        }
         counter++;
+      } else {
+        if (current_time < max_time[sector]) {
+          digit_map.push_back(customCluster{sector, digit.getRow(), current_pad, current_time, (float)current_pad, (float)current_time, 0.f, 0.f, digit.getChargeFloat(), digit.getChargeFloat(), (uint8_t)0, -1, -1, -1, (int)counter, 0.f});
+          counter++;
+        }
       }
     }
-  }
 
-  digitFile->Close();
+    if (verbose >= 1)
+      LOG(info) << "[" << sector << "] Successfully read " << counter << " drift time digits from sector tree";
+
+    digitFile->Close();
+  } else {
+    if (verbose >= 1)
+      LOG(info) << "[" << sector << "] Reading the digits...";
+
+    // reading in the raw digit information
+    TFile* digitFile = TFile::Open((inFileDigits).c_str());
+    TTree* digitTree = (TTree*)digitFile->Get("o2sim");
+
+    std::vector<o2::tpc::Digit>* digits = nullptr;
+    int current_time = 0, current_pad = 0, current_row = 0;
+
+    std::string branch_name = fmt::format("TPCDigit_{:d}", sector).c_str();
+    digitTree->SetBranchAddress(branch_name.c_str(), &digits);
+
+    int counter = 0;
+    digitTree->GetEntry(0);
+
+    if (overwrite_max_time) {
+      counter = digits->size();
+    } else {
+      for (uint i_digit = 0; i_digit < digits->size(); i_digit++) {
+        const auto& digit = (*digits)[i_digit];
+        if (digit.getTimeStamp() < max_time[sector]) {
+          counter++;
+        }
+      }
+    }
+
+    if (overwrite_time) {
+      digit_map.resize(counter);
+    } else {
+      digit_map.clear();
+    }
+    counter = 0;
+
+    for (uint i_digit = 0; i_digit < digits->size(); i_digit++) {
+      const auto& digit = (*digits)[i_digit];
+
+      current_time = digit.getTimeStamp();
+      current_pad = digit.getPad();
+
+      if (overwrite_time) {
+        digit_map[counter] = customCluster{sector, digit.getRow(), current_pad, current_time, (float)current_pad, (float)current_time, 0.f, 0.f, digit.getChargeFloat(), digit.getChargeFloat(), (uint8_t)0, -1, -1, -1, (int)counter, 0.f};
+        if (current_time > max_time[sector]){
+          max_time[sector] = current_time + 1;
+        }
+        counter++;
+      } else {
+        if (current_time < max_time[sector]) {
+          digit_map.push_back(customCluster{sector, digit.getRow(), current_pad, current_time, (float)current_pad, (float)current_time, 0.f, 0.f, digit.getChargeFloat(), digit.getChargeFloat(), (uint8_t)0, -1, -1, -1, (int)counter, 0.f});
+          counter++;
+        }
+      }
+    }
+
+    digitFile->Close();
+  }
 
 }
 
@@ -3488,6 +3596,7 @@ DataProcessorSpec processIdealClusterizer(ConfigContext const& cfgc, std::vector
       {"looper-tagger-threshold-q", VariantType::ArrayFloat, std::vector<float>{70.f}, {"Threshold of charge-per-cluster that should be rejected."}},
       {"infile-digits", VariantType::String, "tpcdigits.root", {"Input file name (digits)"}},
       {"read-reco-digits", VariantType::String, ";;", {"Specify the path to the folder containing the digits used at reconstruction level. If this path is set, infile-digits will not be used!"}},
+      {"read-drifttime-digits", VariantType::Int, 0, {"Specify whether to read the drift time digits (0 = no -> read_digits(), 1 = yes -> read_drifttime_digits())"}},
       {"infile-native", VariantType::String, "tpc-native-clusters.root", {"Input file name (native)"}},
       {"infile-kinematics", VariantType::String, "collisioncontext.root", {"Input file name (kinematics)"}},
       {"infile-tracks", VariantType::String, "tpctracks.root", {"Input file name (tracks)"}},

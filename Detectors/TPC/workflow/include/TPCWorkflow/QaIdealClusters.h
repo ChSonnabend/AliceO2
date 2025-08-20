@@ -362,7 +362,8 @@ class qaCluster : public Task
   bool useTrackMCInformation = true;         // When reading the tpctracks.root file, whether to read also branch "TPCTracksMCTruth" -> has caused some problems...
   float magneticField = -5.f;                // Magnetic field strength in kG
   bool setDeconvolutionFlags = true;         // Whether or not to set the deconvolution flags in the native clusters
-  float valueSplitPeak = 1000;                  // Value of the isSplit and has3x3Peak in the digits from reco
+  float valueSplitPeak = 1000;               // Value of the isSplit and has3x3Peak in the digits from reco
+  bool readDrifttimeDigits = false;          //
 
   // MCCompLabel.h
   struct default_mc_labels {
