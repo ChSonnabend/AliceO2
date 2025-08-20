@@ -321,10 +321,10 @@ void getSpec(WorkflowSpec& specs, std::vector<int> const& laneConfiguration, std
 
     // MC truth branch: write ConstMCTruthContainer directly
     auto labelsdef = BranchDefinition<o2::dataformats::ConstMCTruthContainer<o2::MCCompLabel>>{InputSpec{"labelinput", ConcreteDataTypeMatcher{"TPC", "DIGITSMCTR"}},
-                                                         "TPCDigitMCTruth", "labels-branch-name",
-                                                         (mctruth ? tpcsectors.size() : 0),
-                                                         getIndex,
-                                                         getName};
+                                                                                               "TPCDigitMCTruth", "labels-branch-name",
+                                                                                               (mctruth ? tpcsectors.size() : 0),
+                                                                                               getIndex,
+                                                                                               getName};
 
     specs.push_back(MakeRootTreeWriterSpec("TPCDigitWriter", "tpcdigits.root", "o2sim",
                                            std::move(digitsdef), std::move(labelsdef))());
