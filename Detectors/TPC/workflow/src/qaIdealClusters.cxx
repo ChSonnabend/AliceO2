@@ -919,30 +919,28 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
       for (auto idl : ideal_map) {
         map_ptr = &map2d[0][idl.max_time + global_shift[1]][idl.row + rowOffset(idl.row) + global_shift[2]][idl.max_pad + global_shift[0] + padOffset(idl.row)];
         if (*map_ptr != -1) {
-          for(auto& cls : new_ideal_map){
-            if ((idl.max_time == cls.max_time) && (idl.max_pad == cls.max_pad)) {
-              // cls.cog_pad = (cls.cog_pad*cls.qTot + idl.cog_pad*idl.qTot)/(cls.qTot + idl.qTot);
-              // cls.cog_time = (cls.cog_time*cls.qTot + idl.cog_time*idl.qTot)/(cls.qTot + idl.qTot);
-              // cls.sigmaPad = std::sqrt((std::pow(cls.sigmaPad, 2)*cls.qTot + std::pow(idl.sigmaPad, 2)*idl.qTot)/(cls.qTot + idl.qTot));
-              // cls.sigmaTime = std::sqrt((std::pow(cls.sigmaTime, 2)*cls.qTot + std::pow(idl.sigmaTime, 2)*idl.qTot)/(cls.qTot + idl.qTot));
-              // cls.qTot += idl.qTot;
-              // cls.qMax += idl.qMax;
-              // overwrite_index = cls.index;
-              if (idl.qMax > cls.qMax) {
-                if(verbose >= 4) {
-                  LOG(warning) << "[" << sector << "] Overwrite detected! Current MaxQ : " << cls.qMax << " (mcTrkId=" << cls.mcTrkId << "); New MaxQ: " << idl.qMax << " (mcTrkId=" << idl.mcTrkId << "); Index " << cls.index << "/" << ideal_map.size();
-                }
-                int idx = cls.index;
-                new_ideal_map[idx] = idl; // Overwrite the cluster with the new one if the new one has a higher qMax
-                new_ideal_map[idx].index = idx; // Keep the old index
-                *map_ptr = idx;
+          auto& cls = new_ideal_map[*map_ptr];
+          if ((idl.max_time == cls.max_time) && (idl.max_pad == cls.max_pad)) {
+            // cls.cog_pad = (cls.cog_pad*cls.qTot + idl.cog_pad*idl.qTot)/(cls.qTot + idl.qTot);
+            // cls.cog_time = (cls.cog_time*cls.qTot + idl.cog_time*idl.qTot)/(cls.qTot + idl.qTot);
+            // cls.sigmaPad = std::sqrt((std::pow(cls.sigmaPad, 2)*cls.qTot + std::pow(idl.sigmaPad, 2)*idl.qTot)/(cls.qTot + idl.qTot));
+            // cls.sigmaTime = std::sqrt((std::pow(cls.sigmaTime, 2)*cls.qTot + std::pow(idl.sigmaTime, 2)*idl.qTot)/(cls.qTot + idl.qTot));
+            // cls.qTot += idl.qTot;
+            // cls.qMax += idl.qMax;
+            // overwrite_index = cls.index;
+            if (idl.qMax > cls.qMax) {
+              if(verbose >= 4) {
+                LOG(warning) << "[" << sector << "] Overwrite detected! Current MaxQ : " << cls.qMax << " (mcTrkId=" << cls.mcTrkId << "); New MaxQ: " << idl.qMax << " (mcTrkId=" << idl.mcTrkId << "); Index " << cls.index << "/" << ideal_map.size();
               }
-              if (idl.mcTrkId != cls.mcTrkId) {
-                overwrites_with_different_mc++;
-              }
-              found_overwrites++;
-              break;
+              int idx = cls.index;
+              new_ideal_map[idx] = idl; // Overwrite the cluster with the new one if the new one has a higher qMax
+              new_ideal_map[idx].index = idx; // Keep the old index
+              *map_ptr = idx;
             }
+            if (idl.mcTrkId != cls.mcTrkId) {
+              overwrites_with_different_mc++;
+            }
+            found_overwrites++;
           }
         } else {
           idl.index = idx_counter;
@@ -976,30 +974,28 @@ void qaCluster::fill_map2d(int sector, tpc2d& map2d, std::vector<customCluster>&
       for (auto idl : ideal_map) {
         map_ptr = &map2d[0][round(idl.cog_time) + global_shift[1]][idl.row + rowOffset(idl.row) + global_shift[2]][round(idl.cog_pad) + global_shift[0] + padOffset(idl.row)];
         if (*map_ptr != -1) {
-          for(auto& cls : new_ideal_map){
-            if((round(idl.cog_time) == round(cls.cog_time)) && (round(idl.cog_pad) == round(cls.cog_pad))) {
-              // cls.cog_pad = (cls.cog_pad*cls.qTot + idl.cog_pad*idl.qTot)/(cls.qTot + idl.qTot);
-              // cls.cog_time = (cls.cog_time*cls.qTot + idl.cog_time*idl.qTot)/(cls.qTot + idl.qTot);
-              // cls.sigmaPad = std::sqrt((std::pow(cls.sigmaPad, 2)*cls.qTot + std::pow(idl.sigmaPad, 2)*idl.qTot)/(cls.qTot + idl.qTot));
-              // cls.sigmaTime = std::sqrt((std::pow(cls.sigmaTime, 2)*cls.qTot + std::pow(idl.sigmaTime, 2)*idl.qTot)/(cls.qTot + idl.qTot));
-              // cls.qTot += idl.qTot;
-              // cls.qMax += idl.qMax;
-              // overwrite_index = cls.index;
-              if (idl.mcTrkId != cls.mcTrkId) {
-                overwrites_with_different_mc++;
-              }
-              if (idl.qMax > cls.qMax) {
-                if(verbose >= 4) {
-                  LOG(warning) << "[" << sector << "] Overwrite detected! Current MaxQ : " << cls.qMax << " (mcTrkId=" << cls.mcTrkId << "); New MaxQ: " << idl.qMax << " (mcTrkId=" << idl.mcTrkId << "); Index " << cls.index << "/" << ideal_map.size();
-                }
-                int idx = cls.index;
-                new_ideal_map[idx] = idl; // Overwrite the cluster with the new one if the new one has a higher qMax
-                new_ideal_map[idx].index = idx; // Keep the old index
-                *map_ptr = idx;
-              }
-              found_overwrites++;
-              break;
+          auto& cls = new_ideal_map[*map_ptr];
+          if((round(idl.cog_time) == round(cls.cog_time)) && (round(idl.cog_pad) == round(cls.cog_pad))) {
+            // cls.cog_pad = (cls.cog_pad*cls.qTot + idl.cog_pad*idl.qTot)/(cls.qTot + idl.qTot);
+            // cls.cog_time = (cls.cog_time*cls.qTot + idl.cog_time*idl.qTot)/(cls.qTot + idl.qTot);
+            // cls.sigmaPad = std::sqrt((std::pow(cls.sigmaPad, 2)*cls.qTot + std::pow(idl.sigmaPad, 2)*idl.qTot)/(cls.qTot + idl.qTot));
+            // cls.sigmaTime = std::sqrt((std::pow(cls.sigmaTime, 2)*cls.qTot + std::pow(idl.sigmaTime, 2)*idl.qTot)/(cls.qTot + idl.qTot));
+            // cls.qTot += idl.qTot;
+            // cls.qMax += idl.qMax;
+            // overwrite_index = cls.index;
+            if (idl.mcTrkId != cls.mcTrkId) {
+              overwrites_with_different_mc++;
             }
+            if (idl.qMax > cls.qMax) {
+              if(verbose >= 4) {
+                LOG(warning) << "[" << sector << "] Overwrite detected! Current MaxQ : " << cls.qMax << " (mcTrkId=" << cls.mcTrkId << "); New MaxQ: " << idl.qMax << " (mcTrkId=" << idl.mcTrkId << "); Index " << cls.index << "/" << ideal_map.size();
+              }
+              int idx = cls.index;
+              new_ideal_map[idx] = idl; // Overwrite the cluster with the new one if the new one has a higher qMax
+              new_ideal_map[idx].index = idx; // Keep the old index
+              *map_ptr = idx;
+            }
+            found_overwrites++;
           }
         } else {
           idl.index = idx_counter;
