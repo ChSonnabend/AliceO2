@@ -52,7 +52,7 @@ void qaCluster::init(InitContext& ic)
   remove_individual_files = ic.options().get<int>("remove-individual-files");
   training_data_distance_cluster_path = ic.options().get<float>("training-data-distance-cluster-path");
   training_data_distance_cluster_path = std::pow(training_data_distance_cluster_path, 2); // Just to avoid multiple computations and sqrt's later
-  overlap_study = (!realData && (mode.find(std::string("overlap")) != std::string::npos || mode.find(std::string("training_data")) != std::string::npos || mode.find(std::string("network")) != std::string::npos || mode.find(std::string("native")) != std::string::npos));
+  overlap_study = (!realData && (mode.find(std::string("overlap")) != std::string::npos || mode.find(std::string("training_data")) != std::string::npos));
   read_reco_digits_bool = inPathRecoDigits.find(std::string(";;")) == std::string::npos;
 
   if (ic.options().get<int>("max-time") > 0) {
