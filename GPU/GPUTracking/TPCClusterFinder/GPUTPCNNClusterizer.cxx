@@ -17,8 +17,8 @@
 #include "GPUTPCNNClusterizer.h"
 #include "GPUSettings.h"
 #include "GPULogging.h"
-#include <cstdint>   // uintptr_t
-#include <iomanip>   // setprecision
+#include <cstdint> // uintptr_t
+#include <iomanip> // setprecision
 #include <ostream>
 #include <sstream>
 
