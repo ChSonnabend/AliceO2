@@ -298,6 +298,7 @@ class GPUQA
   } mClusterCounts;
 
   TH1F* mTracks;
+  TH1F* mTracksVs[5]; // Y, Z, Phi, Eta, Pt (linear bins using AXES_MIN/MAX)
   TCanvas* mCTracks;
   TPad* mPTracks;
   TLegend* mLTracks;

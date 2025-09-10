@@ -548,6 +548,13 @@ int32_t GPUQA::InitQACreateHistograms()
     snprintf(name, 2048, "tracks");
     std::unique_ptr<double[]> binsPt{CreateLogAxis(AXIS_BINS[4], PT_MIN_CLUST, PT_MAX)};
     createHist(mTracks, name, name, AXIS_BINS[4], binsPt.get());
+    // Additional track histograms vs Y, Z, Phi, Eta and Pt (linear binning)
+    // Names: tracksVsY, tracksVsZ, tracksVsPhi, tracksVsEta, tracksVsPt
+    createHist(mTracksVs[0], "tracksVsY", "tracksVsY", AXIS_BINS[0], AXES_MIN[0], AXES_MAX[0]);
+    createHist(mTracksVs[1], "tracksVsZ", "tracksVsZ", AXIS_BINS[1], AXES_MIN[1], AXES_MAX[1]);
+    createHist(mTracksVs[2], "tracksVsPhi", "tracksVsPhi", AXIS_BINS[2], AXES_MIN[2], AXES_MAX[2]);
+    createHist(mTracksVs[3], "tracksVsEta", "tracksVsEta", AXIS_BINS[3], AXES_MIN[3], AXES_MAX[3]);
+    createHist(mTracksVs[4], "tracksVsPt", "tracksVsPt", AXIS_BINS[4], AXES_MIN[4], AXES_MAX[4]);
     createHist(mClXY, "clXY", "clXY", 1000, -250, 250, 1000, -250, 250);
   }
 
@@ -1704,6 +1711,25 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
         continue;
       }
       mTracks->Fill(1.f / fabsf(track.GetParam().GetQPt()));
+      // Fill additional track histograms
+      const auto& tp = track.GetParam();
+      mTracksVs[0]->Fill(tp.GetY());
+      mTracksVs[1]->Fill(tp.GetZ());
+      // phi in [0, 2*pi)
+      {
+        float phi = M_PI + std::asin(tp.GetSinPhi()); // approx phi from sinphi
+        if (phi < 0) phi += 2.f * M_PI;
+        if (phi >= 2.f * M_PI) phi -= 2.f * M_PI;
+        mTracksVs[2]->Fill(phi);
+      }
+      // eta from lambda (dz/ds = tan(lambda)) => lambda = atan(dz/ds), theta = pi/2 - lambda, eta = -ln(tan(theta/2))
+      {
+        float lambda = std::atan(tp.GetDzDs());
+        float theta = static_cast<float>(M_PI) / 2.f - lambda;
+        float eta = -std::log(std::tan(0.5f * theta));
+        mTracksVs[3]->Fill(eta);
+      }
+      mTracksVs[4]->Fill(1.f / fabsf(tp.GetQPt()));
       mNCl[0]->Fill(track.NClustersFitted());
       int32_t nClCorrected = 0, correctlyAttachedRows = 0, fakeAttachedRows = 0;
       const auto& trackClusters = mTracking->mIOPtrs.mergedTrackHits;
@@ -2872,6 +2898,12 @@ int32_t GPUQA::DrawQAHistograms(TObjArray* qcout)
       }
       if (tout && !mConfig.inputHistogramsOnly && k == 0) {
         e->Write();
+        // Write additional track histograms once as well
+        for (int idx = 0; idx < 5; ++idx) {
+          if (mTracksVs[idx]) {
+            mTracksVs[idx]->Write();
+          }
+        }
       }
       e->SetMaximum(tmpMax * 1.02);
       e->SetMinimum(tmpMax * -0.02);
@@ -2881,6 +2913,14 @@ int32_t GPUQA::DrawQAHistograms(TObjArray* qcout)
       e->GetXaxis()->SetTitle("#it{p}_{Tmc} (GeV/#it{c})");
       if (qcout) {
         qcout->Add(e);
+        // Add additional track histograms to QC output once
+        if (k == 0) {
+          for (int idx = 0; idx < 5; ++idx) {
+            if (mTracksVs[idx]) {
+              qcout->Add(mTracksVs[idx]);
+            }
+          }
+        }
       }
       e->SetMarkerColor(kBlack);
       e->SetLineColor(colorNums[k % COLORCOUNT]);
