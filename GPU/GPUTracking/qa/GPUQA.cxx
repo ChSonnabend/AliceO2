@@ -554,7 +554,7 @@ int32_t GPUQA::InitQACreateHistograms()
     createHist(mTracksVs[1], "tracksVsZ", "tracksVsZ", AXIS_BINS[1], AXES_MIN[1], AXES_MAX[1]);
     createHist(mTracksVs[2], "tracksVsPhi", "tracksVsPhi", AXIS_BINS[2], AXES_MIN[2], AXES_MAX[2]);
     createHist(mTracksVs[3], "tracksVsEta", "tracksVsEta", AXIS_BINS[3], AXES_MIN[3], AXES_MAX[3]);
-    createHist(mTracksVs[4], "tracksVsPt", "tracksVsPt", AXIS_BINS[4], AXES_MIN[4], AXES_MAX[4]);
+    createHist(mTracksVs[4], "tracksVsPt", "tracksVsPt", AXIS_BINS[4], binsPt.get());
     createHist(mClXY, "clXY", "clXY", 1000, -250, 250, 1000, -250, 250);
   }
 
