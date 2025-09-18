@@ -329,7 +329,7 @@ class qaCluster : public Task
   void overwrite_map2d(int, tpc2d&, std::vector<customCluster>&, std::vector<int>&, int = 0);
 
   int test_neighbour(std::array<int, 3>, std::array<int, 2>, tpc2d&, int = 1);
-  void cluster_overlap(int, std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXGLOBALPADROW>&, std::array<std::unordered_map<int, int>, o2::tpc::constants::MAXGLOBALPADROW>&);
+  void cluster_overlap(int, std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXGLOBALPADROW>&, std::array<std::unordered_map<int, int>, o2::tpc::constants::MAXGLOBALPADROW>&, std::vector<customCluster>&, std::vector<int>&);
 
   void runQa(int);
   void run(ProcessingContext&) final;

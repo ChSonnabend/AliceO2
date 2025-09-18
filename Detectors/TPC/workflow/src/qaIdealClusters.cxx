@@ -2042,7 +2042,7 @@ int qaCluster::test_neighbour(std::array<int, 3> index, std::array<int, 2> nn, t
 }
 
 // ---------------------------------
-void qaCluster::cluster_overlap(int sector, std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXGLOBALPADROW>& overlap_info, std::array<std::unordered_map<int, int>, o2::tpc::constants::MAXGLOBALPADROW>& overlap_info_trkid_map) {
+void qaCluster::cluster_overlap(int sector, std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXGLOBALPADROW>& overlap_info, std::array<std::unordered_map<int, int>, o2::tpc::constants::MAXGLOBALPADROW>& overlap_info_trkid_map, std::vector<customCluster>& digit_map, std::vector<int>& digit_max) {
 
   std::stringstream tmp_file;
   tmp_file << simulationPath << "/mclabels_ideal_full_" << sector << ".root";
@@ -2071,6 +2071,7 @@ void qaCluster::cluster_overlap(int sector, std::array<std::vector<std::vector<f
       overlap_info_trkid_map[row][trkid] = 1;
     }
   }
+  std::vector<std::vector<float>> bestCentralPeakCharge(o2::tpc::constants::MAXGLOBALPADROW);
 
   std::array<std::vector<std::vector<float>>, o2::tpc::constants::MAXGLOBALPADROW> misc_track_id_info; // 0: Number of bins covered by this cluster; 1: total charge of that cluster in the padrow
   for(int padrow = 0; padrow < o2::tpc::constants::MAXGLOBALPADROW; padrow++){
@@ -2080,6 +2081,7 @@ void qaCluster::cluster_overlap(int sector, std::array<std::vector<std::vector<f
       overlap_info_trkid_map[padrow][pair.first] = counter;
       counter++;
     }
+    bestCentralPeakCharge[padrow].assign(overlap_info_trkid_map[padrow].size(), -1.f);
   }
 
   for (uint j = 0; j < mcFullInfo_vec.size(); j++) {
@@ -2150,11 +2152,88 @@ void qaCluster::cluster_overlap(int sector, std::array<std::vector<std::vector<f
               charge_overlap_map[tmp_cluster.mcTrkId] += tmp_cluster.qMax;
             }
           }
-          for (auto& pair : charge_overlap_map) {
-            int map_trkid = overlap_info_trkid_map[padrow][pair.first];
-            overlap_info[padrow][map_trkid][4] += pair.second / total_charge; // == "Weighted" charge or effective charge
-          }
+          // for (auto& pair : charge_overlap_map) {
+          //   int map_trkid = overlap_info_trkid_map[padrow][pair.first];
+          //   overlap_info[padrow][map_trkid][4] += pair.second / total_charge; // == "Weighted" charge or effective charge
+          // }
           found_mcids.clear();
+        }
+      }
+    }
+
+    for (int digIdx : digit_max) {
+      const customCluster& peak = digit_map[digIdx];
+      if (peak.row != padrow) {
+        continue;
+      }
+      int cPad  = peak.max_pad;
+      int cTime = peak.max_time;
+
+      auto& centralVec = tmp_map[cTime][cPad];
+      if (centralVec.empty()) {
+        if (verbose > 2) {
+          LOG(warning) << "[" << sector << "] Cluster overlap: No MC info for (pad,row,time)=(" << cPad << "," << padrow << "," << cTime << ")";
+        }
+        continue;
+      }
+
+      // Charge per MC label in the CENTRAL cell only
+      std::unordered_map<int,float> centralChargePerLabel;
+      for (int idx : centralVec) {
+        const auto& mc = mcFullInfo_vec[idx];
+        centralChargePerLabel[mc.mcTrkId] += mc.qMax;
+      }
+
+      int dominantLabel = -1;
+      float maxCentralCharge = -1.f;
+      for (auto& kv : centralChargePerLabel) {
+        if (kv.second > maxCentralCharge) {
+          maxCentralCharge = kv.second;
+          dominantLabel = kv.first;
+        }
+      }
+      if (dominantLabel < 0) {
+        continue;
+      }
+
+      // Build 5x5 window charge sums (same vs other labels)
+      float sumCurrentPeak = 0.f;
+      float sumOther       = 0.f;
+      for (int dt = -2; dt <= 2; ++dt) {
+        int tWin = cTime + dt;
+        if (tWin < 0 || tWin > max_time[sector]) continue;
+        for (int dp = -2; dp <= 2; ++dp) {
+          int pWin = cPad + dp;
+          if (pWin < 0 || pWin > TPC_GEOM[padrow][2]) continue;
+          auto& cell = tmp_map[tWin][pWin];
+          for (int idx : cell) {
+            const auto& mc = mcFullInfo_vec[idx];
+            if (mc.mcTrkId == dominantLabel) {
+              sumCurrentPeak += mc.qMax;
+            } else {
+              sumOther += mc.qMax;
+            }
+          }
+        }
+      }
+
+      float denom = sumCurrentPeak + sumOther;
+      float overlapRatio = denom > 0.f ? (sumOther / denom) : 0.f;
+
+      // Protected update: only overwrite if this peak's central charge is larger than any previously recorded for this label
+      auto itMap = overlap_info_trkid_map[padrow].find(dominantLabel);
+      if (itMap != overlap_info_trkid_map[padrow].end()) {
+        int trkIdx = itMap->second;
+        if (maxCentralCharge > bestCentralPeakCharge[padrow][trkIdx]) {
+          bestCentralPeakCharge[padrow][trkIdx] = maxCentralCharge;
+          overlap_info[padrow][trkIdx][4] = overlapRatio;          // store ratio
+          overlap_info[padrow][trkIdx][0] = dominantLabel;         // ensure ID stored
+          if (verbose > 3) {
+            LOG(info) << "[" << sector << "] Updated overlap ratio for track "
+                      << dominantLabel << " in padrow " << padrow
+                      << " (centralCharge=" << maxCentralCharge
+                      << ", ratio=" << overlapRatio << ")";
+          }
         }
       }
     }
@@ -2164,7 +2243,7 @@ void qaCluster::cluster_overlap(int sector, std::array<std::vector<std::vector<f
         overlap_info[padrow][track_id][1] /= misc_track_id_info[padrow][track_id][0];
         overlap_info[padrow][track_id][2] /= misc_track_id_info[padrow][track_id][1];
         overlap_info[padrow][track_id][3] /= misc_track_id_info[padrow][track_id][1];
-        overlap_info[padrow][track_id][4] /= misc_track_id_info[padrow][track_id][1]; // Effective cluster charge normalized to total charge of cluster with same MC ID
+        // overlap_info[padrow][track_id][4] /= misc_track_id_info[padrow][track_id][1]; // Effective cluster charge normalized to total charge of cluster with same MC ID
         overlap_info[padrow][track_id][5] = misc_track_id_info[padrow][track_id][0];
         overlap_info[padrow][track_id][6] = misc_track_id_info[padrow][track_id][1];
       }
@@ -2197,23 +2276,6 @@ void qaCluster::runQa(int sector)
     } else {
       read_digits(sector, digit_map, overwrite_max_time);
     }
-  }
-
-  if(overlap_study){
-    cluster_overlap(sector, overlap_info, overlap_info_trkid_map);
-    m.lock();
-    for(int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++){
-      for(auto elem : overlap_info[r]){
-        std::vector<float> tmp_elem = {(float)sector, (float)r};
-        if(elem[0] != 0){
-          for(auto overlap : elem){
-            tmp_elem.push_back(overlap);
-          }
-          all_cluster_overlap.push_back(tmp_elem);
-        }
-      }
-    }
-    m.unlock();
   }
 
   if(mode.find(std::string("path")) != std::string::npos){
@@ -2310,6 +2372,23 @@ void qaCluster::runQa(int sector)
       // }
       // overwrite_map2d(sector, map2d, native_map, maxima_digits, 1);
     }
+  }
+
+  if(overlap_study){
+    cluster_overlap(sector, overlap_info, overlap_info_trkid_map, digit_map, maxima_digits);
+    m.lock();
+    for(int r = 0; r < o2::tpc::constants::MAXGLOBALPADROW; r++){
+      for(auto elem : overlap_info[r]){
+        std::vector<float> tmp_elem = {(float)sector, (float)r};
+        if(elem[0] != 0){
+          for(auto overlap : elem){
+            tmp_elem.push_back(overlap);
+          }
+          all_cluster_overlap.push_back(tmp_elem);
+        }
+      }
+    }
+    m.unlock();
   }
 
   std::vector<int> assigned_ideal(ideal_map.size(), 0);
