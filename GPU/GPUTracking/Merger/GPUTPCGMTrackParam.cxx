@@ -266,7 +266,7 @@ GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_
         if (param.rec.tpc.rejectEdgeClustersInTrackFit && uncorrectedY > -1e6f && param.rejectEdgeClusterByY(uncorrectedY, cluster.row, CAMath::Sqrt(mC[0]))) { // uncorrectedY > -1e6f implies allowChangeClusters
           retValUpd = GPUTPCGMPropagator::updateErrorClusterRejectedEdge;
         } else {
-          retValUpd = prop.Update(yy, zz, cluster.row, param, clusterState, rejectChi2, refit, err2Y, err2Z);
+          retValUpd = prop.Update(yy, zz, cluster.row, param, clusterState, rejectChi2, refit, cluster.sector, time, err2Y, err2Z, invAvgCharge, invCharge);
         }
         GPUCA_DEBUG_STREAMER_CHECK(if (o2::utils::DebugStreamer::checkStream(o2::utils::StreamFlags::streamUpdateTrack, iTrk)) {
           merger->DebugStreamerUpdate(iTrk, ihit, xx, yy, zz, cluster, merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num], *this, prop, interpolation.hit[ihit], rejectChi2, refit, retValUpd, sumInvSqrtCharge / nAvgCharge * sumInvSqrtCharge / nAvgCharge, yy, zz, clusterState, retValInt, err2Y, err2Z);
