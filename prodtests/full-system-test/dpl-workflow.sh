@@ -222,6 +222,9 @@ has_detector_flp_processing CPV && CPV_INPUT=digits
 ! has_detector_flp_processing TOF && TOF_CONFIG+=" --local-cmp"
 
 if [[ $EPNSYNCMODE == 1 ]]; then
+  # dump raw data in case of GPU crash and set dump directory size limits; files are automatically cleaned by EPN after 60 days
+  GPU_CONFIG_KEY+="GPU_proc.debugOnFailure=1;GPU_proc.debugOnFailureDirectory=/data/tf/debug;GPU_proc.debugOnFailureMaxFiles=1000;GPU_proc.debugOnFailureMaxSize=500;GPU_proc.debugOnFailureSignalMask=2240;"
+
   EVE_OPT+=" --eve-dds-collection-index 0"
   MIDDEC_CONFIG+=" --feeId-config-file \"$MID_FEEID_MAP\""
   if [[ $EXTINPUT == 1 ]] && [[ $GPUTYPE != "CPU" ]] && [[ -z "$GPU_NUM_MEM_REG_CALLBACKS" ]]; then
@@ -275,8 +278,13 @@ if [[ $GPUTYPE == "HIP" ]]; then
     GPU_CONFIG+=" --environment \"ROCR_VISIBLE_DEVICES={timeslice${TIMESLICEOFFSET}}\""
   fi
   # serialization workaround for MI100 nodes: remove it again if the problem will be fixed in ROCm, then also remove the DISABLE_MI100_SERIALIZATION flag in the O2DPG parse script
-  [[ $EPNSYNCMODE == 1 ]] && [[ ${EPN_NODE_MI100:-} == "1" ]] && [[ ${DISABLE_MI100_SERIALIZATION:-0} != 1 ]] && GPU_CONFIG_KEY+="GPU_proc.amdMI100SerializationWorkaround=1;"
-  [[ -n ${OPTIMIZED_PARALLEL_ASYNC:-} ]] && [[ ${EPN_NODE_MI100:-} == "1" ]] && [[ ${DISABLE_MI100_SERIALIZATION:-0} != 1 ]] && GPU_CONFIG_KEY+="GPU_proc.serializeGPU=3;"
+  if [[ ${EPN_NODE_MI100:-} == "1" && ${DISABLE_MI100_SERIALIZATION:-0} != 1 ]]; then
+    if [[ -n ${OPTIMIZED_PARALLEL_ASYNC:-} ]] || [[ $EPNSYNCMODE == 1 && ${FULL_MI100_SERIALIZATION:-0} == 1 ]]; then
+      GPU_CONFIG_KEY+="GPU_proc.serializeGPU=3;"
+    elif [[ $EPNSYNCMODE == 1 ]]; then
+      GPU_CONFIG_KEY+="GPU_proc.amdMI100SerializationWorkaround=1;"
+    fi
+  fi
   #export HSA_TOOLS_LIB=/opt/rocm/lib/librocm-debug-agent.so.2
 else
   GPU_CONFIG_KEY+="GPU_proc.deviceNum=-2;"

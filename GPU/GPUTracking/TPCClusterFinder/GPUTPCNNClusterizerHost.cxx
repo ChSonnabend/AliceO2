@@ -31,6 +31,7 @@
 #include "GPUReconstruction.h"
 #include "GPUTPCGeometry.h"
 #include "DataFormatsTPC/Constants.h"
+#include "clusterFinderDefs.h"
 
 #ifdef GPUCA_HAS_ONNX
 #include <onnxruntime_cxx_api.h>
@@ -217,7 +218,7 @@ void GPUTPCNNClusterizerHost::combineDigitFiles(int sector)
   LOG(info) << "Successfully combined digit files for sector " << sector << " into " << outputFile;
 }
 
-void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclusterizer& settings, GPUTPCNNClusterizer& clustererNN)
+void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclusterizer& settings, GPUTPCNNClusterizer& clustererNN, int32_t maxFragmentLen, int32_t maxAllowedTimebin)
 {
   clustererNN.mNnClusterizerUseCfRegression = settings.nnClusterizerUseCfRegression;
   clustererNN.mNnClusterizerSizeInputRow = settings.nnClusterizerSizeInputRow;
@@ -246,6 +247,8 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
   clustererNN.mNnClusterizerSetNetworkFlags = (bool)settings.nnClusterizerSetNetworkFlags;
   clustererNN.mNnClusterizerSetNetworkFlagsFromRegressionNetwork = (bool)settings.nnClusterizerSetNetworkFlagsFromRegressionNetwork;
   clustererNN.mNnClusterizerRescaleFlags = settings.nnClusterizerRescaleFlags;
+  clustererNN.maxFragmentLen = maxFragmentLen == -1 ? TPC_MAX_FRAGMENT_LEN_GPU : maxFragmentLen;
+  clustererNN.maxAllowedTimebin = maxAllowedTimebin == -1 ? TPC_MAX_FRAGMENT_LEN_GPU : maxAllowedTimebin;
   if (clustererNN.mNnSigmoidTrafoClassThreshold) {
     clustererNN.mNnClassThreshold = (float)std::log(settings.nnClassThreshold / (1.f - settings.nnClassThreshold));
   } else {
