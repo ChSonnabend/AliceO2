@@ -568,7 +568,6 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
       clustererNN.mClusterFlags[2 * glo_idx] = (float)clustererNN.mOutputDataReg1_32[model_output_index + 5] * clustererNN.mNnClusterizerRescaleFlags;
       clustererNN.mClusterFlags[2 * glo_idx + 1] = (float)clustererNN.mOutputDataReg1_32[model_output_index + 6] * clustererNN.mNnClusterizerRescaleFlags;
     }
-  } else {
     publishPadPosition = static_cast<float>(peak.pad()) + clustererNN.mOutputDataReg1_32[model_output_index];
     publishTimePosition = static_cast<float>(peak.time()) + clustererNN.mOutputDataReg1_32[model_output_index + 1];
     isBoundaryPublish(full_glo_idx, static_cast<int32_t>(peak.row()), publishPadPosition, publishTimePosition);
@@ -579,13 +578,13 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
                notSingleTime ? clustererNN.mOutputDataReg1_32[model_output_index + 3] : 0.f,
                clustererNN.mClusterFlags[2 * glo_idx],
                clustererNN.mClusterFlags[2 * glo_idx + 1]);
+    if ((static_cast<float>(peak.pad()) + clustererNN.mOutputDataReg1_32[model_output_index]) > 1000) {
+      printf("Error: pad %f is larger than 1000, model: %f, row: %d, model_output_index: %d, glo_idx: %d, full_glo_idx: %d\n",
+              static_cast<float>(peak.pad()), clustererNN.mOutputDataReg1_32[model_output_index], (int)peak.row(), model_output_index, glo_idx, full_glo_idx);
+      printInput(glo_idx, clustererNN.mInputData_32, processors, sector);
+    }
   }
 
-  if ((static_cast<float>(peak.pad()) + clustererNN.mOutputDataReg1_32[model_output_index]) > 1000) {
-    printf("Error: pad %f is larger than 1000, model: %f, row: %d, model_output_index: %d, glo_idx: %d, full_glo_idx: %d\n",
-            static_cast<float>(peak.pad()), clustererNN.mOutputDataReg1_32[model_output_index], (int)peak.row(), model_output_index, glo_idx, full_glo_idx);
-    printInput(glo_idx, clustererNN.mInputData_32, processors, sector);
-  }
   // if (boundaryFlag != 0) { // Prints the entire NN input for the given index
   //   // Build a simple buffer manually (float with 3 decimals)
   //   const int MAX_CHARS = 4096;
