@@ -2265,10 +2265,6 @@ int32_t GPUQA::DrawQAHistograms(TObjArray* qcout)
       mLTracks = createGarbageCollected<TLegend>(0.9 - legendSpacingString * 1.45, 0.93 - (0.93 - 0.86) / 2. * (float)ConfigNumInputs, 0.98, 0.949);
       SetLegend(mLTracks);
 
-      for (int32_t i = 0; i < GPUQA::N_NCL_TRACK_HISTS; i++) {
-        snprintf(name, 2048, "cncl%d Pull", i);
-        mCNCl[i] = createGarbageCollected<TCanvas>(name, N_NCL_TRACK_HIST_LEGENDS[i], 0, 0, 700, 700. * 2. / 3.);
-      }
       for (int32_t i = 0; i < 2; i++) {
         snprintf(name, 2048, "ctrackst0%d", i);
         mCT0[i] = createGarbageCollected<TCanvas>(name, "Track T0", 0, 0, 700, 700. * 2. / 3.);
@@ -2951,7 +2947,7 @@ int32_t GPUQA::DrawQAHistograms(TObjArray* qcout)
       mCTracks->Print("plots/tracks.root");
     }
 
-    for (int32_t i = 0; i < GPUQA::N_NCL_TRACK_HISTS; i++) {
+    for (int32_t i = 0; i < 2; i++) {
       tmpMax = 0.;
       for (int32_t k = 0; k < ConfigNumInputs; k++) {
         TH1F* e = mT0[i];
@@ -2977,7 +2973,7 @@ int32_t GPUQA::DrawQAHistograms(TObjArray* qcout)
         e->SetStats(kFALSE);
         e->SetLineWidth(1);
         e->GetYaxis()->SetTitle("a.u.");
-        e->GetXaxis()->SetTitle(i ? "to vs t0_{mc}" : "t0");
+        e->GetXaxis()->SetTitle(i ? "t0 vs t0_{mc}" : "t0");
         if (qcout) {
           qcout->Add(e);
         }
