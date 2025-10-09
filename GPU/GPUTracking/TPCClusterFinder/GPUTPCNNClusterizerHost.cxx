@@ -65,7 +65,7 @@ void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& set
     {"intra-op-num-threads", std::to_string(settings.nnInferenceIntraOpNumThreads)},
     {"inter-op-num-threads", std::to_string(settings.nnInferenceInterOpNumThreads)},
     {"enable-optimizations", std::to_string(settings.nnInferenceEnableOrtOptimization)},
-    {"deterministic-compute", std::to_string(useDeterministicMode ? 1 : settings.nnInferenceUseDeterministicCompute)}, // TODO: This unfortunately doesn't guarantee determinism (25.07.2025)
+    {"deterministic-compute", std::to_string(useDeterministicMode ? 1 : settings.nnInferenceUseDeterministicCompute)},
     {"enable-profiling", std::to_string(settings.nnInferenceOrtProfiling)},
     {"profiling-output-path", settings.nnInferenceOrtProfilingPath},
     {"logging-level", std::to_string(settings.nnInferenceVerbosity)},
@@ -269,6 +269,9 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
       clustererNN.mNnClusterizerModelReg1NumOutputNodes = mModelReg1.getNumOutputNodes()[0][1];
       clustererNN.mNnClusterizerModelReg2NumOutputNodes = mModelReg2.getNumOutputNodes()[0][1];
     }
+  }
+  if(settings.nnClusterizerSetNetworkFlags) {
+    clustererNN.mNnClusterizerModelFlagNumOutputNodes = mModelFlag.getNumOutputNodes()[0][1];
   }
 }
 

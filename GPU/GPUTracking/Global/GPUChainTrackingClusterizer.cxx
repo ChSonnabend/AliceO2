@@ -705,6 +705,15 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         // nnApplications[lane].directOrtAllocator((nnApplications[lane].mModelClass).getEnv(), (nnApplications[lane].mModelClass).getMemoryInfo(), mRec, recreateMemoryAllocator);
         (nnApplications[lane].mModelReg2).initSession();
       }
+      if(nnApplications[lane].mModelsUsed[3]) {
+        SetONNXGPUStream(*(nnApplications[lane].mModelFlag).getSessionOptions(), lane, &deviceId);
+        (nnApplications[lane].mModelFlag).setDeviceId(deviceId);
+        if (nnApplications[lane].mModelFlag.getIntraOpNumThreads() > maxThreads) {
+          nnApplications[lane].mModelFlag.setIntraOpNumThreads(maxThreads);
+        }
+        (nnApplications[lane].mModelFlag).initEnvironment();
+        (nnApplications[lane].mModelFlag).initSession();
+      }
       if (nn_settings.nnClusterizerVerbosity > 0) {
         LOG(info) << "(ORT) Allocated ONNX stream for lane " << lane << " and device " << deviceId;
       }
