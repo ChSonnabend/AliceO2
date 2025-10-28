@@ -77,7 +77,7 @@ void qaCluster::init(InitContext& ic)
   // }
 
   std::unordered_map<std::string, std::string> OrtOptions{
-    {"device",  ic.options().get<std::string>("network-device")},
+    {"device-type", "CPU"},
     {"device-id", "0"},
     {"allocate-device-memory", "0"},
     {"dtype", ic.options().get<std::string>("network-dtype")},
@@ -85,7 +85,8 @@ void qaCluster::init(InitContext& ic)
     {"enable-optimizations", std::to_string((int)networkOptimizations)},
     {"enable-profiling", "0"},
     {"profiling-output-path", "."},
-    {"logging-level", "3"}
+    {"logging-level", "3"},
+    {"onnx-environment-name", "c1"}
   };
 
   if (mode.find(std::string("network_class")) != std::string::npos || mode.find(std::string("network_full")) != std::string::npos) {
@@ -95,13 +96,16 @@ void qaCluster::init(InitContext& ic)
       for(auto path : network_classification_paths){
         OrtOptions["model-path"] = path;
         network_classification[count_net_class].init(OrtOptions);
+        network_classification[count_net_class].initSession();
         count_net_class++;
       }
     } else {
       for(auto path : network_classification_paths){
         OrtOptions["model-path"] = path;
         network_classification[count_net_class].init(OrtOptions);
+        network_classification[count_net_class].initSession();
         network_classification[count_net_class + 1].init(OrtOptions);
+        network_classification[count_net_class + 1].initSession();
         count_net_class+=2;
       }
     }
@@ -113,13 +117,16 @@ void qaCluster::init(InitContext& ic)
       for(auto path : network_regression_paths){
         OrtOptions["model-path"] = path;
         network_regression[count_net_reg].init(OrtOptions);
+        network_regression[count_net_reg].initSession();
         count_net_reg++;
       }
     } else {
       for(auto path : network_regression_paths){
         OrtOptions["model-path"] = path;
         network_regression[count_net_reg].init(OrtOptions);
+        network_regression[count_net_reg].initSession();
         network_regression[count_net_reg + 1].init(OrtOptions);
+        network_regression[count_net_reg + 1].initSession();
         count_net_reg+=2;
       }
     }
