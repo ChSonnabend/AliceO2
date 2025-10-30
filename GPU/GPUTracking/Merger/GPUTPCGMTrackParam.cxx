@@ -407,7 +407,7 @@ GPUdii() float GPUTPCGMTrackParam::FindBestInterpolatedHit(GPUTPCGMMerger& GPUre
   GPUglobalref() const cahit2* hits = tracker.HitData(rowData);
   GPUglobalref() const calink* firsthit = tracker.FirstHitInBin(rowData);
   float uncorrectedY = -1e6f, uncorrectedZ;
-  if (rowData.NHits() && (inter.errorY >= (GPUCA_PAR_MERGER_INTERPOLATION_ERROR_TYPE_A)0 || (mC[0] < param.rec.tpc.rebuildTrackMaxNonIntCov && mC[2] < param.rec.tpc.rebuildTrackMaxNonIntCov))) {
+  if (rowData.NHits() && (inter.errorY >= (GPUCA_PAR_MERGER_INTERPOLATION_ERROR_TYPE_A)0 || (param.rec.tpc.rebuildTrackMaxNonIntCov > 0 && mC[0] < param.rec.tpc.rebuildTrackMaxNonIntCov && mC[2] < param.rec.tpc.rebuildTrackMaxNonIntCov))) {
     const float zOffset = param.par.continuousTracking ? merger.GetConstantMem()->calibObjects.fastTransformHelper->getCorrMap()->convVertexTimeToZOffset(sector, mTOffset, param.continuousMaxTimeBin) : 0;
     const float y0 = rowData.Grid().YMin();
     const float stepY = rowData.HstepY();
