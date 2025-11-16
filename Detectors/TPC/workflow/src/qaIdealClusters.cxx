@@ -2101,15 +2101,17 @@ void qaCluster::cluster_overlap(int sector, std::array<std::vector<std::vector<f
 
   for(int padrow = 0; padrow < o2::tpc::constants::MAXGLOBALPADROW; padrow++){
     std::vector<std::vector<std::vector<int>>> tmp_map;
-    tmp_map.resize(max_time[sector] + 1);
-    for (int time_size = 0; time_size < (max_time[sector] + 1); time_size++) {
-      tmp_map[time_size].resize(TPC_GEOM[padrow][2] + 1);
+    tmp_map.resize(max_time[sector] + 3);
+    for (int time_size = 0; time_size < (max_time[sector] + 3); time_size++) {
+      tmp_map[time_size].resize(TPC_GEOM[padrow][2] + 3);
     };
     for (int counter = 0; counter < mcFullInfo_vec.size(); counter++) {
       if(mcFullInfo_vec[counter].row == padrow){
         customCluster tmp_cluster = mcFullInfo_vec[counter];
         if(tmp_cluster.max_pad < TPC_GEOM[padrow][2] + 1 && tmp_cluster.max_time < (max_time[sector] + 1)){
-          tmp_map[tmp_cluster.max_time][tmp_cluster.max_pad].push_back(counter);
+          if (tmp_cluster.max_time > 0 && tmp_cluster.max_time < max_time[sector] + 1 && tmp_cluster.max_pad > 0 && tmp_cluster.max_pad < TPC_GEOM[padrow][2] + 1) {
+            tmp_map[tmp_cluster.max_time][tmp_cluster.max_pad].push_back(counter);
+          }
         }
       }
     }
@@ -2213,12 +2215,14 @@ void qaCluster::cluster_overlap(int sector, std::array<std::vector<std::vector<f
           int pWin = cPad + dp;
           if (pWin < 0 || pWin > TPC_GEOM[padrow][2]) continue;
           auto& cell = tmp_map[tWin][pWin];
-          for (int idx : cell) {
-            const auto& mc = mcFullInfo_vec[idx];
-            if (mc.mcTrkId == dominantLabel) {
-              sumCurrentPeak += mc.qMax;
-            } else {
-              sumOther += mc.qMax;
+          if(cell.size() > 0) {
+            for (int idx : cell) {
+              const auto& mc = mcFullInfo_vec[idx];
+              if (mc.mcTrkId == dominantLabel) {
+                sumCurrentPeak += mc.qMax;
+              } else {
+                sumOther += mc.qMax;
+              }
             }
           }
         }
