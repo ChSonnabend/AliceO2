@@ -39,3 +39,5 @@ void GPUProcessor::InitGPUProcessor(GPUReconstruction* rec, GPUProcessor::Proces
 }
 
 void GPUProcessor::Clear() { mRec->FreeRegisteredMemory(this, true); }
+
+FILE *fpdumperr, *fpdumptrk;

@@ -21,6 +21,8 @@
 #ifndef GPUCA_GPUCODE
 #include <cstddef>
 #include <algorithm>
+
+extern FILE *fpdumperr, *fpdumptrk;
 #endif
 
 namespace o2::gpu

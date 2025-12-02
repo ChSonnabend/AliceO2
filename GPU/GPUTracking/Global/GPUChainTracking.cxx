@@ -68,7 +68,11 @@ GPUChainTracking::GPUChainTracking(GPUReconstruction* rec, uint32_t maxTPCHits, 
   mFlatObjectsDevice.mChainTracking = this;
 }
 
-GPUChainTracking::~GPUChainTracking() = default;
+GPUChainTracking::~GPUChainTracking()
+{
+  fclose(fpdumperr);
+  fclose(fpdumptrk);
+}
 
 void GPUChainTracking::RegisterPermanentMemoryAndProcessors()
 {
@@ -388,6 +392,11 @@ int32_t GPUChainTracking::Init()
     std::string filename = std::string(mRec->IsGPU() ? "GPU" : "CPU") + (mRec->slaveId() != -1 ? (std::string("_slave") + std::to_string(mRec->slaveId())) : std::string(mRec->slavesExist() ? "_master" : "")) + GetProcessingSettings().debugLogSuffix + ".out";
     mDebugFile->open(filename.c_str());
   }
+
+  fpdumperr = fopen("dump_cluster_error.csv", "w+");
+  fpdumptrk = fopen("dump_trk_index.csv", "w+");
+  fprintf(fpdumperr, "internal_trkid,sector,row,clusterid,residual_y,residual_z,estimated_error2_y_wo_split_flag,estimated_error2_z_wo_split_flag\n");
+  fprintf(fpdumptrk, "internal_trkid,trkid\n");
 
   return 0;
 }

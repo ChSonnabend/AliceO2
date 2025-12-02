@@ -523,6 +523,11 @@ GPUdii() float GPUTPCGMTrackParam::FindBestInterpolatedHit(GPUTPCGMMerger& GPUre
             bool ok = !prop.RejectCluster(chi2Y * param.rec.tpc.clusterRejectChi2TolleranceY, chi2Z * param.rec.tpc.clusterRejectChi2TolleranceZ, clflags);
             float err = dy * dy + dz * dz;
             if (ok) {
+#ifndef GPUCA_GPUCODE
+              float err_y_wo_split_flag, err_z_wo_split_flag;
+              prop.GetErr2(err_y_wo_split_flag, err_z_wo_split_flag, param, mP[1], row, clflags & ~GPUTPCGMMergedTrackHit::flagSplit, sector, time, invAvgCharge, invCharge);
+              fprintf(fpdumperr, "%d,%d,%d,%d,%f,%f,%f,%f\n", iTrk, (int)sector, (int)row, idOffset + ids[ih], dy, dz, err_y_wo_split_flag, err_z_wo_split_flag);
+#endif
               int32_t insert = nCandidates;
               for (int32_t c = 0; c < nCandidates; c++) {
                 if (err < merger.ClusterCandidates()[(iTrk * GPUCA_ROW_COUNT + row) * param.rec.tpc.rebuildTrackInFitClusterCandidates + c].error) {
