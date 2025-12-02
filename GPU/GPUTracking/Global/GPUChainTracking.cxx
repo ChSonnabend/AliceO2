@@ -68,7 +68,11 @@ GPUChainTracking::GPUChainTracking(GPUReconstruction* rec, uint32_t maxTPCHits, 
   mFlatObjectsDevice.mChainTracking = this;
 }
 
-GPUChainTracking::~GPUChainTracking() = default;
+GPUChainTracking::~GPUChainTracking()
+{
+  fclose(fpdumperr);
+  fclose(fpdumptrk);
+}
 
 void GPUChainTracking::RegisterPermanentMemoryAndProcessors()
 {
@@ -257,6 +261,10 @@ bool GPUChainTracking::ValidateSettings()
     GPUError("Cannot do error interpolation with NWays < 3!");
     return false;
   }
+  if (param().rec.tpc.rebuildTrackInFit && !param().rec.tpc.mergerInterpolateErrors) {
+    GPUError("Need error interpolation to rebuild tracks during fit");
+    return false;
+  }
   if (param().continuousMaxTimeBin > (int32_t)GPUSettings::TPC_MAX_TF_TIME_BIN) {
     GPUError("configured max time bin exceeds 256 orbits");
     return false;
@@ -384,6 +392,11 @@ int32_t GPUChainTracking::Init()
     std::string filename = std::string(mRec->IsGPU() ? "GPU" : "CPU") + (mRec->slaveId() != -1 ? (std::string("_slave") + std::to_string(mRec->slaveId())) : std::string(mRec->slavesExist() ? "_master" : "")) + GetProcessingSettings().debugLogSuffix + ".out";
     mDebugFile->open(filename.c_str());
   }
+
+  fpdumperr = fopen("dump_cluster_error.csv", "w+");
+  fpdumptrk = fopen("dump_trk_index.csv", "w+");
+  fprintf(fpdumperr, "internal_trkid,sector,row,clusterid,residual_y,residual_z,estimated_error2_y_wo_split_flag,estimated_error2_z_wo_split_flag\n");
+  fprintf(fpdumptrk, "internal_trkid,trkid\n");
 
   return 0;
 }
@@ -1005,5 +1018,19 @@ void GPUChainTracking::SetO2Propagator(const o2::base::Propagator* prop)
   processors()->calibObjects.o2Propagator = prop;
   if ((prop->getGPUField() != nullptr) ^ GetProcessingSettings().o2PropagatorUseGPUField) {
     GPUFatal("GPU magnetic field for propagator requested, but received an O2 propagator without GPU field");
+  }
+}
+
+void GPUChainTracking::ApplySyncSettings(GPUSettingsProcessing& proc, GPUSettingsRec& rec, GPUDataTypes::RecoStepField& steps, bool syncMode, int32_t dEdxMode)
+{
+  if (syncMode) {
+    rec.useMatLUT = false;
+    rec.tpc.rebuildTrackMaxNonIntCov = 0.f; // TODO: Check if this yields a performance benefit
+  }
+  if (proc.rtc.optSpecialCode == -1) {
+    proc.rtc.optSpecialCode = syncMode;
+  }
+  if (dEdxMode != -2) {
+    steps.setBits(GPUDataTypes::RecoStep::TPCdEdx, dEdxMode == -1 ? !syncMode : dEdxMode > 0);
   }
 }

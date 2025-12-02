@@ -66,6 +66,8 @@ struct GPUNewCalibValues;
 struct GPUTriggerOutputs;
 struct CfFragment;
 class GPUTPCClusterFinder;
+struct GPUSettingsProcessing;
+struct GPUSettingsRec;
 
 class GPUChainTracking : public GPUChain
 {
@@ -86,6 +88,7 @@ class GPUChainTracking : public GPUChain
   void ClearErrorCodes(bool cpuOnly = false);
   int32_t DoQueuedUpdates(int32_t stream, bool updateSlave = true); // Forces doing queue calib updates, don't call when you are not sure you are allowed to do so!
   bool QARanForTF() const { return mFractionalQAEnabled; }
+  static void ApplySyncSettings(GPUSettingsProcessing& proc, GPUSettingsRec& rec, GPUDataTypes::RecoStepField& steps, bool syncMode, int32_t dEdxMode = -2);
 
   // Structures for input and output data
   GPUTrackingInOutPointers& mIOPtrs;
@@ -306,6 +309,7 @@ class GPUChainTracking : public GPUChain
   void RunTPCClusterFilter(o2::tpc::ClusterNativeAccess* clusters, std::function<o2::tpc::ClusterNative*(size_t)> allocator, bool applyClusterCuts);
   bool NeedTPCClustersOnGPU();
   void WriteReducedClusters();
+  void SortClusters(bool buildNativeGPU, bool propagateMCLabels, o2::tpc::ClusterNativeAccess* clusterAccess, o2::tpc::ClusterNative* clusters);
   template <int32_t I>
   int32_t RunTRDTrackingInternal();
   uint32_t StreamForSector(uint32_t sector) const;
