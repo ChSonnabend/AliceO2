@@ -893,21 +893,39 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
   auto& clustererNN = processors.tpcNNClusterer[sector];
 
   // Adjusting for normalisation factor of 16 for network training
+  // if (clustererNN.mNnClusterizerModelFlagNumOutputNodes == 1) {
+  //   if (dtype == 0) {
+  //     clustererNN.mClusterFlags[glo_idx * 2] = (float)clustererNN.mClusterFlags_16[glo_idx] * clustererNN.mNnClusterizerRescaleFlags;
+  //     clustererNN.mClusterFlags[glo_idx * 2 + 1] = clustererNN.mClusterFlags[glo_idx * 2];
+  //   } else if (dtype == 1) {
+  //     clustererNN.mClusterFlags[glo_idx * 2] = (float)clustererNN.mClusterFlags_32[glo_idx] * clustererNN.mNnClusterizerRescaleFlags;
+  //     clustererNN.mClusterFlags[glo_idx * 2 + 1] = clustererNN.mClusterFlags[glo_idx * 2];
+  //   }
+  // } else if (clustererNN.mNnClusterizerModelFlagNumOutputNodes == 2) {
+  //   if (dtype == 0) {
+  //     clustererNN.mClusterFlags[glo_idx * 2] = (float)clustererNN.mClusterFlags_16[glo_idx * 2] * clustererNN.mNnClusterizerRescaleFlags;
+  //     clustererNN.mClusterFlags[glo_idx * 2 + 1] = (float)clustererNN.mClusterFlags_16[glo_idx * 2 + 1] * clustererNN.mNnClusterizerRescaleFlags;
+  //   } else if (dtype == 1) {
+  //     clustererNN.mClusterFlags[glo_idx * 2] = (float)clustererNN.mClusterFlags_32[glo_idx * 2] * clustererNN.mNnClusterizerRescaleFlags;
+  //     clustererNN.mClusterFlags[glo_idx * 2 + 1] = (float)clustererNN.mClusterFlags_32[glo_idx * 2 + 1] * clustererNN.mNnClusterizerRescaleFlags;
+  //   }
+  // }
+
   if (clustererNN.mNnClusterizerModelFlagNumOutputNodes == 1) {
     if (dtype == 0) {
-      clustererNN.mClusterFlags[glo_idx * 2] = (float)clustererNN.mClusterFlags_16[glo_idx] * clustererNN.mNnClusterizerRescaleFlags;
+      clustererNN.mClusterFlags[glo_idx * 2] = (float)clustererNN.mClusterFlags_16[glo_idx] > clustererNN.mNnClusterizerFlagThreshold ? clustererNN.flagMinSplitNum : 0.f ;
       clustererNN.mClusterFlags[glo_idx * 2 + 1] = clustererNN.mClusterFlags[glo_idx * 2];
     } else if (dtype == 1) {
-      clustererNN.mClusterFlags[glo_idx * 2] = (float)clustererNN.mClusterFlags_32[glo_idx] * clustererNN.mNnClusterizerRescaleFlags;
+      clustererNN.mClusterFlags[glo_idx * 2] = (float)clustererNN.mClusterFlags_32[glo_idx] > clustererNN.mNnClusterizerFlagThreshold ? clustererNN.flagMinSplitNum : 0.f ;
       clustererNN.mClusterFlags[glo_idx * 2 + 1] = clustererNN.mClusterFlags[glo_idx * 2];
     }
   } else if (clustererNN.mNnClusterizerModelFlagNumOutputNodes == 2) {
     if (dtype == 0) {
-      clustererNN.mClusterFlags[glo_idx * 2] = (float)clustererNN.mClusterFlags_16[glo_idx * 2] * clustererNN.mNnClusterizerRescaleFlags;
-      clustererNN.mClusterFlags[glo_idx * 2 + 1] = (float)clustererNN.mClusterFlags_16[glo_idx * 2 + 1] * clustererNN.mNnClusterizerRescaleFlags;
+      clustererNN.mClusterFlags[glo_idx * 2] = (float)clustererNN.mClusterFlags_16[glo_idx * 2] > clustererNN.mNnClusterizerFlagThreshold ? clustererNN.flagMinSplitNum : 0.f ;
+      clustererNN.mClusterFlags[glo_idx * 2 + 1] = (float)clustererNN.mClusterFlags_16[glo_idx * 2 + 1] > clustererNN.mNnClusterizerFlagThreshold ? clustererNN.flagMinSplitNum : 0.f ;
     } else if (dtype == 1) {
-      clustererNN.mClusterFlags[glo_idx * 2] = (float)clustererNN.mClusterFlags_32[glo_idx * 2] * clustererNN.mNnClusterizerRescaleFlags;
-      clustererNN.mClusterFlags[glo_idx * 2 + 1] = (float)clustererNN.mClusterFlags_32[glo_idx * 2 + 1] * clustererNN.mNnClusterizerRescaleFlags;
+      clustererNN.mClusterFlags[glo_idx * 2] = (float)clustererNN.mClusterFlags_32[glo_idx * 2] > clustererNN.mNnClusterizerFlagThreshold ? clustererNN.flagMinSplitNum : 0.f ;
+      clustererNN.mClusterFlags[glo_idx * 2 + 1] = (float)clustererNN.mClusterFlags_32[glo_idx * 2 + 1] > clustererNN.mNnClusterizerFlagThreshold ? clustererNN.flagMinSplitNum : 0.f ;
     }
   }
 }

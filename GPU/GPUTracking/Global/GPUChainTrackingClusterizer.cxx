@@ -727,12 +727,12 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
       clustererNN.mDeviceId = deviceId;
       clustererNN.mISector = sector;
       clustererNN.mNnClusterizerTotalClusters = processors()->tpcClusterer[lane].mNMaxClusters;
-      nnApplications[lane].initClusterizer(nn_settings, clustererNN, maxFragmentLen, maxAllowedTimebin);
+      nnApplications[lane].initClusterizer(nn_settings, clustererNN, maxFragmentLen, maxAllowedTimebin, param().rec.tpc.cfMinSplitNum);
       if (doGPU) {
         clustererNNShadow.mDeviceId = deviceId;
         clustererNNShadow.mISector = sector;
         clustererNNShadow.mNnClusterizerTotalClusters = processors()->tpcClusterer[lane].mNMaxClusters;
-        nnApplications[lane].initClusterizer(nn_settings, clustererNNShadow, maxFragmentLen, maxAllowedTimebin);
+        nnApplications[lane].initClusterizer(nn_settings, clustererNNShadow, maxFragmentLen, maxAllowedTimebin, param().rec.tpc.cfMinSplitNum);
       }
       if (nn_settings.nnClusterizerVerbosity > 2) {
         LOG(info) << "(NNCLUS, GPUChainTrackingClusterizer, this=" << this << ") Processor initialized. Sector " << sector << ", lane " << lane << ", max clusters " << clustererNN.mNnClusterizerTotalClusters << " (clustererNN=" << &clustererNN << ", clustererNNShadow=" << &clustererNNShadow << ")";

@@ -218,7 +218,7 @@ void GPUTPCNNClusterizerHost::combineDigitFiles(int sector)
   LOG(info) << "Successfully combined digit files for sector " << sector << " into " << outputFile;
 }
 
-void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclusterizer& settings, GPUTPCNNClusterizer& clustererNN, int32_t maxFragmentLen, int32_t maxAllowedTimebin)
+void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclusterizer& settings, GPUTPCNNClusterizer& clustererNN, int32_t maxFragmentLen, int32_t maxAllowedTimebin, int32_t minFlagSplitNum)
 {
   clustererNN.mNnClusterizerUseCfRegression = settings.nnClusterizerUseCfRegression;
   clustererNN.mNnClusterizerSizeInputRow = settings.nnClusterizerSizeInputRow;
@@ -249,6 +249,8 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
   clustererNN.mNnClusterizerRescaleFlags = settings.nnClusterizerRescaleFlags;
   clustererNN.maxFragmentLen = maxFragmentLen == -1 ? TPC_MAX_FRAGMENT_LEN_GPU : maxFragmentLen;
   clustererNN.maxAllowedTimebin = maxAllowedTimebin == -1 ? TPC_MAX_FRAGMENT_LEN_GPU : maxAllowedTimebin;
+  clustererNN.mNnClusterizerFlagThreshold = settings.nnClusterizerFlagThreshold;
+  clustererNN.flagMinSplitNum = minFlagSplitNum;
   if (clustererNN.mNnSigmoidTrafoClassThreshold) {
     clustererNN.mNnClassThreshold = (float)std::log(settings.nnClassThreshold / (1.f - settings.nnClassThreshold));
   } else {
