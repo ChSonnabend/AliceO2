@@ -249,6 +249,8 @@ GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_
         float invAvgCharge = (sumInvSqrtCharge += invSqrtCharge) / ++nAvgCharge;
         invAvgCharge *= invAvgCharge;
         prop.GetErr2(err2Y, err2Z, param, zz, cluster.row, clusterState, cluster.sector, time, invAvgCharge, invCharge);
+        // cluster.num is the clusterNative->clustersLinear[cluster.num] index
+        mSavedClusterTrackProperties.push_back({cluster.num, err2Y, err2Z, (int)clusterState, mP[0], mP[1], mP[2], mP[3], mP[4], mC[0], mC[2], mC[5], mC[9], mC[14]});
 
         if (rejectChi2 >= GPUTPCGMPropagator::rejectInterFill) {
           if (rejectChi2 == GPUTPCGMPropagator::rejectInterReject && interpolation.hit[ihit].errorY < (GPUCA_PAR_MERGER_INTERPOLATION_ERROR_TYPE_A)0) {
@@ -338,6 +340,8 @@ GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_
     } else {
       deltaZ = 0.f;
     }
+    writeVectorToCSV("merger_fit_track_params_iWay" + std::to_string(iWay) + ".csv", mSavedClusterTrackProperties);
+    mSavedClusterTrackProperties.clear();
   }
   ConstrainSinPhi();
 
