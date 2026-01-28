@@ -48,6 +48,37 @@
 using namespace o2::gpu;
 using namespace o2::tpc;
 
+#include <sys/file.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <cstdio>
+#include <vector>
+#include <string>
+
+void writeVectorToCSV(const std::string& filename,
+                             const std::vector<std::vector<float>>& data)
+{
+  // std::lock_guard<std::mutex> lock(file_mutex);
+  int fd = open(filename.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+  if (fd < 0) return;
+
+  if (flock(fd, LOCK_EX) != 0) { close(fd); return; }  // blocks until acquired
+
+  FILE* fp = fdopen(fd, "a");
+  if (!fp) { flock(fd, LOCK_UN); close(fd); return; }
+
+  for (const auto& row : data) {
+    for (size_t i = 0; i < row.size(); ++i) {
+      std::fprintf(fp, "%f%s", row[i], (i + 1 < row.size()) ? "," : "");
+    }
+    std::fprintf(fp, "\n");
+  }
+  std::fflush(fp);                 // ensure data is pushed out of stdio buffers
+
+  flock(fd, LOCK_UN);              // unlock before closing (close also releases)
+  std::fclose(fp);                 // closes fd too
+}
+
 GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_t iTrk, GPUTPCGMMergedTrackHit* GPUrestrict() clusters, int32_t& GPUrestrict() N, int32_t& GPUrestrict() NTolerated, float& GPUrestrict() Alpha, int32_t attempt, float maxSinPhi, GPUTPCGMMergedTrack& GPUrestrict() track)
 {
   static constexpr float kDeg2Rad = M_PI / 180.f;
@@ -250,7 +281,7 @@ GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_
         invAvgCharge *= invAvgCharge;
         prop.GetErr2(err2Y, err2Z, param, zz, cluster.row, clusterState, cluster.sector, time, invAvgCharge, invCharge);
         // cluster.num is the clusterNative->clustersLinear[cluster.num] index
-        mSavedClusterTrackProperties.push_back({cluster.num, err2Y, err2Z, (int)clusterState, mP[0], mP[1], mP[2], mP[3], mP[4], mC[0], mC[2], mC[5], mC[9], mC[14]});
+        mSavedClusterTrackProperties[iWay].push_back({cluster.num, err2Y, err2Z, (int)clusterState, mP[0], mP[1], mP[2], mP[3], mP[4], mC[0], mC[2], mC[5], mC[9], mC[14]});
 
         if (rejectChi2 >= GPUTPCGMPropagator::rejectInterFill) {
           if (rejectChi2 == GPUTPCGMPropagator::rejectInterReject && interpolation.hit[ihit].errorY < (GPUCA_PAR_MERGER_INTERPOLATION_ERROR_TYPE_A)0) {
@@ -340,10 +371,11 @@ GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_
     } else {
       deltaZ = 0.f;
     }
-    writeVectorToCSV("merger_fit_track_params_iWay" + std::to_string(iWay) + ".csv", mSavedClusterTrackProperties);
-    mSavedClusterTrackProperties.clear();
   }
   ConstrainSinPhi();
+
+  writeVectorToCSV("merger_cluster_attachment_iWay_" + std::to_string(iWay) + ".csv", mSavedClusterTrackProperties[iWay]);
+  mSavedClusterTrackProperties.clear();
 
   GPUCA_DEBUG_STREAMER_CHECK(if (o2::utils::DebugStreamer::checkStream(o2::utils::StreamFlags::streamUpdateTrack, iTrk)) {
     o2::utils::DebugStreamer::instance()->getStreamer("debug_accept_track", "UPDATE") << o2::utils::DebugStreamer::instance()->getUniqueTreeName("debug_accept_track").data() << "iTrk=" << iTrk << "outerParam=" << track.OuterParam() << "track=" << this << "ihitStart=" << ihitStart << "\n";

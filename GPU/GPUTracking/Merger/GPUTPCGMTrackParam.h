@@ -21,30 +21,6 @@
 #include "GPUCommonMath.h"
 #include "GPUdEdxInfo.h"
 #include <vector>
-#include <fstream>
-#include <string>
-#include <stdexcept>
-
-void writeVectorToCSV(const std::string& filename,
-                      const std::vector<std::vector<float>>& data)
-{
-    std::ofstream file(filename);
-    if (!file.is_open()) {
-        throw std::runtime_error("Failed to open file: " + filename);
-    }
-
-    for (const auto& row : data) {
-        for (std::size_t i = 0; i < row.size(); ++i) {
-            file << row[i];
-            if (i + 1 < row.size()) {
-                file << ",";
-            }
-        }
-        file << "\n";
-    }
-
-    file.close();
-}
 
 #ifndef GPUCA_GPUCODE_DEVICE
 #include <cstddef>
@@ -236,6 +212,8 @@ class GPUTPCGMTrackParam
     }
   }
 
+  std::vector<std::vector<std::vector<float>>> mSavedClusterTrackProperties{10}; ///< saved cluster properties for refit retries, for maximum 10 iterations (iWay)
+
  private:
   GPUd() int32_t initResetT0();
 
@@ -245,7 +223,6 @@ class GPUTPCGMTrackParam
   float mC[15];    // the covariance matrix for Y,Z,SinPhi,..
   float mChi2;     // the chi^2 value
   int32_t mNDF;    // the Number of Degrees of Freedom
-  std::vector<std::vector<float>> mSavedClusterTrackProperties; ///< saved cluster properties for refit retries
 };
 
 struct GPUTPCGMLoopData {
