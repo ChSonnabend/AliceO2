@@ -23,6 +23,8 @@
 #include <algorithm>
 #endif
 
+extern FILE *fpdumperr, *fpdumptrk;
+
 namespace o2::gpu
 {
 struct GPUTrackingInOutPointers;

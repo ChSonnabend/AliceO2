@@ -271,6 +271,9 @@ GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::output>(int32_t nBlocks
     } else {
       oTrack.setHasASideClusters();
     }
+#ifndef GPUCA_GPUCODE
+    fprintf(fpdumptrk, "%d,%d\n", i, iTmp);
+#endif
     outputTracks[iTmp] = oTrack;
   }
 }

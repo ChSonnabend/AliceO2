@@ -20,7 +20,6 @@
 #include "GPUTPCGMMergerTypes.h"
 #include "GPUCommonMath.h"
 #include "GPUdEdxInfo.h"
-#include <vector>
 
 #ifndef GPUCA_GPUCODE_DEVICE
 #include <cstddef>
@@ -211,8 +210,6 @@ class GPUTPCGMTrackParam
       mP[2] = -limit;
     }
   }
-
-  std::vector<std::vector<std::vector<float>>> mSavedClusterTrackProperties{10}; ///< saved cluster properties for refit retries, for maximum 10 iterations (iWay)
 
  private:
   GPUd() int32_t initResetT0();
