@@ -91,16 +91,16 @@ class OrtModel
 
   // Inferencing
   template <class I, class O> // class I is the input data type, e.g. float, class O is the output data type, e.g. OrtDataType::Float16_t from O2/Common/ML/include/ML/GPUORTFloat16.h
-  std::vector<O> inference(std::vector<I>&);
+  std::vector<O> inference(std::vector<I>&) const;
 
   template <class I, class O>
-  std::vector<O> inference(std::vector<std::vector<I>>&);
+  std::vector<O> inference(std::vector<std::vector<I>>&) const;
 
   template <class I, class O>
-  void inference(I*, int64_t, O*);
+  void inference(I*, int64_t, O*) const;
 
   template <class I, class O>
-  void inference(I**, int64_t, O*);
+  void inference(I**, int64_t, O*) const;
 
   void release(bool = false);
 
@@ -112,7 +112,8 @@ class OrtModel
   // Input & Output specifications of the loaded network
   std::vector<const char*> mInputNamesChar, mOutputNamesChar;
   std::vector<std::string> mInputNames, mOutputNames;
-  std::vector<std::vector<int64_t>> mInputShapes, mOutputShapes, mInputShapesCopy, mOutputShapesCopy; // Input shapes
+  std::vector<std::vector<int64_t>> mInputShapes, mOutputShapes;
+  mutable std::vector<std::vector<int64_t>> mInputShapesCopy, mOutputShapesCopy; // Input shapes
   std::vector<int64_t> mInputSizePerNode, mOutputSizePerNode;                                         // Output shapes
   int32_t mInputsTotal = 0, mOutputsTotal = 0;                                                        // Total number of inputs and outputs
 

@@ -1,0 +1,41 @@
+diff --git a/GPU/GPUTracking/Base/GPUParam.cxx b/GPU/GPUTracking/Base/GPUParam.cxx
+index aa4c3c7671..3963eeced7 100644
+--- a/GPU/GPUTracking/Base/GPUParam.cxx
++++ b/GPU/GPUTracking/Base/GPUParam.cxx
+@@ -157,6 +157,7 @@ void GPUParam::SetDefaults(const GPUSettingsGRP* g, const GPUSettingsRec* r, con
+     rec = *r;
+   }
+   UpdateSettings(g, p, w);
++  initClusterErrorModel(p->nn);
+ }
+
+ void GPUParam::UpdateRun3ClusterErrors(const float* yErrorParam, const float* zErrorParam)
+diff --git a/GPU/GPUTracking/Base/GPUParam.h b/GPU/GPUTracking/Base/GPUParam.h
+index 1b46dc4c9c..9c31093b60 100644
+--- a/GPU/GPUTracking/Base/GPUParam.h
++++ b/GPU/GPUTracking/Base/GPUParam.h
+@@ -93,9 +93,9 @@ struct GPUParam : public internal::GPUParam_t<GPUSettingsRec, GPUSettingsParam>
+   void UpdateRun3ClusterErrors(const float* yErrorParam, const float* zErrorParam);
+ #endif
+
+-  void initClusterErrorModel(const GPUSettingsProcessing* p) {
+-    useClusterErrorNetwork = p->nn.nnUseClusterErrorNetwork;
+-    mOrtOptions["model_path"] = p->nn.nnClusterErrorModelPath;
++  void initClusterErrorModel(const GPUSettingsProcessingNNclusterizer& p) {
++    useClusterErrorNetwork = p.nnUseClusterErrorNetwork;
++    mOrtOptions["model_path"] = p.nnClusterErrorModelPath;
+     mModelClusterErrors.initOptions(mOrtOptions);
+     mModelClusterErrors.setIntraOpNumThreads(1);
+     mModelClusterErrors.initEnvironment();
+diff --git a/GPU/GPUTracking/Base/GPUReconstruction.cxx b/GPU/GPUTracking/Base/GPUReconstruction.cxx
+index fbbe815f63..c32f574ef1 100644
+--- a/GPU/GPUTracking/Base/GPUReconstruction.cxx
++++ b/GPU/GPUTracking/Base/GPUReconstruction.cxx
+@@ -1278,6 +1278,7 @@ void GPUReconstruction::SetSettings(const GPUSettingsGRP* grp, const GPUSettings
+     mRecoSteps.outputs = workflow->outputs;
+   }
+   param().SetDefaults(mGRPSettings.get(), rec, proc, workflow);
++  // param().initClusterErrorModel(proc->nn);
+ }
+
+ void GPUReconstruction::SetOutputControl(void* ptr, size_t size)

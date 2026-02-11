@@ -21,6 +21,8 @@
 #include "GPUSettings.h"
 #include "GPUTPCGMPolynomialField.h"
 
+#include "ML/OrtInterface.h"
+
 #if !defined(GPUCA_GPUCODE)
 namespace o2::base
 {
@@ -67,6 +69,11 @@ struct GPUParam_t {
 
   GPUParamSector SectorParam[GPUCA_NSECTORS];
 
+  std::unique_ptr<o2::ml::OrtModel> mModelClusterErrors; // For cluster error estimation
+  bool useClusterErrorNetwork = false; // Whether to use the cluster error network at all, can be set to false to save time if not needed
+  bool dumpClusterErrorCSV = false;
+  float scaleError = 1.f;
+
  protected:
 #ifdef GPUCA_TPC_GEOMETRY_O2
   float ParamErrors[2][4][4]; // cluster error parameterization used during seeding and fit
@@ -86,6 +93,46 @@ struct GPUParam : public internal::GPUParam_t<GPUSettingsRec, GPUSettingsParam> 
   void UpdateBzOnly(float newSolenoidBz, bool assumeConstantBz);
   void UpdateRun3ClusterErrors(const float* yErrorParam, const float* zErrorParam);
 #endif
+
+  void initClusterErrorModel(const GPUSettingsProcessingNNclusterizer& p) {
+    useClusterErrorNetwork = p.nnUseClusterErrorNetwork;
+    dumpClusterErrorCSV = p.dumpClusterErrorCSV;
+    scaleError = p.nnScaleClusterError;
+    if (useClusterErrorNetwork && !p.nnClusterErrorModelPath.empty()) {
+      mModelClusterErrors = std::make_unique<o2::ml::OrtModel>();
+      LOG(info) << "Loading cluster error network from " << p.nnClusterErrorModelPath;
+      // LOG(info) << "use=" << p.nnUseClusterErrorNetwork
+      //     << " model=" << p.nnClusterErrorModelPath
+      //     << " dev=" << p.nnInferenceDevice
+      //     << " allocDevMem=" << p.nnInferenceAllocateDevMem
+      //     << " intra=" << p.nnInferenceIntraOpNumThreads
+      //     << " inter=" << p.nnInferenceInterOpNumThreads
+      //     << " opt=" << p.nnInferenceEnableOrtOptimization
+      //     << " det=" << p.nnInferenceUseDeterministicCompute
+      //     << " prof=" << p.nnInferenceOrtProfiling
+      //     << " verb=" << p.nnInferenceVerbosity;
+      std::unordered_map<std::string, std::string> mOrtOptions = {
+        {"model-path", p.nnClusterErrorModelPath},
+        {"device-type", p.nnInferenceDevice},
+        {"allocate-device-memory", std::to_string(p.nnInferenceAllocateDevMem)},
+        {"intra-op-num-threads", "1"},
+        {"inter-op-num-threads", "1"},
+        {"enable-optimizations", std::to_string(p.nnInferenceEnableOrtOptimization)},
+        {"deterministic-compute", std::to_string(p.nnInferenceUseDeterministicCompute)}, // TODO: This unfortunately doesn't guarantee determinism (25.07.2025)
+        {"enable-profiling", std::to_string(p.nnInferenceOrtProfiling)},
+        {"profiling-output-path", p.nnInferenceOrtProfilingPath},
+        {"logging-level", std::to_string(p.nnInferenceVerbosity)},
+        {"onnx-environment-name", "cluster_error"}
+      };
+      // LOG(info) << "NN cluster error options done!";
+      mModelClusterErrors->initOptions(mOrtOptions);
+      // LOG(info) << "NN cluster error options loaded!";
+      mModelClusterErrors->initEnvironment();
+      // LOG(info) << "NN cluster error environment initialized!";
+      mModelClusterErrors->initSession();
+      // LOG(info) << "NN cluster error session initialized!";
+    }
+  }
 
   GPUd() float Alpha(int32_t iSector) const
   {

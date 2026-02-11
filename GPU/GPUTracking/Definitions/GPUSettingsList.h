@@ -283,6 +283,10 @@ AddOption(nnSigmoidTrafoClassThreshold, int, 1, "", 0, "If true (default), then 
 AddOption(nnEvalMode, std::string, "c1:r1", "", 0, "Concatention of modes, e.g. c1:r1 (classification class 1, regression class 1)")
 AddOption(nnClusterizerUseClassification, int, 1, "", 0, "If 1, the classification output of the network is used to select clusters, else only the regression output is used and no clusters are rejected by classification")
 AddOption(nnClusterizerForceGpuInputFill, int, 0, "", 0, "Forces to use the fillInputNNGPU function")
+AddOption(nnUseClusterErrorNetwork, int, 1, "", 0, "If 1, the cluster error network is used to parametrize the cluster errors, else a fixed parametrization is used")
+AddOption(nnClusterErrorModelPath, std::string, "", "", 0, "Network for cluster error parameterization")
+AddOption(dumpClusterErrorCSV, int, 0, "", 0, "Dumps the cluster errors to CSV if enabled")
+AddOption(nnScaleClusterError, float, 1.0, "", 0, "Scale factor for the cluster errors predicted by the network, can be used to effectively increase or decrease the cluster errors without retraining the network")
 // CCDB
 AddOption(nnLoadFromCCDB, int, 0, "", 0, "If 1 networks are fetched from ccdb, else locally")
 AddOption(nnCCDBDumpToFile, int, 0, "", 0, "If 1, additionally dump fetched CCDB networks to nnLocalFolder")

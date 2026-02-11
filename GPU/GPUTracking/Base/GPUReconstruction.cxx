@@ -1278,6 +1278,7 @@ void GPUReconstruction::SetSettings(const GPUSettingsGRP* grp, const GPUSettings
     mRecoSteps.outputs = workflow->outputs;
   }
   param().SetDefaults(mGRPSettings.get(), rec, proc, workflow);
+  // param().initClusterErrorModel(proc->nn);
 }
 
 void GPUReconstruction::SetOutputControl(void* ptr, size_t size)

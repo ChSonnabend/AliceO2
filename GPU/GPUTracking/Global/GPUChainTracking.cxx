@@ -78,8 +78,8 @@ void GPUChainTracking::RegisterPermanentMemoryAndProcessors()
 {
   fpdumperr = fopen("dump_cluster_error.csv", "a");
   fpdumptrk = fopen("dump_trk_index.csv", "a");
-  fprintf(fpdumperr, "internal_trkid,cluster.num,err2Y,err2Z,clusterState,clusterY,clusterZ,mP[0],mP[1],mP[2],mP[3],mP[4],mC[0],mC[2],mC[5],mC[9],mC[14]\n");
-  fprintf(fpdumptrk, "internal_trkid,trkid\n");
+  // fprintf(fpdumperr, "internal_trkid,cluster.num,err2Y,err2Z,clusterState,cluster.getSigmaPad(),cluster.getSigmaTime(),invAvgCharge,invCharge,xx,yy,zz,mP[0],mP[1],mP[2],mP[3],mP[4],mC[0],mC[2],mC[5],mC[9],mC[14]\n");
+  // fprintf(fpdumptrk, "internal_trkid,trkid\n");
   if (mRec->IsGPU()) {
     mFlatObjectsShadow.InitGPUProcessor(mRec, GPUProcessor::PROCESSOR_TYPE_SLAVE);
     mFlatObjectsDevice.InitGPUProcessor(mRec, GPUProcessor::PROCESSOR_TYPE_DEVICE, &mFlatObjectsShadow);

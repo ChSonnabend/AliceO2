@@ -279,10 +279,47 @@ GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_
         const float invCharge = merger->GetConstantMem()->ioPtrs.clustersNative ? (1.f / merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].qMax) : 0.f;
         float invAvgCharge = (sumInvSqrtCharge += invSqrtCharge) / ++nAvgCharge;
         invAvgCharge *= invAvgCharge;
-        prop.GetErr2(err2Y, err2Z, param, zz, cluster.row, clusterState, cluster.sector, time, invAvgCharge, invCharge);
+        if (param.useClusterErrorNetwork) {
+          // Python expands clusterState into 4 bits (cs0..cs3) and drops clusterState.
+          // Final X dimension: 17 features.
+          float inputFeatures[17];
+          float outputFeatures[2];
+
+          inputFeatures[0]  = xx;
+          inputFeatures[1]  = yy;
+          inputFeatures[2]  = zz;
+
+          inputFeatures[3]  = static_cast<float>(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaPad());
+          inputFeatures[4]  = static_cast<float>(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaTime());
+
+          inputFeatures[5]  = mP[0];
+          inputFeatures[6]  = mP[1];
+          inputFeatures[7]  = mP[2];
+          inputFeatures[8] = mP[3];
+          inputFeatures[9] = mP[4];
+
+          inputFeatures[10] = mC[0];
+          inputFeatures[11] = mC[2];
+          inputFeatures[12] = mC[5];
+          inputFeatures[13] = mC[9];
+          inputFeatures[14] = mC[14];
+
+          inputFeatures[15] = static_cast<float>((clusterState >> 0) & 1);  // cs0
+          inputFeatures[16] = static_cast<float>((clusterState >> 1) & 1);  // cs1
+          inputFeatures[17] = static_cast<float>((clusterState >> 2) & 1);  // cs2
+          inputFeatures[18] = static_cast<float>((clusterState >> 3) & 1);  // cs3
+
+          param.mModelClusterErrors->inference(inputFeatures, (int64_t)1, outputFeatures);
+          err2Y = param.scaleError*outputFeatures[0];
+          err2Z = param.scaleError*outputFeatures[1];
+        } else {
+          prop.GetErr2(err2Y, err2Z, param, zz, cluster.row, clusterState, cluster.sector, time, invAvgCharge, invCharge);
+        }
 
 #ifndef GPUCA_GPUCODE
-        fprintf(fpdumperr, "%d,%d,%f,%f,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", iTrk, cluster.num, err2Y, err2Z, clusterState, yy, zz, mP[0], mP[1], mP[2], mP[3], mP[4], mC[0], mC[2], mC[5], mC[9], mC[14]);
+        if (param.dumpClusterErrorCSV) {
+          fprintf(fpdumperr, "%d,%d,%f,%f,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", iTrk, cluster.num, err2Y, err2Z, clusterState, merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaPad(), merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaTime(), invAvgCharge, invCharge, xx, yy, zz, mP[0], mP[1], mP[2], mP[3], mP[4], mC[0], mC[2], mC[5], mC[9], mC[14]);
+        }
 #endif
 
         if (rejectChi2 >= GPUTPCGMPropagator::rejectInterFill) {

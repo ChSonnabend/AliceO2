@@ -125,6 +125,7 @@ void GPUParam::UpdateSettings(const GPUSettingsGRP* g, const GPUSettingsProcessi
   qptB5Scaler = CAMath::Abs(bzkG) > 0.1f ? CAMath::Abs(bzkG) / 5.006680f : 1.f; // Repeat here, since passing in g is optional
   if (p) {
     UpdateRun3ClusterErrors(p->param.tpcErrorParamY, p->param.tpcErrorParamZ);
+    initClusterErrorModel(p->nn);
   }
   if (w) {
     par.dodEdx = dodEdxEnabled = w->steps.isSet(gpudatatypes::RecoStep::TPCdEdx);
