@@ -11,7 +11,6 @@
 ///
 
 #include <cuda_runtime.h>
-#include <fmt/format.h>
 
 #include <unistd.h>
 #include <vector>
@@ -439,8 +438,10 @@ void TimeFrameGPU<nLayers>::loadTrackSeedsDevice(bounded_vector<CellSeedN>& seed
   GPUTimer timer("loading track seeds");
   GPULog("gpu-transfer: loading {} track seeds, for {:.2f} MB.", seeds.size(), seeds.size() * sizeof(CellSeedN) / constants::MB);
   allocMem(reinterpret_cast<void**>(&mTrackSeedsDevice), seeds.size() * sizeof(CellSeedN), this->hasFrameworkAllocator(), (o2::gpu::GPUMemoryResource::MEMORY_GPU | o2::gpu::GPUMemoryResource::MEMORY_STACK));
-  GPUChkErrS(cudaHostRegister(seeds.data(), seeds.size() * sizeof(CellSeedN), cudaHostRegisterPortable));
   GPUChkErrS(cudaMemcpy(mTrackSeedsDevice, seeds.data(), seeds.size() * sizeof(CellSeedN), cudaMemcpyHostToDevice));
+  GPULog("gpu-transfer: creating {} track seeds LUT, for {:.2f} MB.", seeds.size() + 1, (seeds.size() + 1) * sizeof(int) / constants::MB);
+  allocMem(reinterpret_cast<void**>(&mTrackSeedsLUTDevice), (seeds.size() + 1) * sizeof(int), this->hasFrameworkAllocator(), (o2::gpu::GPUMemoryResource::MEMORY_GPU | o2::gpu::GPUMemoryResource::MEMORY_STACK));
+  GPUChkErrS(cudaMemset(mTrackSeedsLUTDevice, 0, (seeds.size() + 1) * sizeof(int)));
 }
 
 template <int nLayers>
@@ -458,14 +459,15 @@ void TimeFrameGPU<nLayers>::createNeighboursDevice(const unsigned int layer)
 }
 
 template <int nLayers>
-void TimeFrameGPU<nLayers>::createTrackITSExtDevice(bounded_vector<CellSeedN>& seeds)
+void TimeFrameGPU<nLayers>::createTrackITSExtDevice(const size_t nSeeds)
 {
   GPUTimer timer("reserving tracks");
-  mTrackITSExt = bounded_vector<TrackITSExt>(seeds.size(), {}, this->getMemoryPool().get());
-  GPULog("gpu-allocation: reserving {} tracks, for {:.2f} MB.", seeds.size(), seeds.size() * sizeof(o2::its::TrackITSExt) / constants::MB);
-  allocMem(reinterpret_cast<void**>(&mTrackITSExtDevice), seeds.size() * sizeof(o2::its::TrackITSExt), this->hasFrameworkAllocator(), (o2::gpu::GPUMemoryResource::MEMORY_GPU | o2::gpu::GPUMemoryResource::MEMORY_STACK));
-  GPUChkErrS(cudaMemset(mTrackITSExtDevice, 0, seeds.size() * sizeof(o2::its::TrackITSExt)));
-  GPUChkErrS(cudaHostRegister(mTrackITSExt.data(), seeds.size() * sizeof(o2::its::TrackITSExt), cudaHostRegisterPortable));
+  mNTracks = 0;
+  GPUChkErrS(cudaMemcpy(&mNTracks, mTrackSeedsLUTDevice + nSeeds, sizeof(int), cudaMemcpyDeviceToHost));
+  GPULog("gpu-allocation: reserving {} tracks, for {:.2f} MB.", mNTracks, mNTracks * sizeof(o2::its::TrackITSExt) / constants::MB);
+  mTrackITSExt = bounded_vector<TrackITSExt>(mNTracks, {}, this->getMemoryPool().get());
+  allocMem(reinterpret_cast<void**>(&mTrackITSExtDevice), mNTracks * sizeof(o2::its::TrackITSExt), this->hasFrameworkAllocator(), (o2::gpu::GPUMemoryResource::MEMORY_GPU | o2::gpu::GPUMemoryResource::MEMORY_STACK));
+  GPUChkErrS(cudaMemset(mTrackITSExtDevice, 0, mNTracks * sizeof(o2::its::TrackITSExt)));
 }
 
 template <int nLayers>
@@ -588,13 +590,11 @@ void TimeFrameGPU<nLayers>::downloadNeighboursLUTDevice(bounded_vector<int>& lut
 }
 
 template <int nLayers>
-void TimeFrameGPU<nLayers>::downloadTrackITSExtDevice(bounded_vector<CellSeedN>& seeds)
+void TimeFrameGPU<nLayers>::downloadTrackITSExtDevice()
 {
   GPUTimer timer("downloading tracks");
   GPULog("gpu-transfer: downloading {} tracks, for {:.2f} MB.", mTrackITSExt.size(), mTrackITSExt.size() * sizeof(o2::its::TrackITSExt) / constants::MB);
-  GPUChkErrS(cudaMemcpy(mTrackITSExt.data(), mTrackITSExtDevice, seeds.size() * sizeof(o2::its::TrackITSExt), cudaMemcpyDeviceToHost));
-  GPUChkErrS(cudaHostUnregister(mTrackITSExt.data()));
-  GPUChkErrS(cudaHostUnregister(seeds.data()));
+  GPUChkErrS(cudaMemcpy(mTrackITSExt.data(), mTrackITSExtDevice, mTrackITSExt.size() * sizeof(o2::its::TrackITSExt), cudaMemcpyDeviceToHost));
 }
 
 template <int nLayers>
@@ -632,21 +632,37 @@ void TimeFrameGPU<nLayers>::unregisterHostMemory(const int maxLayers)
   checkedUnregisterArray(mPinnedROFramesClusters, mROFramesClustersDevice);
 }
 
+namespace detail
+{
+template <std::size_t I>
+constexpr uint64_t makeIterTag()
+{
+  static_assert(I < 10);
+  constexpr char tag[] = {'I', 'T', 'S', 'I', 'T', 'E', 'R', char('0' + I), '\0'};
+  return qStr2Tag(tag);
+}
+template <std::size_t... I>
+constexpr auto makeIterTags(std::index_sequence<I...>)
+{
+  return std::array<uint64_t, sizeof...(I)>{makeIterTag<I>()...};
+}
+// FIXME: we have to be careful that the MaxIter does not diverge from the 4 here!
+constexpr auto kIterTags = makeIterTags(std::make_index_sequence<4>{});
+} // namespace detail
+
 template <int nLayers>
 void TimeFrameGPU<nLayers>::pushMemoryStack(const int iteration)
 {
   // mark the beginning of memory marked with MEMORY_STACK that can be discarded
   // after doing one iteration
-  const auto name = fmt::format("ITSITER{}", iteration);
-  (this->mExternalAllocator)->pushTagOnStack(qStr2Tag(name.c_str()));
+  (this->mExternalAllocator)->pushTagOnStack(detail::kIterTags[iteration]);
 }
 
 template <int nLayers>
 void TimeFrameGPU<nLayers>::popMemoryStack(const int iteration)
 {
   // pop all memory on the stack from this iteration
-  const auto name = fmt::format("ITSITER{}", iteration);
-  (this->mExternalAllocator)->popTagOffStack(qStr2Tag(name.c_str()));
+  (this->mExternalAllocator)->popTagOffStack(detail::kIterTags[iteration]);
 }
 
 template <int nLayers>

@@ -34,11 +34,11 @@ namespace VD // TODO: add a primitive segmentation with more granularity wrt 1/4
 {
 namespace silicon
 {
-constexpr double thickness{30 * mu}; // thickness of the silicon (should be 10 um epitaxial layer + 20 um substrate)?
+constexpr double thickness{20 * mu}; // thickness of the silicon (should be 10 um epitaxial layer + 20 um substrate)?
 } // namespace silicon
 namespace metalstack
 {
-constexpr double thickness{0 * mu}; // thickness of the copper metal stack - for the moment it is not implemented
+constexpr double thickness{80 * mu}; // thickness of the copper metal stack - for the moment it is not implemented. PL: set to 80 um considering silicon as material
 } // namespace metalstack
 namespace petal
 {
@@ -130,6 +130,14 @@ constexpr double pitchZ{15.0 * mu};
 constexpr double responseYShift{15.5 * mu};
 constexpr double thickness{45 * mu};
 } // namespace apts
+
+namespace alice3resp /// parameters for the alice3 chip response
+{
+constexpr double pitchX{10.0 * mu};
+constexpr double pitchZ{10.0 * mu};
+constexpr double responseYShift{5 * mu}; /// center of the epitaxial layer
+constexpr double thickness{20 * mu};
+} // namespace alice3resp
 
 } // namespace o2::trk::constants
 

@@ -626,9 +626,12 @@ static auto cleanEarlyForward = [](ServiceRegistryRef registry, TimesliceSlot sl
                     slot.index, oldestTimeslice.timeslice.value, copy ? "with copy" : "", copy && consume ? " and " : "", consume ? "with consume" : "");
   // Always copy them, because we do not want to actually send them.
   // We merely need the side effect of the consume, if applicable.
-  auto forwardedParts = DataProcessingHelpers::routeForwardedMessageSet(proxy, currentSetOfInputs, true, consume);
+  for (size_t ii = 0, ie = currentSetOfInputs.size(); ii < ie; ++ii) {
+    auto span = std::span<fair::mq::MessagePtr>(currentSetOfInputs[ii].messages);
+    DataProcessingHelpers::cleanForwardedMessages(span, consume);
+  }
 
-  O2_SIGNPOST_END(forwarding, sid, "forwardInputs", "Forwarding done");
+  O2_SIGNPOST_END(forwarding, sid, "forwardInputs", "Cleaning done");
 };
 
 extern volatile int region_read_global_dummy_variable;
@@ -1052,6 +1055,30 @@ void DataProcessingDevice::fillContext(DataProcessorContext& context, DeviceCont
 
   auto decideEarlyForward = [&context, &deviceContext, &spec, this]() -> ForwardPolicy {
     ForwardPolicy defaultEarlyForwardPolicy = getenv("DPL_OLD_EARLY_FORWARD") ? ForwardPolicy::AtCompletionPolicySatisified : ForwardPolicy::AtInjection;
+    //  FIXME: try again with the new policy by default.
+    //
+    //  Make the new policy optional until we handle some of the corner cases
+    //  with custom policies which expect the early forward to happen only when
+    //  all the data is available, like in the TPC case.
+    //  ForwardPolicy defaultEarlyForwardPolicy = getenv("DPL_NEW_EARLY_FORWARD") ? ForwardPolicy::AtInjection : ForwardPolicy::AtCompletionPolicySatisified;
+    for (auto& forward : spec.forwards) {
+      if (DataSpecUtils::match(forward.matcher, ConcreteDataTypeMatcher{"TPC", "DIGITSMCTR"}) ||
+          DataSpecUtils::match(forward.matcher, ConcreteDataTypeMatcher{"TPC", "CLNATIVEMCLBL"}) ||
+          DataSpecUtils::match(forward.matcher, ConcreteDataTypeMatcher{o2::header::gDataOriginTPC, "DIGITS"}) ||
+          DataSpecUtils::match(forward.matcher, ConcreteDataTypeMatcher{o2::header::gDataOriginTPC, "CLUSTERNATIVE"})) {
+        defaultEarlyForwardPolicy = ForwardPolicy::AtCompletionPolicySatisified;
+        break;
+      }
+    }
+    // Output proxies should wait for the completion policy before forwarding.
+    // Because they actually do not do anything, that's equivalent to
+    // forwarding after the processing.
+    for (auto& label : spec.labels) {
+      if (label.value == "output-proxy") {
+        defaultEarlyForwardPolicy = ForwardPolicy::AfterProcessing;
+        break;
+      }
+    }
 
     /// We must make sure there is no optional
     /// if we want to optimize the forwarding
@@ -1372,12 +1399,12 @@ void DataProcessingDevice::Run()
         if (schedulingStats.numberOfUnscheduledSinceLastScheduled > 100 ||
             (uv_now(state.loop) - schedulingStats.lastScheduled) > 30000) {
           O2_SIGNPOST_EVENT_EMIT_WARN(scheduling, sid, "Run",
-                                      "Not enough resources to schedule computation. %zu skipped so far. Last scheduled at %zu.",
+                                      "Not enough resources to schedule computation. %zu skipped so far. Last scheduled at %zu. Data is not lost and it will be scheduled again.",
                                       schedulingStats.numberOfUnscheduledSinceLastScheduled.load(),
                                       schedulingStats.lastScheduled.load());
         } else {
           O2_SIGNPOST_EVENT_EMIT(scheduling, sid, "Run",
-                                 "Not enough resources to schedule computation. %zu skipped so far. Last scheduled at %zu.",
+                                 "Not enough resources to schedule computation. %zu skipped so far. Last scheduled at %zu. Data is not lost and it will be scheduled again.",
                                  schedulingStats.numberOfUnscheduledSinceLastScheduled.load(),
                                  schedulingStats.lastScheduled.load());
         }
@@ -1456,7 +1483,7 @@ void DataProcessingDevice::doPrepare(ServiceRegistryRef ref)
   auto& infos = state.inputChannelInfos;
 
   if (context.balancingInputs) {
-    static int pipelineLength = DefaultsHelpers::pipelineLength();
+    static int pipelineLength = DefaultsHelpers::pipelineLength(*ref.get<RawDeviceService>().device()->fConfig);
     static uint64_t ahead = getenv("DPL_MAX_CHANNEL_AHEAD") ? std::atoll(getenv("DPL_MAX_CHANNEL_AHEAD")) : std::max(8, std::min(pipelineLength - 48, pipelineLength / 2));
     auto newEnd = std::remove_if(pollOrder.begin(), pollOrder.end(), [&infos, limitNew = currentOldest.value + ahead](int a) -> bool {
       return infos[a].oldestForChannel.value > limitNew;
@@ -1482,9 +1509,8 @@ void DataProcessingDevice::doPrepare(ServiceRegistryRef ref)
 
   for (auto sci : pollOrder) {
     auto& info = state.inputChannelInfos[sci];
-    auto& channelSpec = spec.inputChannels[sci];
     O2_SIGNPOST_ID_FROM_POINTER(cid, device, &info);
-    O2_SIGNPOST_START(device, cid, "channels", "Processing channel %s", channelSpec.name.c_str());
+    O2_SIGNPOST_START(device, cid, "channels", "Processing channel %s", info.channel->GetName().c_str());
 
     if (info.state != InputChannelState::Completed && info.state != InputChannelState::Pull) {
       context.allDone = false;
@@ -1496,18 +1522,18 @@ void DataProcessingDevice::doPrepare(ServiceRegistryRef ref)
         DataProcessingDevice::handleData(ref, info);
       }
       O2_SIGNPOST_END(device, cid, "channels", "Flushing channel %s which is in state %d and has %zu parts still pending.",
-                      channelSpec.name.c_str(), (int)info.state, info.parts.Size());
+                      info.channel->GetName().c_str(), (int)info.state, info.parts.Size());
       continue;
     }
     if (info.channel == nullptr) {
       O2_SIGNPOST_END(device, cid, "channels", "Channel %s which is in state %d is nullptr and has %zu parts still pending.",
-                      channelSpec.name.c_str(), (int)info.state, info.parts.Size());
+                      info.channel->GetName().c_str(), (int)info.state, info.parts.Size());
       continue;
     }
     // Only poll DPL channels for now.
     if (info.channelType != ChannelAccountingType::DPL) {
       O2_SIGNPOST_END(device, cid, "channels", "Channel %s which is in state %d is not a DPL channel and has %zu parts still pending.",
-                      channelSpec.name.c_str(), (int)info.state, info.parts.Size());
+                      info.channel->GetName().c_str(), (int)info.state, info.parts.Size());
       continue;
     }
     auto& socket = info.channel->GetSocket();
@@ -1519,7 +1545,7 @@ void DataProcessingDevice::doPrepare(ServiceRegistryRef ref)
       socket.Events(&info.hasPendingEvents);
       // If we do not read, we can continue.
       if ((info.hasPendingEvents & 1) == 0 && (info.parts.Size() == 0)) {
-        O2_SIGNPOST_END(device, cid, "channels", "No pending events and no remaining parts to process for channel %{public}s", channelSpec.name.c_str());
+        O2_SIGNPOST_END(device, cid, "channels", "No pending events and no remaining parts to process for channel %{public}s", info.channel->GetName().c_str());
         continue;
       }
     }
@@ -1537,12 +1563,12 @@ void DataProcessingDevice::doPrepare(ServiceRegistryRef ref)
     bool newMessages = false;
     while (true) {
       O2_SIGNPOST_EVENT_EMIT(device, cid, "channels", "Receiving loop called for channel %{public}s (%d) with oldest possible timeslice %zu",
-                             channelSpec.name.c_str(), info.id.value, info.oldestForChannel.value);
+                             info.channel->GetName().c_str(), info.id.value, info.oldestForChannel.value);
       if (info.parts.Size() < 64) {
         fair::mq::Parts parts;
         info.channel->Receive(parts, 0);
         if (parts.Size()) {
-          O2_SIGNPOST_EVENT_EMIT(device, cid, "channels", "Received %zu parts from channel %{public}s (%d).", parts.Size(), channelSpec.name.c_str(), info.id.value);
+          O2_SIGNPOST_EVENT_EMIT(device, cid, "channels", "Received %zu parts from channel %{public}s (%d).", parts.Size(), info.channel->GetName().c_str(), info.id.value);
         }
         for (auto&& part : parts) {
           info.parts.fParts.emplace_back(std::move(part));
@@ -1571,7 +1597,7 @@ void DataProcessingDevice::doPrepare(ServiceRegistryRef ref)
       }
     }
     O2_SIGNPOST_END(device, cid, "channels", "Done processing channel %{public}s (%d).",
-                    channelSpec.name.c_str(), info.id.value);
+                    info.channel->GetName().c_str(), info.id.value);
   }
 }
 
@@ -2233,12 +2259,14 @@ bool DataProcessingDevice::tryDispatchComputation(ServiceRegistryRef ref, std::v
     return false;
   }
 
-  auto postUpdateStats = [ref](DataRelayer::RecordAction const& action, InputRecord const& record, uint64_t tStart, uint64_t tStartMilli) {
+  int pipelineLength = DefaultsHelpers::pipelineLength(*ref.get<RawDeviceService>().device()->fConfig);
+
+  auto postUpdateStats = [ref, pipelineLength](DataRelayer::RecordAction const& action, InputRecord const& record, uint64_t tStart, uint64_t tStartMilli) {
     auto& stats = ref.get<DataProcessingStats>();
     auto& states = ref.get<DataProcessingStates>();
     std::atomic_thread_fence(std::memory_order_release);
     char relayerSlotState[1024];
-    int written = snprintf(relayerSlotState, 1024, "%d ", DefaultsHelpers::pipelineLength());
+    int written = snprintf(relayerSlotState, 1024, "%d ", pipelineLength);
     char* buffer = relayerSlotState + written;
     for (size_t ai = 0; ai != record.size(); ai++) {
       buffer[ai] = record.isValid(ai) ? '3' : '0';
@@ -2265,11 +2293,11 @@ bool DataProcessingDevice::tryDispatchComputation(ServiceRegistryRef ref, std::v
     count++;
   };
 
-  auto preUpdateStats = [ref](DataRelayer::RecordAction const& action, InputRecord const& record, uint64_t) {
+  auto preUpdateStats = [ref, pipelineLength](DataRelayer::RecordAction const& action, InputRecord const& record, uint64_t) {
     auto& states = ref.get<DataProcessingStates>();
     std::atomic_thread_fence(std::memory_order_release);
     char relayerSlotState[1024];
-    snprintf(relayerSlotState, 1024, "%d ", DefaultsHelpers::pipelineLength());
+    snprintf(relayerSlotState, 1024, "%d ", pipelineLength);
     char* buffer = strchr(relayerSlotState, ' ') + 1;
     for (size_t ai = 0; ai != record.size(); ai++) {
       buffer[ai] = record.isValid(ai) ? '2' : '0';

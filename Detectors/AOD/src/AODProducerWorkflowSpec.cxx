@@ -363,10 +363,10 @@ void AODProducerWorkflowDPL::addToTracksQATable(TracksQACursorType& tracksQACurs
 {
   tracksQACursor(
     trackQAInfoHolder.trackID,
-    truncateFloatFraction(trackQAInfoHolder.tpcTime0, mTPCTime0),
+    mTrackQCRetainOnlydEdx ? 0.0f : truncateFloatFraction(trackQAInfoHolder.tpcTime0, mTPCTime0),
     truncateFloatFraction(trackQAInfoHolder.tpcdEdxNorm, mTrackSignal),
-    trackQAInfoHolder.tpcdcaR,
-    trackQAInfoHolder.tpcdcaZ,
+    mTrackQCRetainOnlydEdx ? std::numeric_limits<int16_t>::min() : trackQAInfoHolder.tpcdcaR,
+    mTrackQCRetainOnlydEdx ? std::numeric_limits<int16_t>::min() : trackQAInfoHolder.tpcdcaZ,
     trackQAInfoHolder.tpcClusterByteMask,
     trackQAInfoHolder.tpcdEdxMax0R,
     trackQAInfoHolder.tpcdEdxMax1R,
@@ -376,18 +376,18 @@ void AODProducerWorkflowDPL::addToTracksQATable(TracksQACursorType& tracksQACurs
     trackQAInfoHolder.tpcdEdxTot1R,
     trackQAInfoHolder.tpcdEdxTot2R,
     trackQAInfoHolder.tpcdEdxTot3R,
-    trackQAInfoHolder.dRefContY,
-    trackQAInfoHolder.dRefContZ,
-    trackQAInfoHolder.dRefContSnp,
-    trackQAInfoHolder.dRefContTgl,
-    trackQAInfoHolder.dRefContQ2Pt,
-    trackQAInfoHolder.dRefGloY,
-    trackQAInfoHolder.dRefGloZ,
-    trackQAInfoHolder.dRefGloSnp,
-    trackQAInfoHolder.dRefGloTgl,
-    trackQAInfoHolder.dRefGloQ2Pt,
-    trackQAInfoHolder.dTofdX,
-    trackQAInfoHolder.dTofdZ);
+    mTrackQCRetainOnlydEdx ? std::numeric_limits<int8_t>::min() : trackQAInfoHolder.dRefContY,
+    mTrackQCRetainOnlydEdx ? std::numeric_limits<int8_t>::min() : trackQAInfoHolder.dRefContZ,
+    mTrackQCRetainOnlydEdx ? std::numeric_limits<int8_t>::min() : trackQAInfoHolder.dRefContSnp,
+    mTrackQCRetainOnlydEdx ? std::numeric_limits<int8_t>::min() : trackQAInfoHolder.dRefContTgl,
+    mTrackQCRetainOnlydEdx ? std::numeric_limits<int8_t>::min() : trackQAInfoHolder.dRefContQ2Pt,
+    mTrackQCRetainOnlydEdx ? std::numeric_limits<int8_t>::min() : trackQAInfoHolder.dRefGloY,
+    mTrackQCRetainOnlydEdx ? std::numeric_limits<int8_t>::min() : trackQAInfoHolder.dRefGloZ,
+    mTrackQCRetainOnlydEdx ? std::numeric_limits<int8_t>::min() : trackQAInfoHolder.dRefGloSnp,
+    mTrackQCRetainOnlydEdx ? std::numeric_limits<int8_t>::min() : trackQAInfoHolder.dRefGloTgl,
+    mTrackQCRetainOnlydEdx ? std::numeric_limits<int8_t>::min() : trackQAInfoHolder.dRefGloQ2Pt,
+    mTrackQCRetainOnlydEdx ? std::numeric_limits<int8_t>::min() : trackQAInfoHolder.dTofdX,
+    mTrackQCRetainOnlydEdx ? std::numeric_limits<int8_t>::min() : trackQAInfoHolder.dTofdZ);
 }
 
 template <typename mftTracksCursorType, typename AmbigMFTTracksCursorType>
@@ -499,7 +499,7 @@ void AODProducerWorkflowDPL::fillTrackTablesPerCollision(int collisionID,
 
           float weight = 0;
           static std::uniform_real_distribution<> distr(0., 1.);
-          bool writeQAData = o2::math_utils::Tsallis::downsampleTsallisCharged(data.getTrackParam(trackIndex).getPt(), mTrackQCFraction, mSqrtS, weight, distr(mGenerator));
+          bool writeQAData = o2::math_utils::Tsallis::downsampleTsallisCharged(data.getTrackParam(trackIndex).getPt(), mTrackQCFraction, mSqrtS, weight, distr(mGenerator)) || ((src != GIndex::TPC || mGIDUsedBySVtx.find(trackIndex) != mGIDUsedBySVtx.end() || mGIDUsedByStr.find(trackIndex) != mGIDUsedByStr.end()) && mTrackQCKeepGlobalTracks);
           auto extraInfoHolder = processBarrelTrack(collisionID, collisionBC, trackIndex, data, bcsMap);
 
           if (writeQAData) {
@@ -1719,6 +1719,8 @@ void AODProducerWorkflowDPL::init(InitContext& ic)
       LOGP(warn, "Specified non-default empty streamer mask!");
     }
   }
+  mTrackQCKeepGlobalTracks = ic.options().get<bool>("trackqc-keepglobaltracks");
+  mTrackQCRetainOnlydEdx = ic.options().get<bool>("trackqc-retainonlydedx");
   mTrackQCFraction = ic.options().get<float>("trackqc-fraction");
   mTrackQCNTrCut = ic.options().get<int64_t>("trackqc-NTrCut");
   mTrackQCDCAxy = ic.options().get<float>("trackqc-tpc-dca");
@@ -2645,6 +2647,12 @@ AODProducerWorkflowDPL::TrackExtraInfo AODProducerWorkflowDPL::processBarrelTrac
     if (tpcOrig.getdEdx().dEdxTotTPC == 0) {
       extraInfoHolder.flags |= o2::aod::track::TPCdEdxAlt;
     }
+    if (tpcOrig.hasASideClusters()) {
+      extraInfoHolder.flags |= o2::aod::track::TPCSideA;
+    }
+    if (tpcOrig.hasCSideClusters()) {
+      extraInfoHolder.flags |= o2::aod::track::TPCSideC;
+    }
     extraInfoHolder.tpcInnerParam = tpcOrig.getP() / tpcOrig.getAbsCharge();
     extraInfoHolder.tpcChi2NCl = tpcOrig.getNClusters() ? tpcOrig.getChi2() / tpcOrig.getNClusters() : 0;
     extraInfoHolder.tpcSignal = dEdx.dEdxTotTPC;
@@ -3348,6 +3356,8 @@ DataProcessorSpec getAODProducerWorkflowSpec(GID::mask_t src, bool enableSV, boo
       ConfigParamSpec{"hepmc-update", VariantType::String, "always", {"When to update HepMC Aux tables: always - force update, never - never update, all - if all keys are present, any - when any key is present (not valid yet)"}},
       ConfigParamSpec{"propagate-muons", VariantType::Bool, false, {"Propagate muons to IP"}},
       ConfigParamSpec{"thin-tracks", VariantType::Bool, false, {"Produce thinned track tables"}},
+      ConfigParamSpec{"trackqc-keepglobaltracks", VariantType::Bool, false, {"Always keep TrackQA for global tracks"}},
+      ConfigParamSpec{"trackqc-retainonlydedx", VariantType::Bool, false, {"Keep only dEdx information, zero out everything else"}},
       ConfigParamSpec{"trackqc-fraction", VariantType::Float, float(0.1), {"Fraction of tracks to QC"}},
       ConfigParamSpec{"trackqc-NTrCut", VariantType::Int64, 4L, {"Minimal length of the track - in amount of tracklets"}},
       ConfigParamSpec{"trackqc-tpc-dca", VariantType::Float, 3.f, {"Keep TPC standalone track with this DCAxy to the PV"}},
