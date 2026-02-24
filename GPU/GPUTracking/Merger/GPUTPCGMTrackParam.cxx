@@ -279,10 +279,10 @@ GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_
         const float invCharge = merger->GetConstantMem()->ioPtrs.clustersNative ? (1.f / merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].qMax) : 0.f;
         float invAvgCharge = (sumInvSqrtCharge += invSqrtCharge) / ++nAvgCharge;
         invAvgCharge *= invAvgCharge;
-        if (param.useClusterErrorNetwork) {
+        if (param.useClusterErrorNetwork == 1) {
           // Python expands clusterState into 4 bits (cs0..cs3) and drops clusterState.
           // Final X dimension: 17 features.
-          float inputFeatures[17];
+          float inputFeatures[19];
           float outputFeatures[2];
 
           inputFeatures[0]  = xx;
@@ -312,6 +312,9 @@ GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_
           param.mModelClusterErrors->inference(inputFeatures, (int64_t)1, outputFeatures);
           err2Y = param.scaleError*outputFeatures[0];
           err2Z = param.scaleError*outputFeatures[1];
+        } else if (param.useClusterErrorNetwork == 2) {
+          err2Y = param.scaleError*static_cast<float>(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaPad()) / CAMath::InvSqrt(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].qTot);
+          err2Z = param.scaleError*static_cast<float>(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaTime()) / CAMath::InvSqrt(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].qTot);
         } else {
           prop.GetErr2(err2Y, err2Z, param, zz, cluster.row, clusterState, cluster.sector, time, invAvgCharge, invCharge);
         }
