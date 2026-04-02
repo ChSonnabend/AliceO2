@@ -638,7 +638,7 @@ GPUd() int32_t GPUTPCGMPropagator::Update(float posY, float posZ, int32_t iRow, 
   return Update(posY, posZ, clusterState, rejectChi2 == rejectDirect, err2Y, err2Z, &param);
 }
 
-GPUd() int32_t GPUTPCGMPropagator::InterpolateReject(const GPUParam& GPUrestrict() param, float posY, float posZ, int16_t clusterState, int8_t rejectChi2, gputpcgmmergertypes::InterpolationErrorHit* inter, float err2Y, float err2Z, float deltaZ)
+GPUd() int32_t GPUTPCGMPropagator::InterpolateReject(const GPUParam& GPUrestrict() param, float posY, float posZ, int16_t clusterState, int8_t rejectChi2, gputpcgmmergertypes::InterpolationErrorHit* inter, float err2Y, float err2Z, float deltaZ, float& returnY, float& returnZ, float& returnErrorY, float& returnErrorZ)
 {
   float* GPUrestrict() mC = mT->Cov();
   float* GPUrestrict() mP = mT->Par();
@@ -667,6 +667,11 @@ GPUd() int32_t GPUTPCGMPropagator::InterpolateReject(const GPUParam& GPUrestrict
       const float ImP1 = mP[1] + Ik11 * Iz1;
       const float ImC0 = mC[0] - Ik00 * mC[0];
       const float ImC2 = mC[2] - Ik11 * mC[2];
+      returnY = ImP0;
+      returnZ = ImP1;
+      returnErrorY = ImC0;
+      returnErrorZ = ImC2;
+
       // printf("\t%21sInterpo ----- abde artaf%16s Y %8.3f, Z %8.3f (Errors %f <-- (%f, %f) %f <-- (%f, %f))\n", "", "", ImP0, ImP1, sqrtf(ImC0), sqrtf(mC[0]), sqrtf(inter->errorY), sqrtf(ImC2), sqrtf(mC[2]), sqrtf(inter->errorZ));
       const float Jz0 = posY - ImP0;
       const float Jz1 = posZ - ImP1;
@@ -705,7 +710,7 @@ GPUd() int32_t GPUTPCGMPropagator::InterpolateReject(const GPUParam& GPUrestrict
       chi2Y = CAMath::Abs((Jw0 * Jz0 + Jw1 * Jz1) * Jz0);
       chi2Z = CAMath::Abs((Jw1 * Jz0 + Jw2 * Jz1) * Jz1);
     }
-    if (RejectCluster(chi2Y * param.rec.tpc.clusterRejectChi2TolleranceY, chi2Z * param.rec.tpc.clusterRejectChi2TolleranceZ, clusterState)) { // TODO: Relative Pt resolution decreases slightly, why?
+    if (RejectCluster(chi2Y * param.rec.tpc.clusterRejectChi2TolleranceY, chi2Z * param.rec.tpc.clusterRejectChi2TolleranceZ, clusterState, param.scaleChiY1, param.scaleChiY2, param.scaleChiY3, param.scaleChiZ1, param.scaleChiZ2, param.scaleChiZ3)) { // TODO: Relative Pt resolution decreases slightly, why?
       // printf("Reject Cluster chiy2 %f chiz2 %f (Pos Y: %f - %f %f ; Pos Z: %f - %f %f)\n", chi2Y, chi2Z, posY, mP[0], (float)inter->posY, posZ, mP[1], (float)inter->posZ + deltaZ);
       return updateErrorClusterRejectedInInterpolation;
     }
@@ -747,7 +752,7 @@ GPUd() int32_t GPUTPCGMPropagator::Update(float posY, float posZ, int16_t cluste
   }
   float dChi2 = chi2Y + chi2Z;
   // GPUInfo("hits %d chi2 %f, new %f %f (dy %f dz %f)", N, mChi2, chi2Y, chi2Z, z0, z1);
-  if (rejectChi2 && RejectCluster(chi2Y * param->rec.tpc.clusterRejectChi2TolleranceY, chi2Z * param->rec.tpc.clusterRejectChi2TolleranceZ, clusterState)) {
+  if (rejectChi2 && RejectCluster(chi2Y * param->rec.tpc.clusterRejectChi2TolleranceY, chi2Z * param->rec.tpc.clusterRejectChi2TolleranceZ, clusterState, param->scaleChiY1, param->scaleChiY2, param->scaleChiY3, param->scaleChiZ1, param->scaleChiZ2, param->scaleChiZ3)) {
     return updateErrorClusterRejectedInUpdate;
   }
   mT->Chi2() += dChi2;

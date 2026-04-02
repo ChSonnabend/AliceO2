@@ -70,9 +70,17 @@ struct GPUParam_t {
   GPUParamSector SectorParam[GPUCA_NSECTORS];
 
   std::unique_ptr<o2::ml::OrtModel> mModelClusterErrors; // For cluster error estimation
-  bool useClusterErrorNetwork = false; // Whether to use the cluster error network at all, can be set to false to save time if not needed
+  int useClusterErrorNetwork = 1; // Whether to use the cluster error network at all, can be set to false to save time if not needed
+  int clusterErrorNetworkVersion = 1; // Version of the cluster error network, to distinguish different input feature sets and avoid loading the wrong model
   bool dumpClusterErrorCSV = false;
-  float scaleError = 1.f;
+  float scaleErrorY = 1.f;
+  float scaleErrorZ = 1.f;
+  float scaleChiY1 = 1.f;
+  float scaleChiY2 = 1.f;
+  float scaleChiY3 = 1.f;
+  float scaleChiZ1 = 1.f;
+  float scaleChiZ2 = 1.f;
+  float scaleChiZ3 = 1.f;
 
  protected:
 #ifdef GPUCA_TPC_GEOMETRY_O2
@@ -97,7 +105,16 @@ struct GPUParam : public internal::GPUParam_t<GPUSettingsRec, GPUSettingsParam> 
   void initClusterErrorModel(const GPUSettingsProcessingNNclusterizer& p) {
     useClusterErrorNetwork = p.nnUseClusterErrorNetwork;
     dumpClusterErrorCSV = p.dumpClusterErrorCSV;
-    scaleError = p.nnScaleClusterError;
+    scaleErrorY = p.nnScaleClusterErrorY;
+    scaleErrorZ = p.nnScaleClusterErrorZ;
+    clusterErrorNetworkVersion = p.nnClusterErrorNetworkVersion;
+    scaleChiY1 = p.scaleChiY1;
+    scaleChiY2 = p.scaleChiY2;
+    scaleChiY3 = p.scaleChiY3;
+    scaleChiZ1 = p.scaleChiZ1;
+    scaleChiZ2 = p.scaleChiZ2;
+    scaleChiZ3 = p.scaleChiZ3;
+
     if (useClusterErrorNetwork && !p.nnClusterErrorModelPath.empty()) {
       mModelClusterErrors = std::make_unique<o2::ml::OrtModel>();
       LOG(info) << "Loading cluster error network from " << p.nnClusterErrorModelPath;

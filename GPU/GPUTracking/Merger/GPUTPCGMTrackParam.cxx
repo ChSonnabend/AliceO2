@@ -279,57 +279,99 @@ GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_
         const float invCharge = merger->GetConstantMem()->ioPtrs.clustersNative ? (1.f / merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].qMax) : 0.f;
         float invAvgCharge = (sumInvSqrtCharge += invSqrtCharge) / ++nAvgCharge;
         invAvgCharge *= invAvgCharge;
+        float mult = param.GetUnscaledMult(time);
         if (param.useClusterErrorNetwork == 1) {
-          // Python expands clusterState into 4 bits (cs0..cs3) and drops clusterState.
-          // Final X dimension: 17 features.
-          float inputFeatures[19];
-          float outputFeatures[2];
+          if(param.clusterErrorNetworkVersion == 1){
+            // Python expands clusterState into 4 bits (cs0..cs3) and drops clusterState.
+            // Final X dimension: 17 features.
+            float inputFeatures[19];
+            float outputFeatures[2];
 
-          inputFeatures[0]  = xx;
-          inputFeatures[1]  = yy;
-          inputFeatures[2]  = zz;
+            inputFeatures[0] = xx;
+            inputFeatures[1] = yy;
+            inputFeatures[2] = zz;
+            inputFeatures[3] = static_cast<float>(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaPad());
+            inputFeatures[4] = static_cast<float>(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaTime());
+            inputFeatures[5] = mP[0];
+            inputFeatures[6] = mP[1];
+            inputFeatures[7] = mP[2];
+            inputFeatures[8] = mP[3];
+            inputFeatures[9] = mP[4];
+            inputFeatures[10] = mC[0];
+            inputFeatures[11] = mC[2];
+            inputFeatures[12] = mC[5];
+            inputFeatures[13] = mC[9];
+            inputFeatures[14] = mC[14];
+            inputFeatures[15] = static_cast<float>((clusterState >> 0) & 1);  // cs0
+            inputFeatures[16] = static_cast<float>((clusterState >> 1) & 1);  // cs1
+            inputFeatures[17] = static_cast<float>((clusterState >> 2) & 1);  // cs2
+            inputFeatures[18] = static_cast<float>((clusterState >> 3) & 1);  // cs3
 
-          inputFeatures[3]  = static_cast<float>(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaPad());
-          inputFeatures[4]  = static_cast<float>(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaTime());
+            param.mModelClusterErrors->inference(inputFeatures, (int64_t)1, outputFeatures);
+            err2Y = param.scaleErrorY*outputFeatures[0];
+            err2Z = param.scaleErrorZ*outputFeatures[1];
+            // printf("Input: %f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f Output: %f,%f\n", inputFeatures[0], inputFeatures[1], inputFeatures[2], inputFeatures[3], inputFeatures[4], inputFeatures[5], inputFeatures[6], inputFeatures[7], inputFeatures[8], inputFeatures[9], inputFeatures[10], inputFeatures[11], inputFeatures[12], inputFeatures[13], inputFeatures[14], inputFeatures[15], inputFeatures[16], inputFeatures[17], inputFeatures[18], outputFeatures[0], outputFeatures[1]);
+            // exit(0);
+          } else if (param.clusterErrorNetworkVersion == 2) {
+            // Python expands clusterState into 4 bits (cs0..cs3) and drops clusterState.
+            // Final X dimension: 17 features.
+            float inputFeatures[26];
+            float outputFeatures[2];
 
-          inputFeatures[5]  = mP[0];
-          inputFeatures[6]  = mP[1];
-          inputFeatures[7]  = mP[2];
-          inputFeatures[8] = mP[3];
-          inputFeatures[9] = mP[4];
+            inputFeatures[0] = xx;
+            inputFeatures[1] = yy;
+            inputFeatures[2] = zz;
+            inputFeatures[3] = static_cast<float>(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaPad());
+            inputFeatures[4] = static_cast<float>(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaTime());
+            inputFeatures[5] = invAvgCharge;
+            inputFeatures[6] = invCharge;
+            inputFeatures[7] = mP[0];
+            inputFeatures[8] = mP[1];
+            inputFeatures[9] = mP[2];
+            inputFeatures[10] = mP[3];
+            inputFeatures[11] = mP[4];
+            inputFeatures[12] = mC[0];
+            inputFeatures[13] = mC[2];
+            inputFeatures[14] = mC[5];
+            inputFeatures[15] = mC[9];
+            inputFeatures[16] = mC[14];
+            inputFeatures[17] = mult;
+            inputFeatures[18] = static_cast<float>((clusterState >> 0) & 1);  // cs0
+            inputFeatures[19] = static_cast<float>((clusterState >> 1) & 1);  // cs1
+            inputFeatures[20] = static_cast<float>((clusterState >> 2) & 1);  // cs2
+            inputFeatures[21] = static_cast<float>((clusterState >> 3) & 1);  // cs3
+            inputFeatures[22] = static_cast<float>((clusterState >> 4) & 1);  // cs4
+            inputFeatures[23] = static_cast<float>((clusterState >> 5) & 1);  // cs5
+            inputFeatures[24] = static_cast<float>((clusterState >> 6) & 1);  // cs6
+            inputFeatures[25] = static_cast<float>((clusterState >> 7) & 1);  // cs7
 
-          inputFeatures[10] = mC[0];
-          inputFeatures[11] = mC[2];
-          inputFeatures[12] = mC[5];
-          inputFeatures[13] = mC[9];
-          inputFeatures[14] = mC[14];
-
-          inputFeatures[15] = static_cast<float>((clusterState >> 0) & 1);  // cs0
-          inputFeatures[16] = static_cast<float>((clusterState >> 1) & 1);  // cs1
-          inputFeatures[17] = static_cast<float>((clusterState >> 2) & 1);  // cs2
-          inputFeatures[18] = static_cast<float>((clusterState >> 3) & 1);  // cs3
-
-          param.mModelClusterErrors->inference(inputFeatures, (int64_t)1, outputFeatures);
-          err2Y = param.scaleError*outputFeatures[0];
-          err2Z = param.scaleError*outputFeatures[1];
+            param.mModelClusterErrors->inference(inputFeatures, (int64_t)1, outputFeatures);
+            err2Y = param.scaleErrorY*outputFeatures[0];
+            err2Z = param.scaleErrorZ*outputFeatures[1];
+            // printf("Input: %f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f Output: %f,%f\n", inputFeatures[0], inputFeatures[1], inputFeatures[2], inputFeatures[3], inputFeatures[4], inputFeatures[5], inputFeatures[6], inputFeatures[7], inputFeatures[8], inputFeatures[9], inputFeatures[10], inputFeatures[11], inputFeatures[12], inputFeatures[13], inputFeatures[14], inputFeatures[15], inputFeatures[16], inputFeatures[17], inputFeatures[18], outputFeatures[0], outputFeatures[1]);
+            // exit(0);
+          }
         } else if (param.useClusterErrorNetwork == 2) {
-          err2Y = param.scaleError*static_cast<float>(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaPad()) / CAMath::InvSqrt(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].qTot);
-          err2Z = param.scaleError*static_cast<float>(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaTime()) / CAMath::InvSqrt(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].qTot);
+          err2Y = param.scaleErrorY*static_cast<float>(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaPad() * merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaPad() / merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].qTot);
+          err2Z = param.scaleErrorZ*static_cast<float>(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaTime() * merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaTime() / merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].qTot);
+        } else if (param.useClusterErrorNetwork == 3) {
+          err2Y = param.scaleErrorY*static_cast<float>(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaPad() * merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaPad());
+          err2Z = param.scaleErrorZ*static_cast<float>(merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaTime() * merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaTime());
         } else {
           prop.GetErr2(err2Y, err2Z, param, zz, cluster.row, clusterState, cluster.sector, time, invAvgCharge, invCharge);
         }
-
-#ifndef GPUCA_GPUCODE
-        if (param.dumpClusterErrorCSV) {
-          fprintf(fpdumperr, "%d,%d,%f,%f,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", iTrk, cluster.num, err2Y, err2Z, clusterState, merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaPad(), merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaTime(), invAvgCharge, invCharge, xx, yy, zz, mP[0], mP[1], mP[2], mP[3], mP[4], mC[0], mC[2], mC[5], mC[9], mC[14]);
-        }
-#endif
 
         if (rejectChi2 >= GPUTPCGMPropagator::rejectInterFill) {
           if (rejectChi2 == GPUTPCGMPropagator::rejectInterReject && interpolation.hit[ihit].errorY < (GPUCA_PAR_MERGER_INTERPOLATION_ERROR_TYPE_A)0) {
             rejectChi2 = GPUTPCGMPropagator::rejectDirect;
           } else {
-            retValInt = prop.InterpolateReject(param, yy, zz, clusterState, rejectChi2, &interpolation.hit[ihit], err2Y, err2Z, deltaZ);
+            float interpolatedY, interpolatedZ, interpolatedErrorY, interpolatedErrorZ;
+            retValInt = prop.InterpolateReject(param, yy, zz, clusterState, rejectChi2, &interpolation.hit[ihit], err2Y, err2Z, deltaZ, interpolatedY, interpolatedZ, interpolatedErrorY, interpolatedErrorZ);
+#ifndef GPUCA_GPUCODE
+            if (param.dumpClusterErrorCSV) {
+              fprintf(fpdumperr, "%d,%d,%f,%f,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", iTrk, cluster.num, err2Y, err2Z, clusterState, merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaPad(), merger->GetConstantMem()->ioPtrs.clustersNative->clustersLinear[cluster.num].getSigmaTime(), invAvgCharge, invCharge, xx, yy, zz, mP[0], mP[1], mP[2], mP[3], mP[4], mC[0], mC[2], mC[5], mC[9], mC[14], interpolatedY, interpolatedZ, interpolatedErrorY, interpolatedErrorZ, mult);
+            }
+#endif
           }
         }
 

@@ -107,18 +107,18 @@ class GPUTPCGMPropagator
   GPUd() int32_t Update(float posY, float posZ, int32_t iRow, const GPUParam& param, int16_t clusterState, int8_t rejectChi2, bool refit, int8_t sector, float time, float avgInvCharge, float invCharge);
   GPUd() int32_t Update(float posY, float posZ, int32_t iRow, const GPUParam& param, int16_t clusterState, int8_t rejectChi2, bool refit, float err2Y, float err2Z);
   GPUd() int32_t Update(float posY, float posZ, int16_t clusterState, bool rejectChi2, float err2Y, float err2Z, const GPUParam* param = nullptr);
-  GPUd() int32_t InterpolateReject(const GPUParam& param, float posY, float posZ, int16_t clusterState, int8_t rejectChi2, gputpcgmmergertypes::InterpolationErrorHit* inter, float err2Y, float err2Z, float deltaZ);
+  GPUd() int32_t InterpolateReject(const GPUParam& param, float posY, float posZ, int16_t clusterState, int8_t rejectChi2, gputpcgmmergertypes::InterpolationErrorHit* inter, float err2Y, float err2Z, float deltaZ, float& returnY, float& returnZ, float& returnErrorY, float& returnErrorZ);
   GPUd() float PredictChi2(float posY, float posZ, int32_t iRow, const GPUParam& param, int16_t clusterState, int8_t sideC, float time, float avgCharge, float charge) const;
   GPUd() float PredictChi2(float posY, float posZ, float err2Y, float err2Z) const;
-  GPUd() static int32_t RejectCluster(float chiY, float chiZ, uint8_t clusterState)
+  GPUd() static int32_t RejectCluster(float chiY, float chiZ, uint8_t clusterState, float scaleChiY1=1.f, float scaleChiY2=1.f, float scaleChiY3=1.f, float scaleChiZ1=1.f, float scaleChiZ2=1.f, float scaleChiZ3=1.f)
   {
-    if (chiY > 9.f || chiZ > 9.f) { // TODO: Check how a track can have chi2/ncl > 18
+    if (chiY > (9.f*scaleChiY1) || chiZ > (9.f*scaleChiZ1)) { // TODO: Check how a track can have chi2/ncl > 18
       return 2;
     }
-    if ((chiY > 6.25f || chiZ > 6.25f) && (clusterState & (GPUTPCGMMergedTrackHit::flagSplit | GPUTPCGMMergedTrackHit::flagShared))) {
+    if ((chiY > (6.25f*scaleChiY2) || chiZ > (6.25f*scaleChiZ2)) && (clusterState & (GPUTPCGMMergedTrackHit::flagSplit | GPUTPCGMMergedTrackHit::flagShared))) {
       return 2;
     }
-    if ((chiY > 1.f || chiZ > 6.25f) && (clusterState & (GPUTPCGMMergedTrackHit::flagEdge | GPUTPCGMMergedTrackHit::flagSingle))) {
+    if ((chiY > (1.f*scaleChiY3) || chiZ > (6.25f*scaleChiZ3)) && (clusterState & (GPUTPCGMMergedTrackHit::flagEdge | GPUTPCGMMergedTrackHit::flagSingle))) {
       return 2;
     }
     return 0;
