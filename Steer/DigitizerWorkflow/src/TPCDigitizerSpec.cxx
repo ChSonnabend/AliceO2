@@ -629,7 +629,7 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
               mq = elem;
             }
             else if(elem==mq){
-              if((std::pow(mp-cp,2) + std::pow(mt-ct,2)) > (std::pow(mp-max_pad[i][idx],2) + std::pow(mt-max_time[i][idx],2))){
+              if((std::pow(mp - cp, 2) + std::pow(mt - ct, 2)) > (std::pow(max_pad[i][idx] - cp, 2) + std::pow(max_time[i][idx] - ct, 2))){
                 mp = max_pad[i][idx];
                 mt = max_time[i][idx];
                 mq = elem;
