@@ -58,6 +58,8 @@ void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& set
     {"deterministic-compute", std::to_string(useDeterministicMode ? 1 : settings.nnInferenceUseDeterministicCompute)}, // TODO: This unfortunately doesn't guarantee determinism (25.07.2025)
     {"enable-profiling", std::to_string(settings.nnInferenceOrtProfiling)},
     {"profiling-output-path", settings.nnInferenceOrtProfilingPath},
+    {"plugin-ep-library", settings.nnInferenceOrtPluginLibrary},
+    {"disable-cpu-fallback", std::to_string(settings.nnInferenceDisableCpuFallback)},
     {"logging-level", std::to_string(settings.nnInferenceVerbosity)},
     {"onnx-environment-name", "c1"}};
 

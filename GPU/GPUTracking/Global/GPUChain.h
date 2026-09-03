@@ -87,7 +87,7 @@ class GPUChain
   inline GPUParam& param() { return mRec->param(); }
   inline const GPUConstantMem* processors() const { return mRec->processors(); }
   inline void SynchronizeStream(int32_t stream) { mRec->SynchronizeStream(stream); }
-  inline void SetONNXGPUStream(Ort::SessionOptions& opt, int32_t stream, int32_t* deviceId) { mRec->SetONNXGPUStream(opt, stream, deviceId); }
+  inline void SetONNXGPUStream(Ort::SessionOptions& opt, int32_t stream, int32_t* deviceId, const std::string& inferenceDevice = {}) { mRec->SetONNXGPUStream(opt, stream, deviceId, inferenceDevice); }
   inline void SynchronizeEvents(deviceEvent* evList, int32_t nEvents = 1) { mRec->SynchronizeEvents(evList, nEvents); }
   inline void SynchronizeEventAndRelease(deviceEvent& ev, bool doGPU = true)
   {

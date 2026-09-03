@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <mutex>
 #include <sstream>
 
 namespace o2
@@ -71,6 +72,8 @@ void OrtModel::initOptions(std::unordered_map<std::string, std::string> optionsM
     mEnableOptimizations = (optionsMap.contains("enable-optimizations") ? std::stoi(optionsMap["enable-optimizations"]) : 0);
     mEnvName = (optionsMap.contains("onnx-environment-name") ? optionsMap["onnx-environment-name"] : "onnx_model_inference");
     mDeterministicMode = (optionsMap.contains("deterministic-compute") ? std::stoi(optionsMap["deterministic-compute"]) : 0);
+    mPluginEpLibraryPath = (optionsMap.contains("plugin-ep-library") ? optionsMap["plugin-ep-library"] : "");
+    mDisableCpuFallback = (optionsMap.contains("disable-cpu-fallback") ? std::stoi(optionsMap["disable-cpu-fallback"]) : 0);
 
     // Device types are matched case-sensitively below, so accept "cpu"/"cuda" spellings too.
     std::transform(mDeviceType.begin(), mDeviceType.end(), mDeviceType.begin(), [](unsigned char c) { return std::toupper(c); });
@@ -79,6 +82,16 @@ void OrtModel::initOptions(std::unordered_map<std::string, std::string> optionsM
     if (mDeviceType == "ROCM") {
       LOG(warning) << "(ORT) device-type \"ROCM\" is deprecated: ONNXRuntime no longer ships a ROCm execution provider. Using MIGraphX instead.";
       mDeviceType = "MIGRAPHX";
+    }
+
+#ifndef ORT_MIGRAPHX_BUILD
+    if (mDeviceType == "MIGRAPHX") {
+      LOG(fatal) << "(ORT) device-type MIGRAPHX was requested, but O2 was built without ORT_MIGRAPHX_BUILD. Rebuild ONNXRuntime with onnxruntime_USE_MIGRAPHX=ON and rebuild O2 with -DORT_MIGRAPHX_BUILD=ON.";
+    }
+#endif
+
+    if (mDeviceType == "AMDGPU" && mPluginEpLibraryPath.empty()) {
+      LOG(fatal) << "(ORT) device-type AMDGPU requires plugin-ep-library to point to the ONNXRuntime AMDGPU plugin execution-provider library.";
     }
 
     if (mDeviceType == "CPU") {
@@ -99,6 +112,9 @@ void OrtModel::initOptions(std::unordered_map<std::string, std::string> optionsM
 
     (mPImplOrt->sessionOptions).DisableMemPattern();
     (mPImplOrt->sessionOptions).DisableCpuMemArena();
+    if (mDisableCpuFallback) {
+      (mPImplOrt->sessionOptions).AddConfigEntry("session.disable_cpu_ep_fallback", "1");
+    }
 
     if (mEnableProfiling) {
       if (optionsMap.contains("profiling-output-path")) {
@@ -147,6 +163,67 @@ void OrtModel::initEnvironment()
     },
     (void*)3);
   (mPImplOrt->env)->DisableTelemetryEvents(); // Disable telemetry events
+
+  if (mDeviceType == "AMDGPU") {
+    try {
+      static std::mutex amdGpuPluginRegistrationMutex;
+      {
+        std::lock_guard<std::mutex> lock(amdGpuPluginRegistrationMutex);
+        try {
+          (mPImplOrt->env)->RegisterExecutionProviderLibrary("AMDGPUExecutionProvider", mPluginEpLibraryPath);
+        } catch (const Ort::Exception& e) {
+          const std::string message = e.what();
+          if (message.find("already registered under AMDGPUExecutionProvider") == std::string::npos) {
+            throw;
+          }
+          LOG(info) << "(ORT) AMDGPU plugin execution provider library is already registered, reusing it for this session";
+        }
+      }
+      const auto epDevices = (mPImplOrt->env)->GetEpDevices();
+      std::vector<Ort::ConstEpDevice> selectedEpDevices;
+      std::stringstream availableEpDevices;
+      bool firstDevice = true;
+      size_t providerDeviceOrdinal = 0;
+      for (const auto& epDevice : epDevices) {
+        const std::string epName = epDevice.EpName() ? epDevice.EpName() : "";
+        const std::string epVendor = epDevice.EpVendor() ? epDevice.EpVendor() : "";
+        const auto hwDevice = epDevice.Device();
+        const uint32_t hwDeviceId = hwDevice.DeviceId();
+        if (!firstDevice) {
+          availableEpDevices << ", ";
+        }
+        firstDevice = false;
+        availableEpDevices << epName << "/" << epVendor << "/device" << hwDeviceId;
+
+        const bool providerMatches = epName == "AMDGPUExecutionProvider" || epName == "AMDGPU";
+        if (providerMatches) {
+          const bool deviceMatches = mDeviceId < 0 || hwDeviceId == static_cast<uint32_t>(mDeviceId) || providerDeviceOrdinal == static_cast<size_t>(mDeviceId);
+          if (deviceMatches) {
+            selectedEpDevices.push_back(epDevice);
+          }
+          ++providerDeviceOrdinal;
+        }
+      }
+
+      if (selectedEpDevices.empty()) {
+        LOG(fatal) << "(ORT) AMDGPU plugin EP was registered from " << mPluginEpLibraryPath << ", but no matching EpDevice was found for HIP device ordinal " << mDeviceId << ". Available EP devices: " << availableEpDevices.str();
+      }
+      std::unordered_map<std::string, std::string> epOptions;
+      if (mDeviceId >= 0) {
+        epOptions["device_id"] = std::to_string(mDeviceId);
+      }
+      epOptions["profile"] = "migraphx";
+      if (mDisableCpuFallback) {
+        epOptions["cpu_control_flow"] = "0";
+      }
+      (mPImplOrt->sessionOptions).AppendExecutionProvider_V2(*(mPImplOrt->env), selectedEpDevices, epOptions);
+      if (mLoggingLevel < 2) {
+        LOG(info) << "(ORT) AMDGPU plugin execution provider registered from " << mPluginEpLibraryPath << " for HIP device ordinal " << mDeviceId;
+      }
+    } catch (const Ort::Exception& e) {
+      LOG(fatal) << "(ORT) Failed to register AMDGPU plugin execution provider from " << mPluginEpLibraryPath << ": " << e.what();
+    }
+  }
 }
 
 void OrtModel::initSessionFromBuffer(const char* buffer, size_t bufferSize)
@@ -192,15 +269,18 @@ void OrtModel::memoryOnDevice(int32_t deviceIndex)
     (mPImplOrt->sessionOptions).AddConfigEntry("session.use_device_allocator_for_initializers", "1"); // See kOrtSessionOptionsUseDeviceAllocatorForInitializers, https://github.com/microsoft/onnxruntime/blob/main/include/onnxruntime/core/session/onnxruntime_session_options_config_keys.h
     (mPImplOrt->sessionOptions).AddConfigEntry("session.use_env_allocators", "1");                    // This should enable to use the volatile memory allocation defined in O2/GPU/GPUTracking/TPCClusterFinder/GPUTPCNNClusterizerHost.cxx; not working yet: ONNX still assigns new memory at init time
     (mPImplOrt->sessionOptions).AddConfigEntry("session_options.enable_cpu_mem_arena", "0");          // This should enable to use the volatile memory allocation defined in O2/GPU/GPUTracking/TPCClusterFinder/GPUTPCNNClusterizerHost.cxx; not working yet: ONNX still assigns new memory at init time
-    // Arena memory shrinkage comes at performance cost; prefer the providers' default
-    // kNextPowerOfTwo arena extend strategy (single growing allocation).
-    (mPImplOrt->runOptions).AddConfigEntry("memory.enable_memory_arena_shrinkage", ("gpu:" + std::to_string(deviceIndex)).c_str()); // See kOrtRunOptionsConfigEnableMemoryArenaShrinkage, https://github.com/microsoft/onnxruntime/blob/90c263f471bbce724e77d8e62831d3a9fa838b2f/include/onnxruntime/core/session/onnxruntime_run_options_config_keys.h#L27
+    // The AMDGPU plugin EP registers its own allocator, but ORT's arena-shrink
+    // run option only accepts arena-based allocators. Leave the plugin allocator
+    // untouched; otherwise Run() fails before inference starts.
+    if (mDeviceType != "AMDGPU") {
+      (mPImplOrt->runOptions).AddConfigEntry("memory.enable_memory_arena_shrinkage", ("gpu:" + std::to_string(deviceIndex)).c_str()); // See kOrtRunOptionsConfigEnableMemoryArenaShrinkage, https://github.com/microsoft/onnxruntime/blob/90c263f471bbce724e77d8e62831d3a9fa838b2f/include/onnxruntime/core/session/onnxruntime_run_options_config_keys.h#L27
+    }
 
     // Allocator names understood by OrtApi::CreateMemoryInfo: "Cuda" -> (GPU, NVIDIA) and
-    // "Hip" -> (GPU, AMD), the device the MIGraphX EP registers on. The buffers bound here are
+    // "Hip" -> (GPU, AMD), the device the MIGraphX/AMDGPU EP registers on. The buffers bound here are
     // device pointers, so plain device memory, not the pinned-host "HipPinned"/"CudaPinned".
     std::string dev_mem_str = "";
-    if (mDeviceType == "MIGRAPHX") {
+    if (mDeviceType == "MIGRAPHX" || mDeviceType == "AMDGPU") {
       dev_mem_str = "Hip";
     }
     if (mDeviceType == "CUDA") {

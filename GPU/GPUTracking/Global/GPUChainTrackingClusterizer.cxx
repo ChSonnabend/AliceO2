@@ -840,7 +840,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
     mRec->runParallelOuterLoop(doGPU, numLanes, [&](uint32_t lane) {
       nnApplications[lane].init(nn_settings, GetProcessingSettings().deterministicGPUReconstruction);
       if (nnApplications[lane].mModelsUsed[0]) {
-        SetONNXGPUStream(*(nnApplications[lane].mModelClass).getSessionOptions(), lane, &deviceId);
+        SetONNXGPUStream(*(nnApplications[lane].mModelClass).getSessionOptions(), lane, &deviceId, nn_settings.nnInferenceDevice);
         (nnApplications[lane].mModelClass).setDeviceId(deviceId);
         if (nnApplications[lane].mModelClass.getIntraOpNumThreads() > maxThreads) {
           nnApplications[lane].mModelClass.setIntraOpNumThreads(maxThreads);
@@ -861,7 +861,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         }
       }
       if (nnApplications[lane].mModelsUsed[1]) {
-        SetONNXGPUStream(*(nnApplications[lane].mModelReg1).getSessionOptions(), lane, &deviceId);
+        SetONNXGPUStream(*(nnApplications[lane].mModelReg1).getSessionOptions(), lane, &deviceId, nn_settings.nnInferenceDevice);
         (nnApplications[lane].mModelReg1).setDeviceId(deviceId);
         if (nnApplications[lane].mModelReg1.getIntraOpNumThreads() > maxThreads) {
           nnApplications[lane].mModelReg1.setIntraOpNumThreads(maxThreads);
@@ -876,7 +876,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         }
       }
       if (nnApplications[lane].mModelsUsed[2]) {
-        SetONNXGPUStream(*(nnApplications[lane].mModelReg2).getSessionOptions(), lane, &deviceId);
+        SetONNXGPUStream(*(nnApplications[lane].mModelReg2).getSessionOptions(), lane, &deviceId, nn_settings.nnInferenceDevice);
         (nnApplications[lane].mModelReg2).setDeviceId(deviceId);
         if (nnApplications[lane].mModelReg2.getIntraOpNumThreads() > maxThreads) {
           nnApplications[lane].mModelReg2.setIntraOpNumThreads(maxThreads);

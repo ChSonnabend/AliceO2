@@ -26,6 +26,9 @@
 #include "GPUDefParametersLoad.inc"
 #include "GPUReconstructionKernelIncludes.h"
 #include "GPUConstantMem.h"
+#include <algorithm>
+#include <cctype>
+#include <limits>
 
 #if defined(GPUCA_KERNEL_COMPILE_MODE) && GPUCA_KERNEL_COMPILE_MODE == 1
 #include "utils/qGetLdBinarySymbols.h"
@@ -635,11 +638,22 @@ void GPUReconstructionCUDA::loadKernelModules(bool perKernel)
     }                                                 \
   }
 
-void GPUReconstructionCUDA::SetONNXGPUStream(Ort::SessionOptions& sessionOptions, int32_t stream, int32_t* deviceId)
+void GPUReconstructionCUDA::SetONNXGPUStream(Ort::SessionOptions& sessionOptions, int32_t stream, int32_t* deviceId, const std::string& inferenceDevice)
 {
   GPUChkErr(cudaGetDevice(deviceId));
 
+  std::string ortDeviceType = inferenceDevice;
+  std::transform(ortDeviceType.begin(), ortDeviceType.end(), ortDeviceType.begin(), [](unsigned char c) { return std::toupper(c); });
+  if (ortDeviceType == "ROCM") {
+    ortDeviceType = "MIGRAPHX";
+  }
+
 #if !defined(__HIPCC__) && defined(ORT_CUDA_BUILD)
+  if (!ortDeviceType.empty() && ortDeviceType != "CUDA") {
+    GPUInfo("ONNXRuntime: requested %s execution provider, skipping CUDA provider registration for lane %d", ortDeviceType.c_str(), stream);
+    return;
+  }
+
   const OrtApi* api = OrtGetApiBase()->GetApi(ORT_API_VERSION);
 
 #ifdef ORT_TENSORRT_BUILD
@@ -667,15 +681,22 @@ void GPUReconstructionCUDA::SetONNXGPUStream(Ort::SessionOptions& sessionOptions
   api->ReleaseCUDAProviderOptions(cudaOptions);
 
 #elif defined(ORT_MIGRAPHX_BUILD)
+  if (!ortDeviceType.empty() && ortDeviceType != "MIGRAPHX") {
+    GPUInfo("ONNXRuntime: requested %s execution provider, skipping built-in MIGraphX registration for lane %d", ortDeviceType.c_str(), stream);
+    return;
+  }
+
   // ONNXRuntime dropped the ROCm execution provider after v1.22; MIGraphX is the AMD path,
-  // appended through the generic provider interface (the legacy options struct is frozen).
-  // Unlike CUDA, MIGraphX has no user-compute-stream option (as of v1.29.0 the EP owns its own
-  // hipStream_t), so inference does not run on the lane's stream.
+  // appended through the dedicated provider API. Unlike CUDA, MIGraphX has no
+  // user-compute-stream option (as of v1.29.0 the EP owns its own hipStream_t),
+  // so inference does not run on the lane's stream.
   const OrtApi* api = OrtGetApiBase()->GetApi(ORT_API_VERSION);
   const std::string device = std::to_string(*deviceId);
-  const char* keys[] = {"device_id"};
-  const char* values[] = {device.c_str()};
-  ORTCHK(api->SessionOptionsAppendExecutionProvider(sessionOptions, "MIGraphX", keys, values, sizeof(keys) / sizeof(keys[0])));
+  OrtMIGraphXProviderOptions migraphxOptions{};
+  migraphxOptions.device_id = *deviceId;
+  migraphxOptions.migraphx_mem_limit = std::numeric_limits<size_t>::max();
+  migraphxOptions.migraphx_arena_extend_strategy = 0;
+  ORTCHK(api->SessionOptionsAppendExecutionProvider_MIGraphX(sessionOptions, &migraphxOptions));
   GPUInfo("ONNXRuntime: MIGraphX execution provider registered on device %s (lane %d)", device.c_str(), stream);
 #endif
 }

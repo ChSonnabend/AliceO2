@@ -260,7 +260,7 @@ EndConfig()
 // Settings steering the processing of NN Clusterization
 BeginSubConfig(GPUSettingsProcessingNNclusterizer, nn, configStandalone.proc, "NN", 0, "Processing settings for neural network clusterizer", proc_nn)
 AddOption(applyNNclusterizer, int, 0, "", 0, "(bool, default = 0), if the neural network clusterizer should be used.")
-AddOption(nnInferenceDevice, std::string, "CPU", "", 0, "(std::string) Specify inference device (CPU (default), MIGRAPHX (AMD), CUDA (NVIDIA); ROCM is a deprecated alias for MIGRAPHX)")
+AddOption(nnInferenceDevice, std::string, "CPU", "", 0, "(std::string) Specify inference device (CPU (default), MIGRAPHX (AMD), AMDGPU (experimental ORT plugin EP), CUDA (NVIDIA); ROCM is a deprecated alias for MIGRAPHX)")
 AddOption(nnInferenceDeviceId, unsigned int, 0, "", 0, "(unsigned int) Specify inference device id")
 AddOption(nnInferenceAllocateDevMem, int, 0, "", 0, "(bool, default = 0), if the device memory should be allocated for inference")
 AddOption(nnInferenceInputDType, std::string, "FP32", "", 0, "(std::string) Specify the datatype for which inference is performed (FP32: default, fp16)") // fp32 or fp16
@@ -271,6 +271,8 @@ AddOption(nnInferenceEnableOrtOptimization, unsigned int, 99, "", 0, "Enables gr
 AddOption(nnInferenceUseDeterministicCompute, int, 0, "", 0, "Enables deterministic compute in ONNX Runtime were possible. Can be [0, 1] -> see https://github.com/microsoft/onnxruntime/blob/3b97d79b3c12dbf93aa0d563f345714596dc8ab6/onnxruntime/core/framework/session_options.h#L208")
 AddOption(nnInferenceOrtProfiling, int, 0, "", 0, "Enables profiling of model execution in ONNX Runtime")
 AddOption(nnInferenceOrtProfilingPath, std::string, ".", "", 0, "If nnInferenceOrtProfiling is set, the path to store the profiling data")
+AddOption(nnInferenceOrtPluginLibrary, std::string, "", "", 0, "Path to an ONNXRuntime plugin execution-provider library, used by nnInferenceDevice=AMDGPU")
+AddOption(nnInferenceDisableCpuFallback, int, 0, "", 0, "(bool, default = 0), disable ONNX Runtime CPU EP fallback for testing full-provider coverage")
 AddOption(nnInferenceVerbosity, int, 2, "", 0, "0: All debugs; 1: Warnings + major debugs; 2: Warnings; >=3: No messages")
 AddOption(nnClusterizerAddIndexData, int, 1, "", 0, "If normalized index data (sector, row, pad), should be appended to the input")
 AddOption(nnClusterizerSizeInputRow, int, 3, "", 0, "Size of the input to the NN (currently calcualted as (length-1)/2")

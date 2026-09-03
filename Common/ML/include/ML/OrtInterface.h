@@ -118,8 +118,8 @@ class OrtModel
 
   // Environment settings
   bool mInitialized = false, mDeterministicMode = false;
-  std::string mModelPath, mEnvName = "", mDeviceType = "CPU", mThreadAffinity = ""; // device options should be CPU, MIGRAPHX or CUDA (ROCM is a deprecated alias of MIGRAPHX)
-  int32_t mIntraOpNumThreads = 1, mInterOpNumThreads = 1, mDeviceId = -1, mEnableProfiling = 0, mLoggingLevel = 0, mAllocateDeviceMemory = 0, mEnableOptimizations = 0;
+  std::string mModelPath, mEnvName = "", mDeviceType = "CPU", mThreadAffinity = "", mPluginEpLibraryPath = ""; // device options should be CPU, MIGRAPHX, AMDGPU or CUDA (ROCM is a deprecated alias of MIGRAPHX)
+  int32_t mIntraOpNumThreads = 1, mInterOpNumThreads = 1, mDeviceId = -1, mEnableProfiling = 0, mLoggingLevel = 0, mAllocateDeviceMemory = 0, mEnableOptimizations = 0, mDisableCpuFallback = 0;
 
   std::string printShape(const std::vector<int64_t>&);
   std::string printShape(const std::vector<std::vector<int64_t>>&, std::vector<std::string>&);
