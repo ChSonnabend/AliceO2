@@ -186,11 +186,21 @@ void OrtModel::memoryOnDevice(int32_t deviceIndex)
     (mPImplOrt->runOptions).AddConfigEntry("memory.enable_memory_arena_shrinkage", ("gpu:" + std::to_string(deviceIndex)).c_str()); // See kOrtRunOptionsConfigEnableMemoryArenaShrinkage, https://github.com/microsoft/onnxruntime/blob/90c263f471bbce724e77d8e62831d3a9fa838b2f/include/onnxruntime/core/session/onnxruntime_run_options_config_keys.h#L27
 
     std::string dev_mem_str = "";
-    if (mDeviceType == "ROCM") {
-      dev_mem_str = "HipPinned";
+    if (mDeviceType == "ROCM" || mDeviceType == "MIGRAPHX") {
+#if defined(ORT_MIGRAPHX_BUILD)
+      // "Hip" maps to OrtDevice(GPU, DEFAULT, VendorIds::AMD), which is the device the MIGraphX allocator reports.
+      // The MIGraphX provider names its allocator "Cuda", but that name would resolve to an NVIDIA device and ORT then
+      // fails with "no data transfer registered" between the two GPU devices. "HipPinned" is host-accessible memory, not device memory.
+      dev_mem_str = "Hip";
+#else
+      dev_mem_str = "HipPinned"; // Legacy ROCm execution provider (removed upstream after ORT v1.22)
+#endif
     }
     if (mDeviceType == "CUDA") {
       dev_mem_str = "Cuda";
+    }
+    if (dev_mem_str.empty()) {
+      LOG(fatal) << "(ORT) Unknown device type '" << mDeviceType << "' for on-device memory allocation. Supported: CPU, CUDA, ROCM, MIGRAPHX (case sensitive)";
     }
     mPImplOrt->memoryInfo = Ort::MemoryInfo(dev_mem_str.c_str(), OrtAllocatorType::OrtDeviceAllocator, deviceIndex, OrtMemType::OrtMemTypeDefault);
     if (mLoggingLevel < 2) {

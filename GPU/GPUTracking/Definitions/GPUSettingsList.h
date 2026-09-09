@@ -260,7 +260,7 @@ EndConfig()
 // Settings steering the processing of NN Clusterization
 BeginSubConfig(GPUSettingsProcessingNNclusterizer, nn, configStandalone.proc, "NN", 0, "Processing settings for neural network clusterizer", proc_nn)
 AddOption(applyNNclusterizer, int, 0, "", 0, "(bool, default = 0), if the neural network clusterizer should be used.")
-AddOption(nnInferenceDevice, std::string, "CPU", "", 0, "(std::string) Specify inference device (cpu (default), rocm, cuda)")
+AddOption(nnInferenceDevice, std::string, "CPU", "", 0, "(std::string) Specify inference device, case sensitive: CPU (default), CUDA, ROCM or MIGRAPHX (both select the AMD path). The execution provider itself is chosen at build time (ORT_CUDA_BUILD / ORT_MIGRAPHX_BUILD)")
 AddOption(nnInferenceDeviceId, unsigned int, 0, "", 0, "(unsigned int) Specify inference device id")
 AddOption(nnInferenceAllocateDevMem, int, 0, "", 0, "(bool, default = 0), if the device memory should be allocated for inference")
 AddOption(nnInferenceInputDType, std::string, "FP32", "", 0, "(std::string) Specify the datatype for which inference is performed (FP32: default, fp16)") // fp32 or fp16

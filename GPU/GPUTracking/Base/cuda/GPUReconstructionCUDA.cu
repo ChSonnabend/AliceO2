@@ -45,6 +45,7 @@
 
 #ifdef GPUCA_HAS_ONNX
 #include <onnxruntime_cxx_api.h>
+#include <limits>
 #endif
 
 static constexpr size_t REQUIRE_MIN_MEMORY = 1024L * 1024 * 1024;
@@ -675,6 +676,16 @@ void GPUReconstructionCUDA::SetONNXGPUStream(Ort::SessionOptions& sessionOptions
   // rocm_options.gpu_mem_limit = 1073741824; // 0 means no limit
   rocmOptions.user_compute_stream = mInternals->Streams[stream];
   sessionOptions.AppendExecutionProvider_ROCM(rocmOptions);
+#elif defined(__HIPCC__) && defined(ORT_MIGRAPHX_BUILD)
+  // ONNXRuntime dropped the ROCm execution provider after v1.22, MIGraphX is the remaining AMD path.
+  // The MIGraphX provider (ORT v1.29) is not stream aware: it has no user_compute_stream option and
+  // runs on the HIP default stream with its own synchronization, so the requested stream cannot be passed.
+  (void)stream;
+  OrtMIGraphXProviderOptions migraphxOptions{};
+  migraphxOptions.device_id = *deviceId;
+  migraphxOptions.migraphx_mem_limit = std::numeric_limits<size_t>::max(); // 0 would mean a 0 byte arena limit, the struct value is used verbatim
+  migraphxOptions.migraphx_arena_extend_strategy = 0;                       // kNextPowerOfTwo = 0, kSameAsRequested = 1
+  sessionOptions.AppendExecutionProvider_MIGraphX(migraphxOptions);
 #endif
 }
 
