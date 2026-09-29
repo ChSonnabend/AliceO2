@@ -39,7 +39,8 @@ inline std::vector<float> makeTrackTransportFeatures(const TParticle& particle, 
   bool massKnown = false;
   double mass = o2::O2DatabasePDG::Mass(particle.GetPdgCode(), massKnown);
   const auto* pdgInfo = particle.GetPDG();
-  if (!massKnown) mass = pdgInfo ? pdgInfo->Mass() : 0.;
+  if (!massKnown)
+    mass = pdgInfo ? pdgInfo->Mass() : 0.;
   const double missing = std::numeric_limits<double>::quiet_NaN();
   const double energy = std::sqrt(std::max(0., mass * mass + momentum * momentum));
   const double eta = momentum > std::abs(pz) ? 0.5 * std::log((momentum + pz) / (momentum - pz)) : missing;
@@ -64,7 +65,6 @@ inline std::vector<float> makeTrackTransportFeatures(const TParticle& particle, 
           static_cast<float>(dy), static_cast<float>(dz), static_cast<float>(std::hypot(particle.Vx(), particle.Vy())),
           static_cast<float>(std::hypot(dx, dy)), static_cast<float>(std::sqrt(dx * dx + dy * dy + dz * dz))};
 }
-
 
 inline bool transportFromOnnxScore(float score, float threshold, bool applySigmoid)
 {

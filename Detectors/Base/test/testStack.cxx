@@ -188,7 +188,7 @@ BOOST_AUTO_TEST_CASE(Track_transport_features_match_training_units)
   TParticle p(211, 0, 0, -1, -1, -1, 0., -2., 0., 2.1, 11., 22., 33., 7.e-9);
   auto f = o2::data::detail::makeTrackTransportFeatures(p, 1., 2., 3.);
   BOOST_REQUIRE_EQUAL(f.size(), 25);
-  BOOST_CHECK_CLOSE(f[18], 7.f, 1.e-4f); // nanoseconds, not seconds
+  BOOST_CHECK_CLOSE(f[18], 7.f, 1.e-4f);                    // nanoseconds, not seconds
   BOOST_CHECK_CLOSE(f[12], -std::acos(-1.f) / 2.f, 1.e-4f); // atan2 range
   BOOST_CHECK_EQUAL(f[19], 10.f);
   BOOST_CHECK_EQUAL(f[20], 20.f);
