@@ -128,7 +128,7 @@ GPUdii() void GPUTPCNeighboursFinder::Thread<0>(int32_t /*nBlocks*/, int32_t nTh
     // Change randomSeed to repeat the experiment with a different realization.
     constexpr uint32_t randomSeed = 0x12345678u;
     float randomDirections[4];
-    if(useRandDir) {
+    if (useRandDir) {
       for (uint32_t draw = 0; draw < 4; draw++) {
         uint32_t randomBits = randomSeed ^ (tracker.ISector() * 0x9e3779b9u) ^
                               (static_cast<uint32_t>(lHitNumberOffset + ih) * 0x85ebca6bu) ^
