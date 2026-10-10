@@ -1107,14 +1107,6 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
         }
       }
       if (mTracking->mIOPtrs.nMergedTracks && clNative) {
-        // Keep these per MC label: the reverse label map retains only one clone.
-        struct LowestRowInfo {
-          int32_t row = GPUTPCGeometry::NROWS;
-        };
-        std::vector<std::vector<LowestRowInfo>> lowestRowInfo(GetNMCCollissions());
-        for (uint32_t iCol = 0; iCol < GetNMCCollissions(); iCol++) {
-          lowestRowInfo[iCol].resize(GetNMCTracks(iCol));
-        }
         std::fill(lowestPadRow.begin(), lowestPadRow.end(), 255);
         for (uint32_t iSector = 0; iSector < GPUTPCGeometry::NSECTORS; iSector++) {
           for (uint32_t iRow = 0; iRow < GPUTPCGeometry::NROWS; iRow++) {
@@ -1125,9 +1117,7 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
                 if (!label.isValid() || label.isNoise()) {
                   continue;
                 }
-                auto& info = GetMCTrackObj(lowestRowInfo, label);
-                info.row = std::min(info.row, (int32_t)iRow);
-                uint32_t trackId = GetMCTrackObj(mTrackMCLabelsReverse, GetMCLabel(i, j));
+                uint32_t trackId = GetMCTrackObj(mTrackMCLabelsReverse, label);
                 if (trackId < lowestPadRow.size() && lowestPadRow[trackId] > iRow) {
                   lowestPadRow[trackId] = iRow;
                 }
@@ -1140,8 +1130,8 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
           const auto& label = mTrackMCLabels[i];
           if (trk.OK() && trk.NClustersFitted() > 50 && CAMath::Abs(trk.GetParam().GetQPt()) < 1.f && label.isValid() && !label.isNoise() &&
               (mMCTrackMin == -1 || label.getTrackID() >= mMCTrackMin) && (mMCTrackMax == -1 || label.getTrackID() < mMCTrackMax)) {
-            const auto& info = GetMCTrackObj(lowestRowInfo, label);
-            if (info.row < 10) {
+            const uint32_t trackId = GetMCTrackObj(mTrackMCLabelsReverse, label);
+            if (trackId < lowestPadRow.size() && lowestPadRow[trackId] < 10) {
               const GPUTPCGMMergedTrackHit* lowestCl = nullptr;
               for (uint32_t j = 0; j < trk.NClusters(); j++) {
                 const auto& cl = mTracking->mIOPtrs.mergedTrackHits[trk.FirstClusterRef() + j];
@@ -1151,7 +1141,7 @@ void GPUQA::RunQA(bool matchOnly, const std::vector<o2::tpc::TrackTPC>* tracksEx
               }
               if (lowestCl) {
                 const float pad = clNative->clustersLinear[lowestCl->num].getPad();
-                const int32_t difference = (int32_t)lowestCl->row - info.row;
+                const int32_t difference = (int32_t)lowestCl->row - lowestPadRow[trackId];
                 mLowestRowDifferenceVsPad->Fill(pad, difference);
                 if (CAMath::Abs(difference) > 5 && pad > 5.f && pad < GPUTPCGeometry::NPads(lowestCl->row) - 5.f) {
                   mLowestRowTrackMultiplicity->Fill(GetMCTrackObj(mRecTracks, label));
