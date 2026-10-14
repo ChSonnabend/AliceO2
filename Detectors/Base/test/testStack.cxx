@@ -329,3 +329,37 @@ BOOST_AUTO_TEST_CASE(Track_transport_private_navigator_preserves_transport_state
   BOOST_CHECK(geometry.GetCurrentNode() == transportNode);
   BOOST_CHECK_EQUAL(transportNavigator->GetCurrentPoint()[0], 50.);
 }
+
+BOOST_AUTO_TEST_CASE(Transport_model_score_survives_track_copy)
+{
+  o2::MCTrack track;
+  BOOST_CHECK_EQUAL(track.getTransportModelScore(), -1.f);
+  BOOST_CHECK(!track.getTransportModelShadow());
+  track.setTransportModelScore(0.875f, true);
+  const o2::MCTrack copy(track);
+  BOOST_CHECK_EQUAL(copy.getTransportModelScore(), 0.875f);
+  BOOST_CHECK(copy.getTransportModelShadow());
+  track.setTransportModelScore(std::numeric_limits<float>::quiet_NaN(), true);
+  BOOST_CHECK(std::isnan(track.getTransportModelScore()));
+  BOOST_CHECK(track.getTransportModelShadow());
+}
+
+BOOST_AUTO_TEST_CASE(Transport_model_score_root_roundtrip)
+{
+  std::vector<o2::MCTrack> tracks(2);
+  tracks[0].setTransportModelScore(0.875f, true);
+  tracks[1].setTransportModelScore(std::numeric_limits<float>::quiet_NaN(), true);
+  {
+    TFile file("TransportScoreRoundtrip.root", "RECREATE");
+    file.WriteObject(&tracks, "tracks");
+  }
+  TFile file("TransportScoreRoundtrip.root", "READ");
+  std::vector<o2::MCTrack>* restored = nullptr;
+  file.GetObject("tracks", restored);
+  BOOST_REQUIRE(restored != nullptr);
+  BOOST_REQUIRE_EQUAL(restored->size(), 2);
+  BOOST_CHECK_EQUAL((*restored)[0].getTransportModelScore(), 0.875f);
+  BOOST_CHECK((*restored)[0].getTransportModelShadow());
+  BOOST_CHECK(std::isnan((*restored)[1].getTransportModelScore()));
+  BOOST_CHECK((*restored)[1].getTransportModelShadow());
+}

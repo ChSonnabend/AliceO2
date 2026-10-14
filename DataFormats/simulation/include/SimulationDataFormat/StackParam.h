@@ -32,6 +32,11 @@ struct StackParam : public o2::conf::ConfigurableParamHelper<StackParam> {
   // embeds preprocessing/domain guards and returns [batch,1] class-1 probability.
   // Class 1 means no recorded hits in the entire subtree. Invalid scores keep tracks.
   std::string transportPrimaryOnnxCCDBPath = "";
+  // Local deployment graph, mutually exclusive with the CCDB path.
+  std::string transportPrimaryOnnxModelFile = "";
+  // Record birth scores in MCTrack and transport every track for unbiased truth.
+  // Requires pruneKine=false and storeSecondaries=true. No threshold is needed.
+  bool transportPrimaryOnnxShadow = false;
   // Double preserves validation cuts just above tied float32 scores.
   double transportPrimaryOnnxThreshold = -1.; // require explicit configuration
   int transportPrimaryOnnxOutputIndex = 0;

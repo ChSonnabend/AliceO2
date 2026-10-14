@@ -46,6 +46,8 @@
 #include <cstddef> // for NULL
 #include <cmath>
 #include <map>
+#include <fstream>
+#include <iterator>
 #include <memory>
 #include <limits>
 #include <mutex>
@@ -69,33 +71,46 @@ class OnnxTrackTransport
   explicit OnnxTrackTransport(const o2::sim::StackParam& param)
     : mThreshold(param.transportPrimaryOnnxThreshold),
       mOutputIndex(param.transportPrimaryOnnxOutputIndex),
-      mApplySigmoid(param.transportPrimaryOnnxApplySigmoid),
-      mInvert(param.transportPrimaryInvert)
+      mApplySigmoid(param.transportPrimaryOnnxApplySigmoid)
   {
-    if (!std::isfinite(mThreshold) || mThreshold < 0. || mThreshold > std::nextafter(1., std::numeric_limits<double>::infinity())) {
+    if (!param.transportPrimaryOnnxShadow && (!std::isfinite(mThreshold) || mThreshold < 0. || mThreshold > std::nextafter(1., std::numeric_limits<double>::infinity()))) {
       throw std::runtime_error("ONNX pruning requires an explicit probability threshold (or nextafter(1,+inf) to keep all)");
     }
     if (mApplySigmoid || mOutputIndex != 0) {
       throw std::runtime_error("simnet.birth.v1 outputs one probability: set OnnxApplySigmoid=false and OnnxOutputIndex=0");
     }
-    if (param.transportPrimaryOnnxCCDBPath.empty()) {
-      throw std::runtime_error("Stack.transportPrimaryOnnxCCDBPath must be configured");
+    if (param.transportPrimaryOnnxShadow && (param.pruneKine || !param.storeSecondaries)) {
+      throw std::runtime_error("ONNX shadow mode requires Stack.pruneKine=false and Stack.storeSecondaries=true to retain scored tracks and ancestry");
     }
-
-    auto& ccdbManager = o2::ccdb::BasicCCDBManager::instance();
-    auto& ccdb = ccdbManager.getCCDBAccessor();
-    std::map<std::string, std::string> headers;
-    const auto createdNotAfter = ccdbManager.getCreatedNotAfter();
-    const auto createdNotBefore = ccdbManager.getCreatedNotBefore();
-    ccdb.loadFileToMemory(mModelBytes, param.transportPrimaryOnnxCCDBPath, {},
-                          ccdbManager.getTimestamp(), &headers, {},
-                          createdNotAfter ? std::to_string(createdNotAfter) : "",
-                          createdNotBefore ? std::to_string(createdNotBefore) : "");
+    if (param.transportPrimaryOnnxCCDBPath.empty() == param.transportPrimaryOnnxModelFile.empty()) {
+      throw std::runtime_error("Set exactly one of Stack.transportPrimaryOnnxCCDBPath and Stack.transportPrimaryOnnxModelFile");
+    }
+    const auto modelLocation = param.transportPrimaryOnnxModelFile.empty() ? param.transportPrimaryOnnxCCDBPath : param.transportPrimaryOnnxModelFile;
+    if (!param.transportPrimaryOnnxModelFile.empty()) {
+      std::ifstream file(param.transportPrimaryOnnxModelFile, std::ios::binary);
+      if (!file) {
+        throw std::runtime_error("Cannot open ONNX model " + modelLocation);
+      }
+      mModelBytes.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+      if (file.bad()) {
+        throw std::runtime_error("Failed reading ONNX model " + modelLocation);
+      }
+    } else {
+      auto& ccdbManager = o2::ccdb::BasicCCDBManager::instance();
+      auto& ccdb = ccdbManager.getCCDBAccessor();
+      std::map<std::string, std::string> headers;
+      const auto createdNotAfter = ccdbManager.getCreatedNotAfter();
+      const auto createdNotBefore = ccdbManager.getCreatedNotBefore();
+      ccdb.loadFileToMemory(mModelBytes, param.transportPrimaryOnnxCCDBPath, {},
+                            ccdbManager.getTimestamp(), &headers, {},
+                            createdNotAfter ? std::to_string(createdNotAfter) : "",
+                            createdNotBefore ? std::to_string(createdNotBefore) : "");
+    }
     if (mModelBytes.empty()) {
-      throw std::runtime_error("failed to retrieve ONNX model from CCDB path " + param.transportPrimaryOnnxCCDBPath);
+      throw std::runtime_error("Empty ONNX model at " + modelLocation);
     }
 
-    std::unordered_map<std::string, std::string> options{{"model-path", param.transportPrimaryOnnxCCDBPath},
+    std::unordered_map<std::string, std::string> options{{"model-path", modelLocation},
                                                          {"device-type", "CPU"},
                                                          {"intra-op-num-threads", "1"},
                                                          {"inter-op-num-threads", "1"},
@@ -120,7 +135,7 @@ class OnnxTrackTransport
     }
   }
 
-  bool transport(const TParticle& particle, double motherPdg, double eventX, double eventY, double eventZ)
+  float score(const TParticle& particle, double motherPdg, double eventX, double eventY, double eventZ)
   {
     // OrtModel mutates its shape buffers during inference. Stack clones share
     // this classifier, so protect the session and those buffers together.
@@ -144,14 +159,15 @@ class OnnxTrackTransport
     }
     auto features = o2::data::detail::makeTrackTransportFeatures(particle, motherPdg, medium, eventX, eventY, eventZ);
     if (!o2::data::detail::validTrackTransportFeatures(features)) {
-      return true;
+      return std::numeric_limits<float>::quiet_NaN();
     }
     std::vector<std::vector<float>> inputs{std::move(features)};
     auto output = mModel.inference<float, float>(inputs);
     if (static_cast<size_t>(mOutputIndex) >= output.size()) {
       throw std::runtime_error("Stack.transportPrimaryOnnxOutputIndex is outside the model output");
     }
-    return o2::data::detail::transportFromOnnxScore(output[mOutputIndex], mThreshold, mApplySigmoid, mInvert);
+    const float score = output[mOutputIndex];
+    return std::isfinite(score) && score >= 0.f && score <= 1.f ? score : std::numeric_limits<float>::quiet_NaN();
   }
 
  private:
@@ -162,7 +178,6 @@ class OnnxTrackTransport
   double mThreshold;
   int mOutputIndex;
   bool mApplySigmoid;
-  bool mInvert;
 };
 } // namespace
 
@@ -232,14 +247,15 @@ Stack::Stack(Int_t size)
     try {
       auto classifier = std::make_shared<OnnxTrackTransport>(param);
       mTransportTrack = [classifier](const TParticle& p, double motherPdg, double eventX, double eventY, double eventZ) {
-        return classifier->transport(p, motherPdg, eventX, eventY, eventZ);
+        return classifier->score(p, motherPdg, eventX, eventY, eventZ);
       };
       // ONNX runs at PreTrack, where geometry and the birth state are available,
       // also in parallel simulation. Secondaries require an explicit opt-in.
       transportPrimary = [](const TParticle&, const std::vector<TParticle>&) { return true; };
-      LOG(info) << "Successfully configured ONNX track transport pruning from CCDB path "
-                << param.transportPrimaryOnnxCCDBPath
-                << "; secondary pruning=" << param.transportPrimaryOnnxSecondaries;
+      LOG(info) << "Successfully configured ONNX track transport model "
+                << (param.transportPrimaryOnnxModelFile.empty() ? param.transportPrimaryOnnxCCDBPath : param.transportPrimaryOnnxModelFile)
+                << "; score secondaries=" << param.transportPrimaryOnnxSecondaries
+                << "; shadow (keep all)=" << param.transportPrimaryOnnxShadow;
     } catch (const std::exception& error) {
       LOG(fatal) << "Failed to configure ONNX track transport pruning: " << error.what();
     }
@@ -424,7 +440,7 @@ bool Stack::transportTrack(const TParticle& particle, double eventX, double even
   }
   // Read ancestry from the indexed MCTrack, never mCurrentParticle0: Geant4
   // owns its secondary queue and that cache can describe a different sibling.
-  auto trackByID = [this](int trackID) -> const MCTrack* {
+  auto trackByID = [this](int trackID) -> MCTrack* {
     if (trackID < 0) {
       return nullptr;
     }
@@ -439,7 +455,7 @@ bool Stack::transportTrack(const TParticle& particle, double eventX, double even
     }
     return nullptr;
   };
-  const auto* current = trackByID(id);
+  auto* current = trackByID(id);
   if (!current) {
     return true;
   }
@@ -448,7 +464,14 @@ bool Stack::transportTrack(const TParticle& particle, double eventX, double even
     const auto* mother = trackByID(motherID);
     motherPdg = mother ? mother->GetPdgCode() : std::numeric_limits<double>::quiet_NaN();
   }
-  if (mTransportTrack(particle, motherPdg, eventX, eventY, eventZ)) {
+  const auto& param = o2::sim::StackParam::Instance();
+  const float score = mTransportTrack(particle, motherPdg, eventX, eventY, eventZ);
+  current->setTransportModelScore(score, param.transportPrimaryOnnxShadow);
+  // Shadow scores are saved on the MCTrack itself, surviving secondary reordering
+  // and parallel event merging. Full transport supplies the truth afterwards.
+  if (param.transportPrimaryOnnxShadow ||
+      o2::data::detail::transportFromOnnxScore(score, param.transportPrimaryOnnxThreshold,
+                                            param.transportPrimaryOnnxApplySigmoid, param.transportPrimaryInvert)) {
     return true;
   }
   // Keep bookkeeping and ancestry, but mark the birth track as inhibited.

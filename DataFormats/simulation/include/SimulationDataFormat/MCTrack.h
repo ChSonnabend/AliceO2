@@ -217,6 +217,16 @@ class MCTrackT
   }
   bool getStore() const { return ((PropEncoding)mProp).storage; }
   /// determine if this track has hits
+  // -1: not evaluated; NaN: evaluated but outside the model's valid domain.
+  // Class 1 predicts no hits from this track or any transport descendant.
+  float getTransportModelScore() const { return mTransportModelScore; }
+  bool getTransportModelShadow() const { return mTransportModelShadow; }
+  void setTransportModelScore(float score, bool shadow)
+  {
+    mTransportModelScore = score;
+    mTransportModelShadow = shadow;
+  }
+
   bool hasHits() const { return ((PropEncoding)mProp).hitmask != 0; }
   /// set process property
   void setProcess(int proc)
@@ -276,6 +286,8 @@ class MCTrackT
   // if bit i is set it means that this track left a trace in detector i
   // we should have sizeof(int) < o2::base::DetId::nDetectors
   Int_t mProp = 0;
+  float mTransportModelScore = -1.f;
+  bool mTransportModelShadow = false;
 
   // internal structure to allow convenient manipulation
   // of properties as bits on an int
@@ -297,7 +309,7 @@ class MCTrackT
   // such as part of mProp (process) or mPDG
   Int_t mStatusCode = 0;
 
-  ClassDefNV(MCTrackT, 8);
+  ClassDefNV(MCTrackT, 9);
 };
 
 template <typename T>
