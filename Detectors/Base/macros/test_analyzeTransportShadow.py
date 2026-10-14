@@ -45,4 +45,32 @@ class ShadowTruthTest(unittest.TestCase):
             self.assertTrue((out/'roc.png').exists())
             self.assertFalse(set(map(tuple,result['calibration_events'])) & set(map(tuple,result['test_events'])))
 
+    def test_cpp_csv_to_metrics_and_tree_membership(self):
+        import csv
+        root=Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as d:
+            exe=Path(d)/'truth_test';csvfile=Path(d)/'sgn_transport_scores.csv'
+            subprocess.run(['c++','-std=c++17','-O1','-I'+str(root/'include'),str(root/'test/testTransportCsvStandalone.cxx'),'-o',str(exe)],check=True)
+            subprocess.run([str(exe),str(csvfile)],check=True)
+            with csvfile.open() as stream: rows=list(csv.DictReader(stream))
+            self.assertEqual(len(rows),48)
+            self.assertTrue(all(None not in row and all(value is not None for value in row.values()) for row in rows))
+            self.assertEqual(rows[4]['own_hit_mask'],str(1<<21))
+            self.assertEqual(rows[0]['model'],'model,"test"')
+            self.assertEqual(rows[0]['n_descendants'],'4')
+            self.assertEqual(rows[2]['is_hitless_tree_root'],'1')
+            self.assertEqual(rows[3]['is_hitless_tree_descendant'],'1')
+            self.assertEqual(rows[3]['hitless_tree_root_id'],'2')
+            self.assertEqual(rows[3]['valid_score'],'0')
+            self.assertEqual(rows[5]['model_evaluated'],'0')
+            self.assertEqual(rows[1]['transport_mother_id'],'-1')
+            for scope,count in [('all',40),('roots',16),('deduplicated',32)]:
+                out=Path(d)/scope
+                subprocess.run([sys.executable,str(root/'macros/analyzeTransportShadow.py'),'--csv',str(csvfile),'--scope',scope,'--out',str(out)],check=True,stdout=subprocess.DEVNULL)
+                report=json.loads((out/'summary.json').read_text())
+                self.assertEqual(report['scored_tracks'],count)
+                self.assertEqual(report['configured_operating_point']['wrongly_rejected'],0)
+                self.assertEqual(report['test']['hit_tree_loss_rate'],0)
+                self.assertFalse(set(map(tuple,report['calibration_events'])) & set(map(tuple,report['test_events'])))
+
 if __name__=='__main__':unittest.main()

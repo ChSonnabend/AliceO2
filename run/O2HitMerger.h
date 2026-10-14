@@ -18,6 +18,7 @@
 #include <functional>
 #include <list>
 #include <map>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <thread>
@@ -98,6 +99,11 @@ class O2HitMerger : public fair::mq::Device
   void updateTrackIdWithOffset(TrackReference& ref, Int_t nprim, Int_t idelta0, Int_t idelta1);
 
   void initHitTreeAndOutFile(std::string prefix, int detID);
+  void initTransportScoreCsv(const std::string& prefix);
+  std::ofstream mTransportScoreCsv; //! written only by the merged-kinematics thread
+  std::string mTransportScorePrefix;
+  std::string mTransportModelLabel;
+  uint64_t mTransportScoreEventEntry = 0;
 
   // This method goes over the buffers containing data for a given event; potentially merges
   // them and flushes into the actual output file.

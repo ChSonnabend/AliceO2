@@ -20,6 +20,11 @@
 #include <fairlogger/Logger.h>
 #include <SimulationDataFormat/MCEventHeader.h>
 #include <DetectorsBase/Stack.h>
+#include <DetectorsBase/TrackTransportTruth.h>
+#include <SimulationDataFormat/StackParam.h>
+#include <CommonUtils/ConfigurableParam.h>
+#include <numeric>
+#include <locale>
 #include <SimulationDataFormat/PrimaryChunk.h>
 #include <DetectorsCommonDataFormats/DetID.h>
 #include <DetectorsCommonDataFormats/DetectorNameConf.h>
@@ -147,6 +152,14 @@ void O2HitMerger::InitTask()
     // we didn't manage to get a configuration --> better to fail
     LOG(fatal) << "No configuration received. Aborting";
   }
+  // querySimConfig transfers SimConfigData, but does not initialize the
+  // ConfigurableParam values in this process. Use the same precedence as workers.
+  const auto& simData = o2::conf::SimConfig::Instance().getConfigData();
+  if (!simData.mConfigFile.empty()) {
+    o2::conf::ConfigurableParam::updateFromFile(simData.mConfigFile);
+  }
+  o2::conf::ConfigurableParam::updateFromString(simData.mKeyValueTokens);
+  initTransportScoreCsv(o2::conf::SimConfig::Instance().getOutPrefix());
   mAsService = o2::conf::SimConfig::Instance().asService();
   mForwardKine = o2::conf::SimConfig::Instance().forwardKine();
   mWriteToDisc = o2::conf::SimConfig::Instance().writeToDisc();
@@ -186,6 +199,45 @@ void O2HitMerger::InitTask()
       LOG(info) << "NOT EXPECTING ANY DATA; SHUTTING DOWN";
       raise(SIGINT);
     }
+  }
+}
+
+void O2HitMerger::initTransportScoreCsv(const std::string& prefix)
+{
+  if (mTransportScoreCsv.is_open()) {
+    mTransportScoreCsv.close();
+  }
+  mTransportScoreCsv.clear();
+  mTransportScoreEventEntry = 0;
+  const auto& param = o2::sim::StackParam::Instance();
+  if (!param.transportPrimaryOnnxShadow || param.transportPrimaryOnnxCsv.empty()) {
+    return;
+  }
+  if (param.transportPrimary != "onnx" || param.pruneKine || !param.storeSecondaries) {
+    throw std::runtime_error("Transport-score CSV needs ONNX shadow mode with all kinematics retained");
+  }
+  mTransportScorePrefix = prefix;
+  mTransportModelLabel = param.transportPrimaryOnnxModelLabel.empty() ?
+    (param.transportPrimaryOnnxModelFile.empty() ? param.transportPrimaryOnnxCCDBPath : param.transportPrimaryOnnxModelFile) :
+    param.transportPrimaryOnnxModelLabel;
+  const auto filename = param.transportPrimaryOnnxCsv == "auto" ? prefix + "_transport_scores.csv" : param.transportPrimaryOnnxCsv;
+  const auto parent = std::filesystem::path(filename).parent_path();
+  if (!parent.empty()) {
+    std::filesystem::create_directories(parent);
+  }
+  mTransportScoreCsv.open(filename, std::ios::out | std::ios::trunc);
+  mTransportScoreCsv.imbue(std::locale::classic());
+  if (!mTransportScoreCsv) {
+    throw std::runtime_error("Cannot open transport-score CSV " + filename);
+  }
+  o2::data::detail::writeTransportCsvHeader(mTransportScoreCsv);
+  mTransportScoreCsv.flush();
+  if (!mTransportScoreCsv) {
+    throw std::runtime_error("Cannot write transport-score CSV header " + filename);
+  }
+  LOG(info) << "Shadow scores and full transport-subtree truth will be written to " << filename;
+  if (o2::conf::SimConfig::Instance().isFilterOutNoHitEvents()) {
+    LOG(warning) << "Keeping zero-hit events for unbiased shadow CSV evaluation";
   }
 }
 
@@ -243,6 +295,8 @@ bool O2HitMerger::ReInit(o2::conf::SimReconfigData const& reconfig)
     mMCHeaderTree = new TTree("o2sim", "o2sim");
     mMCHeaderTree->SetDirectory(mMCHeaderOnlyOutFile);
   }
+  initTransportScoreCsv(reconfig.outputPrefix);
+
   // reinit detectorInstance files (also make sure they are closed before continuing)
   initHitFiles(reconfig.outputPrefix);
 
@@ -537,6 +591,17 @@ void O2HitMerger::reorderAndMergeMCTracks(int eventID, TTree* target, const std:
   // we give the possibility to produce some MC track statistics
   // to be saved as part of the MCHeader structure
   tracks_analysis_hook(*filladdr);
+  if (mTransportScoreCsv.is_open()) {
+    const int nInputs = std::accumulate(nprimaries.begin(), nprimaries.end(), 0);
+    o2::data::detail::writeTransportCsvEvent(mTransportScoreCsv, *filladdr, nInputs,
+      mTransportModelLabel, mTransportScorePrefix, eventID, mTransportScoreEventEntry++,
+      o2::sim::StackParam::Instance().transportPrimaryOnnxThreshold);
+    // Commit each complete event so a running job's completed rows can be read.
+    mTransportScoreCsv.flush();
+    if (!mTransportScoreCsv) {
+      throw std::runtime_error("Failed to flush transport-score CSV");
+    }
+  }
 
   if (mWriteToDisc && target) {
     auto targetbr = o2::base::getOrMakeBranch(*target, "MCTrack", &filladdr);
@@ -695,7 +760,7 @@ bool O2HitMerger::mergeAndFlushData()
     }
 
     // now see which events can be discarded in any case due to no hits
-    if (confref.isFilterOutNoHitEvents()) {
+    if (confref.isFilterOutNoHitEvents() && !mTransportScoreCsv.is_open()) {
       if (eventheader && eventheader->getMCEventStats().getNHits() == 0) {
         LOG(info) << " Taking out event " << flusheventID << " due to no hits ";
         cleanEvent(flusheventID);

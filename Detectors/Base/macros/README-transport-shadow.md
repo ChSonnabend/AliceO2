@@ -12,7 +12,9 @@ The ONNX input is the existing `simnet.birth.v1` 34-feature contract. Use a
 Stack.transportPrimary=onnx
 Stack.transportPrimaryOnnxModelFile=/absolute/path/to/network/deployment/model.onnx
 Stack.transportPrimaryOnnxShadow=true
-Stack.transportPrimaryOnnxSecondaries=false
+Stack.transportPrimaryOnnxSecondaries=true
+Stack.transportPrimaryOnnxCsv=auto
+Stack.transportPrimaryOnnxModelLabel=nn_deep64_tanh
 Stack.transportPrimaryOnnxApplySigmoid=false
 Stack.transportPrimaryOnnxOutputIndex=0
 Stack.transportPrimaryInvert=false
@@ -27,11 +29,12 @@ keeps all tracks, including invalid model inputs/scores. The model runs at
 PreTrack with the same birth features as pruning mode. Geometry navigation uses
 a private navigator, as in the parent branch.
 
-Default scoring covers independently simulated input tracks (including injected
-secondaries), not generator-history entries that never reach PreTrack. Set
-`transportPrimaryOnnxSecondaries=true` to also score transport-created secondaries.
-The September 29 models were trained on input roots: secondary scores are an
-exploratory evaluation, not a validated deployment scope.
+The prepared track_pruning settings score both independently simulated inputs and
+all transport-created secondaries that reach PreTrack. Set
+transportPrimaryOnnxSecondaries=false to restrict scoring to input roots.
+Generator-history entries that never reach PreTrack are not evaluated. The models
+were trained on input roots, so secondary scoring is an evaluation of a new
+population; invalid/out-of-domain predictions remain NaN and are kept.
 
 Scores are persisted as `MCTrack.mTransportModelScore` in the Kine ROOT output;
 `mTransportModelShadow` marks evaluated shadow tracks. A score of -1 means not
@@ -39,9 +42,17 @@ evaluated; NaN means evaluated but invalid/outside the selected feature domain.
 Both fields survive MCTrack copies, reordering and parallel hit merging. MCTrack
 schema version is incremented to 9; rebuild all consumers together.
 
-The existing hit masks and first-mother links provide truth after full simulation.
-`analyzeTransportShadow.py` saves score and recursive truth together in CSV.
-Ground truth is deliberately computed after the event completes, not at PreTrack.
+The hit merger computes truth after a complete event is merged and writes one CSV
+for that simulation output prefix: for example `tf1/sgn_transport_scores.csv`.
+It uses the existing hit masks and first-mother transport links. Workers do not
+write separate CSVs. Separate model jobs/timeframes retain their own CSV files;
+do not point concurrent jobs at one shared filename. This automatic writer is for
+the parallel o2-sim hit-merger workflow used by submitLarge.py; serial simulations
+can still use the ROOT-to-CSV analysis path below.
+Zero-hit events are retained when CSV output is active, even if the usual event
+filter was requested, so they are represented in the evaluation. Every complete
+event is flushed to disk; an interrupted run contains only the portion written.
+The schema is fixed and rows are in merged event/track order, with no downsampling.
 Full kinematics can be much larger than normal filtered output.
 
 ## Prepared models on Hydra
@@ -61,82 +72,108 @@ Reproducible conversion helper:
 
 ## Prepare and submit the user's validation job
 
-`submitLarge.py --onnx-model ...` selects `validation_data`, including the edited
-500-event job. Without this option its previous training_data selection remains.
-Separate model/mode names are added to the simulation output directory. Use a
-separate generated-config folder for each model. For example, on Hydra:
+`submitLarge.py` contains three explicit dictionaries in `track_pruning`, one each
+for BDT, Deep NN and Transformer. `dict_use = track_pruning` selects all three.
+Each dictionary contains its full deployment model path and shadow options in
+SIM_OPTIONS, secondary scoring enabled, automatic CSV output, a short model label,
+and its saved root-validation threshold as an initial reference cut. Shadow mode
+ignores that cut for transport; it only supplies the CSV's would_reject column.
+Output folders end in `<model>_shadow_alltracks`. The original command
+line and submission loop are retained; there are no added model command-line flags.
+All three use the edited validation settings: 500 events and seed 1043.
+
+On Hydra, generate configs for inspection without submitting:
 
 ```bash
 cd /lustre/alice/users/csonnab/PhD/jobs/simulation
-models=/lustre/alice/users/csonnab/cern-fellowship/run/simnet/NN/output/29-09-2026/sim_prune_roots_qa_v3
-python3 submitLarge.py --submit 0 \
-  --onnx-model "$models/nn_deep64_tanh/network/deployment/model.onnx" \
-  --onnx-mode shadow \
-  --write-configs-folder misc/sim_configs_onnx_shadow_nn_deep64_tanh
+python3 submitLarge.py --submit 0 --write-configs-folder misc/sim_configs_track_pruning
 ```
 
-Inspect the generated config. After rebuilding and selecting the new environment,
-repeat with `--submit 1` to create/submit the job. Change the model directory for
-BDT or Transformer. Add `--onnx-secondaries` if you want scores for transport-created
-secondaries too; this gets a distinct output directory. No jobs were submitted by
-this implementation.
+After rebuilding and updating the environment in config_sim.json, repeat with
+`--submit 1` to submit the three jobs. Change the literal dictionaries to select
+other models/options or reduce the list to the jobs you want. Secondary scoring is already enabled in all three settings.
 
 **Environment:** at implementation time `O2PDPSuite::latest-o2` explicitly loaded
 `O2/feature-onnx-primary-pruning-local1`. Rebuild/update the suite to use the new
-branch, or supply `--o2-env` with the appropriate rebuilt environment. The helper
-preserves your existing container, partition, resources and reconstruction options.
-It does not fix cluster resource availability or update an installed environment.
+branch, or change directory_settings.O2_env in config_sim.json. No jobs have been
+submitted by this implementation.
 
-## Extract truth and make ROC curves
+## Read the single simulation CSV
 
-After the job completes, pass the actual signal Kine file(s) from ONE model run:
+No ROOT extraction is needed for the new jobs. Read `sgn_transport_scores.csv`
+in the relevant timeframe directory directly with pandas or another CSV tool.
+The file includes every stored track; select **model_evaluated == 1** for model
+metrics. Unscored generator entries preserve complete IDs/context in the same file.
+Invalid scores remain in this selected population as KEEP decisions.
+
+Key columns:
+
+| Columns | Meaning |
+|---|---|
+| model, run_prefix, event_id, event_entry, track_id | Model and final merged track identity; event_entry is the zero-based Kine entry, event_id is the simulation event ID |
+| mother_id, transport_mother_id | Original first mother and transport parent; input roots have transport_mother_id=-1 even if they have a generator mother |
+| simulation_root_id, depth | Independently simulated ancestor and number of transport-parent edges; -1 root ID means no input ancestor |
+| is_simulation_root, is_transport_secondary | Input-prefix membership versus a transport-created secondary; this is not the physics definition of primary |
+| hitless_tree_root_id | Highest ancestor whose entire transport subtree is hit-free, including the track itself; -1 if this track's subtree has a hit |
+| is_hitless_tree_root, is_hitless_tree_descendant | First track of a wholly hit-free tree versus a nested daughter; a secondary may be a hitless-tree root |
+| n_descendants | Number of stored transport descendants, excluding this track |
+| model_evaluated, valid_score, score | Model execution at PreTrack, score validity, and class-1 score; -1 means unscored, NaN means invalid |
+| can_avoid_subtree | Ground truth: 1 only if this track AND every transport descendant have no recorded detector hit |
+| own_hit_mask, subtree_hit_mask, own_has_hits, subtree_has_hits | Detector-hit masks and boolean hit truth, not counts of individual hits |
+| parent_can_avoid_subtree | Parent subtree truth, or -1 for no transport parent |
+| deduplicated_candidate | Scored hit-producing trees plus only the first track of each hit-free tree |
+| configured_threshold, would_reject | Initial reference cut and hypothetical decision; -1 if no applicable threshold/evaluation |
+| pdg, process, px/py/pz, vx/vy/vz, t_ns, weight | Birth properties for phase-space checks; coordinates in cm, momenta in GeV/c, time in ns |
+| shadow_mode, csv_schema_version | Full-transport provenance and CSV layout version |
+
+The independent-root boundaries deliberately exclude generator-history edges from
+transport truth. Missing/out-of-range mother indices and cycles abort CSV generation
+rather than inventing labels. A fully hit-free chain A -> B -> C has hitless root A
+for all three; only A has is_hitless_tree_root=1.
+
+## Make ROC curves and choose a threshold directly from CSV
 
 ```bash
 apptainer exec /lustre/alice/users/csonnab/TPC/TPC_PRODUCTION/Containers/rocm_torch_env.sif \
   python3 /scratch/alice/csonnab/MyO2/O2/Detectors/Base/macros/analyzeTransportShadow.py \
-  --input /absolute/path/to/tf1/sgn_Kine.root \
-  --out /absolute/path/to/shadow_qa --target-hit-loss 0
+  --csv /absolute/path/to/tf1/sgn_transport_scores.csv \
+  --out /absolute/path/to/shadow_qa --scope all --target-hit-loss 0
 ```
 
-`--input` accepts multiple paths. Do not mix model runs or duplicate events.
-The analyzer requires the new score fields and refuses inhibited/pruned inputs.
-It propagates detector-hit masks over first-mother transport ancestry, supports
-unordered indices and rejects cycles/bad indices. It stops propagation at each
-input root: generator ancestry between independently simulated inputs is not a
-transport-descendant relation. This distinction can differ from legacy labels
-that propagated through generator-history links.
+The CSV is the sole data input. Use `--scope deduplicated` to omit nested hit-free
+daughters, or `--scope roots` to recover input-root-only QA. Multiple CSV paths
+are supported for one model; different models and duplicate file paths are rejected.
+For older shadow runs without automatic CSV, use `--input .../sgn_Kine.root` instead.
+That fallback writes a reduced predictions.csv from ROOT and supports the same scopes.
 
-Outputs:
-
-- `predictions.csv`: one row per scored track, score, validity, input-root flag,
-  `can_avoid_subtree` (1 means no hits anywhere in its tree), and subtree hit mask.
-- `roc.png` / `roc.pdf`: removal of hit-free trees against loss of hit-producing
-  trees; invalid scores always stay kept and remain in the denominators.
-- Per-split threshold scans and conventional ROC CSVs for valid scores only.
-- `summary.json`: coverage, calibration/test event membership, chosen threshold,
-  and independently measured test rates. AUC is restricted to valid scores.
-
+Outputs are `roc.png`, `roc.pdf`, threshold-scan/ROC CSVs and `summary.json`.
+The summary includes the configured cut's observed rates, coverage and invalid
+scores, plus a newly selected threshold and independent test performance.
 Whole events are shuffled with seed 42 and split 50/50 into calibration/test.
 The cut maximizes hit-free-tree rejection subject to the requested calibration
-hit-tree-loss bound. It is never chosen on the held-out test events. More events
-are required if either split lacks a class; a single event produces diagnostics
-only. Zero observed loss is not a guarantee of zero future loss. These are tree
-counts, not individual-hit loss or CPU savings. All scored secondaries are
-included when enabled, so their trees overlap; do not sum these as unique saved
-transport work.
+hit-tree-loss bound. It is never chosen on held-out test events. More events are
+required if either split lacks a class. Invalid scores always stay kept and remain
+in the operational denominators; conventional ROC/AUC uses valid scores only.
+Zero observed loss is not a guarantee. Tree counts are not individual-hit loss or
+CPU savings. All-track subtrees overlap: do not sum descendant counts as unique
+saved transport work, or treat every nested hypothetical rejection as independent.
 
 ## Enable actual rejection later
 
-Use `--onnx-mode prune --onnx-threshold CUT` with the cut from `summary.json`,
-keeping the same model and scoring scope. The runtime rejects valid scores >= CUT;
-invalid scores stay kept. The submission helper refuses secondary pruning for a
-root-only model contract. The shadow mode is explicitly disabled in prune mode.
+In the desired setting's SIM_OPTIONS, set Stack.transportPrimaryOnnxShadow=false
+and add Stack.transportPrimaryOnnxThreshold=CUT using the calibration cut from
+summary.json. Keep the same model and scoring scope, and change the output folder
+for the pruning run. Valid scores >= CUT reject; invalid scores stay kept.
+Root-trained models require validation before enabling secondary pruning.
 Changing the threshold does not require rebuilding or retraining.
 
 ## Validation status
 
-- C++ syntax checks passed for Stack.cxx and testStack.cxx using the Hydra build flags.
-- Six Python tests passed, including synthetic ROOT -> truth -> ROC and event separation.
+- C++ syntax checks cover Stack.cxx, testStack.cxx and O2HitMerger.cxx using the Hydra build flags.
+- Seven Python tests passed, including compiled C++ CSV writer -> CSV-only ROC,
+  all/root/deduplicated scopes, synthetic ROOT input and event separation.
+- The standalone C++ test also checks unordered ancestry, 100,000-track deep trees,
+  generator-root boundaries, nested hitless roots and malformed ancestry.
 - C++ score-copy and ROOT-roundtrip tests were added to testStack.cxx; these need
   the rebuilt libraries to execute.
 - No rebuilt binary simulation or cluster submission has been performed yet.

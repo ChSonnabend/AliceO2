@@ -37,6 +37,10 @@ struct StackParam : public o2::conf::ConfigurableParamHelper<StackParam> {
   // Record birth scores in MCTrack and transport every track for unbiased truth.
   // Requires pruneKine=false and storeSecondaries=true. No threshold is needed.
   bool transportPrimaryOnnxShadow = false;
+  // Parallel simulation: one event-merged CSV per output prefix. Empty disables.
+  // Only active in shadow mode; "auto" gives <prefix>_transport_scores.csv.
+  std::string transportPrimaryOnnxCsv = "auto";
+  std::string transportPrimaryOnnxModelLabel = ""; // short model identifier in CSV rows
   // Double preserves validation cuts just above tied float32 scores.
   double transportPrimaryOnnxThreshold = -1.; // require explicit configuration
   int transportPrimaryOnnxOutputIndex = 0;

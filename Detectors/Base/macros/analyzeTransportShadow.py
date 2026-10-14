@@ -69,9 +69,64 @@ def operating_curve(truth, score):
     return fpr, tpr, cuts
 
 
+def read_score_csv(files, scope):
+    """Read O2's merged CSV in chunks; metrics need no kinematics ROOT files."""
+    import pandas as pd
+    truths, scores, groups, event_keys = [], [], [], []
+    event_map = {}; models = set(); paths = set(); total_rows = 0
+    columns = ['csv_schema_version','model','event_id','model_evaluated','valid_score',
+               'score','can_avoid_subtree','is_simulation_root','is_hitless_tree_root',
+               'shadow_mode','configured_threshold','would_reject']
+    reference_thresholds = set(); reference_counts = dict(correctly_rejected=0,wrongly_rejected=0,rows=0)
+    for filename in files:
+        filename = str(Path(filename).resolve())
+        if filename in paths: raise ValueError('Duplicate CSV input: '+filename)
+        paths.add(filename)
+        for frame in pd.read_csv(filename,usecols=columns,chunksize=250000,float_precision="round_trip"):
+            total_rows += len(frame)
+            if not frame['csv_schema_version'].eq(1).all() or not frame['shadow_mode'].eq(1).all():
+                raise ValueError('Expected schema-1 full-simulation shadow CSV')
+            models.update(frame['model'].unique())
+            if len(models)>1: raise ValueError('Evaluate one model at a time; CSV inputs contain different models')
+            for name in ['model_evaluated','valid_score','can_avoid_subtree','is_simulation_root','is_hitless_tree_root']:
+                if not frame[name].isin([0,1]).all(): raise ValueError('Invalid binary field '+name)
+            frame=frame[frame.model_evaluated.eq(1)]
+            if scope=='roots': frame=frame[frame.is_simulation_root.eq(1)]
+            elif scope=='deduplicated': frame=frame[frame.can_avoid_subtree.eq(0)|frame.is_hitless_tree_root.eq(1)]
+            if frame.empty: continue
+            y=frame.can_avoid_subtree.to_numpy(dtype=np.int8);score=frame.score.to_numpy(dtype=np.float32)
+            valid=np.isfinite(score)&(score>=0)&(score<=1)
+            if not np.array_equal(valid,frame.valid_score.to_numpy(dtype=bool)):
+                raise ValueError('CSV valid_score contradicts the saved score')
+            g=np.empty(len(frame),dtype=np.int32)
+            for event in frame.event_id.unique():
+                key=(filename,int(event))
+                if key not in event_map:
+                    event_map[key]=len(event_keys);event_keys.append(list(key))
+                g[frame.event_id.to_numpy()==event]=event_map[key]
+            truths.append(y);scores.append(score);groups.append(g)
+            for cut in frame.configured_threshold.unique():
+                if np.isfinite(cut) and cut>=0: reference_thresholds.add(float(cut))
+            cuts=frame.configured_threshold.to_numpy(dtype=np.float64)
+            expected=np.where(cuts>=0,(valid&(score.astype(np.float64)>=cuts)).astype(int),-1)
+            if not np.array_equal(expected,frame.would_reject.to_numpy()):
+                raise ValueError('CSV would_reject contradicts the configured threshold and score')
+            selected=frame.would_reject.to_numpy()==1
+            reference_counts['correctly_rejected']+=int(np.sum(selected&(y==1)))
+            reference_counts['wrongly_rejected']+=int(np.sum(selected&(y==0)))
+            reference_counts['rows']+=len(frame)
+    details=dict(csv_rows=total_rows,model=next(iter(models),None),
+                 configured_thresholds=sorted(reference_thresholds),configured_cut_counts=reference_counts)
+    return truths,scores,groups,event_keys,details
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--input', nargs='+', required=True, help='Kinematics ROOT files from one model in shadow mode')
+    source = p.add_mutually_exclusive_group(required=True)
+    source.add_argument('--input', nargs='+', help='Kinematics ROOT files from one model in shadow mode')
+    source.add_argument('--csv', nargs='+', help='O2-generated *_transport_scores.csv files from one model')
+    p.add_argument('--scope',choices=['all','roots','deduplicated'],default='all',
+                   help='All scored tracks, input roots only, or omit nested hit-free descendants')
     p.add_argument('--out', required=True)
     p.add_argument('--target-hit-loss', type=float, default=0., help='Calibration bound on fraction of hit-producing trees rejected')
     p.add_argument('--calibration-fraction', type=float, default=.5)
@@ -80,7 +135,8 @@ def main():
     a = p.parse_args()
     if not 0 <= a.target_hit_loss <= 1 or not 0 < a.calibration_fraction < 1:
         p.error('Invalid fraction')
-    import uproot
+    if a.input:
+        import uproot
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
@@ -90,38 +146,53 @@ def main():
              'MCTrack.mTransportModelShadow','MCEventHeader.FairMCEventHeader.fNPrim']
     truths, scores, groups = [], [], []
     event_count = 0; event_keys = []
-    with (out/'predictions.csv').open('w',newline='') as f:
-        writer=csv.writer(f);writer.writerow(['input_file','event_id','track_id','is_simulation_root','score','valid_score','can_avoid_subtree','subtree_hit_mask'])
-        for filename in a.input:
-            filename=str(Path(filename).resolve())
-            with uproot.open(filename) as root:
-                tree=root['o2sim']
-                missing=set(names)-set(tree.keys())
-                if missing: raise ValueError(f'{filename}: missing {missing}; rebuild and run shadow mode first')
-                for event, arrays in enumerate(tree.iterate(names,step_size=1,library='ak')):
-                    if a.max_events >= 0 and event_count >= a.max_events: break
-                    event_count += 1
-                    m=np.asarray(arrays[names[0]][0]);prop=np.asarray(arrays[names[1]][0],dtype=np.uint32)
-                    score=np.asarray(arrays[names[2]][0],dtype=np.float32);shadow=np.asarray(arrays[names[3]][0],dtype=bool)
-                    n_inputs=int(arrays[names[4]][0])
-                    if np.any((score != -1) & ~shadow) or np.any((prop & (1<<30)) != 0):
-                        raise ValueError('Pruned/inhibited tracks detected: ROC truth requires a fully transported shadow run')
-                    ids=np.flatnonzero(shadow)
-                    if not len(ids): continue
-                    masks=subtree_masks(m,(prop>>7)&((1<<22)-1),n_inputs)
-                    y=(masks[ids]==0).astype(np.int8);s=score[ids]
-                    g=len(event_keys);event_keys.append([filename,event])
-                    truths.append(y);scores.append(s);groups.append(np.full(len(ids),g,dtype=np.int32))
-                    for track,label,value in zip(ids,y,s):
-                        writer.writerow([filename,event,int(track),int(track<n_inputs),float(value),int(np.isfinite(value) and 0<=value<=1),int(label),int(masks[track])])
-                    print(f'{Path(filename).name} event {event}: {len(ids)} scored tracks, {int(y.sum())} hit-free',flush=True)
+    csv_details={}
+    if a.csv:
+        if a.max_events != -1: p.error('--max-events applies only to ROOT input')
+        truths,scores,groups,event_keys,csv_details=read_score_csv(a.csv,a.scope)
+    else:
+        with (out/'predictions.csv').open('w',newline='') as f:
+            writer=csv.writer(f);writer.writerow(['input_file','event_id','track_id','is_simulation_root','score','valid_score','can_avoid_subtree','subtree_hit_mask'])
+            for filename in a.input:
+                filename=str(Path(filename).resolve())
+                with uproot.open(filename) as root:
+                    tree=root['o2sim']
+                    missing=set(names)-set(tree.keys())
+                    if missing: raise ValueError(f'{filename}: missing {missing}; rebuild and run shadow mode first')
+                    for event, arrays in enumerate(tree.iterate(names,step_size=1,library='ak')):
+                        if a.max_events >= 0 and event_count >= a.max_events: break
+                        event_count += 1
+                        m=np.asarray(arrays[names[0]][0]);prop=np.asarray(arrays[names[1]][0],dtype=np.uint32)
+                        score=np.asarray(arrays[names[2]][0],dtype=np.float32);shadow=np.asarray(arrays[names[3]][0],dtype=bool)
+                        n_inputs=int(arrays[names[4]][0])
+                        if np.any((score != -1) & ~shadow) or np.any((prop & (1<<30)) != 0):
+                            raise ValueError('Pruned/inhibited tracks detected: ROC truth requires a fully transported shadow run')
+                        masks=subtree_masks(m,(prop>>7)&((1<<22)-1),n_inputs)
+                        selected=shadow.copy()
+                        if a.scope=='roots': selected[n_inputs:]=False
+                        elif a.scope=='deduplicated':
+                            mothers=m.copy();mothers[:n_inputs]=-1
+                            parent_hit=np.ones(len(mothers),dtype=bool)
+                            has_parent=mothers>=0;parent_hit[has_parent]=masks[mothers[has_parent]]!=0
+                            selected &= (masks!=0)|parent_hit
+                        ids=np.flatnonzero(selected)
+                        if not len(ids): continue
+                        y=(masks[ids]==0).astype(np.int8);s=score[ids]
+                        g=len(event_keys);event_keys.append([filename,event])
+                        truths.append(y);scores.append(s);groups.append(np.full(len(ids),g,dtype=np.int32))
+                        for track,label,value in zip(ids,y,s):
+                            writer.writerow([filename,event,int(track),int(track<n_inputs),float(value),int(np.isfinite(value) and 0<=value<=1),int(label),int(masks[track])])
+                        print(f'{Path(filename).name} event {event}: {len(ids)} scored tracks, {int(y.sum())} hit-free',flush=True)
     if not truths: raise ValueError('No scored shadow tracks found')
     y=np.concatenate(truths);s=np.concatenate(scores);g=np.concatenate(groups)
     valid=np.isfinite(s)&(s>=0)&(s<=1)
     report=dict(events=len(event_keys),scored_tracks=len(y),valid_scores=int(valid.sum()),invalid_scores_kept=int((~valid).sum()),
                 truth='Class 1: no recorded detector hit on this track or any transport descendant',
-                scope='All scored tracks; secondaries included only if enabled during simulation',
+                scope=a.scope,
                 caution='Tree-loss rates are neither individual-hit losses nor CPU savings. Zero observed loss is not a guarantee.')
+    report.update(csv_details)
+    if len(csv_details.get('configured_thresholds',[]))==1:
+        report['configured_operating_point']=rates(y,s,csv_details['configured_thresholds'][0])
     fig, ax=plt.subplots(figsize=(7,5))
     # Randomize whole events. Calibration and test never share an event.
     if len(event_keys) >= 2:
