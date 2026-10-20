@@ -30,6 +30,7 @@
 #include <stack>
 #include <utility>
 #include <functional>
+#include <stdexcept>
 
 class TClonesArray;
 class TRefArray;
@@ -192,9 +193,13 @@ class Stack : public FairGenericStack
 
   // initialize Stack from external vector containing primaries
 
-  void initFromPrimaries(std::vector<TParticle>& primaries)
+  void initFromPrimaries(std::vector<TParticle>& primaries, const std::vector<double>& motherPdgs = {})
   {
+    if (!motherPdgs.empty() && motherPdgs.size() != primaries.size()) {
+      throw std::invalid_argument("Primary mother context must match the input chunk size");
+    }
     Reset();
+    mPrimaryMotherPdgs = motherPdgs;
     for (auto p : primaries) {
       Int_t doTrack = 0;
       if (p.TestBit(ParticleStatus::kToBeDone)) {
@@ -205,6 +210,9 @@ class Stack : public FairGenericStack
     mNumberOfPrimaryParticles = primaries.size();
     mNumberOfEntriesInParticles = mNumberOfPrimaryParticles;
   }
+
+  /// Full-event generator mother context for primary inference; never a secondary lookup.
+  double getPrimaryMotherPdg(int trackID) const;
 
   void setExternalMode(bool m) { mIsExternalMode = m; }
 
@@ -264,6 +272,7 @@ class Stack : public FairGenericStack
   // keep primary particles in its original form
   // (mainly for the PopPrimaryParticleInterface
   std::vector<TParticle> mPrimaryParticles;
+  std::vector<double> mPrimaryMotherPdgs; //! event-global mother PDGs, indexed by local primary ID
 
   /// vector of reduced/pruned tracks written to the output
   std::vector<o2::MCTrack>* mTracks;

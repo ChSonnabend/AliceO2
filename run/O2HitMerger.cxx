@@ -235,7 +235,8 @@ void O2HitMerger::initTransportScoreCsv(const std::string& prefix)
   if (!mTransportScoreCsv) {
     throw std::runtime_error("Cannot write transport-score CSV header " + filename);
   }
-  LOG(info) << "Shadow scores and full transport-subtree truth will be written to " << filename;
+  LOG(info) << "Shadow scores and full transport-subtree truth will be written to " << filename
+            << "; CSV rows=" << (param.transportPrimaryOnnxCsvRootsOnly ? "simulation roots only" : "all tracks");
   if (o2::conf::SimConfig::Instance().isFilterOutNoHitEvents()) {
     LOG(warning) << "Keeping zero-hit events for unbiased shadow CSV evaluation";
   }
@@ -595,7 +596,8 @@ void O2HitMerger::reorderAndMergeMCTracks(int eventID, TTree* target, const std:
     const int nInputs = std::accumulate(nprimaries.begin(), nprimaries.end(), 0);
     o2::data::detail::writeTransportCsvEvent(mTransportScoreCsv, *filladdr, nInputs,
       mTransportModelLabel, mTransportScorePrefix, eventID, mTransportScoreEventEntry++,
-      o2::sim::StackParam::Instance().transportPrimaryOnnxThreshold);
+      o2::sim::StackParam::Instance().transportPrimaryOnnxThreshold,
+      o2::sim::StackParam::Instance().transportPrimaryOnnxCsvRootsOnly);
     // Commit each complete event so a running job's completed rows can be read.
     mTransportScoreCsv.flush();
     if (!mTransportScoreCsv) {

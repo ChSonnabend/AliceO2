@@ -50,7 +50,10 @@ inline bool operator<(SubEventInfo const& a, SubEventInfo const& b)
 struct PrimaryChunk {
   SubEventInfo mSubEventInfo;
   std::vector<TParticle> mParticles; // the particles for this chunk
-  ClassDefNV(PrimaryChunk, 1);
+  // One value per input particle, resolved before splitting the full event.
+  // Original generator mother IDs in mParticles remain event-global for merging.
+  std::vector<double> mPrimaryMotherPdgs;
+  ClassDefNV(PrimaryChunk, 2);
 };
 } // namespace data
 } // namespace o2

@@ -110,7 +110,7 @@ inline void writeTransportCsvHeader(std::ostream& out)
 template <typename Tracks>
 void writeTransportCsvEvent(std::ostream& out, const Tracks& tracks, int nInputs,
                             const std::string& model, const std::string& prefix,
-                            int eventID, uint64_t eventEntry, double threshold)
+                            int eventID, uint64_t eventEntry, double threshold, bool rootsOnly = false)
 {
   std::vector<int> mothers;
   std::vector<uint32_t> masks;
@@ -128,7 +128,9 @@ void writeTransportCsvEvent(std::ostream& out, const Tracks& tracks, int nInputs
   const auto modelCsv = quoteTransportCsv(model), prefixCsv = quoteTransportCsv(prefix);
   const bool hasThreshold = std::isfinite(threshold) && threshold >= 0. &&
                             threshold <= std::nextafter(1., std::numeric_limits<double>::infinity());
-  for (size_t id = 0; id < tracks.size(); ++id) {
+  // Filter only after full-event truth propagation, preserving descendant hits.
+  const size_t nRows = rootsOnly ? static_cast<size_t>(nInputs) : tracks.size();
+  for (size_t id = 0; id < nRows; ++id) {
     const auto& track = tracks[id];
     const auto& row = truth[id];
     const bool scored = track.getTransportModelShadow();

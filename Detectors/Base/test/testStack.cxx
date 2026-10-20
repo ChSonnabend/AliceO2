@@ -18,6 +18,8 @@
 #include "DetectorsBase/TrackTransportUtils.h"
 #include "SimulationDataFormat/BaseHits.h"
 #include "TFile.h"
+#include "TBufferFile.h"
+#include "SimulationDataFormat/PrimaryChunk.h"
 #include "TMCProcess.h"
 #include "TGeoManager.h"
 #include "TGeoNavigator.h"
@@ -362,4 +364,55 @@ BOOST_AUTO_TEST_CASE(Transport_model_score_root_roundtrip)
   BOOST_CHECK((*restored)[0].getTransportModelShadow());
   BOOST_CHECK(std::isnan((*restored)[1].getTransportModelScore()));
   BOOST_CHECK((*restored)[1].getTransportModelShadow());
+}
+
+BOOST_AUTO_TEST_CASE(Primary_mother_context_survives_event_chunking)
+{
+  using o2::data::detail::trackTransportPrimaryMotherPdg;
+  auto particle = [](int pdg, int mother) {
+    TParticle p(pdg, 0, mother, -1, -1, -1, 1., 0., 1., 2., 0., 0., 0., 0.);
+    p.SetBit(ParticleStatus::kPrimary);
+    return p;
+  };
+  std::vector<TParticle> event(1100);
+  event[0] = particle(2212, -1);
+  event[502] = particle(113, -1);
+  event[1000] = particle(22, 0);
+  event[1001] = particle(211, 502);
+  std::vector<TParticle> chunk{event[1000], event[1001]};
+  std::vector<double> context;
+  for (const auto& p : chunk) context.push_back(trackTransportPrimaryMotherPdg(p, event));
+  BOOST_CHECK_EQUAL(context[0], 2212.);
+  BOOST_CHECK_EQUAL(context[1], 113.);
+  // Old chunk-local lookup silently returns the photon for mother 0 and misses 502.
+  BOOST_CHECK_EQUAL(trackTransportPrimaryMotherPdg(chunk[0], chunk), 22.);
+  BOOST_CHECK(std::isnan(trackTransportPrimaryMotherPdg(chunk[1], chunk)));
+  o2::data::Stack stack;
+  stack.initFromPrimaries(chunk, context);
+  BOOST_CHECK_EQUAL(stack.getPrimaryMotherPdg(0), 2212.);
+  BOOST_CHECK_EQUAL(stack.getPrimaryMotherPdg(1), 113.);
+  BOOST_CHECK_EQUAL(stack.getPrimaries()[1].GetFirstMother(), 502); // merge ancestry unchanged
+  BOOST_CHECK_THROW(stack.initFromPrimaries(chunk, {113.}), std::invalid_argument);
+  stack.Reset();
+  std::vector<TParticle> serial{particle(321, -1), particle(211, 0)};
+  stack.initFromPrimaries(serial);
+  BOOST_CHECK_EQUAL(stack.getPrimaryMotherPdg(0), 0.);
+  BOOST_CHECK_EQUAL(stack.getPrimaryMotherPdg(1), 321.); // no stale chunk context
+  BOOST_CHECK(std::isnan(trackTransportPrimaryMotherPdg(particle(211, 9999), serial)));
+}
+
+BOOST_AUTO_TEST_CASE(Primary_mother_context_survives_chunk_serialization)
+{
+  o2::data::PrimaryChunk chunk;
+  chunk.mParticles.resize(2);
+  chunk.mPrimaryMotherPdgs = {113., std::numeric_limits<double>::quiet_NaN()};
+  TBufferFile buffer(TBuffer::kWrite);
+  buffer.WriteObjectAny(&chunk, o2::data::PrimaryChunk::Class());
+  buffer.SetReadMode();
+  buffer.SetBufferOffset(0);
+  std::unique_ptr<o2::data::PrimaryChunk> restored(static_cast<o2::data::PrimaryChunk*>(buffer.ReadObjectAny(o2::data::PrimaryChunk::Class())));
+  BOOST_REQUIRE(restored);
+  BOOST_REQUIRE_EQUAL(restored->mPrimaryMotherPdgs.size(), 2);
+  BOOST_CHECK_EQUAL(restored->mPrimaryMotherPdgs[0], 113.);
+  BOOST_CHECK(std::isnan(restored->mPrimaryMotherPdgs[1]));
 }

@@ -18,6 +18,7 @@
 #include <Generators/GeneratorFactory.h>
 #include <fairmq/Message.h>
 #include <DetectorsBase/Stack.h>
+#include <DetectorsBase/TrackTransportUtils.h>
 #include <SimulationDataFormat/MCEventHeader.h>
 #include <SimulationDataFormat/DigitizationContext.h>
 #include <TMessage.h>
@@ -598,6 +599,7 @@ bool O2PrimaryServerDevice::HandleRequest(fair::mq::MessagePtr& request, int /*i
 
     for (int index = startindex; index < endindex; ++index) {
       m.mParticles.emplace_back(prims[index]);
+      m.mPrimaryMotherPdgs.emplace_back(o2::data::detail::trackTransportPrimaryMotherPdg(prims[index], prims));
     }
 
     LOG(info) << "Sending " << m.mParticles.size() << " particles";

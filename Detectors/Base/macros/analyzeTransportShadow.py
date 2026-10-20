@@ -7,8 +7,12 @@ files only, produced with Stack.pruneKine=false. One model per simulation run.
 import argparse
 import csv
 import json
+import sys
+import time
+from csvProgress import count_csv_rows, million_rows
 from pathlib import Path
 import numpy as np
+from primaryPruningCache import FEATURES, save_cache, load_cache
 
 
 def subtree_masks(mothers, masks, n_inputs):
@@ -69,7 +73,7 @@ def operating_curve(truth, score):
     return fpr, tpr, cuts
 
 
-def read_score_csv(files, scope):
+def read_score_csv(files, scope, chunksize=250000, max_rows=None, features=None):
     """Read O2's merged CSV in chunks; metrics need no kinematics ROOT files."""
     import pandas as pd
     truths, scores, groups, event_keys = [], [], [], []
@@ -82,8 +86,15 @@ def read_score_csv(files, scope):
         filename = str(Path(filename).resolve())
         if filename in paths: raise ValueError('Duplicate CSV input: '+filename)
         paths.add(filename)
-        for frame in pd.read_csv(filename,usecols=columns,chunksize=250000,float_precision="round_trip"):
+        total_file_rows = count_csv_rows(filename, max_rows)
+        next_progress = 1000000
+        started = time.monotonic()
+        file_rows = file_selected = 0
+        print(f'[read] {filename} (scope={scope}, chunk={chunksize:,})', file=sys.stderr, flush=True)
+        wanted = set(columns) | (set(FEATURES) if features is not None else set())
+        for frame in pd.read_csv(filename,usecols=lambda name: name in wanted,chunksize=chunksize,nrows=max_rows,float_precision="round_trip"):
             total_rows += len(frame)
+            file_rows += len(frame)
             if not frame['csv_schema_version'].eq(1).all() or not frame['shadow_mode'].eq(1).all():
                 raise ValueError('Expected schema-1 full-simulation shadow CSV')
             models.update(frame['model'].unique())
@@ -93,7 +104,19 @@ def read_score_csv(files, scope):
             frame=frame[frame.model_evaluated.eq(1)]
             if scope=='roots': frame=frame[frame.is_simulation_root.eq(1)]
             elif scope=='deduplicated': frame=frame[frame.can_avoid_subtree.eq(0)|frame.is_hitless_tree_root.eq(1)]
+            file_selected += len(frame)
+            now = time.monotonic()
+            if file_rows >= next_progress:
+                elapsed = now-started
+                print(f'[read] scanned {file_rows:,}/{total_file_rows:,} rows ({100*file_rows/max(1,total_file_rows):.2f}%); retained {file_selected:,} scored {scope} tracks; '
+                      f'{elapsed:.0f}s elapsed; {file_rows/max(elapsed, .001):,.0f} rows/s', file=sys.stderr, flush=True)
+                next_progress = (file_rows//1000000+1)*1000000
             if frame.empty: continue
+            if features is not None:
+                for name in FEATURES:
+                    dtype = np.float64 if name in ('pdg', 'n_descendants') else np.float32
+                    values = frame[name].to_numpy(dtype=dtype) if name in frame else np.full(len(frame), np.nan, dtype=dtype)
+                    features.setdefault(name, []).append(values)
             y=frame.can_avoid_subtree.to_numpy(dtype=np.int8);score=frame.score.to_numpy(dtype=np.float32)
             valid=np.isfinite(score)&(score>=0)&(score<=1)
             if not np.array_equal(valid,frame.valid_score.to_numpy(dtype=bool)):
@@ -115,16 +138,19 @@ def read_score_csv(files, scope):
             reference_counts['correctly_rejected']+=int(np.sum(selected&(y==1)))
             reference_counts['wrongly_rejected']+=int(np.sum(selected&(y==0)))
             reference_counts['rows']+=len(frame)
+        print(f'[read done] {filename}: {file_rows:,}/{total_file_rows:,} rows scanned (100.00%); {file_selected:,} scored {scope} tracks retained; '
+              f'{time.monotonic()-started:.1f}s elapsed', file=sys.stderr, flush=True)
     details=dict(csv_rows=total_rows,model=next(iter(models),None),
                  configured_thresholds=sorted(reference_thresholds),configured_cut_counts=reference_counts)
     return truths,scores,groups,event_keys,details
 
 
-def main():
+def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     source = p.add_mutually_exclusive_group(required=True)
     source.add_argument('--input', nargs='+', help='Kinematics ROOT files from one model in shadow mode')
     source.add_argument('--csv', nargs='+', help='O2-generated *_transport_scores.csv files from one model')
+    source.add_argument('--cache', help='Previously saved selected_tracks.npz; no CSV access')
     p.add_argument('--scope',choices=['all','roots','deduplicated'],default='all',
                    help='All scored tracks, input roots only, or omit nested hit-free descendants')
     p.add_argument('--out', required=True)
@@ -132,7 +158,16 @@ def main():
     p.add_argument('--calibration-fraction', type=float, default=.5)
     p.add_argument('--seed', type=int, default=42)
     p.add_argument('--max-events', type=int, default=-1, help='Smoke check only; default scans all')
-    a = p.parse_args()
+    p.add_argument('--csv-chunk-size', type=int, default=250000,
+                   help='CSV input rows per chunk; only selected scores/truth are retained for exact ROC')
+    limit = p.add_mutually_exclusive_group()
+    limit.add_argument('--max-csv-rows', type=int, help='Partial sample: read at most this many data rows per CSV, possibly part of an event')
+    limit.add_argument('--max-million-rows', dest='max_csv_rows', type=million_rows, help='Maximum million input rows per CSV (e.g. 10 or 0.5)')
+    a = p.parse_args(argv)
+    if a.csv_chunk_size <= 0 or (a.max_csv_rows is not None and a.max_csv_rows <= 0):
+        p.error('CSV row limits must be positive')
+    if not a.csv and a.max_csv_rows is not None:
+        p.error('--max-csv-rows applies only to CSV input')
     if not 0 <= a.target_hit_loss <= 1 or not 0 < a.calibration_fraction < 1:
         p.error('Invalid fraction')
     if a.input:
@@ -140,6 +175,8 @@ def main():
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
+    from primaryPruningPlotStyle import apply_style, cutoff_colors, LOSS_TARGETS
+    apply_style()
     from sklearn.metrics import roc_curve, roc_auc_score
     out = Path(a.out);out.mkdir(parents=True,exist_ok=True)
     names = ['MCTrack.mMotherTrackId','MCTrack.mProp','MCTrack.mTransportModelScore',
@@ -147,9 +184,20 @@ def main():
     truths, scores, groups = [], [], []
     event_count = 0; event_keys = []
     csv_details={}
-    if a.csv:
+    feature_chunks = {}
+    features = {}
+    cached_meta = None
+    if a.cache:
+        if a.max_events != -1: p.error('--max-events does not apply to cached input')
+        y, s, g, cached_meta, features = load_cache(a.cache)
+        if cached_meta['scope'] != a.scope: p.error('Cache scope differs from requested scope')
+        truths, scores, groups = [y], [s], [g]
+        event_keys = cached_meta['event_keys']
+        csv_details = cached_meta['details']
+        print(f'[cache] Loaded {len(y):,} selected tracks from {a.cache}', file=sys.stderr, flush=True)
+    elif a.csv:
         if a.max_events != -1: p.error('--max-events applies only to ROOT input')
-        truths,scores,groups,event_keys,csv_details=read_score_csv(a.csv,a.scope)
+        truths,scores,groups,event_keys,csv_details=read_score_csv(a.csv,a.scope,a.csv_chunk_size,a.max_csv_rows,feature_chunks)
     else:
         with (out/'predictions.csv').open('w',newline='') as f:
             writer=csv.writer(f);writer.writerow(['input_file','event_id','track_id','is_simulation_root','score','valid_score','can_avoid_subtree','subtree_hit_mask'])
@@ -184,16 +232,37 @@ def main():
                             writer.writerow([filename,event,int(track),int(track<n_inputs),float(value),int(np.isfinite(value) and 0<=value<=1),int(label),int(masks[track])])
                         print(f'{Path(filename).name} event {event}: {len(ids)} scored tracks, {int(y.sum())} hit-free',flush=True)
     if not truths: raise ValueError('No scored shadow tracks found')
+    print('[analysis] Computing ROC curves and event-separated threshold validation...', file=sys.stderr, flush=True)
     y=np.concatenate(truths);s=np.concatenate(scores);g=np.concatenate(groups)
+    if feature_chunks:
+        features = {name: np.concatenate(parts) for name, parts in feature_chunks.items()}
+        features = {name: values for name, values in features.items() if np.isfinite(values).any()}
+    del truths, scores, groups, feature_chunks
+    metadata = cached_meta or dict(version=1, scope=a.scope, event_keys=event_keys, details=csv_details,
+                                   max_csv_rows_per_file=a.max_csv_rows,
+                                   partial_input_smoke_test=a.max_csv_rows is not None or a.max_events != -1)
+    cache_path = out/'selected_tracks.npz'
+    if not a.cache or Path(a.cache).resolve() != cache_path.resolve():
+        save_cache(cache_path, y, s, g, metadata, features)
+    print(f'[cache saved] {cache_path.resolve()}', file=sys.stderr, flush=True)
     valid=np.isfinite(s)&(s>=0)&(s<=1)
     report=dict(events=len(event_keys),scored_tracks=len(y),valid_scores=int(valid.sum()),invalid_scores_kept=int((~valid).sum()),
                 truth='Class 1: no recorded detector hit on this track or any transport descendant',
                 scope=a.scope,
                 caution='Tree-loss rates are neither individual-hit losses nor CPU savings. Zero observed loss is not a guarantee.')
     report.update(csv_details)
+    report['selected_tracks_cache']=str(cache_path.resolve())
+    report['cached_physics_columns']=sorted(features)
+    if a.cache:
+        report['max_csv_rows_per_file']=metadata.get('max_csv_rows_per_file')
+        report['partial_input_smoke_test']=metadata.get('partial_input_smoke_test',False)
+    if a.csv:
+        report['csv_chunk_size']=a.csv_chunk_size
+        report['max_csv_rows_per_file']=a.max_csv_rows
+        report['partial_input_smoke_test']=a.max_csv_rows is not None
     if len(csv_details.get('configured_thresholds',[]))==1:
         report['configured_operating_point']=rates(y,s,csv_details['configured_thresholds'][0])
-    fig, ax=plt.subplots(figsize=(7,5))
+    fig, ax=plt.subplots(figsize=(16,10))
     # Randomize whole events. Calibration and test never share an event.
     if len(event_keys) >= 2:
         order=np.random.default_rng(a.seed).permutation(len(event_keys))
@@ -208,6 +277,22 @@ def main():
             cut=float(cuts[best])
             report.update(threshold=cut,target_hit_loss=a.target_hit_loss,threshold_selection_split='calibration',
                           calibration=rates(y[cal],s[cal],cut),test=rates(y[test],s[test],cut))
+            report['operating_points'] = []
+            for target in LOSS_TARGETS:
+                allowed = np.flatnonzero(fpr <= target)
+                index = allowed[np.argmax(tpr[allowed])]
+                threshold = float(cuts[index])
+                report['operating_points'].append(dict(target_hit_loss=target, threshold=threshold,
+                    calibration=rates(y[cal],s[cal],threshold), test=rates(y[test],s[test],threshold)))
+            with (out/'operating_points.csv').open('w',newline='') as stream:
+                import csv
+                writer=csv.writer(stream)
+                writer.writerow(['target_hit_loss','threshold','split','hit_tree_loss_rate','avoidable_rejection_rate','wrongly_rejected','correctly_rejected','hit_trees','avoidable_trees'])
+                for point in report['operating_points']:
+                    for split in ['calibration','test']:
+                        r=point[split]
+                        writer.writerow([point['target_hit_loss'],point['threshold'],split,r['hit_tree_loss_rate'],r['avoidable_rejection_rate'],r['wrongly_rejected'],r['correctly_rejected'],r['hit_trees'],r['avoidable_trees']])
+
         else:
             report['threshold_not_selected']='Both classes must occur in both event splits; collect more events'
         scopes=[('Calibration',cal),('Held-out test',test)]
@@ -223,9 +308,20 @@ def main():
             report[label+'_valid_score_auc']=float(roc_auc_score(y[usable],s[usable]))
             rf,rt,rc=roc_curve(y[usable],s[usable],drop_intermediate=False)
             np.savetxt(out/(label.lower().replace(' ','_')+'_roc_valid_scores.csv'),np.column_stack([rc,rf,rt]),delimiter=',',header='threshold,false_positive_rate,true_positive_rate',comments='')
-    ax.set(xlabel='Hit-producing trees wrongly rejected (%)',ylabel='Hit-free trees rejected (%)',title='Shadow-mode threshold trade-off')
+    for color,point in zip(cutoff_colors(len(report.get('operating_points',[]))),report.get('operating_points',[])):
+        for split,marker in [('calibration','o'),('test','X')]:
+            r=point[split]
+            ax.scatter(100*r['hit_tree_loss_rate'],100*r['avoidable_rejection_rate'],color=color,marker=marker,s=140,
+                       label=f"{100*point['target_hit_loss']:g}% target" if split=='calibration' else None,zorder=5)
+    ax.set(xlabel='Hit-producing trees wrongly rejected (%)',ylabel='Hit-free trees rejected (%)')
+    # Circles: calibration; crosses: event-held-out evaluation at the same cuts.
+    if report.get('operating_points'):
+        ax.plot([],[],'ko',label='Calibration cut')
+        ax.plot([],[],'kX',label='Held-out cut')
+    ax.set_xlim(0,6)
     ax.legend();ax.grid(alpha=.25);fig.tight_layout();fig.savefig(out/'roc.png',dpi=160);fig.savefig(out/'roc.pdf');plt.close(fig)
     (out/'summary.json').write_text(json.dumps(report,indent=2,allow_nan=False)+'\n')
+    print(f'[done] Results written to {out.resolve()}', file=sys.stderr, flush=True)
     print(json.dumps(report,indent=2))
 
 

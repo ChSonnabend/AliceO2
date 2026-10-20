@@ -82,18 +82,20 @@ class O2MCApplication : public O2MCApplicationBase
     GetStack()->Reset();
     // but here we init the stack from
     // a vector of particles that someone sets externally
-    static_cast<o2::data::Stack*>(GetStack())->initFromPrimaries(mPrimaries);
+    static_cast<o2::data::Stack*>(GetStack())->initFromPrimaries(mPrimaries, mPrimaryMotherPdgs);
   }
 
-  void setPrimaries(std::vector<TParticle> const& p)
+  void setPrimaries(std::vector<TParticle> const& p, std::vector<double> const& motherPdgs = {})
   {
     mPrimaries = p;
+    mPrimaryMotherPdgs = motherPdgs;
   }
 
   void setSimDataChannel(fair::mq::Channel* channel) { mSimDataChannel = channel; }
   void setSubEventInfo(o2::data::SubEventInfo* i);
 
   std::vector<TParticle> mPrimaries; //!
+  std::vector<double> mPrimaryMotherPdgs; //! full-event mother context for each chunk input
 
   fair::mq::Channel* mSimDataChannel;                  //! generic channel on which to send sim data
   o2::data::SubEventInfo* mSubEventInfo = nullptr;     //! what are we currently processing?

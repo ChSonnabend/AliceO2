@@ -40,6 +40,8 @@ struct StackParam : public o2::conf::ConfigurableParamHelper<StackParam> {
   // Parallel simulation: one event-merged CSV per output prefix. Empty disables.
   // Only active in shadow mode; "auto" gives <prefix>_transport_scores.csv.
   std::string transportPrimaryOnnxCsv = "auto";
+  // Export input roots only; subtree truth still uses every transport descendant.
+  bool transportPrimaryOnnxCsvRootsOnly = false;
   std::string transportPrimaryOnnxModelLabel = ""; // short model identifier in CSV rows
   // Double preserves validation cuts just above tied float32 scores.
   double transportPrimaryOnnxThreshold = -1.; // require explicit configuration

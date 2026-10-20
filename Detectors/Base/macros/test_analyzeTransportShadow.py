@@ -64,6 +64,22 @@ class ShadowTruthTest(unittest.TestCase):
             self.assertEqual(rows[3]['valid_score'],'0')
             self.assertEqual(rows[5]['model_evaluated'],'0')
             self.assertEqual(rows[1]['transport_mother_id'],'-1')
+            rootsfile=Path(d)/'roots_transport_scores.csv'
+            subprocess.run([str(exe),str(rootsfile),'roots'],check=True)
+            with rootsfile.open() as stream: rootrows=list(csv.DictReader(stream))
+            self.assertEqual(rootrows,[row for row in rows if row['is_simulation_root']=='1'])
+            self.assertEqual(len(rootrows),16)
+            self.assertEqual(rootrows[0]['own_has_hits'],'0')
+            self.assertEqual(rootrows[0]['subtree_has_hits'],'1')
+            self.assertEqual(rootrows[0]['n_descendants'],'4')
+            rootsout=Path(d)/'roots_only'
+            subprocess.run([sys.executable,str(root/'macros/analyzeTransportShadow.py'),
+                            '--csv',str(rootsfile),'--scope','roots','--out',str(rootsout)],
+                           check=True,stdout=subprocess.DEVNULL)
+            rootsreport=json.loads((rootsout/'summary.json').read_text())
+            self.assertEqual(rootsreport['scored_tracks'],16)
+            self.assertEqual(rootsreport['test']['hit_tree_loss_rate'],0)
+            self.assertEqual(rootsreport['test']['avoidable_rejection_rate'],1)
             for scope,count in [('all',40),('roots',16),('deduplicated',32)]:
                 out=Path(d)/scope
                 subprocess.run([sys.executable,str(root/'macros/analyzeTransportShadow.py'),'--csv',str(csvfile),'--scope',scope,'--out',str(out)],check=True,stdout=subprocess.DEVNULL)

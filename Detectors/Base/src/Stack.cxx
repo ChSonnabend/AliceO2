@@ -54,6 +54,7 @@
 #include <thread>
 #include <stdexcept>
 #include <unordered_map>
+#include <sstream>
 
 using std::cout;
 using std::endl;
@@ -167,7 +168,22 @@ class OnnxTrackTransport
       throw std::runtime_error("Stack.transportPrimaryOnnxOutputIndex is outside the model output");
     }
     const float score = output[mOutputIndex];
-    return std::isfinite(score) && score >= 0.f && score <= 1.f ? score : std::numeric_limits<float>::quiet_NaN();
+    if (std::isfinite(score) && score >= 0.f && score <= 1.f) {
+      return score;
+    }
+    ++mInvalidScores;
+    if (mInvalidScores <= 5 || mInvalidScores % 100000 == 0) {
+      std::ostringstream missing;
+      for (size_t i = 0; i < inputs[0].size(); ++i) {
+        if (!std::isfinite(inputs[0][i])) {
+          missing << o2::data::detail::TrackTransportFeatureNames[i] << ' ';
+        }
+      }
+      LOG(warning) << "ONNX invalid score #" << mInvalidScores << " pdg=" << particle.GetPdgCode()
+                   << " motherPdg=" << motherPdg << " raw_nonfinite_features=[" << missing.str()
+                   << "] (may include unused inputs); track kept";
+    }
+    return std::numeric_limits<float>::quiet_NaN();
   }
 
  private:
@@ -178,6 +194,7 @@ class OnnxTrackTransport
   double mThreshold;
   int mOutputIndex;
   bool mApplySigmoid;
+  uint64_t mInvalidScores = 0;
 };
 } // namespace
 
@@ -428,6 +445,14 @@ void Stack::handleTransportPrimary(TParticle& p)
   }
 }
 
+double Stack::getPrimaryMotherPdg(int trackID) const
+{
+  const auto& particle = mPrimaryParticles.at(trackID);
+  // Parallel workers receive context from the full event. Serial transport keeps
+  // the complete primary array, so a local lookup is correct only in that case.
+  return mPrimaryMotherPdgs.empty() ? o2::data::detail::trackTransportPrimaryMotherPdg(particle, mPrimaryParticles) : mPrimaryMotherPdgs.at(trackID);
+}
+
 bool Stack::transportTrack(const TParticle& particle, double eventX, double eventY, double eventZ)
 {
   if (!mTransportTrack) {
@@ -460,7 +485,9 @@ bool Stack::transportTrack(const TParticle& particle, double eventX, double even
     return true;
   }
   double motherPdg = 0.;
-  if (const int motherID = current->getMotherTrackId(); motherID >= 0) {
+  if (isRoot) {
+    motherPdg = getPrimaryMotherPdg(id);
+  } else if (const int motherID = current->getMotherTrackId(); motherID >= 0) {
     const auto* mother = trackByID(motherID);
     motherPdg = mother ? mother->GetPdgCode() : std::numeric_limits<double>::quiet_NaN();
   }
@@ -830,6 +857,7 @@ void Stack::Reset()
   mNumberOfPrimariesforTracking = 0;
   mNumberOfPrimariesPopped = 0;
   mPrimaryParticles.clear();
+  mPrimaryMotherPdgs.clear();
   mTrackRefs->clear();
   mTrackIDtoParticlesEntry.clear();
   mIndexMap.clear();

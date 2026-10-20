@@ -67,6 +67,16 @@ constexpr std::array<std::string_view, 34> TrackTransportFeatureNames{
   "mother_abs_pdg"};
 constexpr size_t TrackTransportFeatureCount = TrackTransportFeatureNames.size();
 
+// Generator mother IDs belong to the full event, even when transport uses chunks.
+inline double trackTransportPrimaryMotherPdg(const TParticle& particle, const std::vector<TParticle>& fullEvent)
+{
+  const int mother = particle.GetFirstMother();
+  if (mother < 0) {
+    return 0.;
+  }
+  return static_cast<size_t>(mother) < fullEvent.size() ? fullEvent[mother].GetPdgCode() : std::numeric_limits<double>::quiet_NaN();
+}
+
 inline bool validTrackTransportFeatures(const std::vector<float>& features)
 {
   // Numerical/domain checks belong in the graph AFTER selecting model inputs.

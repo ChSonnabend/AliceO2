@@ -12,8 +12,9 @@ The ONNX input is the existing `simnet.birth.v1` 34-feature contract. Use a
 Stack.transportPrimary=onnx
 Stack.transportPrimaryOnnxModelFile=/absolute/path/to/network/deployment/model.onnx
 Stack.transportPrimaryOnnxShadow=true
-Stack.transportPrimaryOnnxSecondaries=true
+Stack.transportPrimaryOnnxSecondaries=false
 Stack.transportPrimaryOnnxCsv=auto
+Stack.transportPrimaryOnnxCsvRootsOnly=true
 Stack.transportPrimaryOnnxModelLabel=nn_deep64_tanh
 Stack.transportPrimaryOnnxApplySigmoid=false
 Stack.transportPrimaryOnnxOutputIndex=0
@@ -29,12 +30,19 @@ keeps all tracks, including invalid model inputs/scores. The model runs at
 PreTrack with the same birth features as pruning mode. Geometry navigation uses
 a private navigator, as in the parent branch.
 
-The prepared track_pruning settings score both independently simulated inputs and
-all transport-created secondaries that reach PreTrack. Set
-transportPrimaryOnnxSecondaries=false to restrict scoring to input roots.
-Generator-history entries that never reach PreTrack are not evaluated. The models
-were trained on input roots, so secondary scoring is an evaluation of a new
-population; invalid/out-of-domain predictions remain NaN and are kept.
+The prepared track_pruning settings score only simulation input roots. They set
+transportPrimaryOnnxCsvRootsOnly=true, exporting all input-prefix rows (including
+unscored generator-history entries) and omitting transport-secondary rows.
+Full descendant hit masks and counts are computed before filtering, so root truth
+is identical to selecting roots from an all-track CSV. Root means simulation input,
+not the physics definition of primary. Generator-history entries that never reach
+PreTrack are not evaluated; metrics select model_evaluated == 1.
+
+For all-track diagnostics, set transportPrimaryOnnxCsvRootsOnly=false (the default).
+Secondary scoring is independently controlled by transportPrimaryOnnxSecondaries;
+turning secondary scoring off alone does not reduce CSV rows. Retain pruneKine=false
+and storeSecondaries=true for complete truth: roots-only CSV reduces text output,
+not the size of the full Kine ROOT file. Rebuild O2 before using the new parameter.
 
 Scores are persisted as `MCTrack.mTransportModelScore` in the Kine ROOT output;
 `mTransportModelShadow` marks evaluated shadow tracks. A score of -1 means not
@@ -75,12 +83,13 @@ Reproducible conversion helper:
 `submitLarge.py` contains three explicit dictionaries in `track_pruning`, one each
 for BDT, Deep NN and Transformer. `dict_use = track_pruning` selects all three.
 Each dictionary contains its full deployment model path and shadow options in
-SIM_OPTIONS, secondary scoring enabled, automatic CSV output, a short model label,
+SIM_OPTIONS, secondary scoring disabled, roots-only automatic CSV output, a short model label,
 and its saved root-validation threshold as an initial reference cut. Shadow mode
 ignores that cut for transport; it only supplies the CSV's would_reject column.
-Output folders end in `<model>_shadow_alltracks`. The original command
+Output folders end in `<model>_shadow_roots`. The original command
 line and submission loop are retained; there are no added model command-line flags.
-All three use the edited validation settings: 500 events and seed 1043.
+All three retain the requested cap of 500 events and seed 1043. The anchored
+collision context may override the event count (114 in the inspected run).
 
 On Hydra, generate configs for inspection without submitting:
 
@@ -91,18 +100,19 @@ python3 submitLarge.py --submit 0 --write-configs-folder misc/sim_configs_track_
 
 After rebuilding and updating the environment in config_sim.json, repeat with
 `--submit 1` to submit the three jobs. Change the literal dictionaries to select
-other models/options or reduce the list to the jobs you want. Secondary scoring is already enabled in all three settings.
+other models/options or reduce the list to the jobs you want. Primary-only scoring and CSV export are enabled in all three settings.
 
-**Environment:** at implementation time `O2PDPSuite::latest-o2` explicitly loaded
-`O2/feature-onnx-primary-pruning-local1`. Rebuild/update the suite to use the new
-branch, or change directory_settings.O2_env in config_sim.json. No jobs have been
-submitted by this implementation.
+**Environment:** `O2PDPSuite::latest-o2` currently loads
+`O2/feature-onnx-primary-pruning-keep-with-threshold-local1`. Rebuild O2 in this
+environment before using transportPrimaryOnnxCsvRootsOnly; the installed binary
+must know the new parameter. No jobs were submitted for this change.
 
 ## Read the single simulation CSV
 
 No ROOT extraction is needed for the new jobs. Read `sgn_transport_scores.csv`
 in the relevant timeframe directory directly with pandas or another CSV tool.
-The file includes every stored track; select **model_evaluated == 1** for model
+The file includes input roots with the prepared settings (every stored track when
+CsvRootsOnly=false); select **model_evaluated == 1** for model
 metrics. Unscored generator entries preserve complete IDs/context in the same file.
 Invalid scores remain in this selected population as KEEP decisions.
 
@@ -137,7 +147,7 @@ for all three; only A has is_hitless_tree_root=1.
 apptainer exec /lustre/alice/users/csonnab/TPC/TPC_PRODUCTION/Containers/rocm_torch_env.sif \
   python3 /scratch/alice/csonnab/MyO2/O2/Detectors/Base/macros/analyzeTransportShadow.py \
   --csv /absolute/path/to/tf1/sgn_transport_scores.csv \
-  --out /absolute/path/to/shadow_qa --scope all --target-hit-loss 0
+  --out /absolute/path/to/shadow_qa --scope roots --target-hit-loss 0
 ```
 
 The CSV is the sole data input. Use `--scope deduplicated` to omit nested hit-free
@@ -170,10 +180,46 @@ Changing the threshold does not require rebuilding or retraining.
 ## Validation status
 
 - C++ syntax checks cover Stack.cxx, testStack.cxx and O2HitMerger.cxx using the Hydra build flags.
-- Seven Python tests passed, including compiled C++ CSV writer -> CSV-only ROC,
+- Seven Python tests passed, including exact roots-only/all-track CSV root-row
+  equivalence, descendant-hit preservation, and compiled C++ CSV writer -> CSV-only ROC,
   all/root/deduplicated scopes, synthetic ROOT input and event separation.
 - The standalone C++ test also checks unordered ancestry, 100,000-track deep trees,
   generator-root boundaries, nested hitless roots and malformed ancestry.
 - C++ score-copy and ROOT-roundtrip tests were added to testStack.cxx; these need
   the rebuilt libraries to execute.
 - No rebuilt binary simulation or cluster submission has been performed yet.
+
+## Primary mother context fix (15 October 2026)
+
+Parallel transport preserves event-global generator mother IDs when it splits
+primaries into chunks. Those IDs cannot be looked up in a worker-local Stack.
+The old PreTrack inference path did exactly that: an ID outside the local primary
+array became missing, while an ID inside it could select an unrelated particle.
+The selected `mother_abs_pdg` / `has_gen_mother` inputs then became NaN or incorrect.
+
+The BDT first-event root sample demonstrates both failures with 500-particle
+chunks: 33,924 scored roots have NaN scores and mothers outside the local primary
+array; 10,821 scores are finite, but reconstructing the local lookup gives the
+wrong mother PDG for 9,344 of those. All mothers exist in the full input event.
+These old scores and their QA curves must not be used to validate model quality.
+
+PrimaryChunk version 2 now carries one full-event mother PDG per input particle.
+The primary server resolves it before splitting; O2MCApplication passes it to the
+Stack, which uses it only for simulation roots. Serial/full-event initialization
+retains a full-primary-array lookup; secondary transport keeps its local ancestry
+lookup. Original mother IDs and transport truth remain unchanged. Workers reject
+missing/mismatched chunk context. Remaining invalid ONNX outputs log bounded
+examples with raw nonfinite feature names (these can include unused inputs).
+
+Rebuild the simulation data dictionaries, DetectorsBase, Steer, primary server,
+and workers together before running a fresh small shadow validation. Do not mix
+old and new binaries. Existing CSV/NPZ scores do not change when source is fixed;
+regenerating plots from those caches cannot repair inference inputs. Full-transport
+truth remains useful, but rescoring would require reconstruction of birth features.
+
+Validation of the mother-context fix: the complete rebuilt MCStack test suite
+passed, including new chunk-context/reset and ROOT serialization tests. Syntax
+checks passed for the primary server, worker, application and tests. A controlled
+C++ feature replay through all three deployed ONNX graphs reproduces NaN for
+missing mother context and finite scores after correction. The production
+installation has not been replaced, and no new simulation jobs were submitted.

@@ -12,6 +12,7 @@
 /// @author Sandro Wenzel
 
 #include "O2SimDevice.h"
+#include <stdexcept>
 #include "../macro/o2sim.C"
 #include "TVirtualMC.h"
 #include <fairmq/Message.h>
@@ -212,7 +213,10 @@ bool O2SimDevice::Kernel(int workerID, fair::mq::Channel& requestchannel, fair::
                     << "part " << info.part << "/" << info.nparts;
 
           if (eventselection == nullptr || (focus_on_event == info.eventID && focus_on_part == info.part)) {
-            mVMCApp->setPrimaries(chunk->mParticles);
+            if (chunk->mPrimaryMotherPdgs.size() != chunk->mParticles.size()) {
+              throw std::runtime_error("Primary chunk lacks full-event mother context; rebuild primary server and worker together");
+            }
+            mVMCApp->setPrimaries(chunk->mParticles, chunk->mPrimaryMotherPdgs);
           } else {
             // nothing to transport here
             mVMCApp->setPrimaries(std::vector<TParticle>{});

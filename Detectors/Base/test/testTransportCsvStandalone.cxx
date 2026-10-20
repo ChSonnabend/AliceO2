@@ -27,7 +27,8 @@ struct Track {
 void check(bool value) { if (!value) throw std::runtime_error("Transport CSV regression failed"); }
 int main(int argc, char** argv)
 {
-  if (argc != 2) return 2;
+  if (argc != 2 && argc != 3) return 2;
+  const bool rootsOnly = argc == 3;
   auto t = labelTransportTrees({-1, 2, 3, 0}, {0, 4, 0, 0}, 1);
   check(t[0].hitMask == 4 && t[0].descendants == 3 && t[1].depth == 3);
   t = labelTransportTrees({-1, 0, 1}, {0, 0, 2}, 2);
@@ -49,7 +50,7 @@ int main(int argc, char** argv)
   check(t[0].descendants == 4 && t[2].hitlessRoot == 2 && t[3].hitlessRoot == 2 && t[5].hitlessRoot == 5);
   std::ofstream out(argv[1]);
   writeTransportCsvHeader(out);
-  for (int event = 0; event < 8; ++event) writeTransportCsvEvent(out, tracks, 2, "model,\"test\"", "sgn", event+1, event, .8);
+  for (int event = 0; event < 8; ++event) writeTransportCsvEvent(out, tracks, 2, "model,\"test\"", "sgn", event+1, event, .8, rootsOnly);
   out.close();
   check(static_cast<bool>(out));
   std::cout << "Transport truth, deep trees, root boundaries and CSV fixture passed\n";
