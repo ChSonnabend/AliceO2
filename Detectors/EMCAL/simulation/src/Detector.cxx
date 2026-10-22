@@ -315,6 +315,7 @@ Bool_t Detector::ProcessHits(FairVolume* v)
     } else {
       LOG(debug3) << "Adding energy to the current hit" << std::endl;
       currenthit->SetEnergyLoss(currenthit->GetEnergyLoss() + lightyield);
+      o2stack->modifiesHit(GetDetId());
     }
   }
 

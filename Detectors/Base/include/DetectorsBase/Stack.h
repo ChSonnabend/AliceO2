@@ -175,6 +175,9 @@ class Stack : public FairGenericStack
   void addHit(int iDet);
   /// Mark the actual current signal contributor without changing legacy hit/retention bookkeeping.
   void addDetectorContribution(int iDet);
+  /// Mark the current track as contributing to a hit created by another track
+  /// \param iDet  Detector unique identifier
+  void modifiesHit(int iDet);
 
   TClonesArray* GetListOfParticles() override;
 
