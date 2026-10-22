@@ -75,3 +75,32 @@ BOOST_AUTO_TEST_CASE(MCTrack_test)
     BOOST_CHECK(intrack->hasHits() == true);
   }
 }
+
+BOOST_AUTO_TEST_CASE(MCTrack_detector_contributions)
+{
+  MCTrack contributor;
+  // Default/legacy deserialization must not masquerade as instrumented truth.
+  BOOST_CHECK_EQUAL(contributor.getDetectorContributionVersion(), 0);
+  contributor.initializeDetectorContributions();
+  contributor.setDetectorContribution(5);
+  contributor.setTransportModelScore(.9f, true);
+  contributor.setTransportModelProtection(3);
+  BOOST_CHECK_EQUAL(contributor.getDetectorContributionVersion(), 1);
+  BOOST_CHECK_EQUAL(contributor.getDetectorContributionMask(), uint32_t{1} << 5);
+  BOOST_CHECK(!contributor.hasHits()); // signal bookkeeping must not change retention.
+  {
+    TFile file("MCTrackContributionOut.root", "RECREATE");
+    file.WriteObject(&contributor, "contributor");
+  }
+  {
+    TFile file("MCTrackContributionOut.root", "READ");
+    MCTrack* restored = nullptr;
+    file.GetObject("contributor", restored);
+    BOOST_REQUIRE(restored);
+    BOOST_CHECK_EQUAL(restored->getDetectorContributionVersion(), 1);
+    BOOST_CHECK_EQUAL(restored->getDetectorContributionMask(), uint32_t{1} << 5);
+    BOOST_CHECK_EQUAL(restored->getTransportModelProtection(), 3);
+    BOOST_CHECK(restored->getTransportModelShadow());
+    BOOST_CHECK(!restored->hasHits());
+  }
+}

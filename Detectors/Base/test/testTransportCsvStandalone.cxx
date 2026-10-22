@@ -13,6 +13,9 @@ struct Track {
   float getTransportModelScore() const { return score; }
   int getMotherTrackId() const { return mother; }
   uint32_t getHitMask() const { return mask; }
+  uint32_t getDetectorContributionMask() const { return mask & ((uint32_t{1} << 22) - 1); }
+  int getDetectorContributionVersion() const { return 1; }
+  int getTransportModelProtection() const { return 0; }
   int GetPdgCode() const { return 211; }
   int getProcess() const { return 0; }
   float Px() const { return 1; }

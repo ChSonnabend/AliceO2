@@ -28,6 +28,7 @@
 #include "TParticlePDG.h"
 #include "TVector3.h"
 #include <type_traits>
+#include <cstdint>
 
 namespace o2
 {
@@ -227,6 +228,18 @@ class MCTrackT
     mTransportModelShadow = shadow;
   }
 
+  // Version zero identifies legacy/uninstrumented records; never infer zero contribution from them.
+  uint8_t getDetectorContributionVersion() const { return mDetectorContributionVersion; }
+  uint32_t getDetectorContributionMask() const { return mDetectorContributionMask; }
+  void initializeDetectorContributions() { mDetectorContributionMask = 0; mDetectorContributionVersion = 1; }
+  void setDetectorContribution(int bit)
+  {
+    assert(bit >= 0 && bit < NHITBITS);
+    mDetectorContributionMask |= uint32_t{1} << bit;
+  }
+  uint8_t getTransportModelProtection() const { return mTransportModelProtection; }
+  void setTransportModelProtection(uint8_t reason) { mTransportModelProtection = reason; }
+
   bool hasHits() const { return ((PropEncoding)mProp).hitmask != 0; }
   /// set process property
   void setProcess(int proc)
@@ -288,6 +301,9 @@ class MCTrackT
   Int_t mProp = 0;
   float mTransportModelScore = -1.f;
   bool mTransportModelShadow = false;
+  uint32_t mDetectorContributionMask = 0;
+  uint8_t mDetectorContributionVersion = 0;
+  uint8_t mTransportModelProtection = 0;
 
   // internal structure to allow convenient manipulation
   // of properties as bits on an int
@@ -309,7 +325,7 @@ class MCTrackT
   // such as part of mProp (process) or mPDG
   Int_t mStatusCode = 0;
 
-  ClassDefNV(MCTrackT, 9);
+  ClassDefNV(MCTrackT, 10);
 };
 
 template <typename T>

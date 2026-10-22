@@ -77,6 +77,9 @@ class OnnxTrackTransport
     if (!param.transportPrimaryOnnxShadow && (!std::isfinite(mThreshold) || mThreshold < 0. || mThreshold > std::nextafter(1., std::numeric_limits<double>::infinity()))) {
       throw std::runtime_error("ONNX pruning requires an explicit probability threshold (or nextafter(1,+inf) to keep all)");
     }
+    if (param.transportPrimaryOnnxShadow && !param.transportPrimaryOnnxCsv.empty() && !param.recordDetectorContributions) {
+      throw std::runtime_error("Shadow CSV v2 requires Stack.recordDetectorContributions=true");
+    }
     if (mApplySigmoid || mOutputIndex != 0) {
       throw std::runtime_error("simnet.birth.v1 outputs one probability: set OnnxApplySigmoid=false and OnnxOutputIndex=0");
     }
@@ -120,6 +123,10 @@ class OnnxTrackTransport
                                                          {"onnx-environment-name", "primary-transport-pruning"}};
     mModel.init(options);
     mModel.initSessionFromBuffer(mModelBytes.data(), mModelBytes.size());
+    if (!param.transportPrimaryOnnxShadow &&
+        mModel.getModelMetadata("simnet.label_schema") != "detector-contribution.v1") {
+      throw std::runtime_error("Hard pruning requires detector-contribution.v1 training truth; legacy models are shadow-only");
+    }
 
     const auto inputShapes = mModel.getNumInputNodes();
     if (inputShapes.size() != 1 || inputShapes[0].size() != 2 ||
@@ -239,6 +246,11 @@ Stack::Stack(Int_t size)
   }
 
   auto& param = o2::sim::StackParam::Instance();
+  if (param.recordDetectorContributions &&
+      (param.pruneKine || !param.storeSecondaries ||
+       (param.transportPrimary != "all" && !(param.transportPrimary == "onnx" && param.transportPrimaryOnnxShadow)))) {
+    throw std::runtime_error("Contribution truth requires complete unpruned transport: pruneKine=false, storeSecondaries=true, transportPrimary=all or ONNX shadow");
+  }
   TransportFcn transportPrimary;
   if (param.transportPrimary.compare("none") == 0) {
     transportPrimary = [](const TParticle& p, const std::vector<TParticle>& particles) {
@@ -423,8 +435,14 @@ void Stack::PushTrack(Int_t toBeDone, Int_t parentId, Int_t pdgCode, Double_t px
     mNumberOfPrimaryParticles++;
     mPrimaryParticles.push_back(p);
     mTracks->emplace_back(p);
+    if (o2::sim::StackParam::Instance().recordDetectorContributions) {
+      mTracks->back().initializeDetectorContributions();
+    }
   } else {
     mParticles.emplace_back(p);
+    if (o2::sim::StackParam::Instance().recordDetectorContributions) {
+      mParticles.back().initializeDetectorContributions();
+    }
     mCurrentParticle0 = p;
   }
   mStack.push(p);
@@ -494,9 +512,13 @@ bool Stack::transportTrack(const TParticle& particle, double eventX, double even
   const auto& param = o2::sim::StackParam::Instance();
   const float score = mTransportTrack(particle, motherPdg, eventX, eventY, eventZ);
   current->setTransportModelScore(score, param.transportPrimaryOnnxShadow);
+  const uint8_t protection = o2::data::detail::trackTransportProtection(
+    particle.GetPdgCode(), isRoot, param.transportPrimaryOnnxProtectOpticalPhotons,
+    param.transportPrimaryOnnxProtectSecondaries);
+  current->setTransportModelProtection(protection);
   // Shadow scores are saved on the MCTrack itself, surviving secondary reordering
   // and parallel event merging. Full transport supplies the truth afterwards.
-  if (param.transportPrimaryOnnxShadow ||
+  if (param.transportPrimaryOnnxShadow || protection != 0 ||
       o2::data::detail::transportFromOnnxScore(score, param.transportPrimaryOnnxThreshold,
                                             param.transportPrimaryOnnxApplySigmoid, param.transportPrimaryInvert)) {
     return true;
@@ -541,6 +563,9 @@ void Stack::PushTrack(int toBeDone, TParticle& p)
     }
     mStack.push(p);
     mTracks->emplace_back(p);
+    if (o2::sim::StackParam::Instance().recordDetectorContributions) {
+      mTracks->back().initializeDetectorContributions();
+    }
   }
 }
 
@@ -891,8 +916,23 @@ void Stack::Print(Option_t* option) const
   Print(verbose);
 }
 
+void Stack::addDetectorContribution(int iDet)
+{
+  const int bit = o2::base::Detector::getDetId2HitBitIndex()[iDet];
+  if (bit < 0 || bit >= MCTrack::NHITBITS || mIndexOfCurrentTrack < 0) {
+    throw std::runtime_error("Invalid detector/current track for contribution accounting");
+  }
+  if (mIndexOfCurrentTrack < mNumberOfPrimaryParticles) {
+    mTracks->at(mIndexOfCurrentTrack).setDetectorContribution(bit);
+  } else {
+    const int entry = mTrackIDtoParticlesEntry.at(mIndexOfCurrentTrack);
+    mParticles.at(entry).setDetectorContribution(bit);
+  }
+}
+
 void Stack::addHit(int iDet)
 {
+  addDetectorContribution(iDet);
   // translate detector ID to bit id
   const auto bitID = o2::base::Detector::getDetId2HitBitIndex()[iDet];
 
@@ -915,6 +955,7 @@ void Stack::addHit(int iDet, Int_t iTrack)
   // fetch the bit encoding for hits
   const auto bitID = o2::base::Detector::getDetId2HitBitIndex()[iDet];
   part.setHit(bitID);
+  part.setDetectorContribution(bitID);
   mCurrentParticle.SetBit(ParticleStatus::kHasHits, 1);
 }
 

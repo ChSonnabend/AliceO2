@@ -205,6 +205,16 @@ void OrtModel::resetSession()
 }
 
 // Getters
+std::string OrtModel::getModelMetadata(const std::string& key) const
+{
+  if (!mPImplOrt->session) {
+    throw std::runtime_error("ONNX metadata requires an initialized session");
+  }
+  Ort::AllocatorWithDefaultOptions allocator;
+  auto value = mPImplOrt->session->GetModelMetadata().LookupCustomMetadataMapAllocated(key.c_str(), allocator);
+  return value ? std::string(value.get()) : std::string{};
+}
+
 Ort::SessionOptions* OrtModel::getSessionOptions()
 {
   return &mPImplOrt->sessionOptions;

@@ -26,7 +26,7 @@ class ShadowTruthTest(unittest.TestCase):
         import uproot,awkward as ak
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/'shadow_Kine.root';out=Path(d)/'qa'
-            names={'MCTrack.mMotherTrackId':'var * int32','MCTrack.mProp':'var * uint32',
+            names={'MCTrack.mMotherTrackId':'var * int32','MCTrack.mProp':'var * uint32','MCTrack.mDetectorContributionMask':'var * uint32','MCTrack.mDetectorContributionVersion':'var * uint8',
                    'MCTrack.mTransportModelScore':'var * float32','MCTrack.mTransportModelShadow':'var * bool',
                    'MCEventHeader.FairMCEventHeader.fNPrim':'int32'}
             with uproot.recreate(path) as root:
@@ -34,6 +34,8 @@ class ShadowTruthTest(unittest.TestCase):
                 root['o2sim'].extend({
                     'MCTrack.mMotherTrackId':ak.Array([[-1,0,1,0]]*8),
                     'MCTrack.mProp':ak.Array([[0,0,0,128]]*8),
+                    'MCTrack.mDetectorContributionMask':ak.Array([[0,0,0,1]]*8),
+                    'MCTrack.mDetectorContributionVersion':ak.Array([[1,1,1,1]]*8),
                     'MCTrack.mTransportModelScore':ak.Array([[.1,.9,-1.,-1.]]*8),
                     'MCTrack.mTransportModelShadow':ak.Array([[True,True,False,False]]*8),
                     'MCEventHeader.FairMCEventHeader.fNPrim':np.array([2]*8,dtype=np.int32)})
@@ -55,7 +57,7 @@ class ShadowTruthTest(unittest.TestCase):
             with csvfile.open() as stream: rows=list(csv.DictReader(stream))
             self.assertEqual(len(rows),48)
             self.assertTrue(all(None not in row and all(value is not None for value in row.values()) for row in rows))
-            self.assertEqual(rows[4]['own_hit_mask'],str(1<<21))
+            self.assertEqual(rows[4]['own_contribution_mask'],str(1<<21))
             self.assertEqual(rows[0]['model'],'model,"test"')
             self.assertEqual(rows[0]['n_descendants'],'4')
             self.assertEqual(rows[2]['is_hitless_tree_root'],'1')
@@ -69,8 +71,8 @@ class ShadowTruthTest(unittest.TestCase):
             with rootsfile.open() as stream: rootrows=list(csv.DictReader(stream))
             self.assertEqual(rootrows,[row for row in rows if row['is_simulation_root']=='1'])
             self.assertEqual(len(rootrows),16)
-            self.assertEqual(rootrows[0]['own_has_hits'],'0')
-            self.assertEqual(rootrows[0]['subtree_has_hits'],'1')
+            self.assertEqual(rootrows[0]['own_has_contributions'],'0')
+            self.assertEqual(rootrows[0]['subtree_has_contributions'],'1')
             self.assertEqual(rootrows[0]['n_descendants'],'4')
             rootsout=Path(d)/'roots_only'
             subprocess.run([sys.executable,str(root/'macros/analyzeTransportShadow.py'),

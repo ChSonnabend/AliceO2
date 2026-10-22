@@ -173,6 +173,8 @@ class Stack : public FairGenericStack
   /// Increment number of hits for the current track in a given detector
   /// \param iDet  Detector unique identifier
   void addHit(int iDet);
+  /// Mark the actual current signal contributor without changing legacy hit/retention bookkeeping.
+  void addDetectorContribution(int iDet);
 
   TClonesArray* GetListOfParticles() override;
 

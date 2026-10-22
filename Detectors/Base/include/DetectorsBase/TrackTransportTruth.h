@@ -100,9 +100,9 @@ inline void writeTransportCsvHeader(std::ostream& out)
   out << "csv_schema_version,model,run_prefix,event_id,event_entry,track_id,mother_id,transport_mother_id,"
          "simulation_root_id,depth,is_simulation_root,is_transport_secondary,hitless_tree_root_id,"
          "is_hitless_tree_root,is_hitless_tree_descendant,n_descendants,model_evaluated,valid_score,"
-         "score,can_avoid_subtree,own_hit_mask,subtree_hit_mask,own_has_hits,subtree_has_hits,"
+         "score,can_avoid_subtree,own_contribution_mask,subtree_contribution_mask,own_has_contributions,subtree_has_contributions,"
          "parent_can_avoid_subtree,deduplicated_candidate,configured_threshold,would_reject,shadow_mode,"
-         "pdg,process,px,py,pz,vx,vy,vz,t_ns,weight\n";
+         "pdg,process,px,py,pz,vx,vy,vz,t_ns,weight,detector_contribution_version,legacy_own_hit_mask,protection_mask,model_would_reject,effective_would_reject\n";
 }
 
 // Called once per fully merged event by the single hit-merger process, not by
@@ -122,7 +122,10 @@ void writeTransportCsvEvent(std::ostream& out, const Tracks& tracks, int nInputs
     }
     mothers.push_back(track.getMotherTrackId());
     // MCTrack stores a signed 22-bit field; discard sign-extension bits.
-    masks.push_back(static_cast<uint32_t>(track.getHitMask()) & ((uint32_t{1} << 22) - 1));
+    if (track.getDetectorContributionVersion() != 1) {
+      throw std::runtime_error("Contribution truth missing; regenerate with instrumented transport");
+    }
+    masks.push_back(track.getDetectorContributionMask());
   }
   const auto truth = labelTransportTrees(mothers, masks, nInputs);
   const auto modelCsv = quoteTransportCsv(model), prefixCsv = quoteTransportCsv(prefix);
@@ -140,7 +143,7 @@ void writeTransportCsvEvent(std::ostream& out, const Tracks& tracks, int nInputs
     const bool firstHitless = row.hitlessRoot == static_cast<int>(id);
     const int parentHitless = row.mother >= 0 ? static_cast<int>(truth[row.mother].hitMask == 0) : -1;
     const int reject = scored && hasThreshold ? static_cast<int>(valid && static_cast<double>(score) >= threshold) : -1;
-    out << "1," << modelCsv << ',' << prefixCsv << ',' << eventID << ',' << eventEntry << ',' << id << ','
+    out << "2," << modelCsv << ',' << prefixCsv << ',' << eventID << ',' << eventEntry << ',' << id << ','
         << mothers[id] << ',' << row.mother << ',' << row.simulationRoot << ',' << row.depth << ','
         << (id < static_cast<size_t>(nInputs)) << ',' << (id >= static_cast<size_t>(nInputs)) << ','
         << row.hitlessRoot << ',' << firstHitless << ',' << (hitless && !firstHitless) << ','
@@ -151,7 +154,11 @@ void writeTransportCsvEvent(std::ostream& out, const Tracks& tracks, int nInputs
         << (hasThreshold ? threshold : -1.) << ',' << reject << ",1,"
         << track.GetPdgCode() << ',' << track.getProcess() << ',' << std::setprecision(9)
         << track.Px() << ',' << track.Py() << ',' << track.Pz() << ','
-        << track.Vx() << ',' << track.Vy() << ',' << track.Vz() << ',' << track.T() << ',' << track.getWeight() << '\n';
+        << track.Vx() << ',' << track.Vy() << ',' << track.Vz() << ',' << track.T() << ',' << track.getWeight() << ','
+        << static_cast<int>(track.getDetectorContributionVersion()) << ','
+        << (static_cast<uint32_t>(track.getHitMask()) & ((uint32_t{1} << 22) - 1)) << ','
+        << static_cast<int>(track.getTransportModelProtection()) << ',' << reject << ','
+        << (reject < 0 ? -1 : static_cast<int>(reject == 1 && track.getTransportModelProtection() == 0)) << '\n';
   }
   if (!out) {
     throw std::runtime_error("Failed to write transport-score CSV event");

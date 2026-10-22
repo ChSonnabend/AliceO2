@@ -22,6 +22,8 @@ namespace sim
 
 // configuration parameters for simulation Stack
 struct StackParam : public o2::conf::ConfigurableParamHelper<StackParam> {
+  // Enable only for complete unpruned truth production; version-stamps MCTracks.
+  bool recordDetectorContributions = false;
   bool storeSecondaries = true;
   bool pruneKine = true;
   std::string transportPrimary = "all";
@@ -50,6 +52,10 @@ struct StackParam : public o2::conf::ConfigurableParamHelper<StackParam> {
   // Saved roots-v3 models only saw simulation roots, including injected tracks.
   // Enable only for a model trained/validated on transport secondaries too.
   bool transportPrimaryOnnxSecondaries = false;
+  // Scoring and rejection are separate. Shadow mode still scores protected tracks.
+  // Keep these defaults until corrected contribution truth and independent validation exist.
+  bool transportPrimaryOnnxProtectOpticalPhotons = true;
+  bool transportPrimaryOnnxProtectSecondaries = true;
 
   // boilerplate stuff + make principal key "Stack"
   O2ParamDef(StackParam, "Stack");

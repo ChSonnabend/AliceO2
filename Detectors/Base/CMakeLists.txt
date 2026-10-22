@@ -110,6 +110,14 @@ if(BUILD_SIMULATION)
   endif()
 
   o2_add_test(
+    DetectorContributionTruth
+    SOURCES test/testDetectorContributionStandalone.cxx
+    COMPONENT_NAME DetectorsBase
+    NO_BOOST_TEST
+    PUBLIC_LINK_LIBRARIES O2::DetectorsBase
+    LABELS detectorsbase)
+
+  o2_add_test(
     MCStack
     SOURCES test/testStack.cxx
     COMPONENT_NAME DetectorsBase

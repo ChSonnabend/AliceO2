@@ -61,6 +61,7 @@ class OrtModel
   std::vector<std::vector<int64_t>> getNumOutputNodes() const { return mOutputShapes; }
   std::vector<std::string> getInputNames() const { return mInputNames; }
   std::vector<std::string> getOutputNames() const { return mOutputNames; }
+  std::string getModelMetadata(const std::string& key) const;
   Ort::SessionOptions* getSessionOptions();
   Ort::MemoryInfo* getMemoryInfo();
   Ort::Env* getEnv();

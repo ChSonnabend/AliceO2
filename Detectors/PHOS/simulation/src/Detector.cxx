@@ -170,6 +170,10 @@ Bool_t Detector::ProcessHits(FairVolume* v)
     return false; // do not create hits with zero energy deposition
   }
 
+  if (lostenergy >= DBL_EPSILON) {
+    stack->addDetectorContribution(GetDetId());
+  }
+
   Int_t moduleNumber;
   fMC->CurrentVolOffID(
     11, moduleNumber); // 11: number of geom. levels between PXTL and PHOS module: get the PHOS module number ;

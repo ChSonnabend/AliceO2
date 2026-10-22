@@ -77,11 +77,12 @@ def read_score_csv(files, scope, chunksize=250000, max_rows=None, features=None)
     """Read O2's merged CSV in chunks; metrics need no kinematics ROOT files."""
     import pandas as pd
     truths, scores, groups, event_keys = [], [], [], []
-    event_map = {}; models = set(); paths = set(); total_rows = 0
+    event_map = {}; models = set(); schemas = set(); paths = set(); total_rows = 0
     columns = ['csv_schema_version','model','event_id','model_evaluated','valid_score',
                'score','can_avoid_subtree','is_simulation_root','is_hitless_tree_root',
-               'shadow_mode','configured_threshold','would_reject']
+               'shadow_mode','configured_threshold','would_reject','detector_contribution_version','own_contribution_mask','subtree_contribution_mask','protection_mask','effective_would_reject']
     reference_thresholds = set(); reference_counts = dict(correctly_rejected=0,wrongly_rejected=0,rows=0)
+    effective_counts = dict(correctly_rejected=0,wrongly_rejected=0,rows=0,protected=0)
     for filename in files:
         filename = str(Path(filename).resolve())
         if filename in paths: raise ValueError('Duplicate CSV input: '+filename)
@@ -95,8 +96,15 @@ def read_score_csv(files, scope, chunksize=250000, max_rows=None, features=None)
         for frame in pd.read_csv(filename,usecols=lambda name: name in wanted,chunksize=chunksize,nrows=max_rows,float_precision="round_trip"):
             total_rows += len(frame)
             file_rows += len(frame)
-            if not frame['csv_schema_version'].eq(1).all() or not frame['shadow_mode'].eq(1).all():
-                raise ValueError('Expected schema-1 full-simulation shadow CSV')
+            if not frame['shadow_mode'].eq(1).all() or not frame['csv_schema_version'].isin([1,2]).all():
+                raise ValueError('Expected versioned full-simulation shadow CSV')
+            schemas.update(map(int,frame['csv_schema_version'].unique()))
+            if len(schemas)!=1: raise ValueError('Do not mix legacy hit-mask and detector-contribution truth')
+            if frame['csv_schema_version'].eq(2).all():
+                if not frame['detector_contribution_version'].eq(1).all():
+                    raise ValueError('Missing detector contribution truth')
+                frame['own_hit_mask'] = frame['own_contribution_mask']
+                frame['subtree_hit_mask'] = frame['subtree_contribution_mask']
             models.update(frame['model'].unique())
             if len(models)>1: raise ValueError('Evaluate one model at a time; CSV inputs contain different models')
             for name in ['model_evaluated','valid_score','can_avoid_subtree','is_simulation_root','is_hitless_tree_root']:
@@ -138,10 +146,23 @@ def read_score_csv(files, scope, chunksize=250000, max_rows=None, features=None)
             reference_counts['correctly_rejected']+=int(np.sum(selected&(y==1)))
             reference_counts['wrongly_rejected']+=int(np.sum(selected&(y==0)))
             reference_counts['rows']+=len(frame)
+            if 'protection_mask' in frame:
+                protection=frame.protection_mask.to_numpy(dtype=np.int32)
+                effective_decision=np.where(expected<0,-1,((expected==1)&(protection==0)).astype(int))
+                effective=effective_decision==1
+                if not np.array_equal(effective_decision,frame.effective_would_reject.to_numpy()):
+                    raise ValueError('Protection guard contradicts effective decision')
+                effective_counts['rows']+=len(frame)
+                effective_counts['protected']+=int((protection!=0).sum())
+                effective_counts['correctly_rejected']+=int((effective&(y==1)).sum())
+                effective_counts['wrongly_rejected']+=int((effective&(y==0)).sum())
         print(f'[read done] {filename}: {file_rows:,}/{total_file_rows:,} rows scanned (100.00%); {file_selected:,} scored {scope} tracks retained; '
               f'{time.monotonic()-started:.1f}s elapsed', file=sys.stderr, flush=True)
     details=dict(csv_rows=total_rows,model=next(iter(models),None),
-                 configured_thresholds=sorted(reference_thresholds),configured_cut_counts=reference_counts)
+                 truth_schema="detector-contribution.v1" if schemas=={2} else "legacy-hit-mask",
+                 configured_thresholds=sorted(reference_thresholds),configured_cut_counts=reference_counts,
+                 guard_effective_cut_counts=effective_counts,
+                 score_metrics_interpretation='ROC and configured_operating_point are model-only; guard_effective_cut_counts applies deterministic protections')
     return truths,scores,groups,event_keys,details
 
 
@@ -180,7 +201,8 @@ def main(argv=None):
     from sklearn.metrics import roc_curve, roc_auc_score
     out = Path(a.out);out.mkdir(parents=True,exist_ok=True)
     names = ['MCTrack.mMotherTrackId','MCTrack.mProp','MCTrack.mTransportModelScore',
-             'MCTrack.mTransportModelShadow','MCEventHeader.FairMCEventHeader.fNPrim']
+             'MCTrack.mTransportModelShadow','MCEventHeader.FairMCEventHeader.fNPrim',
+             'MCTrack.mDetectorContributionMask','MCTrack.mDetectorContributionVersion']
     truths, scores, groups = [], [], []
     event_count = 0; event_keys = []
     csv_details={}
@@ -215,7 +237,9 @@ def main(argv=None):
                         n_inputs=int(arrays[names[4]][0])
                         if np.any((score != -1) & ~shadow) or np.any((prop & (1<<30)) != 0):
                             raise ValueError('Pruned/inhibited tracks detected: ROC truth requires a fully transported shadow run')
-                        masks=subtree_masks(m,(prop>>7)&((1<<22)-1),n_inputs)
+                        if not np.all(np.asarray(arrays[names[6]][0])==1):
+                            raise ValueError('Missing contribution truth: regenerate complete unpruned data')
+                        masks=subtree_masks(m,np.asarray(arrays[names[5]][0],dtype=np.uint32),n_inputs)
                         selected=shadow.copy()
                         if a.scope=='roots': selected[n_inputs:]=False
                         elif a.scope=='deduplicated':
@@ -247,7 +271,7 @@ def main(argv=None):
     print(f'[cache saved] {cache_path.resolve()}', file=sys.stderr, flush=True)
     valid=np.isfinite(s)&(s>=0)&(s<=1)
     report=dict(events=len(event_keys),scored_tracks=len(y),valid_scores=int(valid.sum()),invalid_scores_kept=int((~valid).sum()),
-                truth='Class 1: no recorded detector hit on this track or any transport descendant',
+                truth='Class 1: no recorded detector contribution in the transport subtree (CSV v1 uses legacy hit masks only)',
                 scope=a.scope,
                 caution='Tree-loss rates are neither individual-hit losses nor CPU savings. Zero observed loss is not a guarantee.')
     report.update(csv_details)
@@ -285,7 +309,6 @@ def main(argv=None):
                 report['operating_points'].append(dict(target_hit_loss=target, threshold=threshold,
                     calibration=rates(y[cal],s[cal],threshold), test=rates(y[test],s[test],threshold)))
             with (out/'operating_points.csv').open('w',newline='') as stream:
-                import csv
                 writer=csv.writer(stream)
                 writer.writerow(['target_hit_loss','threshold','split','hit_tree_loss_rate','avoidable_rejection_rate','wrongly_rejected','correctly_rejected','hit_trees','avoidable_trees'])
                 for point in report['operating_points']:

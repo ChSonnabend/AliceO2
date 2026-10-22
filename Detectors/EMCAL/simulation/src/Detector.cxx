@@ -288,6 +288,8 @@ Bool_t Detector::ProcessHits(FairVolume* v)
       mCurrentSuperparent->mHasTrackReference = true;
     }
 
+    // All positive deposits contribute, including updates to ancestor-labelled hits.
+    o2stack->addDetectorContribution(GetDetId());
     Double_t lightyield(eloss);
     if (fMC->TrackCharge()) {
       lightyield = CalculateLightYield(eloss, fMC->TrackStep(), fMC->TrackCharge());

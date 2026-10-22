@@ -14,6 +14,7 @@
 #define O2_TRACK_TRANSPORT_UTILS_H
 
 #include "SimulationDataFormat/O2DatabasePDG.h"
+#include "DetectorsBase/TrackTransportProtection.h"
 #include <TDatabasePDG.h>
 #include <TParticle.h>
 #include <TParticlePDG.h>
